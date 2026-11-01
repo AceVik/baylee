@@ -40,7 +40,8 @@ the pointers, because line numbers move.
 | A reported chat message (its text, whether its signature checked and, when it checked, the sender's public tag) | leaves the device for the gateway (`POST /social/reports`), then the feedback service | as other reports | as other reports |
 | Game state | engine process memory | the game | the process exits |
 | A language-model seat's game data (its seat's view: board, its own hand, log lines, card text, seat numbers; no display name, handle, tag, account, game id or deck name) | leaves the machine its bridge runs on (the seat agent's, or the player's own) for the profile's provider | the provider's own terms | — |
-| A language-model seat's reports of rules or engine errors (the model's words, its id and profile, where in the log each was made, and the seat's own game log: the lines its seat was told, seats as "You" and `P1…Pn`, no name) | the bridge's `reports.jsonl` (the words, not the log); at the game's end leaves for the gateway (`POST /reports`, the seat's session; a chair on its host's ticket on its seat token, `POST …/chair/report`, filed under the host's pseudonym), then the feedback service with the game's record ([below](#language-model-seats)) | as other reports | as other reports |
+| A language-model seat's reports file, `reports.jsonl` (31.10.2026): per report the game's id, the seat's number, the question and turn, the model's id and profile name, the model's words (`what`, `expected`, `evidence`, `references`), how many lookups it made, when; nothing else (no name, no game log) | the machine the bridge runs on, readable by the account it runs under: `--reports-dir` or `--transcripts` where given, else `llm-reports/` beside the bridge's settings file (a player's config directory, `~/.config/baylee/llm-reports/` on Linux); a seat agent's bridges in its state directory, `reports/` | until the player or the operator removes it: one line a report as it is filed, at most 25 a game, never read back, sent or cut short by the bridge | the player; the operator |
+| A language-model seat's reports of rules or engine errors (the model's words, its id and profile, where in the log each was made, and the seat's own game log: the lines its seat was told, seats as "You" and `P1…Pn`, no name) | the bridge's `reports.jsonl` (the words, not the log; the row above); at the game's end leaves for the gateway (`POST /reports`, the seat's session; a chair on its host's ticket on its seat token, `POST …/chair/report`, filed under the host's pseudonym), then the feedback service with the game's record ([below](#language-model-seats)) | as other reports | as other reports |
 | Hosted profiles' states, games and spend as their seat agents report them | gateway memory | while the seat agent is connected | its leaving, a restart |
 | Who may seat each hosted model: per profile id a policy, and the account ids on its list, who added each and when | Postgres `llm_profile_access`, `llm_profile_allow` | until an admin takes the account off the list | an admin; the account's deletion (cascade) |
 | A hosted profile's definition, its spend book (per game: time, model, reserved, spent; nothing of the game), its key | the seat agent's machine (`hosted.json`, `spend/<id>.json`, its key directory) | until the operator removes them | the operator |
@@ -141,8 +142,12 @@ through the feedback service and the gateway in memory only, for that
 request, and is answered back by nothing.
 
 A model's reports of rules or engine errors (31.10.2026, `docs/llm-seat.md`
-§"Reports and lookups") are written to the bridge's `reports.jsonl` where
-it keeps transcripts, and sent as one bug report a game under the seat's
+§"Reports and lookups") are written to the bridge's `reports.jsonl` as
+they are filed (where it keeps transcripts, where `--reports-dir` says, or
+else `llm-reports/` beside its settings file; a seat agent's bridges in
+its state directory), so a report the gateway never took stays on the
+machine that played: the model's words and where it said them, never the
+log or a name, kept until the player or the operator removes the file. They are sent as one bug report a game under the seat's
 own session, which the gateway passes on as it does a player's (its record
 of the game attached, since the session's account sat at the game, a
 host's own chair handed to its bridge included; the seat's account as a
@@ -652,8 +657,9 @@ decks and settings as JSON.
     to the step it happened in. They
     never leave the machine on their own (below);
   - in `client-settings.json`, `report_device`: a random id (32 hex digits)
-    made for the first report sent straight to the feedback service, and
-    `feedback_url`, that service's address when the player set one;
+    made for the first report sent straight (signed in nowhere), and
+    `report_url` and `feedback_url`, the addresses the player set for such
+    reports and for the feedback service;
   - in `client-settings.json`, `terms`: per gateway address, the version of
     its terms of use this device last accepted there (WG-1). A copy with one
     job: a guest coming back with its kept session signs in to nothing, so
@@ -745,8 +751,12 @@ Kept apart from the table above so the two strands' rows merge cleanly.
 | Whether a host's seat bridge sent its game's report (`Delegate::reported`, one a chair a game) | gateway memory, with the room | while the room is in the lobby (an hour after the game) | the room's end, a restart |
 | Direct reports per address and in all | the feedback service's memory | an hour, a restart forgets them | the allowance itself; never written down |
 | Direct report (kind, text, build, the `client` object, a client's record), `channel = 'direct'`, gateway `(direct)` | the feedback service's `feedback_report` | until an admin deletes it; deleted in the UI it goes into the trash and is purged 30 days later | `DELETE /reports/{id}` on the service (final), or the UI's trash and its purge |
+| Direct reports per address (an IPv6 address per /64) and in all, at the official gateway | the gateway's memory | an hour, a restart forgets them | the allowance itself; never written down or logged |
+| Direct report through the official gateway (where its reports go to Central and `BAYLEE_DIRECT_REPORT_KEY` is set): the same, `channel = 'direct'`, the device's pseudonym under that key | Baylee Central's `reports` and `report_parts`, as a gateway's report | as a report in Central (row above for Central) | Central's sweep, or an administrator's purge |
 | A client's record of a game it hosted (`record_origin = 'client'`, unverified) | `feedback_report.record` | with the report | with the report |
 | Report (kind, text, game id, the client's `client` object, the record of a game its reporter sat at, or whose chair its host's seat bridge played) | the feedback service's own Postgres, `feedback_report` | until an admin deletes it; deleted in the UI it goes into the trash and is purged 30 days later | `DELETE /reports/{id}` on the service (final), or the UI's trash and its purge |
+| Report filed with Baylee Central where the gateway is switched there (`BAYLEE_REPORTS_TO=central`): kind, text, game id, the client's build and a crash's message and place, the pseudonym, the gateway's name, address and build; the `client` object and the record as the gzip the gateway sent | Baylee Central's Postgres, `reports` and `report_parts` (baylee-central `docs/reports.md`, its `docs/privacy.md`) | 90 days after it is done, 30 days in the trash, three years at most; its history (who changed what, never its words) stays | Central's sweep, or an administrator's purge from the trash |
+| The one-time copy of the feedback service's open reports to Central (`baylee-feedback export-reports` into `central-service --import-reports-stdin`): each report as in the row above, its notes with their authors' names and its history with the actors' names (the service's admins), its ids and times kept | Baylee Central's `reports`, `report_parts`, `report_notes` (under the administrator who ran the copy, the author's name before the text) and `report_audit` (the actor's name in the line) | as a report in Central; its history as Central keeps any | as a report in Central. The copy passes through a pipe and is written to no file |
 | Reporter pseudonym | `feedback_report.reporter` | with the report | with the report |
 | Feedback admin (name, Argon2id password hash, since when) | the feedback service's `feedback_admin` | until removed | `baylee-feedback admin remove`, on the server only |
 | Feedback admin session (SHA-256 of the cookie token, sign-in and last-use times) | `feedback_session` | 12 hours unused, at most 7 days | sign-out, lapse (deleted when next shown and at every sign-in), or the admin's removal |
@@ -812,6 +822,13 @@ Kept apart from the table above so the two strands' rows merge cleanly.
   its reporter is HMAC-SHA256 of the client's random device id under the
   service's `FEEDBACK_DIRECT_KEY`, and the address it came from is counted
   in memory for an hour and kept nowhere.
+- **What reaches Central**, where the gateway is switched there
+  (`docs/feedback.md` §"To Baylee Central instead"), is the same list, with
+  the client's build and a crash's message and place read out of its
+  `client` object for Central's list, and that object and the record sent
+  as gzip Central stores without unpacking. The pseudonym's key stays the
+  gateway's; Central never holds it, so it cannot tell whose account a
+  report came from. A reported chat message never goes there.
 - **The feedback web UI (#311)** is for the service's admins, who are
   developers, not players. Its one cookie (`__Host-baylee-feedback`,
   `HttpOnly; Secure; SameSite=Strict`) holds the session token and is sent
@@ -871,9 +888,12 @@ report once it has it is theirs to describe.
   on the next start once the player has said yes to crash reports.
 - **Where to:** `POST {gateway}/reports` on the gateway the lobby is signed
   in to, with that session's bearer. Signed in nowhere, `POST
-  {service}/client/reports` on the feedback service the settings
-  (`feedback_url`) or the build (`BAYLEE_FEEDBACK_PUBLIC_URL`) name, with
-  no credential and the device's random id; knowing none, the form says so
+  {address}/client/reports` at the report address the settings
+  (`report_url`) or the build (`BAYLEE_REPORT_PUBLIC_URL`, the official
+  gateway in a release, which files it with Baylee Central) name, else at
+  the feedback service the settings (`feedback_url`) or the build
+  (`BAYLEE_FEEDBACK_PUBLIC_URL`) name, with no credential and the device's
+  random id; knowing none, the form says so
   and nothing is sent, to the gateway, Scryfall or anyone else. Before a
   direct report goes, and before any report carrying a game's record, the
   form shows a page listing where it goes and every part it carries, and

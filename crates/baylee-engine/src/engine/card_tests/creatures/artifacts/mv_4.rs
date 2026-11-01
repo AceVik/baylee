@@ -136,6 +136,7 @@ mod gilded_sentinel;
 mod goblin_war_wagon;
 mod golden_guardian;
 mod grapeshot_catapult;
+mod grid_monitor;
 mod guardian_automaton;
 mod hedron_rover;
 mod hematite_golem;

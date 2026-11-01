@@ -30,14 +30,19 @@ pub(crate) fn attach(
         n.flex_basis = px(0);
         n.min_width = px(0);
     });
+    let track = track(commands, list, metrics.frame == super::Frame::Compact);
+    commands.entity(host).add_children(&[list, track]);
+    commands.entity(parent).add_child(host);
+    track
+}
+
+/// The bar itself for `list`, a track with its thumb, wider for a finger
+/// (`wide`); the caller stands it beside the list.
+pub(crate) fn track(commands: &mut Commands, list: Entity, wide: bool) -> Entity {
     let track = commands
         .spawn((
             Node {
-                width: px(if metrics.frame == super::Frame::Compact {
-                    16
-                } else {
-                    12
-                }),
+                width: px(if wide { 16 } else { 12 }),
                 height: percent(100),
                 flex_shrink: 0.0,
                 border_radius: BorderRadius::all(px(6)),
@@ -59,8 +64,6 @@ pub(crate) fn attach(
         ))
         .id();
     commands.entity(track).add_child(thumb);
-    commands.entity(host).add_children(&[list, track]);
-    commands.entity(parent).add_child(host);
     track
 }
 
@@ -112,6 +115,7 @@ pub(super) fn remember(
                 | List::Terms
                 | List::About
                 | List::Memorial
+                | List::DeckPicker
         ) && (memory.get(which.0) - position.y).abs() > f32::EPSILON
         {
             memory.set(which.0, position.y);

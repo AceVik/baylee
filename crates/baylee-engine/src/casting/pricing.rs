@@ -348,6 +348,7 @@ fn has_spell_adjustments(state: &GameState) -> bool {
             matches!(
                 fx.modifier,
                 baylee_cards_dsl::Modifier::SpellsCostMore(_)
+                    | baylee_cards_dsl::Modifier::SpellsCostMorePerControlled(_)
                     | baylee_cards_dsl::Modifier::SpellsCostMoreMana(_)
                     | baylee_cards_dsl::Modifier::SpellsCostLess(_)
             )
@@ -386,6 +387,24 @@ pub(crate) fn spell_adjustment(
                             adjustment.eligible_increase.saturating_add(amount);
                     }
                 }
+            }
+            baylee_cards_dsl::Modifier::SpellsCostMorePerControlled(filter)
+                if crate::effects::applies_to(state, effect, &spell) =>
+            {
+                let context = crate::eval::live_context(state, effect.source.unwrap_or(object.id));
+                let count = state
+                    .battlefield_seen()
+                    .filter(|&id| {
+                        state.object(id).is_some_and(|permanent| {
+                            permanent.controller == player
+                                && crate::eval::matches_with_context(
+                                    filter, state, permanent, player, context,
+                                )
+                        })
+                    })
+                    .count();
+                let count = u32::try_from(count).unwrap_or(u32::MAX);
+                adjustment.increase = adjustment.increase.saturating_add(count);
             }
             baylee_cards_dsl::Modifier::SpellsCostMoreMana(extra)
                 if crate::effects::applies_to(state, effect, &spell) =>

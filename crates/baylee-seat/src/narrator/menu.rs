@@ -301,8 +301,28 @@ impl Decision {
             board: text("board"),
             concede: None,
             report: map.get("report").and_then(Report::read),
-            lookup: text("lookup").filter(|name| !name.is_empty()),
+            lookup: text("lookup")
+                .filter(|name| !name.is_empty())
+                .map(|name| name.chars().take(crate::lookup::NAME_CHARS).collect()),
         })
+    }
+
+    /// Whether it carries an answer to its question beside `ask`: a pick,
+    /// attacks, blocks, a prevention, a number, piles, a name or a
+    /// concession. One that does is taken as it is; only one that does not
+    /// asks for its `lookup` (`docs/llm-protocol.md` §"Reports and
+    /// lookups").
+    #[must_use]
+    pub fn answers(&self) -> bool {
+        let given = |text: &Option<String>| text.as_deref().is_some_and(|t| !t.is_empty());
+        self.concede.is_some()
+            || !self.pick.is_empty()
+            || !self.attacks.is_empty()
+            || !self.blocks.is_empty()
+            || !self.prevention.is_empty()
+            || given(&self.number)
+            || !self.piles.is_empty()
+            || given(&self.name)
     }
 
     /// Reads the input of a `concede` call.

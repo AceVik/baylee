@@ -111,15 +111,9 @@ impl Moment {
     /// `decision` read against it.
     #[must_use]
     pub fn of(request: &Request, menu: &Menu, decision: &Decision) -> Self {
-        let chose = !(decision.pick.is_empty()
-            && decision.attacks.is_empty()
-            && decision.blocks.is_empty()
-            && decision.prevention.is_empty()
-            && decision.piles.is_empty()
-            && decision.number.is_none()
-            && decision.name.is_none()
-            && decision.concede.is_none());
-        let answer = (chose || decision.lookup.is_none()).then(|| {
+        // An answer of `ask` and `lookup` alone answers nothing yet; any
+        // other is read as the seat reads it (an empty attack too).
+        let answer = (decision.answers() || decision.lookup.is_none()).then(|| {
             menu.resolve(decision)
                 .map_or_else(|why| format!("not taken: {why}"), |resolved| resolved.label)
         });

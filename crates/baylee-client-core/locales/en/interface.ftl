@@ -1775,6 +1775,12 @@ PriorityCueOn = Priority sound: on
 # …and off
 PriorityCueOff = Priority sound: off
 
+# The game menu's switch for the table following the turn, on
+FollowTurnOn = Table follows the turn: on
+
+# …and off
+FollowTurnOff = Table follows the turn: off
+
 # The priority-sound row (DESIGN-v7 D22)
 RowPriorityCue = Priority sound
 
@@ -5510,19 +5516,20 @@ ReportNotPassedOn = The gateway could not pass the report on. Your report is sti
 # Any other answer.
 ReportFailed = The report could not be sent. Try again later.
 
-# No session to send it with, and no feedback service to send it to.
-ReportNeedsSession = Sign in to a gateway to send a report. This client knows no feedback service to send it to otherwise.
+# No session to send it with, and no address to send it to otherwise.
+ReportNeedsSession = Sign in to a gateway to send a report. This client knows no other address to send it to.
 
-# Signed in nowhere, the report goes straight to the service. `$url` is
-# its address.
+# Signed in nowhere, the report goes straight to the address this build or
+# the settings name for that (Baylee's own gateway in a release, else the
+# feedback service). `$url` is its address.
 # Arguments: url
-ReportGoesDirect = You are not signed in, so this report goes straight to the Baylee feedback service at { $url }.
+ReportGoesDirect = You are not signed in, so this report goes straight to Baylee at { $url }, without an account.
 
-# 503 from the service itself.
-ReportsDirectUnavailable = The feedback service takes no reports straight from a client right now. Sign in to a gateway to send it.
+# 503 from the report address itself.
+ReportsDirectUnavailable = Reports straight from a client are not taken there right now. Sign in to a gateway to send it.
 
-# No answer from the service.
-ReportDirectUnreachable = The feedback service could not be reached. Your report is still here.
+# No answer from the report address.
+ReportDirectUnreachable = The report address could not be reached. Your report is still here.
 
 # The box for a local game's record, ticked per report.
 ReportRecordBox = Attach the whole record of this game
@@ -6033,6 +6040,13 @@ TourMenuRow = Tour
 # The game menu's row at a networked table, where it is off.
 TourMenuRowAway = Tour (practice game only)
 
+# The game menu's row that stands the settings over the table.
+SettingsMenuRow = Settings
+
+# The same row in a client seated straight into its game, which has no
+# lobby to draw the settings.
+SettingsMenuRowAway = Settings (in the lobby only)
+
 # Settings › Display: the lobby & room tour.
 RowTourLobby = Lobby & room
 
@@ -6443,7 +6457,7 @@ TourT22Body = Click a chip at the bottom left or press F, and the camera swings 
 TourT23Title = Following the turn
 
 # Tour step T23's words (TOURS.md §2).
-TourT23Body = By itself the camera follows only your turn and your combat questions. If you want it to swing to whoever is on turn, switch on Table follows the turn under Settings › Graphics. It never swings while a question is open for you or your pointer rests on the table.
+TourT23Body = The camera swings to whoever is on turn and comes back to you on your turn and your combat questions, but never while a question is open for you or your pointer rests on the table. Switch the swing off in the menu (Table follows the turn) or under Settings › Graphics.
 
 # Tour step T24's title (TOURS.md §2).
 TourT24Title = On a phone
@@ -6479,7 +6493,7 @@ TourT28Body = ? shows you every key that works at the table right now. F8 report
 TourT29Title = The menu
 
 # Tour step T29's words (TOURS.md §2).
-TourT29Body = The menu at the bottom right holds everything you need during a game: Offer a draw, Concede, Arrangement, Priority sound, Music, Report a problem and Tour. There are no other settings at the table; those wait in the lobby.
+TourT29Body = The menu at the bottom right holds everything you need during a game: Offer a draw, Concede, Arrangement, Report a problem, Tour, Settings, Music, Priority sound, Card view and Table follows the turn. Settings opens the rest over the table.
 
 # Tour step T30's title (TOURS.md §2).
 TourT30Title = Conceding and the end
@@ -6503,7 +6517,7 @@ TourT32Body = Every row under Attachments is a choice your device remembers: sys
 TourT33Title = Where it goes
 
 # Tour step T33's words (TOURS.md §2).
-TourT33Body = Your report goes to the gateway you are signed in to. Signed in nowhere, it goes to this build's feedback service; if there is none, you can only Copy. With a record, a window asks you once more. At a gateway your clock keeps running meanwhile, so better report after the question.
+TourT33Body = Your report goes to the gateway you are signed in to. Signed in nowhere, it goes straight to Baylee's report address; if this build knows none, you can only Copy. With a record, a window asks you once more. At a gateway your clock keeps running meanwhile, so better report after the question.
 
 # Tour step T34's title (TOURS.md §2).
 TourT34Title = Done

@@ -99,6 +99,7 @@ pub(super) fn exec_immediate(
             None
         }
         Effect::MayPlayLinkedExile => super::hidden_exile::offer_play(state, res),
+        Effect::MayCopyCastLinkedExile => super::hidden_exile::offer_copy(state, res),
         Effect::ReturnLinkedExile { to } => super::hidden_exile::return_cards(state, res, to),
         Effect::SacrificeSelfThen { then } => {
             if super::zones::can_sacrifice_self(state, res) {
@@ -157,7 +158,8 @@ pub(super) fn exec_immediate(
         // game ends at once (CR 104.1), which the engine reads before
         // anything else (`Engine::game_result`). The first ending stands.
         Effect::WinGame => {
-            if !state.has_left(you) && state.game_end.is_none() {
+            if !state.has_left(you) && !sba::player_cant_win(state, you) && state.game_end.is_none()
+            {
                 let winner = match state.side_of(you) {
                     crate::state::Side::Team(team) => crate::win::Victor::Team(team),
                     crate::state::Side::Solo(player) => crate::win::Victor::Player(player),
@@ -328,6 +330,7 @@ pub(super) fn exec_immediate(
         Effect::GainLife { .. }
         | Effect::GainLifeFor { .. }
         | Effect::GainLifeDoubleX
+        | Effect::PlayersWhoCastRevealedNameThisTurnLoseLife { .. }
         | Effect::LoseLife { .. }
         | Effect::DealDamageToBothTargetInstances { .. }
         | Effect::DealDamage { .. }
@@ -353,6 +356,7 @@ pub(super) fn exec_immediate(
         | Effect::PreventNextDamageFromTarget { .. }
         | Effect::PreventAllCombatDamageThisTurn
         | Effect::ChooseDamageSourcePreventAllThisTurn
+        | Effect::ChooseDamageSourcePreventAllThisTurnMatching(_)
         | Effect::PreventNextFromChosenSource { .. }
         | Effect::RedirectNextFromChosenSource { .. }
         | Effect::DealDamageToEachOpponentAndPlaneswalkerDamagedThisGame { .. } => {
@@ -388,9 +392,12 @@ pub(super) fn exec_immediate(
         | Effect::PhaseOutFilter(_)
         | Effect::ExileLinked { .. }
         | Effect::ExileTargetsWithSource
+        | Effect::ExileChosenFromHandWithSource(_)
+        | Effect::RevealLibrarySearch { .. }
         | Effect::SacrificeSelf
         | Effect::SacrificeAll { .. }
         | Effect::SacrificeObject { .. }
+        | Effect::PutTargetOnTopOfLibrary
         | Effect::PutTargetOnBottomOfLibrary
         | Effect::RollDiePutTargetIntoLibraryBeneathTop { .. }
         | Effect::PutOnBottomOfLibraryFromGraveyard { .. }
@@ -443,7 +450,7 @@ pub(super) fn exec_immediate(
         | Effect::CounterTargetSpellOrAbility
         | Effect::CounterTargetSpellToExile
         | Effect::CounterTargetSpell => zones::exec(state, res, op),
-        Effect::DelayedManaAtNextFirstMain { .. }
+        Effect::DelayedManaAtNextMain { .. }
         | Effect::AddManaFor { .. }
         | Effect::AddManaAmountFor { .. }
         | Effect::ManaForColorsAmong(_)
@@ -458,6 +465,7 @@ pub(super) fn exec_immediate(
         | Effect::AddCountersUpTo { .. }
         | Effect::RemoveCounterSelf { .. }
         | Effect::RemoveAllCountersSelf { .. }
+        | Effect::RemoveAllCountersFilter { .. }
         | Effect::RemoveAllCountersTarget
         | Effect::ChangeAttachedCounters { .. }
         | Effect::ModifyAttached { .. }
@@ -465,6 +473,7 @@ pub(super) fn exec_immediate(
         | Effect::DoubleCountersFilter { .. }
         | Effect::DrainAllCountersIntoSelf
         | Effect::SetPTFilter { .. }
+        | Effect::ModifyFilter { .. }
         | Effect::PumpFilter { .. }
         | Effect::PumpTarget { .. }
         | Effect::PumpTargetSlot { .. } => counters::exec(state, res, op),
@@ -521,6 +530,10 @@ pub(super) fn exec_immediate(
             None
         }
         Effect::ChangeController { new_controller } => control::change(state, res, new_controller),
+        Effect::ControlPlayerNextTurn { player } => {
+            control::next_turn(state, res, player);
+            None
+        }
         Effect::ControlRotation => control::ask(state, res),
         Effect::AllCreaturesToOwner => {
             let creatures: Vec<ObjectId> = state
@@ -926,6 +939,33 @@ pub(super) fn exec_immediate(
         }
         Effect::ReturnSelfDuringNextUntap => {
             super::delayed_returns::schedule_untap(state, res);
+            None
+        }
+        Effect::AtNextEndStepForCreatedTokens { effects } => {
+            let source_version = source_version(state, res)
+                .or_else(|| state.object(res.source).map(|object| object.version))
+                .unwrap_or(0);
+            for token in super::this_way::created_tokens(state, res) {
+                if let Some(version) = state
+                    .object(token)
+                    .filter(|object| object.zone == crate::zone::Zone::Battlefield)
+                    .map(|object| object.version)
+                {
+                    state.delayed.push(crate::state::DelayedTrigger {
+                        controller: you,
+                        when: crate::state::DelayedWhen::NextEndStep,
+                        action: crate::state::DelayedAction::TriggerAbout {
+                            source: res.source,
+                            source_version,
+                            effects,
+                            text: res.text,
+                            object: token,
+                            version,
+                            subject: None,
+                        },
+                    });
+                }
+            }
             None
         }
         Effect::AtNextEndStepAboutSubject { effects } => {
@@ -1662,12 +1702,17 @@ pub(super) fn exec_immediate(
             multiplier,
         } => super::coin_stakes::start(state, res, opponent, initial, multiplier),
         Effect::FlipCoin { won, lost } => {
-            let heads = state.rng.below(2) == 0;
-            state.journal.record(crate::event::GameEvent::CoinFlipped {
-                player: you,
-                won: heads,
-            });
-            run_nested(state, res, if heads { won } else { lost })
+            match super::coin::flip(
+                state,
+                res,
+                you,
+                super::CoinContinuation::FlipBranches { won, lost },
+            ) {
+                super::coin::Flip::Outcome(heads) => {
+                    run_nested(state, res, if heads { won } else { lost })
+                }
+                super::coin::Flip::Wait(pending) => Some(*pending),
+            }
         }
         Effect::IfEventPowerAtLeast { n, then, otherwise } => {
             let power = res
@@ -3077,32 +3122,7 @@ pub(super) fn exec_immediate(
             None
         }
         Effect::FlipCoinsDamageTailsRepeatUntilBothHeads { damage } => {
-            let opp = *players_of(PlayerRel::Chosen, state, you, res).first()?;
-            let dmg = amount2(&damage, state, you, res);
-            let you_heads = state.rng.below(2) == 0;
-            state.journal.record(GameEvent::CoinFlipped {
-                player: you,
-                won: you_heads,
-            });
-            let opp_heads = state.rng.below(2) == 0;
-            state.journal.record(GameEvent::CoinFlipped {
-                player: opp,
-                won: opp_heads,
-            });
-            if !(you_heads && opp_heads) && res.effects.len() < REPEAT_CAP as usize {
-                res.effects.insert(
-                    res.pc + 1,
-                    Effect::FlipCoinsDamageTailsRepeatUntilBothHeads { damage },
-                );
-            }
-            let mut shares = Vec::new();
-            if !you_heads {
-                shares.push((you, dmg));
-            }
-            if !opp_heads {
-                shares.push((opp, dmg));
-            }
-            life::deal_to_players(state, res, &shares)
+            super::coin::damage_contest(state, res, damage, None, None)
         }
         Effect::RevealRandomFromHand { who, count } => {
             let n = amount2(&count, state, you, res) as usize;
@@ -3247,6 +3267,9 @@ pub(super) fn exec_immediate(
         | Effect::ChooseOne { .. }
         | Effect::MayBehold { .. }
         | Effect::ChooseCardName { .. }
+        | Effect::GuessChosenNameInHand { .. }
+        | Effect::RevealHandForGuess
+        | Effect::DrawIfGuessWrong
         | Effect::ChooseNumber { .. }
         | Effect::DestroyWeakest { .. }
         | Effect::ExchangeGreatestManaValue { .. }
@@ -3339,19 +3362,25 @@ pub(super) fn exec_immediate(
             None
         }
         Effect::FlipCoinsUntilLossOrStopCumulative => {
-            let won = state.rng.below(2) == 0;
-            state
-                .journal
-                .record(GameEvent::CoinFlipped { player: you, won });
-            if !won {
-                return None;
+            match super::coin::flip(
+                state,
+                res,
+                you,
+                super::CoinContinuation::UntilLossOrStop { wins: 1 },
+            ) {
+                super::coin::Flip::Outcome(won) => {
+                    if !won {
+                        return None;
+                    }
+                    res.awaiting = Some(AwaitingOp::FlipCoinsUntilLossOrStopCumulative { wins: 1 });
+                    Some(Pending::YesNo {
+                        player: you,
+                        prompt: YesNoPrompt::MayDo,
+                        source: resolving_ability(state, res),
+                    })
+                }
+                super::coin::Flip::Wait(pending) => Some(*pending),
             }
-            res.awaiting = Some(AwaitingOp::FlipCoinsUntilLossOrStopCumulative { wins: 1 });
-            Some(Pending::YesNo {
-                player: you,
-                prompt: YesNoPrompt::MayDo,
-                source: resolving_ability(state, res),
-            })
         }
         Effect::AttachedGainControlBy { new_controller } => {
             let host = crate::eval::attached_for_ability(
@@ -3529,7 +3558,7 @@ pub(super) fn any_player_sac_or_damage_advance(
 // the source leaves. Activation restrictions still inspect the live source.
 /// The most times an [`Effect::Repeat`] runs its list: a bound on the
 /// program it builds, far above any count a card reaches.
-const REPEAT_CAP: u32 = 4096;
+pub(crate) const REPEAT_CAP: u32 = 4096;
 
 fn resolution_condition(
     state: &GameState,

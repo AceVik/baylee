@@ -161,3 +161,93 @@ fn a_gain_replacement_finishes_before_the_opponents_loss_and_repeat_question() {
     ));
     assert_eq!((state.players[0].life, state.players[1].life), (20, 19));
 }
+
+/// Under a replacement that flips two coins and ignores one (CR 614.1a,
+/// Krark's Thumb), the contest goes on from the result kept: no third coin
+/// is flipped, the winner is the one the kept coin names, and the stake is
+/// the one the contest started with. The contest used to be dropped while
+/// the replacement asked, and the answer started a fresh one at a stake of
+/// nought that flipped again.
+#[test]
+fn the_kept_result_of_a_replaced_flip_decides_the_contest() {
+    use crate::engine::synthetic::{keep_mulligans, land};
+    use baylee_cards_dsl::{AbilityDef, Filter, Modifier, static_ability};
+    const INDEX: u32 = 19037;
+    static ABILITIES: &[AbilityDef] = &[static_ability!(
+        Filter::Any,
+        Modifier::FlipTwoCoinsIgnoreOne
+    )];
+    let coins = |state: &GameState| -> Vec<bool> {
+        state
+            .journal
+            .entries()
+            .iter()
+            .filter_map(|e| match e.event {
+                GameEvent::CoinFlipped { won, .. } => Some(won),
+                _ => None,
+            })
+            .collect()
+    };
+    let mut kept_each_way = [false, false];
+    for seed in 60..140 {
+        for ignore_first in [false, true] {
+            let mut engine = crate::engine::Engine::new(
+                &preset(seed, &[INDEX]),
+                SyntheticLookup::new(vec![land(INDEX, "Coin doubler", ABILITIES)]),
+            )
+            .unwrap();
+            keep_mulligans(&mut engine);
+            let mut state = engine.state().clone();
+            let name = state.names.intern("Coin source");
+            let source = state.create_bare(
+                PlayerId::new(0),
+                ObjectKind::Spell,
+                name,
+                ZoneLocation::Stack,
+            );
+            let (_, mut res) = fixture(seed);
+            res.source = source;
+            res.on_stack = source;
+            let before = coins(&state).len();
+            let Flow::Wait(Pending::YesNo {
+                prompt: YesNoPrompt::Generic,
+                ..
+            }) = run(&mut state, &mut res)
+            else {
+                panic!("seed {seed}: the replacement asks which coin to ignore");
+            };
+            let flipped = coins(&state)[before..].to_vec();
+            assert_eq!(flipped.len(), 2, "seed {seed}: two coins instead of one");
+            if flipped[0] == flipped[1] {
+                continue;
+            }
+            let kept = if ignore_first { flipped[1] } else { flipped[0] };
+            let Flow::Wait(Pending::YesNo {
+                player,
+                prompt: YesNoPrompt::MayDo,
+                ..
+            }) = resume_yes_no(&mut state, &mut res, ignore_first)
+            else {
+                panic!("seed {seed}: the winner decides next, and nothing flips again");
+            };
+            assert_eq!(
+                coins(&state).len(),
+                before + 2,
+                "seed {seed}: no third coin"
+            );
+            let (winner, loser): (u8, u8) = if kept { (0, 1) } else { (1, 0) };
+            assert_eq!(player, PlayerId::new(winner), "seed {seed}");
+            assert_eq!(state.players[usize::from(winner)].life, 21, "seed {seed}");
+            assert_eq!(state.players[usize::from(loser)].life, 19, "seed {seed}");
+            kept_each_way[usize::from(ignore_first)] = true;
+        }
+        if kept_each_way == [true, true] {
+            break;
+        }
+    }
+    assert_eq!(
+        kept_each_way,
+        [true, true],
+        "a mixed pair was decided by each of its coins"
+    );
+}

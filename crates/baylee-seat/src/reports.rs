@@ -13,10 +13,12 @@
 //! filed once a game under.
 //!
 //! The seat files each one it reads ([`Book::file`]): one JSON line in
-//! `<transcripts>/reports.jsonl` at once, where the seat keeps transcripts,
-//! and kept for the game. When the game is over the bridge sends each as a
-//! bug report of its own to its gateway's `POST /reports`
-//! (`docs/feedback.md`) under the seat's own session ([`submissions`]),
+//! `reports.jsonl` at once, in its reports directory
+//! (`llm::Settings::reports`: the transcripts' or a default one, so a
+//! report the gateway never takes is kept), and kept for the game. When
+//! the game is over the bridge sends each as a bug report of its own to
+//! its gateway's `POST /reports` (`docs/feedback.md`) under the seat's own
+//! session ([`submissions`]),
 //! unless the bridge was told not to; a chair taken on its host's ticket,
 //! which has no session and may send one a game, sends them all in one on
 //! its seat token (`POST /lobby/games/{id}/chair/report`, [`bundle`]), and
@@ -63,7 +65,7 @@ use std::collections::BTreeSet;
 use std::io::Write as _;
 use std::path::Path;
 
-/// The file a seat's reports are written to, in its transcripts directory.
+/// The file a seat's reports are written to, in its reports directory.
 pub const FILE: &str = "reports.jsonl";
 
 /// The most reports one seat files in a game.

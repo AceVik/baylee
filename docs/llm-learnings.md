@@ -6,6 +6,93 @@ the two lanes in use now are remote and cheap, which changes the constraint
 from "one at a time" to "what is each one actually good at". Maintained by
 the orchestrator; entries dated, newest first.
 
+## 2026-10-31 — *Mirrodin* (`mrd`) Batch 2 review
+
+Two reviewers read the batch against its oracle text. One card played wrong;
+most findings were tests that could not tell the right reading from a wrong
+one, and every one of them passed every gate.
+
+1. **"Put a counter on it or remove one from it" is one ability.**
+   Jinxed Choker came out as two `{3}` abilities because the reference script
+   prints it as two `A:` lines, and the reader is faithful line by line. The
+   2004-12-01 ruling chooses add or remove on resolution, so the card is one
+   activation whose effect is `Effect::ChooseOne`. When the oracle text says
+   "or" inside one cost, count the printed abilities against the generated
+   ones; a mismatch is a wrong play even when each half is right.
+2. **A test must have a board on which the wrong reading answers differently.**
+   The batch's hollow tests share one shape: the board made the right and the
+   wrong reading coincide.
+   - A library of one name, so every reveal "matched" (Grim Reminder).
+   - The named card always in hand, so "guessed wrong" equalled "answered
+     no" (Liar's Pendulum).
+   - "You" and "all" coinciding in a count: only the caster had artifacts
+     (Override), only we had Swamps (Nightmare Lash), only we had artifacts
+     (Myr Enforcer).
+   - No opponent-side case for "you control", "your graveyard", "an
+     opponent draws", "that permanent's controller" (Lightning Coils, Moriok
+     Scavenger, Groffskithur, Mind's Eye, Mesmeric Orb, Incite War).
+   - A negative asserted where it could not have been otherwise: March of
+     the Machines "refused" an equip that p0 had no mana to pay for, and the
+     ruling says the equip may be activated and does nothing.
+   - A payment never shown paid (Mind's Eye's {1}: no land asserted tapped),
+     a "you may" never declined (Mind's Eye, Mask of Memory), a "this turn"
+     never carried into the next turn (Pearl Shard), a timing condition never
+     probed from the opponent's turn (Grim Reminder, Nim Devourer).
+   - A trigger's "you" read at the original owner rather than the current
+     controller, never asserted after a control change (Jinxed Choker).
+   - A win prevention tested only through the loss half (Platinum Angel: no
+     effect that makes the opponent win was ever put on the board).
+   Write the wrong reading down first, then build the board on which it
+   gives a different number. And a negative needs its control to pass for
+   the right reason: an ability is offered only while its mana is floating,
+   so "not offered in the opponent's upkeep" held for want of mana, and the
+   control in the own upkeep failed for the same want (Grim Reminder, Nim
+   Devourer).
+3. **A reader checks a value before it takes it.**
+   `p.take("IsPresent") == Some("Artifact.DefenderCtrl")` removes the
+   parameter whatever its value, so a clause of another value reaches the
+   condition reader as no clause at all: "can't be blocked as long as
+   defending player controls an untapped land" would have been read as
+   unblockable. The chain reader did the same with three `take`s in one
+   `&&`. Peek, compare, then take.
+4. **A turn control is about the turn a player actually takes, not a turn
+   number.** Mindslaver's control was keyed on `turn.number` and the active
+   seat, so it was dropped when two turns passed before its player's (four
+   seats, or the controller's two extra turns) and lasted into the player's
+   own extra turn after it. CR 722.1 names the turn the player takes and ends
+   at the next turn's beginning: stamp the control as that turn begins.
+5. **Every resume path advances the program as the plain path does.** The
+   damage contest's plain path returns to `run`, which steps past it; the
+   path that resumed from Krark's Thumb's question called `run` without the
+   step, so the contest ran again after every answer and never ended. The
+   coin-life contest dropped its own state while the Thumb asked and started
+   a fresh one. A test with the replacement on the board is the only one that
+   walks that path.
+6. **A search for a stated quality may find nothing** (CR 701.23b). Grim
+   Reminder's reveal search set `min: 1` from "not optional"; the library
+   search already read the filter as the rule does, and a sibling reader
+   asked fewer questions.
+7. **A loosened check needs its callers re-read, not its test rewritten.**
+   The replay check took the public-table digest on every build, and a test
+   that asserted a wrong hash diverged was rewritten to assert it passed.
+   The protocol keeps the exact hash on the build that played the game and
+   the table for a later build; the build is in the header.
+
+## 2026-10-30 — *Mirrodin* (`mrd`) Batch 2 (`Granite Shard` through `Platinum Angel`, 50 cards)
+
+Completing all 50 cards through `scriptgen` required small shared mechanisms rather than card-specific engine effects. The batch also exposed four integration rules worth preserving:
+
+1. **Update the complete `Modifier` census with every new variant.**
+   `ProtectionFromExiledWithSourceTypes`, `NamedPlayersCantLose`, and `PlayersCantWin` are rule-based modifiers, not locking modifiers. Adding them only to the DSL and projection is insufficient: the exhaustive declaration and census tests in `baylee-engine/src/effects.rs` must also account for them (now 181 declared variants, 54 locking and 127 rule-based).
+2. **Keep object targets, optional empty object choices, and player-only targets distinct.**
+   Counter resolution and subject binding must not infer an empty object selection from a player target. Karn's empty `+1`, Yawgmoth's optional "up to one" choice, and Jinxed Choker's player-targeted self-counter activation now share the same resolver without stealing one another's answers.
+3. **Turn control ends immediately when either player leaves.**
+   Mindslaver's scheduled `turn_controls` are removed by state-based actions as soon as their controller or controlled player has left; cleanup is not deferred to the next turn boundary. The departure scan includes `ControlPlayerNextTurn`, and the state fingerprint covers the scheduled control.
+4. **A corpus-free checkout can finish coverage only after accepted played tests exist.**
+   Never run full `codegen` without the external scripts. For already complete machine-owned outputs whose canonical tests are present and green, advance only the derived `Coverage::Generated` field to `Implemented`, leave the generated abilities untouched, then run `codegen --tables` and `codegen --tables --check`. The `require-card-tests` hook is the final independent check that no tested card remains at `Generated`.
+5. **Prefer composable rules primitives for the remaining Mirrodin mechanics.**
+   Krark's Thumb uses coin-flip replacement with an explicit ignored flip; Isochron Scepter reuses linked exile plus card copies and optional free casting; Mirror Golem derives protection from the linked card's types; Platinum Angel composes separate can't-lose and opponents-can't-win modifiers. Dynamic per-artifact mana costs and Myr Prototype's counter-scaled combat payment stay in shared pricing and declaration code.
+
 ## 2026-10-26 — *Mercadian Masques* (`mmq`) Batch 5 (`Invigorate` through `Rishadan Footpad`, 25 cards)
 
 Adding the fifth 25 previously absent *Mercadian Masques* first-printing cards (`12 Implemented`, `3 Partial`, `10 Unimplemented`) extended the DSL, engine, and `scriptgen` across five patterns (`Inviolability`, `Kyren Negotiations`, `Natural Affinity`, `Noble Purpose`, `Pious Warrior`, `Quagmire Lamprey`, `Rappelling Scouts`, `Revered Elder`, `Rishadan Brigand`, `Rishadan Cutpurse`, `Rishadan Footpad`):

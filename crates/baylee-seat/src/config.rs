@@ -23,6 +23,10 @@ use std::path::{Path, PathBuf};
 /// `--config`.
 pub const CONFIG_ENV: &str = store::CONFIG_ENV;
 
+/// The directory beside the settings file that a language model's reports
+/// file is written to where nothing names another ([`Paths::reports`]).
+pub const REPORTS_DIR: &str = "llm-reports";
+
 /// Where the bridge's settings file and spend book are.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Paths {
@@ -87,6 +91,23 @@ impl Paths {
             (None, Some(settings)) if file_read => Some(Book::beside(settings)),
             _ => None,
         }
+    }
+
+    /// Where a language model's reports file (`reports.jsonl`,
+    /// [`crate::reports`]) is written as each report is filed: `named`
+    /// (`--reports-dir`), else `transcripts` (`--transcripts`), else
+    /// [`REPORTS_DIR`] beside the settings file, where its spend book is
+    /// too: the player's config directory unless `--config` or
+    /// [`CONFIG_ENV`] names a file elsewhere. So a report the gateway
+    /// never takes stays on this machine. `None` only where no settings
+    /// file can be named at all.
+    #[must_use]
+    pub fn reports(&self, named: Option<&Path>, transcripts: Option<&Path>) -> Option<PathBuf> {
+        named.or(transcripts).map(Path::to_path_buf).or_else(|| {
+            self.settings
+                .as_ref()
+                .map(|settings| settings.with_file_name(REPORTS_DIR))
+        })
     }
 
     /// The settings file, for a sentence.

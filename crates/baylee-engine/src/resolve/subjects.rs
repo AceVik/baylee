@@ -8,6 +8,17 @@ use crate::{
 };
 use baylee_core::ids::DamageSourceRef;
 
+/// The answer and proof state of a named-card guess.
+#[derive(Clone, Copy, Debug, Hash)]
+pub struct GuessOutcome {
+    /// Whether a card with the chosen name was actually in the hand.
+    pub actual: bool,
+    /// What the guessing player claimed.
+    pub claimed: bool,
+    /// Whether the hand was revealed as proof.
+    pub revealed: bool,
+}
+
 /// Public-zone objects found through earlier instructions of this resolution.
 #[derive(Clone, Debug, Default)]
 pub struct SubjectContext {
@@ -16,6 +27,7 @@ pub struct SubjectContext {
     pub(super) reanimation_links: Vec<super::linked_reanimation::PendingLink>,
     /// Exact future/current battlefield incarnations from the latest search.
     pub(super) found: Vec<DamageSourceRef>,
+    pub(super) guess: Option<GuessOutcome>,
     pub(super) named: Option<(crate::object::PrintedFace, baylee_core::ids::NameRef)>,
     pub(super) sacrificed: Option<crate::object::SacrificedLki>,
     circled_colors: baylee_core::color::ColorSet,
@@ -49,6 +61,7 @@ impl SubjectContext {
             followed: paid.source_after_cost.into_iter().collect(),
             reanimation_links: Vec::new(),
             found: Vec::new(),
+            guess: None,
             named: None,
             sacrificed: paid.sacrificed_lki,
             circled_colors: baylee_core::color::ColorSet::EMPTY,
@@ -181,6 +194,9 @@ impl SubjectContext {
                 .wrapping_add(u64::from(r.object.generation()));
             h = h.wrapping_mul(31).wrapping_add(u64::from(r.version));
         }
+        h = h
+            .wrapping_mul(31)
+            .wrapping_add(crate::state::structural_fingerprint(&self.guess));
         h = h
             .wrapping_mul(31)
             .wrapping_add(crate::state::structural_fingerprint(&self.named));
@@ -329,13 +345,37 @@ pub(super) fn target(
 }
 
 pub(super) fn this(state: &GameState, res: &Resolution) -> Option<DamageSourceRef> {
-    if let Some(&object) = res.targets.first() {
-        target(state, res, object)
-    } else if res.targeted {
-        None
+    if names_targets(state, res) {
+        res.targets
+            .first()
+            .and_then(|&object| target(state, res, object))
     } else {
         source(state, res)
     }
+}
+
+/// Whether "this" in the resolving instruction is its object target rather
+/// than its source.
+///
+/// It is the target when the ability said "target" about an object, and
+/// that is read off what was announced, which the stack object keeps, and
+/// not off what is still legal: an object target that became illegal is
+/// not affected (CR 608.2b), and the source does not stand in for it, even
+/// while a player chosen beside it is still a legal target. It is also the
+/// target, and so nothing, when the ability said "target" and nothing at
+/// all was chosen (an "up to one" left empty: Karn's +1). Only a target that
+/// is a player and nothing else (Jinxed Choker's "target opponent gains
+/// control of this artifact and puts a charge counter on it") leaves "this"
+/// the source.
+pub(super) fn names_targets(state: &GameState, res: &Resolution) -> bool {
+    if !res.targets.is_empty() {
+        return true;
+    }
+    res.targeted
+        && (res.target_players.is_empty()
+            || state
+                .object(res.on_stack)
+                .is_some_and(|announced| !announced.targets.is_empty()))
 }
 /// The creature the resolving trigger is about besides its event object
 /// (`Rider::EventSubject`), as it was when the trigger fired.

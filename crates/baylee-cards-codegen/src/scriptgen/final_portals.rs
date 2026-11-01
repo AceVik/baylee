@@ -42,6 +42,37 @@ impl Tx<'_> {
     /// A self mana-ability surcharge, only from the ordinary battlefield zone.
     pub(super) fn mana_life_tax(&mut self, mut p: Params) -> Option<()> {
         p.drop_prose();
+        if p.peek("Type") == Some("Spell")
+            && p.peek("Activator") == Some("Player")
+            && p.peek("Amount") == Some("X")
+            && p.peek("Relative") == Some("True")
+        {
+            p.take("Type");
+            p.take("Activator");
+            p.take("Amount");
+            p.take("Relative");
+            if !matches!(p.take("EffectZone").as_deref(), None | Some("Battlefield")) {
+                return None;
+            }
+            let valid = p.take("ValidCard")?;
+            let counted = self
+                .svars
+                .get("X")
+                .and_then(|definition| definition.strip_prefix("Count$Valid "))?;
+            let counted = counted.strip_suffix(".YouCtrl").unwrap_or(counted);
+            if !p.exhausted() {
+                return None;
+            }
+            let spell_filter = self.filter_expr(&valid)?;
+            let count_filter = self
+                .body
+                .filter_static("TAX_COUNT", &self.filter_expr(counted)?);
+            self.body.abilities.push(Self::static_expr(
+                &spell_filter,
+                &format!("Modifier::SpellsCostMorePerControlled(&{count_filter})"),
+            ));
+            return Some(());
+        }
         if p.peek("Type") == Some("Spell") {
             p.take("Type");
             if !matches!(p.take("EffectZone").as_deref(), None | Some("Battlefield")) {

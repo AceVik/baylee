@@ -5,6 +5,7 @@
 import { type ReactNode } from "react";
 
 import {
+  isSourceName,
   KINDS,
   PRIORITIES,
   SORTS,
@@ -35,6 +36,14 @@ export function toggled<T extends string>(values: readonly T[] | undefined, valu
   else now.add(value);
   const next = order.filter((v) => now.has(v));
   return next.length > 0 ? next : undefined;
+}
+
+/** A source filter's words: a source, none, or all but either. */
+export function sourceLabel(lang: Lang, value: string): string {
+  if (value === "none") return t(lang, "rep.noSource");
+  if (value === "!none") return t(lang, "rep.anySource");
+  if (value.startsWith("!")) return t(lang, "rep.sourceOthers", { source: sourceLabel(lang, value.slice(1)) });
+  return value;
 }
 
 function countOf(counts: readonly Count[] | undefined, value: string | null): number | undefined {
@@ -111,6 +120,8 @@ export function FilterPanel({
   const priorities = [...PRIORITIES, "none"] as const;
   const people = [...new Set([me, ...admins])].filter((a) => a !== "");
   const labels = facets?.labels.filter((c): c is Count & { value: string } => c.value !== null) ?? [];
+  const sources =
+    facets?.sources.filter((c): c is Count & { value: string } => c.value !== null && isSourceName(c.value)) ?? [];
   return (
     <form
       id="list-filters"
@@ -239,6 +250,39 @@ export function FilterPanel({
             <option value="">{t(lang, "rep.any")}</option>
             <option value="gateway">{t(lang, "rep.channelGateway")}</option>
             <option value="direct">{t(lang, "rep.channelDirect")}</option>
+          </select>,
+        )}
+        {field(
+          "f-source",
+          t(lang, "rep.source"),
+          <select
+            id="f-source"
+            title={t(lang, "rep.sourceTitle")}
+            value={filter.source ?? ""}
+            onChange={(event) => {
+              set({ source: event.target.value || undefined });
+            }}
+          >
+            <option value="">{t(lang, "rep.any")}</option>
+            <option value="none">
+              {t(lang, "rep.noSource")}
+              {countOf(facets?.sources, null) === undefined ? "" : ` (${countOf(facets?.sources, null)})`}
+            </option>
+            {sources.map((c) => (
+              <option key={c.value} value={c.value}>
+                {c.value} ({c.count})
+              </option>
+            ))}
+            {sources.map((c) => (
+              <option key={`!${c.value}`} value={`!${c.value}`}>
+                {sourceLabel(lang, `!${c.value}`)}
+              </option>
+            ))}
+            {filter.source !== undefined &&
+              filter.source !== "none" &&
+              !sources.some((c) => c.value === filter.source || `!${c.value}` === filter.source) && (
+                <option value={filter.source}>{sourceLabel(lang, filter.source)}</option>
+              )}
           </select>,
         )}
         {field(
@@ -403,6 +447,9 @@ export function pillsOf(lang: Lang, filter: Filter, viewOwns: ReadonlySet<keyof 
       filter.channel === "direct" ? t(lang, "rep.channelDirect") : t(lang, "rep.channelGateway"),
       { channel: undefined },
     );
+  }
+  if (filter.source !== undefined) {
+    add("source", `${t(lang, "rep.source")}: ${sourceLabel(lang, filter.source)}`, { source: undefined });
   }
   if (filter.reporter !== undefined) add("reporter", `${t(lang, "rep.reporter")}: ${filter.reporter}`, { reporter: undefined });
   if (filter.game_id !== undefined) add("game_id", `${t(lang, "rep.game")}: ${filter.game_id}`, { game_id: undefined });

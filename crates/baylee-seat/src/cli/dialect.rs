@@ -104,6 +104,17 @@ pub(crate) trait Dialect: Send + Sync {
         false
     }
 
+    /// Whether its processes run in a session of their own, without the
+    /// bridge's controlling terminal ([`super::launch::detach`]): only a
+    /// tool that starts something that reads the terminal (Junie's
+    /// `systemd-inhibit`). Every other tool stays in the bridge's process
+    /// group, so whatever stops that group (a collector's `SIGTERM`, then
+    /// `SIGKILL`, to its seat's group) stops the tool with the bridge, even
+    /// where the bridge is killed before it can end it.
+    fn detaches(&self) -> bool {
+        false
+    }
+
     /// Whether a running count of usage ([`Self::usage_is_cumulative`])
     /// runs on across the processes that resume one conversation (it is
     /// the conversation's, read back with it), rather than starting again

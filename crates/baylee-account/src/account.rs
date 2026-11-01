@@ -299,6 +299,17 @@ impl Account {
         Ok(())
     }
 
+    /// The key of this device's local chat vault whose 32-byte scope is
+    /// `scope` (`docs/password-vault.md` §"The account key"), derived from the
+    /// master key, which never leaves the SDK. Opens that vault without the
+    /// password.
+    ///
+    /// # Errors
+    /// Only for an identity the endpoint cannot bind, never for a live account.
+    pub fn local_vault_key(&self, scope: &[u8; 32]) -> Result<Zeroizing<[u8; 32]>, Error> {
+        self.session.local_vault_key(scope)
+    }
+
     /// Refresh and restore all key records for one exact gateway/account scope.
     /// No absence is returned for network, authentication or format failures.
     ///

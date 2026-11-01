@@ -8,6 +8,8 @@ reports. A client signed in nowhere sends it to the service itself
 `POST /reports`, the service's API, and what either keeps.
 
 ```
+                                 ┌─ BAYLEE_REPORTS_TO=central ──> Baylee Central (POST /v1/reports,
+                                 │  (the gateway's Central link)   then the parts as gzip)
 client ── POST /reports ──> gateway ── POST /intake/reports ──> baylee-feedback
           (session)                    (gateway's intake token)     │
 client ── POST /client/reports ────────────────────────────────────>│
@@ -19,11 +21,16 @@ client ── POST /client/reports ───────────────
 ```
 
 The client picks the road (`client-core::bugreport::route`): the gateway
-it is signed in to whenever there is one, else the service it knows, else
-none, and then it says so and sends nothing anywhere. Which service it
-knows: `feedback_url` in its settings file, else the address the build was
-given (`BAYLEE_FEEDBACK_PUBLIC_URL` at compile time); `https://`, or
-`http://` to the same machine, and an empty setting turns it off.
+it is signed in to whenever there is one, else the report address it knows,
+else none, and then it says so and sends nothing anywhere. Which address it
+knows (`bugreport::report_address`, 31.10.2026): `report_url` in its
+settings file, else the address the build was given
+(`BAYLEE_REPORT_PUBLIC_URL`, the official gateway's in a release, which
+takes `POST /client/reports` itself, §"To Baylee Central instead"), else the
+feedback service it knows (`feedback_url`, else
+`BAYLEE_FEEDBACK_PUBLIC_URL`), which also counts who plays offline;
+`https://`, or `http://` to the same machine, and an empty setting turns it
+off.
 
 ## The gateway: `POST /reports` (#307)
 
@@ -140,10 +147,10 @@ oracle_quote}`), `client.report.rules` (at most 8), `client.report.decision`
 `expected`, and `client.game_id`, `client.record_sha256` (the hash of the
 seat's whole log) and `client.record_tail` (its last 20 lines before the
 report). A chair's bug report carries the same objects as
-`client.reports[]`, each with its own `record_tail`. The service's list
-does not filter on `client` yet (§"Triage"): the fields are flat and
-bounded so a filter, or a query of the stored `client`, can take them one
-by one.
+`client.reports[]`, each with its own `record_tail`. Of these the
+service's list filters only by `client.source` (its own `source` column,
+`m0008_source`, §"Reading"); the others are flat and bounded so a filter,
+or a query of the stored `client`, can take them one by one.
 
 ### A host's seat bridge: `POST /lobby/games/{id}/chair/report`
 
@@ -177,7 +184,139 @@ with these differences:
 Configuration: `BAYLEE_FEEDBACK_URL` (the service's base URL, for example
 `https://feedback.baylee.app`), `BAYLEE_FEEDBACK_TOKEN` (this gateway's
 intake token there), `BAYLEE_FEEDBACK_KEY` (the pseudonym key; set it, and
-never change it, if reports of one player should stay linkable).
+never change it, if reports of one player should stay linkable), and
+`BAYLEE_REPORTS_TO` (below).
+
+### To Baylee Central instead: `BAYLEE_REPORTS_TO=central` (31.10.2026)
+
+Where reports go is the operator's choice: `feedback` (the default, all of
+the above) or `central`, which files them with Baylee Central, whose
+administrators read them on its website (baylee-central `docs/reports.md`).
+The route, its body, its budget and the pseudonym stay as they are; what
+changes is where the report goes and in what shape:
+
+- **Under the gateway's own Central link** (`docs/central-login.md`): the
+  official gateway's bridge credential, or a registered gateway's credential
+  pair or pasted token, which Central takes only from an approved gateway.
+  Without a link, `503 {"error":"reports are not configured"}`.
+- **The metadata first** (`POST /v1/reports`, JSON, at most 64 KiB):
+  `gateway`, `channel: "gateway"`, `reporter`, `kind`, `text`, `game_id`,
+  and for Central's list the client's own `client.build {version, commit}`
+  and, for a crash, `client.crash {message, location}`. Central refuses a
+  whole report for one field out of its bounds, so the gateway brings each
+  within them first (`baylee_account::reports`): a carriage return before
+  a line break goes and a lone one becomes one, control characters and the
+  invisible characters that turn text around (direction marks, overrides,
+  isolates) are left out, a crash's message is cut to 2000 characters and
+  its place to 512, a version to one line of 256 bytes, a commit kept only
+  as hex. A crash report whose text is empty reads its crash's message, or
+  "The client crashed."; any other report with no text left is `400`, as is
+  a `game_id` that is not printable ASCII.
+- **Then what is heavy, as gzip Central keeps and never unpacks**
+  (`PUT /v1/reports/{id}/client` and `/record`), each announced in the
+  metadata by its length and SHA-256: the `client` object as the gzip of
+  its JSON (none for `{}`; at most 2 MiB), and the record as the gateway
+  keeps it (at most 64 MiB) or the client's `local_record` (at most 4 MiB,
+  `origin: "client"`). One larger than that goes without, with a line in
+  the log. A client's record is read first as the service reads one (a
+  game record's header first, then only its own lines, every gzip member
+  of it and at most 32 MiB unpacked in all; `baylee_account::client_record`),
+  because Central never unpacks it: one that is not a game record is `400`, one that unpacks past the
+  bound `413`. The parts follow the answer: the player is told once the
+  metadata is filed, so a slow upload never makes a filed report look lost
+  (and sent again). The gateway uploads two at a time, as many as Central
+  takes from everyone; one Central turns away (`429`, before or while the
+  body goes out) or that gets no answer is sent again, at most five times
+  over 70 s of waiting; one that never arrives leaves the report filed with
+  that part shown as awaited (the log names the report and the part, never
+  its content), and one Central already holds (a resent upload) counts as
+  sent.
+- **Answers:** `201 {"report_id": "<32 hex digits>"}`, Central's id; `502`
+  when Central did not take the metadata; `503` without a link, when four
+  reports are already on their way to Central from this gateway, parts
+  included, and none finished within 10 seconds (their parts are held in
+  memory), or when Central is past its budget for this gateway (120
+  reports an hour). A report that was not taken costs the player nothing of
+  their 64.
+- **Pseudonyms do not change:** made with `BAYLEE_FEEDBACK_KEY`, or the key
+  derived from `BAYLEE_FEEDBACK_TOKEN` as before, so a player's reports
+  line up across the switch. With `central` and neither set, the gateway
+  refuses to start: a key anybody could derive would make reporters
+  linkable to accounts.
+- **A reported chat message still goes to the service** (§"A reported chat
+  message"): Central does not take one, so `BAYLEE_FEEDBACK_URL` and
+  `BAYLEE_FEEDBACK_TOKEN` stay set for it.
+- **Deploy order:** Central with its migration 000018 before a gateway is
+  switched; until then Central answers `404` and every report is `502`.
+- **Straight from a client** (owner, 31.10.2026): the official gateway takes
+  `POST /client/reports` itself and files it with Central marked `direct`,
+  under its bridge, the only credential Central takes such a report under.
+  The body and its bounds are the service's (§"Straight from a client"): no
+  credential, a device id; a `build.commit` that is not hex (or over 64
+  digits) is left out, as Central would refuse it. Its allowance is 10 an
+  hour per address, an IPv6 address counted by its /64, and **40 in all**,
+  not the service's 600: Central files 120 an hour for one gateway, and the
+  official gateway's signed-in players' reports draw on the same 120, so
+  however many addresses send direct reports, 80 stay for the players.
+  Every report the route reads counts, one refused for what it says too; a
+  body over the route's bound and one refused for the count do not. Behind
+  a proxy the gateway does not trust (`BAYLEE_TRUSTED_PROXIES`), every
+  client is the proxy's address and shares its 10. The reporter is the
+  service's HMAC of the device id under `BAYLEE_DIRECT_REPORT_KEY` hashed,
+  so the same value as the service's `FEEDBACK_DIRECT_KEY` keeps a device's
+  reports linkable across the move. Its record is the client's
+  (`origin: "client"`), checked as a `local_record` is, its shape included.
+  Direct reports have two places of their own on the way to Central, apart
+  from the signed-in players' four, and wait for none: none free is `503`
+  at once. Without `BAYLEE_REPORTS_TO=central`, the bridge or the
+  key, `503`. A client sends there when its build or settings name
+  that address (`docs/client.md`, `BAYLEE_REPORT_PUBLIC_URL`, `report_url`);
+  the offline count stays with the service.
+- **The reports the service holds** stay there until the one-time copy below
+  moves them.
+
+### The one-time copy to Central: `baylee-feedback export-reports`
+
+Once the gateways are switched, the reports still open at the service are
+copied to Central once: `baylee-feedback export-reports` (with
+`FEEDBACK_DATABASE_URL` as for serving) writes them to standard output, and
+Central's `central-service --import-reports-stdin` takes them, after its
+migration document and the administrator the copied notes are filed under
+(baylee-central `docs/operations.md`), so the copy travels through a pipe
+and never lands in a file. Standard error says how
+many were written and how many left out.
+
+JSON Lines, UTF-8: every report outside the trash whose status is `new`,
+`triaged` or `in_progress`, oldest first, one a line, every field present
+(`null` where there is none); a reported chat message stays at the service,
+which Central does not take:
+
+```json
+{"id": "<the report's uuid v7, 32 hex digits>", "created_at": 1761900000, "updated_at": 1761900000,
+ "gateway": "<the name its intake token is configured under, or (direct)>",
+ "gateway_says": {"name": "…", "url": "…", "version": "…"},
+ "channel": "gateway" | "direct", "reporter": "<hex>", "kind": "bug", "status": "triaged",
+ "text": "…", "game_id": "…", "build": {"version": "…", "commit": "…"}, "crash": {"message": "…", "location": "…"},
+ "issue": 311, "priority": "high", "labels": ["ui"], "assignee": "<an admin's name here>",
+ "client_gzip": "<the client object's JSON, gzip, lowercase hex>",
+ "record": {"complete": true, "origin": "gateway" | "client", "gzip": "<lowercase hex>"},
+ "notes": [{"at": 1761900000, "author": "<admin name>", "text": "…"}],
+ "audit": [{"at": 1761900000, "actor": "<admin name or token>", "action": "status", "detail": "new → triaged"}]}
+```
+
+then one last line, `{"format": "baylee-feedback-reports/1", "count": n,
+"sha256": "<64 hex digits>"}`, the SHA-256 over every line before it, each
+with its line break, so a copy cut short is refused whole. Times are Unix
+seconds; the gzip is hex, which Central reads without a decoder of its own. What Central would refuse is brought within its bounds as a
+gateway brings a report (§"To Baylee Central instead"): the text, the
+build and a crash's message and place (read from the client object, a
+crash only), what the gateway said of itself, a `game_id` that is not
+printable ASCII left out; a client object or record larger than Central
+takes goes without. A report Central would still refuse (a reporter that is
+not hex) is left out and named by id on standard error. The ids stay the
+service's, so a second run finds the copied reports at Central and skips
+them. Seen marks and saved lists are an admin's own and stay; a done report
+stays too.
 
 ## A reported chat message: `POST /social/reports` (beta.8)
 
@@ -245,6 +384,20 @@ control character in a name, URL, version or game id), `401` for anything
 but a gateway's token, `413` past the gateway's limits or a record over
 64 MiB. The report is filed under the name its token was configured with,
 whatever the gateway calls itself.
+
+**Public for now (31.10.2026).** The official gateway reaches the intake over
+loopback, under the token name `sanctuary`. The route is also public at
+`https://feedback.baylee.app/intake/reports`, so a gateway on another machine
+can file reports too: the trainer's private collector gateway, under the
+token name `collector`, sends the reports of its language-model seats
+(`docs/llm-seat.md`). It was reachable before 31.10.2026 already, through the
+site's catch-all (`scripts/server/feedback.caddy`); since then it has a route
+of its own in `scripts/server/feedback-direct.caddy`. The service checks a
+gateway's token before it reads the body, so a request without one costs
+only its headers (`401`). With a token, the service's own bound
+(`MAX_INTAKE_BYTES`, about 88 MiB) is the one that acts; the proxy's
+512 MiB (the owner's figure) is a ceiling above it. The owner accepts this as
+a temporary gap and wants it closed again later (#408).
 
 `record_origin` (`"gateway"` when absent) says who wrote the record. A
 client's (`"client"`) is held to a client's bounds and checked for the
@@ -493,9 +646,11 @@ say what the text says there, as the text the player wrote. A card's
 picture is loaded by the admin's browser straight from Scryfall's image
 host, never through this service (`docs/legal.md` §3; §"Headers" below).
 
-`scripts/server/feedback-direct.caddy` is the proxy's part: the route
-alone on the public site, its body bounded before the service reads it, no
-access log.
+`scripts/server/feedback-direct.caddy` is the proxy's part: the service's
+public routes (this one, the contact form and for now the intake), each body
+bounded before the service reads it, no access log. The official site
+(`scripts/server/feedback.caddy`) imports it and passes everything else to
+the service, whose other routes each need a token.
 
 ### Reading: `GET /reports`, `GET /reports/{id}`, `GET /reports/{id}/record`
 
@@ -507,13 +662,26 @@ filters of §"Triage" (`crate::triage::Filter`): `status`, `kind` and
 text or of a crash's message, a piece of the text (`%` and `_` literal) or
 a piece of a report's id; `from` and `to` are days, `YYYY-MM-DD` in UTC,
 both inclusive; `has_record` is `true` or `false`; `channel` is `gateway`
-or `direct`. A report in the trash is listed only under `trash=true`. A
-malformed filter is `400`.
+or `direct`; `source` is a source, `none` for reports without one, or
+either after `!` for all the others (`source=!llm-seat` hides the
+language-model seats' reports, those without a source included), 1–64
+characters without a control character. A report in the trash is listed
+only under `trash=true`. A malformed filter is `400`.
 
 `channel` says how a report came (`gateway`, or `direct`: unauthenticated,
 §"Straight from a client"); `record_origin` who wrote its record
-(`gateway`, or `client`: unverified), `null` without one. The web UI says
-both beside the report.
+(`gateway`, or `client`: unverified), `null` without one; `source` what
+sent it, as the client's `source` says (`llm-seat` for a language-model
+seat once its reports land, `docs/llm-seat.md`), its first 64 characters,
+`null` without one. Only a non-empty string is a source: a number, an object
+or `""` reads as none. It is kept in a column of its own beside `client`
+(`m0008_source`), so the list and its facets never unpack `client`. The
+filter matches it exactly, case and spaces included; a source a client
+named `none` or with a leading `!` is shown but cannot be picked by name,
+since those are the filter's own words. The client's word, unchecked: a
+filter to sort by, never a proof of where a report came from. The web UI
+says all three beside the report, and the facets count the sources
+(`sources`, `null` for none).
 
 ```json
 {
@@ -525,7 +693,7 @@ both beside the report.
     "reporter": "5bdc…", "kind": "bug", "status": "new",
     "text": "…", "game_id": "…",
     "has_record": true, "record_complete": true, "record_bytes": 21606,
-    "channel": "gateway", "record_origin": "gateway",
+    "channel": "gateway", "record_origin": "gateway", "source": null,
     "issue_number": 311,
     "issue_url": "https://github.com/AceVik/baylee/issues/311",
     "assignee": "viktor", "priority": "high", "labels": ["lands", "ui"],

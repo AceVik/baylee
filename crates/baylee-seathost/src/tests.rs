@@ -745,7 +745,8 @@ fn a_fallback_is_taken_along_only_when_it_is_a_usable_profile_of_the_seat_agent(
 
 /// A game of a profile that is available plays the profile, with the
 /// fallback standing by: its job holds the profile's settings file and spend
-/// book, the fallback's own settings file and spend book, the chair's name
+/// book, the seat agent's reports directory, the fallback's own settings
+/// file and spend book, the chair's name
 /// after the profile's label, and a channel for what the bridge says of its
 /// model. (Before, a job had no fallback and no channel.)
 #[tokio::test]
@@ -768,6 +769,7 @@ async fn a_game_of_an_available_profile_takes_its_fallback_along() {
         assert_eq!(j.name, "Model-A");
         assert_eq!(j.chair_ticket, "the-chair-ticket");
         assert_eq!(j.ledger, spend.join("primary.json"));
+        assert_eq!(j.reports, host.config.state_dir.join(REPORTS_DIR));
         let mine = SeatSettings::parse(&j.settings).unwrap();
         assert_eq!(mine.default.as_deref(), Some(PRIMARY));
         assert_eq!(mine.profiles.keys().collect::<Vec<_>>(), [PRIMARY]);

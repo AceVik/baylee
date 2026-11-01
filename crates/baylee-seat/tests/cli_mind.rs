@@ -370,8 +370,8 @@ async fn the_cli_runs_locked_down_with_only_what_it_needs() {
     only_the_allowlist(start, &rig);
     #[cfg(unix)]
     assert_eq!(
-        start["sid"], true,
-        "it leads a session of its own, with no controlling terminal"
+        start["sid"], false,
+        "it stays in the bridge's session and process group"
     );
 
     let cwd = PathBuf::from(start["cwd"].as_str().unwrap());
@@ -2170,6 +2170,43 @@ fn what_a_start_holds(start: &Value) -> Vec<String> {
     held
 }
 
+/// Every CLI but Junie runs in the bridge's own process group, never in a
+/// session of its own: a signal to that group (a collector stopping its
+/// seat with `SIGTERM`, then `SIGKILL`) reaches the tool too, so it cannot
+/// go on with a paid turn after the bridge was killed. Junie leads a
+/// session of its own
+/// (`junie::junie_holds_one_session_across_turns_and_refuses_every_tool`).
+#[cfg(unix)]
+#[tokio::test]
+async fn a_cli_but_junie_stays_in_the_bridge_s_process_group() {
+    let base = a_priority().await;
+    let ours = rustix::process::getpgrp().as_raw_nonzero().get();
+    for (tool, profile) in [
+        ("stream", cli(json!({"effort": "low"}))),
+        ("codex", one_shot("codex")),
+    ] {
+        let rig = Rig::new(
+            &format!("group-{tool}"),
+            profile,
+            &json!({"steps": [pass(1, "hold")]}),
+        );
+        let mind = rig.mind(Limits::default());
+        let answer = mind
+            .decide(ask(&base, 1, base.view.turn, 20))
+            .await
+            .unwrap();
+        assert_eq!(answer.action, PlayerAction::PassPriority, "{tool}");
+        let starts = rig.starts();
+        assert_eq!(starts.len(), 1, "{tool}: {starts:?}");
+        assert_eq!(starts[0]["sid"], false, "{tool}: no session of its own");
+        assert_eq!(
+            starts[0]["pgid"], ours,
+            "{tool}: in the bridge's process group"
+        );
+        drop(mind);
+    }
+}
+
 /// The game's id, which the bridge keeps to key its own state, is told to
 /// no CLI: not in the session directory's name (the working directory),
 /// not in an argument, not in a variable, not in the message it reads or
@@ -2302,4 +2339,32 @@ async fn a_cli_s_lookup_asks_again_without_spending_a_try() {
     assert_eq!(filed[0].profile.as_deref(), Some("cc"));
     let argv = rig.starts()[0]["argv"].to_string();
     assert!(argv.contains("report") && argv.contains("lookup"), "{argv}");
+}
+
+/// A CLI's answer that answers beside a lookup is taken in that one reply:
+/// the lookup is passed over, no second message is sent, and the report
+/// beside them is filed.
+#[tokio::test]
+async fn a_cli_s_answer_beside_a_lookup_is_taken() {
+    let base = a_priority().await;
+    let rig = Rig::new(
+        "lookup-beside",
+        cli(json!({})),
+        &json!({"steps": [
+            {"kind": "answer", "answer": {"ask": "q7", "pick": ["p"], "lookup": "Island",
+                                          "report": "The pass came too early."}},
+            pass(7, "never asked"),
+        ]}),
+    );
+    let mind = rig.mind(Limits::default());
+    let answer = mind
+        .decide(ask(&base, 7, base.view.turn, 30))
+        .await
+        .unwrap();
+    assert_eq!(answer.action, PlayerAction::PassPriority);
+    let messages = rig.messages();
+    assert_eq!(messages.len(), 1, "no lookup message: {messages:?}");
+    let filed = mind.reports(&base.context.game_id, base.context.seat.get());
+    assert_eq!(filed.len(), 1);
+    assert_eq!(filed[0].report.observed, "The pass came too early.");
 }

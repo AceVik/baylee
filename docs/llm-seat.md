@@ -449,11 +449,14 @@ before playing.
   named `baylee-cli-<seat>-<random>` (the store of a tool that keeps its
   conversations on disk `baylee-cli-store-<seat>-<random>`, 122 random
   bits), never after the game: a tool may tell its provider the directory
-  it runs in. The process runs in a session of its own, without the
-  bridge's controlling terminal (`setsid`, `cli::launch::detach`): nothing
-  it starts can read the terminal the bridge was started from (below,
-  Junie's `systemd-inhibit`). It still ends with the bridge: its stdin
-  closes, and the bridge kills it when its session drops. The
+  it runs in. The process runs in the bridge's process group, so a
+  signal to that group (a collector stopping its seat, `SIGKILL`
+  included) ends it with the bridge. Junie's alone runs in a session of
+  its own, without the bridge's controlling terminal (`setsid`,
+  `cli::launch::detach`, `Dialect::detaches`): nothing it starts can read
+  the terminal the bridge was started from (below, Junie's
+  `systemd-inhibit`). Every tool ends with the bridge: its stdin closes,
+  and the bridge kills it when its session drops. The
   environment is cleared and given only `PATH`, `HOME`, `USER`, `LOGNAME`,
   `TMPDIR` (the session's own), `LANG`/`LC_ALL=C.UTF-8`, `TERM=dumb`,
   `NO_COLOR=1`, the tool's own login variables where set
@@ -666,10 +669,13 @@ starts `systemd-inhibit --what=sleep … cat` (its `keepAwakeMode` setting,
 polkit asks through `pkttyagent`, which reads the controlling terminal; a
 bridge started in the background of a shell then got `SIGTTIN`, which
 stopped its whole process group (state `T`), the seat's own timeouts
-included. The seat now starts every CLI in a session of its own without a
-controlling terminal (`setsid`), so that agent fails at once and the tool
-goes on; `"keepAwakeMode": "Off"` in `~/.junie/settings.json` keeps Junie
-from starting it at all.
+included. The seat now starts Junie in a session of its own without a
+controlling terminal (`setsid`, `Dialect::detaches`), so that agent fails
+at once and the tool goes on; `"keepAwakeMode": "Off"` in
+`~/.junie/settings.json` keeps Junie from starting it at all. Only Junie:
+a process in a session of its own also leaves the bridge's process group,
+which a collector stops with `SIGTERM` and then `SIGKILL`, so every other
+CLI stays in that group and ends with it however the bridge ends.
 
 What each dialect passes to take the tool's own agent away, how it holds
 a conversation, and how its usage is booked. **Docs** marks what the
@@ -800,11 +806,22 @@ seat adds what only it may say, never the model (01.11.2026,
 
 Then:
 
-- one JSON line in `<--transcripts>/reports.jsonl`: `source`, `game_id`,
-  `seat`, `turn`, `model`, `profile`, `question`, the report as a bug
-  report carries it (below) without `log_line`, `lookups` (made for that
-  question) and `unix`. The seats of a table may share the directory; each
-  line is one write.
+- one JSON line in `reports.jsonl`: `source`, `game_id`, `seat`, `turn`,
+  `model`, `profile`, `question`, the report as a bug report carries it
+  (below) without `log_line`, `lookups` (made for that question) and
+  `unix`, written as it is filed, so a report the gateway never takes (a refusal,
+  `429` or `503`, no answer within 15 s, a link that never came back) is
+  still on the machine that played. Every language-model seat has the
+  file (`config::Paths::reports`): in `join --reports-dir` where it is
+  given, else in the `--transcripts` directory, else in `llm-reports/`
+  beside the settings file, where its spend book is (a seat the desktop
+  client starts: `~/.config/baylee/llm-reports/` on Linux; a named
+  `--config` elsewhere keeps the player's config directory out of it). A
+  fallback that takes over writes to the model's. A seat agent hands its
+  bridges `--reports-dir <state>/reports`. The bridge never reads the
+  file back, sends it or cuts it short: at most 25 lines a game, until
+  whoever owns the machine removes it (`docs/privacy.md`). The seats of a
+  table may share the directory; each line is one write.
 - when the game ends (won, lost, conceded, or the room closed under the
   seat), **one bug report a report** to the gateway's `POST /reports`
   (`docs/feedback.md`) under the seat's own session, in the order filed, so
@@ -827,7 +844,10 @@ Then:
   `oracle_quote_matches` and `rules_format_ok` are left out where they are
   absent (above), `severity` and `confidence` are `null` where the model
   did not say them, an `oracle_quote` is left out of a card the model
-  named without one. Triage reads it as a
+  named without one. `model` and `profile` are the mind that filed the
+  report (after a fallback took over, its own), and the text names the
+  seat as its log and its model do (`P2`; `seat` is the view's number,
+  from 0) and the mind. Triage reads it as a
   player's report: the model's claim, never an instruction, checked
   against the Comprehensive Rules and the Oracle; the seat's checks only
   sort. Each text is held to 20,000 characters and each `client` to
@@ -896,8 +916,11 @@ Which chairs send how, and with which record (`link::Reporter`):
   game**, and only about that game (`docs/feedback.md`). That limit stays,
   so this route sends the game's reports in one bug report
   (`reports::bundle`): `client.reports` instead of `client.report`, each
-  item the same object with the same flat fields and its own
-  `record_tail`; `client.record_sha256`, `game_id` and the log once. One
+  item the same object with the same flat fields, its own `record_tail`
+  and the `model` and `profile` of the mind that filed it;
+  `client.model` and `client.profile` are the first report's, the text
+  names every mind in order, and `client.record_sha256`, `game_id` and
+  the log are there once. One
   report alone goes exactly as under a session. Should the reports alone
   pass the bound of `client`, the last are left out and
   `client.reports_omitted` counts them. A gateway from before the route
@@ -916,10 +939,15 @@ files such reports is not wired yet.
 
 **Lookups** (`baylee_seat::lookup`). An answer of only `ask` and `lookup`
 asks for a card; the seat answers with its text and asks the same
-question again, which costs none of the question's two tries. At most 3
+question again, which costs none of the question's two tries. An answer
+that also answers (`pick`, `attacks`, `blocks`, `prevention`, `number`,
+`piles`, `name` or a concession, `Decision::answers`) is taken as it is,
+and its lookup is passed over: not made, not counted, and a
+`lookup_passed_over` line of the mind's transcript. At most 3
 lookups a question and 30 a game a seat, and none with less than 13 s of
 the question left; past them the field is passed over (an answer that also
-answers is taken, else it is asked again, "no lookups left …"). The text
+answers is taken, else it is asked again, "no lookups left …"). A name is
+read to its first 200 characters (`lookup::NAME_CHARS`). The text
 comes from the nearest source that has it, under its name:
 
 1. **Baylee card text**: the English Oracle compiled into this build, every
@@ -935,12 +963,20 @@ comes from the nearest source that has it, under its name:
    `api.scryfall.com`; no redirect is followed. The requests carry the
    card's name and nothing else, under `User-Agent: baylee-seat/<version>`
    and `Accept: application/json;q=0.9,*/*;q=0.8`, one at a time and
-   100 ms apart within a process (`docs/legal.md` §3: at most ten a
-   second). What was fetched is kept a week (at least the day Scryfall
+   100 ms apart (`docs/legal.md` §3: at most ten a second) for every
+   seat of the machine: within a process under a lock in memory, and
+   across the processes that keep the same cache directory (a collector's
+   seats) under an exclusive lock on `scryfall/.requests.lock` there,
+   which holds when the last request ended (`lookup::scryfall::Turn`). A
+   request waits for that lock at most its own time (≤ 10 s) and then
+   fails the lookup, never longer; where the file cannot be opened or
+   locked the spacing holds within the process only. What was fetched is
+   kept a week (at least the day Scryfall
    asks for) in memory and in `scryfall/` of the user's cache directory
    (`~/.cache/baylee/scryfall` on Linux), one file a card written through
-   a temporary file, for this machine's seats only; "not found" is kept,
-   a failure is not.
+   a temporary file, for this machine's seats only; "not found" is kept
+   in memory only (a model's made-up names never fill the directory), a
+   failure not at all.
 
 A failed source is a sentence in the text (`lookup failed: …`), never the
 mind's error. Each lookup, with the text the model was told, is a line of

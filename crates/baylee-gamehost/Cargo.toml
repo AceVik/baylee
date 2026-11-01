@@ -10,6 +10,9 @@ workspace = true
 
 [dependencies]
 baylee-ai.workspace = true
+# The build a record's header names, which decides how a replay checks it
+# (`record::this_build`). No dependencies of its own.
+baylee-build.workspace = true
 baylee-cards.workspace = true
 baylee-cards-dsl.workspace = true
 baylee-core.workspace = true

@@ -195,10 +195,13 @@ fn nav(commands: &mut Commands, view: &View, kit: Kit, side: bool) -> Entity {
             &format!("\u{2039} {}", Phrase::Back.text(lang)),
             controls::Weight::Secondary,
             controls::Live::Yes,
-            // Esc is its key only before sign-in, where no header stands
-            // over the screen; signed in, Settings' Esc is nothing
-            // (`KEYBOARD.md` §2.5) and the header leaves it.
-            (state.lobby.token().is_none() && !state.lobby.offline()).then_some("Esc"),
+            // Esc is its key only where no header stands over the screen:
+            // before sign-in, and over a table (`lobby::table_settings`);
+            // signed in, Settings' Esc is nothing (`KEYBOARD.md` §2.5) and
+            // the header leaves it.
+            (state.settings_over_table()
+                || (state.lobby.token().is_none() && !state.lobby.offline()))
+            .then_some("Esc"),
             (Press::Settings(SettingsPress::CloseSettings), stop("back")),
         );
         commands.entity(holder).add_child(back);
@@ -209,9 +212,10 @@ fn nav(commands: &mut Commands, view: &View, kit: Kit, side: bool) -> Entity {
     let search = search_field(commands, state, kit);
     commands.entity(holder).add_child(search);
     let shown = state.settings_section();
+    // Over a table, only what leaves the table where it is.
     let offered: Vec<Section> = Section::ALL
         .into_iter()
-        .filter(|s| s.offered(view.builds))
+        .filter(|s| s.offered(view.builds) && state.settings_offered(*s))
         .collect();
     for (i, section) in offered.iter().enumerate() {
         let on = *section == shown && state.settings_query().is_empty();
@@ -592,7 +596,9 @@ fn scope_badge(commands: &mut Commands, kit: Kit, scope: Scope, lang: Lang) -> E
 /// shows that section.
 fn results(out: &mut Out, view: &View, query: &str) {
     let lang = out.lang;
-    let found = settings_map::search(query, lang, view.builds, view.monitors);
+    let mut found = settings_map::search(query, lang, view.builds, view.monitors);
+    // A row in a section not offered here (over a table) is not found.
+    found.retain(|row| view.state.settings_offered(settings_map::of(*row).section));
     if found.is_empty() {
         let none = out.words(Phrase::SettingsNoMatch.text(lang), true);
         out.commands.entity(out.column).add_child(none);

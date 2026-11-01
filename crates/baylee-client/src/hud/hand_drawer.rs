@@ -165,7 +165,7 @@ pub fn register(app: &mut App) {
 
 /// Stands the tab on a phone and takes it down elsewhere; rebuilt only when
 /// what it says changes.
-#[allow(clippy::needless_pass_by_value)] // a Bevy system
+#[allow(clippy::needless_pass_by_value, clippy::too_many_arguments)] // a Bevy system
 pub fn sync_hand_tab(
     mut commands: Commands,
     phase: Option<Res<State<DuelPhase>>>,
@@ -174,8 +174,11 @@ pub fn sync_hand_tab(
     (windows, ui): (Query<&Window>, Option<Res<UiScale>>),
     mut revision: ResMut<HandTabRevision>,
     standing: Query<Entity, With<HandTab>>,
+    lobby: Option<Res<crate::LobbyState>>,
 ) {
-    let up = phase.is_some_and(|p| !matches!(p.get(), DuelPhase::Closed));
+    // Down while the settings cover the table (`lobby::table_settings`).
+    let up = phase.is_some_and(|p| !matches!(p.get(), DuelPhase::Closed))
+        && !crate::lobby::table_settings::covers_the_table(lobby.as_deref());
     let next = if up && on_a_phone(&windows, ui.as_deref()) {
         let cards = duel.view.as_ref().map_or(0, |v| v.hand.len());
         HandTabRevision {

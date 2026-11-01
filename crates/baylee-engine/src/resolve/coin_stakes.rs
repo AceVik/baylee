@@ -1,7 +1,7 @@
 //! Winner-controlled coin contests, with replacements settled between life instructions.
 use super::{
-    Amount, AwaitingOp, Cause, Flow, GameEvent, GameState, Pending, PlayerId, PlayerRel,
-    Resolution, YesNoPrompt, amount2, life, players_of, resolving_ability, run,
+    Amount, AwaitingOp, Cause, Flow, GameState, Pending, PlayerId, PlayerRel, Resolution,
+    YesNoPrompt, amount2, life, players_of, resolving_ability, run,
 };
 
 #[derive(Clone, Copy, Debug, Hash)]
@@ -62,11 +62,21 @@ pub(super) fn start(
     };
     match contest.stage {
         Stage::Flip => {
-            contest.won = state.rng.below(2) == 0;
-            state.journal.record(GameEvent::CoinFlipped {
-                player: res.controller,
-                won: contest.won,
-            });
+            match super::coin::flip(
+                state,
+                res,
+                res.controller,
+                super::CoinContinuation::LifeExchange,
+            ) {
+                super::coin::Flip::Outcome(won) => contest.won = won,
+                super::coin::Flip::Wait(pending) => {
+                    // A replacement asks which result to keep (CR 614.1a):
+                    // the contest waits at its flip, with its opponent and
+                    // stake, for `resume_flip` to hand it the kept one.
+                    res.coin_stake = Some(contest);
+                    return Some(*pending);
+                }
+            }
             contest.stage = Stage::FirstLifeChange;
         }
         Stage::FirstLifeChange => {
@@ -104,6 +114,19 @@ pub(super) fn start(
     // The interpreter handles queued draw replacements before re-entering this instruction.
     res.coin_stake = Some(contest);
     None
+}
+
+/// The result a replacement kept for the contest's flip (CR 614.1a): the
+/// contest waiting at its flip goes on from it, to its life changes. It is
+/// not flipped again, and its stake and opponent are the ones it had.
+pub(super) fn resume_flip(state: &mut GameState, res: &mut Resolution, won: bool) -> Flow {
+    if let Some(contest) = res.coin_stake.as_deref_mut() {
+        contest.won = won;
+        contest.stage = Stage::FirstLifeChange;
+    }
+    // The instruction is still the one at `pc`, and `start` takes the
+    // contest back up from `res.coin_stake`.
+    run(state, res)
 }
 
 pub(super) fn answer(state: &mut GameState, res: &mut Resolution, again: bool) -> Option<Flow> {

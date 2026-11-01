@@ -52,6 +52,11 @@ use tokio_tungstenite::tungstenite::Message;
 /// The profiles file in the state directory.
 pub const PROFILES_FILE: &str = "hosted.json";
 
+/// The directory in the state directory every bridge writes its model's
+/// reports to as it files them (`reports.jsonl`, `baylee-seat join
+/// --reports-dir`), whether or not the gateway takes them.
+pub const REPORTS_DIR: &str = "reports";
+
 /// How often the seat agent looks for checks that are due.
 const TICK: Duration = Duration::from_secs(5);
 
@@ -670,6 +675,7 @@ impl Host {
                 deck_text,
                 settings: String::new(),
                 ledger: PathBuf::new(),
+                reports: self.config.state_dir.join(REPORTS_DIR),
                 fallbacks: Vec::new(),
                 heard: None,
             }),

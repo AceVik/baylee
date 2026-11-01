@@ -38,6 +38,11 @@ pub const TIMEOUT: Duration = Duration::from_secs(10);
 /// for which a lookup is made: a quarter of it for each request.
 pub const LEAST: Duration = Duration::from_secs(8);
 
+/// The most of a name a lookup reads, in characters: past the longest
+/// card name there is (141), and no more of a model's words go to a
+/// source, a transcript or the next message.
+pub const NAME_CHARS: usize = 200;
+
 /// The source headings a lookup's text is told under.
 pub mod source {
     /// This build's card text.

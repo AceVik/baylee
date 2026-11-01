@@ -167,12 +167,16 @@ mod tests {
     }
 
     use super::super::tests::{encode, lines};
-    use super::super::{Line, Replayed, hex, replay};
+    use super::super::{Line, Replayed, hex, replay_exact};
     use baylee_core::ids::PlayerId;
 
     // Captured on origin/main 49c9a4d8f with both original golden values intact.
     // House policy is intentionally not rerun: changing a strategy must not
-    // change the table whose public encoding this module pins.
+    // change the table whose public encoding this module pins. Replayed
+    // exactly, every engine hash checked: its header names the build `test`,
+    // which a build-aware replay would hold to `seen` alone, and `seen` is
+    // what these tests pin rather than what may check them
+    // (`seen/README.md`).
     const ACCEPTANCE_RECORD: &[u8] = include_bytes!("seen/acceptance-seed3.jsonl");
 
     /// The acceptance table at seed 3, played, and cut after its first 40
@@ -194,7 +198,7 @@ mod tests {
             }
         }
         assert_eq!(inputs, 40, "the game ran for fewer than 40 inputs");
-        let replayed = replay(&encode(&cut)).expect("the cut record replays");
+        let replayed = replay_exact(&encode(&cut)).expect("the cut record replays");
         assert_eq!(replayed.inputs, 40);
         (cut, replayed)
     }
@@ -278,7 +282,7 @@ mod tests {
     /// The acceptance game at seed 3 played to its end: graveyards full,
     /// a card in a graveyard.
     fn finished() -> Replayed {
-        replay(ACCEPTANCE_RECORD).expect("the fixed historical record replays")
+        replay_exact(ACCEPTANCE_RECORD).expect("the fixed historical record replays")
     }
 
     /// `seen` of the finished game, pinned as [`GOLDEN`] is, for a table

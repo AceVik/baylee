@@ -258,6 +258,21 @@ fn a_tapped_trigger_answers_for_any_permanent_its_filter_names() {
     assert_eq!(event_object_of(&tapped(theirs)), Some(theirs), "that land");
 }
 
+#[test]
+fn an_untapped_permanent_is_the_event_object() {
+    let mut state = state();
+    let artifact = permanent(&mut state, them(), "Sol Ring");
+    let untapped = GameEvent::ObjectUntapped {
+        object: artifact,
+        cause: crate::event::Cause::Effect,
+    };
+    assert_eq!(
+        event_object_of(&untapped),
+        Some(artifact),
+        "that permanent's controller"
+    );
+}
+
 /// Hypnotic Specter's "deals damage to an opponent" is any damage, where
 /// the combat trigger sees combat damage only. Fungusaur's "is dealt
 /// damage" is one event for all the combat damage of a step (CR 510.2,

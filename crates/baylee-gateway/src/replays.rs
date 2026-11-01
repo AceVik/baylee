@@ -677,7 +677,7 @@ mod tests {
             files.len()
         );
         for (function, only) in [
-            (["for", "seated"].join("_"), "report.rs"),
+            (["for", "seated"].join("_"), "report/mod.rs"),
             (["for", "projection"].join("_"), "replays.rs"),
         ] {
             let (sites, named) = callers(&src, &function);

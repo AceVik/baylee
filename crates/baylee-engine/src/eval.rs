@@ -34,12 +34,13 @@ pub use conditions::{
     condition_holds, condition_holds_with_context, controlled_matching,
     controlled_matching_with_context, intervening_if,
 };
+pub(crate) use protection::protection_from_exiled_types;
 pub use protection::{
     permits_enchantment, protected_from, untargetable_by, untargetable_by_source,
 };
 pub use relations::{controller_of_attached, defending_player_of, most_life, players};
 pub use targets::{
-    choice_options, choice_options_with_context, stack_target_options,
+    choice_options, choice_options_with_context, first_target_players, stack_target_options,
     stack_target_options_relative, target_options, target_options_with_context,
     target_player_options, targeted_players,
 };
@@ -411,6 +412,12 @@ pub fn matches_projected_with_context(
                 .into_iter()
                 .filter_map(|id| state.object(id))
                 .any(|exiled| exiled.characteristics().name == chars.name)
+        }
+        Filter::SharesColorWithExiledWithSource => {
+            linked_exile_cards(state, you, context, None, &Filter::Any)
+                .into_iter()
+                .filter_map(|id| state.object(id))
+                .any(|exiled| exiled.characteristics().colors.intersects(chars.colors))
         }
         Filter::CmcEqualsYourUnspentMana => state
             .players

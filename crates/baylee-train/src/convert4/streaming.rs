@@ -185,7 +185,7 @@ pub(super) fn terminal_targets(
     // training labels. Future information never reaches encode_state4.
     // A record from another build fails at its opening hash; only callers
     // whose labels carry no behaviour probabilities may check it by `seen`.
-    let (engine, check) = match baylee_gamehost::record::replay(record) {
+    let (engine, check) = match baylee_gamehost::record::replay_exact(record) {
         Ok(checked) if checked.ended => (checked.engine, ReplayCheck::Exact),
         Ok(_) => return Err("record has no verified terminal state".into()),
         Err(baylee_gamehost::record::ReplayError::Diverged { n: None, .. }) if across_builds => (

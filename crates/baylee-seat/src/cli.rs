@@ -55,8 +55,9 @@
 //!
 //! The process is the resolved program run directly with an argument
 //! array, never through a shell (a shell function of the same name never
-//! runs), in a session of its own without a controlling terminal
-//! ([`launch::detach`]); in a fresh directory under the OS's temp
+//! runs), in the bridge's process group (Junie alone in a session of its
+//! own without a controlling terminal, [`launch::detach`]); in a fresh
+//! directory under the OS's temp
 //! directory that only this user can read, removed with it; with the
 //! environment cleared
 //! and only [`COMMON`], `TMPDIR` (the session's own), a fixed locale and

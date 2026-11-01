@@ -16,7 +16,7 @@ pub enum SeenIn {
     Hand,
     /// A teammate's hand its owner is showing this seat (#265).
     SharedHand,
-    /// A hand this seat inspects through controlling its player (CR 720.4).
+    /// A hand this seat inspects through controlling its player (CR 722.4).
     ControlledHand,
     /// The battlefield.
     Battlefield,

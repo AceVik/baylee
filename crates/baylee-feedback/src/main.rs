@@ -25,7 +25,8 @@ use anyhow::{Context as _, bail};
 use axum::serve::ListenerExt as _;
 use tracing_subscriber::EnvFilter;
 
-const USAGE: &str = "usage: baylee-feedback [admin add <name> | admin remove <name> | admin list]";
+const USAGE: &str =
+    "usage: baylee-feedback [admin add <name> | admin remove <name> | admin list | export-reports]";
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -35,7 +36,7 @@ async fn main() -> anyhow::Result<()> {
     // the migrator's and Postgres's notices never bury the one line that
     // says what happened (a refused password went unseen that way).
     let filter = match args.first() {
-        Some(&"admin") => EnvFilter::new("warn"),
+        Some(&"admin" | &"export-reports") => EnvFilter::new("warn"),
         _ => EnvFilter::from_default_env(),
     };
     tracing_subscriber::fmt()
@@ -45,6 +46,7 @@ async fn main() -> anyhow::Result<()> {
     match args.as_slice() {
         [] => serve().await,
         ["admin", rest @ ..] => admin(rest).await,
+        ["export-reports"] => export_reports().await,
         ["-h" | "--help" | "help"] => {
             println!("{USAGE}");
             Ok(())
@@ -63,6 +65,18 @@ async fn database() -> anyhow::Result<sea_orm::DatabaseConnection> {
         .and_then(|p| p.parse().ok())
         .unwrap_or(4);
     baylee_feedback::connect(&url, pool).await
+}
+
+/// `export-reports`: the open reports as JSON Lines on standard output,
+/// for Central's `--import-reports-stdin` (`docs/feedback.md` §"The one-time
+/// copy to Central"); the counts on standard error.
+async fn export_reports() -> anyhow::Result<()> {
+    let db = database().await?;
+    let stdout = std::io::stdout();
+    let mut out = std::io::BufWriter::new(stdout.lock());
+    let (count, left_out) = baylee_feedback::export::export_reports(&db, &mut out).await?;
+    eprintln!("{count} reports written, {left_out} left out");
+    Ok(())
 }
 
 async fn serve() -> anyhow::Result<()> {

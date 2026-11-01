@@ -62,7 +62,7 @@ pub(crate) mod seatstate;
 mod secret;
 mod sessions;
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 
 pub(crate) use openai::json_object;
 pub use secret::{Secret, scrub};
@@ -241,6 +241,13 @@ pub struct Settings {
     /// A directory for the mind's own transcript: every message it sent and
     /// every reply, one JSON line each.
     pub transcripts: Option<PathBuf>,
+    /// The directory its reports file (`reports.jsonl`, [`crate::reports`])
+    /// is written to as each report is filed, whether or not the gateway
+    /// takes the game's bug report later: `join --reports-dir`, else the
+    /// transcripts', else beside the settings file
+    /// ([`crate::config::Paths::reports`]). `None`: the reports are kept
+    /// for the bridge alone.
+    pub reports: Option<PathBuf>,
     /// Whether the game's budgets are a hard limit, as they are under a
     /// reservation in the spend book ([`crate::spend`]): every call is held
     /// at the most it can cost ([`Settings::worst`]) before it is sent, and
@@ -287,6 +294,7 @@ impl Settings {
             spend_calls: cli.then_some(DEFAULT_CLI_CALLS),
             conversation_tokens: 100_000,
             transcripts: None,
+            reports: None,
             hard_limit: false,
             profile: None,
             lookup: None,
@@ -1154,9 +1162,9 @@ impl ApiMind {
             let decision = taken.as_ref().ok().map(|taken| &taken.decision);
             let left = time_left(&request, started);
             let extras = report_and_look_up(&seat, &self.library, &making, decision, left);
-            // A lookup asks the same question again with the card's text;
-            // one that may not be made is passed over, and the answer is
-            // taken if it answers.
+            // A lookup alone asks the same question again with the card's
+            // text; one beside an answer, or one that may not be made, is
+            // passed over, and the answer is taken if it answers.
             let no_lookup = match extras.await {
                 Looked::Made(text) => {
                     looked += 1;

@@ -549,6 +549,7 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         // Living Artifact and Lich, "Whenever you're dealt damage".
         T::PlayerDealtDamage(_) => &["dealt damage"],
         T::BecomesTapped(_) => &["tap"],
+        T::BecomesUntapped(_) => &["untap"],
         T::AbilityActivated { .. } => &["activates"],
         // Badgermole Cub, "Whenever you tap a creature for mana".
         T::TappedForMana { .. } => &["for mana"],

@@ -157,6 +157,34 @@ impl CardDef {
         }
     }
 
+    /// Whether `face` has an ability its controller activates on the
+    /// battlefield that is not a mana ability (CR 605.1a): Karakas's bounce,
+    /// a creature land's animation, Mind Stone's draw. A permanent like that
+    /// is used for more than mana, so a mana planner taps it last
+    /// (`manaplan::prioritize`). Statics (Urborg) and abilities activated
+    /// from elsewhere (cycling) do not count: tapping for mana costs them
+    /// nothing.
+    #[must_use]
+    pub fn activates_beyond_mana(&self, face: usize) -> bool {
+        use crate::ability::{AbilityDef, ActivationZone};
+        self.abilities_for_face(face).iter().any(|ability| {
+            !ability.is_mana_ability()
+                && matches!(
+                    ability,
+                    AbilityDef::Activated {
+                        zone: ActivationZone::Battlefield | ActivationZone::BattlefieldOwner,
+                        ..
+                    } | AbilityDef::ActivatedConditional {
+                        zone: ActivationZone::Battlefield | ActivationZone::BattlefieldOwner,
+                        ..
+                    } | AbilityDef::ModalActivated {
+                        zone: ActivationZone::Battlefield | ActivationZone::BattlefieldOwner,
+                        ..
+                    }
+                )
+        })
+    }
+
     /// Whether this is a split card with one shared type line (CR 709.5), a
     /// Room: two halves, each a door that is locked or unlocked on the
     /// battlefield.

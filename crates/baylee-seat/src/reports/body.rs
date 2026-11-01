@@ -301,12 +301,17 @@ fn many(
         .zip(tails)
         .map(|(f, tail)| {
             let mut report = f.value(attached.and_then(|a| a.line_of(f)));
+            report["model"] = json!(f.model);
+            report["profile"] = json!(f.profile);
             if let Some(tail) = tail {
                 report["record_tail"] = tail.clone();
             }
             report
         })
         .collect();
+    // `model` and `profile` are the mind that filed the first report; after
+    // a fallback took over each report names its own, and the text every
+    // mind in order ([`minds`]).
     let mut client = client(first, attached, sha);
     client["reports"] = json!(reports);
     if left > 0 {
@@ -413,17 +418,12 @@ fn summary(filed: &[&Filed], attached: Option<&Attached<'_>>) -> String {
         ("reports", "Each one is")
     };
     let mut text = format!(
-        "Untrusted: {what} written by a language model while it {} seat {} (model {}{}). \
-         {each} the model's own claim of a rules or engine error: check it against the \
-         Comprehensive Rules, the card's Oracle text and the game's record.\n",
+        "Untrusted: {what} written by a language model while it {} P{} ({}). {each} the \
+         model's own claim of a rules or engine error: check it against the Comprehensive \
+         Rules, the card's Oracle text and the game's record.\n",
         first.source.did(),
-        first.seat,
-        first.model,
-        first
-            .profile
-            .as_deref()
-            .map(|profile| format!(", profile {profile}"))
-            .unwrap_or_default(),
+        u16::from(first.seat) + 1,
+        minds(filed),
     );
     if let Some(attached) = attached {
         text.push_str(&attached.note());
@@ -444,6 +444,28 @@ fn summary(filed: &[&Filed], attached: Option<&Attached<'_>>) -> String {
         used += size;
     }
     text
+}
+
+/// The minds that filed `filed`, in the order each first did: "model X,
+/// profile p", and "; then model Y, …" for a fallback that took over. So
+/// the text names the mind of every report, where `client.model` and
+/// `client.profile` are the first's and each entry of `client.reports`
+/// names its own.
+fn minds(filed: &[&Filed]) -> String {
+    let mut seen: Vec<(&str, Option<&str>)> = Vec::new();
+    for f in filed {
+        let mind = (f.model.as_str(), f.profile.as_deref());
+        if !seen.contains(&mind) {
+            seen.push(mind);
+        }
+    }
+    seen.iter()
+        .map(|(model, profile)| match profile {
+            Some(profile) => format!("model {model}, profile {profile}"),
+            None => format!("model {model}"),
+        })
+        .collect::<Vec<_>>()
+        .join("; then ")
 }
 
 /// One report in the text, numbered `n` among several, and after which

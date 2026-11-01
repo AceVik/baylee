@@ -552,6 +552,16 @@ fn a_keyword_whose_reminder_spells_out_an_ability_is_an_activated_one() {
     );
 }
 
+#[test]
+fn a_life_cost_equip_line_keeps_its_printed_sentence() {
+    let equip = "Equip—Pay 3 life. (Pay 3 life: Attach to target creature you control. \
+                 Equip only as a sorcery.)";
+    let ability = baylee_cards_dsl::equip!(baylee_cards_dsl::cost!(PayLife(3)));
+    let oracle = format!("Equipped creature gets +1/+1 for each Swamp you control.\n{equip}");
+    assert_eq!(line_shape(equip), LineShape::Activated);
+    assert_eq!(map(&[ability], &oracle).lines, [Some(1)]);
+}
+
 /// Three loyalty abilities, printed the way a walker prints them.
 const WALKER: &str = "+2: Look at the top card of target player's library.\n\
                       0: Draw three cards, then put two cards back.\n\

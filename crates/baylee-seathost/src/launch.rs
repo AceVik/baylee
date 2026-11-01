@@ -42,6 +42,10 @@ pub struct SeatJob {
     pub settings: String,
     /// That profile's own spend book.
     pub ledger: PathBuf,
+    /// The directory the bridge writes its model's reports to as it files
+    /// them (`reports.jsonl`, `--reports-dir`): the seat agent's own, so a
+    /// report the gateway did not take stays with the operator.
+    pub reports: PathBuf,
     /// The fallbacks that stand by in the game, in the order they take
     /// over.
     pub fallbacks: Vec<FallbackJob>,
@@ -281,7 +285,8 @@ impl ProcessLauncher {
     }
 
     /// `baylee-seat join` for `job`, its files at `files`: the settings
-    /// file of the profile that plays, its book, the chair's name and deck,
+    /// file of the profile that plays, its book, the directory of its
+    /// reports file, the chair's name and deck,
     /// and each fallback's file and book, in order, where any stands by
     /// (each `--fallback-config` and `--fallback-ledger` with the
     /// `--fallback-profile` at its place). Nothing else:
@@ -300,6 +305,8 @@ impl ProcessLauncher {
             .args(["--profile", &job.plays])
             .arg("--ledger")
             .arg(&job.ledger)
+            .arg("--reports-dir")
+            .arg(&job.reports)
             .args(["--name", &job.name]);
         if let Some(deck) = &files.deck {
             command.arg("--deck").arg(deck);
@@ -632,6 +639,7 @@ mod tests {
             deck_text: None,
             settings: String::new(),
             ledger: PathBuf::from("ledger.json"),
+            reports: PathBuf::from("reports"),
             fallbacks: Vec::new(),
             heard: None,
         };
@@ -676,6 +684,7 @@ mod tests {
             deck_text: None,
             settings: r#"{"default":"settings-of-the-player"}"#.into(),
             ledger: PathBuf::from("/state/spend/own.json"),
+            reports: PathBuf::from("/state/reports"),
             fallbacks: fallback
                 .then(|| FallbackJob {
                     profile: "backup".into(),
@@ -741,6 +750,8 @@ mod tests {
                 "primary",
                 "--ledger",
                 "/state/spend/own.json",
+                "--reports-dir",
+                "/state/reports",
                 "--name",
                 "Model-A",
                 "--fallback-profile",

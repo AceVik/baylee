@@ -43,6 +43,15 @@ impl Tx<'_> {
         if let Some(rest) = line.strip_prefix("Flashback:") {
             return self.flashback(rest);
         }
+        if let Some(rest) = line.strip_prefix("Entwine:") {
+            if rest.contains(':') {
+                return self.deny(format!("an `Entwine` with extra fields `{rest}`"));
+            }
+            let cost = self.cost_expr(rest)?;
+            self.body.entwine = Some(format!("Some({cost})"));
+            self.body.notes.push("entwine".to_string());
+            return Some(());
+        }
         if let Some(rest) = line.strip_prefix("Affinity:") {
             return self.affinity(rest);
         }
@@ -437,6 +446,28 @@ impl Tx<'_> {
         let Some((event, mut p)) = Params::parse(spec) else {
             return self.deny("an `R:` line with no `$` in it".to_string());
         };
+        if matches!(event.as_str(), "GameLoss" | "GameWin") {
+            p.drop_prose();
+            let loss = event == "GameLoss";
+            let expected_player = if loss { "You" } else { "Opponent" };
+            if p.take("ActiveZones").as_deref() != Some("Battlefield")
+                || p.take("ValidPlayer").as_deref() != Some(expected_player)
+                || p.take("Layer").as_deref() != Some("CantHappen")
+                || !matches!(p.take("Secondary").as_deref(), None | Some("True"))
+                || !p.exhausted()
+            {
+                return self.deny(format!("replacement `R: Event$ {event}`"));
+            }
+            let modifier = if loss {
+                "Modifier::NamedPlayersCantLose(PlayerRel::You)"
+            } else {
+                "Modifier::PlayersCantWin(PlayerRel::EachOpponent)"
+            };
+            self.body
+                .abilities
+                .push(Self::static_expr("Filter::Any", modifier));
+            return Some(());
+        }
         if event == "DamageDone" && p.peek("ValidCause") == Some("Spell.IsTargeting Self") {
             return self.bronze_horse_prevention(p);
         }

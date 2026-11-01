@@ -83,6 +83,12 @@ impl Dialect for Junie {
         CliTool::Junie
     }
 
+    /// Its `systemd-inhibit` has polkit ask through `pkttyagent`, which
+    /// reads the controlling terminal ([`super::launch::detach`]).
+    fn detaches(&self) -> bool {
+        true
+    }
+
     fn files(&self, _settings: &Settings, _system: &str) -> Vec<(&'static str, String)> {
         vec![(GUIDELINES, String::new())]
     }

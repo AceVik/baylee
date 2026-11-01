@@ -356,7 +356,8 @@ impl<L: CardLookup> Engine<L> {
             if self.filter_dungeon_plays() {
                 continue;
             }
-            // A player controlling another player cannot choose an outside card (CR 723.4).
+            // A player controlling another player cannot choose an outside card: what
+            // is outside the game is visible only to the controlled player (CR 722.4).
             if let Pending::ChooseCards {
                 player,
                 prompt: ChoicePrompt::Wish,
@@ -815,7 +816,8 @@ impl<L: CardLookup> Engine<L> {
             }
             Step::DeclareBlockers if self.combat_declared != CombatDeclared::Blockers => {
                 let after = match self.combat_declared {
-                    CombatDeclared::BlockersBy(seat) => Some(seat),
+                    CombatDeclared::BlockersBy(seat)
+                    | CombatDeclared::TaxDeclined { after: Some(seat) } => Some(seat),
                     _ => None,
                 };
                 let defending = match (self.next_defending_player(after), after) {
@@ -883,8 +885,13 @@ impl<L: CardLookup> Engine<L> {
             return;
         }
         let active = self.state.turn.active;
-        let blockers = combat::block_options(&self.state, defending);
         let rules = combat::BlockRules::new(&self.state);
+        let mana_reach = if rules.has_mana_tax() {
+            self.attack_mana_reach(defending)
+        } else {
+            0
+        };
+        let blockers = combat::block_options(&self.state, defending, mana_reach);
         let capacity = blockers
             .iter()
             .filter_map(|o| {
@@ -1210,14 +1217,23 @@ impl<L: CardLookup> Engine<L> {
                 winner: None,
                 reason: EndReason::Draw,
             }),
-            [Side::Solo(player)] => Some(GameResult {
-                winner: Some(Victor::Player(*player)),
-                reason: EndReason::LastPlayerStanding,
-            }),
-            [Side::Team(team)] => Some(GameResult {
-                winner: Some(Victor::Team(*team)),
-                reason: EndReason::LastTeamStanding,
-            }),
+            [Side::Solo(player)] if !crate::sba::player_cant_win(&self.state, *player) => {
+                Some(GameResult {
+                    winner: Some(Victor::Player(*player)),
+                    reason: EndReason::LastPlayerStanding,
+                })
+            }
+            [Side::Team(team)]
+                if self.alive_players().into_iter().any(|player| {
+                    self.state.side_of(player) == Side::Team(*team)
+                        && !crate::sba::player_cant_win(&self.state, player)
+                }) =>
+            {
+                Some(GameResult {
+                    winner: Some(Victor::Team(*team)),
+                    reason: EndReason::LastTeamStanding,
+                })
+            }
             _ => None,
         }
     }

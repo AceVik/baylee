@@ -692,7 +692,7 @@ fn a_report_s_text_says_whose_it_is_and_names_its_cards() {
     let client = &body["client"];
     let text = body["text"].as_str().unwrap();
     assert!(
-        text.starts_with("Untrusted: a report written by a language model while it played seat 1"),
+        text.starts_with("Untrusted: a report written by a language model while it played P2 (model TEST-model, profile collector)."),
         "{text}"
     );
     assert!(
@@ -724,6 +724,47 @@ fn a_report_s_text_says_whose_it_is_and_names_its_cards() {
     }
 }
 
+/// The text names the seat as its log and its model do (`P2` for the
+/// view's seat 1), and every mind that filed a report, in order: after a
+/// fallback took over, a chair's one bug report has the first's in
+/// `client.model` and each report names its own; a report of its own
+/// names the mind that filed it.
+#[test]
+fn a_bug_report_names_the_seat_as_its_log_does_and_every_mind() {
+    let mut reports = vec![
+        filed("Bolt dealt 2.", 12),
+        filed_with(report("No trigger.", "603.2"), 14),
+    ];
+    reports[1].model = "TEST-fallback".into();
+    reports[1].profile = Some("backup".into());
+    reports.push(filed_with(report("Wrong mana.", "106.1"), 15));
+    let body = bundle(&reports, None).unwrap();
+    let text = body["text"].as_str().unwrap();
+    assert!(
+        text.starts_with(
+            "Untrusted: reports written by a language model while it played P2 (model \
+             TEST-model, profile collector; then model TEST-fallback, profile backup)."
+        ),
+        "{text}"
+    );
+    let client = &body["client"];
+    assert_eq!(client["model"], "TEST-model");
+    assert_eq!(client["reports"][0]["model"], "TEST-model");
+    assert_eq!(client["reports"][1]["model"], "TEST-fallback");
+    assert_eq!(client["reports"][1]["profile"], "backup");
+    assert_eq!(client["seat"], 1, "the view's number, as each report's");
+    let own = &submissions(&reports, None)[1];
+    assert!(
+        own["text"].as_str().unwrap().starts_with(
+            "Untrusted: a report written by a language model while it played P2 (model \
+             TEST-fallback, profile backup)."
+        ),
+        "{}",
+        own["text"]
+    );
+    assert_eq!(own["client"]["model"], "TEST-fallback");
+}
+
 /// Where a route takes one bug report a game (a chair's), the game's
 /// reports go in one, each with its own fields; one report alone goes as
 /// it goes anywhere.
@@ -741,7 +782,10 @@ fn a_chair_s_reports_go_in_one_each_with_its_fields() {
     let items = client["reports"].as_array().unwrap();
     assert_eq!(items.len(), 2, "each dedupe key once");
     for (item, filed) in items.iter().zip([&reports[0], &reports[2]]) {
-        assert_eq!(item, &filed.value(None));
+        let mut own = filed.value(None);
+        own["model"] = json!(filed.model);
+        own["profile"] = json!(filed.profile);
+        assert_eq!(item, &own, "the report, and the mind that filed it");
         assert_eq!(item["kind"], "wrong_outcome");
         assert!(item["dedupe_key"].is_string());
     }
@@ -778,7 +822,7 @@ fn a_trainer_s_report_says_so_and_what_each_chose() {
         body["text"]
             .as_str()
             .unwrap()
-            .contains("while it watched the trained AI play seat 1")
+            .contains("while it watched the trained AI play P2 (model TEST-model")
     );
     let mut seat = trainer;
     seat.source = Source::LlmSeat;

@@ -227,6 +227,7 @@ fn log_start(log: &Path, pid: u32, args: &[String]) {
                 "cwd_mode": mode(&cwd),
                 "root_mode": cwd.parent().map(mode),
                 "sid": session_leader(),
+                "pgid": process_group(),
             },
         }),
     );
@@ -718,5 +719,18 @@ fn session_leader() -> Option<bool> {
 
 #[cfg(not(unix))]
 fn session_leader() -> Option<bool> {
+    None
+}
+
+/// The id of this process's process group: the one a signal to its
+/// starter's group reaches. `None` off Unix.
+#[cfg(unix)]
+#[expect(clippy::unnecessary_wraps, reason = "the same shape as off Unix")]
+fn process_group() -> Option<i32> {
+    Some(rustix::process::getpgrp().as_raw_nonzero().get())
+}
+
+#[cfg(not(unix))]
+fn process_group() -> Option<i32> {
     None
 }

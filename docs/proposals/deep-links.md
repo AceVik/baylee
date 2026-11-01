@@ -258,8 +258,9 @@ password. That gives a native session and the master key. With the key the
 client reads and checks the account document (gateways, preferences, chat
 archive keys), confirms the restore and buys gateway tickets. Central's
 `docs/native-login.md`: "An enrolled account document is mandatory." The
-password also opens the device's own chat vault for 120 seconds
-(`vault_access::Login::central`); no master key opens that one.
+password also opened the device's own chat vault for 120 seconds
+(`vault_access::Login::central`); no master key opened that one until item 1
+(§"The local chat vault").
 
 **A handoff without the password cannot give the client the same access,
 unless something hands over the master key.** The options:
@@ -390,8 +391,8 @@ What Baylee would need:
   depends on the SDK change above and a new Central pin.
 - The lobby: "Sign in with baylee.app" on Central's form, the pending pairing,
   and the `signin/done` link.
-- No `vault_access::Login::central` after a pairing: the device's own chat
-  vault is imported at the next sign-in with the password. A legacy player
+- The device's own chat vault after a pairing: opened with the key from the
+  master key (item 1, §"The local chat vault"). A legacy player
   who has not moved to Central cannot sign in on the website at all, so the
   legacy migration (which needs the password) is not affected.
 
@@ -435,25 +436,23 @@ the epoch.
 ### Key check (owner's item 3)
 
 Central stores `K` beside the account (`accounts.key_check`, 32 bytes,
-nullable until set). It is set:
+nullable until set). As built (Central `c41/pairing`, 30.10.2026) it is set in one
+way only: `SetKeyCheck { check }`, on either surface, accepted once, only
+while `key_check` is null and only within two minutes of a password proof
+(the session's `proven_at`, below). A stolen cookie can therefore never set
+it to the thief's value. The client and the page ask after every password
+sign-in (`KeyCheckStatus` → `KeyCheck { set }`, a new request on both
+surfaces) and send it when none is set, so a new account gains `K` at the
+sign-in that follows its registration, and an existing one at its next.
 
-- at registration (`EnrollmentFinish` gains `key_check`);
-- by a new master key: rotation (below), and an administrator's reset that
-  makes a new vault (`ResetVault::New` gains `key_check`; a reset that
-  keeps the vault keeps `K`, a password change keeps it too);
-- for an account that has none: `SetKeyCheck { check }`, on either surface,
-  accepted once, only while `key_check` is null and only within two minutes
-  of a password proof (the session's `proven_at`, below). A stolen cookie
-  can therefore never set it to the thief's value. The client and the page
-  ask after every password sign-in (`KeyCheckStatus` → `KeyCheck { set }`,
-  a new request on both surfaces) and send it when none is set.
-
-New request fields carry `#[serde(default)]`, so an older client's request
-still reads; no existing answer gains a field (the native `SessionStatus`
-and `Session` stay as they are: clients built before refuse unknown fields).
-A request that comes without `key_check` where it now belongs (an older
-client's reset to a new vault) clears `K`, and the next password sign-in
-sets it.
+A reset to a new vault clears `K`, and the next password sign-in sets the
+new vault's; a reset that keeps the vault keeps it, and so does a password
+change. The draft had registration and the reset carry `key_check` in
+their requests instead; one path that every account takes needs no new
+field in an existing request and no rule for an older client that leaves it
+out. Rotation (below) sets the new `K` with the new epoch. No existing
+answer gains a field (the native `SessionStatus` and `Session` stay as they
+are: clients built before refuse unknown fields).
 
 `K` itself never travels after that. Approving a pairing proves the master
 key with a MAC under `K` over that approval (below); Central recomputes it
@@ -472,12 +471,12 @@ verifier `v`, 32 random bytes, which only the client holds.
 | --- | --- | --- | --- |
 | 1 | page → Central | `PairStart` (browser surface, cookie) → `PairStarted { handle, expires_at }` | a live browser session; the account has `K`; at most 3 open pairings per account |
 | 2 | page → client | opens `baylee://pair?h=<handle>&s=<S>` | — |
-| 3 | client → Central | `PairClaim { handle, public_key, challenge, mac }` (native, no session) → `PairAccepted { expires_at }` | the handle is open and unclaimed, its claim window (2 minutes) not over; exactly one claim per handle, a second is `Conflict` |
+| 3 | client → Central | `PairClaim { handle, public_key, challenge, mac }` (native, no session) → `PairAccepted { expires_at }` | the handle is open and unclaimed, its claim window (2 minutes) not over; exactly one claim per handle: the same claim resent after a lost answer gets the same answer, another is `Conflict` |
 | 4 | page → Central | `PairStatus { handle }` → `PairClaimed { public_key, challenge, mac }`, or `Pending` | the session that started it |
 | 5 | page | checks `mac`, shows the comparison code and the account's name, the player presses Approve | `mac` under `S`; a wrong one cancels the pairing |
 | 6 | page → Central | `PairApprove { handle, sealed, proof }` → `Done` | claimed, not approved, same account and session, `proof` under `K` |
-| 7 | client → Central | `PairPoll { handle }` → `Pending` or `Approved`; then `PairRedeem { handle, verifier }` → `PairSession { token, identity, username, sealed, expires_at }` | for the redeem: `SHA-256(verifier) = challenge`, approved, not redeemed; once |
-| 8 | client | opens `sealed`, asks "Sign in as `<username>`?" | the seal's binding; a no ends the session (`Logout`) |
+| 7 | client → Central | `PairPoll { handle }` → `Pending` or `Approved`; then `PairRedeem { handle, verifier }` → `PairSession { token, identity, username, display_name, tag, sealed, expires_at }` | for the redeem: `SHA-256(verifier) = challenge`, approved, not redeemed; once, and any redeem that finds the pairing ends it |
+| 8 | client | opens `sealed`, asks "Sign in as `<display name>#<tag>` (`<username>`)?", the username alone for an account without a name or tag | the seal's binding; a no ends the session (`Logout`) |
 
 - **Handle**: 32 random bytes, base64url, stored only as a digest. A
   pairing lives five minutes from step 1; the claim (step 3) must come in
@@ -495,7 +494,8 @@ verifier `v`, 32 random bytes, which only the client holds.
   `SHA-256("baylee-central/pair-code/v1\0" ‖ handle ‖ pk)`, shown by the
   client while it waits and by the page beside Approve. (An improvement over
   the owner's sketch: see "What `S` in the link means".)
-- **Seal** (page): HPKE (RFC 9180) in base mode, DHKEM(X25519, HKDF-SHA256),
+- **Seal** (page): HPKE (RFC 9180) in PSK mode (mode 1) with `S` as the
+  pre-shared key and the raw handle as its ID, DHKEM(X25519, HKDF-SHA256),
   HKDF-SHA256, ChaCha20-Poly1305, to `pk`, with `info =
   "baylee-central/pair-seal/v1\0" ‖ issuer ‖ account ‖ epoch ‖ handle ‖
   expires_at` (eight big-endian bytes each for epoch and time) and empty
@@ -508,17 +508,30 @@ verifier `v`, 32 random bytes, which only the client holds.
   password proof behind the browser session (`proven_at`, below), never from
   the pairing. There is no state "session without key": the session exists
   only in the answer that also carries `sealed`, and only once.
-- **Open** (client): HPKE open with `sk` and the same `info`: the issuer
-  the client is built for, `account` and `epoch` from `PairSession.identity`,
-  the handle from the link, and `expires_at` from `PairAccepted` (the
-  pairing's, not `PairSession.expires_at`, which is the session's). Anything
-  that does not open is refused and the session ended.
+- **Why PSK mode** (the owner's decision of 30.10.2026, after the second
+  model's review; the draft said base mode): Central knows `pk` and
+  everything `info` binds, so in base mode Central, or anyone writing its
+  database, could seal a master key of its own that the client would open
+  and then use. Only the page and the link hold `S`, so only the page that
+  made the link can seal what the client opens.
+- **Open** (client): HPKE open in PSK mode with `S` from the link, `sk` and
+  the same `info`: the issuer the client is built for, `account` and
+  `epoch` from `PairSession.identity`, the handle from the link, and
+  `expires_at` from `PairAccepted` (the pairing's, not
+  `PairSession.expires_at`, which is the session's). Anything that does not
+  open is refused and the session ended. The client keeps `S` wiped-on-drop
+  from its claim to the redeem and drops it once the seal was tried, and
+  with the pairing when it gives up (cancelled, expired, refused).
 
 `proven_at`: `sessions` gains `proven_at timestamptz NOT NULL` (the time of
 the password proof the session rests on; for a login, its creation), and
 the 12-hour check moves from `created_at` to it (`expires_at <= proven_at +
 interval '12 hours'`, `proven_at <= created_at`). A pairing's session takes
-the browser session's `proven_at`; renewal never moves it.
+the browser session's `proven_at`; renewal never moves it. As built the
+column is nullable, NULL meaning the creation, and every check reads
+`COALESCE(proven_at, created_at)`: the same meaning, with every existing
+insert left valid. So do the step-ups that ask for a recent password
+sign-in, so a pairing never passes as one.
 
 The wire shapes are new variants of `central_api::wire::{Request,
 Response}`; the browser operations join `browser_operation` and the
@@ -552,6 +565,10 @@ as it is typed, and everything else, with or without a pairing.
 
 The PM confirmed on 30.10.2026: keep one claim per handle and the code;
 Approve stays one press, not an input.
+
+`S` also keys the seal (PSK mode), which turns the one thing Central never
+sees into the proof that the page made the seal: Central can see a
+pairing, but cannot bring a key of its own into the client.
 
 ### The local chat vault (owner's item 1)
 

@@ -274,9 +274,15 @@ struct Join {
     /// A directory for the game's transcript, one JSON line per event.
     #[arg(long)]
     transcripts: Option<PathBuf>,
-    /// Keep a language model's reports of rules or engine errors in the
-    /// transcripts' `reports.jsonl` only: no bug report goes to the
-    /// gateway when the game ends.
+    /// The directory a language model's `reports.jsonl` is written to as
+    /// it reports, whether or not the gateway takes the game's bug report
+    /// [default: `--transcripts`, else `llm-reports` beside the settings
+    /// file].
+    #[arg(long)]
+    reports_dir: Option<PathBuf>,
+    /// Keep a language model's reports of rules or engine errors in its
+    /// `reports.jsonl` only: no bug report goes to the gateway when the
+    /// game ends.
     #[arg(long)]
     no_send_reports: bool,
     /// Sit at a table that gives a question 30 seconds or fewer.
@@ -559,6 +565,7 @@ fn reach(
     // anything: a missing key or program refuses the game, not the book.
     let access = llm::check(&plan, &env).map_err(anyhow::Error::msg)?;
     plan.settings.transcripts.clone_from(&join.transcripts);
+    plan.settings.reports = paths.reports(join.reports_dir.as_deref(), join.transcripts.as_deref());
     Ok(Some(Reachable {
         caps: file.as_ref().map(|file| file.caps).unwrap_or_default(),
         book: paths.book(file.is_some()),
@@ -606,6 +613,28 @@ fn fallback_join(join: &Join, at: usize, profile: &str) -> Join {
     }
 }
 
+/// Where `join`'s language model writes its reports file
+/// ([`config::Paths::reports`]), with `env` as the environment.
+fn reports_of(join: &Join, env: &dyn Fn(&str) -> Option<String>) -> Option<PathBuf> {
+    Paths::resolve(join.config.as_deref(), join.ledger.as_deref(), env)
+        .reports(join.reports_dir.as_deref(), join.transcripts.as_deref())
+}
+
+/// [`fallback_join`], its reports written to the model's reports file
+/// ([`reports_of`] `join`), whichever settings file the fallback is read
+/// from: one game, one file.
+fn fallback_reporting(
+    join: &Join,
+    at: usize,
+    profile: &str,
+    env: &dyn Fn(&str) -> Option<String>,
+) -> Join {
+    Join {
+        reports_dir: reports_of(join, env),
+        ..fallback_join(join, at, profile)
+    }
+}
+
 /// What a fallback that took over spends: its reservation, settled with the
 /// game, and its tally, for the closing lines.
 struct FallbackSpend {
@@ -645,7 +674,7 @@ fn standby(
     keys: &dyn KeyStore,
     fallen: &Fallen,
 ) -> Result<bridge::Standby, String> {
-    let fallback = fallback_join(join, at, profile);
+    let fallback = fallback_reporting(join, at, profile, env);
     let Reachable {
         mut plan,
         access,

@@ -53,7 +53,7 @@ the document it names.
 - `BAYLEE_REGISTRATION` (`off`: nobody new; `invite`: a closed beta, where a new guest needs a key, a returning guest none; `docs/protocol.md` §"A closed beta: keys (#317)"; who a Central account new here may be, `docs/central-login.md`).
 - `BAYLEE_AUTH_MODE` (whom the gateway lets in: `guests`, `central` or `mixed`; set, it wins over the console's choice and locks it, unset the console's choice or the default `central` holds; any other value stops it; a mode without guests wins over a key; replaces `BAYLEE_GUESTS`, which is read no more; `docs/central-login.md` §"Who a gateway lets in").
 - `BAYLEE_GUEST_CAP` (live guests, default 1000, `0` = no cap; guests sign in with a display name only, are purged when their last session lapses, 30-day sliding, and may not upload images).
-- `BAYLEE_TRUSTED_PROXIES`.
+- `BAYLEE_TRUSTED_PROXIES` (comma-separated proxy addresses whose `X-Forwarded-For` the per-address limiters believe; a proxy not on the list makes every client its one address, so on the official gateway all direct reports then share one address's 10 an hour).
 - `BAYLEE_AGENT_TOKEN` (none = no agent).
 - `BAYLEE_PUBLIC_URL` (what the gateway calls its own address in a bug report). The gateway sends no mail since the cutover; `BAYLEE_SMTP_URL` and `BAYLEE_MAIL_FROM` are not read.
 - `BAYLEE_ENGINE_URL` (set for a remote agent).
@@ -62,6 +62,8 @@ the document it names.
 - `BAYLEE_SOURCE_URL` (what `/info` and `/source` name as this build's source, AGPL §13; unset = the repository; not `http(s)://`, over 200 characters, or a whitespace/control/bidi character refuses startup).
 - `BAYLEE_IMPRESSUM_URL` (the operator's legal notice, `/info` `impressum`, `null` when unset; the client links it with its host on the front door's About, the terms sheet and Settings → Network; not `https://` with a host, over 200 characters, or a whitespace/control/bidi character refuses startup; no privacy URL, the terms carry the privacy notice).
 - `BAYLEE_FEEDBACK_URL`/`BAYLEE_FEEDBACK_TOKEN`/`BAYLEE_FEEDBACK_KEY` (`POST /reports` forwards to that service; unset URL = 503; the key makes the reporter pseudonym, unset = derived from the token; `docs/feedback.md`).
+- `BAYLEE_DIRECT_REPORT_KEY`: turns on `POST /client/reports` on the official gateway (with `BAYLEE_REPORTS_TO=central` and the bridge) and keys its device pseudonyms; at least 16 characters, else startup refuses; the feedback service's `FEEDBACK_DIRECT_KEY` value keeps a device's reports linkable; 10 an hour per address (IPv6 per /64) and 40 in all, of Central's 120 for the gateway (`docs/feedback.md`).
+- `BAYLEE_REPORTS_TO`: `feedback` (default) or `central`, which files `POST /reports` with Baylee Central under the gateway's Central link instead (a reported chat message still goes to the feedback service); `central` without `BAYLEE_FEEDBACK_KEY` or `BAYLEE_FEEDBACK_TOKEN` refuses startup; any other value refuses startup (`docs/feedback.md` §"To Baylee Central instead").
 - `BAYLEE_RECONNECT_SECS` (the reconnect window a room gets when it names none, default 180, `10..=3600`).
 - `BAYLEE_REPLAY_JOBS` (replay jobs at once, default 4, `0..=64`, `0` = no replays: `/replays` routes `503`, `/info.replays` `null`; `docs/protocol.md` §"Replays").
 - `BAYLEE_REPLAY_JOB_SECS` (how long a replay job may take, default 60, `1..=600`, past it `504`).
@@ -147,7 +149,7 @@ The UI's GitHub issue carries only the admin's own summary, a category and the b
 ## Client (`baylee-client`)
 
 - `BAYLEE_GATEWAY` + `BAYLEE_GAME`, `BAYLEE_SEAT_TOKEN`, optional `BAYLEE_SEAT`; in a browser `?game=…&token=…`.
-- At build time `BAYLEE_FEEDBACK_PUBLIC_URL` (`option_env!`) names the feedback service a client signed in nowhere reports to; `feedback_url` in the settings file overrides it (`""` = off); neither = such a client sends nothing. A `LocalHost` game is recorded and the last 20 kept in `records/` beside the settings (native); a report carries one only when ticked for that report, never remembered.
+- At build time `BAYLEE_FEEDBACK_PUBLIC_URL` (`option_env!`) names the feedback service (the offline count); `feedback_url` in the settings file overrides it (`""` = off). `BAYLEE_REPORT_PUBLIC_URL` names where a client signed in nowhere sends reports (the official gateway's `POST /client/reports`), `report_url` in the settings file overrides it (`""` = off, and `feedback_url = ""` without a `report_url` is off too, as before there was one); without either, that service; none of them = such a client sends nothing. A `LocalHost` game is recorded and the last 20 kept in `records/` beside the settings (native); a report carries one only when ticked for that report, never remembered.
 
 ## Seat bridge (`baylee-seat`)
 

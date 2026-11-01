@@ -517,6 +517,25 @@ fn an_anthem_is_a_static_ability_on_the_layer_it_belongs_to() {
     );
 }
 
+#[test]
+fn a_counted_power_bonus_keeps_controller_scope() {
+    let body = read(
+        "Name:Nim Lasher\nTypes:Creature\n\
+         S:Mode$ Continuous | Affected$ Card.Self | AddPower$ X | AddToughness$ 0\n\
+         SVar:X:Count$Valid Artifact.YouCtrl\n",
+    );
+    let a = format!("{}{}", body.statics, body.abilities.join("\n"));
+    assert!(a.contains("Modifier::ModifyPTPerCount"), "{a}");
+    assert!(a.contains("Filter::ARTIFACT"), "{a}");
+    assert!(a.contains("Filter::ControlledByYou"), "{a}");
+
+    assert!(refused(
+        "Name:Mixed Scope\nTypes:Creature\n\
+         S:Mode$ Continuous | Affected$ Card.Self | AddPower$ X | AddToughness$ 0\n\
+         SVar:X:Count$Valid Artifact.YouCtrl,Creature\n"
+    ));
+}
+
 /// A colour word is a colour (CR 105.2), not an unknown subtype: Bad
 /// Moon, Crusade, Terror and Northern Paladin were all refused over it.
 #[test]
