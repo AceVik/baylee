@@ -755,10 +755,13 @@ impl Tx<'_> {
             return self.deny("`CantBlockBy` naming no attacker or no blocker".to_string());
         };
         let blocker = p.take("ValidBlocker");
+        // Peeked before it is taken: a clause of another value stays for
+        // `condition` to read or refuse, and is never dropped as if absent.
         if attacker == "Card.Self"
             && blocker.is_none()
-            && p.take("IsPresent").as_deref() == Some("Artifact.DefenderCtrl")
+            && p.peek("IsPresent") == Some("Artifact.DefenderCtrl")
         {
+            p.take("IsPresent");
             self.body.abilities.push(
                 "static_ability!(Filter::This, Modifier::AddKeyword(KeywordSet::UNBLOCKABLE), condition = Some(Condition::Not(&Condition::SomeDefendingPlayerControlsNone(&Filter::ARTIFACT))))"
                     .to_string(),

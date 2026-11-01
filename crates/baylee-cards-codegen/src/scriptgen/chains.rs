@@ -169,6 +169,17 @@ impl Tx<'_> {
         )])
     }
 
+    /// "If an artifact card was discarded this way, untap …", read from three
+    /// exact clauses. All three are peeked before any is taken: a line that
+    /// differs in one keeps the others, for the general reading to read or
+    /// refuse, and does not lose its condition to the comparison.
+    fn is_discarded_artifact_untap(api: &str, p: &Params) -> bool {
+        api == "Untap"
+            && p.peek("ConditionDefined") == Some("Remembered")
+            && p.peek("ConditionPresent") == Some("Card.Artifact")
+            && p.peek("ConditionCompare") == Some("EQ1")
+    }
+
     fn wrap_line_condition(
         &mut self,
         api: &str,
@@ -177,11 +188,10 @@ impl Tx<'_> {
         target: Option<&str>,
         effects: Vec<String>,
     ) -> Option<Vec<String>> {
-        if api == "Untap"
-            && p.take("ConditionDefined").as_deref() == Some("Remembered")
-            && p.take("ConditionPresent").as_deref() == Some("Card.Artifact")
-            && p.take("ConditionCompare").as_deref() == Some("EQ1")
-        {
+        if Self::is_discarded_artifact_untap(api, p) {
+            for key in ["ConditionDefined", "ConditionPresent", "ConditionCompare"] {
+                p.take(key);
+            }
             return Self::wrap_discarded_artifact_condition(p, &effects);
         }
         if p.exhausted() {
