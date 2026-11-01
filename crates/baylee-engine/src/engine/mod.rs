@@ -1955,7 +1955,11 @@ mod player_control;
 #[cfg(test)]
 mod player_control_tests;
 mod progress;
+// Training and evaluation lookahead (`Engine::fork_for`); feature
+// `simulation`, never in a hosting build.
+#[cfg(any(test, feature = "simulation"))]
 mod simulation;
+#[cfg(any(test, feature = "simulation"))]
 pub use simulation::{DeckKnowledge, ForkRefusal};
 mod spend_riders;
 // Fuzzer invariants (`fuzz` feature; `docs/verification-hooks.md`).

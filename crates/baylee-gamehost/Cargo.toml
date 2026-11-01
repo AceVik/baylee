@@ -8,6 +8,14 @@ description = "Shared game hosting: sessions (engine + AI seats), hidden-info vi
 [lints]
 workspace = true
 
+[features]
+# The engine's `Engine::fork_for`, for lookahead that a training or evaluation
+# harness runs through a `Session` it owns in-process. Only the training
+# crates may turn it on (through a feature `xtask` does not enable, such as
+# `baylee-train/play`): `cargo dev gate shipped-features` fails if a hosting
+# build does.
+simulation = ["baylee-engine/simulation"]
+
 [dependencies]
 baylee-ai.workspace = true
 # The build a record's header names, which decides how a replay checks it
@@ -25,6 +33,10 @@ tracing.workspace = true
 uuid.workspace = true
 
 [dev-dependencies]
+# `Session::fork_for` is tested here (`session/tests/simulation.rs`) as the
+# engine tests its own fork: a dev edge, which neither a `--bin` build nor
+# `cargo dev gate shipped-features`'s graph follows.
+baylee-engine = { workspace = true, features = ["simulation"] }
 # A report's card references (`bugreport::refs`) are held to the hidden-
 # information rule here, beside every other guarantee a view makes
 # (`view/tests/report_refs.rs`). Already linked through `baylee-ai`.

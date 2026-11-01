@@ -19,10 +19,13 @@ pub fn check(steps: &mut Steps) {
 
 /// Neither verification hook may reach a build that ships. `mutate` is
 /// enabled by `baylee-engine`'s dev-dependencies alone and `fuzz` by nothing,
-/// so the feature graph without dev edges names neither. The engine's graph
-/// with dev edges must name `mutate`: the control that proves the pattern
-/// matches what `cargo tree` prints, without which a renamed feature would
-/// count zero leaks forever. `--target all`, so a dependency declared for one
+/// so the feature graph without dev edges names neither. The same holds for
+/// `baylee-engine`'s `simulation` (`Engine::fork_for`, a copy of a game with
+/// its hidden cards dealt again): only the training crates, which are not in
+/// the graph, may turn it on, so a hosting build can never fork a live game.
+/// The engine's graph with dev edges must name `mutate`: the control that
+/// proves the pattern matches what `cargo tree` prints, without which a
+/// renamed feature would count zero leaks forever. `--target all`, so a dependency declared for one
 /// platform cannot switch a hook on where this host never looks.
 pub fn verification_hooks_unshipped(steps: &mut Steps) {
     let started = Instant::now();
@@ -53,7 +56,11 @@ pub fn verification_hooks_unshipped(steps: &mut Steps) {
         (Some(shipped), Some(engine)) if shipped.status.success() && engine.status.success() => {
             let leaks = String::from_utf8_lossy(&shipped.stdout)
                 .lines()
-                .filter(|l| l.contains("feature \"mutate\"") || l.contains("feature \"fuzz\""))
+                .filter(|l| {
+                    l.contains("feature \"mutate\"")
+                        || l.contains("feature \"fuzz\"")
+                        || l.contains("baylee-engine feature \"simulation\"")
+                })
                 .count();
             let control = String::from_utf8_lossy(&engine.stdout)
                 .lines()
@@ -66,7 +73,7 @@ pub fn verification_hooks_unshipped(steps: &mut Steps) {
                 steps.record(true);
             } else {
                 println!(
-                    "STEP verification-hooks-shipped FAILED - {leaks} mentions of mutate/fuzz in the graph"
+                    "STEP verification-hooks-shipped FAILED - {leaks} mentions of mutate/fuzz/simulation in the graph"
                 );
                 println!(
                     "  without dev edges (must be 0), {control} of mutate in baylee-engine's dev graph (must be >0)"

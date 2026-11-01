@@ -27,10 +27,12 @@ mod frames;
 pub mod project;
 mod pump;
 mod resume;
+#[cfg(any(test, feature = "simulation"))]
 mod simulation;
 mod spectators;
 mod table;
 
+#[cfg(any(test, feature = "simulation"))]
 pub use simulation::SimulationSession;
 
 /// How many of its policies' answers a seat's view carries (#234): the

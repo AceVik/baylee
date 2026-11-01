@@ -16,6 +16,10 @@ pub mod session;
 pub mod view;
 
 pub use baylee_view::{GameStatic, PlayerView, SeatIdentity};
+/// A session's game forked for one seat's lookahead (`Session::fork_for`): only
+/// under the `simulation` feature, which no hosting build enables.
+#[cfg(any(test, feature = "simulation"))]
+pub use session::SimulationSession;
 pub use session::project as replay;
-pub use session::{RegistryLookup, SeatKind, Session, SimulationSession};
+pub use session::{RegistryLookup, SeatKind, Session};
 pub use view::{SeatContext, game_static, owed_payment, player_view};

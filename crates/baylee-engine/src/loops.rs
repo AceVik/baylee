@@ -149,6 +149,7 @@ impl LoopWatch {
     /// a hash of the whole situation, hidden cards included
     /// (`GameState::loop_signature`): a forked simulation cannot carry one
     /// over a board whose hidden cards it has dealt again (`Engine::fork_for`).
+    #[cfg(any(test, feature = "simulation"))]
     #[must_use]
     pub(crate) const fn holds_signature(&self) -> bool {
         self.started

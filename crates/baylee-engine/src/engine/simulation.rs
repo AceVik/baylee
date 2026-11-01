@@ -14,7 +14,9 @@
 //!
 //! This is not the live-play seam: a seat playing over the gateway has no
 //! engine to copy, and `docs/proposals/lookahead-design.md` is the design
-//! for that one.
+//! for that one. It is compiled only under the `simulation` feature (and in
+//! this crate's tests), which `cargo dev gate shipped-features` keeps out of
+//! every hosting build.
 
 mod driver;
 mod redeal;
@@ -98,7 +100,9 @@ pub enum ForkRefusal {
     #[error("a commander is in a hidden zone")]
     HiddenCommander,
     /// A hidden card carries rules state of its own (a reveal that binds
-    /// it, counters, a copy effect), which a dealt card would not have.
+    /// it, counters, a copy effect), which a dealt card would not have, or a
+    /// static that works where it hides, whose registrations record where
+    /// it has been (Grist, the Hunger Tide).
     #[error("a hidden card carries rules state of its own: {0}")]
     MarkedHiddenCard(&'static str),
     /// Something public points at a hidden card, which the deal would
@@ -131,9 +135,11 @@ impl<L: CardLookup + Clone> Engine<L> {
     ///   back into the same zones at the same sizes as new objects. Their
     ///   old [`ObjectId`]s no longer exist in the fork, and the new ones are
     ///   allocated in zone order, so neither an id nor a position says which
-    ///   real card was there. What `seat` knew about a hidden card (a top
-    ///   card it saw, a card revealed from a hand) is lost with it; nothing
-    ///   it did not know is gained.
+    ///   real card was there. What `seat` can see now is not dealt: a hand a
+    ///   static reveals or a player it controls holds (CR 722), and a
+    ///   library top a static reveals. What it knew earlier about a hidden
+    ///   card (a top it saw, a card revealed from a hand and kept there) is
+    ///   lost with it; nothing it did not know is gained.
     /// - **Randomness.** The fork rolls on the policy seed's `future`
     ///   stream. The real seed, stream position and call count are not in
     ///   it. `policy_seed` is the caller's and must not be derived from the
@@ -143,9 +149,11 @@ impl<L: CardLookup + Clone> Engine<L> {
     ///   card's old id name [`ObjectId::NO_SOURCE`] instead, and developer
     ///   commands lose their text.
     /// - **Notes about hidden cards.** The copies the game kept of objects
-    ///   as they left a zone `seat` cannot see, this turn's draws, and the
-    ///   other per-turn notes naming a dealt card's old id are dropped; none
-    ///   can be read by a rule once that id is gone.
+    ///   as they left a zone `seat` cannot see, this turn's draws, the other
+    ///   per-turn notes naming a dealt card's old id, and the text overrides
+    ///   of effects the re-sync removed are dropped; none can be read by a
+    ///   rule once that id is gone. Every other field of the state is
+    ///   classified in `GameState::audit_fork`.
     /// - **Settings.** No seat has capabilities, and every other seat's
     ///   standing answers and priority holds are the defaults; `seat` keeps
     ///   its own.
@@ -157,7 +165,9 @@ impl<L: CardLookup + Clone> Engine<L> {
     /// The invariant: for fixed seat-visible facts and `policy_seed`, the
     /// fork's hidden zones and future randomness are the same whatever the
     /// real hidden cards and random state were; forking, and advancing the
-    /// fork, leave this engine's state, hash and random stream unchanged.
+    /// fork, leave this engine's state, hash and random stream unchanged. It
+    /// is about where the hidden cards are, not about history: a public
+    /// card's version still counts its hidden moves.
     ///
     /// [`ObjectId`]: baylee_core::ids::ObjectId
     /// [`ObjectId::NO_SOURCE`]: baylee_core::ids::ObjectId::NO_SOURCE
@@ -166,7 +176,9 @@ impl<L: CardLookup + Clone> Engine<L> {
     /// A [`ForkRefusal`] for every position the first version cannot fork
     /// faithfully: anything but ordinary priority, a suspended operation,
     /// face-down objects, hidden exile, a hidden card with rules state of
-    /// its own or something public pointing at one, an unknown deck.
+    /// its own or a static that works where it hides, something public
+    /// pointing at a hidden card, an unknown deck. Every refusal depends on
+    /// what `seat` can see, never on where a hidden card is.
     pub fn fork_for(
         &self,
         seat: PlayerId,
@@ -183,7 +195,10 @@ impl<L: CardLookup + Clone> Engine<L> {
             return Err(ForkRefusal::GameOver);
         }
         driver::check_settled(self)?;
-        let deal = redeal::Deal::plan(&self.state, seat)?;
+        let sees_hand =
+            |owner| self.may_inspect_private(seat, owner) || self.state.hand_revealed(owner);
+        let deal = redeal::Deal::plan(&self.state, seat, &sees_hand)?;
+        self.state.audit_fork(&|id| deal.is_retired(id))?;
         transcript::check(&self.state.journal, seat)?;
 
         let mut fork = driver::duplicate(self);
@@ -198,9 +213,18 @@ impl<L: CardLookup + Clone> Engine<L> {
     /// Rebuilds what the fork derives from its cards: the statics of
     /// hidden cards that work where they are, the layer projection, and the
     /// priority offer that was computed from the real hand.
+    ///
+    /// The re-sync removes the effects of the cards the deal removed, and
+    /// their text overrides go with them, as the end of the turn would drop
+    /// them (`GameState::prune_damage_sources`): an override of an effect
+    /// that no longer exists is read by nothing, and it names the card.
     fn settle_fork(&mut self) {
         self.state.invalidate_projections();
         self.sync_static_effects();
+        let effects = &self.state.effects;
+        self.state
+            .effect_text_overrides
+            .retain(|(id, _)| effects.contains(*id));
         self.state.refresh_characteristics();
         if let Pending::Priority { player, .. } = self.pending {
             self.pending = Pending::Priority {

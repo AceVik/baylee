@@ -747,6 +747,7 @@ impl Journal {
     /// exception, for a forked simulation withholding what its seat was not
     /// shown (`Engine::fork_for`). A journal shared with a snapshot is
     /// copied first, so the snapshot's entries never change.
+    #[cfg(any(test, feature = "simulation"))]
     pub(crate) fn rewrite(&mut self, mut edit: impl FnMut(&mut JournalEntry)) {
         for entry in Arc::make_mut(&mut self.entries) {
             edit(entry);
