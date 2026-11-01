@@ -740,6 +740,7 @@ pub(crate) fn route(lobby: Option<&LobbyState>, settings: &ClientSettings) -> Ro
     let direct = bugreport::report_address(
         settings.report_url.as_deref(),
         BUILT_REPORT_URL,
+        settings.feedback_url.as_deref(),
         service.as_deref(),
     );
     bugreport::route(

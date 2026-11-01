@@ -181,7 +181,8 @@ pub struct ClientSettings {
     /// Where a report goes straight when the client is signed in nowhere,
     /// over the address this build was given (`BAYLEE_REPORT_PUBLIC_URL`);
     /// without either, the feedback service's; `""` turns direct reports
-    /// off (`bugreport::report_address`).
+    /// off, and so does `feedback_url = ""` while this is unset, as it did
+    /// before this was here (`bugreport::report_address`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub report_url: Option<String>,
     /// The random id this device sends direct reports under, made with the
