@@ -91,7 +91,9 @@ impl PendingKind4 {
             Pending::ChooseCastMode { .. } => Self::ChooseCastMode,
             Pending::ChooseNumber { .. } => Self::ChooseNumber,
             Pending::ChooseColor { .. } => Self::ChooseColor,
-            Pending::ChooseSubtype { .. } => Self::ChooseSubtype,
+            // A card type is a type choice too; a bucket of its own would change
+            // `COUNT` and every trained shape that reads it.
+            Pending::ChooseSubtype { .. } | Pending::ChooseCardType { .. } => Self::ChooseSubtype,
             Pending::ChooseCardName { .. } => Self::ChooseCardName,
             Pending::ChoosePlayer { .. } => Self::ChoosePlayer,
             Pending::ChoosePile { .. } => Self::ChoosePile,
