@@ -69,7 +69,13 @@ pub(super) fn start(
                 super::CoinContinuation::LifeExchange,
             ) {
                 super::coin::Flip::Outcome(won) => contest.won = won,
-                super::coin::Flip::Wait(pending) => return Some(*pending),
+                super::coin::Flip::Wait(pending) => {
+                    // A replacement asks which result to keep (CR 614.1a):
+                    // the contest waits at its flip, with its opponent and
+                    // stake, for `resume_flip` to hand it the kept one.
+                    res.coin_stake = Some(contest);
+                    return Some(*pending);
+                }
             }
             contest.stage = Stage::FirstLifeChange;
         }
@@ -110,8 +116,17 @@ pub(super) fn start(
     None
 }
 
-pub(super) fn resume_flip(state: &mut GameState, res: &mut Resolution) -> Option<Pending> {
-    start(state, res, PlayerRel::Chosen, Amount::Fixed(0), 2)
+/// The result a replacement kept for the contest's flip (CR 614.1a): the
+/// contest waiting at its flip goes on from it, to its life changes. It is
+/// not flipped again, and its stake and opponent are the ones it had.
+pub(super) fn resume_flip(state: &mut GameState, res: &mut Resolution, won: bool) -> Flow {
+    if let Some(contest) = res.coin_stake.as_deref_mut() {
+        contest.won = won;
+        contest.stage = Stage::FirstLifeChange;
+    }
+    // The instruction is still the one at `pc`, and `start` takes the
+    // contest back up from `res.coin_stake`.
+    run(state, res)
 }
 
 pub(super) fn answer(state: &mut GameState, res: &mut Resolution, again: bool) -> Option<Flow> {

@@ -11,8 +11,9 @@ pub(super) enum Flip {
     Wait(Box<Pending>),
 }
 
-/// Flip once, or once more per applicable replacement, and ask which results
-/// to ignore until one remains (CR 705.3). Every result uses the seeded stream
+/// Flip once, or once more per applicable replacement ("instead flip two
+/// coins and ignore one", a replacement effect, CR 614.1a), and ask which
+/// results to ignore until one remains. Every result uses the seeded stream
 /// and is journaled, including results later ignored.
 pub(super) fn flip(
     state: &mut GameState,
@@ -105,10 +106,7 @@ pub(super) fn resume(state: &mut GameState, res: &mut Resolution, ignore_first: 
                 source: resolving_ability(state, res),
             })
         }
-        CoinContinuation::LifeExchange => match coin_stakes::resume_flip(state, res) {
-            Some(pending) => Flow::Wait(pending),
-            None => run(state, res),
-        },
+        CoinContinuation::LifeExchange => coin_stakes::resume_flip(state, res, won),
         CoinContinuation::DamageContest {
             damage,
             you_heads,
@@ -130,26 +128,38 @@ pub(super) fn resume(state: &mut GameState, res: &mut Resolution, ignore_first: 
                     .expect("the contest names an opponent");
                 return match flip(state, res, opponent, continuation) {
                     Flip::Outcome(won) => {
-                        match finish_damage_contest(state, res, damage, you_heads.unwrap(), won) {
-                            Some(pending) => Flow::Wait(pending),
-                            None => run(state, res),
-                        }
+                        let finished =
+                            finish_damage_contest(state, res, damage, you_heads.unwrap(), won);
+                        after_contest(state, res, finished)
                     }
                     Flip::Wait(pending) => Flow::Wait(*pending),
                 };
             }
-            match finish_damage_contest(
+            let finished = finish_damage_contest(
                 state,
                 res,
                 damage,
                 you_heads.expect("first result"),
                 opponent_heads.expect("second result"),
-            ) {
-                Some(pending) => Flow::Wait(pending),
-                None => run(state, res),
-            }
+            );
+            after_contest(state, res, finished)
         }
     }
+}
+
+/// A contest finished from an answer, as `run` goes on after an instruction
+/// that completed without asking: its instruction is done, and the repeat
+/// [`finish_damage_contest`] may have queued right behind it, at `pc + 1`,
+/// is the next one. Without the step the contest instruction ran again after
+/// every contest a replacement asked about, and asked again (Krark's Thumb
+/// under Mana Clash never ended). A question its damage asks keeps the
+/// instruction where it is; that question's own resume moves on.
+fn after_contest(state: &mut GameState, res: &mut Resolution, finished: Option<Pending>) -> Flow {
+    if let Some(pending) = finished {
+        return Flow::Wait(pending);
+    }
+    res.pc += 1;
+    run(state, res)
 }
 
 pub(super) fn damage_contest(
