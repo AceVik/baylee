@@ -571,7 +571,7 @@ impl<L: CardLookup> Engine<L> {
                 self.pending_plan = Some(PlanKind::ChooseCardType { object: id });
                 self.pending = Pending::ChooseCardType {
                     player: controller,
-                    options: baylee_core::types::TypeSet::ALL.to_vec(),
+                    options: baylee_core::types::TypeSet::CARD_TYPES.to_vec(),
                 };
                 self.awaiting_answer = true;
                 true

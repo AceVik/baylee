@@ -1202,3 +1202,21 @@ fn losing_all_abilities_removes_intrinsic_land_mana_as_well_as_printed_mana() {
         id
     ));
 }
+
+/// "If your life total is less than your starting life total": below the
+/// starting total the format gave this player (CR 103.4), read per player,
+/// whatever that total was. Twenty-five of a forty-life start is below it.
+#[test]
+fn life_below_starting_reads_each_players_own_starting_total() {
+    let mut state = empty_state();
+    let source = creature(&mut state, P0, KeywordSet::EMPTY);
+    let condition = Condition::LifeBelowStarting;
+    assert!(!condition_holds(&state, P0, source, condition), "20 of 20");
+    state.players[0].life = 19;
+    assert!(condition_holds(&state, P0, source, condition));
+    assert!(!condition_holds(&state, P1, source, condition), "the other seat");
+    state.players[0].life = 25;
+    assert!(!condition_holds(&state, P0, source, condition), "above it");
+    state.players[0].starting_life = 40;
+    assert!(condition_holds(&state, P0, source, condition), "a 40-life start");
+}

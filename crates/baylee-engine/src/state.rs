@@ -76,7 +76,7 @@ pub struct Player {
     pub id: PlayerId,
     /// Life total.
     pub life: i32,
-    /// Starting life total from the preset (CR 103.3), constant during the game.
+    /// Starting life total from the preset (CR 103.4), constant during the game.
     pub starting_life: i32,
     /// Poison counters.
     pub poison: u16,
