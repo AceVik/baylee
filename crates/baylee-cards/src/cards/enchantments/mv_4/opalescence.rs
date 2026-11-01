@@ -1,7 +1,7 @@
 //! Opalescence — {2}{W}{W} — Enchantment
 //! Oracle: Each other non-Aura enchantment is a creature in addition to its other types and has base power and base toughness each equal to its mana value.
 //! Set: UDS #13 — Urza's Destiny | Scryfall ID: 3c0071fb-afa5-47b5-b266-2b10a4f5a98a | Oracle ID: 59489b46-9d02-4f3c-bcd0-884e7605e9a5
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// HAND-OWNED STUB — adopted with `xtask codegen --adopt-stub`; still unimplemented.
 
 use baylee_cards_dsl::prelude::*;
 
