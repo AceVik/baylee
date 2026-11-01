@@ -4,6 +4,23 @@ Design for #77, read and measured on `main` at
 `14d3c9fa34a27506a4a9d256e255b72f7178554a`, 19 September 2026.
 This document proposes interfaces and tests; none is implemented here.
 
+> **Deviation for training and evaluation (1 November 2026, approved by the
+> owner).** Where the harness already owns the real `Engine` — the evaluator
+> runs its games in-process — search does not build a fabricated
+> `GameState` and `ResumePoint`. `Engine::fork_for(seat,
+> DeckKnowledge::Known, policy_seed)` copies the whole engine, which keeps
+> the complete driver continuation (passes, priority holder, latches, combat
+> progress, loop watch) so nothing has to be reconstructed, and before
+> returning deals every hidden card again by canonical identity order and the
+> policy seed's `belief` stream into new objects with new ids, replaces the
+> RNG with the `future` stream, and rewrites the journal; what it cannot fork
+> faithfully it refuses. The reason is cost and fidelity: a reconstruction
+> covers only the narrow settled root of Q1, while a copy is exact wherever
+> the refusals allow. It reads the hidden multiset off the real game, so it
+> requires known deck lists, and it is not a live-play seam: a seat over the
+> gateway has no engine to copy, and the rest of this design stands for it.
+> `docs/engine-internals.md` §"Forking a simulation" is the contract.
+
 The house AI constructs a possible world from its observations, advances it
 with the existing rules engine, and returns an action from the real pending
 offer. Gamehost supplies no real-game `Engine`, `GameState`, checkpoint,

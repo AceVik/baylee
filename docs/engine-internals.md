@@ -2041,6 +2041,105 @@ and its latches, `delayed_queue` and most of `trigger_queue`, so two engines
 that hash equal can still answer the next question differently; the complete
 comparison is `Engine::fingerprint` (feature `fuzz`), which names every field.
 
+## Forking a simulation (training and evaluation)
+
+`Engine::fork_for(seat, decks, policy_seed)` (`engine/simulation.rs`) is
+the lookahead seam for a harness that already owns the real engine — the
+evaluator, `eval4`, runs its games in-process through
+`baylee_gamehost::session::Session`. It is **not** for live play: a seat
+playing over the gateway has no engine to fork, and
+`docs/proposals/lookahead-design.md` remains the design for that one. It
+needs `L: CardLookup + Clone`; the registry lookups are unit structs.
+
+A fork is the whole engine copied field by field, so it carries the complete
+driver continuation — priority holder, passes, a regrant owed, combat
+declaration progress, the cleanup stage, loyalty used, the loop watch's step
+count — and no resume point has to be rebuilt. `Engine` is deliberately not
+`Clone`: an undisguised copy is the real game's hidden cards and random
+stream, so the copy (`simulation::driver::duplicate`) is private and
+`fork_for` disguises it before returning. Then, in the fork:
+
+- **Hidden cards are dealt again.** Pools per owner: each opponent's hand
+  and library together (the seat knows each one's size and nothing about
+  which card is where), each opponent's cards outside the game, and the
+  seat's own library. A pool's identities (card, print, rules print, deck
+  choices) are sorted by identity — never by `ObjectId` or position — then
+  shuffled on the policy seed's `belief` stream and dealt into the same
+  zones at the same sizes as **new objects** with fresh ids, version 0 and
+  timestamp 0. The old objects are removed from the fork's arena. Ids are
+  handed out in deck-list order at setup, so a kept id would name its card
+  to anyone holding the list; new ids are allocated in zone order and say
+  nothing. What the seat knew about a hidden card (a library top it saw, a
+  card revealed from a hand) is lost with it — losing knowledge is
+  accepted, leaking it is not.
+- **Randomness** comes from the policy seed's `future` stream
+  (`GameRng::stream`: the policy seed's ChaCha8 key on a stream named for
+  its purpose). The real seed, word position and call count are not in the
+  fork.
+- **The journal** keeps its length and sequence numbers, because rules read
+  back into it (spells cast this turn, damage dealt since a source arrived,
+  an event's object by its sequence number) and the driver's cursors are
+  sequence numbers. `GameStarted`'s seed is zeroed; a move between two zones
+  the seat cannot see, and every mention of a removed id, name
+  `ObjectId::NO_SOURCE`; a developer command loses its text.
+- **Notes about hidden cards** that no rule in the fork can read any more
+  are dropped: the copies `damage_sources` keeps of every object as it left
+  a zone (`remember_damage_source`, pruned only at the end of the turn), for
+  each one taken in a library, outside the game or in another player's
+  hand — a draw keeps a copy of the card drawn; `per_turn.drawn`,
+  `instruction_drawn`, `wand_of_ith_targets` and `ability_fires` entries
+  naming a removed id; and the dealt cards' entries in `printed_pt_cda` and
+  `offboard_static_candidates`, which the new objects take afresh.
+- **Settings**: no seat has capabilities; every other seat's standing
+  answers and priority holds are the defaults (they are that seat's private
+  setting); the forking seat keeps its own.
+- **Derived caches are rebuilt**, not copied: statics are synced
+  (`sync_board_rules`, which drops the removed objects' effects and
+  registers the dealt cards' off-battlefield statics), the projection is
+  invalidated and refreshed, and the priority offer is computed again.
+
+`DeckKnowledge::Known` is required. The multiset dealt is read off the real
+game, which is the opponent's submitted deck less what has been seen; that
+is the seat's to read only when every deck list is public to it (a
+published precon, a deck the harness chose). `Unknown` is refused until a
+public prior over decks exists. The interned names and the base cache are
+functions of the submitted lists and public play, so a fork keeps them.
+
+**The invariant:** for fixed seat-visible facts and policy seed, the fork's
+hidden zones and future randomness are the same whatever the real hidden
+cards and RNG; forking and advancing the fork leave the real engine's
+state, hash and RNG unchanged. `engine/simulation_tests.rs` pins both
+halves against twin games, together with continuation (the same actions
+take source and fork to the same board; a pass already made is kept) and
+every refusal below.
+
+**Refused** (`ForkRefusal`), because v1 cannot deal under them without
+leaking or dropping a rules fact: the opening mulligans (they run on streams
+of the real seed); any question but ordinary priority; any suspended
+operation, named by its driver field (a resolution, a payment window, a
+cast or activation in progress, queued triggers, entry questions, delayed
+or upkeep work, a library-top announcement, a draw or discard being asked,
+a reflexive trigger, triggers not yet scanned, and a miracle check queued —
+which the opening draws and each turn's first draw leave in
+`pending_miracle` until the engine has offered it (`offer_miracle`), so the
+upkeep of turn 1 is refused and a main phase is not); a loop watch
+holding a signature (it hashes the real hidden cards) or breaking a loop;
+any face-down object (CR 708.2) and face-down exile (CR 406.3); a commander
+in a hidden zone; a hidden card with rules state of its own (counters, a
+status, riders, a copy's base, a face other than its front); anything
+public pointing at a hidden card (targets, an event object, an attachment,
+a rider, a play permission, a discovered card, a continuous effect about
+its current incarnation); another seat's standing answer in the journal
+(`AutoAnswered`); an unknown deck.
+
+The twin-game test compares the two forks with `Engine::fingerprint` (every
+field) and their whole journals, so a new field or note that carries a real
+hidden card into a fork fails it as soon as the fixture exercises it — that
+is how the `damage_sources` copies were found. It exercises draws, land
+plays, casting and passing; mechanics it does not reach (reveals, searches,
+wishes, cards put back into a library) are covered by the refusals and the
+field-by-field rules above, not by a twin comparison yet.
+
 ## Control rotation at a multiplayer table
 
 `Effect::ControlRotation` asks the controller which adjacent living seat to
