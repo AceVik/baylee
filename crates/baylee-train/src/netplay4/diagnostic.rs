@@ -95,6 +95,7 @@ mod tests {
             observed_values: BTreeMap::new(),
             coverage: CoverageMatrix4::default(),
             last_fallback: None,
+            rule_refs_left_out: 0,
         };
         let answer = net.act_detailed(&view, &pending, &[]);
         assert_eq!(answer.provenance.source, SourceKind4::House);

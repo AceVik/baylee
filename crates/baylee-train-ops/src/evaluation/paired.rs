@@ -28,6 +28,8 @@ pub fn read_verified(evaluation: &Path, job: &Path) -> Result<(Value, Value, Str
             "--no-baseline",
             "--held-out-cards",
             "--raw-policy",
+            "--catalog-superset",
+            "--catalog-withdraw-changed",
         ]
         .contains(&key)
         {
@@ -233,7 +235,7 @@ fn report(
         json!({"candidate":candidate["model"],"reference":reference["model"],
         "thinking_steps":{"candidate":candidate["thinking_steps"],"reference":reference["thinking_steps"]},
         "different_thinking_budgets_allowed":allow_thinking_difference,
-        "policy_execution":{"candidate":select(candidate,&["policy_mode","policy_contract","model_identity"],false),"reference":select(reference,&["policy_mode","policy_contract","model_identity"],false)},
+        "policy_execution":{"candidate":select(candidate,&["policy_mode","policy_contract","model_identity","search","catalog"],false),"reference":select(reference,&["policy_mode","policy_contract","model_identity","search","catalog"],false)},
         "provenance":cp,"outcomes":counts,
         "execution_quality":{"candidate":select(candidate,&["model_family","house_fallbacks","fallback_rate","refused","stalls","net_answer_caps"],true),"reference":select(reference,&["model_family","house_fallbacks","fallback_rate","refused","stalls","net_answer_caps"],true)},
         "paired_uncertainty":summarize(&json!({"deal_details":pairs}),resamples)?,

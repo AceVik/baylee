@@ -35,8 +35,8 @@ use baylee_train::netplay4::search::{
     KnownDecks, SearchConfig4, SearchedAnswer4, search_decision, terminal_utility,
 };
 use baylee_train::netplay4::{
-    BatchLimits4, BatchedNet4, CriticSemantics4, ModelIdentity, NetPlayer4, PolicyMode4,
-    inspect_model_identity, valid_raw_temperature,
+    BatchLimits4, BatchedNet4, CatalogPolicy4, CriticSemantics4, ModelIdentity, NetPlayer4,
+    PolicyMode4, inspect_catalog, inspect_model_identity, valid_raw_temperature,
 };
 use baylee_train::selfplay::table_for;
 use baylee_train::working::{Working, repo_root};
@@ -97,6 +97,7 @@ fn main() -> anyhow::Result<()> {
         bail!(refusal);
     }
     let search = search_metadata(&args, model_identity.as_ref());
+    let catalog = catalog_metadata(&args, &collection)?;
     if args.shadow_teacher.is_some()
         && model_identity
             .as_ref()
@@ -258,6 +259,10 @@ fn main() -> anyhow::Result<()> {
             // dataset from a run that does.
             run["search"] = search.clone();
         }
+        if let Some(catalog) = &catalog {
+            // Only runs that accept another catalog than this build's name it.
+            run["catalog"] = catalog.clone();
+        }
         if let Some(profile) = &args.shadow_teacher {
             let metadata_path = if args.model.is_dir() {
                 args.model.join("model.onnx.json")
@@ -321,6 +326,7 @@ fn main() -> anyhow::Result<()> {
             .opponent_path
             .as_deref()
             .map(|path| (path, collection.opponent_identity.as_ref())),
+        catalog_policy(&args),
     )?;
 
     let started = Instant::now();
@@ -344,7 +350,12 @@ fn main() -> anyhow::Result<()> {
         let temp = args.temperature;
         let fair = args.fair_scouting;
         let no_base = args.no_baseline;
-        let legacy = args.legacy_v3;
+        let catalog = catalog_policy(&args);
+        let format = if args.legacy_v3 {
+            ModelFormat::LegacyV3
+        } else {
+            ModelFormat::Net(catalog)
+        };
         let expected_identity = model_identity.clone();
         let collection = collection.clone();
         let run_metadata_sha = run_metadata_sha.clone();
@@ -354,9 +365,9 @@ fn main() -> anyhow::Result<()> {
 
         handles.push(std::thread::spawn(move || -> anyhow::Result<()> {
             let mut net:Box<dyn EvaluationPlayer> = if collection.uses_seat_pool() {
-                Box::new(seat_players::SeatPlayers::load(&model_path,&collection,policy_mode,&shared_nets)?)
+                Box::new(seat_players::SeatPlayers::load(&model_path,&collection,policy_mode,&shared_nets,catalog)?)
             } else {
-                load_player(&model_path,legacy,k_steps,temp,policy_mode,expected_identity.as_ref(),shared_nets.learner.as_ref())?
+                load_player(&model_path,format,k_steps,temp,policy_mode,expected_identity.as_ref(),shared_nets.learner.as_ref())?
             };
 
             let shard_name = format!("w{worker_id:02}-0000.jsonl.gz");
@@ -568,10 +579,11 @@ fn main() -> anyhow::Result<()> {
             let mut st = stats_arc.lock().expect("stats lock");
             let coverage = net.coverage();
             for pk in 0..coverage.counts.len() {
-                for sk in 0..4 {
+                for sk in 0..coverage.counts[pk].len() {
                     st.coverage.counts[pk][sk] += coverage.counts[pk][sk];
                 }
             }
+            st.rule_refs_left_out += net.rule_refs_left_out();
             Ok(())
         }));
     }
@@ -709,6 +721,10 @@ fn main() -> anyhow::Result<()> {
     summary["evaluator_dirty"] = json!(baylee_build::DIRTY);
     summary["latency_scope"] = json!("decision inference only; observation updates are excluded");
     summary["inference_batch"] = shared_nets.report();
+    if let Some(catalog) = &catalog {
+        summary["catalog"] = catalog.clone();
+        summary["catalog"]["rule_refs_left_out"] = json!(st.rule_refs_left_out);
+    }
     if let Some(search) = &search {
         summary["search"] = json!({"config": search, "counts": st.search.report(),
             "latency_scope": "searched_ms is the wall time of each searched decision, \

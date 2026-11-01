@@ -44,7 +44,7 @@ fn game_rows(net: &mut NetPlayer4, seed: u64, limit: usize) -> Vec<StepRow> {
                 &net.h_states[&seat],
                 k,
                 net.encoder_version,
-                net.rule_roots.as_ref(),
+                net.rule_roots.as_deref(),
             )
             .unwrap()
         };

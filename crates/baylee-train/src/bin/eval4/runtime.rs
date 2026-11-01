@@ -29,6 +29,11 @@ trait EvaluationPlayer {
     fn fallback_diagnostic(&self) -> Option<&baylee_train::netplay4::FallbackDiagnostic4> {
         None
     }
+    /// Rule references left out of this player's steps by its catalog
+    /// binding (`--catalog-superset`).
+    fn rule_refs_left_out(&self) -> u64 {
+        0
+    }
     /// Answers with a lookahead over `table` (`--search`); `None` when this
     /// player cannot search.
     fn search(
@@ -98,6 +103,9 @@ impl EvaluationPlayer for NetPlayer4 {
     }
     fn coverage(&self) -> &CoverageMatrix4 {
         &self.coverage
+    }
+    fn rule_refs_left_out(&self) -> u64 {
+        Self::rule_refs_left_out(self)
     }
     fn search(
         &mut self,
@@ -192,18 +200,19 @@ impl SharedNets {
         rows: usize,
         model: &std::path::Path,
         opponent: Option<(&std::path::Path, Option<&ModelIdentity>)>,
+        catalog: CatalogPolicy4,
     ) -> anyhow::Result<Self> {
         if rows == 0 {
             return Ok(Self::default());
         }
         let limits = BatchLimits4::for_rows(rows);
-        let learner = BatchedNet4::load(model, limits)?;
+        let learner = BatchedNet4::load(model, limits, catalog)?;
         let opponent = match opponent {
             // An exact frozen self-play copy runs on the learner's graphs.
             Some((_, Some(identity))) if identity == learner.model_identity() => {
                 Some(learner.clone())
             }
-            Some((path, _)) => Some(BatchedNet4::load(path, limits)?),
+            Some((path, _)) => Some(BatchedNet4::load(path, limits, catalog)?),
             None => None,
         };
         Ok(Self {
@@ -232,17 +241,17 @@ impl SharedNets {
 
 fn load_player(
     path: &std::path::Path,
-    legacy: bool,
+    format: ModelFormat,
     depth: u8,
     temperature: f32,
     policy_mode: PolicyMode4,
     expected_identity: Option<&ModelIdentity>,
     shared: Option<&Arc<BatchedNet4>>,
 ) -> anyhow::Result<Box<dyn EvaluationPlayer>> {
-    if !legacy {
+    if let ModelFormat::Net(catalog) = format {
         let player = match shared {
             Some(net) => NetPlayer4::shared(net),
-            None => NetPlayer4::load(path)?,
+            None => NetPlayer4::load_with(path, catalog)?,
         };
         let player = player
             .with_thinking_steps(depth)

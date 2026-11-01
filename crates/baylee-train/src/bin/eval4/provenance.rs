@@ -34,4 +34,33 @@ mod producer_tests {
             "a run that names its search certifies no policy-gradient dataset"
         );
     }
+
+    #[test]
+    fn a_catalog_other_than_this_builds_is_accepted_only_explicitly() {
+        let parse = |extra: &[&str]| {
+            let mut argv = vec!["eval4", "--model", "m", "--out", "o"];
+            argv.extend_from_slice(extra);
+            Args::try_parse_from(argv)
+        };
+        assert_eq!(catalog_policy(&parse(&[]).unwrap()), CatalogPolicy4::Exact);
+        assert_eq!(
+            catalog_policy(&parse(&["--catalog-superset"]).unwrap()),
+            CatalogPolicy4::Superset
+        );
+        assert_eq!(
+            catalog_policy(
+                &parse(&["--catalog-superset", "--catalog-withdraw-changed"]).unwrap()
+            ),
+            CatalogPolicy4::SupersetWithdrawChanged
+        );
+        assert!(parse(&["--catalog-withdraw-changed"]).is_err());
+        assert!(parse(&["--catalog-superset", "--legacy-v3"]).is_err());
+        let args = parse(&[]).unwrap();
+        let contract = collector::Contract::new(&args, None).unwrap();
+        assert_eq!(
+            catalog_metadata(&args, &contract).unwrap(),
+            None,
+            "a run on this build's own catalog records nothing new"
+        );
+    }
 }

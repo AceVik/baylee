@@ -6,9 +6,10 @@ use baylee_core::ids::PlayerId;
 
 /// Everything per game a [`NetPlayer4`] changes as it observes and answers:
 /// recurrent memory, seat knowledge, loop guards, announced sources, the
-/// latest observed values, the sampling stream, the last fallback and the
-/// coverage counts. Configuration (depth, temperature, policy mode, model)
-/// and the inference backend are not in it.
+/// latest observed values, the sampling stream, the last fallback, the
+/// coverage counts and the rule references left out. Configuration
+/// (depth, temperature, policy mode, model) and the inference backend are
+/// not in it.
 #[derive(Clone, Debug)]
 pub struct PlayerSnapshot4 {
     teams: Vec<Option<u8>>,
@@ -20,6 +21,7 @@ pub struct PlayerSnapshot4 {
     rng: Rng,
     last_fallback: Option<FallbackDiagnostic4>,
     coverage: CoverageMatrix4,
+    rule_refs_left_out: u64,
 }
 
 impl NetPlayer4 {
@@ -36,6 +38,7 @@ impl NetPlayer4 {
             rng: self.rng.clone(),
             last_fallback: self.last_fallback.clone(),
             coverage: self.coverage.clone(),
+            rule_refs_left_out: self.rule_refs_left_out,
         }
     }
 
@@ -52,6 +55,7 @@ impl NetPlayer4 {
         self.rng.clone_from(&snapshot.rng);
         self.last_fallback.clone_from(&snapshot.last_fallback);
         self.coverage.clone_from(&snapshot.coverage);
+        self.rule_refs_left_out = snapshot.rule_refs_left_out;
     }
 
     /// The value head's estimate from `seat`'s latest observation that
@@ -115,6 +119,7 @@ mod tests {
         net.coverage
             .record(PendingKind4::Priority, SourceKind4::Net);
         net.teams.push(Some(3));
+        net.rule_refs_left_out += 2;
         assert_ne!(fingerprint(&net), printed);
         assert_eq!(net.observed_value(seat), Some(0.75));
 

@@ -21,6 +21,18 @@ struct Args {
     /// Greedy evaluation only; never write v4 PPO rollout labels for v3 actions.
     #[arg(long)]
     legacy_v3: bool,
+    /// Accept a model exported with an older card catalog when this build's
+    /// is a superset: every rule the model knows is unchanged, and the rules
+    /// of cards and tokens added since are left out as an unknown card's
+    /// are (`docs/trained-ai.md` §"Card catalog compatibility"). Recorded in
+    /// run.json and the summary.
+    #[arg(long, conflicts_with = "legacy_v3")]
+    catalog_superset: bool,
+    /// With `--catalog-superset`: also accept cards and tokens whose rules
+    /// changed since the export, withdrawing every rule of each (left out
+    /// as an added card's are). The withdrawn cards are recorded.
+    #[arg(long, requires = "catalog_superset")]
+    catalog_withdraw_changed: bool,
     /// Number of deals to play (each deal plays Net + optional House baseline).
     #[arg(long, default_value_t = 40)]
     deals: u64,
@@ -132,6 +144,7 @@ struct EvalStats {
     coverage: CoverageMatrix4,
     deal_details: Vec<Value>,
     search: lookahead::SearchTally,
+    rule_refs_left_out: u64,
 }
 
 /// Why `--search` cannot run with `args`, if it cannot.
@@ -166,6 +179,47 @@ fn search_metadata(args: &Args, identity: Option<&ModelIdentity>) -> Option<Valu
     metadata["max_decisions_per_game"] = json!(args.search_max_decisions_per_game);
     metadata["critic_semantics"] = json!(identity.and_then(|i| i.critic_semantics.as_ref()));
     Some(metadata)
+}
+
+/// How every model of the run binds its card catalog to this build's.
+const fn catalog_policy(args: &Args) -> CatalogPolicy4 {
+    match (args.catalog_superset, args.catalog_withdraw_changed) {
+        (false, _) => CatalogPolicy4::Exact,
+        (true, false) => CatalogPolicy4::Superset,
+        (true, true) => CatalogPolicy4::SupersetWithdrawChanged,
+    }
+}
+
+/// What `run.json` and the summary say about the card catalog when a run
+/// accepts another than this build's: each model's binding.
+fn catalog_metadata(
+    args: &Args,
+    collection: &collector::Contract,
+) -> anyhow::Result<Option<Value>> {
+    let policy = catalog_policy(args);
+    if policy == CatalogPolicy4::Exact {
+        return Ok(None);
+    }
+    let opponent = collection
+        .opponent_path
+        .as_deref()
+        .map(|path| inspect_catalog(path, policy))
+        .transpose()?
+        .flatten();
+    Ok(Some(json!({
+        "policy": policy,
+        "learner": inspect_catalog(&args.model, policy)?,
+        "opponent": opponent,
+    })))
+}
+
+/// How a run's models are opened.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ModelFormat {
+    /// An archived v3 net (`--legacy-v3`).
+    LegacyV3,
+    /// A v4/v5 net, its card catalog bound under the policy.
+    Net(CatalogPolicy4),
 }
 
 fn parse_profile(name: &str) -> anyhow::Result<AIProfile> {

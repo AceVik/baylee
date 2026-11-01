@@ -550,6 +550,57 @@ pure net games, FP16 throughput grows with workers until about 64
 (`--threads 64 --inference-batch 64`: 3.7 games per second, about 18 rows
 per call, 1.3 GB).
 
+### Card catalog compatibility (`--catalog-superset`)
+
+A structured (v4/v5) export carries the rule catalog it was trained on
+(`card_structure.json`, its digest in `structure_sha256`), and its ONNX graph
+holds the frozen rule table computed from that catalog's DAG. At every step a
+rule reference (`c/`, `i/`, `a/`, `alt/` keys of a card, `t/`, `ta/` of a
+token, `q/` of a reserved ability) is looked up in the model's own `roots`
+and becomes a row of that table. Node 0 is absence: its row is zero, and a
+card the encoder cannot identify (`UNKNOWN_CARD`) produces no references at
+all. Its DSL summary and public features are encoded from the definition at
+run time by the versioned encoder, not from the catalog.
+
+By default a model loads only when this build compiles the same catalog,
+digest for digest. The digest covers the DSL source hash, every operator,
+every node and every root, so an added card, a rules fix or an edited DSL
+comment refuses every older export. `card_structure4 --check-model DIR`
+compares a model's catalog with this build's tree by tree, by tag *name*,
+bytes and ordered children (node and tag ids are traversal positions and move
+whenever anything is added), and prints what changed.
+
+`eval4 --catalog-superset` accepts a newer catalog when every root the model
+knows is in it with an identical tree. References the model knows read the
+same row of its own table as in training: their input is unchanged bit for
+bit. References to roots only this build has (cards and tokens added since)
+are left out, so such a card reads as one whose rules the encoder cannot see:
+no references, and still its public features and DSL summary. A key neither
+catalog has is still an error. `--catalog-withdraw-changed` also accepts a
+card or token whose tree changed, or which lost or gained a root, and
+withdraws it whole: every one of its references is left out like an added
+card's, instead of reading a tree that is no longer its rules. `run.json` and
+the summary name the binding (`catalog`: policy, both digests, added roots,
+new operators, withdrawn cards), and the summary counts `rule_refs_left_out`,
+how much a run read without trees. Neither option says anything about cards
+it leaves out beyond that; the DSL summary encoder and the engine's semantics
+are outside this check, as they were before it.
+
+`v6s-selfimit/s1` against this branch (1 November 2026): of its 39,496 roots,
+39,492 are unchanged, none are gone, 176 are new, and 4 changed: Mana Drain
+(card 623, `5c5bda190`) and Everybody Lives! (card 26615, `522380714`), both
+rules fixes. The strict superset therefore refuses s1;
+`--catalog-superset --catalog-withdraw-changed` binds it with those two cards
+withdrawn. This build also uses 65 operators s1 never saw (among them
+`Effect::DelayedManaAtNextMain`, Mana Drain's fix). That is why a re-export is
+not free either: `refresh_structure4.py` rebinds learned operators by name to
+a refreshed catalog (`card_structure4 --out`, then `export_onnx4.py`, then
+the regressions) and embeds new cards built from known operators, but it
+refuses unknown operators unless `--allow-new-operators` initializes them from
+donors, untrained. A catalog with new operators needs a training phase; until
+then, evaluation runs that meet new cards should bind as a superset and
+report `rule_refs_left_out`.
+
 ### Lookahead search (`eval4 --search K,P,H`)
 
 The first thinking BayleeAI does beyond one forward pass, for **training and

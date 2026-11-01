@@ -124,6 +124,24 @@ fn raw_boolean_flag_preserves_next_option_and_frozen_job_binding() {
         let (_, p, h) = read_verified(&path, &job)?;
         assert_eq!(p["max_decisions"], 42);
         assert_eq!(h.len(), 64);
+        // The catalog flags take no value either.
+        run["command"] = json!([
+            "eval4",
+            "--catalog-superset",
+            "--catalog-withdraw-changed",
+            "--out",
+            path,
+            "--model",
+            "test",
+            "--decks-manifest",
+            "decks.json",
+            "--max-decisions",
+            "41",
+            "--search",
+            "4,2,4"
+        ]);
+        atomic_json(&job, &run)?;
+        assert_eq!(read_verified(&path, &job)?.1["max_decisions"], 41);
         run["status"] = json!("running");
         atomic_json(&job, &run)?;
         assert!(read_verified(&path, &job).is_err());
