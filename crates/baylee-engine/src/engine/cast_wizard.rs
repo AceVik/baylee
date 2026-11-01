@@ -1401,7 +1401,7 @@ impl<L: CardLookup> Engine<L> {
                     suspended: super::PaymentContinuation::Miracle {
                         cost: self.north_star_payment(
                             &wizard,
-                            self.restricted_x_payment(&wizard, cost).0,
+                            self.miracle_window_cost(&wizard, cost),
                         ),
                         wizard: Box::new(wizard),
                         version,
@@ -1777,6 +1777,43 @@ impl<L: CardLookup> Engine<L> {
         )
     }
 
+    /// Materializes a color-restricted X payment (`x_mana_color` or
+    /// `x_mana_colors`) into colored or hybrid mana symbols on the cost
+    /// exposed by [`super::PaymentContinuation::Miracle`], so that
+    /// [`Self::payment_window`] (`view.owed`) and client/seat mana planners
+    /// know which units of X require colored mana (e.g. Drain Life's
+    /// "Spend only black mana on X").
+    pub(super) fn miracle_window_cost(&self, wizard: &CastWizard, total: ManaCost) -> ManaCost {
+        let (cost, Some(restriction)) = self.restricted_x_payment(wizard, total) else {
+            return total;
+        };
+        if restriction.amount == 0 {
+            return cost;
+        }
+        let bits = restriction.types;
+        let symbol = match bits.count_ones() {
+            1 => {
+                let color = baylee_core::color::Color::ALL[bits.trailing_zeros() as usize];
+                Some(baylee_core::mana::ManaSymbol::of_color(color))
+            }
+            2 => {
+                let first = baylee_core::color::Color::ALL[bits.trailing_zeros() as usize];
+                let rest = bits & (bits - 1);
+                let second = baylee_core::color::Color::ALL[rest.trailing_zeros() as usize];
+                Some(baylee_core::mana::ManaSymbol::Hybrid(
+                    baylee_core::color::ColorPair::new(first, second),
+                ))
+            }
+            _ => None,
+        };
+        if let Some(symbol) = symbol {
+            cost.with_less_generic(restriction.amount)
+                .with_symbol(symbol, restriction.amount)
+        } else {
+            cost
+        }
+    }
+
     /// The X menu and payment ask the same actual-mana constraint.
     fn restricted_x_affordable(&self, wizard: &CastWizard) -> bool {
         let face = self.wizard_face(wizard);
@@ -1860,7 +1897,7 @@ fn wizard_total_cost(face: &baylee_cards_dsl::FaceDef, wizard: &CastWizard) -> M
 
 /// What the pool pays for the cast at its payment: the total less the
 /// generic that delve and convoke already paid.
-fn wizard_paid_total(face: &baylee_cards_dsl::FaceDef, wizard: &CastWizard) -> ManaCost {
+pub(super) fn wizard_paid_total(face: &baylee_cards_dsl::FaceDef, wizard: &CastWizard) -> ManaCost {
     wizard_total_cost(face, wizard)
         .with_less_generic((wizard.delve_exiles.len() + wizard.convoke_taps.len()) as u32)
 }
