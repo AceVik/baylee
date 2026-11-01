@@ -50,13 +50,20 @@ fn closed(view: &PlayerView, condition: &Condition) -> bool {
     match condition {
         Condition::MaxSpeed => view.seat(view.seat).is_none_or(|seat| seat.speed != 4),
         Condition::YourTurn => view.active != view.seat,
-        Condition::DuringStep(step) => !during(view.step, *step),
+        Condition::OpponentsTurn => view.active == view.seat,
+        Condition::DuringCombat => view.phase != baylee_view::Phase::Combat,
+        Condition::DuringStep(step) => !during(view, *step),
+        Condition::BeforeStep(step) => {
+            turn_position(view.phase, view.step) >= baylee_engine::turn::position_of(*step)
+        }
         Condition::All(parts) => parts.iter().any(|c| closed(view, c)),
+        Condition::Any(parts) => parts.iter().all(|c| closed(view, c)),
         _ => false,
     }
 }
 
-fn during(now: Step, step: StepKind) -> bool {
+fn during(view: &PlayerView, step: StepKind) -> bool {
+    let now = view.step;
     match step {
         StepKind::Upkeep => now == Step::Upkeep,
         StepKind::Draw => now == Step::Draw,
@@ -66,7 +73,29 @@ fn during(now: Step, step: StepKind) -> bool {
         StepKind::CombatDamage => matches!(now, Step::CombatDamage | Step::CombatDamageFirst),
         StepKind::CombatEnd => now == Step::CombatEnd,
         StepKind::End => now == Step::End,
-        StepKind::FirstMain => true,
+        StepKind::FirstMain => now == Step::Main && view.phase == baylee_view::Phase::FirstMain,
+    }
+}
+
+const fn turn_position(phase: baylee_view::Phase, step: Step) -> u8 {
+    match step {
+        Step::Untap => 0,
+        Step::Upkeep => 1,
+        Step::Draw => 2,
+        Step::Main => match phase {
+            baylee_view::Phase::SecondMain | baylee_view::Phase::Ending => 10,
+            baylee_view::Phase::Beginning
+            | baylee_view::Phase::FirstMain
+            | baylee_view::Phase::Combat => 3,
+        },
+        Step::CombatBegin => 4,
+        Step::DeclareAttackers => 5,
+        Step::DeclareBlockers => 6,
+        Step::CombatDamageFirst => 7,
+        Step::CombatDamage => 8,
+        Step::CombatEnd => 9,
+        Step::End => 11,
+        Step::Cleanup => 12,
     }
 }
 

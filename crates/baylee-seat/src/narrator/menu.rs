@@ -10,7 +10,7 @@
 use super::{Style, Table, board, tag, words};
 use crate::mind::Request;
 use crate::reports::Report;
-use crate::wake::{Reach, ReachFrom, reachable};
+use crate::wake::{Reach, ReachFrom, reachable, reachable_abilities};
 use baylee_cards_dsl::AbilityDef;
 use baylee_client_core::manaplan::{self, Tap};
 use baylee_core::ids::{AbilityRef, CardIndex, Defender, ObjectId, PlayerId, SubtypeId};
@@ -1202,7 +1202,12 @@ fn ability_def(table: &Table<'_>, source: ObjectId, index: u32) -> Option<&'stat
                 .abilities_for_face(usize::from(rules.face))
                 .get(usize::try_from(grant.ability?).ok()?);
         }
-        if let Some(rules) = object.rules {
+        if let Some(rules) = object.rules.or_else(|| {
+            (!object.status.is_face_down())
+                .then_some(object.card)
+                .flatten()
+                .map(Into::into)
+        }) {
             baylee_cards::by_index(rules.card)?.abilities_for_face(usize::from(rules.face))
         } else if !object.status.is_face_down() {
             baylee_cards::tokens::by_token_id(object.token?)?.abilities
@@ -1210,7 +1215,10 @@ fn ability_def(table: &Table<'_>, source: ObjectId, index: u32) -> Option<&'stat
             return None;
         }
     } else {
-        let card = view.hand.iter().find(|c| c.id == source)?.card;
+        let card = baylee_client_core::decision::known_cards(view)
+            .into_iter()
+            .find(|c| c.id == source)?
+            .card;
         baylee_cards::by_index(card.index)?.abilities_for_face(usize::from(card.face))
     };
     list.get(usize::try_from(index).ok()?)
@@ -1229,12 +1237,22 @@ fn ability_sentence(table: &Table<'_>, source: ObjectId, index: u32) -> Option<&
             grant.text?.line,
         );
     }
-    let rules = view.object(source).and_then(|o| o.rules).or_else(|| {
-        view.hand
-            .iter()
-            .find(|c| c.id == source)
-            .map(|c| baylee_view::RulesFace::from(c.card))
-    })?;
+    let rules = view
+        .object(source)
+        .and_then(|o| {
+            o.rules.or_else(|| {
+                (!o.status.is_face_down())
+                    .then_some(o.card)
+                    .flatten()
+                    .map(Into::into)
+            })
+        })
+        .or_else(|| {
+            baylee_client_core::decision::known_cards(view)
+                .into_iter()
+                .find(|c| c.id == source)
+                .map(|c| baylee_view::RulesFace::from(c.card))
+        })?;
     let face = usize::from(rules.face);
     let at = baylee_cards::lines::ability_line(rules.card, face, index)?;
     baylee_cards::oracle::sentence(rules.card, face, at.line)

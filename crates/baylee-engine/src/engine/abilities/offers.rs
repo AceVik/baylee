@@ -332,6 +332,7 @@ impl<L: CardLookup> Engine<L> {
                 ) {
                     legal.abilities.push((id, crate::choice::TURN_FACE_UP));
                 } else {
+                    legal.abilities.push((id, crate::choice::TURN_FACE_UP));
                     legal
                         .unpaid_abilities
                         .push((id, crate::choice::TURN_FACE_UP, cost));
@@ -339,8 +340,25 @@ impl<L: CardLookup> Engine<L> {
             }
             // CR 709.5e: a locked door, as a sorcery, for its mana cost.
             if obj.controller == player && sorcery_timing {
-                for half in self.unlockable_halves(id) {
-                    legal.abilities.push((id, crate::choice::unlock_door(half)));
+                for half in 0..2_u8 {
+                    let Some(cost) = self.unlock_cost(id, half) else {
+                        continue;
+                    };
+                    if self.can_pay_mana(
+                        player,
+                        casting::SpendFor::OtherFrom(baylee_core::ids::DamageSourceRef {
+                            object: id,
+                            version: obj.version,
+                        }),
+                        &cost,
+                    ) {
+                        legal.abilities.push((id, crate::choice::unlock_door(half)));
+                    } else if cost != baylee_core::mana::ManaCost::ZERO {
+                        legal.abilities.push((id, crate::choice::unlock_door(half)));
+                        legal
+                            .unpaid_abilities
+                            .push((id, crate::choice::unlock_door(half), cost));
+                    }
                 }
             }
             // A token's abilities come from its definition rather than from a
@@ -590,21 +608,23 @@ impl<L: CardLookup> Engine<L> {
                                 cost,
                                 *cost_reduction,
                             );
-                            if self.activation_affordable(
+                            let payable = self.activation_affordable(
                                 player,
                                 card,
                                 &cost,
                                 &[],
                                 self.mana_activation_life(card, i as u32),
-                            ) && self.ability_has_targets(
+                            );
+                            self.offer_activation_payment(
                                 player,
                                 card,
                                 i as u32,
+                                &cost,
+                                payable,
                                 *targets,
                                 *second_targets,
-                            ) {
-                                legal.abilities.push((card, i as u32));
-                            }
+                                &mut legal,
+                            );
                         }
                         AbilityDef::ActivatedConditional {
                             cost,
@@ -648,21 +668,23 @@ impl<L: CardLookup> Engine<L> {
                                 cost,
                                 *cost_reduction,
                             );
-                            if self.activation_affordable(
+                            let payable = self.activation_affordable(
                                 player,
                                 card,
                                 &cost,
                                 &[],
                                 self.mana_activation_life(card, i as u32),
-                            ) && self.ability_has_targets(
+                            );
+                            self.offer_activation_payment(
                                 player,
                                 card,
                                 i as u32,
+                                &cost,
+                                payable,
                                 *targets,
                                 *second_targets,
-                            ) {
-                                legal.abilities.push((card, i as u32));
-                            }
+                                &mut legal,
+                            );
                         }
                         // Suspend's first ability is an activated one with a cost
                         // and "activate only as a sorcery" on it (CR 702.62a) —

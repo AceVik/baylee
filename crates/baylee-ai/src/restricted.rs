@@ -66,8 +66,19 @@ impl HeuristicAgent {
         source: Option<ObjectId>,
         activated: ObjectId,
     ) -> bool {
-        view.object(activated).is_some_and(|object| {
-            self.filter_matches(filter, view, object, ZoneRef::Battlefield, source) == Some(true)
+        let zone = if view.battlefield.iter().any(|o| o.id == activated) {
+            ZoneRef::Battlefield
+        } else if view.graveyards.iter().flatten().any(|o| o.id == activated) {
+            ZoneRef::Graveyard
+        } else if view.command.iter().flatten().any(|o| o.id == activated) {
+            ZoneRef::Command
+        } else if view.exile.iter().flatten().any(|o| o.id == activated) {
+            ZoneRef::Exile
+        } else {
+            ZoneRef::Hand
+        };
+        spell_object(view, activated).is_some_and(|object| {
+            self.filter_matches(filter, view, &object, zone, source) == Some(true)
         })
     }
 }

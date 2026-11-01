@@ -551,7 +551,7 @@ impl Seat {
             self.casting = None;
             return None;
         }
-        if !matches!(request.pending, Pending::Priority { .. }) {
+        if !matches!(request.pending, Pending::Priority { .. }) || request.view.owed.is_some() {
             return None;
         }
         self.casting = None;
@@ -744,6 +744,13 @@ impl Seat {
                     let then = plan.then.clone();
                     self.plan = None;
                     return Some(then);
+                } else if !view.stack.is_empty()
+                    && legal.can_pass
+                    && view.stack.iter().all(|o| {
+                        matches!(o.stack_item, Some(baylee_view::StackItem::Ability { .. }))
+                    })
+                {
+                    return Some(PlayerAction::PassPriority);
                 }
             }
             _ => {}

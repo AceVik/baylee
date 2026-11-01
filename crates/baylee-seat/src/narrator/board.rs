@@ -452,7 +452,7 @@ fn zones(table: &Table<'_>, out: &mut String) {
         }
         let p = PlayerId::new(u8::try_from(seat).unwrap_or(u8::MAX));
         let title = capitalised(&format!("{} graveyard", table.whose(p)));
-        zone_line(table, &title, cards, out);
+        zone_line(table, &title, cards, ZONE_NAMES, out);
     }
     for (seat, cards) in view.exile.iter().enumerate() {
         if cards.is_empty() {
@@ -460,7 +460,7 @@ fn zones(table: &Table<'_>, out: &mut String) {
         }
         let p = PlayerId::new(u8::try_from(seat).unwrap_or(u8::MAX));
         let title = format!("Exiled cards {} owns", table.player(p)).replace("you owns", "you own");
-        zone_line(table, &title, cards, out);
+        zone_line(table, &title, cards, ZONE_NAMES, out);
     }
     for (seat, cards) in view.command.iter().enumerate() {
         if cards.is_empty() {
@@ -468,19 +468,37 @@ fn zones(table: &Table<'_>, out: &mut String) {
         }
         let p = PlayerId::new(u8::try_from(seat).unwrap_or(u8::MAX));
         let title = capitalised(&format!("{} command zone", table.whose(p)));
-        zone_line(table, &title, cards, out);
+        zone_line(table, &title, cards, ZONE_NAMES, out);
     }
     if !view.looking_at.is_empty() {
-        zone_line(table, "You are looking at", &view.looking_at, out);
+        zone_line(
+            table,
+            "You are looking at",
+            &view.looking_at,
+            view.looking_at.len(),
+            out,
+        );
     }
     if !view.library_tops.is_empty() {
-        zone_line(table, "Known top of a library", &view.library_tops, out);
+        zone_line(
+            table,
+            "Known top of a library",
+            &view.library_tops,
+            ZONE_NAMES,
+            out,
+        );
     }
 }
 
 /// One zone on one line, newest last: "Your graveyard (3): Shock #12, …".
-fn zone_line(table: &Table<'_>, title: &str, cards: &[PublicObject], out: &mut String) {
-    let older = cards.len().saturating_sub(ZONE_NAMES);
+fn zone_line(
+    table: &Table<'_>,
+    title: &str,
+    cards: &[PublicObject],
+    max_names: usize,
+    out: &mut String,
+) {
+    let older = cards.len().saturating_sub(max_names);
     let mut named: Vec<String> = cards[older..]
         .iter()
         .map(|object| {

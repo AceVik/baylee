@@ -397,32 +397,59 @@ pub(super) fn spell_cost(
     legal: &baylee_engine::choice::LegalActions,
     card: ObjectId,
 ) -> Option<baylee_core::mana::ManaCost> {
-    let cost = if let Some(hand_card) = baylee_client_core::decision::hand(view)
+    let (cost, identity) = if let Some(hand_card) = baylee_client_core::decision::hand(view)
         .iter()
         .find(|c| c.id == card)
     {
-        manasources::hand_cost(hand_card)?
+        (manasources::hand_cost(hand_card)?, Some(hand_card.card))
     } else if let Some(buried) = view
         .graveyards
         .get(view.seat.get() as usize)
         .and_then(|zone| zone.iter().find(|o| o.id == card))
     {
-        buried.flashback?
+        let cost = buried.flashback.or_else(|| {
+            legal
+                .payable
+                .contains(&card)
+                .then(|| {
+                    buried
+                        .card
+                        .and_then(reach::printed_face)
+                        .map(|f| f.mana_cost)
+                })
+                .flatten()
+        })?;
+        (cost, buried.card)
     } else if let Some(exiled) = view.exile.iter().flatten().find(|o| o.id == card) {
-        reach::printed_face(exiled.card?)?.mana_cost
+        (reach::printed_face(exiled.card?)?.mana_cost, exiled.card)
     } else {
         let commander = view
             .seat(view.seat)?
             .commanders
             .iter()
             .find(|c| c.object == card)?;
-        commander_cost(commander)?.with_more_generic(2 * commander.casts)
+        (
+            commander_cost(commander)?.with_more_generic(2 * commander.casts),
+            commander.card,
+        )
     };
-    Some(
-        cost.with_more_generic(
-            legal.spell_increase(card, baylee_engine::choice::CastModeKind::Normal),
-        ),
-    )
+    let increase = identity.map_or_else(
+        || {
+            baylee_core::mana::ManaCost::from_symbol_generic(
+                legal.spell_increase(card, baylee_engine::choice::CastModeKind::Normal),
+            )
+        },
+        |id| {
+            baylee_ai::spell_mana_increase(
+                view,
+                card,
+                id,
+                legal,
+                baylee_engine::choice::CastModeKind::Normal,
+            )
+        },
+    );
+    Some(cost.combine(&increase))
 }
 
 /// The taps that would make `card` suspendable, if any.

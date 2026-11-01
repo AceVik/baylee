@@ -1399,10 +1399,8 @@ impl<L: CardLookup> Engine<L> {
                 self.mana_window = Some(super::PaymentWindow {
                     player,
                     suspended: super::PaymentContinuation::Miracle {
-                        cost: self.north_star_payment(
-                            &wizard,
-                            self.miracle_window_cost(&wizard, cost),
-                        ),
+                        cost: self
+                            .north_star_payment(&wizard, self.miracle_window_cost(&wizard, cost)),
                         wizard: Box::new(wizard),
                         version,
                         opened,

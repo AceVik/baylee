@@ -598,3 +598,80 @@ fn a_plan_is_asked_every_question_of_its_turn_and_none_after() {
         passes(Standing::NothingToDo)
     );
 }
+
+#[test]
+fn unpaid_abilities_payable_from_untapped_lands_are_reachable_and_wake() {
+    let (mut view, mut legal) = table(&["Forest", "Forest"], &[]);
+    view.battlefield.push(permanent(10, "Grizzly Bears"));
+    legal
+        .unpaid_abilities
+        .push((o(10), 0, "{1}{G}".parse::<ManaCost>().unwrap()));
+    let reach = reachable_abilities(&view, &legal);
+    assert_eq!(reach.len(), 1);
+    assert_eq!(reach[0].plan.steps.len(), 2);
+    assert_eq!(judge(&view, legal), Verdict::Wake(Why::RailStop));
+}
+
+#[test]
+fn wild_growth_and_mana_flare_add_bonus_mana_to_land_taps() {
+    let (mut view, legal) = table(&["Forest"], &["Grizzly Bears"]);
+    let mut wg = permanent(10, "Wild Growth");
+    wg.attached_to = Some(o(1));
+    view.battlefield.push(wg);
+    let reach = reachable(&view, &legal);
+    assert_eq!(
+        reach.len(),
+        1,
+        "one Forest enchanted with Wild Growth pays {{1}}{{G}}"
+    );
+    assert_eq!(reach[0].plan.steps.len(), 1);
+}
+
+#[test]
+fn psychic_venom_and_blight_deprioritize_cursed_land() {
+    let (mut view, legal) = table(&["Forest", "Forest"], &["Llanowar Elves"]);
+    let mut pv = permanent(10, "Psychic Venom");
+    pv.controller = THEM;
+    pv.attached_to = Some(o(1));
+    view.battlefield.push(pv);
+    let reach = reachable(&view, &legal);
+    assert_eq!(reach.len(), 1);
+    assert_eq!(
+        reach[0].plan.steps[0].source,
+        o(2),
+        "untapped uncursed Forest #2 must be tapped before Psychic Venom-enchanted Forest #1"
+    );
+}
+
+#[test]
+fn sirens_call_is_only_reachable_on_opponents_turn_before_attackers() {
+    let (mut view, legal) = table(&["Island"], &["Siren's Call"]);
+    assert!(
+        reachable(&view, &legal).is_empty(),
+        "Siren's Call cannot be cast on your own turn"
+    );
+    their(&mut view, Phase::Beginning, Step::Upkeep);
+    assert_eq!(
+        reachable(&view, &legal).len(),
+        1,
+        "Siren's Call is reachable on opponent's upkeep"
+    );
+    their(&mut view, Phase::SecondMain, Step::Main);
+    assert!(
+        reachable(&view, &legal).is_empty(),
+        "Siren's Call is not reachable after declare attackers"
+    );
+}
+
+#[test]
+fn combat_begin_stop_accepts_beginning_combat_aliases() {
+    let (view, _) = table(&[], &[]);
+    let mut filter = WakeFilter::default();
+    let stops = crate::narrator::Stops {
+        mine: vec!["beginning_combat".into()],
+        theirs: vec!["begin_combat".into()],
+    };
+    filter.apply_orders(Some(&stops), None, 0, &view, &[]);
+    assert!(filter.stops_at(RailSide::Mine, RailRow::CombatBegin));
+    assert!(filter.stops_at(RailSide::Theirs, RailRow::CombatBegin));
+}

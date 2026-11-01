@@ -766,6 +766,7 @@ impl HeuristicAgent {
 
     /// Every candidate is paid for before a tap is committed. A five-mana
     /// card beside two lands used to make the agent tap both, then pass.
+    #[allow(clippy::too_many_lines)]
     pub(crate) fn spell_or_mana(
         &self,
         view: &PlayerView,
@@ -774,7 +775,7 @@ impl HeuristicAgent {
         let seat = view.seat(resource_player(view))?;
         let pool = &seat.mana_pool;
         let (restricted, plain) = split_restricted(offers(view, legal));
-        let plain = usable(plain);
+        let plain = usable(view, plain);
         let main = own_main_phase(view);
         let available = pool.total() + plain.iter().map(|s| u64::from(s.amount)).sum::<u64>();
         let reserve = self.reserve(view, main);
@@ -806,9 +807,13 @@ impl HeuristicAgent {
             } else {
                 available
             };
-            let printed = spell_cost(view, id, f).with_more_generic(
-                legal.spell_increase(id, baylee_engine::choice::CastModeKind::Normal),
-            );
+            let printed = spell_cost(view, id, f).combine(&spell_mana_increase(
+                view,
+                id,
+                card,
+                legal,
+                baylee_engine::choice::CastModeKind::Normal,
+            ));
             let (cost, floats_first) = aim(
                 view,
                 card,
@@ -1567,7 +1572,7 @@ pub(crate) fn mana_ability_harm(
     let Some(object) = view.object(id) else {
         return 0;
     };
-    let tap_harm = tap_trigger_harm(object);
+    let tap_harm = tap_trigger_harm(view, object);
     let Some(index) = ability_index else {
         return tap_harm;
     };
@@ -1656,18 +1661,54 @@ fn effects_self_harm(effects: &[Effect], controller_is_you: bool) -> i32 {
         .fold(0_i32, i32::saturating_add)
 }
 
-fn tap_trigger_harm(object: &baylee_view::PublicObject) -> i32 {
-    crate::activate::printed_list(object)
-        .iter()
-        .map(|ability| match ability {
-            AbilityDef::Triggered {
-                trigger: baylee_cards_dsl::Trigger::BecomesTapped(Filter::This),
-                effects,
-                ..
-            } => effects_self_harm(effects, true).max(0),
-            _ => 0,
-        })
-        .fold(0_i32, i32::saturating_add)
+fn tappers_filter_matches(
+    view: &PlayerView,
+    filter: &Filter,
+    perm: &baylee_view::PublicObject,
+    object: &baylee_view::PublicObject,
+) -> bool {
+    if matches!(filter, Filter::AttachedToBySource) {
+        return perm.attached_to == Some(object.id);
+    }
+    HeuristicAgent::new(crate::AIProfile::default()).filter_matches(
+        filter,
+        view,
+        object,
+        baylee_cards_dsl::ZoneRef::Battlefield,
+        Some(perm.id),
+    ) == Some(true)
+}
+
+fn tap_trigger_harm(view: &PlayerView, object: &baylee_view::PublicObject) -> i32 {
+    let mut harm = 0_i32;
+    let you = resource_player(view);
+    for perm in &view.battlefield {
+        let perm_is_you = perm.controller == you;
+        for ability in crate::activate::printed_list(perm) {
+            match ability {
+                AbilityDef::Triggered {
+                    trigger: baylee_cards_dsl::Trigger::BecomesTapped(filter),
+                    effects,
+                    ..
+                } if (perm.id == object.id && matches!(filter, Filter::This))
+                    || tappers_filter_matches(view, filter, perm, object) =>
+                {
+                    harm = harm.saturating_add(effects_self_harm(effects, perm_is_you).max(0));
+                }
+                AbilityDef::Triggered {
+                    trigger: baylee_cards_dsl::Trigger::TappedForMana { by, filter },
+                    effects,
+                    ..
+                } if player_rel_hits_you(*by, perm_is_you)
+                    && tappers_filter_matches(view, filter, perm, object) =>
+                {
+                    harm = harm.saturating_add(effects_self_harm(effects, perm_is_you).max(0));
+                }
+                _ => {}
+            }
+        }
+    }
+    harm
 }
 
 fn plan_survives(view: &PlayerView, steps: &[manaplan::Step], spell_harm: i32) -> bool {
@@ -1914,7 +1955,7 @@ pub(crate) fn priced(cost: &baylee_cards_dsl::Cost) -> bool {
 /// Restricted taps are left out: what their mana may pay for is a question
 /// about one spell, which [`HeuristicAgent::paying_for`] asks.
 pub(crate) fn sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
-    usable(split_restricted(offers(view, legal)).1)
+    usable(view, split_restricted(offers(view, legal)).1)
 }
 
 /// The restricted taps and the rest. Moved out only when there are any: this
@@ -1936,6 +1977,7 @@ struct Offer {
 }
 
 /// Every offered simple mana tap, restricted ones with their filter.
+#[allow(clippy::too_many_lines)]
 fn offers(view: &PlayerView, legal: &LegalActions) -> Vec<Offer> {
     // The price rides on `manaplan::Source` itself. It used to be paired
     // with the source only until the dedup had run, because the solver asked
@@ -1964,14 +2006,13 @@ fn offers(view: &PlayerView, legal: &LegalActions) -> Vec<Offer> {
         if harm > 0 && harm >= life {
             continue;
         }
-        if let Some(color) = view
-            .object(id)
-            .and_then(|o| manaplan::basic_land_color(&o.subtypes))
+        if let Some(object) = view.object(id)
+            && let Some(color) = manaplan::basic_land_color(&object.subtypes)
         {
             // CR 305.6: the intrinsic tap of a basic land type costs the tap
             // and nothing else.
             let mut source = Source::fixed(id, Tap::Intrinsic, color);
-            if harm > 0 {
+            if harm > 0 || taps_set_off_a_trigger(view, object) {
                 source.priced = true;
             }
             result.push(Offer {
@@ -2007,8 +2048,9 @@ fn offers(view: &PlayerView, legal: &LegalActions) -> Vec<Offer> {
         };
         if let Some((colors, amount, priced, only_for)) = source {
             // A tap that sets off the permanent's own trigger (City of
-            // Brass) puts that trigger on the stack before the spell.
-            let priced = priced || taps_set_off_a_trigger(object);
+            // Brass) or a board trigger (Psychic Venom, Manabarbs) puts
+            // that trigger on the stack before the spell.
+            let priced = priced || harm > 0 || taps_set_off_a_trigger(view, object);
             result.push(Offer {
                 source: Source {
                     id,
@@ -2033,7 +2075,17 @@ fn offers(view: &PlayerView, legal: &LegalActions) -> Vec<Offer> {
     let costs: Vec<_> = view
         .hand
         .iter()
-        .filter_map(|o| face(o.card).map(|f| f.mana_cost))
+        .filter_map(|o| {
+            face(o.card).map(|f| {
+                if let Some(color) = f.x_mana_color {
+                    f.mana_cost.combine(&ManaCost::from_symbol(
+                        baylee_core::mana::ManaSymbol::of_color(color),
+                    ))
+                } else {
+                    f.mana_cost
+                }
+            })
+        })
         .collect();
     let mut ranked: Vec<_> = result.iter().map(|offer| offer.source.clone()).collect();
     // The registry's answer, as the client's: a land used for more than
@@ -2046,7 +2098,18 @@ fn offers(view: &PlayerView, legal: &LegalActions) -> Vec<Offer> {
         let pain_penalty = u32::try_from(harm.max(0))
             .unwrap_or(u32::MAX)
             .saturating_mul(20_000);
-        offer.source.preserve = source.preserve.saturating_add(pain_penalty);
+        let lock_penalty = if view
+            .object(offer.source.id)
+            .is_some_and(|o| tap_destroys_or_locks(view, o))
+        {
+            15_000
+        } else {
+            0
+        };
+        offer.source.preserve = source
+            .preserve
+            .saturating_add(pain_penalty)
+            .saturating_add(lock_penalty);
     }
     result
 }
@@ -2100,9 +2163,13 @@ fn printed_mana_offer(
     ))
 }
 
-/// Whether `object` prints "whenever this becomes tapped": City of Brass.
-fn taps_set_off_a_trigger(object: &baylee_view::PublicObject) -> bool {
-    crate::activate::printed_list(object).iter().any(|ability| {
+/// Whether tapping `object` sets off a non-mana trigger (City of Brass,
+/// Psychic Venom, Blight, Manabarbs, Lifetap).
+pub(crate) fn taps_set_off_a_trigger(
+    view: &PlayerView,
+    object: &baylee_view::PublicObject,
+) -> bool {
+    if crate::activate::printed_list(object).iter().any(|ability| {
         matches!(
             ability,
             AbilityDef::Triggered {
@@ -2110,12 +2177,170 @@ fn taps_set_off_a_trigger(object: &baylee_view::PublicObject) -> bool {
                 ..
             } if matches!(filter, Filter::This)
         )
-    })
+    }) {
+        return true;
+    }
+    for perm in &view.battlefield {
+        let same_side = perm.controller == object.controller;
+        for ability in crate::activate::printed_list(perm) {
+            match ability {
+                AbilityDef::Triggered {
+                    trigger: baylee_cards_dsl::Trigger::BecomesTapped(filter),
+                    ..
+                } if (perm.id == object.id && matches!(filter, Filter::This))
+                    || tappers_filter_matches(view, filter, perm, object) =>
+                {
+                    return true;
+                }
+                AbilityDef::Triggered {
+                    trigger: baylee_cards_dsl::Trigger::TappedForMana { by, filter },
+                    effects,
+                    ..
+                } if player_rel_hits_you(*by, same_side)
+                    && tappers_filter_matches(view, filter, perm, object)
+                    && !effects.iter().all(|e| {
+                        matches!(
+                            e,
+                            Effect::AddMana { .. }
+                                | Effect::AddManaFor { .. }
+                                | Effect::AddManaLikeEvent { .. }
+                        )
+                    }) =>
+                {
+                    return true;
+                }
+                _ => {}
+            }
+        }
+    }
+    false
+}
+
+fn tap_destroys_or_locks(view: &PlayerView, object: &baylee_view::PublicObject) -> bool {
+    if crate::activate::printed_list(object).iter().any(|ability| {
+        matches!(
+            ability,
+            AbilityDef::Static(baylee_cards_dsl::StaticAbility {
+                modifier: baylee_cards_dsl::Modifier::DoesNotUntap,
+                ..
+            })
+        )
+    }) {
+        return true;
+    }
+    for perm in &view.battlefield {
+        for ability in crate::activate::printed_list(perm) {
+            if let AbilityDef::Triggered {
+                trigger: baylee_cards_dsl::Trigger::BecomesTapped(filter),
+                effects,
+                ..
+            } = ability
+                && tappers_filter_matches(view, filter, perm, object)
+                && effects.iter().any(|e| {
+                    matches!(
+                        e,
+                        Effect::Destroy { .. }
+                            | Effect::DestroyEventThenMayReattach { .. }
+                            | Effect::SacrificeObject { .. }
+                    )
+                })
+            {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+/// Applies bonus mana from triggered mana abilities (CR 605.1b: Wild Growth,
+/// Mana Flare, Vernal Bloom, Gauntlet of Might) when tapping `object`.
+pub(crate) fn apply_triggered_mana_bonus(
+    view: &PlayerView,
+    object: &baylee_view::PublicObject,
+    source: &mut Source,
+) {
+    if source.dear.is_some() || source.colors.is_empty() {
+        return;
+    }
+    let add_fixed_color = |source: &mut Source, color: ManaColor, count: u8| {
+        if count == 0 {
+            return;
+        }
+        if !source.bundle && source.colors.len() == 1 {
+            if source.colors[0] == color {
+                source.amount = source.amount.saturating_add(count);
+            } else {
+                let mut expanded = vec![source.colors[0]; usize::from(source.amount)];
+                expanded.extend(std::iter::repeat_n(color, usize::from(count)));
+                source.colors = expanded;
+                source.bundle = true;
+                source.amount = source.amount.saturating_add(count);
+            }
+        } else if source.bundle {
+            source
+                .colors
+                .extend(std::iter::repeat_n(color, usize::from(count)));
+            source.amount = source.amount.saturating_add(count);
+        }
+    };
+    for perm in &view.battlefield {
+        let same_side = perm.controller == object.controller;
+        for ability in crate::activate::printed_list(perm) {
+            let AbilityDef::Triggered {
+                trigger: baylee_cards_dsl::Trigger::TappedForMana { by, filter },
+                effects,
+                ..
+            } = ability
+            else {
+                continue;
+            };
+            if !player_rel_hits_you(*by, same_side)
+                || !tappers_filter_matches(view, filter, perm, object)
+            {
+                continue;
+            }
+            for effect in *effects {
+                match effect {
+                    Effect::AddManaLikeEvent { amount } => {
+                        let count = u8::try_from(*amount).unwrap_or(u8::MAX);
+                        if source.bundle {
+                            if let Some(&first) = source.colors.first() {
+                                source
+                                    .colors
+                                    .extend(std::iter::repeat_n(first, usize::from(count)));
+                                source.amount = source.amount.saturating_add(count);
+                            }
+                        } else {
+                            source.amount = source.amount.saturating_add(count);
+                        }
+                    }
+                    Effect::AddManaFor {
+                        who,
+                        color,
+                        amount: n,
+                    } if player_rel_hits_you(*who, same_side) => {
+                        let count = u8::try_from(*n).unwrap_or(0);
+                        add_fixed_color(source, *color, count);
+                    }
+                    Effect::AddMana {
+                        source: ManaSource::Fixed(color),
+                        amount: baylee_cards_dsl::Amount::Fixed(n),
+                        restriction: None,
+                        ..
+                    } if same_side => {
+                        let count = u8::try_from(*n).unwrap_or(0);
+                        add_fixed_color(source, *color, count);
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
 }
 
 /// One source per permanent, the mode [`sources`] explains, with its priced
 /// alternative kept beside it (`manaplan::keep_one_per_permanent`).
-fn usable(offers: Vec<Offer>) -> Vec<Source> {
+fn usable(view: &PlayerView, offers: Vec<Offer>) -> Vec<Source> {
     let mut result: Vec<Source> = offers.into_iter().map(|o| o.source).collect();
     result.sort_by_key(|s| {
         (
@@ -2141,8 +2366,281 @@ fn usable(offers: Vec<Offer>) -> Vec<Source> {
         {
             s.preserve = s.preserve.saturating_add(p / 200);
         }
+        if let Some(object) = view.object(s.id) {
+            apply_triggered_mana_bonus(view, object, s);
+        }
     }
     result
+}
+
+pub(crate) fn plan_for_spell(
+    cost: &ManaCost,
+    pool: &baylee_view::ManaPoolView,
+    view: &PlayerView,
+    legal: &LegalActions,
+    spell: ObjectId,
+) -> Option<manaplan::Plan> {
+    let (restricted, plain) = split_restricted(offers(view, legal));
+    let plain = usable(view, plain);
+    if let Some(plan) = manaplan::plan(cost, pool, &plain) {
+        return Some(plan);
+    }
+    if restricted.is_empty() {
+        return None;
+    }
+    let agent = HeuristicAgent::new(crate::AIProfile::default());
+    let (all, _) = agent.paying_for(view, &restricted, &plain, spell)?;
+    manaplan::plan(cost, pool, &all)
+}
+
+pub(crate) fn plan_for_activation(
+    cost: &ManaCost,
+    pool: &baylee_view::ManaPoolView,
+    view: &PlayerView,
+    legal: &LegalActions,
+    source: ObjectId,
+    taps_self: bool,
+) -> Option<manaplan::Plan> {
+    let spending = view
+        .object(source)
+        .map_or(pool.spending, |o| o.ability_mana_spending);
+    let mut pool = *pool;
+    pool.spending = spending;
+    let (restricted, plain) = split_restricted(offers(view, legal));
+    let mut plain = usable(view, plain);
+    if taps_self {
+        plain.retain(|s| s.id != source);
+    }
+    if let Some(plan) = manaplan::plan(cost, &pool, &plain) {
+        return Some(plan);
+    }
+    if restricted.is_empty() {
+        return None;
+    }
+    let agent = HeuristicAgent::new(crate::AIProfile::default());
+    let best = restricted
+        .iter()
+        .filter(|o| !taps_self || o.source.id != source)
+        .filter(|o| {
+            o.only_for.is_some_and(|filter| {
+                agent.admits_activation(view, filter, Some(o.source.id), source)
+            })
+        })
+        .min_by_key(|o| {
+            (
+                o.source.priced,
+                o.source.preserve,
+                std::cmp::Reverse(o.source.amount),
+                std::cmp::Reverse(o.source.colors.len()),
+                o.source.id,
+            )
+        })?;
+    let mut all: Vec<Source> = plain
+        .into_iter()
+        .filter(|s| s.id != best.source.id)
+        .collect();
+    all.push(best.source.clone());
+    manaplan::plan(cost, &pool, &all)
+}
+
+pub(crate) fn spell_mana_increase(
+    view: &PlayerView,
+    id: ObjectId,
+    card: CardIdentity,
+    legal: &LegalActions,
+    mode: baylee_engine::choice::CastModeKind,
+) -> ManaCost {
+    let mut colored = ManaCost::ZERO;
+    if let Some(f) = face(card) {
+        let obj = card_as_object(view, Some(id), card, f);
+        let agent = HeuristicAgent::new(crate::AIProfile::default());
+        for perm in &view.battlefield {
+            for ability in crate::activate::printed_list(perm) {
+                let AbilityDef::Static(baylee_cards_dsl::StaticAbility {
+                    filter,
+                    modifier: baylee_cards_dsl::Modifier::SpellsCostMoreMana(extra),
+                    ..
+                }) = ability
+                else {
+                    continue;
+                };
+                if agent.filter_matches(
+                    filter,
+                    view,
+                    &obj,
+                    baylee_cards_dsl::ZoneRef::Stack,
+                    Some(perm.id),
+                ) == Some(true)
+                {
+                    colored = colored.combine(extra);
+                }
+            }
+        }
+    }
+    let rest = legal.spell_increase(id, mode).saturating_sub(colored.cmc());
+    colored.with_more_generic(rest)
+}
+
+#[allow(clippy::too_many_lines)]
+pub(crate) fn spell_can_be_cast_now(view: &PlayerView, id: ObjectId, card: CardIdentity) -> bool {
+    let Some(def) = baylee_cards::by_index(card.index) else {
+        return true;
+    };
+    let Some(f) = def.faces.get(usize::from(card.face)) else {
+        return true;
+    };
+    let spells = def.abilities_for_face(usize::from(card.face));
+    if crate::optional::timing_closed(view, spells) {
+        return false;
+    }
+    let agent = HeuristicAgent::new(crate::AIProfile::default());
+    let me = resource_player(view);
+    for part in f.mandatory_additional_costs {
+        match part {
+            baylee_cards_dsl::CostPart::Sacrifice(filter)
+            | baylee_cards_dsl::CostPart::ReturnToHand(filter)
+            | baylee_cards_dsl::CostPart::ExilePermanent(filter) => {
+                if !view.battlefield_of(me).any(|o| {
+                    agent.filter_matches(
+                        filter,
+                        view,
+                        o,
+                        baylee_cards_dsl::ZoneRef::Battlefield,
+                        Some(id),
+                    ) != Some(false)
+                }) {
+                    return false;
+                }
+            }
+            baylee_cards_dsl::CostPart::TapOther(filter) => {
+                if !view.battlefield_of(me).any(|o| {
+                    !o.status.contains(baylee_view::ObjectStatus::TAPPED)
+                        && (!o.summoning_sick
+                            || !o.types.contains(TypeSet::CREATURE)
+                            || o.keywords & KeywordSet::HASTE.bits() != 0)
+                        && agent.filter_matches(
+                            filter,
+                            view,
+                            o,
+                            baylee_cards_dsl::ZoneRef::Battlefield,
+                            Some(id),
+                        ) != Some(false)
+                }) {
+                    return false;
+                }
+            }
+            baylee_cards_dsl::CostPart::Discard(_)
+            | baylee_cards_dsl::CostPart::ExileFromHand(_) => {
+                if !hand(view).iter().any(|c| c.id != id) {
+                    return false;
+                }
+            }
+            baylee_cards_dsl::CostPart::ExileFromGraveyard(filter) => {
+                if !view.graveyards.get(usize::from(me.get())).is_some_and(|g| {
+                    g.iter().any(|o| {
+                        o.id != id
+                            && agent.filter_matches(
+                                filter,
+                                view,
+                                o,
+                                baylee_cards_dsl::ZoneRef::Graveyard,
+                                Some(id),
+                            ) != Some(false)
+                    })
+                }) {
+                    return false;
+                }
+            }
+            baylee_cards_dsl::CostPart::PayLife(n)
+                if view.seat(me).is_some_and(|s| s.life < i32::from(*n)) =>
+            {
+                return false;
+            }
+            _ => {}
+        }
+    }
+    for ability in spells {
+        match ability {
+            AbilityDef::Spell { targets, .. } => {
+                if let Some(req) = targets
+                    && !has_possible_targets(&agent, view, id, req)
+                {
+                    return false;
+                }
+            }
+            AbilityDef::ModalSpell { modes, choose } if choose.min >= 1 => {
+                let any_mode_open = modes.iter().any(|mode| {
+                    mode.targets
+                        .as_ref()
+                        .is_none_or(|req| has_possible_targets(&agent, view, id, req))
+                        && mode
+                            .second_targets
+                            .as_ref()
+                            .is_none_or(|req| has_possible_targets(&agent, view, id, req))
+                });
+                if !any_mode_open {
+                    return false;
+                }
+            }
+            _ => {}
+        }
+    }
+    true
+}
+
+fn has_possible_targets(
+    agent: &HeuristicAgent,
+    view: &PlayerView,
+    id: ObjectId,
+    req: &baylee_cards_dsl::TargetReq,
+) -> bool {
+    use baylee_cards_dsl::{TargetSpec, ZoneRef};
+    if req.min == 0 {
+        return true;
+    }
+    let need = usize::from(req.min);
+    let me = resource_player(view);
+    let count = match req.spec {
+        TargetSpec::CardInGraveyard(filter, rel) => view
+            .graveyards
+            .iter()
+            .flatten()
+            .filter(|o| match rel {
+                baylee_cards_dsl::PlayerRel::You => o.owner == me,
+                baylee_cards_dsl::PlayerRel::Opponent
+                | baylee_cards_dsl::PlayerRel::EachOpponent => agent.hostile(o.owner, me),
+                _ => true,
+            })
+            .filter(|o| {
+                agent.filter_matches(filter, view, o, ZoneRef::Graveyard, Some(id)) != Some(false)
+            })
+            .count(),
+        TargetSpec::Spell(filter) => view
+            .stack
+            .iter()
+            .filter(|o| !matches!(o.stack_item, Some(baylee_view::StackItem::Ability { .. })))
+            .filter(|o| {
+                agent.filter_matches(filter, view, o, ZoneRef::Stack, Some(id)) != Some(false)
+            })
+            .count(),
+        TargetSpec::AbilityOnStack(filter) => view
+            .stack
+            .iter()
+            .filter(|o| matches!(o.stack_item, Some(baylee_view::StackItem::Ability { .. })))
+            .filter(|o| {
+                agent.filter_matches(filter, view, o, ZoneRef::Stack, Some(id)) != Some(false)
+            })
+            .count(),
+        TargetSpec::SpellOrAbility(filter) => view
+            .stack
+            .iter()
+            .filter(|o| {
+                agent.filter_matches(filter, view, o, ZoneRef::Stack, Some(id)) != Some(false)
+            })
+            .count(),
+        _ => return true,
+    };
+    count >= need
 }
 
 /// Costs visible from the card and public commander/graveyard bookkeeping.
@@ -2432,6 +2930,7 @@ fn taps_needed(view: &PlayerView, context: &DecisionContext<'_>, max: usize) -> 
 /// yes with an empty pool is handed a mana window under CR 605.3a, and a
 /// window it cannot fill ends exactly where refusing ended — one question
 /// later.
+#[allow(clippy::too_many_lines)]
 pub(crate) fn pays_tax(
     view: &PlayerView,
     price: baylee_core::mana::ManaCost,
@@ -2452,6 +2951,18 @@ pub(crate) fn pays_tax(
                 | Effect::PlayerMayPayManaAndLifeEachThenElse { .. }
         )
     }) {
+        if context.effects.iter().all(|effect| {
+            let (then, otherwise) = effect.branches();
+            otherwise.is_empty()
+                && !then.is_empty()
+                && then.iter().all(|e| matches!(e, Effect::UntapSelf))
+        }) && context
+            .source
+            .and_then(|id| view.object(id))
+            .is_some_and(|o| !o.status.contains(baylee_view::ObjectStatus::TAPPED))
+        {
+            return false;
+        }
         let draws: u32 = context
             .effects
             .iter()

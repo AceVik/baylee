@@ -127,26 +127,41 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
     else {
         return std::collections::HashSet::new();
     };
-    let affordable = |id, cost: baylee_core::mana::ManaCost| {
-        // An `{X}` is the player's to announce, after the cast is begun
-        // (CR 601.2b): the least it can be is 0, so a card is in reach when
-        // the rest of its cost is. Refusing every X cost left Prismatic
-        // Ending (`{X}{W}`) answering no click while the engine offered it
-        // (#17); the X question is then capped by what the mana pays.
-        let cost = least_x(cost).with_more_generic(
-            legal.spell_increase(id, baylee_engine::choice::CastModeKind::Normal),
-        );
-        // A card already in `legal.castable` is in this sweep only when
-        // `phyrexian_life_only` kept it here so untapped lands can offer to
-        // pay the Phyrexian mana instead of life. Settling those symbols with
-        // life again would plan zero taps and mark a life-only card as needing
-        // land taps even over off-colour lands.
-        if legal.castable.contains(&id) {
-            manasources::plan_for_spell(&cost, &pool, view, legal, id).is_some()
-        } else {
-            manasources::plan_with_life_for_spell(&cost, &pool, view, legal, id, life).is_some()
-        }
-    };
+    let affordable =
+        |id, card: Option<baylee_view::CardIdentity>, cost: baylee_core::mana::ManaCost| {
+            // An `{X}` is the player's to announce, after the cast is begun
+            // (CR 601.2b): the least it can be is 0, so a card is in reach when
+            // the rest of its cost is. Refusing every X cost left Prismatic
+            // Ending (`{X}{W}`) answering no click while the engine offered it
+            // (#17); the X question is then capped by what the mana pays.
+            let increase = card.map_or_else(
+                || {
+                    baylee_core::mana::ManaCost::from_symbol_generic(
+                        legal.spell_increase(id, baylee_engine::choice::CastModeKind::Normal),
+                    )
+                },
+                |card| {
+                    baylee_ai::spell_mana_increase(
+                        view,
+                        id,
+                        card,
+                        legal,
+                        baylee_engine::choice::CastModeKind::Normal,
+                    )
+                },
+            );
+            let cost = least_x(cost).combine(&increase);
+            // A card already in `legal.castable` is in this sweep only when
+            // `phyrexian_life_only` kept it here so untapped lands can offer to
+            // pay the Phyrexian mana instead of life. Settling those symbols with
+            // life again would plan zero taps and mark a life-only card as needing
+            // land taps even over off-colour lands.
+            if legal.castable.contains(&id) {
+                manasources::plan_for_spell(&cost, &pool, view, legal, id).is_some()
+            } else {
+                manasources::plan_with_life_for_spell(&cost, &pool, view, legal, id, life).is_some()
+            }
+        };
     baylee_client_core::decision::hand(view)
         .iter()
         .filter(|card| !legal.lands.contains(&card.id))
@@ -174,7 +189,8 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
             {
                 return !castmodes::reachable_modes(view, legal, card.id).is_empty();
             }
-            manasources::hand_cost(card).is_some_and(|cost| affordable(card.id, cost))
+            manasources::hand_cost(card)
+                .is_some_and(|cost| affordable(card.id, Some(card.card), cost))
                 || !castmodes::reachable_modes(view, legal, card.id).is_empty()
         })
         // And there has to be something to point it at (CR 601.2c). Last in
@@ -185,6 +201,10 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
         // which is the opposite default from `castmodes::parts_payable` and
         // deliberately so — the reasoning is in that module's header.
         .filter(|card| !targeting::provably_targetless(view, card.card))
+        .filter(|card| {
+            !castmodes::reachable_modes(view, legal, card.id).is_empty()
+                || baylee_ai::spell_can_be_cast_now(view, card.id, card.card)
+        })
         .map(|card| card.id)
         // The command zone is castable from too (CR 903.8), and leaving it
         // out is why a commander could not be played. A card the engine has
@@ -228,7 +248,7 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
                 })
                 .filter(|c| {
                     commander_cost(c).is_some_and(|cost| {
-                        affordable(c.object, cost.with_more_generic(2 * c.casts))
+                        affordable(c.object, c.card, cost.with_more_generic(2 * c.casts))
                     })
                 })
                 .map(|c| c.object),
@@ -259,8 +279,15 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
                     })
                 })
                 .filter(|o| {
-                    o.flashback.is_some_and(|cost| {
-                        cost.symbols().next().is_some() && affordable(o.id, cost)
+                    let cost = o.flashback.or_else(|| {
+                        legal
+                            .payable
+                            .contains(&o.id)
+                            .then(|| o.card.and_then(printed_face).map(|f| f.mana_cost))
+                            .flatten()
+                    });
+                    cost.is_some_and(|cost| {
+                        cost.symbols().next().is_some() && affordable(o.id, o.card, cost)
                     })
                 })
                 .filter(|o| {
@@ -287,12 +314,14 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
                 .filter(|o| {
                     o.card.and_then(printed_face).is_some_and(|face| {
                         face.mana_cost.symbols().next().is_some()
-                            && affordable(o.id, face.mana_cost)
+                            && affordable(o.id, o.card, face.mana_cost)
                     })
                 })
                 .filter(|o| {
-                    o.card
-                        .is_some_and(|card| !targeting::provably_targetless(view, card))
+                    o.card.is_some_and(|card| {
+                        !targeting::provably_targetless(view, card)
+                            && baylee_ai::spell_can_be_cast_now(view, o.id, card)
+                    })
                 })
                 .map(|o| o.id),
         )

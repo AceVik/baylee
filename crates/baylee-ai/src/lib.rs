@@ -996,6 +996,78 @@ pub fn mana_sources(
     policy::sources(view, legal)
 }
 
+/// Whether tapping `object` sets off a non-mana triggered ability on the
+/// battlefield (City of Brass, Psychic Venom, Blight, Manabarbs, Lifetap).
+#[must_use]
+pub fn taps_set_off_a_trigger(view: &PlayerView, object: &baylee_view::PublicObject) -> bool {
+    policy::taps_set_off_a_trigger(view, object)
+}
+
+/// Applies bonus mana from triggered mana abilities (CR 605.1b: Wild Growth,
+/// Mana Flare, Vernal Bloom, Gauntlet of Might) when tapping `object`.
+pub fn apply_triggered_mana_bonus(
+    view: &PlayerView,
+    object: &baylee_view::PublicObject,
+    source: &mut baylee_client_core::manaplan::Source,
+) {
+    policy::apply_triggered_mana_bonus(view, object, source);
+}
+
+/// Plans mana taps for casting `spell` at `cost`, including a restricted mana
+/// source (CR 106.6) whose filter admits `spell` when unrestricted sources
+/// alone are short.
+#[must_use]
+pub fn plan_for_spell(
+    cost: &baylee_core::mana::ManaCost,
+    pool: &baylee_view::ManaPoolView,
+    view: &PlayerView,
+    legal: &baylee_engine::choice::LegalActions,
+    spell: ObjectId,
+) -> Option<baylee_client_core::manaplan::Plan> {
+    policy::plan_for_spell(cost, pool, view, legal, spell)
+}
+
+/// Plans mana taps for activating an ability on `source` at `cost`, reserving
+/// `source` when `taps_self` is true and including a restricted mana source
+/// whose filter admits `source` when unrestricted sources alone are short.
+#[must_use]
+pub fn plan_for_activation(
+    cost: &baylee_core::mana::ManaCost,
+    pool: &baylee_view::ManaPoolView,
+    view: &PlayerView,
+    legal: &baylee_engine::choice::LegalActions,
+    source: ObjectId,
+    taps_self: bool,
+) -> Option<baylee_client_core::manaplan::Plan> {
+    policy::plan_for_activation(cost, pool, view, legal, source, taps_self)
+}
+
+/// The additional mana cost `id` (`card`) must pay under `mode`, preserving
+/// colored increases (`Modifier::SpellsCostMoreMana`, e.g. Derelor's `{B}`)
+/// alongside generic ones.
+#[must_use]
+pub fn spell_mana_increase(
+    view: &PlayerView,
+    id: ObjectId,
+    card: baylee_view::CardIdentity,
+    legal: &baylee_engine::choice::LegalActions,
+    mode: baylee_engine::choice::CastModeKind,
+) -> baylee_core::mana::ManaCost {
+    policy::spell_mana_increase(view, id, card, legal, mode)
+}
+
+/// Whether `id` (`card`) can be cast right now as far as timing conditions
+/// (`Siren's Call`), mandatory additional costs (`Bone Splinters`) and
+/// mandatory targets (`Terror`, `Counterspell`) can be checked from `view`.
+#[must_use]
+pub fn spell_can_be_cast_now(
+    view: &PlayerView,
+    id: ObjectId,
+    card: baylee_view::CardIdentity,
+) -> bool {
+    policy::spell_can_be_cast_now(view, id, card)
+}
+
 /// Whether an offered activation can do nothing but make mana: a mana
 /// ability (CR 605.1a) whose price is its tap and mana at most, or a mana
 /// ability a permanent is granted, which costs its tap by construction.

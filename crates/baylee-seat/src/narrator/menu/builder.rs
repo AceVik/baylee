@@ -222,6 +222,9 @@ impl Builder<'_, '_> {
                         words::choice_prompt(*prompt)
                     };
                 self.line(format!("QUESTION: {question}."));
+                if options.is_empty() || *max == 0 {
+                    self.line("No matching cards are available; submit pick=[].");
+                }
                 if let Some(total) = total {
                     self.card_total(total);
                 }
@@ -410,6 +413,21 @@ impl Builder<'_, '_> {
             let card = self.card_of(source);
             self.offer(label, act, card);
         }
+        for reach in reachable_abilities(view, legal) {
+            let label = format!(
+                "{} ({})",
+                self.ability_label(reach.source, reach.ability_index),
+                self.taps(&reach.plan.steps)
+            );
+            let act = Act::Taps {
+                steps: reach.plan.steps,
+                then: PlayerAction::ActivateAbility {
+                    source: reach.source,
+                    ability_index: reach.ability_index,
+                },
+            };
+            self.offer(label, act, reach.card);
+        }
     }
 
     pub(super) fn granted_actions(&mut self, legal: &LegalActions) {
@@ -464,10 +482,18 @@ impl Builder<'_, '_> {
         let owed = view.owed.filter(|_| view.awaiting == Some(view.seat));
         if let Some(payment) = owed {
             match payment {
-                ManaPayment::Fixed(cost) => self.line(format!(
-                    "You owe {cost}: a payment you agreed to. Pay it, or pass and leave it unpaid \
-                     (what it was for is lost)."
-                )),
+                ManaPayment::Fixed(cost) => {
+                    let mut line = format!(
+                        "You owe {cost}: a payment you agreed to. Pay it, or pass and leave it unpaid \
+                         (what it was for is lost)."
+                    );
+                    if !pool.is_empty() {
+                        line.push_str(
+                            " Mana already in your pool is applied toward this payment when you pass.",
+                        );
+                    }
+                    self.line(line);
+                }
                 ManaPayment::AnyAmount { preventable_damage } => self.line(format!(
                     "You may generate mana to prevent up to {preventable_damage} damage. \
                      Pass to choose how much mana to pay, including zero."
@@ -548,6 +574,16 @@ impl Builder<'_, '_> {
             ReachFrom::Hand => format!("Cast {} {}", table.named(reach.object), reach.plan.cost),
             ReachFrom::CommandZone => format!(
                 "Cast your commander {} from the command zone for {} (tax included)",
+                table.named(reach.object),
+                reach.plan.cost
+            ),
+            ReachFrom::Graveyard => format!(
+                "Cast {} from a graveyard for {}",
+                table.named(reach.object),
+                reach.plan.cost
+            ),
+            ReachFrom::Exile => format!(
+                "Cast {} from exile for {}",
                 table.named(reach.object),
                 reach.plan.cost
             ),
@@ -1049,7 +1085,10 @@ impl Builder<'_, '_> {
                 "How much energy will you pay? Choose zero to decline. Up to {candidates} permanents tapped this way can receive counters; overpayment is legal"
             ),
             NumberPrompt::Sacrifices => "How many permanents will you sacrifice?".to_string(),
-            NumberPrompt::Choice => "Choose a number".to_string(),
+            NumberPrompt::Choice => table.view.top_of_stack().map_or_else(
+                || "Choose a number".to_string(),
+                |top| format!("Choose a number for {}", table.named(top.id)),
+            ),
             NumberPrompt::X => "Choose the value of X".to_string(),
             NumberPrompt::ManaPayment { preventable_damage } => format!(
                 "How much mana will you pay? Each mana prevents one of up to \
