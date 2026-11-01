@@ -4636,3 +4636,115 @@ the controller's library until a land card is revealed, deals damage equal to
 the number of nonland cards revealed (doubled if the land is a Mountain) to
 `target`, and puts the revealed cards on the bottom of the library in any
 order.
+
+### Pieces added for Mirrodin batch 2 (30.10.2026)
+
+Each entry is the sentence the piece states; the card that needed it is in
+brackets. Read them as vocabulary, not as card text.
+
+**Controlling a player.** `Effect::ControlPlayerNextTurn { player }`
+[Mindslaver] gives the resolving controller control of each player of
+`player` during the next turn that player actually takes (CR 722.1). It
+waits through every turn somebody else takes, extra turns among them, and
+through a turn of theirs that is skipped (CR 722.1b); it covers that whole
+turn and ends as the next turn begins, whoever takes it. Of several on one
+player the last created works (CR 722.1a). It ends at once when either
+player leaves the game. It is not `Effect::ControlPlayerPlayCard` (Word of
+Command), which controls one instructed play.
+
+**Coin flips.** `Modifier::FlipTwoCoinsIgnoreOne` [Krark's Thumb] is a
+replacement (CR 614.1a): whenever the effect's controller would flip a coin,
+they flip one more for each such effect they control and choose which
+results to ignore until one is left. Every coin is journaled; the
+instruction that flipped (a branch, a damage contest, a life contest)
+goes on once, from the result kept.
+
+**Triggers and conditions.** `Trigger::BecomesUntapped(&Filter)` [Mesmeric
+Orb] fires when a matching permanent becomes untapped, by any cause but the
+reversal of an undone payment (CR 732.1); the permanent is the event object,
+so `PlayerRel::ControllerOfEvent` is its controller.
+`Condition::HandSizeAtTurnStartAtMost(n)` [Mindstorm Crown] holds when the
+active player had at most `n` cards in hand as this turn began, before any
+turn-based action or trigger.
+
+**What a resolution did (`Amount::ThisWay`).** `ThisWay::DiscardedMatching(f)`
+[Lumengrid Augur] counts cards discarded earlier in this resolution that
+match `f` as they are in the graveyard. `ThisWay::ExiledFromLibrary(f)` [Myr
+Incubator] counts cards moved from a library to exile earlier in this
+resolution that match `f` as they are in exile. `ThisWay::CountersRemoved(k)`
+[Lightning Coils] counts the `k` counters removed from the resolving source
+earlier in this resolution, actual reductions only.
+
+**Players and filters.** `PlayerRel::LeastLifeOrTied` [Loxodon Peacekeeper]
+is every player still in the game with the least life or tied for it, read
+as the effect resolves; nothing is targeted.
+`Filter::SharesColorWithExiledWithSource` [Mourner's Shield] matches an
+object that shares at least one color with a card exiled with the source
+(CR 406.6).
+
+**Statics.** `Modifier::SpellsCostMorePerControlled(&Filter)` [Hum of the
+Radix] makes each spell the static's filter matches cost {1} more for each
+permanent its caster controls that matches the inner filter, counted for
+that caster when they cast it. `Modifier::NamedPlayersCantLose(rel)` and
+`Modifier::PlayersCantWin(rel)` [Platinum Angel] say the players of `rel`,
+read from the effect's controller, can't lose the game and can't win it;
+a concession is still a loss (CR 104.3a).
+`Modifier::ProtectionFromExiledWithSourceTypes` [Mirror Golem] gives
+protection from each card type among the cards exiled with the effect's
+source, read from exile as it is now (CR 702.16).
+`Modifier::CantAttackUnlessPayManaPerCounter(k)` and
+`Modifier::CantBlockUnlessPayManaPerCounter(k)` [Myr Prototype] make the
+creature cost {1} per `k` counter on it to attack or to block. It is offered
+only when its controller could pay, from the pool or by the mana abilities a
+payment window would offer, and the declaration opens that window when the
+pool falls short (CR 508.1i, 509.1e). A requirement asks nothing of it: its
+controller is never obliged to pay (CR 508.1d, 509.1c), so neither a lure
+nor "attacks each combat" is broken by leaving it home.
+
+**Effects.**
+`Effect::ChooseDamageSourcePreventAllThisTurnMatching(&Filter)` [Mourner's
+Shield] is `Effect::ChooseDamageSourcePreventAllThisTurn` with the choice
+limited to sources matching the filter; with none, nothing happens.
+`Effect::PutTargetOnTopOfLibrary` [Looming Hoverguard] puts each target on
+top of its owner's library, the sibling of `PutTargetOnBottomOfLibrary`
+(a commander may go to the command zone instead, CR 903.9b).
+
+`Effect::GuessChosenNameInHand { who, guesser }`, `Effect::RevealHandForGuess`
+and `Effect::DrawIfGuessWrong` [Liar's Pendulum] are one sentence in three
+steps, after an `Effect::ChooseCardName`: `guesser` says (yes or no) whether
+the named card is in the hand of `who`, without seeing it; the resolving
+controller may reveal that hand (`RevealHandForGuess`, usually inside
+`Effect::MayDo`); and `DrawIfGuessWrong` draws a card only if the hand was
+revealed and the guess was wrong.
+
+`Effect::AtNextEndStepForCreatedTokens { effects }` [Lightning Coils]
+registers, for each token created earlier in this resolution and still on
+the battlefield, its own delayed trigger at the next end step (CR 603.7)
+whose `effects` read that exact token as `EventObject`.
+
+`Effect::RevealLibrarySearch { filter, optional }` and
+`Effect::PlayersWhoCastRevealedNameThisTurnLoseLife { who, amount }` [Grim
+Reminder]: search your library for one card matching `filter` and reveal
+it, moving nothing and shuffling nothing (a separate `ShuffleLibrary`
+does). A search for a stated quality may find nothing (CR 701.23b); only a
+search for any card at all with `optional: false` must find one. Then each
+player of `who` who cast a spell this turn with the name of a card revealed
+earlier in this resolution loses `amount` life, once.
+
+`Effect::ExileChosenFromHandWithSource(&Filter)` and
+`Effect::MayCopyCastLinkedExile` [Isochron Scepter]: the controller chooses
+one matching card from their hand, if one matches, and exiles it linked to
+the source (CR 406.6, 607.2a; wrap it in `MayDo` for "you may"); later the
+controller may copy the card exiled with the source and cast the copy
+without paying its mana cost (CR 707.12), the card staying in exile.
+
+`Effect::ModifyFilter { filter, controlled_by, modifier, duration }` [Incite
+War] applies one continuous `modifier` for `duration` to the objects matching
+`filter` as it resolves, narrowed to the permanents of the players of
+`controlled_by` when it names one; the set is fixed then (CR 611.2c).
+`Filter::This` there is the instruction's subject (its object target, or its
+source when it targets nothing) and nothing when that subject is gone.
+
+`Effect::RemoveAllCountersFilter { filter, kind }` [Oblivion Stone] removes
+every `kind` counter from each permanent matching `filter`, read from the
+controller. `counters::FATE` is the fate counter it removes.

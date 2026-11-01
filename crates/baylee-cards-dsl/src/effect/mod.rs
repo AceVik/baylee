@@ -497,7 +497,8 @@ pub enum Effect {
         /// Player whose hand and resources are used.
         player: PlayerRel,
     },
-    /// Control a player during that player's next actual turn (CR 715).
+    /// Control a player during the next turn that player actually takes
+    /// (CR 722.1): the whole turn, until the next one begins.
     ControlPlayerNextTurn {
         /// The player to control.
         player: PlayerRel,
@@ -3164,7 +3165,7 @@ pub enum Effect {
     /// Play each card exiled by the linked ability now, without its mana cost (CR 607.3).
     MayPlayLinkedExile,
     /// Copy a card exiled with this source and cast the copy without paying
-    /// its mana cost; the original stays in exile (CR 607.3, 706).
+    /// its mana cost; the original stays in exile (CR 607.2a, 707.12).
     MayCopyCastLinkedExile,
     /// Return linked exiled cards to their owners' named zone.
     ReturnLinkedExile {

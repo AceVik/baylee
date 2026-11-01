@@ -441,7 +441,13 @@ until-end-of-turn effects on `Layer::Text` like the attack ones:
   `Modifier::BlocksEachAttackerIfAble` on a blocker (Blaze of Glory) asks it
   to block each attacker. `BlockRules::demands(blocker, attacker)` counts the
   requirements asking for one pair, so two lures on one attacker ask twice,
-  and a declaration obeys the sum over its pairs.
+  and a declaration obeys the sum over its pairs. A blocker that costs mana
+  to block with (`Modifier::CantBlockUnlessPayManaPerCounter`) counts for
+  none: "that player is not required to pay that cost, even if blocking with
+  that creature would increase the number of requirements being obeyed"
+  (CR 509.1c). It is offered while its controller could pay, but the maximum
+  is the other blockers', and blocking with it obeys nothing in their place,
+  as a taxed attacker obeys no "attacks if able" (CR 508.1d).
 
 `combat::block_options` is the offer (the `BlockOption`s), and it is also
 the universe the maximum is taken in: a pair outside it breaks a restriction
@@ -2058,11 +2064,13 @@ that original calculation restored.
 2. Every `GainControl` effect for them ends, so what they took goes back to
    whoever controls it without them. A Gilded Drake'd creature goes back to
    its owner. Under a later thief it goes back to the earlier one. Their
-   `SearchTakeover` effects end too: Opposition Agent's hold on a searching
-   player is the one way the engine controls a player (CR 722.2). A search
-   they were making for somebody else when they left goes back to that
-   player, with the same cards and limits, to finish as their own search
-   (CR 722.5).
+   control of a player ends too, both ways the engine keeps one as an
+   effect: Opposition Agent's `SearchTakeover` hold on a searching player
+   (CR 722.2), and Mindslaver's control of a player's next turn
+   (`GameState::turn_controls`, CR 722.1), waiting or under way, whether
+   they are its controller or the player it controls. A search they were
+   making for somebody else when they left goes back to that player, with
+   the same cards and limits, to finish as their own search (CR 722.5).
 3. What a permanent of theirs held "until it leaves the battlefield" comes
    back (CR 610.3, `GameState::return_what_departed_hosts_held`): their
    permanents left without a move, so this is the one departure
@@ -2079,10 +2087,28 @@ that original calculation restored.
    they reanimated out of another player's graveyard, a spell of another
    player's they cast.
 
-`every_card_that_controls_a_player_does_it_by_taking_over_a_search` reads
-the Oracle text of every implemented and partial card and fails the day
-one controls a player some other way (Mindslaver, Word of Command). Step 2
-then has to end that effect as well.
+`every_card_that_controls_a_player_has_a_departure_rule` reads the Oracle
+text of every implemented and partial card and fails the day one controls
+a player some other way than the three it knows: Opposition Agent's search
+takeover, Mindslaver's `Effect::ControlPlayerNextTurn`, and Word of
+Command's `Effect::ControlPlayerPlayCard`, which is no effect a departure
+has to end, since it is read off the play under way at every decision
+(`Engine::controlled_actor`) and is gone with it. Step 2 then has to end
+the new one as well.
+
+A turn control waits through every turn its player does not take, other
+players' and extra turns among them, and through a turn of theirs that is
+skipped, which never begins (CR 722.1b). As the player's turn begins,
+`Engine::begin_turn` stamps the control with that turn's number
+(`PlayerTurnControl::began`); `controlled_actor` reads it only during the
+turn it was stamped with; and the next turn's beginning ends it, whoever
+takes that turn, the player's own extra turn included ("the effect doesn't
+end until the beginning of the next turn", CR 722.1). Of two waiting for
+the same player, the later works (CR 722.1a). Keyed on turn numbers alone
+it was dropped once two turns passed before the player's (seat 0's on seat
+3's, at four seats, or after its controller's two extra turns) and lasted
+on through an extra turn the player took right after
+(`player_control_tests`).
 
 CR 800.4c is the same rule seen later. A creature the leaver reanimated,
 which somebody else had taken until end of turn, is exiled as that effect

@@ -89,7 +89,7 @@ pub const fn zone_of(seen: SeenIn) -> Option<RefZone> {
     match seen {
         SeenIn::Hand => Some(RefZone::Hand),
         // Q-B1: a teammate's hand was shown for play; a report is a new
-        // audience. A hand seen through control (CR 720.4) is another
+        // audience. A hand seen through control (CR 722.4) is another
         // player's hand all the same.
         SeenIn::SharedHand | SeenIn::ControlledHand => None,
         SeenIn::Battlefield => Some(RefZone::Battlefield),

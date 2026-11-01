@@ -356,7 +356,8 @@ impl<L: CardLookup> Engine<L> {
             if self.filter_dungeon_plays() {
                 continue;
             }
-            // A player controlling another player cannot choose an outside card (CR 723.4).
+            // A player controlling another player cannot choose an outside card: what
+            // is outside the game is visible only to the controlled player (CR 722.4).
             if let Pending::ChooseCards {
                 player,
                 prompt: ChoicePrompt::Wish,

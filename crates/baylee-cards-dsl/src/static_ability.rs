@@ -97,7 +97,8 @@ pub enum Modifier {
         n: u16,
     },
     /// If the effect's controller would flip a coin, flip one additional
-    /// coin and ignore one result of their choice (CR 705.3).
+    /// coin and ignore one result of their choice: a replacement effect
+    /// (CR 614.1a, "instead").
     FlipTwoCoinsIgnoreOne,
     /// Generic cost increase for spells matching the static ability's filter.
     SpellsCostMore(u32),
