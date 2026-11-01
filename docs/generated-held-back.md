@@ -17,6 +17,11 @@ never a reason to edit a card by hand.
 - Lotus Ring: its granted mana ability has no printed line, and it is a priced granted mana ability with no board test.
 - Demonmail Hauberk, Murderer's Axe: mana sheet row with neither printed sentence nor cost.
 - Orzhov Locket, Letter of Acceptance: a written row that cannot name its printed sentence.
+- Found by the review of PR #410 (01.11.2026), whose full run finished them; returned to their stubs, since `--hold-back` refuses a finished machine-owned card and no corpus was at hand to fix the reader against:
+  - Hazy Homunculus: "can't be blocked as long as defending player controls an untapped land" came out as plain unblockable (the condition dropped in `scriptgen/statics.rs::cant_block_by`).
+  - Wall of Vipers: "Destroy this creature and target creature it's blocking" lost "destroy this creature" (two +0/+0 pump links accepted, `scriptgen/effects.rs::pump_effect`; the `Destroy` link emits only the target).
+  - Opalescence: `AddType$ Creature` with mana-value P/T read as `Modifier::AnimateNoncreatureArtifact`, which also adds the artifact type (`scriptgen/statics.rs::pt_modifiers`; right only for artifacts).
+  - Mercenary Informer: "target nontoken Mercenary" lost "nontoken" (the script's valid-string carries none; nothing holds the printed word against `Filter::IsToken`).
 
 ## Engine gaps
 
