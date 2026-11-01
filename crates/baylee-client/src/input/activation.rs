@@ -38,6 +38,80 @@ pub(super) fn card_on_screen(
     Some(Rect { min, max })
 }
 
+/// Arms suspend on a hand card: at once when the engine offers it now, else
+/// behind the taps that pay its suspend cost. Says whether it armed anything.
+fn arm_suspend(duel: &mut Duel, object: ObjectId) -> bool {
+    if duel
+        .interaction
+        .as_ref()
+        .is_some_and(|i| i.suspend(object).is_some())
+    {
+        arm(duel, object, Deed::Suspend);
+        return true;
+    }
+    if duel.suspend_reach.contains(&object)
+        && let Some(plan) = crate::suspend_mana_for(duel, object)
+    {
+        duel.last_error = None;
+        arm(
+            duel,
+            object,
+            Deed::Run {
+                plan,
+                then: crate::RunEnd::Suspend,
+            },
+        );
+        return true;
+    }
+    false
+}
+
+/// Arms foretell's special action on a hand card (CR 702.143a): at once when
+/// the engine offers it now, else behind the taps that pay its {2}. Says
+/// whether it armed anything.
+fn arm_foretell(duel: &mut Duel, object: ObjectId) -> bool {
+    if duel
+        .interaction
+        .as_ref()
+        .is_some_and(|i| i.foretell(object).is_some())
+    {
+        arm(duel, object, Deed::Foretell);
+        return true;
+    }
+    if duel.foretell_reach.contains(&object)
+        && let Some(plan) = crate::foretell_mana_for(duel, object)
+    {
+        duel.last_error = None;
+        arm(
+            duel,
+            object,
+            Deed::Run {
+                plan,
+                then: crate::RunEnd::Foretell,
+            },
+        );
+        return true;
+    }
+    false
+}
+
+/// Fires an armed foretell: the special action when it is offered now, else
+/// the mana run of a deed armed behind taps (`plan`), else a withdrawn deed.
+fn fire_foretell(
+    duel: &mut Duel,
+    object: ObjectId,
+    plan: Option<baylee_client_core::manaplan::Plan>,
+) {
+    if let Some(action) = duel.interaction.as_ref().and_then(|i| i.foretell(object)) {
+        duel.submit(action);
+    } else if let Some(plan) = plan.filter(|_| duel.foretell_reach.contains(&object)) {
+        duel.last_error = None;
+        duel.mana_run = Some(crate::ManaRun::new(plan, object, crate::RunEnd::Foretell));
+    } else {
+        duel.last_error = Some(Refusal::Said(Phrase::DeedWithdrawn));
+    }
+}
+
 /// Whether the card `entity` belongs to is still gliding towards its mark.
 ///
 /// Asked of an `Out`, and the hover lift is why. Hovering raises a card by
@@ -165,49 +239,9 @@ pub fn activate_card(duel: &mut Duel, object: ObjectId) -> Answer {
     // suspend card there prints no mana cost, so CR 202.1b keeps it out of
     // `castable` entirely — and `no_suspend_card_in_the_pool_is_also_castable`
     // is what says so, because the day one is, this line has to become a
-    // chooser rather than an order.
-    if duel
-        .interaction
-        .as_ref()
-        .is_some_and(|i| i.suspend(object).is_some())
-    {
-        arm(duel, object, Deed::Suspend);
-        return Answer::Took;
-    }
-    if duel.suspend_reach.contains(&object)
-        && let Some(plan) = crate::suspend_mana_for(duel, object)
-    {
-        duel.last_error = None;
-        arm(
-            duel,
-            object,
-            Deed::Run {
-                plan,
-                then: crate::RunEnd::Suspend,
-            },
-        );
-        return Answer::Took;
-    }
-    if duel
-        .interaction
-        .as_ref()
-        .is_some_and(|i| i.foretell(object).is_some())
-    {
-        arm(duel, object, Deed::Foretell);
-        return Answer::Took;
-    }
-    if duel.foretell_reach.contains(&object)
-        && let Some(plan) = crate::foretell_mana_for(duel, object)
-    {
-        duel.last_error = None;
-        arm(
-            duel,
-            object,
-            Deed::Run {
-                plan,
-                then: crate::RunEnd::Foretell,
-            },
-        );
+    // chooser rather than an order. Foretell, the other special action from
+    // a hand, follows in the same shape.
+    if arm_suspend(duel, object) || arm_foretell(duel, object) {
         return Answer::Took;
     }
     // Mana and tap-only actions retain their one-click path. A costly
@@ -799,16 +833,7 @@ pub fn fire_armed(duel: &mut Duel) {
                 None => duel.last_error = Some(Refusal::Said(Phrase::DeedWithdrawn)),
             }
         }
-        Deed::Foretell => {
-            match duel
-                .interaction
-                .as_ref()
-                .and_then(|i| i.foretell(armed.object))
-            {
-                Some(action) => duel.submit(action),
-                None => duel.last_error = Some(Refusal::Said(Phrase::DeedWithdrawn)),
-            }
-        }
+        Deed::Foretell => fire_foretell(duel, armed.object, None),
         Deed::Run {
             then: crate::RunEnd::Ability(index),
             ..
@@ -845,24 +870,7 @@ pub fn fire_armed(duel: &mut Duel) {
         Deed::Run {
             plan,
             then: crate::RunEnd::Foretell,
-        } => {
-            if let Some(action) = duel
-                .interaction
-                .as_ref()
-                .and_then(|i| i.foretell(armed.object))
-            {
-                duel.submit(action);
-            } else if duel.foretell_reach.contains(&armed.object) {
-                duel.last_error = None;
-                duel.mana_run = Some(crate::ManaRun::new(
-                    plan,
-                    armed.object,
-                    crate::RunEnd::Foretell,
-                ));
-            } else {
-                duel.last_error = Some(Refusal::Said(Phrase::DeedWithdrawn));
-            }
-        }
+        } => fire_foretell(duel, armed.object, Some(plan)),
         // A pour is never armed — [`arm_ability`] starts its run on the press
         // that picks the colour, which is the whole of "the card taps once
         // the mana has been chosen". Nothing arranges this deed today; it

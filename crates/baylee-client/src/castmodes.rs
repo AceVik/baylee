@@ -208,24 +208,31 @@ pub fn reachable_modes(
             offer(CastModeKind::Alternative(i), alt.cost.mana);
         }
     }
-    // The special action is offered beside the ordinary ways so a foretell
-    // card that can also be cast never has either deed silently chosen for it.
-    // Its {2} is not a spell cost and receives no spell-cost increase.
-    if view.active == view.seat && face.foretell.is_some() {
-        let cost = const { ManaCost::parse("{2}") };
-        if let Some(plan) = baylee_client_core::manaplan::plan(
-            &cost,
-            &pool,
-            &crate::manasources::sources(view, legal),
-        ) {
-            out.push(ReachableMode {
-                kind: CastModeKind::Foretell,
-                cost,
-                plan,
-            });
-        }
-    }
+    out.extend(foretell_mode(view, legal, face, &pool));
     out
+}
+
+/// Foretell's special action (CR 702.143a), offered beside the ordinary ways
+/// so a foretell card that can also be cast never has either deed silently
+/// chosen for it. Its {2} is not a spell cost and receives no spell-cost
+/// increase.
+fn foretell_mode(
+    view: &PlayerView,
+    legal: &LegalActions,
+    face: &baylee_cards_dsl::FaceDef,
+    pool: &baylee_view::ManaPoolView,
+) -> Option<ReachableMode> {
+    if view.active != view.seat || face.foretell.is_none() {
+        return None;
+    }
+    let cost = const { ManaCost::parse("{2}") };
+    baylee_client_core::manaplan::plan(&cost, pool, &crate::manasources::sources(view, legal)).map(
+        |plan| ReachableMode {
+            kind: CastModeKind::Foretell,
+            cost,
+            plan,
+        },
+    )
 }
 
 /// Whether an alternative cost's condition holds, read off the view.
@@ -272,10 +279,11 @@ fn parts_payable(view: &PlayerView, card: ObjectId, parts: &[CostPart]) -> bool 
         CostPart::ExileFromHand(Filter::HasColor(_))
         | CostPart::Sacrifice(_)
         | CostPart::TapN { .. } => true,
-        CostPart::ExileFromHand(_) => false,
-        // The remaining parts have no alternative cost in this pool. Keep
+        // A pitch of another filter shape has no reader here, and the
+        // remaining parts have no alternative cost in this pool. Keep
         // refusing them until a real card gives their view reader a test.
-        CostPart::TapSelf
+        CostPart::ExileFromHand(_)
+        | CostPart::TapSelf
         | CostPart::UntapSelf
         | CostPart::ExertSelf
         | CostPart::SacrificeSelf
