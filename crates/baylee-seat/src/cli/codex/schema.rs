@@ -6,9 +6,10 @@
 use crate::llm::prompt;
 use serde_json::{Value, json};
 
-/// The common answer schema adapted to Codex's strict response format.
-pub(super) fn answer() -> Value {
-    let mut schema = prompt::answer_schema();
+/// The answer schema of a seat with `extras`, adapted to Codex's strict
+/// response format.
+pub(super) fn answer(extras: prompt::Extras) -> Value {
+    let mut schema = prompt::answer_schema(extras);
     close(&mut schema);
     schema
 }
@@ -59,7 +60,7 @@ mod tests {
                 _ => {}
             }
         }
-        let schema = answer();
+        let schema = answer(prompt::Extras::default());
         check(&schema);
         assert_eq!(schema["properties"]["ask"]["type"], "string");
         for (name, field) in schema["properties"].as_object().unwrap() {
@@ -69,7 +70,7 @@ mod tests {
         }
         assert_eq!(
             schema["properties"]["until"]["anyOf"][0]["enum"],
-            prompt::answer_schema()["properties"]["until"]["enum"]
+            prompt::answer_schema(prompt::Extras::default())["properties"]["until"]["enum"]
         );
     }
 
@@ -81,7 +82,11 @@ mod tests {
             json!({"ask":"q14", "concede":"No way to survive."}),
         ] {
             let mut full = sparse.clone();
-            for name in answer()["properties"].as_object().unwrap().keys() {
+            for name in answer(prompt::Extras::default())["properties"]
+                .as_object()
+                .unwrap()
+                .keys()
+            {
                 full.as_object_mut()
                     .unwrap()
                     .entry(name)

@@ -1,58 +1,79 @@
 //! The Junie CLI of `JetBrains`, `junie`, as a mind's CLI: one process per
-//! message, non-interactive, the message as a JSON task on its stdin
-//! (`--input-format=json`, `{"task": …}`) and its events as JSON lines on
-//! its stdout (`--output-format=json-stream`).
+//! conversation in its ACP mode (`--acp=true`), the Agent Client Protocol
+//! on its stdin and stdout ([`super::acp`]), one session held across the
+//! game's turns, as Claude Code's process holds its conversation.
 //!
-//! Junie takes one task a process ([`Dialect::one_shot`]) and follows a
-//! session up by its id (`--session-id=<id>`, the id its `session` line
-//! named; never `--resume` alone, the last session), read back from what
-//! it kept on disk ([`Dialect::resumes`]). It keeps its sessions under its
-//! home (`$JUNIE_HOME`, else `~/.junie`) with its settings and its
-//! fallback credentials, so they are kept where the user's are
-//! (`sessions/<id>/`), and the seat removes exactly its own directory when
-//! the conversation is over ([`Dialect::session_files`]); the line its
-//! index (`sessions/index.jsonl`) holds for it stays. A session it does not
-//! find may be begun anew rather than refused: a process whose `session`
-//! line names another id than the one asked for is stopped, and the
-//! question begins the conversation again. Every flag below is given again
-//! to the process that follows up. Its ACP mode
-//! (`--acp=true`) would hold a session, but runs Junie's own tools with
-//! their permission prompts sent to the client and reports no reliable
-//! token counts; it is not used.
+//! Junie is a coding agent and keeps its tools whatever its flags say:
+//! `--agent-mode=chat`, which would take them away, is refused by the
+//! released builds (26.10.27: "not available in this version"), and its
+//! non-interactive mode approves every terminal command itself (measured
+//! 31.10.2026: `touch` and `ls -la ~/.junie` ran with its allowlist set to
+//! ask, and so did a game's `echo` and `ls`). In ACP mode with brave mode
+//! off it asks its client before each command instead, even `ls`, and the
+//! seat always refuses: a refused permission is counted and written to the
+//! transcript, not a breach, and the model is told no and goes on. The
+//! seat asks for brave mode off as the session opens
+//! (`session/set_config_option`, `brave_mode` `off`) and sends no message
+//! before Junie confirmed it; a session that does not confirm it, or that
+//! says later that it changed, takes the mind off the table, as does any
+//! tool call that shows a tool ran (completed, failed without being
+//! refused, or still open at the end of its turn). The seat offers Junie
+//! no file system and no terminal of its own, and no MCP server. Measured
+//! through this dialect on 31.10.2026 (26.10.27, `gemini-3.7-flash`): a
+//! prompt that told the model to `touch` a file was asked of the seat,
+//! refused, the file never made, and the next turn answered as usual.
 //!
-//! Locked down by flags (`docs/llm-seat.md` §"A CLI as the model"): no
-//! user or project configuration (`--config-default-locations=false`, and
-//! so none of its hooks), no MCP server, skill, command, custom agent or
-//! custom model from their default places, no extensions (a directory of
-//! the session's own, empty), no guidelines (`--guidelines-filename`
-//! names an empty file of the session's own; the working directory is
-//! empty besides), no update check, no statistics, its caches in the
-//! session's directory, chat mode (`--agent-mode=chat`), and ours added
-//! to its system prompt (`--system-prompt`, which Junie adds to its own:
-//! it cannot be replaced). Brave mode, which approves actions, is never
-//! asked for, and no key is ever passed (`--auth`, `--*-api-key`): Junie
-//! plays on the login its owner signed in with.
+//! Locked down by flags as well (`docs/llm-seat.md` §"A CLI as the
+//! model"): no user or project configuration
+//! (`--config-default-locations=false`, and so none of its hooks), no MCP
+//! server, skill, command, custom agent or custom model from their default
+//! places, no extensions (a directory of the session's own, empty), no
+//! guidelines (`--guidelines-filename` names an empty file of the
+//! session's own; the working directory is empty besides), no update
+//! check, no statistics, its caches in the session's directory, and ours
+//! added to its system prompt (`--system-prompt`, which Junie adds to its
+//! own: it cannot be replaced; in ACP mode too, as its log shows). The
+//! model and the effort are its flags' (the session then names the model
+//! by an id of its own, `v1:12:jetbrains-ai:gemini-3.7-flash`), and set
+//! again through the session only where Junie offers the very value. Brave
+//! mode, which approves actions, is never asked for (`--brave`), and no
+//! key is ever passed (`--auth`, `--*-api-key`): Junie plays on the login
+//! its owner signed in with.
 //!
-//! Junie names no tools at its start: its `session` line is the start,
-//! and the proof the lockdown held is read off every line after it, so a
-//! step other than the task's result (a file opened, a command run) takes
-//! the mind off the table ([`Event::Breach`]).
+//! While it works Junie may start `systemd-inhibit` (its `keepAwakeMode`
+//! setting, `WhileTaskRunning`), whose polkit agent reads the controlling
+//! terminal: the seat starts it without one ([`super::launch::detach`]).
+//!
+//! A turn's reply is its `agent_message_chunk` text (Junie may add prose
+//! around the answer's object), its usage the prompt result's, one turn's
+//! own. Junie keeps each session under its home (`$JUNIE_HOME`, else
+//! `~/.junie`, `sessions/<id>/`) with its settings and its fallback
+//! credentials; the seat removes exactly its own directory when the
+//! conversation is over ([`Dialect::session_files`]), and the line its
+//! index (`sessions/index.jsonl`) holds for it stays.
 
+use super::acp::{self, Agent, Want};
 use super::dialect::{
-    Dialect, Event, Outcome, Started, Wire, clipped, conversation_id, entries, first_line_starts,
-    sounds_limited, tool_home,
+    Dialect, Event, Started, Wire, conversation_id, entries, sounds_limited, tool_home,
 };
-use crate::llm::{Settings, Usage, json_object};
+use crate::llm::Settings;
 use baylee_client_core::llmseat::CliTool;
-use serde_json::{Value, json};
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 
 /// The guidelines file Junie is pointed at: empty.
 const GUIDELINES: &str = "guidelines.md";
 
-/// The only step a locked-down task takes: its result.
-const RESULT_STEP: &str = "TASK RESULT";
+/// The session option that has Junie approve its own actions, and the
+/// value that has it ask the seat instead.
+const BRAVE_MODE: (&str, &str) = ("brave_mode", "off");
+
+/// Junie, as the protocol names it and reads its failures.
+const AGENT: Agent = Agent {
+    name: "junie",
+    limited,
+    signed_out,
+};
 
 /// The Junie CLI of `JetBrains`.
 pub(crate) struct Junie;
@@ -60,6 +81,12 @@ pub(crate) struct Junie;
 impl Dialect for Junie {
     fn tool(&self) -> CliTool {
         CliTool::Junie
+    }
+
+    /// Its `systemd-inhibit` has polkit ask through `pkttyagent`, which
+    /// reads the controlling terminal ([`super::launch::detach`]).
+    fn detaches(&self) -> bool {
+        true
     }
 
     fn files(&self, _settings: &Settings, _system: &str) -> Vec<(&'static str, String)> {
@@ -75,8 +102,7 @@ impl Dialect for Junie {
     ) -> Vec<OsString> {
         let path = |name: &str| support.join(name).to_string_lossy().into_owned();
         let mut args: Vec<String> = [
-            "--input-format=json",
-            "--output-format=json-stream",
+            "--acp=true",
             "--skip-update-check",
             "--share-anonymous-statistics=false",
             "--config-default-locations=false",
@@ -85,7 +111,6 @@ impl Dialect for Junie {
             "--command-default-location=false",
             "--agent-default-location=false",
             "--model-default-locations=false",
-            "--agent-mode=chat",
         ]
         .into_iter()
         .map(str::to_string)
@@ -114,18 +139,6 @@ impl Dialect for Junie {
         &[]
     }
 
-    fn one_shot(&self) -> bool {
-        true
-    }
-
-    fn resumes(&self) -> bool {
-        true
-    }
-
-    fn resume(&self, args: &mut Vec<OsString>, id: &str) {
-        args.push(format!("--session-id={id}").into());
-    }
-
     fn sessions_root(&self, env: &dyn Fn(&str) -> Option<OsString>) -> Option<PathBuf> {
         tool_home(env, "JUNIE_HOME", ".junie").map(|home| home.join("sessions"))
     }
@@ -141,66 +154,63 @@ impl Dialect for Junie {
             .collect()
     }
 
+    fn opening(
+        &self,
+        settings: &Settings,
+        model: Option<&str>,
+        work: &Path,
+        wire: &mut Wire,
+    ) -> Vec<String> {
+        let (brave, off) = BRAVE_MODE;
+        let mut wants = vec![Want {
+            id: brave,
+            value: off.into(),
+            must: true,
+        }];
+        if let Some(model) = model {
+            // The model the seat declares is the one that plays: Junie's
+            // ACP session ignores `--model` for a model it does not offer
+            // (Junie Lite, measured 31.10.2026) and plays its default.
+            wants.push(Want {
+                id: "model",
+                value: model.into(),
+                must: true,
+            });
+        }
+        if let Some(effort) = &settings.effort {
+            wants.push(Want {
+                id: "effort",
+                value: effort.clone(),
+                must: false,
+            });
+        }
+        acp::open(wire, work, wants)
+    }
+
     fn stdin_line(&self, text: &str) -> String {
-        json!({"task": text}).to_string()
+        // The prompt's content; `message` sends it in the session's own
+        // `session/prompt`.
+        acp::content(text).to_string()
+    }
+
+    fn message(&self, text: &str, wire: &mut Wire) -> Vec<String> {
+        acp::message(wire, text)
     }
 
     fn usage_is_cumulative(&self) -> bool {
-        // The `result` line counts the whole task, per model; one task a
-        // process, so each reading is booked whole as a new process's
-        // first, a follow-up's too (a new task in the session).
-        true
+        // A prompt result counts its own turn (measured 31.10.2026: a second
+        // turn of one session read 18,645 input tokens after a first of
+        // 17,723, while the running cost Junie reports doubled).
+        false
     }
 
     fn read_event(&self, line: &str, wire: &mut Wire) -> Event {
-        // Its banner and anything else not JSON is nothing.
-        let Ok(value) = serde_json::from_str::<Value>(line) else {
-            return Event::Other;
-        };
-        if wire.conversation.is_none()
-            && value.get("type").and_then(Value::as_str) == Some("session")
-        {
-            wire.conversation = value
-                .get("sessionId")
-                .and_then(Value::as_str)
-                .and_then(conversation_id);
-        }
-        if let Some(start) = first_line_starts(&value, wire) {
-            return start;
-        }
-        let text = |key: &str| value.get(key).and_then(Value::as_str);
-        match text("type") {
-            Some("step") => {
-                let name = text("name").unwrap_or("(unnamed)");
-                if name == RESULT_STEP {
-                    Event::Other
-                } else {
-                    Event::Breach(format!(
-                        "the junie process took a step of its own ({}): the seat does not play \
-                         through it",
-                        clipped(name)
-                    ))
-                }
-            }
-            Some("error" | "system") => {
-                if let Some(said) = ["message", "error", "details", "text"]
-                    .iter()
-                    .find_map(|key| text(key))
-                {
-                    wire.trouble = Some(said.to_string());
-                }
-                Event::Other
-            }
-            Some("result") => {
-                let trouble = wire.trouble.take();
-                Event::Reply(outcome(&value, trouble.as_deref()))
-            }
-            _ => Event::Other,
-        }
+        acp::read_event(line, wire, &AGENT)
     }
 
     fn lockdown_fault(&self, _started: &Started) -> Option<String> {
-        // Its start names nothing; every later line is checked instead.
+        // Its start names nothing: brave mode off is confirmed before any
+        // message goes out, and every tool call after it is checked.
         None
     }
 
@@ -215,57 +225,24 @@ impl Dialect for Junie {
     }
 }
 
-/// A `result` line, read: a failure where it or an earlier line named
-/// one, else the answer in its text.
-fn outcome(result: &Value, trouble: Option<&str>) -> Outcome {
-    let errors: Vec<&str> = result
-        .get("errors")
-        .and_then(Value::as_array)
-        .map(|errors| errors.iter().filter_map(Value::as_str).collect())
-        .unwrap_or_default();
-    let said = result
-        .get("result")
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_string();
-    if errors.is_empty() && trouble.is_none() {
-        return Outcome::Answer {
-            value: json_object(&said),
-            text: said,
-            usage: usage(result),
-        };
-    }
-    let why = trouble
-        .into_iter()
-        .chain(errors)
-        .collect::<Vec<_>>()
-        .join("; ");
-    let lower = why.to_lowercase();
-    if sounds_limited(&why) || lower.contains("balance") || lower.contains("quota is exhausted") {
-        Outcome::RateLimited {
-            why: clipped(&why),
-            lifts_in: None,
-        }
-    } else {
-        Outcome::Failed(clipped(&why))
-    }
+/// Whether Junie's words say a limit: a rate limit, a spent quota or
+/// balance ("Insufficient account balance. All tokens in your account have
+/// been spent."), its provider limited ("temporarily unavailable due to
+/// rate limiting").
+fn limited(said: &str) -> bool {
+    sounds_limited(said) || said.to_lowercase().contains("balance")
 }
 
-/// The tokens a `result` counted: a list of per-model records found by
-/// its shape (which key holds it has changed between builds), summed.
-fn usage(result: &Value) -> Option<Usage> {
-    let records = result.as_object()?.values().find_map(|value| {
-        let list = value.as_array()?;
-        (!list.is_empty() && list.iter().all(|item| item.get("inputTokens").is_some()))
-            .then_some(list)
-    })?;
-    let mut total = Usage::default();
-    for record in records {
-        let n = |key: &str| record.get(key).and_then(Value::as_u64).unwrap_or(0);
-        total.input += n("inputTokens");
-        total.output += n("outputTokens");
-        total.cache_read += n("cacheInputTokens");
-        total.cache_write += n("cacheCreateTokens");
-    }
-    Some(total)
+/// Whether Junie's words say it is not signed in.
+fn signed_out(said: &str) -> bool {
+    let lower = said.to_lowercase();
+    [
+        "authentication",
+        "authorization",
+        "auth_required",
+        "not signed in",
+        "not logged in",
+    ]
+    .iter()
+    .any(|sign| lower.contains(sign))
 }

@@ -1344,6 +1344,7 @@ dependencies = [
  "clap",
  "futures-util",
  "prost",
+ "rustix 1.1.5",
  "rustls",
  "serde",
  "serde_json",

@@ -23,7 +23,10 @@
 //! - [`transcript`]: what happened, one JSON line at a time;
 //! - [`lobby`] and [`deck`]: signing in, the deck, the room;
 //! - [`config`] and [`spend`]: a language model's settings file and the
-//!   spend book that holds its caps across games (`docs/llm-seat.md`).
+//!   spend book that holds its caps across games (`docs/llm-seat.md`);
+//! - [`reports`] and [`lookup`]: the rules or engine errors a language
+//!   model reports, and the card text it may read before it answers
+//!   (`docs/llm-protocol.md` §"Reports and lookups").
 //!
 //! [`bridge::play`] runs them all against a gateway.
 
@@ -38,10 +41,12 @@ pub mod keys;
 pub mod link;
 pub mod llm;
 pub mod lobby;
+pub mod lookup;
 pub mod memory;
 pub mod mind;
 pub mod narrator;
 pub mod referee;
+pub mod reports;
 pub mod scripted;
 pub mod seat;
 pub mod show;

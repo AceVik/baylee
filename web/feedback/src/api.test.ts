@@ -4,6 +4,7 @@ import {
   accountQuery,
   api,
   filterQuery,
+  isSourceName,
   onSignedOut,
   parseAccountFilter,
   parseFilter,
@@ -80,6 +81,13 @@ describe("filters in the query string", () => {
     }
     for (const bad of ["!", "s".repeat(65), "llm\u0001seat", "llm\u0085seat"]) {
       expect(parseFilter(`?source=${encodeURIComponent(bad)}`)).toEqual({});
+    }
+  });
+
+  test("a stored source is offered as a filter only when it names itself, not the filter's own words", () => {
+    for (const named of ["llm-seat", "a bot", "s".repeat(64)]) expect(isSourceName(named)).toBe(true);
+    for (const reserved of ["none", "!llm-seat", "", "s".repeat(65), "llm\u0001seat"]) {
+      expect(isSourceName(reserved)).toBe(false);
     }
   });
 });

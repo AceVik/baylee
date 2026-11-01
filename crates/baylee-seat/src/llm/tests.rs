@@ -20,7 +20,7 @@ const KEY: &str = "sk-ant-TEST-0123456789abcdefghijklmn";
 
 /// One scripted reply.
 #[derive(Clone)]
-struct Scripted {
+pub(crate) struct Scripted {
     status: u16,
     body: Value,
     delay: Duration,
@@ -30,7 +30,7 @@ struct Scripted {
 }
 
 impl Scripted {
-    fn ok(body: Value) -> Self {
+    pub(crate) fn ok(body: Value) -> Self {
         Self {
             status: 200,
             body,
@@ -70,7 +70,7 @@ struct Seen {
 }
 
 #[derive(Clone, Default)]
-struct Provider0 {
+pub(crate) struct Provider0 {
     replies: Arc<Mutex<VecDeque<Scripted>>>,
     seen: Arc<Mutex<Vec<Seen>>>,
 }
@@ -80,7 +80,7 @@ impl Provider0 {
         lock(&self.seen).clone()
     }
 
-    fn script(&self, reply: Scripted) {
+    pub(crate) fn script(&self, reply: Scripted) {
         lock(&self.replies).push_back(reply);
     }
 }
@@ -129,7 +129,7 @@ async fn answer(
 }
 
 /// A stand-in provider on a free port of this machine.
-async fn stand_in() -> (String, Provider0) {
+pub(crate) async fn stand_in() -> (String, Provider0) {
     let provider = Provider0::default();
     let app = Router::new().fallback(answer).with_state(provider.clone());
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
@@ -148,7 +148,7 @@ fn env_for(base: &str) -> impl Fn(&str) -> Option<String> + '_ {
     }
 }
 
-fn mind(base: &str, provider: Provider, tweak: impl FnOnce(&mut Settings)) -> ApiMind {
+pub(crate) fn mind(base: &str, provider: Provider, tweak: impl FnOnce(&mut Settings)) -> ApiMind {
     let model = match provider {
         Provider::Anthropic => "claude-sonnet-5",
         Provider::OpenAi => "TEST-model",
@@ -164,7 +164,7 @@ fn mind(base: &str, provider: Provider, tweak: impl FnOnce(&mut Settings)) -> Ap
 }
 
 /// An Anthropic reply: a summarised thought, then the calls.
-fn claude(calls: &[(&str, &str, Value)]) -> Value {
+pub(crate) fn claude(calls: &[(&str, &str, Value)]) -> Value {
     let mut content = vec![json!({
         "type": "thinking", "thinking": "The land first, then the bolt.", "signature": "TEST-sig"
     })];
@@ -190,7 +190,7 @@ fn claude_text(text: &str) -> Value {
     })
 }
 
-fn a_priority() -> Request {
+pub(crate) fn a_priority() -> Request {
     let (view, log) = board();
     let pending = priority(&view);
     request(view, pending, log)
@@ -1512,6 +1512,8 @@ fn a_limit_says_it_is_one_and_when_it_lifts() {
 mod plan;
 
 mod draw;
+
+mod extras;
 
 #[tokio::test]
 async fn managed_sessions_keep_the_transcript_across_turns_and_close_only_their_seat() {

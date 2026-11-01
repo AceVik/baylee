@@ -201,7 +201,7 @@ fn claude_runs_with_no_tools_no_settings_and_our_instructions() {
         .into_iter()
         .map(|arg| arg.into_string().unwrap())
         .collect();
-    let schema = prompt::answer_schema().to_string();
+    let schema = prompt::answer_schema(prompt::Extras::default()).to_string();
     let expected = [
         "-p",
         "--input-format",
@@ -989,7 +989,11 @@ fn a_session_directory_is_private_and_removed_with_it() {
     let dir = SessionDir::new(3).unwrap();
     let root = dir.root.clone();
     let name = root.file_name().unwrap().to_str().unwrap().to_string();
-    assert_eq!(root.parent().unwrap(), std::env::temp_dir(), "{root:?}");
+    assert_eq!(
+        root.parent().unwrap(),
+        std::env::temp_dir().canonicalize().unwrap(),
+        "{root:?}"
+    );
     let id = name
         .strip_prefix("baylee-cli-3-")
         .unwrap_or_else(|| panic!("{name}"));
@@ -1020,7 +1024,11 @@ fn a_conversation_store_is_private_and_removed_with_it() {
     let store = Store::new(2).unwrap();
     let root = store.root.clone();
     let name = root.file_name().unwrap().to_str().unwrap().to_string();
-    assert_eq!(root.parent().unwrap(), std::env::temp_dir(), "{root:?}");
+    assert_eq!(
+        root.parent().unwrap(),
+        std::env::temp_dir().canonicalize().unwrap(),
+        "{root:?}"
+    );
     let id = name
         .strip_prefix("baylee-cli-store-2-")
         .unwrap_or_else(|| panic!("{name}"));

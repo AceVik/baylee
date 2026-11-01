@@ -17,6 +17,9 @@ impl SessionDir {
     pub(super) fn new(seat: u8) -> std::io::Result<Self> {
         let root = std::env::temp_dir().join(format!("baylee-cli-{seat}-{}", unique()));
         private_dir(&root)?;
+        // The path the CLI is told is the one it finds itself in: macOS's
+        // temp dir is under the `/var` -> `/private/var` link.
+        let root = root.canonicalize()?;
         let dir = Self { root };
         private_dir(&dir.work())?;
         private_dir(&dir.tmp())?;
@@ -118,7 +121,8 @@ pub(super) const STORE_PREFIX: &str = "baylee-cli-store-";
 pub(super) const STALE_STORE: Duration = Duration::from_hours(1);
 
 /// A seat's conversation kept on disk for a tool that resumes one
-/// ([`Dialect::resumes`]): under the OS's temp directory beside the
+/// ([`Dialect::resumes`]) or keeps it beside its login
+/// ([`super::Launch::keeps_conversations`]): under the OS's temp directory beside the
 /// sessions' own directories, readable by this user alone, removed with
 /// the conversation (and so with the seat and the mind); `work`, the
 /// working directory every process of the conversation shares, empty, and
@@ -133,6 +137,7 @@ impl Store {
     pub(super) fn new(seat: u8) -> std::io::Result<Self> {
         let root = std::env::temp_dir().join(format!("{STORE_PREFIX}{seat}-{}", unique()));
         private_dir(&root)?;
+        let root = root.canonicalize()?;
         let store = Self { root };
         private_dir(&store.work())?;
         private_dir(&store.data())?;

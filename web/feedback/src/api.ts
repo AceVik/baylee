@@ -786,8 +786,11 @@ export interface LlmDefinition {
   max_games?: number;
   caps?: LlmCaps;
   canary?: boolean;
-  /** Another API profile of the same seat agent (docs/protocol.md §"A fallback profile"). */
-  fallback?: string;
+  /**
+   * Other API profiles of the same seat agent, one id or a list in the order they take over
+   * (docs/protocol.md §"A fallback profile").
+   */
+  fallback?: string | string[];
   profile: Record<string, unknown>;
 }
 
@@ -1017,6 +1020,15 @@ function isControl(c: string): boolean {
 export function isSourceFilter(text: string): boolean {
   const chars = [...(text.startsWith("!") ? text.slice(1) : text)];
   return chars.length >= 1 && chars.length <= 64 && !chars.some(isControl);
+}
+
+/**
+ * A stored source the filter can name: one that is a filter of its own and
+ * none of the filter's own words (`none`, a leading `!`). A client may send
+ * those too; they are shown, never offered as a filter.
+ */
+export function isSourceName(source: string): boolean {
+  return isSourceFilter(source) && source !== "none" && !source.startsWith("!");
 }
 
 /** A filter read back from a query string; anything malformed is dropped. */

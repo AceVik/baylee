@@ -937,7 +937,61 @@ async fn the_source_filter_shows_one_source_none_or_all_the_others() {
         .await;
     let text = String::from_utf8(csv.body).unwrap();
     let rows: Vec<&str> = text.split("\r\n").filter(|l| !l.is_empty()).collect();
-    assert!(rows[0].contains(",record_origin,source,issue,"), "{text}");
-    assert!(rows[1].contains(",\"llm-seat\","), "{text}");
+    let header: Vec<&str> = rows[0].split(',').collect();
+    let column = header
+        .iter()
+        .position(|c| *c == "source")
+        .expect("a source column");
+    let cells: Vec<&str> = rows[1].splitn(header.len(), ',').collect();
+    assert_eq!(cells[column], "\"llm-seat\"", "{text}");
+    service.close().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_source_is_only_a_non_empty_string_and_the_filter_words_stay_the_filters() {
+    let service = Service::start("source_shapes", None).await;
+    let cookie = service.login().await;
+    let mut none = Vec::new();
+    for (shape, text) in [
+        (json!(""), "an empty source"),
+        (json!(42), "a number"),
+        (json!({ "name": "a-bot" }), "an object"),
+        (json!(true), "a flag"),
+    ] {
+        none.push(service.hand_in(GATEWAY, from(shape, text)).await);
+    }
+    let named_none = service
+        .hand_in(GATEWAY, from(json!("none"), "a client calling itself none"))
+        .await;
+    let player = service
+        .hand_in(GATEWAY, report("bug", "cd34", "a player saw one", false))
+        .await;
+    none.push(player);
+
+    // Each of those reads as no source; a client that names itself `none`
+    // is a source, and the filter's `none` still means "no source".
+    let mut without = service
+        .ids(&cookie, "source=none&sort=received&dir=asc")
+        .await;
+    without.sort();
+    none.sort();
+    assert_eq!(without, none);
+    assert_eq!(
+        service.ids(&cookie, "source=!none").await,
+        vec![named_none.clone()]
+    );
+    let facets = service.get(&cookie, "/ui/api/facets").await.json();
+    let mut counted: Vec<(Value, i64)> = facets["sources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| (c["value"].clone(), c["count"].as_i64().unwrap()))
+        .collect();
+    counted.sort_by_key(|(v, _)| v.to_string());
+    assert_eq!(
+        counted,
+        vec![(json!("none"), 1), (Value::Null, 5)],
+        "{facets}"
+    );
     service.close().await;
 }

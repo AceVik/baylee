@@ -1,8 +1,8 @@
 //! Which program is run, with what limits, and how it is found.
 
 use super::{
-    Arc, COMMON, CliTool, Dialect, Duration, OsString, Path, PathBuf, Settings, WINDOWS, agy,
-    claude, cli_model, codex, is_absolute_path, junie, opencode, shaped_like_a_key,
+    Arc, COMMON, CliTool, Command, Dialect, Duration, OsString, Path, PathBuf, Settings, WINDOWS,
+    agy, claude, cli_model, codex, is_absolute_path, junie, opencode, shaped_like_a_key,
 };
 
 /// Whether `name` is a variable no CLI is ever given, whatever asks for
@@ -138,6 +138,15 @@ impl Launch {
         self.dialect.sessions_root(&|name| self.passed(name))
     }
 
+    /// Whether the tool keeps its conversations on disk, so each of the
+    /// seat's has a store of its own ([`super::Store`]): one it resumes
+    /// ([`Dialect::resumes`]), or one it keeps beside its login whether or
+    /// not it resumes it ([`Self::sessions_root`]), which the seat removes
+    /// when the conversation is over.
+    pub(super) fn keeps_conversations(&self) -> bool {
+        self.dialect.resumes() || self.sessions_root().is_some()
+    }
+
     /// The tool.
     #[must_use]
     pub fn tool(&self) -> CliTool {
@@ -259,6 +268,46 @@ pub(super) fn executable(meta: &std::fs::Metadata) -> bool {
 pub(super) fn executable(_: &std::fs::Metadata) -> bool {
     true
 }
+
+/// Starts `command`'s process in a session of its own, without a
+/// controlling terminal: nothing it starts can read the terminal the
+/// bridge was started from. Junie starts `systemd-inhibit` while it works,
+/// and from a login without a desktop seat polkit asks for that through
+/// `pkttyagent`, which reads the controlling terminal: for a bridge
+/// started in the background of a shell, the terminal's `SIGTTIN` stopped
+/// the bridge's whole process group, its own timeouts with it
+/// (31.10.2026). Without a terminal that agent fails at once, and the tool
+/// goes on. The tool still ends with the bridge: its stdin closes, and the
+/// bridge kills it when the session drops.
+///
+/// Only for a tool whose dialect asks for it ([`Dialect::detaches`]:
+/// Junie). A process in a session of its own is out of the bridge's
+/// process group too, and a signal to that group (a collector stopping its
+/// seat with `SIGKILL`) never reaches it; every other tool stays in the
+/// group and ends with it.
+#[cfg(unix)]
+pub(super) fn detach(command: &mut Command) {
+    // SAFETY: the hook runs in the child between fork and exec, where only
+    // async-signal-safe work is sound. It makes one system call, setsid(2),
+    // through rustix's raw syscall (no allocation, no lock, no memory of
+    // the parent's touched), and turns its errno into an `io::Error`
+    // without allocating. A fresh child is never a process-group leader,
+    // so setsid cannot fail with EPERM; were it to fail, the spawn fails
+    // with that error rather than run the tool on the terminal.
+    // `the_cli_runs_locked_down_with_only_what_it_needs` (tests/cli_mind.rs)
+    // checks that the process leads a session of its own.
+    unsafe {
+        command.pre_exec(|| {
+            rustix::process::setsid()
+                .map(drop)
+                .map_err(std::io::Error::from)
+        });
+    }
+}
+
+/// Elsewhere a process has no controlling terminal to inherit.
+#[cfg(not(unix))]
+pub(super) fn detach(_command: &mut Command) {}
 
 /// The dialect of `tool`.
 pub(super) fn dialect(tool: CliTool) -> Arc<dyn Dialect> {

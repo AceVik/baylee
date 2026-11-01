@@ -16,14 +16,15 @@
 //! its stdin, as a host's client starts one (`--tethered --chair-ticket`).
 //! Like every bridge it names no player to the model, only `P1…Pn`.
 //!
-//! A profile may name a **fallback**, another profile of this seat agent
-//! ([`Definition::fallback`], `docs/protocol.md` §"A fallback profile"): a
-//! game of the profile takes it along (a second settings file, the
-//! fallback's own spend book), and the bridge plays on with it when the
-//! model is rate limited. A new game starts on the fallback outright while
-//! the profile is not available (at `max_games`, limited, failing, signed
-//! out, being checked or switched off) and the fallback is
-//! ([`Host::place`]); the game then counts as the fallback's, and its chair
+//! A profile may name **fallbacks**, other profiles of this seat agent, one
+//! or a chain in order ([`Definition::fallback`], `docs/protocol.md` §"A
+//! fallback profile"): a game of the profile takes them along (a settings
+//! file each, each fallback's own spend book), and the bridge plays on with
+//! the next of them whenever the model playing is rate limited or fails. A
+//! new game starts on the first available fallback outright while the
+//! profile is not available (at `max_games`, limited, failing, signed out,
+//! being checked or switched off) ([`Host::place`]), taking the fallbacks
+//! after it along; the game then counts as that fallback's, and its chair
 //! keeps the ordered profile's name.
 
 #![warn(missing_docs)]
@@ -50,6 +51,11 @@ use tokio_tungstenite::tungstenite::Message;
 
 /// The profiles file in the state directory.
 pub const PROFILES_FILE: &str = "hosted.json";
+
+/// The directory in the state directory every bridge writes its model's
+/// reports to as it files them (`reports.jsonl`, `baylee-seat join
+/// --reports-dir`), whether or not the gateway takes them.
+pub const REPORTS_DIR: &str = "reports";
 
 /// How often the seat agent looks for checks that are due.
 const TICK: Duration = Duration::from_secs(5);
@@ -94,10 +100,11 @@ struct Order {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Placement {
     /// The profile whose mind, settings file and spend book play the game:
-    /// the one ordered, or its fallback.
+    /// the one ordered, or one of its fallbacks.
     pub plays: String,
-    /// The fallback that stands by in the game, where one does.
-    pub fallback: Option<String>,
+    /// The fallbacks that stand by in the game, in the order they take
+    /// over: the ordered profile's usable ones after the one that plays.
+    pub fallbacks: Vec<String>,
     /// Why the game plays on the fallback from its start, for the
     /// operator's log; `None` when it plays the profile ordered.
     pub diverted: Option<String>,
@@ -156,27 +163,38 @@ pub fn definition_fault(id: &str, def: &Definition) -> Option<String> {
     if def.max_games == Some(0) {
         return Some("max_games is at least 1, or absent for no bound".into());
     }
-    if let Some(fallback) = &def.fallback {
+    let fallbacks = def.fallbacks();
+    for (at, fallback) in fallbacks.iter().enumerate() {
         if !valid_name(fallback) {
             return Some("a fallback is a profile's id: 1-64 of A-Z a-z 0-9 . - _".into());
         }
         if fallback == id {
             return Some("a profile cannot be its own fallback".into());
         }
+        if fallbacks[..at].contains(fallback) {
+            return Some(format!("«{fallback}» is named twice among the fallbacks"));
+        }
     }
     let settings = match settings_of(id, def) {
         Ok(settings) => settings,
         Err(why) => return Some(why),
     };
-    let cli = settings
-        .profile(id)
-        .is_some_and(|p| p.provider == Provider::Cli);
-    if cli && def.fallback.is_some() {
+    // The settings file a bridge is given holds this profile alone: its
+    // fallbacks are the definition's, each in a file of its own.
+    if settings.profile(id).is_some_and(|p| !p.fallback.is_empty()) {
         return Some(
-            "a profile with a fallback is a model behind an API; an agent CLI takes none".into(),
+            "a hosted profile names its fallbacks in the definition's fallback, not in its \
+             settings"
+                .into(),
         );
     }
     None
+}
+
+/// Whether `def` plays an agent CLI.
+fn plays_cli(def: &Definition) -> bool {
+    serde_json::from_value::<Profile>(def.profile.clone())
+        .is_ok_and(|p| p.provider == Provider::Cli)
 }
 
 /// Why a set of definitions cannot be kept together, or `None`: a fallback
@@ -190,24 +208,23 @@ pub fn definition_fault(id: &str, def: &Definition) -> Option<String> {
 #[must_use]
 pub fn definitions_fault(defs: &BTreeMap<String, Definition>) -> Option<String> {
     defs.iter().find_map(|(id, def)| {
-        let fallback = def.fallback.as_deref()?;
-        let theirs = defs.get(fallback)?;
-        let cli = serde_json::from_value::<Profile>(theirs.profile.clone())
-            .is_ok_and(|p| p.provider == Provider::Cli);
-        if cli {
-            return Some(format!(
-                "profile «{id}» names «{fallback}» as its fallback, and «{fallback}» plays an \
-                 agent CLI: a fallback is a model behind an API"
-            ));
-        }
-        (!same_vendor(def, theirs)).then(|| {
-            format!(
-                "profile «{id}» names «{fallback}» as its fallback, and their vendors differ \
-                 ({} and {}): the room shows the profile's vendor as where the game data goes, \
-                 so its fallback must name the same",
-                def.vendor.trim(),
-                theirs.vendor.trim()
-            )
+        def.fallbacks().iter().find_map(|fallback| {
+            let theirs = defs.get(fallback)?;
+            if plays_cli(theirs) {
+                return Some(format!(
+                    "profile «{id}» names «{fallback}» as its fallback, and «{fallback}» plays \
+                     an agent CLI: a fallback is a model behind an API"
+                ));
+            }
+            (!same_vendor(def, theirs)).then(|| {
+                format!(
+                    "profile «{id}» names «{fallback}» as its fallback, and their vendors differ \
+                     ({} and {}): the room shows the profile's vendor as where the game data \
+                     goes, so its fallback must name the same",
+                    def.vendor.trim(),
+                    theirs.vendor.trim()
+                )
+            })
         })
     })
 }
@@ -217,41 +234,51 @@ fn same_vendor(a: &Definition, b: &Definition) -> bool {
     a.vendor.trim().to_lowercase() == b.vendor.trim().to_lowercase()
 }
 
-/// The fallback `id`'s definition names, if it names one: `Ok` where a
-/// game may take it along (a profile of this seat agent, not `id` itself,
-/// both behind an API, switched on), else `Err` with why not. Its own
-/// fallback is never followed.
-fn fallback_of<'a>(
+/// The fallbacks `id`'s definition names, in order, each `Ok` where a game
+/// may take it along (a profile of this seat agent, not `id` itself,
+/// behind an API, of the same vendor, switched on), else `Err` with why
+/// not. Their own fallbacks are never followed.
+fn fallbacks_of<'a>(
     defs: &'a BTreeMap<String, Definition>,
     id: &str,
-) -> Option<Result<&'a str, &'static str>> {
-    let def = defs.get(id)?;
-    let fallback = def.fallback.as_deref()?;
-    let api = |d: &Definition| {
-        serde_json::from_value::<Profile>(d.profile.clone())
-            .is_ok_and(|p| p.provider != Provider::Cli)
+) -> Vec<(&'a str, Result<(), &'static str>)> {
+    let Some(def) = defs.get(id) else {
+        return Vec::new();
     };
-    Some(match defs.get(fallback) {
-        None => Err("it is not on this seat agent"),
-        Some(_) if fallback == id => Err("it is the profile itself"),
-        Some(theirs) if !(api(def) && api(theirs)) => Err("a fallback is a model behind an API"),
-        Some(theirs) if !same_vendor(def, theirs) => Err("its vendor is another"),
-        Some(theirs) if !theirs.enabled => Err("it is switched off"),
-        Some(_) => Ok(fallback),
-    })
+    def.fallbacks()
+        .iter()
+        .map(|fallback| {
+            let usable = match defs.get(fallback) {
+                None => Err("it is not on this seat agent"),
+                Some(_) if fallback == id => Err("it is the profile itself"),
+                Some(theirs) if plays_cli(theirs) => Err("a fallback is a model behind an API"),
+                Some(theirs) if !same_vendor(def, theirs) => Err("its vendor is another"),
+                Some(theirs) if !theirs.enabled => Err("it is switched off"),
+                Some(_) => Ok(()),
+            };
+            (fallback.as_str(), usable)
+        })
+        .collect()
 }
 
-/// [`fallback_of`] where a game may take it along; where one was named and
-/// may not be, the reason is logged.
-fn usable_fallback<'a>(defs: &'a BTreeMap<String, Definition>, id: &str) -> Option<&'a str> {
-    match fallback_of(defs, id)? {
-        Ok(fallback) => Some(fallback),
-        Err(why) => {
-            let fallback = defs.get(id).and_then(|d| d.fallback.as_deref());
-            tracing::warn!(profile = id, fallback, why, "no fallback for this game");
-            None
-        }
-    }
+/// The fallbacks of [`fallbacks_of`] a game may take along, in order; for
+/// each named that may not be, the reason is logged.
+fn usable_fallbacks<'a>(defs: &'a BTreeMap<String, Definition>, id: &str) -> Vec<&'a str> {
+    fallbacks_of(defs, id)
+        .into_iter()
+        .filter_map(|(fallback, usable)| match usable {
+            Ok(()) => Some(fallback),
+            Err(why) => {
+                tracing::warn!(
+                    profile = id,
+                    fallback,
+                    why,
+                    "no such fallback for this game"
+                );
+                None
+            }
+        })
+        .collect()
 }
 
 /// The settings file a bridge for `def` is given: the profile alone, the
@@ -377,11 +404,11 @@ impl Host {
             .collect()
     }
 
-    /// Where a new game of `id` starts on its fallback, and why: the
-    /// profile not available, whatever the reason (at its `max_games`,
-    /// limited by a cap of its book or by the provider, failing its check,
-    /// signed out, being checked, switched off), and its fallback available
-    /// (owner, 13.10.2026: it is to run steadily).
+    /// Where a new game of `id` starts on a fallback, and why: the profile
+    /// not available, whatever the reason (at its `max_games`, limited by a
+    /// cap of its book or by the provider, failing its check, signed out,
+    /// being checked, switched off), and a fallback available: the first of
+    /// its chain that is (owner, 13.10.2026: it is to run steadily).
     fn diverts(
         inner: &Inner,
         own: &BTreeMap<String, Own>,
@@ -392,10 +419,14 @@ impl Host {
         if mine.state == State::Available {
             return None;
         }
-        let fallback = fallback_of(&inner.defs, id)?.ok()?;
-        if own.get(fallback)?.state != State::Available {
-            return None;
-        }
+        let fallback = fallbacks_of(&inner.defs, id)
+            .into_iter()
+            .filter(|(_, usable)| usable.is_ok())
+            .map(|(fallback, _)| fallback)
+            .find(|fallback| {
+                own.get(*fallback)
+                    .is_some_and(|o| o.state == State::Available)
+            })?;
         let left = |until: Option<i64>| until.map_or(0, |until| (until - at).max(0));
         let said = |what: &str| match &mine.error {
             Some(error) => format!("primary {what}: {error}"),
@@ -427,7 +458,7 @@ impl Host {
     ///
     /// # Errors
     /// No such profile, the seat agent draining, or neither the profile
-    /// nor its fallback available.
+    /// nor any of its fallbacks available.
     pub fn place(&self, id: &str) -> Result<Placement, String> {
         let at = now();
         let inner = self.inner();
@@ -442,16 +473,26 @@ impl Host {
         if state == State::Available {
             return Ok(Placement {
                 plays: id.to_string(),
-                fallback: usable_fallback(&inner.defs, id).map(str::to_string),
+                fallbacks: usable_fallbacks(&inner.defs, id)
+                    .into_iter()
+                    .map(str::to_string)
+                    .collect(),
                 diverted: None,
             });
         }
         // Said in the log here, at an order, not at every report.
-        let _ = usable_fallback(&inner.defs, id);
+        let usable = usable_fallbacks(&inner.defs, id);
         match Self::diverts(&inner, &own, id, at) {
+            // The game plays that fallback, and the ones after it in the
+            // chain stand by.
             Some((fallback, why)) => Ok(Placement {
+                fallbacks: usable
+                    .iter()
+                    .skip_while(|usable| **usable != fallback)
+                    .skip(1)
+                    .map(|usable| (*usable).to_string())
+                    .collect(),
                 plays: fallback,
-                fallback: None,
                 diverted: Some(why),
             }),
             None => Err(format!("busy: the profile is {}", state.word())),
@@ -634,7 +675,8 @@ impl Host {
                 deck_text,
                 settings: String::new(),
                 ledger: PathBuf::new(),
-                fallback: None,
+                reports: self.config.state_dir.join(REPORTS_DIR),
+                fallbacks: Vec::new(),
                 heard: None,
             }),
             Frame::StopSeat { order } => {
@@ -722,8 +764,8 @@ impl Host {
     }
 
     /// The files a game of `placement` plays with: the settings file and
-    /// spend book of the profile that plays it, and its fallback's, the
-    /// chair named after the profile `ordered`.
+    /// spend book of the profile that plays it, and each fallback's, in
+    /// order, the chair named after the profile `ordered`.
     fn prepare(&self, job: &mut SeatJob, placement: &Placement) -> Result<(), String> {
         let inner = self.inner();
         let def_of = |id: &str| {
@@ -737,25 +779,28 @@ impl Host {
         job.settings = settings_of(&placement.plays, def_of(&placement.plays)?)?.to_json();
         job.plays.clone_from(&placement.plays);
         job.ledger = self.ledger_path(&placement.plays);
-        job.fallback = match &placement.fallback {
-            Some(fallback) => match settings_of(fallback, def_of(fallback)?) {
-                Ok(settings) => Some(FallbackJob {
-                    profile: fallback.clone(),
-                    settings: settings.to_json(),
-                    ledger: self.ledger_path(fallback),
-                }),
-                Err(why) => {
-                    tracing::warn!(
-                        profile = job.profile,
-                        fallback,
-                        why,
-                        "no fallback for this game"
-                    );
-                    None
+        job.fallbacks = placement
+            .fallbacks
+            .iter()
+            .filter_map(|fallback| {
+                match def_of(fallback).and_then(|def| settings_of(fallback, def)) {
+                    Ok(settings) => Some(FallbackJob {
+                        profile: fallback.clone(),
+                        settings: settings.to_json(),
+                        ledger: self.ledger_path(fallback),
+                    }),
+                    Err(why) => {
+                        tracing::warn!(
+                            profile = job.profile,
+                            fallback,
+                            why,
+                            "no such fallback for this game"
+                        );
+                        None
+                    }
                 }
-            },
-            None => None,
-        };
+            })
+            .collect();
         Ok(())
     }
 
@@ -816,8 +861,9 @@ impl Host {
         let profile = job.profile.clone();
         let plays = job.plays.clone();
         let (started_tx, started_rx) = oneshot::channel();
-        if job.fallback.is_some() {
-            job.heard = Some(self.hear_bridge(&plays));
+        if !job.fallbacks.is_empty() {
+            let chain = job.fallbacks.iter().map(|f| f.profile.clone()).collect();
+            job.heard = Some(self.hear_bridge(&plays, chain));
         }
         let run = self.config.launcher.run(job, started_tx, stop);
         let announcer = {
@@ -846,20 +892,32 @@ impl Host {
         });
     }
 
-    /// What a bridge whose model `plays` says while it plays: that the
-    /// model is rate limited, where a fallback stood by (`launch::LIMITED`).
-    /// The profile is then held back from new games until the limit lifts,
-    /// so they start on the fallback ([`Self::place`]).
-    fn hear_bridge(self: &Arc<Self>, plays: &str) -> mpsc::UnboundedSender<Heard> {
+    /// What a bridge whose model `plays`, with the fallbacks `chain` behind
+    /// it, says while it plays: that the model playing is rate limited,
+    /// where a fallback stood by (`launch::LIMITED` for `plays`, the same
+    /// of a fallback that took over for that fallback). That profile is then
+    /// held back from new games until the limit lifts, so they start on the
+    /// next ([`Self::place`]). A profile the game does not play is never
+    /// held back by what its bridge says.
+    fn hear_bridge(
+        self: &Arc<Self>,
+        plays: &str,
+        chain: Vec<String>,
+    ) -> mpsc::UnboundedSender<Heard> {
         let (tx, mut rx) = mpsc::unbounded_channel();
         let host = Arc::clone(self);
         let plays = plays.to_string();
         tokio::spawn(async move {
             while let Some(heard) = rx.recv().await {
                 match heard {
-                    Heard::Limited { lifts_secs } => {
-                        tracing::info!(profile = plays, lifts_secs, "the model is rate limited");
-                        if let Some(rt) = host.inner().rt.get_mut(&plays) {
+                    Heard::Limited { of, lifts_secs } => {
+                        let limited = match of {
+                            None => plays.clone(),
+                            Some(fallback) if chain.contains(&fallback) => fallback,
+                            Some(_) => continue,
+                        };
+                        tracing::info!(profile = limited, lifts_secs, "the model is rate limited");
+                        if let Some(rt) = host.inner().rt.get_mut(&limited) {
                             rt.heard_limit(lifts_secs, now());
                         }
                         host.report_all();

@@ -144,6 +144,11 @@ impl Session {
     pub const fn from_token(token: String) -> Self {
         Self { token }
     }
+
+    /// The token, for a request's `Authorization` and nothing else.
+    pub(crate) fn bearer(&self) -> &str {
+        &self.token
+    }
 }
 
 /// A chair ticket: the host's word that this bridge may sit in one chair of
@@ -286,6 +291,25 @@ impl Lobby {
         answer
             .expect_ok(&format!("store the deck {}", deck.name))?
             .string("deck_id")
+    }
+
+    /// Files a bug report under the session (`POST /reports`,
+    /// `docs/feedback.md`): the service's id for it.
+    ///
+    /// # Errors
+    /// When the gateway cannot be reached, or does not take it (no
+    /// feedback service, a limit, a body it refuses).
+    pub async fn report(
+        &self,
+        session: &Session,
+        body: serde_json::Value,
+    ) -> anyhow::Result<String> {
+        let answer = self
+            .call("POST", "/reports", Some(&session.token), Some(body))
+            .await?;
+        answer
+            .expect_ok("file the game's reports")?
+            .string("report_id")
     }
 
     /// The room `game_id`, as the listing shows it to this session.
@@ -571,6 +595,29 @@ impl Lobby {
         Ok(())
     }
 
+    /// Files the bug report of a chair taken on a host's ticket, about its
+    /// own game (`POST …/chair/report`, the seat token as `Authorization`,
+    /// `docs/feedback.md`): the service's id for it. The gateway files it
+    /// under the host's pseudonym, once a chair.
+    ///
+    /// # Errors
+    /// When the gateway cannot be reached, or does not take it (no
+    /// feedback service, a limit, a report already sent, a body it
+    /// refuses).
+    pub async fn chair_report(
+        &self,
+        chair: &Chair,
+        body: serde_json::Value,
+    ) -> anyhow::Result<String> {
+        let path = format!("/lobby/games/{}/chair/report", escape(&chair.game_id));
+        let answer = self
+            .call("POST", &path, Some(&chair.seat_token), Some(body))
+            .await?;
+        answer
+            .expect_ok("file the game's reports")?
+            .string("report_id")
+    }
+
     /// [`Lobby::wait_for_start`] for a chair taken on a host's ticket,
     /// asked with its seat token.
     ///
@@ -706,9 +753,10 @@ impl Answer {
     }
 }
 
-/// A room id as a path segment or a query value: ids are the gateway's own
-/// and plain, but one typed at a command line need not be.
-fn escape(text: &str) -> String {
+/// A room id or a card's name as a path segment or a query value: ids are
+/// the gateway's own and plain, but one typed at a command line, or a name
+/// a model wrote, need not be.
+pub(crate) fn escape(text: &str) -> String {
     text.bytes()
         .map(|b| {
             if b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.' | b'~') {

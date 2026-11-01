@@ -974,6 +974,113 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
+  "/lobby/games/{id}/chair/report":
+    post:
+      summary: A seat bridge sends its game's report
+      description: |-
+        A host's seat bridge, which has a seat token and no
+        session, sends the bug report its language model wrote about its game,
+        in the body `POST /reports` takes. The gateway passes it on as it does
+        a player's, to the feedback service or to Central, under the pseudonym
+        of the host who handed the chair over and against that host's budget,
+        with this game's record, which the chair played. About this game only:
+        a `game_id` is empty or this one, and no `local_record`. One report a
+        chair a game; it may be sent until the room leaves the lobby (an hour
+        after the game ends). A person reports with their session.
+      operationId: send_chair_report
+      tags:
+      - Chairs
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: The game's id
+        schema:
+          type: string
+      security:
+      - seatToken: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Report"
+        required: true
+      responses:
+        "201":
+          description: The feedback service took it, or Central filed it (its parts follow)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportReceipt"
+        "400":
+          description: >-
+            Not a report (as `POST /reports`), a `game_id` of another game, or a
+            `local_record`
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "401":
+          description: >-
+            No seat token, or one that is not this game's any more (`ticket expired or
+            used`, `invalid seat token`)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: The chair is a person's, not a seat bridge's
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "404":
+          description: No such game
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "409":
+          description: This chair has sent its game's report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "413":
+          description: >-
+            The text is over 20000 characters or `client` over 2 MiB; a body over 2.25 MiB
+            is refused before it is read, in plain text
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "429":
+          description: 64 reports in the last hour on the host's account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "500":
+          description: The report could not be encoded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "502":
+          description: The feedback service or Central did not take it
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "503":
+          description: >-
+            Reports are not configured here (`BAYLEE_FEEDBACK_URL` unset, or with
+            `BAYLEE_REPORTS_TO=central` no link to Central), too many reports are on their way to
+            Central, or the database or Baylee Central is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
   "/lobby/games/{id}/configure":
     post:
       summary: Change a waiting room's settings

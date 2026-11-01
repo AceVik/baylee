@@ -118,6 +118,18 @@ agy records remain supported. Model answers become BC targets only after
 technical replay/provenance validation; standing and fallback answers are not
 external-model policy targets, and none of these records are PPO behavior data.
 
+A collector pairing (`llm_collector4 collect --pairings-file`) may name
+`house:<level>` for a seat instead of a profile: the house plays it at that
+level (`baylee-seat join --mind house`), so each teacher can be measured
+against the opponent the trained net is benchmarked against (`house:sharp`).
+It sits in the chair of the slot's second account, `HOUSE-bench-<slot>`
+(hosting where it plays seat 0, joining chair 1 otherwise): a chair ticket
+seats only a language model, and a chair must be called what plays it.
+The house reserves nothing and reads no key; its answers are counted as the
+house's (`house_answers` in `stats.json`, never `llm`), and the house against
+the house is refused. Such a game is a measurement: the LLM freeze and the
+converter hold both seats to an agent-CLI model and refuse it as BC input.
+
 New `convert4` datasets carry `idle_pass_weighting_revision = 2`. For live and
 LLM behavior-cloning labels, a priority pass during visible casting, announced
 casting or an outstanding payment keeps its normal policy weight. It can finish

@@ -488,41 +488,75 @@ fn the_proxy_passes_its_routes_alone_and_bounds_them_no_tighter() {
         3,
         "three routes and no other"
     );
-    // The intake's bound is the owner's figure (31.10.2026), well above the
-    // service's own.
-    assert!(
-        directives.contains(&"max_size 512MiB"),
-        "the intake is bounded at 512 MiB"
-    );
-    const { assert!(512 * 1024 * 1024 >= baylee_feedback::MAX_INTAKE_BYTES) };
-    let contact_kib: usize = directives
-        .iter()
-        .filter_map(|l| l.strip_prefix("max_size "))
-        .find_map(|s| s.strip_suffix("KiB"))
-        .and_then(|n| n.parse().ok())
-        .expect("a bound on the contact form's body, in KiB");
-    assert!(
-        contact_kib * 1024 >= baylee_feedback::contact::MAX_BODY_BYTES,
-        "{contact_kib} KiB would cut off a message the service takes"
-    );
     assert!(
         !directives.iter().any(|l| l.starts_with("log")),
         "no access log"
     );
-    let size = directives
-        .iter()
-        .find_map(|l| l.strip_prefix("max_size "))
-        .expect("a bound on the body");
-    let mib: usize = size
-        .strip_suffix("MiB")
-        .and_then(|n| n.parse().ok())
-        .expect("whole MiB");
+    // Each route's bound, read from its own `handle` block.
+    let direct = bound_of(&directives, "@baylee_direct_report");
     assert!(
-        mib * 1024 * 1024 >= baylee_feedback::direct::MAX_BODY_BYTES,
-        "{mib} MiB would cut off a body the service takes"
+        direct >= baylee_feedback::direct::MAX_BODY_BYTES,
+        "{direct} bytes would cut off a body the service takes"
     );
     assert!(
-        (mib - 1) * 1024 * 1024 < baylee_feedback::direct::MAX_BODY_BYTES,
-        "{mib} MiB is a MiB looser than it needs to be"
+        direct - (1 << 20) < baylee_feedback::direct::MAX_BODY_BYTES,
+        "{direct} bytes is a MiB looser than it needs to be"
+    );
+    let contact = bound_of(&directives, "@baylee_contact");
+    assert!(
+        contact >= baylee_feedback::contact::MAX_BODY_BYTES,
+        "{contact} bytes would cut off a message the service takes"
+    );
+    // The intake's bound is the owner's figure (31.10.2026). The service's
+    // own, after the token, is the one that acts.
+    let intake = bound_of(&directives, "@baylee_intake");
+    assert_eq!(intake, 512 << 20, "the intake is bounded at 512 MiB");
+    assert!(intake >= baylee_feedback::MAX_INTAKE_BYTES);
+}
+
+/// The `max_size` inside `handle <matcher> { … }`, in bytes.
+fn bound_of(directives: &[&str], matcher: &str) -> usize {
+    let open = format!("handle {matcher} {{");
+    let mut block = directives
+        .iter()
+        .skip_while(|l| **l != open)
+        .skip(1)
+        .take_while(|l| **l != "}");
+    let size = block
+        .find_map(|l| l.strip_prefix("max_size "))
+        .unwrap_or_else(|| panic!("no max_size in {open}"));
+    let (number, unit) = size.split_at(size.find(|c: char| !c.is_ascii_digit()).expect("a unit"));
+    let number: usize = number.parse().expect("a whole number");
+    match unit {
+        "KiB" => number << 10,
+        "MiB" => number << 20,
+        other => panic!("{other} is not a unit this test reads"),
+    }
+}
+
+#[test]
+fn the_site_imports_the_public_routes_before_its_catch_all_and_logs_nothing() {
+    let site = std::fs::read_to_string(
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../scripts/server/feedback.caddy"),
+    )
+    .expect("the site file");
+    let directives: Vec<&str> = site
+        .lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty() && !l.starts_with('#'))
+        .collect();
+    let import = directives
+        .iter()
+        .position(|l| *l == "import /etc/caddy/baylee-feedback-direct.caddy")
+        .expect("the snippet is imported");
+    let catch_all = directives
+        .iter()
+        .position(|l| *l == "handle {")
+        .expect("a catch-all");
+    assert!(import < catch_all, "the public routes come first");
+    assert!(
+        !directives.iter().any(|l| l.starts_with("log")),
+        "no access log"
     );
 }
