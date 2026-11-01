@@ -25,11 +25,13 @@ struct MockState {
 
 /// A stand-in for the net: its own answer at a root is `own`, its critic is
 /// `value`, its rollout answers are the steady house's, and its ranking is
-/// the real encoder's menu, in menu order.
+/// the real encoder's menu, in menu order, its own answer's logit raised by
+/// `confidence`.
 struct Mock {
     state: MockState,
     own: fn(&PlayerView, &Pending) -> Option<PlayerAction>,
     value: fn(&PlayerView) -> f32,
+    confidence: f32,
 }
 
 impl Mock {
@@ -44,6 +46,15 @@ impl Mock {
             },
             own,
             value,
+            confidence: 0.0,
+        }
+    }
+
+    /// The same stand-in, `logit` surer of its own answer than of the rest.
+    fn confident(self, logit: f32) -> Self {
+        Self {
+            confidence: logit,
+            ..self
         }
     }
 
@@ -92,6 +103,16 @@ impl SearchPlayer4 for Mock {
             SourceKind4::Forced
         };
         self.record(pending, source);
+        let ranking = policy.then(|| {
+            let flat = vec![0.0; cands.candidates.len()];
+            let mut logits = flat.clone();
+            for ranked in rank_single_choice(&cands, &flat, view, pending) {
+                if ranked.action == action {
+                    logits[ranked.index] = self.confidence;
+                }
+            }
+            rank_single_choice(&cands, &logits, view, pending)
+        });
         RootDecision4 {
             answer: Answer4 {
                 action,
@@ -105,9 +126,7 @@ impl SearchPlayer4 for Mock {
                 },
                 target: TeacherTarget4::default(),
             },
-            ranking: policy.then(|| {
-                rank_single_choice(&cands, &vec![0.0; cands.candidates.len()], view, pending)
-            }),
+            ranking,
             notes_answer: policy,
         }
     }
@@ -278,7 +297,8 @@ fn one_candidate_plays_the_policys_answer_and_every_world_is_undone() {
     );
     assert!(!report.changed);
     assert_eq!(report.rollouts, 3);
-    assert!(report.rollout_steps > 0, "the worlds were played on");
+    assert_eq!(report.leaves.terminal + report.leaves.value(), 3);
+    assert_eq!(report.leaves.immediate, 0, "H > 0 plays the worlds on");
     assert_eq!(result.answer.action, decision.answer.action);
     assert_eq!(result.answer.provenance.source, SourceKind4::Search);
     assert!(!result.answer.provenance.has_logprob);
@@ -304,11 +324,22 @@ fn one_candidate_plays_the_policys_answer_and_every_world_is_undone() {
     assert_eq!(searched_table.take_record(), plain_table.take_record());
 }
 
-#[test]
-fn a_value_lookahead_finds_the_land_drop_the_policy_passed_on() {
+/// A critic that likes the seat's lands only a little.
+fn lands_a_little(view: &PlayerView) -> f32 {
+    0.2 + (lands(view) - 0.2) / 10.0
+}
+
+/// The land-drop root of table 22, searched by a stand-in that passes
+/// there, under `selection`.
+fn land_root_search(
+    critic: fn(&PlayerView) -> f32,
+    confidence: f32,
+    k: usize,
+    selection: Selection4,
+) -> (Mock, Pending, SearchedAnswer4) {
     let mut session = table(22);
     let (pending, view) = root(&mut session, land_playable);
-    let mut player = Mock::new(passes, lands);
+    let mut player = Mock::new(passes, critic).confident(confidence);
     player.observe(&view).unwrap();
     let result = search_decision(
         &mut player,
@@ -316,20 +347,39 @@ fn a_value_lookahead_finds_the_land_drop_the_policy_passed_on() {
         &view,
         &pending,
         &[],
-        config(SearchConfig4::MAX_CANDIDATES, 1, 0),
+        config(k, 1, 0).with_selection(selection).unwrap(),
         SEED,
     )
     .unwrap();
+    session
+        .act_slice(ME, result.answer.action.clone(), 0)
+        .expect("the searched answer is legal at the table");
+    (player, pending, result)
+}
+
+#[test]
+fn a_value_lookahead_finds_the_land_drop_the_policy_passed_on() {
+    let paired = Selection4::Paired {
+        margin: 0.05,
+        z: 0.0,
+    };
+    let (player, pending, result) =
+        land_root_search(lands, 0.0, SearchConfig4::MAX_CANDIDATES, paired);
     let SearchOutcome4::Searched(report) = &result.outcome else {
         panic!("the root is searched: {:?}", result.outcome);
     };
     assert!(report.changed, "{report:?}");
-    assert_eq!(report.value_leaves, report.rollouts);
+    assert_eq!(report.leaves.immediate, report.rollouts);
     assert_eq!(
         report.rollout_steps, 0,
         "H = 0 scores the answer's own position"
     );
     assert!(report.means[report.chosen] > report.means[0]);
+    assert!((report.diffs[report.chosen] - 0.1).abs() < 1e-6);
+    assert_eq!(
+        report.ses[report.chosen], None,
+        "one world, no standard error"
+    );
     assert_eq!(report.actions[0], PlayerAction::PassPriority);
     assert_eq!(report.actions[report.chosen], result.answer.action);
     assert_eq!(report.actions.len(), report.candidates);
@@ -345,9 +395,125 @@ fn a_value_lookahead_finds_the_land_drop_the_policy_passed_on() {
         Some(&result.answer.action),
         "the player notes the searched answer as its own"
     );
-    session
-        .act_slice(ME, result.answer.action, 0)
-        .expect("the searched answer is legal at the table");
+}
+
+#[test]
+fn a_gain_inside_the_margin_leaves_the_policys_answer() {
+    let k = SearchConfig4::MAX_CANDIDATES;
+    let paired = Selection4::Paired {
+        margin: 0.05,
+        z: 0.0,
+    };
+    let changed = |selection| {
+        let (_, _, result) = land_root_search(lands_a_little, 0.0, k, selection);
+        let SearchOutcome4::Searched(report) = result.outcome else {
+            panic!("searched");
+        };
+        report.changed
+    };
+    assert!(changed(Selection4::Mean), "v1 takes a gain of 0.01");
+    assert!(!changed(paired), "0.01 is inside a margin of 0.05");
+    assert!(
+        !changed(Selection4::default()),
+        "one world cannot clear a standard error"
+    );
+}
+
+#[test]
+fn the_prior_keeps_a_confident_policys_answer() {
+    let k = SearchConfig4::MAX_CANDIDATES;
+    let (_, _, sure) = land_root_search(lands, 6.0, k, Selection4::Prior { c: 1.0 });
+    let SearchOutcome4::Searched(report) = &sure.outcome else {
+        panic!("searched");
+    };
+    assert!(report.priors[0] > 0.9, "{:?}", report.priors);
+    assert!(
+        !report.changed,
+        "a gain of 0.1 against a prior bonus near 0.45"
+    );
+    assert!((report.scores[0] - report.means[0] - report.priors[0] / 2.0).abs() < 1e-9);
+    let (_, _, unsure) = land_root_search(lands, 0.0, k, Selection4::Prior { c: 1.0 });
+    let SearchOutcome4::Searched(report) = &unsure.outcome else {
+        panic!("searched");
+    };
+    assert!(report.changed, "uniform priors leave the mean to decide");
+}
+
+#[test]
+fn a_rollout_scores_a_settled_position_and_counts_only_the_seats_choices() {
+    let mut session = table(24);
+    let (pending, view) = root(&mut session, land_playable);
+    assert!(
+        rollout::settled(&view, &pending),
+        "the root itself is settled"
+    );
+    let Pending::Priority { legal, .. } = &pending else {
+        unreachable!("the root is priority");
+    };
+    let mut fork = KnownDecks(&session).fork(ME, 5).unwrap();
+    // A basic land type's mana ability, or one a card prints.
+    let tap = legal.mana_abilities.first().map_or_else(
+        || {
+            let &(source, ability_index) = legal
+                .abilities
+                .iter()
+                .find(|&&(source, index)| {
+                    crate::netplay4::tactics::is_mana_ability_entry(&view, source, index)
+                })
+                .expect("a mana source to tap");
+            PlayerAction::ActivateAbility {
+                source,
+                ability_index,
+            }
+        },
+        |&source| PlayerAction::ActivateManaAbility { source },
+    );
+    fork.act_slice(ME, tap.clone(), 0).unwrap();
+    let (after, tapped) = fork.view_for_with_context(ME).unwrap();
+    assert!(!rollout::settled(&tapped, &after), "mana is floating");
+    let answer = |action, source| Answer4 {
+        action,
+        value: 0.5,
+        provenance: StepProvenance4 {
+            source,
+            ..StepProvenance4::default()
+        },
+        target: TeacherTarget4::default(),
+    };
+    assert!(!rollout::counts_toward_horizon(
+        &answer(tap, SourceKind4::Net),
+        &view
+    ));
+    assert!(!rollout::counts_toward_horizon(
+        &answer(PlayerAction::PassPriority, SourceKind4::Forced),
+        &view
+    ));
+    assert!(rollout::counts_toward_horizon(
+        &answer(PlayerAction::PassPriority, SourceKind4::Net),
+        &view
+    ));
+
+    let mut player = Mock::new(steady, lands);
+    player.observe(&view).unwrap();
+    let horizon = 3;
+    let result = search_decision(
+        &mut player,
+        &KnownDecks(&session),
+        &view,
+        &pending,
+        &[],
+        config(4, 2, horizon),
+        SEED,
+    )
+    .unwrap();
+    let SearchOutcome4::Searched(report) = &result.outcome else {
+        panic!("searched: {:?}", result.outcome);
+    };
+    let leaves = report.leaves;
+    assert_eq!(leaves.terminal + leaves.value(), report.rollouts);
+    assert!(leaves.settled > 0, "{leaves:?}");
+    assert_eq!(leaves.immediate + leaves.stopped, 0, "{leaves:?}");
+    assert!(report.seat_decisions <= report.rollouts * horizon as u64);
 }
 
 #[test]
@@ -491,13 +657,22 @@ fn budgets_parse_as_counts_within_bounds() {
         assert!(bad.parse::<SearchConfig4>().is_err(), "{bad}");
     }
     assert_eq!(parsed.metadata()["contract"], SEARCH_CONTRACT);
-}
-
-#[test]
-fn ties_go_to_the_policy_then_to_candidate_order() {
-    assert_eq!(best(&[0.5, 0.5, 0.4]), 0);
-    assert_eq!(best(&[0.4, 0.6, 0.6]), 1);
-    assert_eq!(best(&[0.4]), 0);
+    assert_eq!(parsed.selection(), Selection4::default());
+    for bad in [
+        Selection4::Paired {
+            margin: -0.01,
+            z: 1.0,
+        },
+        Selection4::Paired {
+            margin: 0.05,
+            z: f64::NAN,
+        },
+        Selection4::Prior { c: f64::INFINITY },
+    ] {
+        assert!(parsed.with_selection(bad).is_err(), "{bad:?}");
+    }
+    let paired = parsed.with_selection(Selection4::Mean).unwrap();
+    assert_eq!(paired.metadata()["selection"]["rule"], "mean");
 }
 
 #[test]
@@ -519,7 +694,14 @@ fn a_real_net_ends_a_search_where_answering_would_have_left_it() {
     let Ok(dir) = std::env::var("BAYLEE_TEST_MODEL") else {
         return;
     };
-    let load = || NetPlayer4::load(std::path::Path::new(&dir)).unwrap();
+    // Undo does not depend on the catalog: an older export binds as a superset.
+    let load = || {
+        NetPlayer4::load_with(
+            std::path::Path::new(&dir),
+            crate::netplay4::CatalogPolicy4::Drift,
+        )
+        .unwrap()
+    };
     let (mut searched, mut plain) = (load(), load());
     let mut session = table(26);
     searched.init_game(&preset(26));
@@ -551,7 +733,10 @@ fn a_real_net_ends_a_search_where_answering_would_have_left_it() {
         assert_eq!(result.answer.action, answer.action);
         if let SearchOutcome4::Searched(report) = &result.outcome {
             roots += 1;
-            assert!(report.rollout_steps > 0);
+            assert_eq!(
+                report.leaves.terminal + report.leaves.value(),
+                report.rollouts
+            );
             SearchPlayer4::attribute_to_search(&mut plain, &pending, answer.provenance.source);
         }
         assert_eq!(

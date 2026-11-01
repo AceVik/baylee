@@ -32,7 +32,7 @@ use baylee_train::features4::{
 };
 use baylee_train::housedeck::HouseDeck;
 use baylee_train::netplay4::search::{
-    KnownDecks, SearchConfig4, SearchedAnswer4, search_decision, terminal_utility,
+    KnownDecks, SearchConfig4, SearchedAnswer4, Selection4, search_decision, terminal_utility,
 };
 use baylee_train::netplay4::{
     BatchLimits4, BatchedNet4, CatalogPolicy4, CriticSemantics4, ModelIdentity, NetPlayer4,
@@ -96,7 +96,8 @@ fn main() -> anyhow::Result<()> {
     if let Some(refusal) = search_refusal(&args, &collection, model_identity.as_ref()) {
         bail!(refusal);
     }
-    let search = search_metadata(&args, model_identity.as_ref());
+    let search_config = search_config(&args)?;
+    let search = search_metadata(&args, search_config, model_identity.as_ref());
     let catalog = catalog_metadata(&args, &collection)?;
     if args.shadow_teacher.is_some()
         && model_identity
@@ -360,7 +361,6 @@ fn main() -> anyhow::Result<()> {
         let collection = collection.clone();
         let run_metadata_sha = run_metadata_sha.clone();
         let attempts = attempts.clone();
-        let search_config = args.search;
         let search_max = args.search_max_decisions_per_game;
 
         handles.push(std::thread::spawn(move || -> anyhow::Result<()> {
@@ -780,16 +780,18 @@ fn main() -> anyhow::Result<()> {
         st.refused,
         started.elapsed().as_secs_f64(),
     );
-    if let Some(config) = args.search {
+    if let Some(config) = search_config {
         let counts = &st.search;
         eprintln!(
-            "[eval4] search K,P,H={},{},{} | decisions={} searched={} changed={} skipped={:?} refused={:?}",
+            "[eval4] search K,P,H={},{},{} {:?} | decisions={} searched={} changed={} changes={:?} skipped={:?} refused={:?}",
             config.candidates(),
             config.particles(),
             config.horizon(),
+            config.selection(),
             counts.decisions,
             counts.searched,
             counts.changed,
+            counts.changes,
             counts.skipped,
             counts.refused,
         );

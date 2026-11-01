@@ -117,14 +117,58 @@ struct Args {
     /// Belief-consistent lookahead at the net's priority decisions in main
     /// phases and combat, as `K,P,H`: the policy's answer and its next K-1,
     /// each tried in P worlds dealt again from the policy seed, rolled out
-    /// at most H actions (`0`: score the answer's own position). Off by
+    /// until the seat holds priority in a settled main phase, its next turn
+    /// ends, or H of its own decisions are spent (mana abilities and forced
+    /// answers do not count; `0`: score the answer's own position). Off by
     /// default; evaluation against the house only. Budgets are counts.
     #[arg(long)]
     search: Option<SearchConfig4>,
+    /// How a search chooses: `paired` keeps the policy's answer unless
+    /// another's mean improvement over it, world by world, exceeds
+    /// `max(--search-margin, --search-z · se)`; `prior` adds
+    /// `--search-prior-c · prior / (1 + worlds)` to each mean; `mean` takes
+    /// the best mean (v1).
+    #[arg(long, value_enum, default_value_t = SearchSelect::Paired)]
+    search_select: SearchSelect,
+    /// `paired`: the smallest mean improvement that overrides the policy.
+    #[arg(long, default_value_t = 0.05)]
+    search_margin: f64,
+    /// `paired`: standard errors the mean improvement must also exceed.
+    #[arg(long, default_value_t = 1.0)]
+    search_z: f64,
+    /// `prior`: the weight of the policy's prior.
+    #[arg(long, default_value_t = 1.0)]
+    search_prior_c: f64,
     /// Searched decisions per game at most (`0` = no limit); later ones are
     /// answered without searching.
     #[arg(long, default_value_t = 0)]
     search_max_decisions_per_game: u64,
+}
+
+/// `--search-select`: which [`Selection4`] a search uses.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, clap::ValueEnum)]
+enum SearchSelect {
+    Mean,
+    Paired,
+    Prior,
+}
+
+/// The run's search, its budgets and selection together; `None` without
+/// `--search`.
+fn search_config(args: &Args) -> anyhow::Result<Option<SearchConfig4>> {
+    let selection = match args.search_select {
+        SearchSelect::Mean => Selection4::Mean,
+        SearchSelect::Paired => Selection4::Paired {
+            margin: args.search_margin,
+            z: args.search_z,
+        },
+        SearchSelect::Prior => Selection4::Prior {
+            c: args.search_prior_c,
+        },
+    };
+    args.search
+        .map(|config| config.with_selection(selection))
+        .transpose()
 }
 
 #[derive(Default)]
@@ -175,9 +219,12 @@ fn search_refusal(
 }
 
 /// What `run.json` and the summary say about the search, when there is one.
-fn search_metadata(args: &Args, identity: Option<&ModelIdentity>) -> Option<Value> {
-    let config = args.search?;
-    let mut metadata = config.metadata();
+fn search_metadata(
+    args: &Args,
+    config: Option<SearchConfig4>,
+    identity: Option<&ModelIdentity>,
+) -> Option<Value> {
+    let mut metadata = config?.metadata();
     metadata["max_decisions_per_game"] = json!(args.search_max_decisions_per_game);
     metadata["critic_semantics"] = json!(identity.and_then(|i| i.critic_semantics.as_ref()));
     Some(metadata)

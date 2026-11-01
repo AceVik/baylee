@@ -671,11 +671,29 @@ handed to the house it kept; the net plays the deciding seat from its own
 memory at the root (`NetPlayer4::snapshot`/`restore`), its sampling stream
 reseeded per world.
 
-**Rollouts.** Apply the candidate, then repeat as the evaluator does: the net
-observes the seat's view, then one action is taken (the house's, or the net's
-for the seat; a refused net answer falls back to the house's). A rollout ends
-at the game's end, when the seat is asked in its own next turn, or after H
-actions past the candidate; H = 0 scores the candidate's own position.
+**Rollouts (v2, settled leaves).** Apply the candidate, then repeat as the
+evaluator does: the net observes the seat's view, then one action is taken
+(the house's, or the net's for the seat; a refused net answer falls back to
+the house's). H = 0 scores the candidate's own position. Otherwise a
+rollout ends:
+
+- at the game's end;
+- when the seat holds priority in a main phase with an empty stack, no spell
+  being cast, no payment owed and no mana floating, *and its own answer
+  there is to pass*. It has done what it does in that phase, so a land drop
+  is scored with the spells it enables, as tapping first would be; the
+  position is scored before the pass (`settled`);
+- when the seat's next own turn has ended (`turn_end`);
+- when H of the seat's decisions are spent (`horizon`). A decision counts
+  unless it is forced or a mana ability, whether a basic land type's
+  (`ActivateManaAbility`) or one a card prints (`ActivateAbility` on a mana
+  ability, CR 605.1);
+- when nobody can answer, an answer is refused, or 4,096 actions have passed
+  (`stopped`, a guard, not a budget).
+
+v1 counted H in single actions, every chair's, and stopped when the seat was
+asked in its next turn: mana activations used it up, and leaves fell on
+transient positions.
 
 **Scores and choice.** A finished game scores the side utility of the
 deciding seat as the evaluator scores it (`terminal_utility`: 1 win, 0 loss,
@@ -685,42 +703,63 @@ the observation the rollout just ran, so no extra inference), which under
 `mtg_side_outcome_utility_v1` is the probability that the seat's side wins.
 Only complete rounds (every candidate in world p) count; a candidate refused
 in its world before one round completed answers with the policy
-(`candidate_refused`). The best mean wins, ties to the policy's answer, then
-candidate order. Research-utility critics are refused at start-up.
+(`candidate_refused`). Every candidate meets the same worlds (deal, house
+seeds and the net's sampling stream), so its scores pair with the policy's
+answer's world by world. The policy's answer is played unless the selection
+(`Selection4`, `--search-select`) finds another better:
+
+- `paired` (the default; `--search-margin 0.05 --search-z 1.0`): candidate i
+  overrides only if its mean paired improvement d̄ᵢ = mean over worlds of
+  (scoreᵢ − score₀) exceeds max(margin, z · se), se being the standard error
+  of those differences. With one world there is no standard error and only
+  z = 0 can override. Of the candidates that pass, the largest d̄ wins.
+- `prior` (`--search-prior-c 1.0`): the PUCT exploitation score with equal
+  visits, meanᵢ + c · priorᵢ / (1 + n), where priorᵢ is the policy's
+  probability of the answer (softmax of the raw logits over every legal
+  answer) and n the complete rounds. The policy's preference fades as worlds
+  accumulate; the best score wins, ties to the policy's answer.
+- `mean`: v1's best mean, ties to the policy's answer, then candidate order.
+
+Research-utility critics are refused at start-up.
 
 **Provenance.** A searched answer is recorded with `SourceKind4::Search`, the
 net's temperature and depth, and no behavior probability; the player ends
 exactly as if it had answered the chosen action itself (only its coverage
 counts the decision as searched), and the table is never touched by a world
 (`session/tests/simulation.rs`, `netplay4/search/tests.rs`). `run.json`
-names the search (`"search"`: K, P, H, the per-game cap, the critic and the
-contract `belief_lookahead_v1`); unsearched runs do not name it. The summary
-adds `search.counts` (decisions offered, searched, changed, skipped and
-refused by reason, rounds, rollouts, rollout steps, terminal and value
-leaves, and the wall time of searched decisions; `latency_ms` leaves them
-out). Each game's line in `games.jsonl` adds `search_events`: per searched
-decision its candidates in order (the policy's first), their means, the
-choice and rounds, bound to the recorded input like a fallback event
-(`record_input_n`). `convert4` replays searched records: a `Search` step's target is
+names the search (`"search"`: K, P, H and their units, the selection and its
+parameters, the stop rules, the per-game cap, the critic and the contract
+`belief_lookahead_v2`); unsearched runs do not name it. The summary adds
+`search.counts`: decisions offered, searched (by the kind of the policy's
+answer), changed (by `policy kind->played kind`), skipped and refused by
+reason, rounds, rollouts, rollout steps, the seat's counted decisions,
+leaves by kind, and the wall time of searched decisions (`latency_ms`
+leaves them out). Each game's line in `games.jsonl` adds `search_events`:
+per searched decision its candidates in order (the policy's first), their
+means, paired improvements and standard errors, priors, selection scores,
+the choice, rounds and leaves, bound to the recorded input like a fallback
+event (`record_input_n`). `convert4` replays searched records: a `Search` step's target is
 encoded as a teacher action, it is written with `src_kind = 3` and no
 log-probability, so PPO actor masks (`source_kind == 0`) never take it; and
 `certified_run` refuses any run that names a search, so a searched run never
 certifies a policy-gradient dataset.
 
 **Options.** `--search K,P,H` (off by default; K 1..=32, P 1..=256,
-H 0..=10000) and `--search-max-decisions-per-game N` (0 = no cap; later
-decisions answer without searching, counted as `budget`). Refused with
+H 0..=10000), `--search-select paired|prior|mean` with `--search-margin`,
+`--search-z` and `--search-prior-c` (finite, non-negative), and
+`--search-max-decisions-per-game N` (0 = no cap; later decisions answer
+without searching, counted as `budget`). Refused with
 `--legacy-v3`, a frozen or self-play opponent or any collection purpose but
 `evaluation`, and `--shadow-teacher`.
 
 **Determinism.** A search is a function of the table, the player's state at
-the root, K, P, H and the deal's policy seed: budgets are counts, worlds and
-house seeds are derived from the policy seed, the engine and the house are
-deterministic, and the net is on the owned CPU path; time is measured only
-for the report. `--inference-batch` is not bitwise reproducible, as without
-search.
+the root, K, P, H, the selection and the deal's policy seed: budgets are
+counts, worlds and house seeds are derived from the policy seed, the engine
+and the house are deterministic, and the net is on the owned CPU path; time
+is measured only for the report. `--inference-batch` is not bitwise
+reproducible, as without search.
 
-**Limits of v1.** The worlds are dealt from the real remaining decks of the
+**Limits.** The worlds are dealt from the real remaining decks of the
 evaluator's known lists — an upper bound on what a seat without deck
 knowledge could do. What the seat knew about a hidden card (a revealed card,
 a seen library top) is lost in the fork. Only priority roots; attack and
@@ -728,7 +767,7 @@ block declarations, targets and other questions are the policy's. The rest
 of the net's side plays as the house in a world. Every leaf costs a model
 call per observation, one call at a time; nothing is batched.
 
-**Measured (1 November 2026, CPU, a loaded 24-core workstation).** The
+**v1 measured (1 November 2026, CPU, a loaded 24-core workstation).** The
 machinery alone (`lookahead::tests::measure_the_search_machinery_without_a_model`,
 `--profile ci-release`, stand-in net, one Victory mirror, 464 decisions,
 128 searched): K,P,H = 1,1,0 0.32 ms per searched decision; 4,2,0 1.6 ms;

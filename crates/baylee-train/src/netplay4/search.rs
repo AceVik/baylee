@@ -7,10 +7,13 @@
 //! from the table for the deciding seat ([`Session::fork_for`]): every card
 //! the seat cannot see is dealt again from a policy seed, the house plays
 //! every other chair, and the net plays the seat on from its own memory at
-//! the decision. Each world ends at the game's end, at the seat's next own
-//! turn or after `H` actions, and is scored by the outcome or by the net's
-//! value for the seat's side. The answer with the best mean over complete
-//! rounds of worlds is played.
+//! the decision. Each world ends at the game's end, when the seat holds
+//! priority in a settled main phase, when its next own turn ends, or after
+//! `H` decisions of its own (mana abilities and forced answers do not
+//! count), and is scored by the outcome or by the net's value for the seat's
+//! side. The policy's answer is played unless the [`Selection4`] finds
+//! another one better: by a paired margin over the same worlds, by the
+//! policy's prior weighed against the worlds, or (v1) by the best mean.
 //!
 //! Budgets are counts, never time; every seed is derived from the deal's
 //! policy seed, the decision and the world; so a search is a function of
@@ -31,14 +34,72 @@ use crate::deckgen::Rng;
 use crate::features4::{PendingKind4, SourceKind4, StepProvenance4, TeacherTarget4, side_utility};
 
 /// The search's contract name, for run metadata and reports.
-pub const SEARCH_CONTRACT: &str = "belief_lookahead_v1";
+pub const SEARCH_CONTRACT: &str = "belief_lookahead_v2";
 
-/// One searched decision's budgets: counts only, never time.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+/// How a search chooses among its candidates once their worlds are played.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize)]
+#[serde(tag = "rule", rename_all = "snake_case")]
+pub enum Selection4 {
+    /// The best mean over complete rounds, ties to the policy's answer, then
+    /// candidate order (v1).
+    Mean,
+    /// The policy's answer stays unless another candidate's mean improvement
+    /// over it, world by world, exceeds `max(margin, z · se)`, `se` being the
+    /// standard error of those paired differences. With fewer than two
+    /// rounds there is no standard error, and only `z = 0` can override.
+    /// Of the candidates that pass, the largest mean improvement wins.
+    Paired {
+        /// The smallest mean improvement that counts, in value units.
+        margin: f64,
+        /// Standard errors the mean improvement must also exceed.
+        z: f64,
+    },
+    /// The PUCT exploitation score with equal visits: a candidate's mean
+    /// plus `c · prior / (1 + n)`, its prior the policy's probability of it
+    /// (softmax of the raw logits over every legal answer) and `n` the
+    /// complete rounds. The policy's preference fades as worlds accumulate.
+    Prior {
+        /// Weight of the prior.
+        c: f64,
+    },
+}
+
+impl Default for Selection4 {
+    fn default() -> Self {
+        Self::Paired {
+            margin: 0.05,
+            z: 1.0,
+        }
+    }
+}
+
+impl Selection4 {
+    /// Checks that every parameter is a finite, non-negative number.
+    ///
+    /// # Errors
+    /// When one is not.
+    pub fn validate(self) -> anyhow::Result<Self> {
+        let parameters: &[f64] = match &self {
+            Self::Mean => &[],
+            Self::Paired { margin, z } => &[*margin, *z],
+            Self::Prior { c } => &[*c],
+        };
+        anyhow::ensure!(
+            parameters.iter().all(|x| x.is_finite() && *x >= 0.0),
+            "search selection parameters must be finite and non-negative"
+        );
+        Ok(self)
+    }
+}
+
+/// One searched decision's budgets (counts only, never time) and how it
+/// chooses.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize)]
 pub struct SearchConfig4 {
     candidates: usize,
     particles: usize,
     horizon: usize,
+    selection: Selection4,
 }
 
 impl SearchConfig4 {
@@ -46,12 +107,13 @@ impl SearchConfig4 {
     pub const MAX_CANDIDATES: usize = 32;
     /// The most worlds one candidate is tried in.
     pub const MAX_PARTICLES: usize = 256;
-    /// The most actions one rollout takes.
+    /// The most decisions of the searching seat one rollout counts.
     pub const MAX_HORIZON: usize = 10_000;
 
     /// `candidates` answers (K, the policy's own first), each tried in
-    /// `particles` worlds (P), each rolled out at most `horizon` actions
-    /// past the answer (H; `0` scores the answer's own position).
+    /// `particles` worlds (P), each rolled out at most `horizon` decisions
+    /// of the searching seat past the answer (H; `0` scores the answer's own
+    /// position), chosen among by the default [`Selection4`].
     ///
     /// # Errors
     /// When K or P is zero or any budget is past its maximum.
@@ -75,7 +137,25 @@ impl SearchConfig4 {
             candidates,
             particles,
             horizon,
+            selection: Selection4::default(),
         })
+    }
+
+    /// The same budgets, chosen among by `selection`.
+    ///
+    /// # Errors
+    /// When a selection parameter is negative or not finite.
+    pub fn with_selection(self, selection: Selection4) -> anyhow::Result<Self> {
+        Ok(Self {
+            selection: selection.validate()?,
+            ..self
+        })
+    }
+
+    /// How the candidates are chosen among.
+    #[must_use]
+    pub const fn selection(&self) -> Selection4 {
+        self.selection
     }
 
     /// K: answers compared, the policy's own first.
@@ -90,7 +170,8 @@ impl SearchConfig4 {
         self.particles
     }
 
-    /// H: actions a rollout takes past the answer.
+    /// H: decisions of the searching seat a rollout counts past the answer
+    /// (neither forced answers nor mana abilities count).
     #[must_use]
     pub const fn horizon(&self) -> usize {
         self.horizon
@@ -105,14 +186,17 @@ impl SearchConfig4 {
             "candidates": self.candidates,
             "particles": self.particles,
             "horizon": self.horizon,
+            "horizon_unit": "searching_seat_decisions_neither_forced_nor_mana_abilities",
             "roots": "priority_in_main_phases_and_combat",
             "candidate_order": "policy_answer_then_raw_logit_desc_then_menu_order",
             "decks": "known_to_the_harness",
             "worlds": "session_fork_redealt_from_purpose_tagged_policy_seeds",
             "rollout": "net_for_the_searching_seat_house_for_every_other_chair",
-            "stop": "game_over_or_seat_next_own_turn_or_horizon",
+            "stop": "game_over_or_settled_priority_or_end_of_next_own_turn_or_horizon",
+            "settled": "seat_would_pass_priority_main_phase_empty_stack_no_cast_no_payment_no_floating_mana",
             "leaf": "terminal_side_utility_else_k0_observation_value_of_the_seat",
-            "selection": "best_mean_over_complete_rounds_ties_to_policy_then_order",
+            "prior": "softmax_of_raw_logits_over_every_legal_answer",
+            "selection": self.selection,
             "provenance": "search_without_behavior_logprob",
         })
     }
@@ -331,21 +415,68 @@ pub struct SearchReport4 {
     pub changed: bool,
     /// Each candidate's mean score over the complete rounds.
     pub means: Vec<f64>,
+    /// Each candidate's mean improvement over the policy's answer, world by
+    /// world (`0` for the policy's answer itself).
+    pub diffs: Vec<f64>,
+    /// The standard error of each improvement; `None` with fewer than two
+    /// rounds, and for the policy's answer.
+    pub ses: Vec<Option<f64>>,
+    /// Each candidate's prior: the policy's probability of it.
+    pub priors: Vec<f64>,
+    /// The score the selection ranked each candidate by.
+    pub scores: Vec<f64>,
     /// Rollouts run, those of an incomplete round included.
     pub rollouts: u64,
-    /// Actions taken in rollouts past their candidates.
+    /// Actions taken in rollouts past their candidates, every chair's.
     pub rollout_steps: u64,
-    /// Rollouts that reached the game's end.
-    pub terminal_leaves: u64,
+    /// Decisions of the searching seat that counted toward the horizon.
+    pub seat_decisions: u64,
+    /// How the rollouts ended.
+    pub leaves: LeafCounts4,
+}
+
+/// How rollouts ended, by kind. All but `terminal` are scored by the value
+/// head.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize)]
+pub struct LeafCounts4 {
+    /// The game ended.
+    pub terminal: u64,
+    /// `H = 0`: the candidate's own position.
+    pub immediate: u64,
+    /// The searching seat held priority in a settled position.
+    pub settled: u64,
+    /// The horizon's decisions were spent.
+    pub horizon: u64,
+    /// The searching seat's next own turn ended.
+    pub turn_end: u64,
+    /// Nobody could answer, an answer was refused, or the action cap was
+    /// reached.
+    pub stopped: u64,
+}
+
+impl LeafCounts4 {
+    /// Adds `other`'s counts to these.
+    pub fn add(&mut self, other: &Self) {
+        self.terminal += other.terminal;
+        self.immediate += other.immediate;
+        self.settled += other.settled;
+        self.horizon += other.horizon;
+        self.turn_end += other.turn_end;
+        self.stopped += other.stopped;
+    }
+
     /// Rollouts scored by the value head.
-    pub value_leaves: u64,
+    #[must_use]
+    pub const fn value(&self) -> u64 {
+        self.immediate + self.settled + self.horizon + self.turn_end + self.stopped
+    }
 }
 
 /// How a decision was answered.
 #[derive(Clone, Debug, PartialEq)]
 pub enum SearchOutcome4 {
     /// Searched.
-    Searched(SearchReport4),
+    Searched(Box<SearchReport4>),
     /// Answered by the policy without searching.
     Skipped(SearchSkip4),
     /// Answered by the policy: the table refused to fork.
@@ -450,18 +581,6 @@ fn unsearched<P: SearchPlayer4>(
     }
 }
 
-/// The first candidate with the best mean: ties go to the policy's own
-/// answer, then to candidate order.
-fn best(means: &[f64]) -> usize {
-    let mut chosen = 0;
-    for (at, mean) in means.iter().enumerate().skip(1) {
-        if *mean > means[chosen] {
-            chosen = at;
-        }
-    }
-    chosen
-}
-
 /// Answers `seat`'s question `pending` (`view` is its view of it) with a
 /// lookahead where this version searches, and as `player` would without one
 /// everywhere else.
@@ -509,8 +628,8 @@ pub fn search_decision<P: SearchPlayer4, T: ForkSource4>(
     }
     .play(player, table, config, search_seed);
     player.restore(&root);
-    let mut report = match rounds {
-        Ok(Some(report)) => report,
+    let Played { mut report, worlds } = match rounds {
+        Ok(Some(played)) => played,
         Ok(None) => {
             return Ok(unsearched(
                 player,
@@ -529,7 +648,13 @@ pub fn search_decision<P: SearchPlayer4, T: ForkSource4>(
         }
         Err(Stop::Failed(error)) => return Err(error),
     };
-    report.chosen = best(&report.means);
+    report.priors = select::priors(&decision, &candidates);
+    let choice = select::choose(config.selection, &worlds, &report.priors);
+    report.chosen = choice.chosen;
+    report.means = choice.means;
+    report.diffs = choice.diffs;
+    report.ses = choice.ses;
+    report.scores = choice.scores;
     report.changed = report.chosen != 0;
     let pick = &candidates[report.chosen];
     player.conclude(view, &decision, &pick.action);
@@ -556,12 +681,13 @@ pub fn search_decision<P: SearchPlayer4, T: ForkSource4>(
             },
             target,
         },
-        outcome: SearchOutcome4::Searched(report),
+        outcome: SearchOutcome4::Searched(Box::new(report)),
     })
 }
 
 mod rollout;
-use rollout::{Rounds, Stop};
+use rollout::{Played, Rounds, Stop};
+mod select;
 
 #[cfg(test)]
 mod tests;

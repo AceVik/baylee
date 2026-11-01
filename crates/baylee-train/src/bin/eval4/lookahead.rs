@@ -3,14 +3,33 @@
 use std::collections::BTreeMap;
 use std::time::Instant;
 
-use baylee_engine::choice::Pending;
+use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_gamehost::Session;
 use baylee_train::netplay4::Answer4;
-use baylee_train::netplay4::search::{SearchConfig4, SearchOutcome4, search_seed};
+use baylee_train::netplay4::search::{LeafCounts4, SearchConfig4, SearchOutcome4, search_seed};
 use baylee_view::PlayerView;
 use serde_json::{Value, json};
 
 use super::EvaluationPlayer;
+
+/// An action's kind: its variant's name (`PlayLand`, `PassPriority`, …).
+pub(super) fn action_kind(action: &PlayerAction) -> String {
+    match serde_json::to_value(action) {
+        Ok(Value::String(kind)) => kind,
+        Ok(Value::Object(fields)) => fields.keys().next().cloned().unwrap_or_default(),
+        _ => String::from("unknown"),
+    }
+}
+
+fn bump(counts: &mut BTreeMap<String, u64>, key: String) {
+    *counts.entry(key).or_default() += 1;
+}
+
+fn merge(into: &mut BTreeMap<String, u64>, from: &BTreeMap<String, u64>) {
+    for (key, n) in from {
+        *into.entry(key.clone()).or_default() += n;
+    }
+}
 
 /// What one game's searches did, and what a run's did together.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -21,6 +40,10 @@ pub(super) struct SearchTally {
     pub searched: u64,
     /// Searched decisions that played another answer than the policy's.
     pub changed: u64,
+    /// Searched decisions by the kind of the policy's own answer.
+    pub searched_by_kind: BTreeMap<String, u64>,
+    /// Changed decisions by `policy kind -> played kind`.
+    pub changes: BTreeMap<String, u64>,
     /// Decisions answered without searching, by reason.
     pub skipped: BTreeMap<String, u64>,
     /// Decisions whose table refused to fork, by the engine's reason.
@@ -29,12 +52,12 @@ pub(super) struct SearchTally {
     pub rounds: u64,
     /// Rollouts, an incomplete round's included.
     pub rollouts: u64,
-    /// Actions taken in rollouts past their candidates.
+    /// Actions taken in rollouts past their candidates, every chair's.
     pub rollout_steps: u64,
-    /// Rollouts that reached the end of the game.
-    pub terminal_leaves: u64,
-    /// Rollouts scored by the value head.
-    pub value_leaves: u64,
+    /// Decisions of the searching seat that counted toward the horizon.
+    pub seat_decisions: u64,
+    /// How the rollouts ended.
+    pub leaves: LeafCounts4,
     /// Wall time of every searched decision, for the report only: no
     /// decision reads it.
     pub ms: Vec<f64>,
@@ -46,17 +69,15 @@ impl SearchTally {
         self.decisions += other.decisions;
         self.searched += other.searched;
         self.changed += other.changed;
-        for (reason, n) in &other.skipped {
-            *self.skipped.entry(reason.clone()).or_default() += n;
-        }
-        for (reason, n) in &other.refused {
-            *self.refused.entry(reason.clone()).or_default() += n;
-        }
+        merge(&mut self.searched_by_kind, &other.searched_by_kind);
+        merge(&mut self.changes, &other.changes);
+        merge(&mut self.skipped, &other.skipped);
+        merge(&mut self.refused, &other.refused);
         self.rounds += other.rounds;
         self.rollouts += other.rollouts;
         self.rollout_steps += other.rollout_steps;
-        self.terminal_leaves += other.terminal_leaves;
-        self.value_leaves += other.value_leaves;
+        self.seat_decisions += other.seat_decisions;
+        self.leaves.add(&other.leaves);
         self.ms.extend_from_slice(&other.ms);
     }
 
@@ -78,13 +99,17 @@ impl SearchTally {
             "decisions": self.decisions,
             "searched": self.searched,
             "changed": self.changed,
+            "searched_by_kind": self.searched_by_kind,
+            "changes": self.changes,
             "skipped": self.skipped,
             "refused": self.refused,
             "rounds": self.rounds,
             "rollouts": self.rollouts,
             "rollout_steps": self.rollout_steps,
-            "terminal_leaves": self.terminal_leaves,
-            "value_leaves": self.value_leaves,
+            "seat_decisions": self.seat_decisions,
+            "leaves": self.leaves,
+            "terminal_leaves": self.leaves.terminal,
+            "value_leaves": self.leaves.value(),
             "searched_ms": {
                 "total": total,
                 "mean": if ms.is_empty() { 0.0 } else { total / ms.len() as f64 },
@@ -105,7 +130,8 @@ pub(super) struct GameSearch {
     seed: u64,
     pub tally: SearchTally,
     /// Per searched decision: where its answer is in the record, the
-    /// candidates in order (the policy's first), their means and the
+    /// candidates in order (the policy's first), their means, paired
+    /// improvements and standard errors, priors, selection scores and the
     /// choice. Bound to the record's inputs like a fallback event
     /// (`diagnostics::bind_fallback_events`).
     pub events: Vec<Value>,
@@ -155,7 +181,7 @@ impl GameSearch {
     ) -> anyhow::Result<Option<Answer4>> {
         self.tally.decisions += 1;
         if self.max_searched > 0 && self.tally.searched >= self.max_searched {
-            *self.tally.skipped.entry("budget".into()).or_default() += 1;
+            bump(&mut self.tally.skipped, "budget".into());
             return Ok(None);
         }
         let started = Instant::now();
@@ -173,26 +199,33 @@ impl GameSearch {
                     "accepted": true,
                     "candidates": report.actions,
                     "means": report.means,
+                    "diffs": report.diffs,
+                    "ses": report.ses,
+                    "priors": report.priors,
+                    "scores": report.scores,
                     "chosen": report.chosen,
                     "rounds": report.rounds,
+                    "leaves": report.leaves,
                 }));
+                let own = report.actions.first().map(action_kind).unwrap_or_default();
+                if report.changed {
+                    let played = action_kind(&searched.answer.action);
+                    bump(&mut self.tally.changes, format!("{own}->{played}"));
+                }
+                bump(&mut self.tally.searched_by_kind, own);
                 self.tally.searched += 1;
                 self.tally.changed += u64::from(report.changed);
                 self.tally.rounds += report.rounds as u64;
                 self.tally.rollouts += report.rollouts;
                 self.tally.rollout_steps += report.rollout_steps;
-                self.tally.terminal_leaves += report.terminal_leaves;
-                self.tally.value_leaves += report.value_leaves;
+                self.tally.seat_decisions += report.seat_decisions;
+                self.tally.leaves.add(&report.leaves);
             }
             SearchOutcome4::Skipped(reason) => {
-                *self.tally.skipped.entry(reason.key().into()).or_default() += 1;
+                bump(&mut self.tally.skipped, reason.key().into());
             }
             SearchOutcome4::Refused(refusal) => {
-                *self
-                    .tally
-                    .refused
-                    .entry(format!("{refusal:?}"))
-                    .or_default() += 1;
+                bump(&mut self.tally.refused, format!("{refusal:?}"));
             }
         }
         Ok(Some(searched.answer))

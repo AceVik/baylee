@@ -4,7 +4,7 @@
 use std::collections::BTreeMap;
 
 use super::*;
-use crate::{Args, CoverageMatrix4, collector, play_one_table, search_refusal};
+use crate::{Args, CoverageMatrix4, collector, play_one_table, search_config, search_refusal};
 use baylee_ai::HeuristicAgent;
 use baylee_core::ids::PlayerId;
 use baylee_core::preset::AIProfile;
@@ -15,7 +15,7 @@ use baylee_train::features4::{
     HeadKind4, PendingKind4, SourceKind4, StepProvenance4, TeacherTarget4,
 };
 use baylee_train::netplay4::search::{
-    KnownDecks, SearchPlayer4, SearchedAnswer4, ViewContext4, search_decision,
+    KnownDecks, SearchPlayer4, SearchedAnswer4, Selection4, ViewContext4, search_decision,
 };
 use baylee_train::netplay4::{RootDecision4, rank_single_choice};
 use clap::Parser as _;
@@ -249,13 +249,14 @@ fn measure_the_search_machinery_without_a_model() {
         let searched_ms: f64 = tally.ms.iter().sum();
         println!(
             "K,P,H={k},{p},{h}: {} decisions in {seconds:.2}s ({:.1}/s), {} searched, \
-             {:.2} ms per searched decision, {} rollouts, {:.1} steps per rollout",
+             {:.2} ms per searched decision, {} rollouts, {:.1} steps per rollout, {:?}",
             tally.decisions,
             tally.decisions as f64 / seconds,
             tally.searched,
             searched_ms / tally.searched.max(1) as f64,
             tally.rollouts,
             tally.rollout_steps as f64 / tally.rollouts.max(1) as f64,
+            tally.leaves,
         );
     }
 }
@@ -335,15 +336,53 @@ fn one_candidate_records_the_game_the_policy_plays_and_it_converts() {
     );
 }
 
-#[test]
-fn a_critic_that_likes_lands_changes_answers_and_the_game_still_plays() {
+/// A passive fixture's game, searched at `K, 1, 0` under `selection` with a
+/// critic that likes lands, and its tally.
+fn passive_land_game(selection: Selection4) -> SearchTally {
     let mut player = Fixture::new(true, lands);
-    let mut search = GameSearch::new(config(4, 1, 0), 0);
+    let config = config(4, 1, 0).with_selection(selection).unwrap();
+    let mut search = GameSearch::new(config, 0);
     let played = play(&mut player, Some(&mut search));
     assert_eq!(played.1, 0, "no searched answer refused");
-    assert!(search.tally.changed > 0, "{:?}", search.tally);
     assert_eq!(search.tally.rollout_steps, 0, "H = 0");
-    assert_eq!(search.tally.value_leaves, search.tally.rollouts);
+    assert_eq!(search.tally.leaves.immediate, search.tally.rollouts);
+    search.tally
+}
+
+#[test]
+fn a_critic_that_likes_lands_changes_answers_and_the_game_still_plays() {
+    let tally = passive_land_game(Selection4::Mean);
+    assert!(tally.changed > 0, "{tally:?}");
+    assert_eq!(tally.changes.values().sum::<u64>(), tally.changed);
+    assert!(
+        tally
+            .changes
+            .keys()
+            .all(|key| key.starts_with("PassPriority->")),
+        "the fixture's own answer is always a pass: {:?}",
+        tally.changes
+    );
+    assert!(tally.changes.contains_key("PassPriority->PlayLand"));
+    assert_eq!(
+        tally.searched_by_kind.get("PassPriority"),
+        Some(&tally.searched)
+    );
+
+    let paired = passive_land_game(Selection4::Paired {
+        margin: 0.01,
+        z: 0.0,
+    });
+    assert!(paired.changes.contains_key("PassPriority->PlayLand"));
+    let strict = passive_land_game(Selection4::Paired {
+        margin: 0.06,
+        z: 0.0,
+    });
+    assert_eq!(strict.changed, 0, "a land is worth 0.05 here");
+    assert_eq!(
+        passive_land_game(Selection4::default()).changed,
+        0,
+        "one world clears no standard error"
+    );
 }
 
 #[test]
@@ -379,4 +418,31 @@ fn search_is_refused_where_it_cannot_run() {
     assert!(
         Args::try_parse_from(["eval4", "--model", "m", "--out", "o", "--search", "4,2"]).is_err()
     );
+
+    let selected = |extra: &[&str]| search_config(&args(extra));
+    assert_eq!(selected(&[]).unwrap(), None);
+    assert_eq!(
+        selected(&["--search", "4,2,3"])
+            .unwrap()
+            .unwrap()
+            .selection(),
+        Selection4::Paired {
+            margin: 0.05,
+            z: 1.0
+        },
+        "paired with a margin and one standard error unless told otherwise"
+    );
+    let prior = selected(&[
+        "--search",
+        "4,2,3",
+        "--search-select",
+        "prior",
+        "--search-prior-c",
+        "2",
+    ])
+    .unwrap()
+    .unwrap();
+    assert_eq!(prior.selection(), Selection4::Prior { c: 2.0 });
+    assert_eq!(prior.metadata()["selection"]["c"], 2.0);
+    assert!(selected(&["--search", "4,2,3", "--search-margin=-0.1"]).is_err());
 }
