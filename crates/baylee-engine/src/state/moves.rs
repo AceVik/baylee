@@ -983,12 +983,59 @@ impl GameState {
         {
             self.invalidate_projections();
         }
-        // A card that defines its own power and toughness is projected in
-        // every zone (CR 604.3), and the move just cleared its cache: a
-        // drawn Ashaya would read its printed 0/0 until something else
-        // moved.
-        if self.printed_pt_cda.iter().any(|(card, _)| *card == id) {
+        // A card that defines its own power and toughness or has a static
+        // ability that functions off the battlefield is projected outside the
+        // battlefield too (CR 604.3, CR 113.6b-c), and the move just cleared
+        // its cache: a drawn Ashaya or Grist would read its printed self until
+        // something else moved.
+        if self.printed_pt_cda.iter().any(|(card, _)| *card == id)
+            || self.offboard_static_candidates.contains(&id)
+        {
             self.invalidate_projections();
+        }
+        // When a card with an off-battlefield static ability (such as Grist's
+        // `ZoneRef::NotBattlefield` self-characteristic effect) moves between
+        // two zones that both satisfy its `WhileSourceInZone(zone)` duration,
+        // the ability remains continuously active in the new zone (CR 113.6b-c)
+        // even before the next `sync_board_rules` pass runs (e.g. between
+        // `Effect::Mill` and `Condition::LastMilledMatches`, or between
+        // `Effect::ExileTargetsWithSource` and `ReflexiveEvent::Exiled`).
+        // Carry the new object version onto those effects' text origins so
+        // `source_is_present` continues to recognize them during
+        // `refresh_characteristics`.
+        if from_zone != to.zone()
+            && self.offboard_static_candidates.contains(&id)
+            && let Some(new_identity) = self.source_identity(id)
+        {
+            let continued: smallvec::SmallVec<[baylee_core::ids::EffectId; 4]> = self
+                .effects
+                .iter()
+                .filter_map(|fx| {
+                    let baylee_cards_dsl::Duration::WhileSourceInZone(zone) = fx.duration else {
+                        return None;
+                    };
+                    (fx.source == Some(id)
+                        && from_zone.matches_ref(zone)
+                        && to.zone().matches_ref(zone))
+                    .then_some(fx.id)
+                })
+                .collect();
+            if !continued.is_empty() {
+                for (effect_id, origin) in &mut self.effect_text_overrides {
+                    if !continued.contains(effect_id) {
+                        continue;
+                    }
+                    match origin {
+                        crate::text_changes::TextOrigin::Live(source)
+                        | crate::text_changes::TextOrigin::Ability { source, .. }
+                            if source.object == id =>
+                        {
+                            *source = new_identity;
+                        }
+                        _ => {}
+                    }
+                }
+            }
         }
         if to.zone() == Zone::Battlefield {
             self.per_turn.entered_battlefield.push(id);
