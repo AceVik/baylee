@@ -279,6 +279,12 @@ pub(super) fn executable(_: &std::fs::Metadata) -> bool {
 /// (31.10.2026). Without a terminal that agent fails at once, and the tool
 /// goes on. The tool still ends with the bridge: its stdin closes, and the
 /// bridge kills it when the session drops.
+///
+/// Only for a tool whose dialect asks for it ([`Dialect::detaches`]:
+/// Junie). A process in a session of its own is out of the bridge's
+/// process group too, and a signal to that group (a collector stopping its
+/// seat with `SIGKILL`) never reaches it; every other tool stays in the
+/// group and ends with it.
 #[cfg(unix)]
 pub(super) fn detach(command: &mut Command) {
     // SAFETY: the hook runs in the child between fork and exec, where only

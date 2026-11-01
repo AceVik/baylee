@@ -449,11 +449,14 @@ before playing.
   named `baylee-cli-<seat>-<random>` (the store of a tool that keeps its
   conversations on disk `baylee-cli-store-<seat>-<random>`, 122 random
   bits), never after the game: a tool may tell its provider the directory
-  it runs in. The process runs in a session of its own, without the
-  bridge's controlling terminal (`setsid`, `cli::launch::detach`): nothing
-  it starts can read the terminal the bridge was started from (below,
-  Junie's `systemd-inhibit`). It still ends with the bridge: its stdin
-  closes, and the bridge kills it when its session drops. The
+  it runs in. The process runs in the bridge's process group, so a
+  signal to that group (a collector stopping its seat, `SIGKILL`
+  included) ends it with the bridge. Junie's alone runs in a session of
+  its own, without the bridge's controlling terminal (`setsid`,
+  `cli::launch::detach`, `Dialect::detaches`): nothing it starts can read
+  the terminal the bridge was started from (below, Junie's
+  `systemd-inhibit`). Every tool ends with the bridge: its stdin closes,
+  and the bridge kills it when its session drops. The
   environment is cleared and given only `PATH`, `HOME`, `USER`, `LOGNAME`,
   `TMPDIR` (the session's own), `LANG`/`LC_ALL=C.UTF-8`, `TERM=dumb`,
   `NO_COLOR=1`, the tool's own login variables where set
@@ -666,10 +669,13 @@ starts `systemd-inhibit --what=sleep … cat` (its `keepAwakeMode` setting,
 polkit asks through `pkttyagent`, which reads the controlling terminal; a
 bridge started in the background of a shell then got `SIGTTIN`, which
 stopped its whole process group (state `T`), the seat's own timeouts
-included. The seat now starts every CLI in a session of its own without a
-controlling terminal (`setsid`), so that agent fails at once and the tool
-goes on; `"keepAwakeMode": "Off"` in `~/.junie/settings.json` keeps Junie
-from starting it at all.
+included. The seat now starts Junie in a session of its own without a
+controlling terminal (`setsid`, `Dialect::detaches`), so that agent fails
+at once and the tool goes on; `"keepAwakeMode": "Off"` in
+`~/.junie/settings.json` keeps Junie from starting it at all. Only Junie:
+a process in a session of its own also leaves the bridge's process group,
+which a collector stops with `SIGTERM` and then `SIGKILL`, so every other
+CLI stays in that group and ends with it however the bridge ends.
 
 What each dialect passes to take the tool's own agent away, how it holds
 a conversation, and how its usage is booked. **Docs** marks what the

@@ -662,7 +662,9 @@ impl CliMind {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .kill_on_drop(true);
-        detach(&mut command);
+        if self.launch.dialect.detaches() {
+            detach(&mut command);
+        }
         let child = command
             .spawn()
             .map_err(|e| format!("{tool} did not start for its login check: {e}"))?;
