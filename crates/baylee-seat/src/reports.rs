@@ -252,17 +252,46 @@ impl Book {
 /// Appends `filed`'s line to [`FILE`] in `dir`, in one write: the seats of a
 /// table may share the directory.
 ///
+/// Readable by the account the bridge runs under alone (`docs/privacy.md`):
+/// on unix the file is made `0600`, whatever the umask, and the
+/// directories made for it `0700`; a file an older build made readable by
+/// others is narrowed to `0600` where this account may, and still written
+/// where it may not. A directory that was there already keeps its mode (it
+/// may be the transcripts' or one the operator chose). Elsewhere the
+/// system's defaults hold.
+///
 /// # Errors
 /// When the directory or the file cannot be written.
 pub fn append(dir: &Path, filed: &Filed) -> std::io::Result<()> {
-    std::fs::create_dir_all(dir)?;
     let mut line = filed.line().to_string();
     line.push('\n');
-    std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(dir.join(FILE))?
-        .write_all(line.as_bytes())
+    private_file(dir)?.write_all(line.as_bytes())
+}
+
+/// [`FILE`] in `dir`, open to append, made as [`append`] says.
+fn private_file(dir: &Path) -> std::io::Result<std::fs::File> {
+    let mut folders = std::fs::DirBuilder::new();
+    folders.recursive(true);
+    let mut options = std::fs::OpenOptions::new();
+    options.create(true).append(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::{DirBuilderExt as _, OpenOptionsExt as _};
+        folders.mode(0o700);
+        options.mode(0o600);
+    }
+    folders.create(dir)?;
+    let file = options.open(dir.join(FILE))?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+        if file.metadata()?.permissions().mode() & 0o077 != 0 {
+            // Another account's file in a shared directory cannot be
+            // narrowed; the line is still written, as before.
+            let _ = file.set_permissions(std::fs::Permissions::from_mode(0o600));
+        }
+    }
+    Ok(file)
 }
 
 /// The seat's own game log, as its bug report carries it: what the desktop

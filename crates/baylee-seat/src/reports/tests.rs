@@ -473,6 +473,37 @@ fn the_dedupe_key_folds_order_case_and_spacing() {
     assert_eq!(a.checked.dedupe_key, b.checked.dedupe_key, "words aside");
 }
 
+/// The reports file is the account's alone whatever the umask: the file
+/// `0600`, every directory made for it `0700`, one an older build left
+/// readable by others narrowed at the next line, and a directory that was
+/// there already left as it was (`docs/privacy.md`).
+#[cfg(unix)]
+#[test]
+fn the_reports_file_is_readable_by_its_account_alone() {
+    use std::os::unix::fs::PermissionsExt as _;
+    let mode =
+        |path: &std::path::Path| std::fs::metadata(path).unwrap().permissions().mode() & 0o777;
+    let root = scratch("private");
+    let dir = root.join("made").join("for-it");
+    append(&dir, &filed("Bolt dealt 2.", 12)).unwrap();
+    assert_eq!(mode(&dir.join(FILE)), 0o600, "the file");
+    assert_eq!(mode(&dir), 0o700, "the directory made for it");
+    assert_eq!(mode(&root.join("made")), 0o700, "and its parent");
+
+    // A file and a directory that were there already, open to all.
+    let shared = root.join("shared");
+    std::fs::create_dir(&shared).unwrap();
+    std::fs::set_permissions(&shared, std::fs::Permissions::from_mode(0o755)).unwrap();
+    std::fs::write(shared.join(FILE), "").unwrap();
+    std::fs::set_permissions(shared.join(FILE), std::fs::Permissions::from_mode(0o644)).unwrap();
+    append(&shared, &filed("Bolt dealt 2.", 12)).unwrap();
+    assert_eq!(mode(&shared.join(FILE)), 0o600, "an older file is narrowed");
+    assert_eq!(mode(&shared), 0o755, "the operator's directory is theirs");
+    let text = std::fs::read_to_string(shared.join(FILE)).unwrap();
+    assert_eq!(text.lines().count(), 1, "{text}");
+    let _ = std::fs::remove_dir_all(&root);
+}
+
 #[test]
 fn a_book_files_each_dedupe_key_once_and_at_most_its_most() {
     let dir = scratch("book");
