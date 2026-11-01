@@ -256,6 +256,7 @@ mod manic_vandal;
 mod marker_beetles;
 mod master_of_arms;
 mod megatherium;
+mod mercenary_informer;
 mod mercenary_knight;
 mod merchant_of_secrets;
 mod merfolk_seer;
