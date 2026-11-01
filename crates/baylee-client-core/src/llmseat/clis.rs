@@ -17,7 +17,7 @@ pub const CLAUDE_EFFORTS: &[&str] = &["low", "medium", "high", "xhigh", "max"];
 /// The efforts `agy` accepts on `--effort`.
 pub const AGY_EFFORTS: &[&str] = &["low", "medium", "high", "xhigh", "max"];
 
-/// The efforts Codex models up to `ultra` accept (`gpt-6-astra`, `gpt-6.1-sol`, `gpt-6-sol`).
+/// The efforts Codex models up to `ultra` accept (`gpt-6-astra`, `gpt-6.1-sol`, `gpt-6.1-terra`, `gpt-6-sol`).
 pub const CODEX_ULTRA_EFFORTS: &[&str] = &["low", "medium", "high", "xhigh", "max", "ultra"];
 
 /// The efforts Codex models up to `max` accept (`gpt-6-luna`, `gpt-reserve`, `gpt-5.6-luna`).
@@ -240,6 +240,7 @@ const AGY_SPECS: &[CliModelSpec] = &[
 const CODEX_MODELS: &[&str] = &[
     "gpt-6-astra",
     "gpt-6.1-sol",
+    "gpt-6.1-terra",
     "gpt-6-sol",
     "gpt-6-luna",
     "gpt-reserve",
@@ -258,6 +259,12 @@ const CODEX_SPECS: &[CliModelSpec] = &[
     spec(
         "gpt-6.1-sol",
         "GPT-6.1 Sol",
+        CODEX_ULTRA_EFFORTS,
+        Some("low"),
+    ),
+    spec(
+        "gpt-6.1-terra",
+        "GPT-6.1 Terra",
         CODEX_ULTRA_EFFORTS,
         Some("low"),
     ),
@@ -419,7 +426,7 @@ pub const fn choices(tool: CliTool) -> CliChoices {
             efforts: AGY_EFFORTS,
             keeps_conversation: true,
         },
-        // Codex's models cache (0.162.1): Astra, Sol, Luna, Reserve, Terra;
+        // Codex's models cache (0.163.0): Astra, Sol, Terra, Luna, Reserve;
         // `model_reasoning_effort` up to `ultra` (Luna and Reserve up to `max`).
         CliTool::Codex => CliChoices {
             tool,
