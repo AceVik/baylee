@@ -481,6 +481,7 @@ mod wall_of_ice;
 mod wall_of_nets;
 mod wall_of_putrid_flesh;
 mod wall_of_stone;
+mod wall_of_vipers;
 mod wall_of_water;
 mod wandering_eye;
 mod wandering_mage;
