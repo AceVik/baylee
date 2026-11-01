@@ -96,13 +96,19 @@ impl SearchTally {
     }
 }
 
-/// One game's search: its budgets, its seed and its counts.
+/// One game's search: its budgets, its seed, its counts and what each
+/// searched decision compared.
 pub(super) struct GameSearch {
     config: SearchConfig4,
     /// Searched decisions a game may have (`0`: no limit).
     max_searched: u64,
     seed: u64,
     pub tally: SearchTally,
+    /// Per searched decision: where its answer is in the record, the
+    /// candidates in order (the policy's first), their means and the
+    /// choice. Bound to the record's inputs like a fallback event
+    /// (`diagnostics::bind_fallback_events`).
+    pub events: Vec<Value>,
 }
 
 impl GameSearch {
@@ -112,6 +118,7 @@ impl GameSearch {
             max_searched,
             seed: 0,
             tally: SearchTally::default(),
+            events: Vec::new(),
         }
     }
 
@@ -121,6 +128,15 @@ impl GameSearch {
     pub fn begin(&mut self, policy_seed: u64) {
         self.seed = search_seed(policy_seed);
         self.tally = SearchTally::default();
+        self.events.clear();
+    }
+
+    /// The table refused the last searched answer: its event names no
+    /// recorded input.
+    pub fn refused(&mut self) {
+        if let Some(event) = self.events.last_mut() {
+            event["accepted"] = json!(false);
+        }
     }
 
     /// The net's answer to `view`/`pending` at `table`, searched where the
@@ -149,6 +165,17 @@ impl GameSearch {
         match searched.outcome {
             SearchOutcome4::Searched(report) => {
                 self.tally.ms.push(started.elapsed().as_secs_f64() * 1000.0);
+                self.events.push(json!({
+                    "decision_seq": table.decision_seq(),
+                    "record_byte_offset": table.record_pending(),
+                    "seat": view.seat.get(),
+                    "action": searched.answer.action,
+                    "accepted": true,
+                    "candidates": report.actions,
+                    "means": report.means,
+                    "chosen": report.chosen,
+                    "rounds": report.rounds,
+                }));
                 self.tally.searched += 1;
                 self.tally.changed += u64::from(report.changed);
                 self.tally.rounds += report.rounds as u64;

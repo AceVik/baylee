@@ -297,6 +297,17 @@ fn one_candidate_records_the_game_the_policy_plays_and_it_converts() {
             .iter()
             .all(|entry| !entry.provenance.has_logprob && entry.provenance.behavior_logprob == 0.0)
     );
+    assert_eq!(search.events.len() as u64, tally.searched);
+    crate::diagnostics::bind_fallback_events(&mut search.events, &with.2)
+        .expect("every searched answer is the recorded input at its offset");
+    assert!(
+        search
+            .events
+            .iter()
+            .all(|event| event["record_input_n"].is_u64()
+                && event["chosen"] == 0
+                && event["candidates"][0] == event["action"])
+    );
     let search_coverage: u64 = searched
         .coverage
         .counts

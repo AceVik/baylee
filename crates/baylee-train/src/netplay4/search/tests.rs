@@ -179,11 +179,15 @@ fn lands(view: &PlayerView) -> f32 {
     counting(view, TypeSet::LAND)
 }
 
-/// Victory against Victory, seat 0 taken over, recorded.
-fn table(seed: u64) -> Session {
+/// Victory against Victory.
+fn preset(seed: u64) -> baylee_core::preset::GamePreset {
     let deck = crate::housedeck::HouseDeck::named("victory").unwrap();
-    let preset = crate::selfplay::table_for(seed, &[&deck, &deck], &[AIProfile::STEADY; 2], &[]);
-    let mut session = Session::new_recorded(&preset, "test").unwrap();
+    crate::selfplay::table_for(seed, &[&deck, &deck], &[AIProfile::STEADY; 2], &[])
+}
+
+/// [`preset`], seat 0 taken over, recorded.
+fn table(seed: u64) -> Session {
+    let mut session = Session::new_recorded(&preset(seed), "test").unwrap();
     session.describe("search".into(), vec!["0".into(), "1".into()]);
     assert!(session.take_over(ME));
     session
@@ -268,6 +272,10 @@ fn one_candidate_plays_the_policys_answer_and_every_world_is_undone() {
         panic!("the root is searched: {:?}", result.outcome);
     };
     assert_eq!((report.candidates, report.rounds), (1, 3));
+    assert_eq!(
+        report.actions,
+        std::slice::from_ref(&decision.answer.action)
+    );
     assert!(!report.changed);
     assert_eq!(report.rollouts, 3);
     assert!(report.rollout_steps > 0, "the worlds were played on");
@@ -322,6 +330,9 @@ fn a_value_lookahead_finds_the_land_drop_the_policy_passed_on() {
         "H = 0 scores the answer's own position"
     );
     assert!(report.means[report.chosen] > report.means[0]);
+    assert_eq!(report.actions[0], PlayerAction::PassPriority);
+    assert_eq!(report.actions[report.chosen], result.answer.action);
+    assert_eq!(report.actions.len(), report.candidates);
     let PlayerAction::PlayLand { card } = result.answer.action else {
         panic!("a land drop: {:?}", result.answer.action);
     };
@@ -497,4 +508,58 @@ fn seeds_are_tagged_by_purpose_and_position() {
     assert_ne!(world_seed(base, 10, 0), world_seed(base, 11, 0));
     assert_ne!(derive(base, WORLD, 1, 0), derive(base, ROLLOUT, 1, 0));
     assert_eq!(world_seed(base, 10, 1), world_seed(base, 10, 1));
+}
+
+/// The real net, on the CPU: a one-candidate search answers what the net
+/// answers, and every world is undone down to the last float of its
+/// memory. Run with `BAYLEE_TEST_MODEL=DIR BAYLEE_EP=cpu` and `--ignored`.
+#[test]
+#[ignore = "needs BAYLEE_TEST_MODEL, an exported v4/v5 model directory"]
+fn a_real_net_ends_a_search_where_answering_would_have_left_it() {
+    let Ok(dir) = std::env::var("BAYLEE_TEST_MODEL") else {
+        return;
+    };
+    let load = || NetPlayer4::load(std::path::Path::new(&dir)).unwrap();
+    let (mut searched, mut plain) = (load(), load());
+    let mut session = table(26);
+    searched.init_game(&preset(26));
+    plain.init_game(&preset(26));
+    let mut roots = 0;
+    for _ in 0..400 {
+        if matches!(session.pending(), Pending::GameOver(_)) || roots == 3 {
+            break;
+        }
+        if session.needs_pump() {
+            session.pump_at_most(1);
+            continue;
+        }
+        let observed = session.observe_view_with_context(ME);
+        searched.observe(&observed).unwrap();
+        plain.observe(&observed).unwrap();
+        let (pending, view) = session.view_for_with_context(ME).unwrap();
+        let result = search_decision(
+            &mut searched,
+            &KnownDecks(&session),
+            &view,
+            &pending,
+            &[],
+            config(1, 2, 8),
+            SEED,
+        )
+        .unwrap();
+        let answer = plain.act_detailed(&view, &pending, &[]);
+        assert_eq!(result.answer.action, answer.action);
+        if let SearchOutcome4::Searched(report) = &result.outcome {
+            roots += 1;
+            assert!(report.rollout_steps > 0);
+            SearchPlayer4::attribute_to_search(&mut plain, &pending, answer.provenance.source);
+        }
+        assert_eq!(
+            format!("{:?}", searched.snapshot()),
+            format!("{:?}", plain.snapshot()),
+            "every world undone"
+        );
+        session.act_slice(ME, answer.action, 0).unwrap();
+    }
+    assert!(roots > 0, "a root was searched");
 }

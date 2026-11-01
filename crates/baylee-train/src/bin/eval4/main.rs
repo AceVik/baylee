@@ -449,6 +449,9 @@ fn main() -> anyhow::Result<()> {
 
                 if let Some((f, offset)) = &mut shard_file {
                     diagnostics::bind_fallback_events(&mut fallback_events, &rec_bytes)?;
+                    if let Some(search) = game_search.as_mut() {
+                        diagnostics::bind_fallback_events(&mut search.events, &rec_bytes)?;
+                    }
                     let mut gz = GzEncoder::new(Vec::new(), Compression::fast());
                     gz.write_all(&rec_bytes)?;
                     let compressed = gz.finish()?;
@@ -456,7 +459,7 @@ fn main() -> anyhow::Result<()> {
                     f.write_all(&compressed)?;
                     f.flush()?;
                     if attempts.is_some() { f.get_ref().sync_all()?; }
-                    let line = serde_json::to_string(&json!({
+                    let mut entry = json!({
                         "game": rec_game_id,
                         "i": d,
                         "seed": seed,
@@ -479,7 +482,12 @@ fn main() -> anyhow::Result<()> {
                         },
                         "rollout_sidecar": rollout_sidecar,
                         "fallback_events": fallback_events,
-                    }))?;
+                    });
+                    if let Some(search) = &game_search {
+                        // Only searched runs name it, as run.json does.
+                        entry["search_events"] = json!(search.events);
+                    }
+                    let line = serde_json::to_string(&entry)?;
                     *offset += len;
                     if let Some(index) = games_lines.lock().expect("games lock").as_mut() {
                         writeln!(index, "{line}")?;

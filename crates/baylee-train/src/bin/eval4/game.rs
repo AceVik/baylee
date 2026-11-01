@@ -396,6 +396,11 @@ fn play_one_table(
                     }
                 } else if let Err(error) = result {
                     refused += 1;
+                    if ans.provenance.source == SourceKind4::Search
+                        && let Some(search) = search.as_deref_mut()
+                    {
+                        search.refused();
+                    }
                     fallback_events.push(json!({"decision_seq":sequence,"record_byte_offset":record_offset,"seat":pid.get(),
                         "reason":"engine_refusal","action":attempted_action,"accepted":false,
                         "error":error}));

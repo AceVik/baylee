@@ -321,6 +321,8 @@ impl SearchSkip4 {
 pub struct SearchReport4 {
     /// Candidates compared (at most K; fewer when fewer answers are legal).
     pub candidates: usize,
+    /// The candidates in candidate order, the policy's own answer first.
+    pub actions: Vec<PlayerAction>,
     /// Complete rounds: worlds in which every candidate was rolled out.
     pub rounds: usize,
     /// The chosen candidate's place in candidate order (`0`: the policy's).
@@ -542,6 +544,7 @@ impl<S> Rounds<'_, S> {
         let mut sums = vec![0.0_f64; self.candidates.len()];
         let mut report = SearchReport4 {
             candidates: self.candidates.len(),
+            actions: self.candidates.iter().map(|c| c.action.clone()).collect(),
             rounds: 0,
             chosen: 0,
             changed: false,
