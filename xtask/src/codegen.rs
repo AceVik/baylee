@@ -310,6 +310,27 @@ pub(crate) fn subtypes(root: &Path, check: bool, cache: &Path) -> anyhow::Result
     Ok(())
 }
 
+/// `codegen --registry`: the card stage with the metadata the registry
+/// needs, from cached printings and without the corpus, never rewriting a
+/// card's body. The safe first phase for a newly added hand-owned card.
+fn registry_cards(
+    root: &Path,
+    check: bool,
+    agent: &ureq::Agent,
+    cache: &Path,
+    names: &[String],
+    changed: &mut Vec<PathBuf>,
+) -> anyhow::Result<()> {
+    let cats = scryfall::fetch_subtype_catalogs(agent, cache)?;
+    let pool = Pool {
+        names,
+        cats: &cats,
+        scripts: None,
+        tokens: None,
+    };
+    cards(root, check, true, agent, cache, &pool, changed)
+}
+
 pub(crate) fn codegen(
     root: &Path,
     check: bool,
@@ -344,16 +365,7 @@ pub(crate) fn codegen(
     // card as an honest stub. `--tables` is the way past it: the two tables
     // below are built from the compiled pool alone.
     if registry_only {
-        let cats = scryfall::fetch_subtype_catalogs(&agent, &cache)?;
-        let pool = Pool {
-            names: &names,
-            cats: &cats,
-            scripts: None,
-            tokens: None,
-        };
-        // Read the metadata needed by the registry, but never rewrite a body.
-        // This is the safe first phase for a newly added hand-owned card.
-        cards(root, check, true, &agent, &cache, &pool, &mut changed)?;
+        registry_cards(root, check, &agent, &cache, &names, &mut changed)?;
     } else if tables_only {
         // 3, the hand-written half. A token written into `tokens.rs` for a
         // card finished by hand needs its id before a card may name it, and
