@@ -8,7 +8,6 @@
 //! in zone order, and the old objects are removed from the fork.
 
 use super::ForkRefusal;
-use crate::effects::EffectFilter;
 use crate::object::{CardRef, Characteristics, GameObject, ObjectKind, Rider, Status};
 use crate::rng::GameRng;
 use crate::state::GameState;
@@ -22,8 +21,18 @@ use std::sync::Arc;
 /// knows only the sizes of, any of whose cards could be in any of them.
 struct Pool {
     owner: PlayerId,
-    /// In the order their slots are dealt.
-    zones: SmallVec<[ZoneLocation; 2]>,
+    /// In the order their slots are dealt, each with how many cards on its
+    /// top are public and stay where they are (a library top a static
+    /// reveals).
+    zones: SmallVec<[(ZoneLocation, usize); 2]>,
+}
+
+impl Pool {
+    /// The hidden part of a zone, bottom first: all but its public top.
+    fn hidden_part(state: &GameState, loc: ZoneLocation, kept: usize) -> &[ObjectId] {
+        let list = state.zones.list(loc);
+        &list[..list.len().saturating_sub(kept)]
+    }
 }
 
 /// What a fork deals, planned on the real game before it is copied.
@@ -66,8 +75,9 @@ impl Identity {
 }
 
 impl Deal {
-    /// The pools `seat` cannot see into, checked for what a deal could not
-    /// carry over.
+    /// The pools `seat` cannot see into, checked object by object for what
+    /// a deal could not carry over; the rest of the state is
+    /// `GameState::audit_fork`'s.
     ///
     /// Each opponent's hand and library are one pool, because the seat
     /// knows how many cards each holds and nothing about which; each
@@ -75,38 +85,42 @@ impl Deal {
     /// no card crosses between the two unseen. The seat's own library is a
     /// pool of its own; its hand and its sideboard it can see.
     ///
+    /// What the seat can see stays out of the deal: a hand `sees_hand`
+    /// names — one revealed by a static (Stromgald Spy, Telepathy), or the
+    /// hand of a player the seat controls (CR 722) — and the top card of a
+    /// library a static reveals (Courser of Kruphix). Dealing those would
+    /// put a card there the seat knows is not.
+    ///
     /// # Errors
     /// [`ForkRefusal::FaceDown`], [`ForkRefusal::HiddenExile`],
-    /// [`ForkRefusal::MarkedHiddenCard`],
-    /// [`ForkRefusal::ReferencedHiddenCard`] or
-    /// [`ForkRefusal::HiddenCommander`].
-    pub(super) fn plan(state: &GameState, seat: PlayerId) -> Result<Self, ForkRefusal> {
+    /// [`ForkRefusal::MarkedHiddenCard`] or
+    /// [`ForkRefusal::ReferencedHiddenCard`].
+    pub(super) fn plan(
+        state: &GameState,
+        seat: PlayerId,
+        sees_hand: &dyn Fn(PlayerId) -> bool,
+    ) -> Result<Self, ForkRefusal> {
         let mut pools = Vec::new();
         for player in &state.players {
             let owner = player.id;
-            if owner == seat {
+            let top = usize::from(state.library_top_revealed(owner));
+            let mut zones = SmallVec::new();
+            if owner != seat && !sees_hand(owner) {
+                zones.push((ZoneLocation::Hand(owner), 0));
+            }
+            zones.push((ZoneLocation::Library(owner), top));
+            pools.push(Pool { owner, zones });
+            if owner != seat {
                 pools.push(Pool {
                     owner,
-                    zones: smallvec::smallvec![ZoneLocation::Library(owner)],
-                });
-            } else {
-                pools.push(Pool {
-                    owner,
-                    zones: smallvec::smallvec![
-                        ZoneLocation::Hand(owner),
-                        ZoneLocation::Library(owner)
-                    ],
-                });
-                pools.push(Pool {
-                    owner,
-                    zones: smallvec::smallvec![ZoneLocation::OutsideGame(owner)],
+                    zones: smallvec::smallvec![(ZoneLocation::OutsideGame(owner), 0)],
                 });
             }
         }
         let mut retired: Vec<ObjectId> = pools
             .iter()
             .flat_map(|pool| pool.zones.iter())
-            .flat_map(|&loc| state.zones.list(loc).iter().copied())
+            .flat_map(|&(loc, kept)| Pool::hidden_part(state, loc, kept).iter().copied())
             .collect();
         retired.sort_unstable();
         let deal = Self {
@@ -123,7 +137,8 @@ impl Deal {
         &self.retired
     }
 
-    fn is_retired(&self, id: ObjectId) -> bool {
+    /// Whether the fork removes `id`.
+    pub(super) fn is_retired(&self, id: ObjectId) -> bool {
         self.retired.binary_search(&id).is_ok()
     }
 
@@ -146,42 +161,6 @@ impl Deal {
                 return Err(ForkRefusal::ReferencedHiddenCard("an object"));
             }
         }
-        if state
-            .commanders
-            .iter()
-            .flatten()
-            .any(|commander| self.is_retired(commander.object))
-        {
-            return Err(ForkRefusal::HiddenCommander);
-        }
-        if state
-            .play_permissions
-            .iter()
-            .any(|permission| self.is_retired(permission.card))
-        {
-            return Err(ForkRefusal::ReferencedHiddenCard("a play permission"));
-        }
-        if state
-            .discovered
-            .iter()
-            .any(|&(_, card, _)| self.is_retired(card))
-        {
-            return Err(ForkRefusal::ReferencedHiddenCard("a discovered card"));
-        }
-        // An effect about one exact incarnation that is now a hidden card.
-        // One about an earlier incarnation already applies to nothing
-        // (CR 400.7), in the fork as in the game.
-        let hidden_now = |id: ObjectId, version: u32| {
-            self.is_retired(id) && state.object(id).is_some_and(|o| o.version == version)
-        };
-        if state.effects.iter().any(|effect| match effect.filter {
-            EffectFilter::ObjectIs(id, version) | EffectFilter::DslAbout(_, id, version) => {
-                hidden_now(id, version)
-            }
-            EffectFilter::Dsl(_) | EffectFilter::DslControlledBy(..) => false,
-        }) {
-            return Err(ForkRefusal::ReferencedHiddenCard("a continuous effect"));
-        }
         Ok(())
     }
 
@@ -192,20 +171,22 @@ impl Deal {
             let mut identities: Vec<Identity> = pool
                 .zones
                 .iter()
-                .flat_map(|&loc| state.zones.list(loc).iter())
+                .flat_map(|&(loc, kept)| Pool::hidden_part(state, loc, kept).iter())
                 .map(|&id| identity(state, id))
                 .collect();
             identities.sort_by_cached_key(Identity::key);
             belief.shuffle(&mut identities);
             let mut dealt = identities.into_iter();
-            for &loc in &pool.zones {
-                let size = state.zones.list(loc).len();
-                let ids: Vec<ObjectId> = dealt
+            for &(loc, kept) in &pool.zones {
+                let size = Pool::hidden_part(state, loc, kept).len();
+                let mut ids: Vec<ObjectId> = dealt
                     .by_ref()
                     .take(size)
                     .map(|identity| insert(state, pool.owner, loc, identity))
                     .collect();
                 debug_assert_eq!(ids.len(), size, "one identity per slot");
+                // The public top stays on top, the same object.
+                ids.extend_from_slice(&state.zones.list(loc)[size..]);
                 *state.zones.list_mut(loc) = ids;
             }
         }
@@ -270,13 +251,23 @@ impl Deal {
 }
 
 /// The identity the real card behind `id` holds.
+///
+/// Its printed face is the one setup interned for its card, not the hidden
+/// object's own `base`: every field of an identity is a function of
+/// [`Identity::key`], so cards that sort equal are dealt equal.
 fn identity(state: &GameState, id: ObjectId) -> Identity {
     let object = state.object(id).expect("a planned hidden card exists");
+    let card = object.card.expect("a planned hidden card is card-backed");
     Identity {
-        card: object.card.expect("a planned hidden card is card-backed"),
+        card,
         physical_rules: object.physical_rules.clone(),
         deck_choices: object.deck_choices,
-        base: Arc::clone(&object.base),
+        // Every card setup created has its face interned; a card some other
+        // door made (none deals one into a hidden zone today) is printed as
+        // its own front face, which `plain` has already required.
+        base: state
+            .printed_card_base(card.index)
+            .unwrap_or_else(|| Arc::clone(&object.base)),
         cda: state
             .printed_pt_cda
             .iter()
@@ -325,10 +316,12 @@ fn insert(
 ///
 /// Refused: anything a rule reads of a card in a hand, a library or outside
 /// the game — a reveal that binds it, counters, a status, an attachment, a
-/// copy's base, a face other than the front. Ignored: what an earlier
-/// incarnation left on the object and no rule reads after a move (the
-/// targets, X and modes of a spell it was, its cast history), and its
-/// version and timestamps, which a dealt card gets afresh.
+/// copy's base, a face other than the front, and anything that is not a
+/// card at all. Ignored: what an earlier incarnation left on the object and
+/// no rule reads after a move (the targets, X and modes of a spell it was,
+/// its cast history, and its kind: a permanent bounced to a hand is still
+/// marked a permanent there, a spell returned to one still a spell), and
+/// its version and timestamps, which a dealt card gets afresh.
 #[allow(clippy::too_many_lines)] // one line per object field: the list is the guard
 fn plain(object: &GameObject) -> Result<(), &'static str> {
     let GameObject {
@@ -385,7 +378,12 @@ fn plain(object: &GameObject) -> Result<(), &'static str> {
     } = object;
     let marks = [
         (
-            *kind != ObjectKind::Card || card.is_none() || token.is_some() || ability.is_some(),
+            !matches!(
+                kind,
+                ObjectKind::Card | ObjectKind::Permanent | ObjectKind::Spell
+            ) || card.is_none()
+                || token.is_some()
+                || ability.is_some(),
             "not a card",
         ),
         (
@@ -410,13 +408,29 @@ fn plain(object: &GameObject) -> Result<(), &'static str> {
 }
 
 /// Every object a public object points at: its targets, the object its
-/// trigger is about, what it is attached to, and what its riders name.
+/// trigger is about, what it is attached to, the source of the ability it
+/// is, what was discarded, sacrificed or tapped to pay for it, and what its
+/// riders name.
+///
+/// Any of them naming a hidden card is refused, whatever incarnation it
+/// names: an ability whose source was bounced in response resolves from
+/// that source's last known information, and a fork that has dealt the
+/// card again cannot say which hidden card that was.
 fn references(object: &GameObject) -> SmallVec<[ObjectId; 4]> {
     let mut named: SmallVec<[ObjectId; 4]> = object.targets.iter().copied().collect();
     named.extend(object.event_object);
     named.extend(object.attached_to);
+    named.extend(object.ability.as_ref().map(|ability| ability.source));
     if let Some(second) = &object.second {
         named.extend(second.targets.iter().copied());
+    }
+    if let Some(paid) = &object.paid {
+        named.extend(paid.discarded.iter().map(|card| card.object));
+        named.extend(paid.source_after_cost.map(|source| source.object));
+        named.extend(paid.sacrificed.map(|(id, _)| id));
+        named.extend(paid.sacrificed_many.iter().map(|&(id, _, _)| id));
+        named.extend(paid.spend_riders.iter().map(|(_, id, _)| *id));
+        named.extend(paid.tapped.map(|(id, _)| id));
     }
     named.extend(object.riders.iter().filter_map(rider_object));
     named

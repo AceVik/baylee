@@ -1066,7 +1066,9 @@ fn is_prevention(modifier: &Modifier) -> bool {
     )
 }
 
-fn delayed_references(action: &DelayedAction, out: &mut BTreeSet<DamageSourceRef>) {
+/// Every incarnation a delayed action names; also what a forked simulation
+/// checks for hidden cards (`GameState::audit_fork`).
+pub(crate) fn delayed_references(action: &DelayedAction, out: &mut BTreeSet<DamageSourceRef>) {
     match *action {
         DelayedAction::RestrictAttacksForTurn { source, affected } => {
             out.insert(source);

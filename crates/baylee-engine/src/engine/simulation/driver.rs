@@ -9,7 +9,7 @@
 use super::ForkRefusal;
 use crate::choice::Pending;
 use crate::engine::Engine;
-use crate::state::{CardLookup, GameState};
+use crate::state::CardLookup;
 use baylee_core::ids::PlayerId;
 
 /// Whether the engine stands at an ordinary priority decision whose
@@ -148,7 +148,7 @@ pub(super) fn check_settled<L: CardLookup>(engine: &Engine<L>) -> Result<(), For
     if let Some(&(_, field)) = suspended.iter().find(|(held, _)| *held) {
         return Err(ForkRefusal::Continuation(field));
     }
-    check_state_settled(state)?;
+    // The state's own continuations are `GameState::audit_fork`'s.
     if *breaking_loop || action_loops.holds_signature() {
         return Err(ForkRefusal::LoopWatch);
     }
@@ -156,34 +156,6 @@ pub(super) fn check_settled<L: CardLookup>(engine: &Engine<L>) -> Result<(), For
         return Err(ForkRefusal::NotPriority);
     }
     Ok(())
-}
-
-/// The continuations the game state keeps between two answers: a draw
-/// being replaced, a discard being asked, a miracle waiting, a commander's
-/// way home, a copy being fixed up, a reflexive trigger. Each can name a
-/// card in a hand or a library.
-fn check_state_settled(state: &GameState) -> Result<(), ForkRefusal> {
-    let suspended = [
-        (!state.pending_miracle.is_empty(), "pending_miracle"),
-        (!state.draws_to_offer.is_empty(), "draws_to_offer"),
-        (
-            state.draw_front != crate::state::FrontDraw::default(),
-            "draw_front",
-        ),
-        (!state.discard_answers.is_empty(), "discard_answers"),
-        (!state.discards_on_top.is_empty(), "discards_on_top"),
-        (!state.commander_redirect.is_empty(), "commander_redirect"),
-        (
-            !state.pending_copied_faces.is_empty(),
-            "pending_copied_faces",
-        ),
-        (!state.reflexive.is_empty(), "reflexive"),
-        (state.numeric_failure.is_some(), "numeric_failure"),
-    ];
-    match suspended.iter().find(|(held, _)| *held) {
-        Some(&(_, field)) => Err(ForkRefusal::Continuation(field)),
-        None => Ok(()),
-    }
 }
 
 /// A field-for-field copy of the engine.
