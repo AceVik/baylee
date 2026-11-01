@@ -232,8 +232,10 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             // no-subject answer `this_object` gave by returning `None`.
             // A player-only target does not redirect an instruction about
             // the source (Jinxed Choker); an empty optional *object* target
-            // still names nothing (Karn's +1, Yawgmoth's activation).
-            if !res.targets.is_empty() || (res.targeted && res.target_players.is_empty()) {
+            // still names nothing (Karn's +1, Yawgmoth's activation), and
+            // neither does an object target that became illegal beside a
+            // legal player (`subjects::names_targets`, CR 608.2b).
+            if subjects::names_targets(state, res) {
                 let plans = res
                     .targets
                     .iter()

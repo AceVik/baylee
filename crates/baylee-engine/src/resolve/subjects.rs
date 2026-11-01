@@ -345,16 +345,37 @@ pub(super) fn target(
 }
 
 pub(super) fn this(state: &GameState, res: &Resolution) -> Option<DamageSourceRef> {
-    if let Some(&object) = res.targets.first() {
-        target(state, res, object)
-    } else if res.targeted && res.target_players.is_empty() {
-        None
+    if names_targets(state, res) {
+        res.targets
+            .first()
+            .and_then(|&object| target(state, res, object))
     } else {
-        // A player target is not an object target whose disappearance could
-        // make "this permanent" meaningless. With no object target, the
-        // source remains the thing a self-affecting instruction names.
         source(state, res)
     }
+}
+
+/// Whether "this" in the resolving instruction is its object target rather
+/// than its source.
+///
+/// It is the target when the ability said "target" about an object, and
+/// that is read off what was announced, which the stack object keeps, and
+/// not off what is still legal: an object target that became illegal is
+/// not affected (CR 608.2b), and the source does not stand in for it, even
+/// while a player chosen beside it is still a legal target. It is also the
+/// target, and so nothing, when the ability said "target" and nothing at
+/// all was chosen (an "up to one" left empty: Karn's +1). Only a target that
+/// is a player and nothing else (Jinxed Choker's "target opponent gains
+/// control of this artifact and puts a charge counter on it") leaves "this"
+/// the source.
+pub(super) fn names_targets(state: &GameState, res: &Resolution) -> bool {
+    if !res.targets.is_empty() {
+        return true;
+    }
+    res.targeted
+        && (res.target_players.is_empty()
+            || state
+                .object(res.on_stack)
+                .is_some_and(|announced| !announced.targets.is_empty()))
 }
 /// The creature the resolving trigger is about besides its event object
 /// (`Rider::EventSubject`), as it was when the trigger fired.

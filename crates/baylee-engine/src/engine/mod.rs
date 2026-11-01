@@ -1947,6 +1947,8 @@ mod effect_play;
 mod granted;
 mod land_type_choices;
 mod leave;
+#[cfg(test)]
+mod lost_target_tests;
 mod mulligan;
 mod payment_window;
 mod player_control;
