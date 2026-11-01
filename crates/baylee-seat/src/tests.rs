@@ -1439,3 +1439,71 @@ fn room_preflight_distinguishes_untimed_from_positive_short_clocks() {
         );
     }
 }
+
+/// Every language model's reports file has a place, so a report the
+/// gateway never takes is kept on this machine: `--reports-dir`, else
+/// `--transcripts`, else `llm-reports` beside the settings file (the
+/// player's config directory's, or the one `--config` names, never the
+/// other); and a fallback read from another settings file writes to the
+/// model's.
+#[test]
+fn a_model_s_reports_are_kept_beside_its_settings_without_transcripts() {
+    let dir = scratch("reports-dir");
+    let real = dir.join("xdg").join("baylee");
+    std::fs::create_dir_all(&real).unwrap();
+    settings_in(&real);
+    let xdg = dir.join("xdg").display().to_string();
+    let env = |name: &str| match name {
+        "XDG_CONFIG_HOME" => Some(xdg.clone()),
+        "TEST_FB_KEY" => fallback_key(name),
+        _ => placeholder(name),
+    };
+    let reports = |join: &Join| {
+        reach(join, None, &[], &env, &MemoryKeys::default())
+            .unwrap()
+            .expect("a model")
+            .plan
+            .settings
+            .reports
+    };
+    assert_eq!(
+        reports(&join_args(&[]).unwrap()),
+        Some(real.join("llm-reports")),
+        "the config directory's"
+    );
+    let mine = dir.join("mine");
+    std::fs::create_dir_all(&mine).unwrap();
+    let (model, fallback) = fallback_files_in(&mine);
+    let named = ["--config", model.to_str().unwrap()];
+    assert_eq!(
+        reports(&join_args(&named).unwrap()),
+        Some(mine.join("llm-reports")),
+        "beside the named file, not in the config directory"
+    );
+    let with = |more: &[&str]| join_args(&[&named[..], more].concat()).unwrap();
+    assert_eq!(
+        reports(&with(&["--transcripts", "/TEST/t"])),
+        Some(PathBuf::from("/TEST/t"))
+    );
+    assert_eq!(
+        reports(&with(&[
+            "--transcripts",
+            "/TEST/t",
+            "--reports-dir",
+            "/TEST/r"
+        ])),
+        Some(PathBuf::from("/TEST/r"))
+    );
+    // The fallback, read from its own file elsewhere, reports beside the
+    // model's.
+    let join = with(&[
+        "--fallback-profile",
+        "backup",
+        "--fallback-config",
+        fallback.to_str().unwrap(),
+    ]);
+    let standing = fallback_reporting(&join, 0, "backup", &env);
+    assert_eq!(standing.config.as_deref(), Some(fallback.as_path()));
+    assert_eq!(reports(&standing), Some(mine.join("llm-reports")));
+    let _ = std::fs::remove_dir_all(&dir);
+}

@@ -158,8 +158,11 @@ async fn a_lookup_asks_again_without_spending_a_try() {
         json!({"ask": "q12", "pick": ["a1"], "report": report}),
     ));
     let dir = scratch("again");
+    // As `join --transcripts` sets them: the reports file beside the
+    // transcripts.
     let mind = mind(&base, Provider::Anthropic, |s| {
         s.transcripts = Some(dir.clone());
+        s.reports = Some(dir.clone());
         s.profile = Some("collector".into());
     });
     let answer = mind.decide(a_priority()).await.expect("an answer");

@@ -766,10 +766,22 @@ lookups"; this is what the bridge does with them.
 **Reports** (`baylee_seat::reports`). Each one is filed as it is read, in
 the answer that carried it whether or not that answer could be taken:
 
-- one JSON line in `<--transcripts>/reports.jsonl` (the game, the seat, the
+- one JSON line in `reports.jsonl` (the game, the seat, the
   question, the turn, the model, the profile, `what`, `expected`,
-  `evidence`, `references`, the lookups made for that question, the time).
-  The seats of a table may share the directory; each line is one write.
+  `evidence`, `references`, the lookups made for that question, the time),
+  written as it is filed, so a report the gateway never takes (a refusal,
+  `429` or `503`, no answer within 15 s, a link that never came back) is
+  still on the machine that played. Every language-model seat has the
+  file (`config::Paths::reports`): in `join --reports-dir` where it is
+  given, else in the `--transcripts` directory, else in `llm-reports/`
+  beside the settings file, where its spend book is (a seat the desktop
+  client starts: `~/.config/baylee/llm-reports/` on Linux; a named
+  `--config` elsewhere keeps the player's config directory out of it). A
+  fallback that takes over writes to the model's. A seat agent hands its
+  bridges `--reports-dir <state>/reports`. The bridge never reads the
+  file back, sends it or cuts it short: at most 25 lines a game, until
+  whoever owns the machine removes it (`docs/privacy.md`). The seats of a
+  table may share the directory; each line is one write.
 - when the game ends (won, lost, conceded, or the room closed under the
   seat), one bug report a game to the gateway's `POST /reports`
   (`docs/feedback.md`) under the seat's own session: `kind: "bug"`, the

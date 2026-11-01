@@ -274,6 +274,54 @@ async fn reports_stay_at_home_when_they_may_not_or_cannot_go() {
     assert_eq!(crate::llm::lock(&sent).len(), 1);
 }
 
+/// A report the gateway does not take is not lost: a language model's
+/// mind writes each report to its reports file as it files it, with no
+/// transcripts at all (the directory `join` gives every model,
+/// `config::Paths::reports`), and the game's bug report refused with a
+/// `429` leaves it there. A real API mind against a stand-in provider.
+#[tokio::test]
+async fn a_report_the_gateway_refuses_stays_in_the_reports_file() {
+    use crate::llm::tests::{Scripted, a_priority, claude, mind, stand_in};
+    let (provider_base, provider) = stand_in().await;
+    let report = json!({"what": "Bolt dealt 2.", "expected": "Bolt deals 3."});
+    provider.script(Scripted::ok(claude(&[(
+        "toolu_1",
+        "decide",
+        json!({"ask": "q12", "pick": ["a1"], "report": report}),
+    )])));
+    let dir =
+        std::env::temp_dir().join(format!("baylee-seat-refused-report-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let mind = mind(&provider_base, crate::llm::Provider::Anthropic, |s| {
+        s.reports = Some(dir.clone());
+    });
+    assert!(mind.settings().transcripts.is_none(), "no transcripts");
+    let request = a_priority();
+    let (game, seat) = (request.context.game_id.clone(), request.context.seat.get());
+    mind.decide(request).await.expect("an answer");
+    let mut bridge = Bridge::new(Arc::new(mind), PlayOptions::default(), None, Vec::new());
+    bridge.game_seat = Some((game.clone(), seat));
+    let (base, sent) = gateway(429).await;
+    let mut transcript = Transcript::memory();
+    let filing = bridge
+        .file_reports(&link(&base, true), &mut transcript, &untold())
+        .await
+        .expect("the report was filed");
+    assert!(!filing.sent);
+    assert!(filing.why.as_deref().unwrap().contains("429"), "{filing:?}");
+    assert_eq!(crate::llm::lock(&sent).len(), 1, "it was tried");
+    let kept = std::fs::read_to_string(dir.join(crate::reports::FILE)).expect("the reports file");
+    let lines: Vec<Value> = kept
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect();
+    assert_eq!(lines.len(), 1, "{kept}");
+    assert_eq!(lines[0]["what"], "Bolt dealt 2.");
+    assert_eq!(lines[0]["expected"], "Bolt deals 3.");
+    assert_eq!(lines[0]["game_id"], game.as_str());
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// A bug report that holds the seat's session or seat token anywhere is
 /// not sent, and what is said of it names the token, never its value.
 #[tokio::test]

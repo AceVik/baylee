@@ -240,8 +240,9 @@ pub(crate) async fn report_and_look_up<T: Holds>(
 
 impl Seat {
     /// Files the report an answer carried ([`crate::reports`]): written to
-    /// the reports file where there are transcripts, and kept for the
-    /// bridge.
+    /// the reports file in the settings' reports directory at once
+    /// ([`Settings::reports`]), so it outlives a bug report the gateway
+    /// never takes, and kept for the bridge.
     fn file_report(&mut self, report: &Report, at: &Making) {
         let request = at.request;
         let filed = reports::Filed {
@@ -262,7 +263,7 @@ impl Seat {
                 .from
                 .saturating_add(u32::try_from(request.log.entries.len()).unwrap_or(u32::MAX)),
         };
-        if self.reports.file(filed, at.settings.transcripts.as_deref()) {
+        if self.reports.file(filed, at.settings.reports.as_deref()) {
             self.transcript.write_value(&json!({
                 "question": request.question,
                 "turn": request.view.turn,
