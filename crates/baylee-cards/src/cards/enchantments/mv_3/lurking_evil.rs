@@ -3,6 +3,8 @@
 //! Set: USG #140 — Urza's Saga | Scryfall ID: f5ef7201-4443-4a77-b9e1-6f1f39e8f993 | Oracle ID: 81d6b42e-9c41-4d1e-bd28-4662e1fde572
 // GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
 
+// Held back: Unsafe rule approximation found in Argon PR 394: missing printed cost, restriction, drawback, choice or target/zone semantics; the concrete finding for this card is recorded in docs/history/2026-10-23-argon-review.md.
+
 use baylee_cards_dsl::prelude::*;
 
 card!(

@@ -3,6 +3,8 @@
 //! Set: DDS #58 — Duel Decks: Mind vs. Might | Scryfall ID: 513d4c36-6ad4-4ee9-b161-3136eb59504f | Oracle ID: 5f7f133e-58ea-41ab-b1be-be4b400fac4c
 // GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
 
+// Held back: Unsafe rule approximation found in Argon PR 394: missing printed cost, restriction, drawback, choice or target/zone semantics; the concrete finding for this card is recorded in docs/history/2026-10-23-argon-review.md.
+
 use baylee_cards_dsl::prelude::*;
 
 card!(

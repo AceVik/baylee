@@ -3,6 +3,8 @@
 //! Set: TPR #46 — Tempest Remastered | Scryfall ID: 2c6606d1-619f-4cc9-8d5b-771c4b4d9615 | Oracle ID: d901e17f-a5f4-49d9-8a6d-ab771949af24
 // GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
 
+// Held back: Unsafe rule approximation found in Argon PR 394: missing printed cost, restriction, drawback, choice or target/zone semantics; the concrete finding for this card is recorded in docs/history/2026-10-23-argon-review.md.
+
 use baylee_cards_dsl::prelude::*;
 
 card!(

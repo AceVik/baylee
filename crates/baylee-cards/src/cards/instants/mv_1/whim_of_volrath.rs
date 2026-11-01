@@ -4,6 +4,8 @@
 //! Set: TMP #102 — Tempest | Scryfall ID: e259da60-c8bc-4a77-98ed-e529dc067732 | Oracle ID: 51a20c9f-68d2-471b-8622-67d481b53b92
 // GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
 
+// Held back: Unsafe rule approximation found in Argon PR 394: missing printed cost, restriction, drawback, choice or target/zone semantics; the concrete finding for this card is recorded in docs/history/2026-10-23-argon-review.md.
+
 use baylee_cards_dsl::prelude::*;
 
 card!(

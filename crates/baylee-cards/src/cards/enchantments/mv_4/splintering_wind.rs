@@ -3,6 +3,8 @@
 //! Set: ALL #99 — Alliances | Scryfall ID: 0afa94e5-fef6-4f3a-9196-d7aa6dd841c2 | Oracle ID: 184f68a1-0c13-42f4-aee6-3ca744f6a30b
 // GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
 
+// Held back: Unsafe rule approximation found in Argon PR 394: missing printed cost, restriction, drawback, choice or target/zone semantics; the concrete finding for this card is recorded in docs/history/2026-10-23-argon-review.md.
+
 use baylee_cards_dsl::prelude::*;
 
 card!(

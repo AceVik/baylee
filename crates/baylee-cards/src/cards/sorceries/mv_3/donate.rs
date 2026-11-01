@@ -3,6 +3,8 @@
 //! Set: UDS #31 — Urza's Destiny | Scryfall ID: 7f6d8ce9-f8c8-45ad-b74c-97fba0e2982e | Oracle ID: 049d1fb2-cce7-40e7-a633-e84cf9782d89
 // GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
 
+// Held back: Unsafe rule approximation found in Argon PR 394: missing printed cost, restriction, drawback, choice or target/zone semantics; the concrete finding for this card is recorded in docs/history/2026-10-23-argon-review.md.
+
 use baylee_cards_dsl::prelude::*;
 
 card!(
