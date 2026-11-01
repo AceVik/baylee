@@ -147,6 +147,7 @@ mod guardian_of_solitude;
 mod halimar_excavator;
 mod hapatra_vizier_of_poisons;
 mod hasran_ogress;
+mod hazy_homunculus;
 mod heart_sliver;
 mod heart_warden;
 mod heartwood_dryad;
