@@ -128,3 +128,45 @@ fn real_payment_settlement_keeps_full_bc_weight_including_off_turn() {
         assert!(view.casting.is_none());
     }
 }
+
+#[test]
+fn a_watching_model_s_floated_mana_weighs_little_and_its_payment_fully() {
+    let payer = PlayerId::new(0);
+    let mut session = priority(payer, true);
+    let (pending, view) = session.view_for_with_context(payer).unwrap();
+    let Pending::Priority { legal, .. } = &pending else {
+        panic!("main priority")
+    };
+    let land = *legal.mana_abilities.first().unwrap();
+    let floated = PlayerAction::ActivateManaAbility { source: land };
+    assert_eq!(llm_shadow_weight(&pending, &view, &floated), 0.25);
+    assert_eq!(
+        llm_shadow_weight(&pending, &view, &PlayerAction::PassPriority),
+        llm_weight(&pending, &view, &PlayerAction::PassPriority)
+    );
+    let spell = view
+        .hand
+        .iter()
+        .find(|card| card.name == "Vitalizing Cascade")
+        .unwrap()
+        .id;
+    assert_eq!(
+        llm_shadow_weight(&pending, &view, &PlayerAction::CastSpell { card: spell }),
+        1.0
+    );
+
+    session
+        .act(payer, PlayerAction::CastSpell { card: spell })
+        .unwrap();
+    while matches!(session.pending(), Pending::ChooseCastMode { .. }) {
+        session.act(payer, PlayerAction::ChooseMode(0)).unwrap();
+    }
+    session.act(payer, PlayerAction::ChooseNumber(1)).unwrap();
+    let (pending, view) = session.view_for_with_context(payer).unwrap();
+    assert_eq!(view.casting, Some(spell));
+    assert_eq!(
+        llm_shadow_weight(&pending, &view, &floated),
+        1.0,
+        "paying what the cast owes is a real choice"
+    );
+}

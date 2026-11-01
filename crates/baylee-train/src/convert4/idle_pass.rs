@@ -33,5 +33,26 @@ pub(super) fn llm_weight(pending: &Pending, view: &PlayerView, action: &PlayerAc
     }
 }
 
+/// A watching model's label (an LLM shadow teacher): an idle pass weighs as an LLM
+/// seat's own does, and so does mana it would make with nothing being cast or
+/// owed. Mana floated ahead of a spell the policy then never casts, or one land
+/// for another at plain priority, says little; a mana ability that pays what a
+/// cast owes is a real payment choice and keeps its weight.
+pub(super) fn llm_shadow_weight(
+    pending: &Pending,
+    view: &PlayerView,
+    teacher: &PlayerAction,
+) -> f32 {
+    let floated = matches!(teacher, PlayerAction::ActivateManaAbility { .. })
+        && view.casting.is_none()
+        && view.announced_cast.is_none()
+        && view.owed.is_none();
+    if floated {
+        0.25
+    } else {
+        llm_weight(pending, view, teacher)
+    }
+}
+
 #[cfg(test)]
 mod tests;

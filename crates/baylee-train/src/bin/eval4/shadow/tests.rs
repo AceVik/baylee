@@ -342,7 +342,12 @@ fn verify_bc_conversion(
                 SourceKind4::House
             };
             assert_eq!(new.provenance.source, teacher);
-            assert_eq!(new.loss_weight, 1.0);
+            // A watching model's idle passes and floated mana weigh a quarter.
+            if transcript.is_some() {
+                assert!([1.0_f32, 0.25].contains(&new.loss_weight));
+            } else {
+                assert_eq!(new.loss_weight, 1.0);
+            }
         } else {
             assert_eq!(new.loss_weight, 0.0);
         }
