@@ -428,13 +428,34 @@ pub fn encode_candidates4(
             }
         }
 
-        Pending::ChooseCardName { types, .. } => {
+        // "Choose a card type" (Serra's Emissary): one candidate per offered
+        // type, in the engine's order, marked like the other fixed pick lists.
+        Pending::ChooseCardType { options, .. } => {
+            for (i, &card_type) in options.iter().enumerate() {
+                if out.candidates.len() >= MAX_CANDIDATES {
+                    break;
+                }
+                let mut c = Candidate4::default();
+                c.feat[15] = 1.0;
+                c.feat[18] = unit(i as f32, 16.0);
+                c.action = Some(PlayerAction::ChooseCardType(card_type));
+                out.candidates.push(c);
+            }
+        }
+
+        Pending::ChooseCardName {
+            types,
+            excluded_types,
+            ..
+        } => {
             // Naming is a choice over the public registry, not just the cards
             // currently visible plus one arbitrary fallback. Structural card
             // features distinguish candidates with no board entity pointer.
             for def in baylee_cards::all() {
                 for (face_idx, face) in def.faces.iter().enumerate() {
-                    if !types.is_empty() && !face.types.intersects(*types) {
+                    if (!types.is_empty() && !face.types.intersects(*types))
+                        || face.types.intersects(*excluded_types)
+                    {
                         continue;
                     }
                     let mut candidate = Candidate4::default();
@@ -1235,7 +1256,9 @@ fn encode_cast_mode_kind_into(kind: &CastModeKind, cost: &ManaCost, index: u8, f
     let kind_slot = match kind {
         CastModeKind::Normal => 26,
         CastModeKind::Kicked => 27,
-        CastModeKind::Alternative(_) => 28,
+        // Foretell is an alternative cost (CR 702.143a): its slot, so the
+        // candidate width the trained nets read stays the same.
+        CastModeKind::Alternative(_) | CastModeKind::Foretell => 28,
         CastModeKind::Mode(_) => 29,
         CastModeKind::Modes(_) => 30,
         CastModeKind::Face(_) => 31,
