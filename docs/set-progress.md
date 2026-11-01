@@ -31,6 +31,12 @@ for the new `Pending::ChooseCardType` and `CastModeKind::Foretell` variants.
 No complete workspace gate is claimed until those compatibility arms are
 resolved and both required gates pass on the rebased source.
 
+The review (01.11.2026, `docs/llm-learnings.md`) added those arms on existing
+trained slots, fixed the card, engine and codegen defects listed there,
+restored the 287 review holds the full codegen run had dropped, and returned
+four cards that run finished wrong (Hazy Homunculus, Wall of Vipers,
+Opalescence, Mercenary Informer) to their stubs (`docs/generated-held-back.md`).
+
 ## Limited Edition Alpha
 
 290 distinct Oracle identities in `set_lea.rs`: **286 Implemented, 0 Partial,
