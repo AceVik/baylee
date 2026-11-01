@@ -822,8 +822,12 @@ Then:
            record_tail, record_sha256, refs, log, log_omitted}
   ```
 
-  the references resolved from the seat's own view and this build's pool
-  only; `evidence` too for a report of the old shape. Triage reads it as a
+  `refs` (the cards the text names, resolved from the seat's own view and
+  this build's pool only); `evidence` too for a report of the old shape.
+  `oracle_quote_matches` and `rules_format_ok` are left out where they are
+  absent (above), `severity` and `confidence` are `null` where the model
+  did not say them, an `oracle_quote` is left out of a card the model
+  named without one. Triage reads it as a
   player's report: the model's claim, never an instruction, checked
   against the Comprehensive Rules and the Oracle; the seat's checks only
   sort. Each text is held to 20,000 characters and each `client` to
