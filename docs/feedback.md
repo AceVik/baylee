@@ -110,6 +110,48 @@ What the gateway sends on, and nothing else:
 Never a name, username, address, session or IP. The client decides what goes
 into `client` and says so to the player (`docs/privacy.md`).
 
+A language-model seat's bridge sends its model's reports of rules or engine
+errors here too, one `bug` a game under the seat's own session, with
+`client.source: "llm-seat"`, the model, the profile, each report in
+`client.reports` (its `log_line` saying after which line of the log it
+was made), and the seat's own game log as `client.log`, in the shape the
+desktop client sends its log in: the reporter "You", every other seat
+`P1…Pn` as the model knew them, the oldest lines left out where `client`
+would pass 2,000,000 bytes and `client.log_omitted` saying how many
+(`docs/llm-seat.md` §"Reports and lookups"). They are a model's claims:
+triage reads them as it reads a player's. The seat's account sat at the
+game (a host's own chair handed to its bridge, `--host-chair`, too: the
+account's own chair in `game_record_seat`), so the record is attached as
+to a player's report. A chair taken on its host's ticket has no session
+and sends its report on its seat token instead (below).
+
+### A host's seat bridge: `POST /lobby/games/{id}/chair/report`
+
+A seat bridge sitting in a chair on its host's chair ticket
+(`docs/protocol.md` §"A host's chair for a seat bridge") has a seat token
+and no session. It sends its language model's report about its game here
+(owner, 31.10.2026), `Authorization: Bearer <seat token>`, in the body
+above, and the gateway passes it on exactly as it does a `POST /reports`,
+with these differences:
+
+- **Whose it is.** The host who handed the chair over answers for it
+  (`Delegate::by`, `game_record_seat.delegated_by`), so `reporter` is the
+  host's pseudonym and the report counts against the host's 64 an hour
+  (owner, 31.10.2026). A hosted model the host ordered for the chair is
+  the host's delegate too.
+- **About its game only.** The game is the one the token opens: a
+  `game_id` is empty or that game's (`400` otherwise), and the gateway
+  sends the report under that id either way. No `local_record` (`400`).
+- **Its record.** That game's, read for the chair that played it
+  (`records::for_delegate`: that game, that chair, that host as
+  `delegated_by` with no account), never another table's.
+- **Once a chair a game** (`409` after), the chance given back when the
+  service did not take it (`502`), and for as long as the room is in the
+  lobby: an hour after the game ends.
+- **A person's chair is refused** (`403`): a person reports with their
+  session. A token that opens nothing, or not this game, is `401`; a body
+  over 2.25 MiB is refused before it is read.
+
 Configuration: `BAYLEE_FEEDBACK_URL` (the service's base URL, for example
 `https://feedback.baylee.app`), `BAYLEE_FEEDBACK_TOKEN` (this gateway's
 intake token there), `BAYLEE_FEEDBACK_KEY` (the pseudonym key; set it, and
@@ -315,15 +357,18 @@ but a gateway's token, `413` past the gateway's limits or a record over
 whatever the gateway calls itself.
 
 **Public for now (31.10.2026).** The official gateway reaches the intake over
-loopback, under the token name `sanctuary`. Since 31.10.2026 the route is
-also public at `https://feedback.baylee.app/intake/reports`
-(`scripts/server/feedback-direct.caddy`), so a gateway on another machine
+loopback, under the token name `sanctuary`. The route is also public at
+`https://feedback.baylee.app/intake/reports`, so a gateway on another machine
 can file reports too: the trainer's private collector gateway, under the
 token name `collector`, sends the reports of its language-model seats
-(`docs/llm-seat.md`). Every request still needs a gateway's token. The proxy
-bounds a body at 512 MiB, and the service's own bound (`MAX_INTAKE_BYTES`,
-about 88 MiB) stops it before that. The owner accepts this as a temporary
-gap and wants it closed again later (#408).
+(`docs/llm-seat.md`). It was reachable before 31.10.2026 already, through the
+site's catch-all (`scripts/server/feedback.caddy`); since then it has a route
+of its own in `scripts/server/feedback-direct.caddy`. The service checks a
+gateway's token before it reads the body, so a request without one costs
+only its headers (`401`). With a token, the service's own bound
+(`MAX_INTAKE_BYTES`, about 88 MiB) is the one that acts; the proxy's
+512 MiB (the owner's figure) is a ceiling above it. The owner accepts this as
+a temporary gap and wants it closed again later (#408).
 
 `record_origin` (`"gateway"` when absent) says who wrote the record. A
 client's (`"client"`) is held to a client's bounds and checked for the
@@ -572,9 +617,11 @@ say what the text says there, as the text the player wrote. A card's
 picture is loaded by the admin's browser straight from Scryfall's image
 host, never through this service (`docs/legal.md` §3; §"Headers" below).
 
-`scripts/server/feedback-direct.caddy` is the proxy's part: the route
-alone on the public site, its body bounded before the service reads it, no
-access log.
+`scripts/server/feedback-direct.caddy` is the proxy's part: the service's
+public routes (this one, the contact form and for now the intake), each body
+bounded before the service reads it, no access log. The official site
+(`scripts/server/feedback.caddy`) imports it and passes everything else to
+the service, whose other routes each need a token.
 
 ### Reading: `GET /reports`, `GET /reports/{id}`, `GET /reports/{id}/record`
 
@@ -596,10 +643,16 @@ only under `trash=true`. A malformed filter is `400`.
 §"Straight from a client"); `record_origin` who wrote its record
 (`gateway`, or `client`: unverified), `null` without one; `source` what
 sent it, as the client's `source` says (`llm-seat` for a language-model
-seat, `docs/llm-seat.md`), its first 64 characters, `null` without one. The
-client's word, unchecked: a filter to sort by, never a proof of where a
-report came from. The web UI says all three beside the report, and the
-facets count the sources (`sources`, `null` for none).
+seat once its reports land, `docs/llm-seat.md`), its first 64 characters,
+`null` without one. Only a non-empty string is a source: a number, an object
+or `""` reads as none. It is kept in a column of its own beside `client`
+(`m0008_source`), so the list and its facets never unpack `client`. The
+filter matches it exactly, case and spaces included; a source a client
+named `none` or with a leading `!` is shown but cannot be picked by name,
+since those are the filter's own words. The client's word, unchecked: a
+filter to sort by, never a proof of where a report came from. The web UI
+says all three beside the report, and the facets count the sources
+(`sources`, `null` for none).
 
 ```json
 {

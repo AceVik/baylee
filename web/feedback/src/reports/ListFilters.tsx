@@ -5,6 +5,7 @@
 import { type ReactNode } from "react";
 
 import {
+  isSourceName,
   KINDS,
   PRIORITIES,
   SORTS,
@@ -40,6 +41,7 @@ export function toggled<T extends string>(values: readonly T[] | undefined, valu
 /** A source filter's words: a source, none, or all but either. */
 export function sourceLabel(lang: Lang, value: string): string {
   if (value === "none") return t(lang, "rep.noSource");
+  if (value === "!none") return t(lang, "rep.anySource");
   if (value.startsWith("!")) return t(lang, "rep.sourceOthers", { source: sourceLabel(lang, value.slice(1)) });
   return value;
 }
@@ -118,7 +120,8 @@ export function FilterPanel({
   const priorities = [...PRIORITIES, "none"] as const;
   const people = [...new Set([me, ...admins])].filter((a) => a !== "");
   const labels = facets?.labels.filter((c): c is Count & { value: string } => c.value !== null) ?? [];
-  const sources = facets?.sources.filter((c): c is Count & { value: string } => c.value !== null) ?? [];
+  const sources =
+    facets?.sources.filter((c): c is Count & { value: string } => c.value !== null && isSourceName(c.value)) ?? [];
   return (
     <form
       id="list-filters"

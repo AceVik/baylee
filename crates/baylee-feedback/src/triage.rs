@@ -248,10 +248,11 @@ enum Dimension {
     Source,
 }
 
-/// A report's source as the list reads it: what the client's `source` says,
-/// cut to 64 characters, so the filter, the facet and the summary agree on
-/// one value whatever a client sent.
-const SOURCE: &str = "left(feedback_report.client ->> 'source', 64)";
+/// A report's source as the list reads it: the generated column
+/// (`m0008_source`), the client's `source` when it is a non-empty string,
+/// cut to 64 characters. The filter, the facet and the summary read this one
+/// column, never `client` itself.
+const SOURCE: &str = "feedback_report.source";
 
 /// The source filter's value: a source or `none`, with `!` before it for
 /// all the others; `None` when it is malformed.
@@ -530,7 +531,7 @@ pub(crate) const SUMMARY: &str = "id::text AS id, \
     gateway, gateway_name, gateway_url, gateway_version, reporter, kind, status, text, game_id, \
     record IS NOT NULL AS has_record, record_complete, \
     coalesce(octet_length(record), 0)::bigint AS record_bytes, issue_number, \
-    channel, record_origin, left(feedback_report.client ->> 'source', 64) AS source, \
+    channel, record_origin, feedback_report.source AS source, \
     assignee, priority, array_to_json(labels)::text AS labels, \
     duplicate_of::text AS duplicate_of, signature, revision, \
     to_char(done_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') AS done_at, \

@@ -11,8 +11,10 @@
 //! profile, no caps, no spend book.
 
 use crate::llm::{AnswerMode, Price, Provider, Settings, Spec};
+/// The settings file, as [`Paths::load`] reads it.
+pub use baylee_client_core::llmseat::SeatSettings;
 use baylee_client_core::llmseat::ledger::Book;
-use baylee_client_core::llmseat::{Profile, SeatSettings, effort_is_a_word, store};
+use baylee_client_core::llmseat::{Profile, effort_is_a_word, store};
 use baylee_client_core::userdirs::Os;
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
@@ -20,6 +22,10 @@ use std::path::{Path, PathBuf};
 /// The environment variable that names the settings file, under
 /// `--config`.
 pub const CONFIG_ENV: &str = store::CONFIG_ENV;
+
+/// The directory beside the settings file that a language model's reports
+/// file is written to where nothing names another ([`Paths::reports`]).
+pub const REPORTS_DIR: &str = "llm-reports";
 
 /// Where the bridge's settings file and spend book are.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -87,6 +93,23 @@ impl Paths {
         }
     }
 
+    /// Where a language model's reports file (`reports.jsonl`,
+    /// [`crate::reports`]) is written as each report is filed: `named`
+    /// (`--reports-dir`), else `transcripts` (`--transcripts`), else
+    /// [`REPORTS_DIR`] beside the settings file, where its spend book is
+    /// too: the player's config directory unless `--config` or
+    /// [`CONFIG_ENV`] names a file elsewhere. So a report the gateway
+    /// never takes stays on this machine. `None` only where no settings
+    /// file can be named at all.
+    #[must_use]
+    pub fn reports(&self, named: Option<&Path>, transcripts: Option<&Path>) -> Option<PathBuf> {
+        named.or(transcripts).map(Path::to_path_buf).or_else(|| {
+            self.settings
+                .as_ref()
+                .map(|settings| settings.with_file_name(REPORTS_DIR))
+        })
+    }
+
     /// The settings file, for a sentence.
     #[must_use]
     pub fn named_file(&self) -> String {
@@ -141,6 +164,9 @@ pub struct Plan {
     pub command: Option<String>,
     /// The profile it plays, if one.
     pub profile: Option<String>,
+    /// The fallbacks that profile names, in the order they take over
+    /// (`docs/llm-seat.md` §"A fallback profile"); none without a profile.
+    pub fallback: Vec<String>,
     /// Something the player should be told: a default profile that did
     /// not apply.
     pub note: Option<String>,
@@ -213,6 +239,7 @@ pub fn plan(
             .map(str::to_string),
         base_url: profile.and_then(|p| p.base_url.clone()),
         command: profile.and_then(|p| p.command.clone()),
+        fallback: profile.map(|p| p.fallback.clone()).unwrap_or_default(),
         profile: chosen.map(|c| c.name.to_string()),
         spec,
         settings,
@@ -264,8 +291,10 @@ fn pick<'a>(
 fn tune(spec: &Spec, chosen: Option<&Chosen>, flags: &Overrides) -> Result<Settings, String> {
     let profile = chosen.map(|c| c.profile);
     let mut settings = Settings::new(spec);
+    settings.profile = chosen.map(|c| c.name.to_string());
     if let Some(profile) = profile {
         settings.session_api = profile.session_api.unwrap_or(false);
+        settings.lookup = profile.lookup;
         if let Some(effort) = profile.effort.as_ref().filter(|_| !flags.default_effort) {
             settings.effort = Some(effort.clone());
         }

@@ -2026,6 +2026,77 @@ async fn a_bridges_seat_names_its_host_and_goes_with_it() {
     sandbox.close().await;
 }
 
+/// A report a host's seat bridge sends on its chair's seat token carries
+/// that game's record, read for that chair and that host, and nothing else
+/// reads it: not the host's own chair, not another host, not another game,
+/// not a chair past the table, not once the host is gone.
+#[tokio::test]
+async fn a_bridges_chair_reads_its_own_games_record_and_no_other() {
+    use baylee_db::records;
+
+    let sandbox = Sandbox::open("record_for_delegate").await;
+    let db = &sandbox.db;
+    let (host, other) = (
+        an_account("host@example.com"),
+        an_account("other@example.com"),
+    );
+    let (host_id, other_id) = (host.id.clone().unwrap(), other.id.clone().unwrap());
+    Account::insert(host).exec(db).await.expect("an account");
+    Account::insert(other).exec(db).await.expect("an account");
+    let bridge = |by| records::Seat {
+        account: None,
+        delegated_by: Some(by),
+    };
+    records::open(
+        db,
+        "g1",
+        &[records::Seat::played_by(host_id), bridge(host_id)],
+    )
+    .await
+    .expect("opens");
+    records::open(
+        db,
+        "g2",
+        &[records::Seat::played_by(other_id), bridge(other_id)],
+    )
+    .await
+    .expect("opens");
+    for (game, piece) in [("g1", b"mine".to_vec()), ("g2", b"theirs".to_vec())] {
+        assert!(records::append(db, game, 0, piece, true).await.unwrap());
+    }
+
+    let mine = records::for_delegate(db, "g1", 1, host_id)
+        .await
+        .unwrap()
+        .expect("the bridge's chair");
+    assert_eq!(mine.data, b"mine");
+    assert!(mine.complete);
+    for (game, seat, by) in [
+        ("g1", 0, host_id),
+        ("g1", 1, other_id),
+        ("g2", 1, host_id),
+        ("g1", 2, host_id),
+        ("g1", usize::MAX, host_id),
+        ("g3", 1, host_id),
+    ] {
+        assert_eq!(
+            records::for_delegate(db, game, seat, by).await.unwrap(),
+            None,
+            "{game} {seat}"
+        );
+    }
+    baylee_db::accounts::delete(db, host_id)
+        .await
+        .expect("deletes");
+    assert_eq!(
+        records::for_delegate(db, "g1", 1, host_id).await.unwrap(),
+        None,
+        "a deleted host's bridge answers for nothing"
+    );
+
+    sandbox.close().await;
+}
+
 /// The edges of a record: started and never sent a piece, sent pieces and
 /// never its last, a piece after the last, a `seq` the column cannot hold.
 #[tokio::test]

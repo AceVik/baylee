@@ -131,13 +131,17 @@ pub(super) struct CliSeat {
     /// Whether the last process ended before its conversation was done
     /// with: the next one's first message says the conversation was lost.
     pub(super) lost: bool,
-    /// The conversation a tool that resumes one goes on with
-    /// ([`Dialect::resumes`]); `None` for every other tool.
+    /// The conversation a tool keeps on disk: one it resumes goes on with
+    /// it ([`Dialect::resumes`]), one kept beside its login without being
+    /// resumed (Junie's) is only removed with it; `None` for every other
+    /// tool.
     pub(super) conversation: Option<Conversation>,
 }
 
 /// A conversation a tool keeps on disk, which the next process goes on
-/// with ([`Dialect::resumes`]).
+/// with ([`Dialect::resumes`]), or which the seat only removes when it is
+/// over (a tool that keeps it beside its login and holds it in one
+/// process, [`super::Launch::keeps_conversations`]).
 pub(super) struct Conversation {
     /// Its id, once the tool named it: until then nothing can resume it.
     pub(super) id: Option<String>,

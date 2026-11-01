@@ -1174,17 +1174,43 @@ struct LlmDefinition {
     /// @description Whether it is a canary.
     #[serde(skip_serializing_if = "Option::is_none")]
     canary: Option<bool>,
-    /// @description Another profile of the same seat agent, by id (1–64 of
-    /// `A-Za-z0-9._-`), that new games start on past `max_games`; the seat
-    /// agent says whether it may be one.
+    /// @description Other profiles of the same seat agent, by id (each 1–64
+    /// of `A-Za-z0-9._-`): one, or a list in the order they take over, that
+    /// take a game over and that new games start on past `max_games`; the
+    /// seat agent says whether each may be one.
     /// @internal
-    /// Another profile of the same seat agent, by id (`llm_name`): the seat
-    /// agent says whether it may be one.
+    /// Other profiles of the same seat agent, by id (`llm_name`), one or a
+    /// chain: the seat agent says whether each may be one.
     #[serde(skip_serializing_if = "Option::is_none")]
-    fallback: Option<String>,
+    fallback: Option<LlmFallbacks>,
     /// @description The rest of the profile, in the seat settings file's
     /// format.
     profile: serde_json::Value,
+}
+
+/// A hosted profile's fallbacks, as the gateway takes them: one id, as a
+/// definition with one fallback has always said it, or a list in order.
+///
+/// @description One profile's id, or a list of them in the order they take
+/// over.
+/// @openapi
+#[derive(Deserialize, Serialize)]
+#[serde(untagged)]
+enum LlmFallbacks {
+    /// @description One profile's id.
+    One(String),
+    /// @description Profiles' ids, in the order they take over.
+    Chain(Vec<String>),
+}
+
+impl LlmFallbacks {
+    /// The ids, in order.
+    fn ids(&self) -> &[String] {
+        match self {
+            Self::One(id) => std::slice::from_ref(id),
+            Self::Chain(ids) => ids,
+        }
+    }
 }
 
 /// A change that succeeded, noted: the action and `<host>/<id>`, nothing
@@ -1223,7 +1249,11 @@ async fn llm_write(
     let path = llm_path(&host, &id)?;
     let definition: LlmDefinition = serde_json::from_slice(&body)
         .map_err(|_| refuse(StatusCode::BAD_REQUEST, "not a profile's definition"))?;
-    if definition.fallback.as_deref().is_some_and(|f| !llm_name(f)) {
+    if definition
+        .fallback
+        .as_ref()
+        .is_some_and(|fallbacks| !fallbacks.ids().iter().all(|id| llm_name(id)))
+    {
         return Err(refuse(
             StatusCode::BAD_REQUEST,
             "a fallback is a profile's id: 1-64 of A-Z a-z 0-9 . - _",

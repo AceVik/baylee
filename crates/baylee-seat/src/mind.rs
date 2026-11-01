@@ -90,6 +90,14 @@ pub trait Mind: Send + Sync {
     /// socket reconnect does not call this. Implementations must not block.
     fn end_game(&self, _game: &str, _seat: u8) {}
 
+    /// The rules or engine errors the mind reported at this game's seat
+    /// since the bridge last asked ([`crate::reports`]): a language model's
+    /// own words, which the bridge sends as the game's bug report. Asked
+    /// before [`Mind::end_game`]. None by default.
+    fn reports(&self, _game: &str, _seat: u8) -> Vec<crate::reports::Filed> {
+        Vec::new()
+    }
+
     /// Whether the mind can answer again, asked after it was taken off the
     /// table for failing ([`crate::BridgeConfig::down_after`]). A mind that is
     /// never down need not say anything.
@@ -127,6 +135,10 @@ impl<M: Mind + ?Sized> Mind for Arc<M> {
         (**self).end_game(game, seat);
     }
 
+    fn reports(&self, game: &str, seat: u8) -> Vec<crate::reports::Filed> {
+        (**self).reports(game, seat)
+    }
+
     fn ready(&self) -> Readiness<'_> {
         (**self).ready()
     }
@@ -147,6 +159,10 @@ impl<M: Mind + ?Sized> Mind for Box<M> {
 
     fn end_game(&self, game: &str, seat: u8) {
         (**self).end_game(game, seat);
+    }
+
+    fn reports(&self, game: &str, seat: u8) -> Vec<crate::reports::Filed> {
+        (**self).reports(game, seat)
     }
 
     fn ready(&self) -> Readiness<'_> {

@@ -151,6 +151,9 @@ pub struct Delegate {
     /// as a person's `said_ready` is: it says the model can play, and the
     /// host says yes to the table by pressing Start.
     pub ready: bool,
+    /// Whether the bridge sent its game's report (`POST …/chair/report`,
+    /// `report.rs`): one a chair a game, given back when it did not go.
+    pub reported: bool,
 }
 
 impl LobbySeat {

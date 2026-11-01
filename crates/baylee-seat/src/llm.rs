@@ -30,6 +30,11 @@
 //!
 //! # When the model does not answer
 //!
+//! An answer that asks for a card's text (`lookup`, [`crate::lookup`]) is
+//! answered with it, and the question asked again, without counting as a
+//! try; a `report` beside any answer is filed ([`crate::reports`]). Both
+//! are [`seatstate::report_and_look_up`], which the CLI mind shares.
+//!
 //! An answer the menu cannot read is sent back once with the reason, if the
 //! time allows; after that, and for a model that refuses, the house answers
 //! ([`MindError::Declined`]). A network or provider failure is
@@ -57,20 +62,21 @@ pub(crate) mod seatstate;
 mod secret;
 mod sessions;
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 
 pub(crate) use openai::json_object;
 pub use secret::{Secret, scrub};
 
 use crate::config::Plan;
+use crate::lookup::{self, Library};
 use crate::mind::{Answer, Disclosure, Mind, MindError, Readiness, Request, Thinking};
 use crate::narrator::{self, Decision, Menu, Narrator};
+use crate::reports::Filed;
 use baylee_client_core::llmseat::{
     address_fault, is_loopback, model_fault, worst_tokens, worst_usd,
 };
 use baylee_engine::choice::PlayerAction;
-use response::read;
-use seatstate::Seat;
+use seatstate::{Holds, Looked, Making, Seat, report_and_look_up};
 use serde::Serialize;
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
@@ -83,7 +89,7 @@ use std::time::{Duration, Instant};
 /// file's types, so the client's panel shows what the bridge plays with.
 pub use baylee_client_core::llmseat::{
     AnswerMode, CliTool, DEFAULT_ANTHROPIC_MODEL, DEFAULT_CLI_CALLS, DEFAULT_CLI_SPEND_TOKENS,
-    DEFAULT_SPEND_TOKENS, DEFAULT_SPEND_USD, Price, Provider, cli_model, price,
+    DEFAULT_SPEND_TOKENS, DEFAULT_SPEND_USD, LookupSource, Price, Provider, cli_model, price,
 };
 
 /// The least time worth a second call after an unreadable answer.
@@ -235,6 +241,13 @@ pub struct Settings {
     /// A directory for the mind's own transcript: every message it sent and
     /// every reply, one JSON line each.
     pub transcripts: Option<PathBuf>,
+    /// The directory its reports file (`reports.jsonl`, [`crate::reports`])
+    /// is written to as each report is filed, whether or not the gateway
+    /// takes the game's bug report later: `join --reports-dir`, else the
+    /// transcripts', else beside the settings file
+    /// ([`crate::config::Paths::reports`]). `None`: the reports are kept
+    /// for the bridge alone.
+    pub reports: Option<PathBuf>,
     /// Whether the game's budgets are a hard limit, as they are under a
     /// reservation in the spend book ([`crate::spend`]): every call is held
     /// at the most it can cost ([`Settings::worst`]) before it is sent, and
@@ -242,6 +255,13 @@ pub struct Settings {
     /// than it reserved. Without it, as with no settings file, the budget
     /// is checked before each question and one call may pass it.
     pub hard_limit: bool,
+    /// The profile it plays, by name, for the reports it files
+    /// ([`crate::reports`]); `None` without one.
+    pub profile: Option<String>,
+    /// Where its card lookups may also go ([`crate::lookup`]): with
+    /// Scryfall, a card's rulings and a card neither this build nor the
+    /// gateway knows. Without it, the card text of both only.
+    pub lookup: Option<LookupSource>,
 }
 
 impl Settings {
@@ -274,7 +294,19 @@ impl Settings {
             spend_calls: cli.then_some(DEFAULT_CLI_CALLS),
             conversation_tokens: 100_000,
             transcripts: None,
+            reports: None,
             hard_limit: false,
+            profile: None,
+            lookup: None,
+        }
+    }
+
+    /// What its seats' prompt and answer schema say beyond the common
+    /// ones ([`prompt::Extras`]).
+    #[must_use]
+    pub const fn extras(&self) -> prompt::Extras {
+        prompt::Extras {
+            scryfall: matches!(self.lookup, Some(LookupSource::Scryfall)),
         }
     }
 
@@ -645,6 +677,10 @@ pub struct Tally {
     /// Of them, the ones begun again because the one before was lost: its
     /// process died, hung or sat idle, and the prefix was sent again.
     pub restarts: u64,
+    /// The tools a CLI's model asked for and the seat refused before they
+    /// ran (a permission the tool asked for, [`crate::cli`]): none ran, but
+    /// each cost the model a round trip.
+    pub tools_refused: u64,
 }
 
 /// The most calls can cost: tokens, and dollars where the price is known.
@@ -853,6 +889,12 @@ struct SeatState {
     results: Vec<ToolResult>,
 }
 
+impl Holds for SeatState {
+    fn seat(&mut self) -> &mut Seat {
+        &mut self.seat
+    }
+}
+
 /// Each seat's conversation, by game and seat.
 type Seats = Mutex<BTreeMap<(String, u8), Arc<Mutex<SeatState>>>>;
 
@@ -866,6 +908,8 @@ pub struct ApiMind {
     agent: ureq::Agent,
     seats: Seats,
     tally: Arc<Mutex<Tally>>,
+    /// Where its lookups go ([`crate::lookup`]).
+    library: Arc<Library>,
 }
 
 pub(crate) fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -909,7 +953,17 @@ impl ApiMind {
             agent,
             seats: Mutex::new(BTreeMap::new()),
             tally: Arc::new(Mutex::new(tally)),
+            library: Library::shared(),
         }
+    }
+
+    /// The same mind, looking cards up in `library`: a stand-in Scryfall
+    /// and gateway, for a test.
+    #[cfg(test)]
+    #[must_use]
+    pub(crate) fn with_library(mut self, library: Arc<Library>) -> Self {
+        self.library = library;
+        self
     }
 
     /// What the mind has spent so far, shared: it keeps counting while the
@@ -1071,19 +1125,18 @@ impl ApiMind {
             Err(done) => return done,
         };
         let mut messages = prepared.messages;
-        let mut tries = 0;
+        // Answers that could not be taken: the second is the last. A lookup
+        // asks the question again without counting among them.
+        let mut refused = 0;
+        let mut looked = 0;
         loop {
-            tries += 1;
-            let left = request
-                .budget
-                .saturating_sub(started.elapsed())
-                .saturating_sub(MARGIN);
+            let left = time_left(&request, started);
             if left.is_zero() {
                 return Err(MindError::Declined("no time left to ask the model".into()));
             }
             let body = match self.credentials.api {
                 Api::Anthropic => anthropic::body(&self.settings, &messages),
-                Api::OpenAi => openai::body(&self.settings, &messages),
+                Api::OpenAi => openai::body(&self.settings, &self.credentials.base, &messages),
             };
             let sent = Instant::now();
             let reply = self
@@ -1102,16 +1155,32 @@ impl ApiMind {
                     return Err(error);
                 }
             };
-            let read = read(&reply, &prepared.wake.menu, self.settings.answer);
+            let taken = response::take(&reply, self.settings.answer);
+            lock(&seat).record(&request, &prepared.wake.text, Some(&reply), None);
+            let making = Making::new(&request, &self.settings, looked);
+            let decision = taken.as_ref().ok().map(|taken| &taken.decision);
+            let left = time_left(&request, started);
+            let extras = report_and_look_up(&seat, &self.library, &making, decision, left);
+            // A lookup alone asks the same question again with the card's
+            // text; one beside an answer, or one that may not be made, is
+            // passed over, and the answer is taken if it answers.
+            let no_lookup = match extras.await {
+                Looked::Made(text) => {
+                    looked += 1;
+                    answer_lookup(self.credentials.api, &mut messages, &reply, &text);
+                    continue;
+                }
+                Looked::Refused(why) => Some(why),
+                Looked::Nothing => None,
+            };
             let mut state = lock(&seat);
-            state.record(&request, &prepared.wake.text, Some(&reply), None);
-            match read {
+            match taken.and_then(|taken| response::read(taken, &prepared.wake.menu)) {
                 Ok(read) => {
                     if state.seat.asked != prepared.asked {
                         return Err(MindError::Declined("a newer question replaced it".into()));
                     }
                     messages.push(reply.assistant.clone());
-                    let answer = state.commit(
+                    let mut answer = state.commit(
                         &request,
                         messages,
                         prepared.narrator,
@@ -1119,19 +1188,16 @@ impl ApiMind {
                         read,
                         started.elapsed(),
                     );
-                    let mut answer = answer;
                     answer.model_time = sent.elapsed();
                     return Ok(answer);
                 }
                 Err(why) => {
-                    let again = request
-                        .budget
-                        .saturating_sub(started.elapsed())
-                        .saturating_sub(MARGIN);
+                    let why = no_lookup.unwrap_or(why);
                     if reply.stop == Stop::Refusal {
                         return Err(MindError::Declined("the model refused to answer".into()));
                     }
-                    if tries >= 2 || again < RETRY_FLOOR {
+                    refused += 1;
+                    if refused >= 2 || time_left(&request, started) < RETRY_FLOOR {
                         return Err(MindError::Declined(format!(
                             "the model's answer could not be read: {why}"
                         )));
@@ -1235,6 +1301,56 @@ impl ApiMind {
                 key,
             )),
         }
+    }
+}
+
+/// What is left of `request`'s time, asked since `started`, short of the
+/// margin the answer needs to reach the seat.
+pub(crate) fn time_left(request: &Request, started: Instant) -> Duration {
+    request
+        .budget
+        .saturating_sub(started.elapsed())
+        .saturating_sub(MARGIN)
+}
+
+/// The card named `name` in `library`, with its Scryfall rulings where
+/// `settings` let lookups reach Scryfall, on a blocking thread: what the
+/// API and the CLI minds look up alike.
+pub(crate) async fn look_up(
+    library: &Arc<Library>,
+    settings: &Settings,
+    name: &str,
+    timeout: Duration,
+) -> lookup::Found {
+    let library = Arc::clone(library);
+    let scryfall = settings.extras().scryfall;
+    let name = name.to_string();
+    tokio::task::spawn_blocking(move || library.find(&name, scryfall, timeout))
+        .await
+        .unwrap_or_else(|e| lookup::Found {
+            text: format!("lookup failed: {e}"),
+            sources: Vec::new(),
+        })
+}
+
+/// Answers a reply that asked for a lookup, as the conversation's next
+/// turn: a result for each of its calls, and `text`, the card's data and
+/// the question to answer again.
+fn answer_lookup(api: Api, messages: &mut Vec<Value>, reply: &Reply, text: &str) {
+    messages.push(reply.assistant.clone());
+    let results: Vec<ToolResult> = reply
+        .calls
+        .iter()
+        .filter(|c| !c.id.is_empty())
+        .map(|c| ToolResult {
+            id: c.id.clone(),
+            content: "Looked up: the card's data follows.".into(),
+            is_error: false,
+        })
+        .collect();
+    match api {
+        Api::Anthropic => anthropic::nudge(messages, &results, text),
+        Api::OpenAi => openai::user(messages, &results, None, text),
     }
 }
 
@@ -1502,7 +1618,7 @@ impl SeatState {
         let (mut messages, results) = if fresh {
             let start = match api {
                 Api::Anthropic => Vec::new(),
-                Api::OpenAi => vec![openai::system(settings.answer)],
+                Api::OpenAi => vec![openai::system(settings.answer, settings.extras())],
             };
             (start, Vec::new())
         } else {
@@ -1615,6 +1731,13 @@ impl Mind for ApiMind {
         {
             remote.close();
         }
+    }
+
+    fn reports(&self, game: &str, seat: u8) -> Vec<Filed> {
+        let state = lock(&self.seats).get(&(game.to_owned(), seat)).cloned();
+        state
+            .map(|state| lock(&state).seat.reports.take())
+            .unwrap_or_default()
     }
 
     fn disclosure(&self) -> Disclosure {

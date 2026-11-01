@@ -43,18 +43,39 @@ fn reset_seconds(error: &str) -> Option<u64> {
     (total > 0 && total <= MAX_RESET_SECONDS).then_some(total)
 }
 
+/// The words a CLI's own exhaustion message opens with: `agy`'s individual
+/// quota, Codex's usage limit (`Try again at …` or a plan hint follows).
+const NATIVE_EXHAUSTION: [&str; 3] = [
+    "Individual quota reached.",
+    "You've hit your usage limit.",
+    "You\u{2019}ve hit your usage limit.",
+];
+
+/// A seat's own exhaustion: the mind failed with it, or a fallback took
+/// over from it (`{"fallback": {"cause": "limited", "why": …}}`), so the
+/// game went on but the primary is spent for the next ones.
 fn explicit_individual_failure(row: &Value) -> Option<&str> {
-    if row.get("event")?.as_str()? != "mind_failed" {
-        return None;
-    }
-    let error = row.get("error")?.as_str()?;
-    let native = error
-        .strip_prefix("the mind is rate limited: ")
-        .or_else(|| error.strip_prefix("the mind is unavailable: rate limit: "))?;
+    let (error, native) = if let Some(fallback) = row.get("fallback") {
+        if fallback.get("cause")?.as_str()? != "limited" {
+            return None;
+        }
+        let why = fallback.get("why")?.as_str()?;
+        (why, why)
+    } else {
+        if row.get("event")?.as_str()? != "mind_failed" {
+            return None;
+        }
+        let error = row.get("error")?.as_str()?;
+        let native = error
+            .strip_prefix("the mind is rate limited: ")
+            .or_else(|| error.strip_prefix("the mind is unavailable: rate limit: "))?;
+        (error, native)
+    };
     // The provider message must declare exhaustion, not merely mention it in
     // arbitrary model/prompt text. Preserve only a digest of this error.
-    native
-        .starts_with("Individual quota reached.")
+    NATIVE_EXHAUSTION
+        .iter()
+        .any(|sign| native.starts_with(sign))
         .then_some(error)
 }
 
@@ -176,16 +197,28 @@ mod tests {
     }
     #[test]
     fn only_explicit_native_individual_failures_trigger_hold() {
-        assert!(
-            explicit_individual_failure(&failure("Individual quota reached. Resets in 90h56m56s."))
-                .is_some()
-        );
+        for row in [
+            failure("Individual quota reached. Resets in 90h56m56s."),
+            failure("You've hit your usage limit. Try again at 3:04 PM."),
+            json!({"fallback":{"profile":"haiku-medium","turn":3,"cause":"limited",
+                "why":"You've hit your usage limit. Try again at 3:04 PM."}}),
+            json!({"fallback":{"profile":"sonnet-low","turn":9,"cause":"limited",
+                "why":"Individual quota reached. Resets in 30m."}}),
+        ] {
+            assert!(explicit_individual_failure(&row).is_some(), "{row}");
+        }
         for row in [
             failure("busy; cooldown 30s"),
             failure("429 rate limit"),
             failure("provider mentioned Individual quota reached. Resets in 90h"),
             json!({"event":"prompt","error":"the mind is rate limited: Individual quota reached. Resets in 90h"}),
             json!({"event":"mind_failed","error":"Individual quota reached. Resets in 90h"}),
+            json!({"fallback":{"profile":"haiku-medium","turn":1,"cause":"failed",
+                "why":"You've hit your usage limit."}}),
+            json!({"fallback":{"profile":"haiku-medium","turn":1,"cause":"limited",
+                "why":"429: no reason given"}}),
+            json!({"fallback":{"profile":"haiku-medium","turn":1,"cause":"limited",
+                "why":"the model said You've hit your usage limit."}}),
         ] {
             assert!(explicit_individual_failure(&row).is_none());
         }

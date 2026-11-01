@@ -74,7 +74,7 @@ impl Dialect for Claude {
         .collect();
         args.push(system.into());
         args.push("--json-schema".into());
-        args.push(prompt::answer_schema().to_string().into());
+        args.push(prompt::answer_schema(settings.extras()).to_string().into());
         if let Some(model) = model {
             args.push("--model".into());
             args.push(model.into());

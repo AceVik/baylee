@@ -3,7 +3,7 @@
 use super::{
     Arc, CliMind, CliSeat, Command, Conversation, GameContext, Gone, Instant, MindError, Mutex,
     Queue, Reader, Reply, Session, SessionDir, Stdio, Store, Usage, Waiter, Weak, Wire, collect,
-    lock, mpsc, oneshot, write,
+    detach, lock, mpsc, oneshot, write,
 };
 
 impl CliMind {
@@ -49,15 +49,20 @@ impl CliMind {
         if let Some(store) = store {
             store.touch();
         }
-        let mut child = Command::new(&self.launch.program)
+        let mut command = Command::new(&self.launch.program);
+        command
             .args(args)
             .env_clear()
             .envs(env)
-            .current_dir(work)
+            .current_dir(&work)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
-            .kill_on_drop(true)
+            .kill_on_drop(true);
+        if dialect.detaches() {
+            detach(&mut command);
+        }
+        let mut child = command
             .spawn()
             .map_err(|e| format!("{tool} could not start: {e}"))?;
         let (Some(stdin), Some(stdout), Some(stderr)) =
@@ -72,7 +77,7 @@ impl CliMind {
             asked: resumes.map(str::to_string),
             ..Wire::default()
         };
-        for line in dialect.opening(&self.settings, model, &self.system, &mut wire) {
+        for line in dialect.opening(&self.settings, model, &work, &mut wire) {
             // The receiver lives until the writer below ends.
             let _ = lines.send(line);
         }

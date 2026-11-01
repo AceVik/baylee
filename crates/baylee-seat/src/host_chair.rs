@@ -1,4 +1,7 @@
-//! Explicit, local stdin handoff of an already seated host's credentials.
+//! Explicit, local stdin handoff of an account's credentials for the chair
+//! it already holds (`--host-chair`): the host's chair 0, or a chair the
+//! account joined. The account's own chair, never a delegate's: its name
+//! is the account's, which must already say what plays it (`Disclosure`).
 use super::{Chair, Join, Leaving, Lobby, PoisonError, Session, Standing, TICKET_WAIT, Unstarted};
 use anyhow::{bail, ensure};
 use serde::Deserialize;
@@ -22,8 +25,8 @@ fn parse(line: &str, room: &str, seat: Option<u32>) -> anyhow::Result<(Session, 
     let value: Handoff = serde_json::from_str(line)
         .map_err(|_| anyhow::anyhow!("invalid host chair handoff JSON on stdin"))?;
     ensure!(
-        value.game_id == room && value.seat == 0 && seat == Some(0),
-        "host chair handoff must match the requested room and chair 0"
+        value.game_id == room && seat == Some(value.seat),
+        "host chair handoff must match the requested room and --chair"
     );
     for token in [&value.seat_token, &value.session_token] {
         ensure!(
@@ -35,7 +38,8 @@ fn parse(line: &str, room: &str, seat: Option<u32>) -> anyhow::Result<(Session, 
         Session::from_token(value.session_token),
         Chair {
             game_id: value.game_id,
-            seat: 0,
+            seat: usize::try_from(value.seat)
+                .map_err(|_| anyhow::anyhow!("host chair handoff names no chair"))?,
             seat_token: value.seat_token,
         },
     ))
@@ -55,7 +59,7 @@ pub(super) async fn sit(
     let Some(room) = lobby.room(&session, &chair.game_id).await? else {
         bail!("host chair room is unavailable");
     };
-    validate_room(&room)?;
+    validate_room(&room, chair.seat)?;
     let by = Standing::Guest(session);
     *unstarted.lock().unwrap_or_else(PoisonError::into_inner) = Some(Leaving {
         lobby: lobby.clone(),
@@ -68,15 +72,16 @@ pub(super) async fn sit(
     Ok((by, chair))
 }
 
-fn validate_room(room: &baylee_seat::lobby::Room) -> anyhow::Result<()> {
+/// The room is waiting and `seat` is the session's own occupied person's
+/// chair in it: the host's, or one the account joined.
+fn validate_room(room: &baylee_seat::lobby::Room, seat: usize) -> anyhow::Result<()> {
     ensure!(
-        room.yours
-            && room.waiting()
+        room.waiting()
             && room
                 .seats
                 .iter()
-                .any(|s| s.seat == 0 && s.you && s.taken && s.kind == "human"),
-        "host chair handoff does not own a waiting room's chair 0"
+                .any(|s| s.seat == seat && s.you && s.taken && s.kind == "human"),
+        "host chair handoff does not own a waiting room's chair {seat}"
     );
     Ok(())
 }

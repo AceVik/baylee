@@ -124,7 +124,9 @@ fn no_dialect_approves_anything_or_passes_a_credential() {
 /// dialect's: a process that holds it, or a one-shot tool that resumes it.
 /// One that resumes keeps its sessions either in the seat's store or in a
 /// place of its own it names, never neither; one that does not leaves its
-/// arguments as they are.
+/// arguments as they are, keeps nothing in a store, and keeps its sessions
+/// beside its login only while one process holds them (Junie's ACP), from
+/// where the seat removes its own.
 // Unix only: unix paths and a home found by HOME, as the CLI seat has
 // them (Windows sets no HOME and joins with \; not yet supported there).
 #[cfg(unix)]
@@ -154,9 +156,22 @@ fn every_tool_has_a_dialect_that_agrees_with_the_panel() {
             let mut args = vec![OsString::from("a")];
             dialect.resume(&mut args, "ses_1");
             assert_eq!(args, [OsString::from("a")], "{tool:?}");
-            assert!(!in_store && outside.is_none(), "{tool:?}");
+            assert!(!in_store, "{tool:?}");
+            if let Some(root) = outside {
+                assert!(!dialect.one_shot(), "{tool:?}: kept, never resumed");
+                assert!(root.starts_with("/home/t"), "{tool:?}: {root:?}");
+            }
             assert!(!dialect.usage_spans_resumes(), "{tool:?}");
         }
+    }
+}
+
+/// Only Junie's processes leave the bridge's process group for a session
+/// of their own: every other tool ends with the group it was started in.
+#[test]
+fn only_junie_runs_in_a_session_of_its_own() {
+    for tool in CliTool::ALL {
+        assert_eq!(dialect(tool).detaches(), tool == CliTool::Junie, "{tool:?}");
     }
 }
 
@@ -258,6 +273,7 @@ fn each_tools_environment_is_its_login_and_its_own_files() {
 }
 
 mod codex;
+mod junie;
 
 // ---------------------------------------------------------------------
 // opencode
@@ -442,128 +458,6 @@ fn opencode_is_signed_in_by_an_oauth_credential() {
 }
 
 // ---------------------------------------------------------------------
-// Junie
-// ---------------------------------------------------------------------
-
-/// Junie non-interactive: a JSON task in, a JSON stream out, every
-/// default location off, the session's own empty guidelines, extensions
-/// and caches, chat mode, ours added to its prompt; model and effort
-/// where named.
-// Unix only: unix paths and a home found by HOME, as the CLI seat has
-// them (Windows sets no HOME and joins with \; not yet supported there).
-#[cfg(unix)]
-#[test]
-fn junie_runs_with_every_default_location_off() {
-    assert_eq!(
-        args_of(&Junie, Some("sonnet"), Some("high")),
-        [
-            "--input-format=json",
-            "--output-format=json-stream",
-            "--skip-update-check",
-            "--share-anonymous-statistics=false",
-            "--config-default-locations=false",
-            "--mcp-default-locations=false",
-            "--skill-default-locations=false",
-            "--command-default-location=false",
-            "--agent-default-location=false",
-            "--model-default-locations=false",
-            "--agent-mode=chat",
-            "--extensions-default-location=/s/extensions",
-            "--guidelines-filename=/s/guidelines.md",
-            "--cache-dir=/s/cache",
-            "--system-prompt=SYSTEM",
-            "--model=sonnet",
-            "--effort=high",
-        ]
-    );
-    assert!(
-        !args_of(&Junie, None, None)
-            .iter()
-            .any(|a| a.starts_with("--model=") || a.starts_with("--effort="))
-    );
-    assert_eq!(
-        Junie.files(&settings_for("junie", None), "S"),
-        [("guidelines.md", String::new())]
-    );
-    assert!(Junie.one_shot());
-    let task: Value = serde_json::from_str(&Junie.stdin_line("q1\n\"x\"")).unwrap();
-    assert_eq!(task, json!({"task": "q1\n\"x\""}));
-}
-
-/// Junie's stream as its makers' own fixture shows it: its banner is
-/// nothing, its session is the start, the task's result step is allowed,
-/// and the result carries the answer and the whole task's tokens, summed
-/// over its models, found by their shape.
-#[test]
-fn junie_reads_its_result_and_its_per_model_usage() {
-    let events = read_all(
-        &Junie,
-        &[
-            "Junie 26.9.22",
-            r#"{"type":"session","timestamp":1,"sessionId":"session-test"}"#,
-            r#"{"type":"step","timestamp":4,"name":"TASK RESULT","details":"{\"ask\":\"q1\"}"}"#,
-            r#"{"type":"result","timestamp":5,"result":"{\"ask\":\"q1\",\"pick\":[\"a\"]}","changes":[],"errorCode":[{"model":"claude-sonnet-5","calls":2,"cost":0.05,"inputTokens":4,"cacheInputTokens":100,"cacheCreateTokens":200,"outputTokens":20},{"model":"small","inputTokens":6,"outputTokens":1}]}"#,
-        ],
-    );
-    assert_eq!(events[0], Event::Other);
-    assert_eq!(events[1], Event::Started(Started::default()));
-    assert_eq!(events[2..4], [const { Event::Other }; 2]);
-    let Event::Reply(Outcome::Answer { value, usage, .. }) = &events[4] else {
-        panic!("{events:?}");
-    };
-    assert_eq!(value.as_ref().unwrap()["ask"], "q1");
-    let usage = usage.unwrap();
-    assert_eq!(
-        (
-            usage.input,
-            usage.output,
-            usage.cache_read,
-            usage.cache_write
-        ),
-        (10, 21, 100, 200)
-    );
-    // Under another key, found the same.
-    let renamed = read_all(
-        &Junie,
-        &[r#"{"type":"result","result":"x","usage":[{"inputTokens":7,"outputTokens":2}]}"#],
-    );
-    let Event::Reply(Outcome::Answer { usage, .. }) = &renamed[1] else {
-        panic!();
-    };
-    assert_eq!(usage.unwrap().input, 7);
-    assert!(Junie.usage_is_cumulative());
-}
-
-/// A step of its own is a tool used; errors on the result, or a line
-/// before it, are a spent balance or limit, or a failure.
-#[test]
-fn junie_reads_a_step_as_a_breach_and_its_errors_by_their_words() {
-    let step = r#"{"type":"step","timestamp":2,"name":"Opened file","details":"ping.txt"}"#;
-    let Event::Breach(why) = &read_all(&Junie, &[step])[1] else {
-        panic!();
-    };
-    assert!(why.contains("Opened file"), "{why}");
-    let spent = r#"{"type":"result","result":"","errors":["Junie: Insufficient Account Balance. All tokens on your balance are spent."]}"#;
-    assert!(matches!(
-        read_all(&Junie, &[spent])[1],
-        Event::Reply(Outcome::RateLimited { .. })
-    ));
-    let events = read_all(
-        &Junie,
-        &[
-            r#"{"type":"error","message":"Cannot find authorization"}"#,
-            r#"{"type":"result","result":""}"#,
-        ],
-    );
-    assert_eq!(
-        events[2],
-        Event::Reply(Outcome::Failed("Cannot find authorization".into()))
-    );
-    assert!(Junie.probe_ok(b"Junie version: 26.9.22 (3419.29)\n", b""));
-    assert!(!Junie.probe_ok(b"", b""));
-}
-
-// ---------------------------------------------------------------------
 // agy
 // ---------------------------------------------------------------------
 
@@ -597,7 +491,7 @@ fn agy_names_its_tools_and_uses_none() {
 }
 
 // ---------------------------------------------------------------------
-// Resuming beside the login: Codex and Junie
+// Resuming beside the login: Codex
 // ---------------------------------------------------------------------
 
 /// A directory of the test's own, empty.
@@ -723,59 +617,4 @@ fn codex_warns_of_an_agents_file_in_its_home() {
         }
     }
     std::fs::remove_dir_all(&home).unwrap();
-}
-
-/// Junie follows a session up by the id its `session` line named
-/// (`--session-id=<id>`, never `--resume` alone), every flag kept; its
-/// sessions are where its home is, and the seat's own is exactly the
-/// directory named for its id.
-#[cfg(unix)]
-#[test]
-fn junie_follows_up_its_session_by_its_id() {
-    assert!(Junie.resumes() && !Junie.usage_spans_resumes());
-    let fresh: Vec<OsString> = args_of(&Junie, Some("opus"), Some("low"))
-        .into_iter()
-        .map(OsString::from)
-        .collect();
-    let mut resumed = fresh.clone();
-    Junie.resume(&mut resumed, "session-261006-120000-1abc");
-    assert_eq!(resumed[..fresh.len()], fresh[..]);
-    assert_eq!(
-        resumed[fresh.len()..],
-        [OsString::from("--session-id=session-261006-120000-1abc")]
-    );
-    assert!(!resumed.iter().any(|arg| arg == "--resume"));
-    let mut wire = Wire::default();
-    Junie.read_event(
-        r#"{"type":"session","sessionId":"session-261006-120000-1abc"}"#,
-        &mut wire,
-    );
-    assert_eq!(
-        wire.conversation.as_deref(),
-        Some("session-261006-120000-1abc")
-    );
-    let env = |name: &str| (name == "HOME").then(|| OsString::from("/home/t"));
-    assert_eq!(
-        Junie.sessions_root(&env),
-        Some(PathBuf::from("/home/t/.junie/sessions"))
-    );
-    let root = scratch_dir("junie-files");
-    let ours = root.join("session-ours");
-    let other = root.join("session-other");
-    std::fs::create_dir_all(&ours).unwrap();
-    std::fs::create_dir_all(&other).unwrap();
-    std::fs::write(root.join("session-file"), "").unwrap();
-    std::os::unix::fs::symlink(&other, root.join("session-link")).unwrap();
-    assert_eq!(Junie.session_files(&root, "session-ours"), [ours]);
-    for none in [
-        "session-file",
-        "session-link",
-        "session-gone",
-        "..",
-        "-x",
-        "",
-    ] {
-        assert!(Junie.session_files(&root, none).is_empty(), "{none:?}");
-    }
-    std::fs::remove_dir_all(&root).unwrap();
 }

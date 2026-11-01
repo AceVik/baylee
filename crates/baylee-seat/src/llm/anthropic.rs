@@ -13,7 +13,7 @@
 //! replayed byte for byte, thinking blocks and all; a conversation is only
 //! ever appended to, and a fresh one starts each turn.
 
-use super::prompt::{SYSTEM, anthropic_tools};
+use super::prompt::{anthropic_tools, system};
 use super::{Call, Reply, Settings, Stop, ToolResult, Usage};
 use serde_json::{Value, json};
 
@@ -44,9 +44,9 @@ pub fn body(settings: &Settings, messages: &[Value]) -> Value {
     let mut body = json!({
         "model": settings.model,
         "max_tokens": settings.max_tokens,
-        "system": [{"type": "text", "text": SYSTEM, "cache_control": long_cache()}],
+        "system": [{"type": "text", "text": system(settings.extras()), "cache_control": long_cache()}],
         "messages": messages,
-        "tools": anthropic_tools(),
+        "tools": anthropic_tools(settings.extras()),
         "tool_choice": {"type": "auto"},
         "thinking": {"type": "adaptive", "display": "summarized"},
         "cache_control": {"type": "ephemeral"},

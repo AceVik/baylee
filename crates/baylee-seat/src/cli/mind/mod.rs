@@ -2,12 +2,22 @@
 
 use super::{
     Answer, Arc, BTreeMap, CliMind, CliSeat, Command, Conversation, Cooldown, Disclosure, Duration,
-    GAME_DATA, GameContext, Gone, Instant, LOST, Launch, Limits, MARGIN, MAX_COOLDOWN, Mind,
-    MindError, Mutex, Outcome, PROBE, PlayerAction, Prepared, Queue, RETRY_FLOOR, Reader,
-    Readiness, Reply, Request, STALE_STORE, Seat, Seats, Session, SessionDir, Settings, Stdio,
-    Store, Tally, Thinking, Usage, Value, Waiter, Weak, Wire, collect, json, lock, mpsc, narrator,
-    oneshot, prompt, read, scrub, sweep_stores, write,
+    GAME_DATA, GameContext, Gone, Instant, LOST, Launch, Limits, MAX_COOLDOWN, Mind, MindError,
+    Mutex, Outcome, PROBE, PlayerAction, Prepared, Queue, RETRY_FLOOR, Reader, Readiness, Reply,
+    Request, STALE_STORE, Seat, Seats, Session, SessionDir, Settings, Stdio, Store, Tally,
+    Thinking, Usage, Value, Waiter, Weak, Wire, collect, decision, detach, json, lock, mpsc,
+    narrator, oneshot, prompt, read, scrub, sweep_stores, write,
 };
+use crate::llm::seatstate::{Holds, Looked, Making, report_and_look_up};
+use crate::llm::time_left;
+use crate::lookup::Library;
+use crate::reports::Filed;
+
+impl Holds for CliSeat {
+    fn seat(&mut self) -> &mut Seat {
+        &mut self.seat
+    }
+}
 
 mod process;
 
@@ -20,14 +30,18 @@ impl CliMind {
             calls_cap: settings.spend_calls,
             ..Tally::default()
         };
-        if launch.dialect.resumes() {
+        if launch.keeps_conversations() {
             let swept = sweep_stores(&std::env::temp_dir(), STALE_STORE);
             if swept > 0 {
                 tracing::info!(swept, "removed stale conversation stores");
             }
         }
         Self {
-            system: format!("{}{}{GAME_DATA}", prompt::SYSTEM, prompt::JSON_MODE),
+            system: format!(
+                "{}{}{GAME_DATA}",
+                prompt::system(settings.extras()),
+                prompt::JSON_MODE
+            ),
             settings,
             launch,
             seats: Arc::new(Mutex::new(BTreeMap::new())),
@@ -39,6 +53,7 @@ impl CliMind {
             limits,
             locked_out: Arc::new(Mutex::new(None)),
             warned: std::sync::atomic::AtomicBool::new(false),
+            library: Library::shared(),
         }
     }
 
@@ -90,13 +105,12 @@ impl CliMind {
             Err(done) => return done,
         };
         let mut text = prepared.text.clone();
-        let mut tries = 0;
+        // Answers that could not be taken: the second is the last. A lookup
+        // asks the question again without counting among them.
+        let mut refused = 0;
+        let mut looked = 0;
         loop {
-            tries += 1;
-            let left = request
-                .budget
-                .saturating_sub(started.elapsed())
-                .saturating_sub(MARGIN);
+            let left = time_left(request, started);
             if left.is_zero() {
                 return Err(MindError::Declined("no time left to ask the model".into()));
             }
@@ -107,7 +121,7 @@ impl CliMind {
                     Ok(Err(_)) => Reply::Gone(Gone::Ended),
                     Err(_) => {
                         // Hung: killed now, and the next question starts again.
-                        self.note_conversation(&mut lock(&seat));
+                        Self::note_conversation(&mut lock(&seat));
                         if let Some(session) = Self::lose(&seat) {
                             session.end(Duration::ZERO);
                         }
@@ -119,7 +133,7 @@ impl CliMind {
                 };
             // Whatever it named is the conversation's, to resume or to
             // remove.
-            self.note_conversation(&mut lock(&seat));
+            Self::note_conversation(&mut lock(&seat));
             let (value, usage, said) = match reply {
                 Reply::Gone(gone)
                     if prepared.resumed
@@ -133,7 +147,7 @@ impl CliMind {
                         .afresh(&seat, request)
                         .map_err(MindError::Unavailable)?;
                     text = prepared.text.clone();
-                    tries = 0;
+                    refused = 0;
                     continue;
                 }
                 Reply::Outcome(Outcome::Answer {
@@ -147,23 +161,38 @@ impl CliMind {
                 }
                 Reply::Outcome(Outcome::RateLimited { why, lifts_in }) => {
                     self.cool(lifts_in);
-                    return Err(MindError::Unavailable(format!("rate limit: {why}")));
+                    return Err(limited(&why, lifts_in));
                 }
                 Reply::Outcome(Outcome::Failed(why)) => {
                     return Err(MindError::Unavailable(scrub(&why, None)));
                 }
                 Reply::Gone(gone) => return Err(self.gone(&seat, gone).await),
             };
-            match read(value.as_ref(), &prepared.menu) {
+            let taken = decision(value.as_ref());
+            let making = Making::new(request, &self.settings, looked);
+            let left = time_left(request, started);
+            let extras =
+                report_and_look_up(&seat, &self.library, &making, taken.as_ref().ok(), left);
+            // A lookup alone asks the same question again with the card's
+            // text; one beside an answer, or one that may not be made, is
+            // passed over, and the answer is taken if it answers.
+            let no_lookup = match extras.await {
+                Looked::Made(message) => {
+                    looked += 1;
+                    text = self.reask(&seat, request, &mut prepared, message)?;
+                    continue;
+                }
+                Looked::Refused(why) => Some(why),
+                Looked::Nothing => None,
+            };
+            match taken.and_then(|decision| read(decision, &prepared.menu)) {
                 Ok(read) => {
                     return Self::commit(&seat, request, prepared, read, usage, sent, said.clone());
                 }
                 Err(why) => {
-                    let again = request
-                        .budget
-                        .saturating_sub(started.elapsed())
-                        .saturating_sub(MARGIN);
-                    if tries >= 2 || again < RETRY_FLOOR {
+                    let why = no_lookup.unwrap_or(why);
+                    refused += 1;
+                    if refused >= 2 || time_left(request, started) < RETRY_FLOOR {
                         return Err(MindError::Declined(format!(
                             "the model's answer could not be read: {why}"
                         )));
@@ -175,9 +204,7 @@ impl CliMind {
     }
 
     /// The message that asks `request` again after its answer could not be
-    /// read for `why`. A one-shot tool's goes to a process of its own: one
-    /// that goes on with the conversation hears only why, one that has
-    /// heard nothing yet the whole question again.
+    /// read for `why` ([`Self::reask`]).
     pub(super) fn again(
         &self,
         seat: &Arc<Mutex<CliSeat>>,
@@ -189,16 +216,31 @@ impl CliMind {
             "That answer could not be taken: {why}. Answer q{} again.",
             request.question
         );
+        self.reask(seat, request, prepared, correction)
+    }
+
+    /// The message that asks `request` again with `message` (why the last
+    /// answer could not be taken, or a lookup's card). A one-shot tool's
+    /// goes to a process of its own: one that goes on with the
+    /// conversation hears only `message`, one that has heard nothing yet
+    /// the whole question again.
+    pub(super) fn reask(
+        &self,
+        seat: &Arc<Mutex<CliSeat>>,
+        request: &Request,
+        prepared: &mut Prepared,
+        message: String,
+    ) -> Result<String, MindError> {
         if !self.launch.dialect.one_shot() {
-            return Ok(correction);
+            return Ok(message);
         }
         prepared.resumed = self
             .respawn(seat, &request.context)
             .map_err(MindError::Unavailable)?;
         Ok(if prepared.resumed {
-            correction
+            message
         } else {
-            format!("{}\n\n{correction}", prepared.text)
+            format!("{}\n\n{message}", prepared.text)
         })
     }
 
@@ -221,10 +263,10 @@ impl CliMind {
             return Err(Err(MindError::Declined(why)));
         }
         if let Some(left) = self.cooling() {
-            return Err(Err(MindError::Unavailable(format!(
-                "rate limit: {} s left of the cooldown",
-                left.as_secs().max(1)
-            ))));
+            return Err(Err(MindError::Limited {
+                why: format!("{} s left of the cooldown", left.as_secs().max(1)),
+                lifts_in: Some(left),
+            }));
         }
         state.seat.asked += 1;
         let dialect = &self.launch.dialect;
@@ -308,10 +350,10 @@ impl CliMind {
     }
 
     /// Starts the seat's next process in place of its last one: for a
-    /// `fresh` conversation (a tool that resumes one gets a new store for
-    /// it, and a start after a loss is counted), else going on with the
-    /// seat's conversation where its tool resumes one. Whether it resumes
-    /// one.
+    /// `fresh` conversation (a tool that keeps its conversations on disk
+    /// gets a new store for it, and a start after a loss is counted), else
+    /// going on with the seat's conversation where its tool resumes one.
+    /// Whether it resumes one.
     pub(super) fn open(
         &self,
         state: &mut CliSeat,
@@ -326,7 +368,7 @@ impl CliMind {
         if let Some(old) = state.session.take() {
             old.end(self.limits.grace);
         }
-        if fresh && self.launch.dialect.resumes() {
+        if fresh && self.launch.keeps_conversations() {
             let store = Store::new(context.seat.get()).map_err(|e| {
                 format!(
                     "{}'s conversation store could not be made: {e}",
@@ -370,7 +412,7 @@ impl CliMind {
         context: &GameContext,
     ) -> Result<bool, String> {
         let mut state = lock(seat);
-        self.note_conversation(&mut state);
+        Self::note_conversation(&mut state);
         self.open(&mut state, seat, context, false)
     }
 
@@ -393,11 +435,10 @@ impl CliMind {
     }
 
     /// Keeps the id the seat's process named its conversation by, for the
-    /// next process to resume ([`Dialect::resumes`]).
-    pub(super) fn note_conversation(&self, state: &mut CliSeat) {
-        if !self.launch.dialect.resumes() {
-            return;
-        }
+    /// next process to resume ([`Dialect::resumes`]) and for the seat to
+    /// remove with it: a tool's conversation kept on disk
+    /// ([`Launch::keeps_conversations`]); nothing for any other.
+    pub(super) fn note_conversation(state: &mut CliSeat) {
         let (Some(session), Some(going)) = (&state.session, &mut state.conversation) else {
             return;
         };
@@ -469,7 +510,7 @@ impl CliMind {
                 return MindError::Unavailable(why);
             }
             self.cool(lifts_in);
-            return MindError::Unavailable(format!("rate limit: {why}"));
+            return limited(&why, lifts_in);
         }
         let session = Self::lose(seat);
         if let Gone::Refused(why) = &gone {
@@ -520,10 +561,7 @@ impl CliMind {
             if !busy && now.duration_since(used) >= self.limits.idle {
                 // A one-shot process holds no conversation: ending it loses
                 // nothing (one kept on disk is over by its own idleness).
-                state.lost |= !self.launch.dialect.one_shot();
-                if let Some(session) = state.session.take() {
-                    session.end(self.limits.grace);
-                }
+                self.retire(&mut state);
                 continue;
             }
             live += 1;
@@ -543,12 +581,27 @@ impl CliMind {
                 break;
             }
             let mut state = lock(&seat);
-            if let Some(session) = state.session.take() {
-                state.lost |= !self.launch.dialect.one_shot();
-                session.end(self.limits.grace);
+            if self.retire(&mut state) {
                 live -= 1;
             }
         }
+    }
+
+    /// Ends the seat's process because it is idle or its place is wanted,
+    /// with its grace. The conversation it held is lost, unless the tool
+    /// answers one message a process; one it kept on disk goes with it
+    /// where no later process resumes it. Whether there was one.
+    pub(super) fn retire(&self, state: &mut CliSeat) -> bool {
+        Self::note_conversation(state);
+        let Some(session) = state.session.take() else {
+            return false;
+        };
+        state.lost |= !self.launch.dialect.one_shot();
+        if !self.launch.dialect.resumes() {
+            state.conversation = None;
+        }
+        session.end(self.limits.grace);
+        true
     }
 
     /// Cools the mind down after a rate limit: until it lifts, where the
@@ -599,7 +652,8 @@ impl CliMind {
             .launch
             .env(&dir.tmp(), &dir.support(), Some(&dir.tmp()))
             .map_err(|_| format!("{tool}'s login check could not be given its variables"))?;
-        let child = Command::new(&self.launch.program)
+        let mut command = Command::new(&self.launch.program);
+        command
             .args(args)
             .env_clear()
             .envs(env)
@@ -607,7 +661,11 @@ impl CliMind {
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
-            .kill_on_drop(true)
+            .kill_on_drop(true);
+        if self.launch.dialect.detaches() {
+            detach(&mut command);
+        }
+        let child = command
             .spawn()
             .map_err(|e| format!("{tool} did not start for its login check: {e}"))?;
         match tokio::time::timeout(PROBE, child.wait_with_output()).await {
@@ -660,6 +718,18 @@ pub(super) fn believed(lifts_in: Option<Duration>) -> Option<Duration> {
     lifts_in.filter(|wait| !wait.is_zero() && *wait <= MAX_COOLDOWN)
 }
 
+/// A rate limit or a spent quota the tool reported, in its words: the
+/// mind is limited ([`MindError::Limited`]), as a model behind an API is
+/// when its provider says so. A fallback profile takes the question over
+/// where one stands by; with none, the house plays the rest of the game
+/// (`docs/llm-seat.md` §"A CLI as the model", §"A fallback profile").
+fn limited(why: &str, lifts_in: Option<Duration>) -> MindError {
+    MindError::Limited {
+        why: scrub(why, None),
+        lifts_in,
+    }
+}
+
 /// Takes the mind off the table for good, for `why` (the first reason
 /// stays): every process in `seats` is killed now, each seat's conversation
 /// noted as lost.
@@ -691,6 +761,13 @@ impl Mind for CliMind {
             }
             answer
         })
+    }
+
+    fn reports(&self, game: &str, seat: u8) -> Vec<Filed> {
+        let state = lock(&self.seats).get(&(game.to_owned(), seat)).cloned();
+        state
+            .map(|state| lock(&state).seat.reports.take())
+            .unwrap_or_default()
     }
 
     fn disclosure(&self) -> Disclosure {

@@ -77,7 +77,7 @@ fn codex_runs_exec_with_our_instructions_and_no_tools() {
     assert_eq!(schema["additionalProperties"], false);
     assert_eq!(
         schema["properties"]["ask"],
-        prompt::answer_schema()["properties"]["ask"]
+        prompt::answer_schema(prompt::Extras::default())["properties"]["ask"]
     );
     assert!(Codex.one_shot());
     assert_eq!(Codex.stdin_line("q1\nline two"), "q1\nline two");
