@@ -4405,7 +4405,7 @@ no `local_record`, once a chair a game (`Delegate::reported`, given back
 when the feedback service did not take it), for as long as the room is
 in the lobby (an hour after the game ends). The gateway passes it on as
 it does a player's, under the pseudonym of the host who answers for the
-chair and against the host's 64 an hour, with this game's record, read
+chair and against the host's budget an hour (64, or `BAYLEE_REPORTS_PER_HOUR`), with this game's record, read
 for the chair that played it (`records::for_delegate`: the token's game,
 its chair and its host), never another table's.
 

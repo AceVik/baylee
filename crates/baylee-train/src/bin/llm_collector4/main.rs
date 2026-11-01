@@ -208,8 +208,9 @@ fn controller_lock(directory: &Path) -> anyhow::Result<std::fs::File> {
 }
 
 /// The feedback service a gateway files its players' reports with
-/// (`docs/feedback.md`): the LLM seats' per-game reports reach it only when
-/// the collector was started with these. Only their names are written here.
+/// (`docs/feedback.md`): the LLM seats' reports, one bug report each,
+/// reach it only when the collector was started with these. Only their
+/// names are written here.
 const FEEDBACK_ENV: [&str; 3] = [
     "BAYLEE_FEEDBACK_URL",
     "BAYLEE_FEEDBACK_TOKEN",
@@ -222,6 +223,23 @@ fn forward_feedback(command: &mut Command) {
             command.env(name, value);
         }
     }
+}
+
+/// The bug reports each account of this private gateway may file an hour
+/// (`BAYLEE_REPORTS_PER_HOUR`, `docs/feedback.md`; 64 where it is not set,
+/// as on the official gateway): the operator's choice for its own seat
+/// accounts. Each language-model seat here files one bug report a report
+/// its model makes, at most 25 a game (`baylee_seat::reports::MOST`), and
+/// one teacher account plays many tables an hour, so 64 would turn most of
+/// them away (`429`) and leave them only in the reports files. The same
+/// budget for every account of the gateway, never one tied to what a
+/// report says of itself.
+const REPORTS_PER_HOUR: &str = "2000";
+
+/// Gives `command`, the private gateway, its accounts' report budget
+/// ([`REPORTS_PER_HOUR`]).
+fn report_budget(command: &mut Command) {
+    command.env("BAYLEE_REPORTS_PER_HOUR", REPORTS_PER_HOUR);
 }
 
 fn isolated_command(binary: &Path) -> Command {
@@ -468,6 +486,7 @@ async fn run_serve(
         credential.configure_gateway(&mut gw_cmd);
     }
     forward_feedback(&mut gw_cmd);
+    report_budget(&mut gw_cmd);
     let ag_out = std::fs::File::create(gw_dir.join("agent.stdout.log"))?;
     let ag_err = std::fs::File::create(gw_dir.join("agent.stderr.log"))?;
     let mut gw_child = gw_cmd.spawn().context("spawning baylee-gateway")?;
@@ -1038,6 +1057,23 @@ mod startup_tests {
                 .chain(&FEEDBACK_ENV)
                 .any(|allowed| name == allowed)
         }));
+    }
+
+    /// The private gateway's accounts may file far more than a public
+    /// gateway's 64 reports an hour, by the operator's own setting, and
+    /// the setting is a budget the gateway takes (a whole number past 64).
+    #[test]
+    fn the_private_gateway_s_accounts_file_their_reports_by_the_thousands() {
+        let mut command = isolated_command(Path::new("baylee-gateway"));
+        report_budget(&mut command);
+        let budget = command
+            .as_std()
+            .get_envs()
+            .find(|(key, _)| *key == std::ffi::OsStr::new("BAYLEE_REPORTS_PER_HOUR"))
+            .and_then(|(_, value)| value)
+            .and_then(|value| value.to_str())
+            .and_then(|value| value.parse::<usize>().ok());
+        assert_eq!(budget, Some(2000));
     }
 
     #[test]

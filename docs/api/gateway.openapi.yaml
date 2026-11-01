@@ -903,7 +903,8 @@ paths:
         own name and build, a pseudonym for the reporter, and the record of the
         game it names when the reporter sat at it (or the client's own record of
         a local game); never a name, address or IP. 64 reports an hour per
-        account; one that was not taken is not counted.
+        account, or as many as the operator sets (`BAYLEE_REPORTS_PER_HOUR`);
+        one that was not taken is not counted.
       operationId: send_report
       tags:
       - Reports
@@ -949,7 +950,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "429":
-          description: 64 reports in the last hour from this account
+          description: >-
+            64 reports in the last hour from this account (or the operator's
+            `BAYLEE_REPORTS_PER_HOUR`)
           content:
             application/json:
               schema:
@@ -1055,7 +1058,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "429":
-          description: 64 reports in the last hour on the host's account
+          description: >-
+            64 reports in the last hour on the host's account (or the operator's
+            `BAYLEE_REPORTS_PER_HOUR`)
           content:
             application/json:
               schema:

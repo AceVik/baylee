@@ -422,6 +422,63 @@ async fn the_budget_is_64_per_account_and_only_what_was_taken_counts() {
     assert_eq!(inbox.lock().len(), 65);
 }
 
+/// An operator may give each account another budget an hour
+/// (`BAYLEE_REPORTS_PER_HOUR`, a private gateway whose seats file many
+/// reports): the 65th report then goes through, and the one past the
+/// budget set is refused; the same for every account, whatever a report
+/// says of itself (`client.source`).
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn an_operator_s_budget_an_hour_replaces_the_64() {
+    let (url, inbox, _mood) = moody_service().await;
+    let gw = spawn_gateway_with(
+        "reports-budget-set",
+        &[
+            ("BAYLEE_FEEDBACK_URL", url),
+            (
+                "BAYLEE_FEEDBACK_TOKEN",
+                "intake-secret-for-tests".to_owned(),
+            ),
+            ("BAYLEE_FEEDBACK_KEY", "pseudonym-key".to_owned()),
+            ("BAYLEE_REPORTS_PER_HOUR", "66".to_owned()),
+        ],
+    );
+    let port = gw.port;
+    let token = login(port, "rhea", "Rhea");
+    let seat = r#"{"kind":"bug","text":"x","game_id":null,"client":{"source":"llm-seat"}}"#;
+    let person = r#"{"kind":"bug","text":"x","game_id":null,"client":{}}"#;
+    for i in 0..33 {
+        assert_eq!(report(port, Some(&token), seat).0, 201, "report {i}");
+        assert_eq!(report(port, Some(&token), person).0, 201, "report {i}");
+    }
+    assert_eq!(inbox.lock().len(), 66, "the 65th and the 66th went too");
+    for body in [seat, person] {
+        assert_eq!(report(port, Some(&token), body).0, 429, "the 67th");
+    }
+    let other = login(port, "sami", "Sami");
+    assert_eq!(report(port, Some(&other), seat).0, 201, "per account");
+}
+
+/// A budget that is no budget stops the start, before the database, and
+/// says which variable.
+#[test]
+fn a_budget_that_is_not_a_whole_number_stops_the_start() {
+    for bad in ["0", "-3", "lots", "64.5"] {
+        let out = std::process::Command::new(env!("CARGO_BIN_EXE_baylee-gateway"))
+            .env_clear()
+            .env("PATH", std::env::var("PATH").unwrap_or_default())
+            .env("DATABASE_URL", "postgres://nobody@127.0.0.1:1/nothing")
+            .env("BAYLEE_REPORTS_PER_HOUR", bad)
+            .output()
+            .expect("the gateway runs");
+        let stderr = String::from_utf8_lossy(&out.stderr);
+        assert!(!out.status.success(), "{bad} started");
+        assert!(
+            stderr.contains("reports configuration rejected: BAYLEE_REPORTS_PER_HOUR"),
+            "{bad}: {stderr}"
+        );
+    }
+}
+
 /// The same path into the real service rather than the stub: what the
 /// gateway sends is what the service takes (`docs/feedback.md`), and the
 /// record it hands on is the one it stored.

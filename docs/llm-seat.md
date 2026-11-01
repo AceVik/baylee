@@ -887,11 +887,14 @@ Then:
   anywhere is not sent, and `why` names which token, never its value; the
   game's other reports still go.
 - a refusal (a gateway without a feedback service, `429` when the
-  account's 64 an hour are spent) or no answer within 15 s stops the
+  account's budget an hour is spent) or no answer within 15 s stops the
   rest, which would meet the same: they stay in the reports file. A seat
-  that files many reports in many games spends its account's 64 an hour
-  sooner than with one bug report a game; the gateway's budget is not
-  raised for it.
+  that files many reports in many games spends its account's budget
+  sooner than with one bug report a game. The budget is the gateway
+  operator's (`BAYLEE_REPORTS_PER_HOUR`, 64 by default and on the official
+  gateway, the same for every account, never tied to `client.source`;
+  `docs/feedback.md`): the LLM collector's private gateway gives its seat
+  accounts 2000.
 - the seat transcript's `llm_reports` line says what became of them
   (`count`: the reports filed; `bug_reports`: the bug reports they made;
   `sent`: whether the gateway took every one; `report_id`: the first id;
@@ -911,7 +914,7 @@ Which chairs send how, and with which record (`link::Reporter`):
   bridge or a hosted model) has no session: it sends on its seat token
   (`POST /lobby/games/{id}/chair/report`, route `"chair"`, owner,
   31.10.2026). The gateway files it under the pseudonym of the host who
-  answers for the chair, against the host's 64 an hour, with that game's
+  answers for the chair, against the host's budget an hour, with that game's
   record, which the chair played (`delegated_by`); **once a chair a
   game**, and only about that game (`docs/feedback.md`). That limit stays,
   so this route sends the game's reports in one bug report

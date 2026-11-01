@@ -303,6 +303,10 @@ async fn main() {
         .unwrap_or_else(|why| panic!("BAYLEE_GUEST_CAP: {why}"));
     let auth_mode = authmode::Setting::from_env(std::env::var("BAYLEE_AUTH_MODE").ok().as_deref())
         .unwrap_or_else(|why| panic!("BAYLEE_AUTH_MODE: {why}"));
+    // Where reports go and each account's budget for them, refused as early
+    // as the other settings: before the database, a typo stops the start.
+    let feedback = report::Feedback::from_env()
+        .unwrap_or_else(|why| panic!("reports configuration rejected: {why}"));
     if std::env::var_os("BAYLEE_GUESTS").is_some() {
         tracing::warn!(
             "BAYLEE_GUESTS is read no more: the console or BAYLEE_AUTH_MODE decides who comes in \
@@ -424,8 +428,7 @@ async fn main() {
         texts: texts::TextCache::default(),
         art: Arc::new(art::ArtCache::from_env()),
         deck_images: Arc::new(cosmetics::Store::from_env()),
-        feedback: report::Feedback::from_env()
-            .unwrap_or_else(|why| panic!("reports configuration rejected: {why}")),
+        feedback,
         record_flushes: record::Flushes::default(),
         tickets: wsticket::Tickets::new(ticket_ttl),
         legacy_until,

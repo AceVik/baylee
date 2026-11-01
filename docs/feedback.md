@@ -72,7 +72,7 @@ marked `record_origin: "client"`. A report carries a `game_id` or a
 | `400` | not JSON, an unknown `kind`, no `text`, `client` not an object, `game_id` over 128 characters, a `local_record` beside a `game_id`, or one that is not base64 of gzip |
 | `401` | no session, or not a live one |
 | `413` | `text` over 20000 characters, `client` over 2 MiB, a `local_record` over 4 MiB, or the body over 7.58 MiB |
-| `429` | the account has sent 64 reports in the last hour; one the service did not take (`502`) is not counted |
+| `429` | the account has sent its budget of reports in the last hour: 64, or what the operator set (`BAYLEE_REPORTS_PER_HOUR`, below); one the service did not take (`502`) is not counted |
 | `502` | the service did not take it (unreachable, refused, or no `report_id`); also a `local_record` the service found is no game record |
 | `503 {"error":"reports are not configured"}` | `BAYLEE_FEEDBACK_URL` is not set |
 
@@ -163,7 +163,7 @@ with these differences:
 
 - **Whose it is.** The host who handed the chair over answers for it
   (`Delegate::by`, `game_record_seat.delegated_by`), so `reporter` is the
-  host's pseudonym and the report counts against the host's 64 an hour
+  host's pseudonym and the report counts against the host's budget an hour
   (owner, 31.10.2026). A hosted model the host ordered for the chair is
   the host's delegate too.
 - **About its game only.** The game is the one the token opens: a
@@ -184,8 +184,21 @@ with these differences:
 Configuration: `BAYLEE_FEEDBACK_URL` (the service's base URL, for example
 `https://feedback.baylee.app`), `BAYLEE_FEEDBACK_TOKEN` (this gateway's
 intake token there), `BAYLEE_FEEDBACK_KEY` (the pseudonym key; set it, and
-never change it, if reports of one player should stay linkable), and
-`BAYLEE_REPORTS_TO` (below).
+never change it, if reports of one player should stay linkable),
+`BAYLEE_REPORTS_TO` (below), and `BAYLEE_REPORTS_PER_HOUR`.
+
+**The budget** (01.11.2026, PM and owner): each account may send 64 reports
+an hour, both routes together (a host's chairs count against the host's),
+unless the operator sets another number in `BAYLEE_REPORTS_PER_HOUR` (a
+whole number of at least 1; anything else stops the start, before the
+database, `reports configuration rejected: BAYLEE_REPORTS_PER_HOUR …`). The
+official gateway keeps 64. It is one number for every account and every
+report: never tied to `client.source`, which is the client's unchecked
+word. A language-model seat files one bug report a report, at most 25 a
+game, so an operator whose own accounts are such seats raises it for their
+gateway; the LLM collector's private gateway sets 2000
+(`llm_collector4`, `REPORTS_PER_HOUR`). Central's own 120 an hour for a
+gateway (below) is not changed by it.
 
 ### To Baylee Central instead: `BAYLEE_REPORTS_TO=central` (31.10.2026)
 
@@ -237,7 +250,7 @@ changes is where the report goes and in what shape:
   included, and none finished within 10 seconds (their parts are held in
   memory), or when Central is past its budget for this gateway (120
   reports an hour). A report that was not taken costs the player nothing of
-  their 64.
+  their budget.
 - **Pseudonyms do not change:** made with `BAYLEE_FEEDBACK_KEY`, or the key
   derived from `BAYLEE_FEEDBACK_TOKEN` as before, so a player's reports
   line up across the switch. With `central` and neither set, the gateway

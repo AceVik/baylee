@@ -70,8 +70,31 @@ pub const MAX_LOCAL_RECORD_BYTES: usize = 4 * 1024 * 1024;
 pub const MAX_BODY_BYTES: usize =
     MAX_CLIENT_BYTES + MAX_LOCAL_RECORD_BYTES.div_ceil(3) * 4 + 256 * 1024;
 
-/// How many reports one account may send per [`REPORT_WINDOW`].
+/// How many reports one account may send per [`REPORT_WINDOW`] where the
+/// operator sets nothing else (`BAYLEE_REPORTS_PER_HOUR`,
+/// [`reports_per_hour`]): the official gateway's budget.
 pub const REPORTS_PER_WINDOW: usize = 64;
+
+/// The per-account budget `BAYLEE_REPORTS_PER_HOUR` sets, unset or empty:
+/// [`REPORTS_PER_WINDOW`].
+///
+/// The same for every account and every report: never tied to what a
+/// report says of itself (`client.source` is the client's unchecked word).
+/// An operator whose own accounts file many reports (a private gateway
+/// whose seats are language models, `llm_collector4`) raises it.
+///
+/// # Errors
+/// A value that is not a whole number of reports, or is 0 (no reports at
+/// all is `BAYLEE_FEEDBACK_URL` unset, not a budget).
+pub fn reports_per_hour(value: Option<&str>) -> Result<usize, &'static str> {
+    let Some(value) = value.map(str::trim).filter(|v| !v.is_empty()) else {
+        return Ok(REPORTS_PER_WINDOW);
+    };
+    match value.parse::<usize>() {
+        Ok(0) | Err(_) => Err("BAYLEE_REPORTS_PER_HOUR is a whole number of reports, at least 1"),
+        Ok(n) => Ok(n),
+    }
+}
 
 /// The window [`REPORTS_PER_WINDOW`] counts in.
 pub const REPORT_WINDOW: Duration = Duration::from_secs(3600);
@@ -97,7 +120,8 @@ pub struct Feedback {
     key: [u8; 32],
     /// `BAYLEE_PUBLIC_URL`, what the gateway calls its own address.
     public_url: Option<String>,
-    /// Reports per account ([`REPORTS_PER_WINDOW`]). A limiter of its own,
+    /// Reports per account an hour: `BAYLEE_REPORTS_PER_HOUR`, by default
+    /// [`REPORTS_PER_WINDOW`] ([`reports_per_hour`]). A limiter of its own,
     /// so a client sending crash reports never costs its player a sign-in.
     limiter: crate::auth::RateLimiter,
     /// `BAYLEE_REPORTS_TO=central`: reports go to Central, not the service.
@@ -126,9 +150,12 @@ impl Feedback {
     /// `BAYLEE_REPORTS_TO` other than `feedback` or `central`, or `central`
     /// without a key to make pseudonyms with (`BAYLEE_FEEDBACK_KEY`, or the
     /// token it is derived from): reporters must stay unlinkable to accounts;
-    /// a `BAYLEE_DIRECT_REPORT_KEY` under 16 characters.
+    /// a `BAYLEE_DIRECT_REPORT_KEY` under 16 characters; a
+    /// `BAYLEE_REPORTS_PER_HOUR` that is not a whole number of at least 1
+    /// ([`reports_per_hour`]).
     pub fn from_env() -> Result<Self, &'static str> {
         let var = |name: &str| std::env::var(name).ok().filter(|v| !v.is_empty());
+        let per_hour = reports_per_hour(var("BAYLEE_REPORTS_PER_HOUR").as_deref())?;
         let to_central = match var("BAYLEE_REPORTS_TO").as_deref() {
             None | Some("feedback") => false,
             Some("central") => true,
@@ -150,6 +177,7 @@ impl Feedback {
         );
         feedback.to_central = to_central;
         feedback.direct_key = direct::key(var("BAYLEE_DIRECT_REPORT_KEY").as_deref())?;
+        feedback.limiter = crate::auth::RateLimiter::new(REPORT_WINDOW, per_hour);
         Ok(feedback)
     }
 
@@ -515,7 +543,8 @@ impl Reporter<'_> {
 /// own name and build, a pseudonym for the reporter, and the record of the
 /// game it names when the reporter sat at it (or the client's own record of
 /// a local game); never a name, address or IP. 64 reports an hour per
-/// account; one that was not taken is not counted.
+/// account, or as many as the operator sets (`BAYLEE_REPORTS_PER_HOUR`);
+/// one that was not taken is not counted.
 /// @tag Reports
 /// @security bearer
 /// @insert `SessionRefusals`
@@ -523,7 +552,7 @@ impl Reporter<'_> {
 /// @return 201: `$ReportReceipt` "The feedback service took it, or Central filed it (its parts follow)"
 /// @return 400: `$ErrorBody` "Not a report: not JSON, an unknown `kind`, no `text` (for Central: none left once what it does not show is taken out), `client` not an object, a `game_id` over 128 characters (for Central: or not printable ASCII), or a `local_record` beside a `game_id` or not base64 of gzip (for Central: or not a game record)"
 /// @return 413: `$ErrorBody` "The text is over 20000 characters, `client` over 2 MiB, or the `local_record` over 4 MiB (for Central: or over 32 MiB unpacked); a body over 7.58 MiB is refused before it is read, in plain text"
-/// @return 429: `$ErrorBody` "64 reports in the last hour from this account"
+/// @return 429: `$ErrorBody` "64 reports in the last hour from this account (or the operator's `BAYLEE_REPORTS_PER_HOUR`)"
 /// @return 500: `$ErrorBody` "The report could not be encoded"
 /// @return 502: `$ErrorBody` "The feedback service or Central did not take it"
 /// @return 503: `$ErrorBody` "Reports are not configured here (`BAYLEE_FEEDBACK_URL` unset, or with `BAYLEE_REPORTS_TO=central` no link to Central), too many reports are on their way to Central or it is past its budget for this gateway, or the account store, the database or Baylee Central is unavailable"
@@ -589,7 +618,7 @@ fn destination(state: &Shared) -> Result<To, (StatusCode, Json<ErrorBody>)> {
 /// @return 404: `$ErrorBody` "No such game"
 /// @return 409: `$ErrorBody` "This chair has sent its game's report"
 /// @return 413: `$ErrorBody` "The text is over 20000 characters or `client` over 2 MiB; a body over 2.25 MiB is refused before it is read, in plain text"
-/// @return 429: `$ErrorBody` "64 reports in the last hour on the host's account"
+/// @return 429: `$ErrorBody` "64 reports in the last hour on the host's account (or the operator's `BAYLEE_REPORTS_PER_HOUR`)"
 /// @return 500: `$ErrorBody` "The report could not be encoded"
 /// @return 502: `$ErrorBody` "The feedback service or Central did not take it"
 /// @return 503: `$ErrorBody` "Reports are not configured here (`BAYLEE_FEEDBACK_URL` unset, or with `BAYLEE_REPORTS_TO=central` no link to Central), too many reports are on their way to Central, or the database or Baylee Central is unavailable"
@@ -1098,6 +1127,32 @@ mod tests {
             at("anything", Some("key")),
             hex(&hmac_sha256(&key, account.as_bytes()))
         );
+    }
+
+    /// `BAYLEE_REPORTS_PER_HOUR`: unset or empty is the official 64, a
+    /// whole number of at least one is taken as it is, anything else stops
+    /// the gateway with a reason that names the variable.
+    #[test]
+    fn the_budget_an_hour_is_64_or_the_operator_s() {
+        assert_eq!(reports_per_hour(None), Ok(REPORTS_PER_WINDOW));
+        assert_eq!(REPORTS_PER_WINDOW, 64);
+        for unset in ["", "  "] {
+            assert_eq!(reports_per_hour(Some(unset)), Ok(64), "{unset:?}");
+        }
+        assert_eq!(reports_per_hour(Some("2000")), Ok(2000));
+        assert_eq!(reports_per_hour(Some(" 1 ")), Ok(1));
+        for bad in [
+            "0",
+            "-1",
+            "abc",
+            "64.5",
+            "1e3",
+            "0x40",
+            "18446744073709551616",
+        ] {
+            let why = reports_per_hour(Some(bad)).expect_err(bad);
+            assert!(why.contains("BAYLEE_REPORTS_PER_HOUR"), "{bad}: {why}");
+        }
     }
 
     /// The budget: [`REPORTS_PER_WINDOW`] in a window, per account, a slot
