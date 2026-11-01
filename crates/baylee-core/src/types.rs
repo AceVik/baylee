@@ -64,8 +64,11 @@ impl TypeSet {
     /// Attraction (silver-bordered).
     pub const ATTRACTION: Self = Self(1 << 15);
 
-    /// Every card type, in stable bit order, for "choose a card type".
-    pub const ALL: [Self; 16] = [
+    /// Every card type CR 205.2a lists, in stable bit order, for "choose a
+    /// card type" (Serra's Emissary). Attraction is held as a bit for the
+    /// silver-bordered type line, but it is an artifact type (CR 205.3g), not a
+    /// card type, so it is not offered.
+    pub const CARD_TYPES: [Self; 15] = [
         Self::ARTIFACT,
         Self::CREATURE,
         Self::ENCHANTMENT,
@@ -81,7 +84,6 @@ impl TypeSet {
         Self::VANGUARD,
         Self::PHENOMENON,
         Self::CONSPIRACY,
-        Self::ATTRACTION,
     ];
 
     /// Parses a type word from a type line ("Artifact", "Creature", …).

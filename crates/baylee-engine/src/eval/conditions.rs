@@ -258,6 +258,10 @@ pub fn condition_holds_with_context(
         }
         Condition::YourTurn => state.turn.active == you,
         Condition::LifeAtMost(n) => state.players[you.get() as usize].life <= n,
+        Condition::LifeBelowStarting => {
+            let player = &state.players[usize::from(you.get())];
+            player.life < player.starting_life
+        }
         Condition::APlayerHasMostLife => most_life(state).is_some(),
         // The announced X on the source, where `cast_wizard` writes it and
         // where `Filter::CmcAtMostX` reads it.
