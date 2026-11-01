@@ -5,6 +5,7 @@
 #[cfg(feature = "client")]
 mod account;
 pub mod chat;
+pub mod client_record;
 pub mod data;
 pub mod migration;
 pub mod reports;

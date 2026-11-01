@@ -17,6 +17,7 @@ client = ["dep:central-client"]
 central-api.workspace = true
 central-client = { workspace = true, optional = true }
 serde.workspace = true
+flate2.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
 ureq.workspace = true
