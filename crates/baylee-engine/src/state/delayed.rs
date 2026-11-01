@@ -17,6 +17,30 @@ pub struct DelayedTrigger {
     pub action: DelayedAction,
 }
 
+/// One effect giving a player control of another player during that
+/// player's next turn (CR 722.1): "the next turn that the affected player
+/// actually takes", the whole of it, until "the beginning of the next turn".
+///
+/// It waits through every turn another player takes, extra turns among them,
+/// and through a turn of the affected player's that is skipped (CR 722.1b),
+/// is stamped with the number of the affected player's turn as that turn
+/// begins (`Engine::begin_turn`), controls exactly that turn, and ends as the
+/// next turn begins, whoever takes it.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct PlayerTurnControl {
+    /// Who makes the controlled player's decisions.
+    pub controller: PlayerId,
+    /// Whose decisions and private information are controlled.
+    pub player: PlayerId,
+    /// The earliest turn this control may cover: the turn after the one it
+    /// was created in, so an effect created during the affected player's own
+    /// turn waits for their next.
+    pub turn: u32,
+    /// The number of the controlled turn, once it has begun; `None` while the
+    /// control waits for it.
+    pub began: Option<u32>,
+}
+
 /// When a delayed trigger fires.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum DelayedWhen {
@@ -63,8 +87,9 @@ pub enum DelayedWhen {
     /// At the beginning of the next upkeep, whoever's turn it is
     /// (Archangel Avacyn's delayed transform).
     NextUpkeepOfAnyone,
-    /// At the controller's next first main phase (Mana Drain).
-    NextFirstMain,
+    /// At the beginning of the controller's next main phase, first or
+    /// second, that begins after the watch was made (Mana Drain).
+    NextMain,
     /// At the beginning of the next end step (Venser +2).
     NextEndStep,
     /// At the controller's next end step.

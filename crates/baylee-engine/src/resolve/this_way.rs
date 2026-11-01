@@ -121,6 +121,49 @@ pub(super) fn count(
                 ThisWay::Destroyed(filter),
             ) => u32::from(destroyed(state, res, entry, *object, filter, &mine)),
             (GameEvent::Discarded { player, .. }, ThisWay::Discarded) => u32::from(mine(*player)),
+            (GameEvent::Discarded { object, player, .. }, ThisWay::DiscardedMatching(filter))
+                if mine(*player) =>
+            {
+                u32::from(state.object(*object).is_some_and(|card| {
+                    eval::matches_with_context(
+                        filter,
+                        state,
+                        card,
+                        res.controller,
+                        res.rule_context(),
+                    )
+                }))
+            }
+            (
+                GameEvent::ZoneChanged {
+                    object,
+                    from: Zone::Library,
+                    to: Zone::Exile,
+                    ..
+                },
+                ThisWay::ExiledFromLibrary(filter),
+            ) => u32::from(state.object(*object).is_some_and(|card| {
+                mine(card.owner)
+                    && eval::matches_with_context(
+                        filter,
+                        state,
+                        card,
+                        res.controller,
+                        res.rule_context(),
+                    )
+            })),
+            (
+                GameEvent::CounterChanged {
+                    object,
+                    kind: event_kind,
+                    old,
+                    new,
+                    ..
+                },
+                ThisWay::CountersRemoved(kind),
+            ) if *object == res.source && *event_kind == kind && new < old => {
+                u32::from(old.saturating_sub(*new))
+            }
             (GameEvent::ControllerChanged { .. }, ThisWay::ControlChanged) => 1,
             (
                 GameEvent::ZoneChanged {

@@ -87,7 +87,8 @@ fn a_refused_house_proposal_leaves_a_record_that_replays() {
         entry.card = mastery;
     }
     let mastery_seat = PlayerId::new(1);
-    let mut session = Session::new_recorded(&preset, "test").expect("the table builds");
+    let mut session =
+        Session::new_recorded(&preset, crate::record::this_build()).expect("the table builds");
     session.tell_time(1_000);
     session.pump();
     let mut refusals = 0;
@@ -164,7 +165,8 @@ fn a_refused_house_proposal_is_followed_by_the_answer_that_does_nothing() {
     let mut preset = test_preset();
     preset.seats[0].controller = SeatController::Open;
     preset.seats[1].controller = SeatController::Open;
-    let mut session = Session::new_recorded(&preset, "test").expect("the table builds");
+    let mut session =
+        Session::new_recorded(&preset, crate::record::this_build()).expect("the table builds");
     session.tell_time(1_000);
     session.pump();
     for step in 0..300_u64 {
@@ -212,7 +214,8 @@ fn a_refused_house_proposal_is_followed_by_the_answer_that_does_nothing() {
 fn the_house_concedes_for_two_away_chairs_of_a_duel_once() {
     let mut preset = test_preset();
     preset.seats[1].controller = SeatController::Open;
-    let mut session = Session::new_recorded(&preset, "test").expect("the table builds");
+    let mut session =
+        Session::new_recorded(&preset, crate::record::this_build()).expect("the table builds");
     let _ = session.pump();
     let (first, second) = (PlayerId::new(0), PlayerId::new(1));
     assert!(session.stand_in(second), "the bridge's chair is held");
@@ -259,7 +262,8 @@ fn the_house_concedes_for_two_away_chairs_of_a_duel_once() {
 fn a_refused_answer_for_a_seat_asked_nothing_is_dropped() {
     let mut preset = test_preset();
     preset.seats[1].controller = SeatController::Open;
-    let mut session = Session::new_recorded(&preset, "test").expect("the table builds");
+    let mut session =
+        Session::new_recorded(&preset, crate::record::this_build()).expect("the table builds");
     let _ = session.pump();
     let (first, second) = (PlayerId::new(0), PlayerId::new(1));
     assert!(session.stand_in(first));

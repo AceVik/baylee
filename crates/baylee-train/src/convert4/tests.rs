@@ -85,6 +85,8 @@ fn streamed_frames_match_collecting_conversion_with_bounded_memory() {
             .filter(|s| !s.is_empty())
             .map(|line| serde_json::from_slice::<serde_json::Value>(line).unwrap())
             .collect::<Vec<_>>();
+        // The opening hash alone: `seen` stays as recorded, and an exact
+        // audit must not let the public table stand in for the hash.
         lines[0]["hash"] = serde_json::json!("0000000000000000");
         let mut bad = Vec::new();
         for line in &lines {

@@ -56,7 +56,13 @@ pub fn target_player_options(state: &GameState, spec: &TargetSpec, you: PlayerId
                     }
                 }
             }
-            baylee_cards_dsl::Modifier::PlayerHexproof => protected.insert(effect.controller),
+            baylee_cards_dsl::Modifier::PlayerHexproof { who } => {
+                if let Some(players) = players(who, state, effect.controller) {
+                    for player in players {
+                        protected.insert(player);
+                    }
+                }
+            }
             baylee_cards_dsl::Modifier::IgnoreOpponentsHexproof if effect.controller == you => {
                 ignores_hexproof = true;
             }
@@ -90,6 +96,27 @@ pub fn target_player_options(state: &GameState, spec: &TargetSpec, you: PlayerId
         })
         .map(|p| p.id)
         .collect()
+}
+
+/// Every player the first instance of "target" of `obj` named, read off
+/// the requirement the object carries: `target_players`, and
+/// `chosen_player` where that requirement can name a player
+/// ([`targeted_players`]).
+///
+/// For what is shown of a stack object. A "target player" spell or loyalty
+/// ability is answered with `ChoosePlayer`, which the engine keeps in
+/// `chosen_player` only, and the view and the log read `target_players`:
+/// Ashiok, Dream Render's −1 stood on the stack aimed at nobody (a report
+/// of 30.10.2026). The rules already read both, through `targeted_players`.
+#[must_use]
+pub fn first_target_players(obj: &GameObject) -> baylee_core::ids::SeatSet {
+    let mut players = obj.target_players;
+    if let Some(req) = obj.target_req {
+        for player in targeted_players(obj, &req.spec).iter() {
+            players.insert(player);
+        }
+    }
+    players
 }
 
 /// The players a spell or ability on the stack chose for its first instance

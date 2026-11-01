@@ -106,6 +106,35 @@ pub fn card_by_body(object: &baylee_view::PublicObject) -> Option<Wears> {
     Some(Wears::Card(index, face))
 }
 
+/// Whether a permanent with these rules is used for more than mana: an
+/// ability activated on the battlefield that is not a mana ability
+/// ([`baylee_cards_dsl::CardDef::activates_beyond_mana`]). The mana
+/// planner taps such a source last (`manaplan::prioritize`).
+#[must_use]
+pub fn taps_beyond_mana(face: RulesFace) -> bool {
+    baylee_cards::by_index(face.card)
+        .is_some_and(|def| def.activates_beyond_mana(usize::from(face.face)))
+}
+
+/// What the power and toughness box of a card face or registry token says:
+/// the registry's half of [`board::printed_of`], which the plate is set
+/// against. `None` where the face prints no body (a `*`) or is unknown.
+#[must_use]
+pub fn printed_body(wears: Wears) -> Option<(i16, i16)> {
+    match wears {
+        Wears::Card(index, face) => {
+            let face = baylee_cards::by_index(index)?
+                .faces
+                .get(usize::from(face))?;
+            face.power.zip(face.toughness)
+        }
+        Wears::Token(id) => {
+            let token = baylee_cards::tokens::by_token_id(id)?;
+            token.power.zip(token.toughness)
+        }
+    }
+}
+
 /// Whether a land is one its player uses for more than mana (#263): the
 /// land row's right-hand section.
 ///
@@ -159,6 +188,7 @@ pub fn registry() -> Registry<'static> {
     static NAMED: fn(&str) -> Option<Wears> = named;
     static TOKEN_NAME: fn(u16) -> Option<&'static str> = crate::tokenart::name;
     static UTILITY_LAND: fn(RulesFace) -> bool = utility_land;
+    static PRINTED_BODY: fn(Wears) -> Option<(i16, i16)> = printed_body;
     // Every picture a board names asks which side of its card it is, and
     // the board is built only through here.
     baylee_client_core::images::know_second_pictures(baylee_cards::sides::has_back_image);
@@ -168,12 +198,13 @@ pub fn registry() -> Registry<'static> {
         token_face: &crate::tokenart::matching_body,
         card_face: Some(&card_by_body),
         utility_land: &UTILITY_LAND,
+        printed_body: &PRINTED_BODY,
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{named, of, registry, utility_land, wearing};
+    use super::{named, of, registry, taps_beyond_mana, utility_land, wearing};
     use baylee_client_core::board::Wears;
     use baylee_view::RulesFace;
 
@@ -438,5 +469,83 @@ mod tests {
         assert_eq!(back.face, Face::Back);
         assert!(url_of(back).contains("/back/"));
         assert!(url_of(front).contains("/front/"));
+    }
+
+    /// A copy whose own rules changed its body is drawn on the copied
+    /// card's print, and the plate is set against that print's box, not
+    /// against the copiable base (report 30.10.2026): an eternalized Fanatic
+    /// of Rhonas is a 4/4 black Zombie with a 4/4 base on a print saying
+    /// 1/4, so the plate is written; the card itself on its print is not.
+    #[test]
+    fn a_copy_whose_body_differs_from_its_print_wears_the_plate() {
+        use baylee_client_core::cardplate::Corner;
+        let fanatic = baylee_core::generated::index::FANATIC_OF_RHONAS;
+        let mut token = baylee_client_core::test_support::token(536, 0, "Fanatic of Rhonas", 4, 4);
+        token.base_power = Some(4);
+        token.base_toughness = Some(4);
+        token.rules = Some(RulesFace {
+            card: fanatic,
+            face: 0,
+        });
+        assert_eq!(
+            baylee_client_core::board::printed_of(&token, registry()),
+            Some((1, 4)),
+            "the box the print says"
+        );
+        let corner = Corner::of_object(&token);
+        assert!(
+            !corner.shows_plate(true, false),
+            "this test's premise: against its base the plate hid"
+        );
+        assert!(
+            corner
+                .over_print(baylee_client_core::board::printed_of(&token, registry()))
+                .shows_plate(true, false),
+            "a 4/4 drawn on a 1/4 print wears its plate"
+        );
+        assert!(
+            crate::platemat::words_of(&token).is_some(),
+            "and the preview's"
+        );
+
+        // The card itself, on its own print, says its body there.
+        let mut card = baylee_client_core::test_support::token(537, 0, "Fanatic of Rhonas", 1, 4);
+        card.token = None;
+        card.base_power = Some(1);
+        card.base_toughness = Some(4);
+        card.card = Some(baylee_view::CardIdentity {
+            index: fanatic,
+            print: baylee_core::ids::PrintRef::new(0),
+            face: 0,
+        });
+        card.rules = token.rules;
+        assert_eq!(
+            baylee_client_core::board::printed_of(&card, registry()),
+            Some((1, 4))
+        );
+        assert!(
+            crate::platemat::words_of(&card).is_none(),
+            "a vanilla body is not written"
+        );
+    }
+
+    /// What the mana planner keeps for last: a land activated for more than
+    /// mana, never a static one or a plain land (report 30.10.2026).
+    #[test]
+    fn a_land_activated_for_more_than_mana_is_kept_for_last() {
+        let face = |name: &str| match named(name) {
+            Some(Wears::Card(card, face)) => RulesFace { card, face },
+            other => panic!("{name}: {other:?}"),
+        };
+        assert!(
+            taps_beyond_mana(face("Karakas")),
+            "Karakas bounces a legend"
+        );
+        for name in ["Plains", "Urborg, Tomb of Yawgmoth", "Reliquary Tower"] {
+            assert!(
+                !taps_beyond_mana(face(name)),
+                "{name} is used for mana alone"
+            );
+        }
     }
 }

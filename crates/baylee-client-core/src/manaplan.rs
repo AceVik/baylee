@@ -186,10 +186,24 @@ pub fn keep_one_per_permanent(sources: &mut Vec<Source>) {
 }
 
 /// Rank taps by the board and colours still needed by cards in hand.
-/// Creatures retain their combat and tap-ability value; scarce hand colours
-/// are held back ahead of interchangeable mana. Floating mana and avoiding
-/// life/sacrifice costs still take precedence in the matcher.
-pub fn prioritize(sources: &mut [Source], view: &baylee_view::PlayerView, hand: &[ManaCost]) {
+/// Creatures retain their combat and tap-ability value; a permanent used
+/// for more than mana (`beyond_mana`, asked of the rules it has: Karakas, a
+/// creature land) is kept next; scarce hand colours are held back ahead of
+/// interchangeable mana. Floating mana and avoiding life/sacrifice costs
+/// still take precedence in the matcher.
+///
+/// The three are tiers, never traded against each other: a creature
+/// outweighs any utility permanent, which outweighs any colour. A Karakas
+/// beside a Plains tied on colour and fell to the object order, so it was
+/// tapped first about as often as not (report 30.10.2026). The client and
+/// the house AI both rank through here, each handing in the registry's
+/// answer.
+pub fn prioritize(
+    sources: &mut [Source],
+    view: &baylee_view::PlayerView,
+    hand: &[ManaCost],
+    beyond_mana: &dyn Fn(baylee_view::RulesFace) -> bool,
+) {
     let mut supply = [0_u32; 6];
     let mut demand = [0_u32; 6];
     for (index, color) in ManaColor::ALL.into_iter().enumerate() {
@@ -210,13 +224,18 @@ pub fn prioritize(sources: &mut [Source], view: &baylee_view::PlayerView, hand: 
             .filter(|(_, color)| source.colors.contains(color))
             .map(|(index, _)| 100_u32.saturating_mul(demand[index]) / supply[index].max(1))
             .fold(0, u32::saturating_add);
-        let creature_value = view
-            .object(source.id)
+        let object = view.object(source.id);
+        let creature_value = object
             .filter(|o| o.types.contains(baylee_core::types::TypeSet::CREATURE))
             .map_or(0, |o| {
-                10_000 + u32::from(o.power.unwrap_or(0).unsigned_abs()) * 10
+                20_000 + u32::from(o.power.unwrap_or(0).unsigned_abs()) * 10
             });
-        source.preserve = creature_value + colour_value.min(9_000);
+        let utility_value = if object.and_then(|o| o.rules).is_some_and(beyond_mana) {
+            10_000
+        } else {
+            0
+        };
+        source.preserve = creature_value.max(utility_value) + colour_value.min(9_000);
     }
 }
 
@@ -1182,7 +1201,7 @@ mod tests {
             if reverse {
                 sources.reverse();
             }
-            prioritize(&mut sources, &view, &[cost("{U}{U}")]);
+            prioritize(&mut sources, &view, &[cost("{U}{U}")], &|_| false);
             assert_eq!(
                 tapped(&plan(&cost("{1}"), &empty(), &sources).unwrap()),
                 vec![2]
@@ -1289,6 +1308,44 @@ mod tests {
         let found =
             plan(&cost("{1}{B}"), &empty(), &sources).expect("both lands, correctly paired");
         assert_eq!(tapped(&found), vec![1, 2]);
+    }
+
+    /// A land used for more than mana (Karakas) is tapped after a land that
+    /// only makes mana, whichever order the two arrive in: the two tied on
+    /// colour and fell to the object order (report 30.10.2026). Still
+    /// spent when the cost needs it.
+    #[test]
+    fn a_utility_land_is_tapped_last() {
+        use crate::test_support::{ViewBuilder, token};
+        let karakas_rules = baylee_view::RulesFace {
+            card: baylee_core::ids::CardIndex::new(7),
+            face: 0,
+        };
+        let mut karakas = token(1, 0, "Karakas", 0, 0);
+        karakas.types = baylee_core::types::TypeSet::LAND;
+        karakas.rules = Some(karakas_rules);
+        let mut plains = token(2, 0, "Plains", 0, 0);
+        plains.types = baylee_core::types::TypeSet::LAND;
+        let view = ViewBuilder::new(2)
+            .with_battlefield(0, vec![karakas, plains])
+            .build();
+        for reverse in [false, true] {
+            let mut sources = vec![land(1, ManaColor::White), land(2, ManaColor::White)];
+            if reverse {
+                sources.reverse();
+            }
+            prioritize(&mut sources, &view, &[], &|face| face == karakas_rules);
+            assert_eq!(
+                tapped(&plan(&cost("{W}"), &empty(), &sources).unwrap()),
+                vec![2],
+                "the Plains pays, the Karakas stays up"
+            );
+            assert_eq!(
+                tapped(&plan(&cost("{W}{W}"), &empty(), &sources).unwrap()),
+                vec![1, 2],
+                "and the Karakas is spent when the cost needs it"
+            );
+        }
     }
 
     /// The preference, rather than the correctness: with a choice, the pip is
@@ -1846,7 +1903,8 @@ mod tests {
                 ManaColor::Red,
                 ManaColor::Green,
             ],
-            preserve: 10_000,
+            // A creature's tier (`prioritize`).
+            preserve: 20_000,
             ..any_land(1)
         };
         let sources = [

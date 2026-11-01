@@ -183,6 +183,22 @@ impl DamageWork {
                     }
                     Kind::Protection
                 }
+                Modifier::ProtectionFromExiledWithSourceTypes => {
+                    let DamageTarget::Object(target) = part.view.recipient else {
+                        continue;
+                    };
+                    let Some(object) = state.object(target) else {
+                        continue;
+                    };
+                    let Some(source) = state.damage_source(part.view.source, part.source_version)
+                    else {
+                        continue;
+                    };
+                    if !crate::eval::protection_from_exiled_types(state, fx, object, source) {
+                        continue;
+                    }
+                    Kind::Protection
+                }
 
                 Modifier::PreventDamageFrom(filter) | Modifier::PreventCombatDamageFrom(filter) => {
                     if matches!(fx.modifier, Modifier::PreventCombatDamageFrom(_))

@@ -833,7 +833,7 @@ with optional `PlayerView.announced_x`, the settled X of the current spell
 announcement. Absence means X is not yet settled or there is no announcement;
 `0` is an explicitly settled zero (including X fixed at zero by the casting
 cost). The source is `announced_cast`. Only its resource owner and authorized
-CR 720 controller receive these facts. Commit, cancellation and reversal clear
+CR 722 controller receive these facts. Commit, cancellation and reversal clear
 the context; suspended miracle and nested mana windows retain it. This is
 observation, not permission to cancel, and makes no affordability promise.
 Existing payment/default/socket methods leave `announced_x` absent, so their
@@ -1716,7 +1716,10 @@ cannot say, how many creatures may block one attacker (menace), is
   blocker, attacker, count }`, `count` the requirements asking for it; empty
   when none is in force. A declaration obeys the sum over its pairs, and
   `answer_fault` refuses one whose sum is below `obeying`'s
-  (`AnswerFault::MustBlock`).
+  (`AnswerFault::MustBlock`). A blocker that can't block unless its
+  controller pays (Myr Prototype) is offered and named in no demand: nobody
+  has to pay to obey a requirement (CR 509.1c), so it neither must block nor
+  obeys one in another's place, and `obeying` never uses it.
 
 ## The gateway runs no rules
 
@@ -1830,6 +1833,16 @@ never an edit. The end line carries `turn`, the turn the game ended on. Both
 are optional and skipped when absent: a record from before them reads as it
 did, `RECORD_VERSION` stays 1, and a replay of it on a later build is
 unverified.
+
+`record::replay` tells the two apart by the header's `build` against its
+own (`record::this_build`): a record of this build is held to every engine
+hash, and a record of another build to the engine hash or, where that
+moved, to `seen` beside it; `Replayed::checked` says whether `seen` had to
+stand in (`Checked::Seen`). A record of another build without `seen` is
+held to its hashes. `record::replay_exact` holds any record to every hash,
+for the readers that need the whole state rather than the table (training
+labels with behaviour probabilities, the research episodes), and
+`Session::resume_recorded` checks as `replay` does.
 
 The engine sends it to the gateway as `GameRecordChunk{game_id, seq, data,
 last}` on the engine link, a piece once 32 KiB of it have gathered
@@ -2094,7 +2107,7 @@ as `Session::seat_view` builds it for a socket at it):
    exiled face down and may look at), by name;
 5. its **log** as it was told it: its draws and the cards it was shown, by
    name;
-6. a hand it saw while **controlling** another player (CR 720,
+6. a hand it saw while **controlling** another player (CR 722.4,
    `controlled_hands`), only where that player is in **S**;
 7. its own answers' bookkeeping (what its policies answered, whether the
    clock or a stand-in answered for it).
@@ -2103,7 +2116,7 @@ Not shown: its library's order beyond what it looked at (it did not know
 it either), clocks, chat. Known limits (v1): the log of a shown seat may
 name a card it was shown privately of a seat outside **S** (an effect that
 revealed that player's hand to it alone), and a face-down card of a player
-it controlled (CR 720) keeps its name; both need a log line or object
+it controlled (CR 722) keeps its name; both need a log line or object
 filter of their own (v2).
 
 The header says which: `perspective` (`seat`, `public`, `all_hands`), `seat`,

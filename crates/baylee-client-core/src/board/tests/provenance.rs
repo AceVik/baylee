@@ -329,6 +329,7 @@ fn a_permanent_copying_a_token_wears_the_token() {
             token_face: &|o| (o.name == "Soldier").then_some(SOLDIER),
             card_face: None,
             utility_land: &|_| false,
+            printed_body: &|_| None,
         },
     );
     let g = group(&m);
@@ -384,6 +385,7 @@ fn a_token_is_not_a_copy_of_the_twin_that_shares_its_name() {
             token_face: &|o| (o.name == "Shapeshifter").then_some(ONE_ONE),
             card_face: None,
             utility_land: &|_| false,
+            printed_body: &|_| None,
         },
     );
     let group = |id: u32| {
@@ -521,6 +523,7 @@ fn a_copy_is_not_its_own_source() {
         token_face: &|_| None,
         card_face: None,
         utility_land: &|_| false,
+        printed_body: &|_| None,
     };
     assert_eq!(
         art_in(&itself, ArtSize::Small, reg, &view),

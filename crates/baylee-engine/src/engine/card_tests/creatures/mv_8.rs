@@ -108,6 +108,7 @@ mod goliath_spider;
 mod griselbrand;
 mod hearthcage_giant;
 mod hellkite_overlord;
+mod living_hive;
 mod maelstrom_wanderer;
 mod magmatic_force;
 mod pestilence_demon;

@@ -249,6 +249,9 @@ pub const FADE: CounterKind = CounterKind::Custom(67);
 /// Feather counters (Soulcatchers' Aerie).
 pub const FEATHER: CounterKind = CounterKind::Custom(68);
 
+/// Fate counters (Oblivion Stone).
+pub const FATE: CounterKind = CounterKind::Custom(69);
+
 /// Every id this module assigns, with the word it stands for.
 ///
 /// It exists so the ids can be checked rather than trusted, which is the
@@ -323,6 +326,7 @@ pub const ASSIGNED: &[(&str, CounterKind)] = &[
     ("arrow", ARROW),
     ("fade", FADE),
     ("feather", FEATHER),
+    ("fate", FATE),
 ];
 
 #[cfg(test)]

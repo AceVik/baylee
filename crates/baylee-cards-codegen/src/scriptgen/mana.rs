@@ -387,6 +387,36 @@ impl Tx<'_> {
             return Some(n);
         }
         let def = self.svars.get(raw.trim())?.clone();
+        if matches!(def.trim(), "Remembered$Amount" | "Count$RememberedSize") {
+            let mut removals = self.svars.values().filter_map(|body| {
+                let (api, mut p) = Params::parse(body)?;
+                if api != "RemoveCounter"
+                    || p.take("CounterNum").as_deref() != Some("All")
+                    || p.take("RememberRemoved").as_deref() != Some("True")
+                {
+                    return None;
+                }
+                counter_kind(&p.take("CounterType")?)
+            });
+            if let Some(kind) = removals.next() {
+                if removals.next().is_some() {
+                    return self.deny("more than one remembered all-counter removal".to_string());
+                }
+                return Some(format!("Amount::ThisWay(ThisWay::CountersRemoved({kind}))"));
+            }
+            if let Some(valid) = self
+                .svars
+                .get("X")
+                .and_then(|definition| definition.strip_prefix("Count$ValidLibrary "))
+            {
+                let expr = self.filter_expr(valid)?;
+                let filter = self.body.filter_static("EXILED", &expr);
+                return Some(format!(
+                    "Amount::ThisWay(ThisWay::ExiledFromLibrary(&{filter}))"
+                ));
+            }
+            return None;
+        }
         self.count_expr(&def)
     }
 

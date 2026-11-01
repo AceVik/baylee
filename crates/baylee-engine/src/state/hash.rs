@@ -53,6 +53,7 @@ impl GameState {
             discard_answers,
             discards_on_top,
             extra_turns,
+            turn_controls,
             resume_after,
             skip_followups,
             reanimated_auras,
@@ -196,6 +197,7 @@ impl GameState {
         discard_answers.hash(&mut h);
         discards_on_top.hash(&mut h);
         extra_turns.hash(&mut h);
+        turn_controls.hash(&mut h);
         resume_after.hash(&mut h);
         skip_followups.hash(&mut h);
         reanimated_auras.hash(&mut h);
@@ -341,6 +343,7 @@ impl GameState {
         // A later effect can read this historical count even when the
         // present battlefield is identical, so it distinguishes situations.
         h.u32(self.per_turn.untapped_lands_at_start);
+        h.u32(self.per_turn.hand_size_at_start);
         self.live_damage_pairs(&position).hash(&mut h);
         let mut damaged_deaths: Vec<_> = self
             .per_turn
@@ -1510,6 +1513,11 @@ fn hash_effect(h: &mut Hasher, fx: &crate::effects::ContinuousEffect) {
             id.hash(h);
             version.hash(h);
         }
+        crate::effects::EffectFilter::DslControlledBy(filter, seats) => {
+            h.u8(3);
+            filter_hash(h, filter);
+            seats.hash(h);
+        }
     }
     hash_modifier(h, modifier);
 }
@@ -2306,6 +2314,7 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
         }
         F::SameNameAsLinkedExile => h.u8(147),
         F::CmcEqualsYourUnspentMana => h.u8(148),
+        F::SharesColorWithExiledWithSource => h.u8(150),
     }
 }
 

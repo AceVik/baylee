@@ -768,8 +768,9 @@ no-engine-change contract:
 - **Onslaught (`ons`)** — completed across 3 batches (full set 319/319 in pool: **129 Implemented, 0 Partial, 190 Unimplemented (held back/stubs)**).
 - **Legions (`lgn`)** — completed across 2 batches (full set 141/141 in pool: **55 Implemented, 0 Partial, 86 Unimplemented (held back/stubs)**).
 - **Scourge (`scg`)** — completed across 2 batches (full set 140/140 in pool: **49 Implemented, 0 Partial, 91 Unimplemented (held back/stubs)**).
-- **Mirrodin (`mrd`)** — in progress (267 first-printing identities in `set_mrd.rs`: **164 Implemented, 0 Partial, 1 Unimplemented, 102 Absent**):
+- **Mirrodin (`mrd`)** — in progress (267 first-printing identities in `set_mrd.rs`: **214 Implemented, 0 Partial, 1 Unimplemented, 52 Absent**):
   - Batch 1 (`Aether Spellbomb` to `Grip of Chaos`, 50 cards): **50 Implemented, 0 Partial, 0 Unimplemented** (`19 Implemented` machine-owned via `scriptgen` and `31 Implemented` hand-owned with full engine support for Entwine, Imprint, Affinity, and Mirrodin Batch 1 mechanics).
+  - Batch 2 (`Granite Shard` to `Platinum Angel`, 50 cards): **50 Implemented, 0 Partial, 0 Unimplemented** (all machine-owned via `scriptgen`, with reusable engine support for turn control, coin-flip replacement, linked-exile copies and protection, dynamic artifact costs, and win/loss restrictions).
 
 ## PR #394 review snapshot (2026-10-23)
 

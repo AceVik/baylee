@@ -1775,6 +1775,12 @@ PriorityCueOn = Priority sound: on
 # …and off
 PriorityCueOff = Priority sound: off
 
+# The game menu's switch for the table following the turn, on
+FollowTurnOn = Table follows the turn: on
+
+# …and off
+FollowTurnOff = Table follows the turn: off
+
 # The priority-sound row (DESIGN-v7 D22)
 RowPriorityCue = Priority sound
 
@@ -6444,7 +6450,7 @@ TourT22Body = Click a chip at the bottom left or press F, and the camera swings 
 TourT23Title = Following the turn
 
 # Tour step T23's words (TOURS.md §2).
-TourT23Body = By itself the camera follows only your turn and your combat questions. If you want it to swing to whoever is on turn, switch on Table follows the turn under Settings › Graphics. It never swings while a question is open for you or your pointer rests on the table.
+TourT23Body = The camera swings to whoever is on turn and comes back to you on your turn and your combat questions, but never while a question is open for you or your pointer rests on the table. Switch the swing off in the menu (Table follows the turn) or under Settings › Graphics.
 
 # Tour step T24's title (TOURS.md §2).
 TourT24Title = On a phone
@@ -6480,7 +6486,7 @@ TourT28Body = ? shows you every key that works at the table right now. F8 report
 TourT29Title = The menu
 
 # Tour step T29's words (TOURS.md §2).
-TourT29Body = The menu at the bottom right holds everything you need during a game: Offer a draw, Concede, Arrangement, Priority sound, Music, Report a problem and Tour. There are no other settings at the table; those wait in the lobby.
+TourT29Body = The menu at the bottom right holds everything you need during a game: Offer a draw, Concede, Arrangement, Report a problem, Tour, Music, Priority sound, Card view and Table follows the turn. The other settings wait in the lobby.
 
 # Tour step T30's title (TOURS.md §2).
 TourT30Title = Conceding and the end

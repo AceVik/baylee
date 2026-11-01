@@ -2,7 +2,7 @@
 
 mod players;
 
-pub use players::{target_player_options, targeted_players};
+pub use players::{first_target_players, target_player_options, targeted_players};
 
 use super::protection::{protected_from_object, untargetable_by_source_object};
 use super::{

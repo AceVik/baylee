@@ -18,6 +18,7 @@ mod iron_man_futurist_paragon;
 mod limestone_golem;
 mod lumengrid_gargoyle;
 mod malachite_golem;
+mod mirror_golem;
 mod pardic_wanderer;
 mod phyrexian_hulk;
 mod prophet_of_the_peak;

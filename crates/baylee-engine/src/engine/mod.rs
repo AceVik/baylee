@@ -68,9 +68,15 @@ enum CombatDeclared {
     Attackers,
     /// A declaration whose mana tax was left unpaid in its payment window
     /// was undone (CR 508.1i, CR 732.1). The step asks again, offering only
-    /// the attacks the pool already pays, so a seat that will not pay is not
-    /// walked round the same window twice.
-    TaxDeclined,
+    /// what the pool already pays, so a seat that will not pay is not walked
+    /// round the same window twice.
+    TaxDeclined {
+        /// For blocks, the last defending player whose blocks stand
+        /// (`BlockersBy`'s seat), so the one asked again is the one who
+        /// declined and not the first defending player (CR 802.4); `None`
+        /// for attacks and for the first defending player.
+        after: Option<PlayerId>,
+    },
     /// The blocks of every defending player up to and including this one,
     /// in APNAP order, are declared, and more defending players are still
     /// to declare (CR 802.4).
@@ -190,6 +196,18 @@ enum PaymentContinuation {
         /// What closing without the declaration gives back (CR 732.1).
         opened: Box<WindowStart>,
     },
+    /// A declaration of blockers whose mana tax the pool did not cover
+    /// (CR 509.1d–f), with the same payment-window reversal semantics.
+    BlockTax {
+        /// The defending player making the declaration.
+        defending: PlayerId,
+        /// The declaration, as the seat made it.
+        blockers: Vec<(ObjectId, ObjectId)>,
+        /// The total tax, which is what the window shows as owed.
+        cost: baylee_core::mana::ManaCost,
+        /// What closing without the declaration gives back (CR 732.1).
+        opened: Box<WindowStart>,
+    },
 }
 
 /// The board a `Miracle` or `Cast` payment window was opened on, as far as
@@ -260,6 +278,16 @@ impl PaymentContinuation {
                 cost,
                 opened,
             } => crate::state::structural_fingerprint(attackers)
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::mana_cost_fingerprint(cost))
+                .wrapping_mul(31)
+                .wrapping_add(opened.fingerprint()),
+            Self::BlockTax {
+                defending,
+                blockers,
+                cost,
+                opened,
+            } => crate::state::structural_fingerprint(&(defending, blockers))
                 .wrapping_mul(31)
                 .wrapping_add(crate::state::mana_cost_fingerprint(cost))
                 .wrapping_mul(31)
@@ -1117,7 +1145,8 @@ impl<L: CardLookup> Engine<L> {
             | PaymentContinuation::GrantedAction { cost, .. }
             | PaymentContinuation::Cast { cost, .. }
             | PaymentContinuation::Miracle { cost, .. }
-            | PaymentContinuation::AttackTax { cost, .. } => {
+            | PaymentContinuation::AttackTax { cost, .. }
+            | PaymentContinuation::BlockTax { cost, .. } => {
                 Some((window.player, ManaPayment::Fixed(*cost)))
             }
             PaymentContinuation::Activation(payment) => {
@@ -1918,6 +1947,8 @@ mod effect_play;
 mod granted;
 mod land_type_choices;
 mod leave;
+#[cfg(test)]
+mod lost_target_tests;
 mod mulligan;
 mod payment_window;
 mod player_control;
@@ -2020,6 +2051,8 @@ mod upkeep_permission_tests;
 
 #[cfg(test)]
 mod cancel_cast_tests;
+#[cfg(test)]
+mod coin_replacement_tests;
 #[cfg(test)]
 mod end_step_tests;
 #[cfg(test)]
@@ -2130,6 +2163,8 @@ mod static_controller_tests;
 pub(crate) mod synthetic;
 #[cfg(test)]
 mod target_tests;
+#[cfg(test)]
+mod tax_window_tests;
 #[cfg(test)]
 mod team_tests;
 #[cfg(test)]

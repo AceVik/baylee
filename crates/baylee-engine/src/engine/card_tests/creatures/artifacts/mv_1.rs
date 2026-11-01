@@ -20,6 +20,7 @@ mod lightning_core_excavator;
 mod locthwain_gargoyle;
 mod metallic_sliver;
 mod monoist_sentry;
+mod myr_mindservant;
 mod myr_moonvessel;
 mod myr_scrapling;
 mod network_disruptor;

@@ -123,6 +123,7 @@ function panelFilters(filter: Filter, view: ViewId | "custom"): number {
       filter.label,
       filter.gateway,
       filter.channel,
+      filter.source,
       filter.reporter,
       filter.from,
       filter.to,
@@ -996,7 +997,24 @@ export function ReportList({ search, lang = "en", me = "" }: { search: string; l
                             </button>
                           )}
                         </td>
-                        <td>{report.channel === "direct" ? "direct" : report.gateway}</td>
+                        <td>
+                          {report.channel === "direct" ? "direct" : report.gateway}
+                          {report.source !== null && (
+                            <>
+                              {" "}
+                              <button
+                                type="button"
+                                className="tag link"
+                                title={t(lang, "rep.sourceTitle")}
+                                onClick={() => {
+                                  set({ source: report.source ?? undefined });
+                                }}
+                              >
+                                {report.source}
+                              </button>
+                            </>
+                          )}
+                        </td>
                         <td>
                           <Reporter
                             lang={lang}

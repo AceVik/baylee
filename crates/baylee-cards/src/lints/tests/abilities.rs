@@ -56,6 +56,7 @@ fn a_continuous_player_relation_is_one_the_state_can_answer() {
                     | PlayerRel::ActivePlayer
                     | PlayerRel::EachOtherPlayer
                     | PlayerRel::MostLifeOrTied
+                    | PlayerRel::LeastLifeOrTied
                     | PlayerRel::MostLife => true,
                     PlayerRel::Chosen
                     | PlayerRel::Recipient

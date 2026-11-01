@@ -336,6 +336,7 @@ impl HeuristicAgent {
         | Filter::NotControlledByReferenceController
         | Filter::LowestManaValueOnBattlefield(_)
         | Filter::SameNameAsLinkedExile
+        | Filter::SharesColorWithExiledWithSource
         | Filter::CmcEqualsYourUnspentMana => None,
         }
     }
@@ -664,6 +665,15 @@ impl HeuristicAgent {
                 alive
                     .iter()
                     .filter(|s| Some(s.life) == best)
+                    .map(|s| s.player)
+                    .collect()
+            }
+            PlayerRel::LeastLifeOrTied => {
+                let alive: Vec<_> = view.seats.iter().filter(|s| !s.has_lost()).collect();
+                let least = alive.iter().map(|s| s.life).min();
+                alive
+                    .iter()
+                    .filter(|s| Some(s.life) == least)
                     .map(|s| s.player)
                     .collect()
             }

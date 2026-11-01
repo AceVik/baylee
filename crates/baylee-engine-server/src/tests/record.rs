@@ -76,6 +76,11 @@ fn the_record_goes_to_the_gateway_before_the_game_ends() {
     let replayed = baylee_gamehost::record::replay(&record).expect("the record replays");
     assert!(replayed.ended);
     assert_eq!(
+        replayed.checked,
+        baylee_gamehost::record::Checked::Exact,
+        "the engine names this build in its record, so every hash held it"
+    );
+    assert_eq!(
         replayed.engine.snapshot_hash(),
         runner.session().unwrap().snapshot_hash()
     );

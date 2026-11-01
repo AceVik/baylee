@@ -93,6 +93,7 @@ impl GameState {
             discard_answers: Vec::new(),
             discards_on_top: Vec::new(),
             extra_turns: std::collections::VecDeque::new(),
+            turn_controls: Vec::new(),
             resume_after: None,
             skip_followups: Vec::new(),
             reanimated_auras: Vec::new(),

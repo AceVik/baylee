@@ -70,9 +70,17 @@ current dependency chain contains 0.5.5 through `elliptic-curve` 0.13.8,
 bigint 0.5, so changing the lockfile to 0.7.6 is not a compatible upgrade.
 
 The specific Central revision
-`94177dd768572536a238a386e3877ade69f4b93b` contains the `central-crypto`
-source tree reviewed independently by two models on 24.10.2026, with one
-addition: the 30.10.2026 pin adds the legacy store's sign-in, whose
+`0a941953f8c0d5573e82e0979e7faf1fb9e40299` contains the `central-crypto`
+source tree reviewed independently by two models on 24.10.2026, with two
+additions. The 31.10.2026 pin (Central #54, and #52's version) adds the
+pairing of the website with this client: `central-crypto::pairing` seals the
+master key with RFC 9180 HPKE (hpke 0.15.1 over x25519-dalek 3.0.0 and
+curve25519-dalek 5.0.0, which Baylee's graph already held; the owner's
+approval of 30.10.2026), and `vault::derived` derives the key check and a
+local vault's key with HKDF-SHA-512. Neither touches the OPAQUE suite, and
+none of those crates depends on `elliptic-curve` or `crypto-bigint`; a second
+model reviewed the pairing, and Central's guard pins the fingerprint again.
+The 30.10.2026 pin added the legacy store's sign-in, whose
 `central-crypto::legacy` (behind `server`, which the client does not enable)
 derives the official gateway's Argon2id with argon2 0.5.3, the version
 opaque-ke already uses, and touches no suite, group, OPRF or key-exchange
@@ -90,7 +98,7 @@ follow-ups (#50) and the official gateway's move to gateway.baylee.app with
 sign-in by token before approval (#51), over password change, roles, reset,
 deletion and export (#42 to #47); `git diff 3ae5035 0f8005d --
 crates/central-crypto` is empty, so the crypto crate changes only by the
-legacy store's addition above. Argon High
+two additions above. Argon High
 reviewed the reached Ristretto/hash-expansion sources again without a
 confirmed finding. Its private, fixed `central-crypto::opaque::Suite`
 selects Ristretto255 for OPRF and Triple-DH, with SHA-512. Both upstream
@@ -180,8 +188,10 @@ gateway; this integration does not relocate replay blobs or uploaded images.
 Native chat keys and complete retained private history are backed up in the
 client-encrypted Central account archive and restored without the source
 device. The sole active account session resumes one logical chat identity per
-gateway. A short-lived, zeroized password handoff imports an existing local
-vault without modifying its source; it is never sent to a gateway.
+gateway. An existing local vault is imported with a key derived from the
+master key, which a password sign-in attached to it without modifying it; the
+password is dropped after that sign-in and never kept for the chat
+(`password-vault.md` §"The account key").
 Synchronization is asynchronous; delivery acknowledgements wait for a
 confirmed backup, so a new installation can replay outstanding messages. See
 [encrypted chat synchronization](central-chat-sync.md) for the manifest

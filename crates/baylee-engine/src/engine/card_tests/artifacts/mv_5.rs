@@ -21,6 +21,7 @@ mod gauntlets_of_chaos;
 mod gilded_lotus;
 mod mercadian_atlas;
 mod meteorite;
+mod mind_s_eye;
 mod mishra_s_helix;
 mod myr_matrix;
 mod predator_flagship;

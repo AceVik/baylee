@@ -2853,6 +2853,12 @@ paths:
           enum:
           - gateway
           - direct
+      - name: source
+        in: query
+        required: false
+        description: "What sent the reports, as the client's `source` says (`llm-seat` for a language-model seat): a source, `none` for reports without one, or either after `!` for all the others. 1–64 characters, no control character."
+        schema:
+          type: string
       - name: assignee
         in: query
         required: false
@@ -3598,6 +3604,12 @@ paths:
           enum:
           - gateway
           - direct
+      - name: source
+        in: query
+        required: false
+        description: "What sent the reports, as the client's `source` says (`llm-seat` for a language-model seat): a source, `none` for reports without one, or either after `!` for all the others. 1–64 characters, no control character."
+        schema:
+          type: string
       - name: assignee
         in: query
         required: false
@@ -3790,6 +3802,12 @@ paths:
           enum:
           - gateway
           - direct
+      - name: source
+        in: query
+        required: false
+        description: "What sent the reports, as the client's `source` says (`llm-seat` for a language-model seat): a source, `none` for reports without one, or either after `!` for all the others. 1–64 characters, no control character."
+        schema:
+          type: string
       - name: assignee
         in: query
         required: false
@@ -4356,6 +4374,12 @@ paths:
           enum:
           - gateway
           - direct
+      - name: source
+        in: query
+        required: false
+        description: "What sent the reports, as the client's `source` says (`llm-seat` for a language-model seat): a source, `none` for reports without one, or either after `!` for all the others. 1–64 characters, no control character."
+        schema:
+          type: string
       - name: assignee
         in: query
         required: false
@@ -4722,6 +4746,12 @@ paths:
           enum:
           - gateway
           - direct
+      - name: source
+        in: query
+        required: false
+        description: "What sent the reports, as the client's `source` says (`llm-seat` for a language-model seat): a source, `none` for reports without one, or either after `!` for all the others. 1–64 characters, no control character."
+        schema:
+          type: string
       - name: assignee
         in: query
         required: false
@@ -5124,6 +5154,12 @@ paths:
           enum:
           - gateway
           - direct
+      - name: source
+        in: query
+        required: false
+        description: "What sent the reports, as the client's `source` says (`llm-seat` for a language-model seat): a source, `none` for reports without one, or either after `!` for all the others. 1–64 characters, no control character."
+        schema:
+          type: string
       - name: assignee
         in: query
         required: false
@@ -6055,6 +6091,11 @@ components:
           items:
             $ref: "#/components/schemas/Count"
           description: Per channel.
+        sources:
+          type: array
+          items:
+            $ref: "#/components/schemas/Count"
+          description: Per source; `null` for reports without one.
         total:
           type: integer
           format: int64
@@ -6068,6 +6109,7 @@ components:
       - priorities
       - labels
       - channels
+      - sources
       - total
       description: >-
         The counts beside the list, most first, each over the filter without its own
@@ -6579,6 +6621,13 @@ components:
           - gateway
           - client
           - null
+        source:
+          type:
+          - string
+          - "null"
+          description: >-
+            What sent it, as the client's `source` says, at most 64 characters (`llm-seat`
+            for a language-model seat); `null` without one. The client's word, unchecked.
         issue_number:
           type:
           - integer
@@ -6667,6 +6716,7 @@ components:
       - record_bytes
       - channel
       - record_origin
+      - source
       - issue_number
       - issue_url
       - assignee
