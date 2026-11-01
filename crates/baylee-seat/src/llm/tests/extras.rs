@@ -282,6 +282,18 @@ async fn an_answer_beside_a_lookup_is_taken_and_the_lookup_passed_over() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// A lookup's name is read to its first [`crate::lookup::NAME_CHARS`]
+/// characters: no more of a model's words go to a source or back to it.
+#[test]
+fn a_lookup_s_name_is_held_to_its_length() {
+    let long = "Ö".repeat(crate::lookup::NAME_CHARS + 50);
+    let decision =
+        crate::narrator::Decision::from_decide(&json!({"ask": "q1", "lookup": long})).unwrap();
+    let name = decision.lookup.unwrap();
+    assert_eq!(name.chars().count(), crate::lookup::NAME_CHARS);
+    assert!(long.starts_with(&name));
+}
+
 /// The same in a JSON answer: `{ask, pick, lookup}` is one answer, taken.
 #[tokio::test]
 async fn a_json_answer_beside_a_lookup_is_taken() {

@@ -285,7 +285,9 @@ impl Decision {
             board: text("board"),
             concede: None,
             report: map.get("report").and_then(Report::read),
-            lookup: text("lookup").filter(|name| !name.is_empty()),
+            lookup: text("lookup")
+                .filter(|name| !name.is_empty())
+                .map(|name| name.chars().take(crate::lookup::NAME_CHARS).collect()),
         })
     }
 

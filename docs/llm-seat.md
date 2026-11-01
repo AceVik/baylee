@@ -849,7 +849,8 @@ and its lookup is passed over: not made, not counted, and a
 `lookup_passed_over` line of the mind's transcript. At most 3
 lookups a question and 30 a game a seat, and none with less than 13 s of
 the question left; past them the field is passed over (an answer that also
-answers is taken, else it is asked again, "no lookups left …"). The text
+answers is taken, else it is asked again, "no lookups left …"). A name is
+read to its first 200 characters (`lookup::NAME_CHARS`). The text
 comes from the nearest source that has it, under its name:
 
 1. **Baylee card text**: the English Oracle compiled into this build, every
