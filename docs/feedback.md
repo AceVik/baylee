@@ -315,15 +315,18 @@ but a gateway's token, `413` past the gateway's limits or a record over
 whatever the gateway calls itself.
 
 **Public for now (31.10.2026).** The official gateway reaches the intake over
-loopback, under the token name `sanctuary`. Since 31.10.2026 the route is
-also public at `https://feedback.baylee.app/intake/reports`
-(`scripts/server/feedback-direct.caddy`), so a gateway on another machine
+loopback, under the token name `sanctuary`. The route is also public at
+`https://feedback.baylee.app/intake/reports`, so a gateway on another machine
 can file reports too: the trainer's private collector gateway, under the
 token name `collector`, sends the reports of its language-model seats
-(`docs/llm-seat.md`). Every request still needs a gateway's token. The proxy
-bounds a body at 512 MiB, and the service's own bound (`MAX_INTAKE_BYTES`,
-about 88 MiB) stops it before that. The owner accepts this as a temporary
-gap and wants it closed again later (#408).
+(`docs/llm-seat.md`). It was reachable before 31.10.2026 already, through the
+site's catch-all (`scripts/server/feedback.caddy`); since then it has a route
+of its own in `scripts/server/feedback-direct.caddy`. The service checks a
+gateway's token before it reads the body, so a request without one costs
+only its headers (`401`). With a token, the service's own bound
+(`MAX_INTAKE_BYTES`, about 88 MiB) is the one that acts; the proxy's
+512 MiB (the owner's figure) is a ceiling above it. The owner accepts this as
+a temporary gap and wants it closed again later (#408).
 
 `record_origin` (`"gateway"` when absent) says who wrote the record. A
 client's (`"client"`) is held to a client's bounds and checked for the
@@ -572,9 +575,11 @@ say what the text says there, as the text the player wrote. A card's
 picture is loaded by the admin's browser straight from Scryfall's image
 host, never through this service (`docs/legal.md` §3; §"Headers" below).
 
-`scripts/server/feedback-direct.caddy` is the proxy's part: the route
-alone on the public site, its body bounded before the service reads it, no
-access log.
+`scripts/server/feedback-direct.caddy` is the proxy's part: the service's
+public routes (this one, the contact form and for now the intake), each body
+bounded before the service reads it, no access log. The official site
+(`scripts/server/feedback.caddy`) imports it and passes everything else to
+the service, whose other routes each need a token.
 
 ### Reading: `GET /reports`, `GET /reports/{id}`, `GET /reports/{id}/record`
 

@@ -2757,16 +2757,13 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "413":
-          description: |-
-            - The text is over 20000 characters, `client` over 2 MiB, or the record over its bound
-            - The text, `client` or the record is over its bound (an `ErrorBody`), or the whole body is over the route's limit, which is refused in plain text before it is read
+          description: >-
+            The text is over 20000 characters, `client` over 2 MiB, the record over its
+            bound, or the whole body over the route's limit
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
-            text/plain:
-              schema:
-                type: string
         "503":
           description: The database is unavailable
           content:
