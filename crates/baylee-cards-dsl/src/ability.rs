@@ -201,6 +201,10 @@ pub enum Condition {
     YourTurn,
     /// The controller has at most this many life.
     LifeAtMost(i32),
+    /// "If your life total is less than your starting life total" (Resolute
+    /// Archangel): the controller's life is below the starting life total of
+    /// this game (CR 103.4), whatever the format made it.
+    LifeBelowStarting,
     /// "If no spells were cast last turn" — by any player (the Innistrad
     /// werewolves). There was no last turn at the first upkeep of the game,
     /// so the sentence is false there, as daybound's own check is skipped.

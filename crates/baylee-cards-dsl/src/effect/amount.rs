@@ -165,7 +165,7 @@ pub enum Amount {
     HandSize(super::PlayerRel),
     /// The named player's current life total, floored at zero for a magnitude.
     LifeTotal(super::PlayerRel),
-    /// The named player's starting life total (CR 103.3).
+    /// The named player's starting life total (CR 103.4).
     StartingLifeTotal(super::PlayerRel),
     /// Total life the named player gained this turn; later losses do not subtract.
     LifeGainedThisTurn(super::PlayerRel),
