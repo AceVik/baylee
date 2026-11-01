@@ -27,8 +27,11 @@ mod frames;
 pub mod project;
 mod pump;
 mod resume;
+mod simulation;
 mod spectators;
 mod table;
+
+pub use simulation::SimulationSession;
 
 /// How many of its policies' answers a seat's view carries (#234): the
 /// latest, so a seat yielding to a long loop is not sent the loop. Their

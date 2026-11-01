@@ -2051,6 +2051,19 @@ playing over the gateway has no engine to fork, and
 `docs/proposals/lookahead-design.md` remains the design for that one. It
 needs `L: CardLookup + Clone`; the registry lookups are unit structs.
 
+A harness that plays through a session forks the session instead:
+`Session::fork_for(seat, decks, policy_seed)` (`baylee-gamehost`,
+`session/simulation.rs`) wraps the engine's fork in a `SimulationSession`.
+Every chair keeps its kind — a driven chair stays driven, and `release`
+hands it to the agent it kept — and every house agent is the chair's own,
+reseeded from the policy seed (never from the table's game id or deal).
+Agent views and house answers are built by the same code as the table's
+(`session/table.rs`), so the searching seat is shown what the table would
+show it and the house plays as it plays there; there is no record, log,
+envelope, clock or spectator, and `act_slice`/`pump_at_most` return counts.
+It takes `&self`; `session/tests/simulation.rs` pins that a table forked and
+played on records, byte for byte, what its twin records.
+
 A fork is the whole engine copied field by field, so it carries the complete
 driver continuation — priority holder, passes, a regrant owed, combat
 declaration progress, the cleanup stage, loyalty used, the loop watch's step
