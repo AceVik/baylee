@@ -24,6 +24,7 @@ fn choose_name(engine: &mut Engine<RegistryLookup>, player: PlayerId, card: Card
 /// whole hand, and discards every copy of the name without asking which ones.
 /// Its flashback then sacrifices a creature while being cast and exiles itself.
 #[test]
+#[allow(clippy::too_many_lines)] // one game: the cast, then its flashback
 fn cabal_therapy_discards_all_named_cards_and_flashes_back_for_a_creature() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, forest())
