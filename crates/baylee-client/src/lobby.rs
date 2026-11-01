@@ -276,13 +276,22 @@ impl Plugin for LobbyPlugin {
             .add_systems(
                 Update,
                 (
+                    // After `Esc` put the settings over a table away, so the
+                    // search lets the caret go the same frame.
                     crate::settingsui::keys::settings_over
+                        .after(table_settings::close_on_escape)
                         .run_if(table_settings::lobby_or_over_table),
+                    // Enter on a settings control, and the kit's focus and
+                    // the lobby's caret as one (the search): over a table too.
                     (
                         front::keys::activate_by_key,
                         front::keys::kit_to_lobby,
                         front::keys::unpark_on_placement,
                         front::keys::lobby_to_kit,
+                    )
+                        .chain()
+                        .run_if(table_settings::lobby_or_over_table),
+                    (
                         front::terms::follow_the_session,
                         front::terms::follow_the_language,
                         front::terms::terms_keys,

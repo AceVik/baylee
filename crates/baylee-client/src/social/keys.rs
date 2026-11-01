@@ -61,6 +61,7 @@ fn doors_by_key(
     duel: Option<ResMut<Duel>>,
     phase: Option<Res<State<DuelPhase>>>,
     desk: Option<Res<crate::report::ReportDesk>>,
+    lobby: Option<Res<crate::LobbyState>>,
 ) {
     if ui.typing || !host.active() {
         return;
@@ -69,7 +70,10 @@ fn doors_by_key(
     let Some(mut duel) = duel.filter(|_| at_table) else {
         return;
     };
+    // The settings over the table (`lobby::table_settings`) have every key:
+    // an `R` typed into their search is a letter, not a reply.
     if desk.is_some_and(|d| d.holds_keyboard())
+        || lobby.is_some_and(|l| l.settings_over_table())
         || duel.browser.is_typing()
         || duel.arrangement_menu.is_some()
         || duel.ending().is_some()

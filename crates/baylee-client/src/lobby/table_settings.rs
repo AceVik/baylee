@@ -6,10 +6,15 @@
 //! its own over the table, as the report form is (`report::form`): the game
 //! menu's row asks for it (`Duel::settings_asked`, [`open_asked`]), and its
 //! Back control or `Esc` ([`close_on_escape`]) puts it away. While it stands
-//! it has the pointer (the root blocks what is under it) and the keys (the
-//! table's `KeyClaims` asks [`LobbyState::settings_over_table`]), and the
-//! lobby's clicks, typing, wheel and the screen's own key systems run for it
-//! ([`lobby_or_over_table`]). The lobby's own screens stay undrawn.
+//! it has the pointer (the root blocks what is under it, and the table's own
+//! raised controls — the arrangement pill and menu, the peeks, a phone's
+//! hand tab — stand down: [`covers_the_table`]) and the keys (the table's
+//! `KeyClaims`, the chat's key doors and the replay bar's keys all ask
+//! [`LobbyState::settings_over_table`]), and the lobby's clicks, typing,
+//! wheel, focus and the screen's own key systems run for it
+//! ([`lobby_or_over_table`]; the kit's walker and activation count it as a
+//! screen of the shell's, not the table's). The lobby's own screens stay
+//! undrawn.
 //!
 //! Only the sections that leave the table where it is are offered
 //! (`Section::at_table`); the screen is put down with the table
@@ -34,7 +39,15 @@ const ROOT_Z: i32 = crate::shellkit::tokens::z::POPOVER - 2;
 
 /// Whether the settings stand over a table now.
 pub(crate) fn over_table(state: Option<Res<LobbyState>>) -> bool {
-    state.is_some_and(|s| s.settings_over_table())
+    covers_the_table(state.as_deref())
+}
+
+/// Whether the settings cover the table now: the table's controls that
+/// stand above their root (the arrangement pill at `G_SWITCHER`, the peeks,
+/// a phone's hand tab) stand down while they do, or a press through them
+/// would answer the question standing under the screen.
+pub(crate) fn covers_the_table(state: Option<&LobbyState>) -> bool {
+    state.is_some_and(LobbyState::settings_over_table)
 }
 
 /// The run condition of the lobby systems the settings screen needs: the
@@ -82,12 +95,25 @@ pub(crate) fn stand_over_table(state: &mut LobbyState) {
 /// The key is taken off both of its inputs, so whichever side of this the
 /// table's keyboard runs on, it never hears it: before, the settings still
 /// held the keys; after, there is no `Esc` left to hear.
+///
+/// A holder standing over the settings has its `Esc` first: the report form
+/// (its corner button stands over them), a narrated tour bubble, the chat's
+/// composer.
 pub(crate) fn close_on_escape(
     mut codes: ResMut<ButtonInput<KeyCode>>,
     logical: Option<ResMut<ButtonInput<Key>>>,
     mut state: ResMut<LobbyState>,
+    desk: Option<Res<crate::report::ReportDesk>>,
+    tour: Option<Res<crate::tour::TourDesk>>,
+    chat: Option<Res<crate::social::ChatUi>>,
 ) {
     if !codes.just_pressed(KeyCode::Escape) || !state.settings_over_table() {
+        return;
+    }
+    if desk.is_some_and(|d| d.holds_keyboard())
+        || tour.is_some_and(|t| t.holds_keyboard())
+        || chat.is_some_and(|c| c.holds_keyboard())
+    {
         return;
     }
     let inner = state.settings.capturing().is_some()

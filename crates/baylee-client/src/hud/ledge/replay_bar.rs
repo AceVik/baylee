@@ -1342,12 +1342,17 @@ pub fn replay_keys(
     desk: Option<Res<crate::report::ReportDesk>>,
     ui: Res<BarUi>,
     mut asks: ResMut<ReplayAsks>,
+    lobby: Option<Res<crate::LobbyState>>,
 ) {
     use baylee_client_core::prefs::Action;
     let Some(status) = duel.replay.as_ref() else {
         return;
     };
-    if desk.is_some_and(|desk| desk.holds_keyboard()) || duel.browser.is_typing() {
+    // The settings over the replay have every key (`lobby::table_settings`).
+    if desk.is_some_and(|desk| desk.holds_keyboard())
+        || duel.browser.is_typing()
+        || lobby.is_some_and(|l| l.settings_over_table())
+    {
         return;
     }
     let fired = crate::keys::Fired::of(&keys, prefs.keymap());

@@ -1534,13 +1534,18 @@ pub(super) fn install(app: &mut App) {
         .add_systems(
             Update,
             (
-                follow_the_account,
-                ring_the_bell,
-                toast_lane,
-                carry_out,
-                super::feed::follow_the_feed.after(super::feed::feed),
-            )
-                .run_if(in_state(DuelPhase::Closed)),
+                (
+                    follow_the_account,
+                    ring_the_bell,
+                    toast_lane,
+                    super::feed::follow_the_feed.after(super::feed::feed),
+                )
+                    .run_if(in_state(DuelPhase::Closed)),
+                // Over a table too: the settings' Report a problem and Chat
+                // privacy rows ask through it (`table_settings`); the header's
+                // other asks have no control drawn there.
+                carry_out.run_if(super::table_settings::lobby_or_over_table),
+            ),
         )
         .add_systems(OnExit(DuelPhase::Closed), put_the_toasts_away)
         .add_systems(

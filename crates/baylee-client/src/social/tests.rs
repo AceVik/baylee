@@ -2782,3 +2782,47 @@ mod lane {
         assert_eq!(where_is(&rig, hanging), (Val::Px(8.0), Val::Auto));
     }
 }
+
+/// The settings standing over the table have every key
+/// (`lobby::table_settings`): a `/` typed into their search opens no
+/// composer. Put away, the same `/` opens it.
+#[test]
+fn the_settings_over_the_table_keep_the_chat_s_doors_shut() {
+    use bevy::ecs::message::Messages;
+    use bevy::input::ButtonState;
+    use bevy::input::keyboard::{Key, KeyboardInput};
+
+    for over in [false, true] {
+        let mut lobby = crate::LobbyState::new();
+        crate::lobby::table_settings::stand_over_table(&mut lobby);
+        if !over {
+            crate::lobby::table_settings::close(&mut lobby);
+        }
+        let mut app = App::new();
+        app.add_plugins(bevy::state::app::StatesPlugin)
+            .insert_state(crate::DuelPhase::Playing)
+            .init_resource::<ButtonInput<KeyCode>>()
+            .init_resource::<Time>()
+            .insert_resource(host_with_machine())
+            .insert_resource(ChatUi::default())
+            .insert_resource(crate::Duel::default())
+            .insert_resource(lobby);
+        crate::social::keys::install(&mut app);
+        app.world_mut()
+            .resource_mut::<Messages<KeyboardInput>>()
+            .write(KeyboardInput {
+                key_code: KeyCode::Slash,
+                logical_key: Key::Character("/".into()),
+                state: ButtonState::Pressed,
+                text: Some("/".into()),
+                repeat: false,
+                window: Entity::PLACEHOLDER,
+            });
+        app.world_mut().run_schedule(Update);
+        assert_eq!(
+            app.world().resource::<ChatUi>().typing,
+            !over,
+            "settings over the table: {over}"
+        );
+    }
+}

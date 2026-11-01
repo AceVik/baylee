@@ -591,8 +591,12 @@ pub fn sync_switcher(
     settings: Option<Res<crate::settings::ClientSettings>>,
     mut revision: ResMut<SwitcherRevision>,
     standing: Query<Entity, SwitcherParts>,
+    lobby: Option<Res<crate::LobbyState>>,
 ) {
-    let up = phase.is_some_and(|p| matches!(p.get(), DuelPhase::Playing | DuelPhase::Finished));
+    // Down while the settings cover the table (`lobby::table_settings`):
+    // the pill stands over their root, where their nav's Back is.
+    let up = phase.is_some_and(|p| matches!(p.get(), DuelPhase::Playing | DuelPhase::Finished))
+        && !crate::lobby::table_settings::covers_the_table(lobby.as_deref());
     let Some(fonts) = fonts.filter(|_| up) else {
         for e in &standing {
             commands.entity(e).despawn();

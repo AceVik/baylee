@@ -170,3 +170,123 @@ fn the_settings_go_with_the_table() {
         "the lobby's settings lost a section"
     );
 }
+
+/// The keyboard works the screen over a table as it does in the lobby: Tab
+/// walks its stops to the nav, an arrow there shows the next section, and
+/// Enter presses the focused control (Back, here).
+#[test]
+fn tab_arrows_and_enter_work_the_settings_over_a_table() {
+    use super::front_keys::{focused_id, press_key, tab};
+    let mut app = asked_at_a_table();
+    let mut walked = Vec::new();
+    for _ in 0..4 {
+        tab(&mut app, false);
+        walked.push(focused_id(&app));
+        if focused_id(&app) == Some("nav") {
+            break;
+        }
+    }
+    assert_eq!(focused_id(&app), Some("nav"), "Tab walked {walked:?}");
+    let before = app.world().resource::<LobbyState>().settings_section();
+    press_key(&mut app, KeyCode::ArrowDown, Key::ArrowDown, &[]);
+    assert_ne!(
+        app.world().resource::<LobbyState>().settings_section(),
+        before,
+        "the arrow on the nav showed no other section"
+    );
+    let mut back = Vec::new();
+    for _ in 0..4 {
+        if focused_id(&app) == Some("back") {
+            break;
+        }
+        tab(&mut app, true);
+        back.push(focused_id(&app));
+    }
+    assert_eq!(focused_id(&app), Some("back"), "Shift+Tab walked {back:?}");
+    press_key(&mut app, KeyCode::Enter, Key::Enter, &[]);
+    assert!(
+        !app.world().resource::<LobbyState>().settings_open(),
+        "Enter on Back left the settings up"
+    );
+}
+
+/// `Esc` over a table steps out from the inside first: a search with words
+/// in it is emptied and the screen stays; the next `Esc` puts it away.
+#[test]
+fn esc_empties_the_search_before_it_puts_the_settings_away() {
+    use super::front_keys::press_key;
+    let mut app = asked_at_a_table();
+    press(
+        &mut app,
+        Press::Shared(SharedPress::Focus(Field::SettingsSearch)),
+    );
+    for ch in ["a", "u"] {
+        press_key(&mut app, KeyCode::KeyA, Key::Character(ch.into()), &[]);
+    }
+    assert_eq!(
+        app.world().resource::<LobbyState>().settings_query(),
+        "au",
+        "typed into the search over the table"
+    );
+    press_key(&mut app, KeyCode::Escape, Key::Escape, &[]);
+    let state = app.world().resource::<LobbyState>();
+    assert!(
+        state.settings_query().is_empty(),
+        "the search kept its words"
+    );
+    assert!(
+        state.settings_over_table(),
+        "the first Esc put the screen away"
+    );
+    press_key(&mut app, KeyCode::Escape, Key::Escape, &[]);
+    assert!(!app.world().resource::<LobbyState>().settings_open());
+}
+
+/// Standing over a table at rest, the screen is drawn once, not every frame.
+#[test]
+fn the_settings_over_a_table_are_not_redrawn_at_rest() {
+    let mut app = asked_at_a_table();
+    let root = |app: &mut App| {
+        let mut query = app.world_mut().query_filtered::<Entity, With<OverTable>>();
+        query.single(app.world()).expect("one root")
+    };
+    let first = root(&mut app);
+    for _ in 0..3 {
+        app.update();
+    }
+    assert_eq!(root(&mut app), first, "the screen was rebuilt at rest");
+}
+
+/// The Privacy section's Report a problem is answered over the table: the
+/// report form is asked for there, not later in the lobby.
+#[test]
+fn report_a_problem_is_answered_over_the_table() {
+    let mut app = asked_at_a_table();
+    press(
+        &mut app,
+        Press::Settings(SettingsPress::Section(Section::Privacy)),
+    );
+    press(&mut app, Press::Header(crate::lobby::HeaderPress::Report));
+    app.update();
+    let desk = app.world().resource::<crate::report::ReportDesk>();
+    assert!(
+        desk.asked || desk.open,
+        "the report form was not asked for over the table"
+    );
+}
+
+/// A report form standing over the settings has its `Esc` first: the key
+/// is the form's, and the settings stay up under it.
+#[test]
+fn esc_under_the_report_form_is_the_form_s() {
+    use super::front_keys::press_key;
+    let mut app = asked_at_a_table();
+    app.world_mut()
+        .resource_mut::<crate::report::ReportDesk>()
+        .open = true;
+    press_key(&mut app, KeyCode::Escape, Key::Escape, &[]);
+    assert!(
+        app.world().resource::<LobbyState>().settings_over_table(),
+        "the Esc meant for the report form closed the settings under it"
+    );
+}
