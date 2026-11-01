@@ -204,3 +204,68 @@ fn the_settings_over_the_table_set_the_tour_aside_and_give_it_back() {
     assert!(!desk(&app).parked, "the tour did not come back");
     assert_eq!(desk(&app).shown().map(|r| r.current().id), Some("T1"));
 }
+
+/// A tour that starts while the settings already cover the table (a
+/// practice game's tour turned on by Restart tours in Display) is parked
+/// on the very frame it starts: its bubble is never drawn over them and
+/// never holds their keys, not even for one frame.
+#[test]
+fn a_tour_started_under_the_settings_is_parked_from_its_first_frame() {
+    let mut app = table();
+    app.world_mut().resource_mut::<super::TourDesk>().practice = true;
+    let mut lobby = crate::LobbyState::new();
+    crate::lobby::table_settings::stand_over_table(&mut lobby);
+    app.insert_resource(lobby);
+    app.world_mut()
+        .resource_mut::<Duel>()
+        .submit(PlayerAction::MulliganKeep);
+    let mut started = false;
+    for _ in 0..40 {
+        app.update();
+        if desk(&app).run.is_some() {
+            started = true;
+            assert!(
+                desk(&app).parked,
+                "the tour's first frame stood over the settings"
+            );
+            assert!(desk(&app).shown().is_none());
+            assert!(!desk(&app).holds_keyboard());
+            break;
+        }
+    }
+    assert!(started, "the control: the practice tour started");
+}
+
+/// A tip whose anchor stands under the settings waits: it steps in front of
+/// nothing while they cover the table, and fires once they are put away.
+#[test]
+fn a_tip_waits_until_the_settings_are_put_away() {
+    use baylee_client_core::tour::Anchor;
+    let mut app = table();
+    keep(&mut app);
+    app.world_mut().spawn((
+        super::TourAnchor(Anchor::StackPanel),
+        InheritedVisibility::VISIBLE,
+        ComputedNode {
+            size: Vec2::new(200.0, 120.0),
+            ..default()
+        },
+    ));
+    let mut lobby = crate::LobbyState::new();
+    crate::lobby::table_settings::stand_over_table(&mut lobby);
+    app.insert_resource(lobby);
+    for _ in 0..3 {
+        app.update();
+    }
+    assert!(
+        desk(&app).run.is_none(),
+        "a tip stepped in under the settings"
+    );
+    crate::lobby::table_settings::close(&mut app.world_mut().resource_mut::<crate::LobbyState>());
+    app.update();
+    assert_eq!(
+        desk(&app).run.as_ref().map(|r| r.tour),
+        Some(Tour::Table),
+        "the control: the tip fires once the table shows"
+    );
+}
