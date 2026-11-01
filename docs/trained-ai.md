@@ -550,6 +550,133 @@ pure net games, FP16 throughput grows with workers until about 64
 (`--threads 64 --inference-batch 64`: 3.7 games per second, about 18 rows
 per call, 1.3 GB).
 
+### Lookahead search (`eval4 --search K,P,H`)
+
+The first thinking BayleeAI does beyond one forward pass, for **training and
+evaluation only**: it needs the real engine, so it runs where the evaluator
+hosts its games in-process and never for a seat over the gateway
+(`docs/proposals/lookahead-design.md` stays the design for that one).
+`netplay4::search` holds the algorithm; `Session::fork_for` (gamehost) and
+`Engine::fork_for` (`docs/engine-internals.md` §"Forking a simulation")
+make the worlds.
+
+**Roots.** Only the net's `Pending::Priority` in a main phase or combat whose
+answer is the policy's own (not forced, unsupported, guarded against a
+repeated view or a fallback) is searched. Everything else is answered as
+without a search and counted by reason (`not_priority`, `phase`,
+`not_policy`); a position the engine cannot fork faithfully (a suspended
+operation, face-down objects, a loop signature, …) is answered by the policy
+and counted under the engine's `ForkRefusal`.
+
+**Candidates.** K answers: the policy's own answer first, then the other
+legal answers of the same decision by the raw candidate logit of the same
+inference, ties in menu order (`rank_single_choice`; a candidate decoding to
+an illegal or already ranked action is dropped). In tactical mode the
+policy's own answer is the tactical choice; the others are still ranked by
+raw logits.
+
+**Worlds.** For each world p of P, the table is forked for the deciding seat
+with the policy seed `derive(search_seed, "world", decision_seq, p)`, where
+`search_seed = derive(deal policy seed, "search")` (SplitMix64, each purpose
+its own tag; never the deal's shuffle seed). The fork deals every hidden card
+again from that seed (`DeckKnowledge::Known`: the evaluator chose every
+deck at the table, so it asserts the lists known), rolls its own dice, and
+reseeds every house agent from it. Every candidate meets the same P worlds.
+In a world every other chair, a teammate the net controls included, is
+handed to the house it kept; the net plays the deciding seat from its own
+memory at the root (`NetPlayer4::snapshot`/`restore`), its sampling stream
+reseeded per world.
+
+**Rollouts.** Apply the candidate, then repeat as the evaluator does: the net
+observes the seat's view, then one action is taken (the house's, or the net's
+for the seat; a refused net answer falls back to the house's). A rollout ends
+at the game's end, when the seat is asked in its own next turn, or after H
+actions past the candidate; H = 0 scores the candidate's own position.
+
+**Scores and choice.** A finished game scores the side utility of the
+deciding seat as the evaluator scores it (`terminal_utility`: 1 win, 0 loss,
+a draw shared among the sides); any other leaf scores the value head's
+output of the seat's latest K = 0 observation (`NetPlayer4::observed_value`,
+the observation the rollout just ran, so no extra inference), which under
+`mtg_side_outcome_utility_v1` is the probability that the seat's side wins.
+Only complete rounds (every candidate in world p) count; a candidate refused
+in its world before one round completed answers with the policy
+(`candidate_refused`). The best mean wins, ties to the policy's answer, then
+candidate order. Research-utility critics are refused at start-up.
+
+**Provenance.** A searched answer is recorded with `SourceKind4::Search`, the
+net's temperature and depth, and no behavior probability; the player ends
+exactly as if it had answered the chosen action itself (only its coverage
+counts the decision as searched), and the table is never touched by a world
+(`session/tests/simulation.rs`, `netplay4/search/tests.rs`). `run.json`
+names the search (`"search"`: K, P, H, the per-game cap, the critic and the
+contract `belief_lookahead_v1`); unsearched runs do not name it. The summary
+adds `search.counts` (decisions offered, searched, changed, skipped and
+refused by reason, rounds, rollouts, rollout steps, terminal and value
+leaves, and the wall time of searched decisions; `latency_ms` leaves them
+out). Each game's line in `games.jsonl` adds `search_events`: per searched
+decision its candidates in order (the policy's first), their means, the
+choice and rounds, bound to the recorded input like a fallback event
+(`record_input_n`). `convert4` replays searched records: a `Search` step's target is
+encoded as a teacher action, it is written with `src_kind = 3` and no
+log-probability, so PPO actor masks (`source_kind == 0`) never take it; and
+`certified_run` refuses any run that names a search, so a searched run never
+certifies a policy-gradient dataset.
+
+**Options.** `--search K,P,H` (off by default; K 1..=32, P 1..=256,
+H 0..=10000) and `--search-max-decisions-per-game N` (0 = no cap; later
+decisions answer without searching, counted as `budget`). Refused with
+`--legacy-v3`, a frozen or self-play opponent or any collection purpose but
+`evaluation`, and `--shadow-teacher`.
+
+**Determinism.** A search is a function of the table, the player's state at
+the root, K, P, H and the deal's policy seed: budgets are counts, worlds and
+house seeds are derived from the policy seed, the engine and the house are
+deterministic, and the net is on the owned CPU path; time is measured only
+for the report. `--inference-batch` is not bitwise reproducible, as without
+search.
+
+**Limits of v1.** The worlds are dealt from the real remaining decks of the
+evaluator's known lists — an upper bound on what a seat without deck
+knowledge could do. What the seat knew about a hidden card (a revealed card,
+a seen library top) is lost in the fork. Only priority roots; attack and
+block declarations, targets and other questions are the policy's. The rest
+of the net's side plays as the house in a world. Every leaf costs a model
+call per observation, one call at a time; nothing is batched.
+
+**Measured (1 November 2026, CPU, a loaded 24-core workstation).** The
+machinery alone (`lookahead::tests::measure_the_search_machinery_without_a_model`,
+`--profile ci-release`, stand-in net, one Victory mirror, 464 decisions,
+128 searched): K,P,H = 1,1,0 0.32 ms per searched decision; 4,2,0 1.6 ms;
+4,2,8 9.4 ms (7.8 actions per rollout); 4,2,32 29 ms; 8,4,32 82 ms. With
+`v6s-selfimit/s1` (d_model 640, encoder 7, `--raw-policy`, greedy, K = 2,
+`BAYLEE_EP=cpu`, 4 deals against steady on 4 threads, train-split
+manifest decks): without search a decision takes 57 ms (p50) and the 4
+games 78 s. `--search 4,2,0`: 14 % of 1451 offered decisions searched (refused:
+316 mid-activation, 8 trigger scans; skipped: 440 not the policy's, 338
+phase, 139 not priority), 7.5 worlds and 511 ms (p50 518, p95 673) per
+searched decision, 129 s in all. `--search 4,2,8`: 189 searched, 7.6 worlds
+of 8.0 actions each, 6.5 s (p50 7.0, p95 10.0) per searched decision, 897 s;
+every leaf was a value leaf. One game in four was won in each arm; nothing
+about strength can be read from that. That model's card structure predates
+this branch's catalog, so the runs used a local build with the catalog
+check removed (never committed); indices are unchanged between the two
+revisions and no answer fell back.
+
+What the search changes is a warning. H = 0 changed 81 % of searched
+answers (H = 8: 61 %), and a recorded 2-deal run (`search_events`) shows
+what: a pass swapped for tapping a land for mana and back, and of 140
+searched decisions 27 land drops and 6 casts replaced by a pass or a mana
+ability, on value differences of a few hundredths (median 0.037). H = 8
+does not cure it: in a capped 2-deal run (51 searched) 30 answers changed,
+7 of 14 land drops and 1 of 2 casts among them, median difference 0.015.
+The value head's opinion of a transient state (mana floating, priority
+passed) is not a judgement of the move. v1 is plumbing to measure with, not
+a player: a leaf should be a settled position (the seat's next own priority
+with an empty stack, or its next turn), and a change should need a margin
+over the noise, before any strength is claimed. The search is converted by `convert4` end to end (4
+games, 189 `Search` frames, no policy-gradient certification).
+
 ### BayleeAI v5 relational pilot
 
 `model5.Config5` / `PlayerNet5` identify the new major family with
