@@ -7,8 +7,9 @@ fn coalition_relic() -> CardIndex {
     card_index("008cb342-79f5-4df6-a6b7-0e9e22ed693f")
 }
 
-/// Resolves every Relic trigger already waiting at first main. Even an empty
-/// Relic asks its color question; only a charged one adds mana.
+/// Resolves every Relic trigger already waiting at first main and counts the
+/// colour questions: an empty Relic asks none and adds nothing, a charged
+/// one asks once per counter removed.
 fn drain_first_main_triggers(
     e: &mut Engine<RegistryLookup>,
     player: PlayerId,
@@ -77,7 +78,11 @@ fn coalition_relic_makes_immediate_mana_then_releases_its_stored_charge() {
     reach_their_main_phase(&mut e, p1);
     reach_their_main_phase(&mut e, p0);
     let blue_before = e.state().players[0].mana_pool.available(ManaColor::Blue);
-    assert!(drain_first_main_triggers(&mut e, p0, ManaColor::Blue) >= 1);
+    assert_eq!(
+        drain_first_main_triggers(&mut e, p0, ManaColor::Blue),
+        1,
+        "the charged Relic asks, the empty one does not"
+    );
     assert_eq!(counters_on(&e, charged, CounterKind::Charge), 0);
     assert_eq!(
         e.state().players[0].mana_pool.available(ManaColor::Blue),
