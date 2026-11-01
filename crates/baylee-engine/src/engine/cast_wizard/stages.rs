@@ -187,7 +187,12 @@ impl<L: CardLookup> Engine<L> {
                     return self.advance_cast_wizard();
                 }
                 let options = self.wizard_target_options(&wizard, &spec);
-                let player_options = eval::target_player_options(&self.state, &spec, wizard.player);
+                let player_options = eval::target_player_options_from(
+                    &self.state,
+                    &spec,
+                    wizard.player,
+                    eval::live_context(&self.state, wizard.card),
+                );
                 // "Any target" is one set: a burn spell with every creature
                 // hexproofed is still castable at a player's face, so the
                 // count that has to reach `min` spans both halves.
@@ -260,8 +265,12 @@ impl<L: CardLookup> Engine<L> {
                     &req.spec,
                     wizard.targets.first().copied(),
                 );
-                let player_options =
-                    eval::target_player_options(&self.state, &req.spec, wizard.player);
+                let player_options = eval::target_player_options_from(
+                    &self.state,
+                    &req.spec,
+                    wizard.player,
+                    eval::live_context(&self.state, wizard.card),
+                );
                 if options.len() + player_options.len() < req.min as usize {
                     self.cast_wizard = None;
                     return Err(EngineError::IllegalAction("not enough legal targets"));
@@ -298,7 +307,12 @@ impl<L: CardLookup> Engine<L> {
                 let spec = self
                     .wizard_target_req(&wizard)
                     .map_or(TargetSpec::AnyPlayer, |req| req.spec);
-                let options = eval::target_player_options(&self.state, &spec, wizard.player);
+                let options = eval::target_player_options_from(
+                    &self.state,
+                    &spec,
+                    wizard.player,
+                    eval::live_context(&self.state, wizard.card),
+                );
                 // No player can be chosen (every opponent has hexproof, say):
                 // the spell cannot take the step and cannot be cast (CR
                 // 601.2c, 601.2), and an empty menu is a question with no
@@ -364,14 +378,29 @@ impl<L: CardLookup> Engine<L> {
                 Ok(())
             }
             WizardStage::PitchChoice => {
-                let filter = self.wizard_pitch_filter(&wizard);
+                let parts = self.wizard_pitch_parts(&wizard);
+                let filter = parts
+                    .iter()
+                    .filter_map(|part| match part {
+                        CostPart::ExileFromHand(filter) => Some(*filter),
+                        _ => None,
+                    })
+                    .nth(wizard.pitch.len());
                 if let Some(filter) = filter {
-                    // The same scan `can_afford` and `casting::can_cast` now
-                    // run before this cast was ever offered: one reader, so
-                    // the offer and the prompt cannot disagree about what is
-                    // in the hand.
-                    let options =
+                    let mut options =
                         casting::pitchable(&self.state, wizard.player, wizard.card, filter);
+                    options.retain(|id| !wizard.pitch.contains(id));
+                    options.retain(|id| {
+                        let mut chosen = wizard.pitch.clone();
+                        chosen.push(*id);
+                        casting::pitch_costs_payable(
+                            &self.state,
+                            wizard.player,
+                            wizard.card,
+                            parts,
+                            &chosen,
+                        )
+                    });
                     if options.is_empty() {
                         self.cast_wizard = None;
                         return Err(EngineError::IllegalAction(
@@ -556,7 +585,7 @@ impl<L: CardLookup> Engine<L> {
             }
             WizardStage::Sacrifice => {
                 let face = self.wizard_face(&wizard);
-                let asked = wizard.sacrifices.len();
+                let asked = wizard.cost_objects.len();
                 let Some(part) = additional_card_costs_for(face, wizard.option).nth(asked) else {
                     let mut wizard = wizard;
                     wizard.stage = WizardStage::Done;
@@ -573,9 +602,9 @@ impl<L: CardLookup> Engine<L> {
                     wizard.card,
                     part,
                 );
-                options.retain(|id| *id != wizard.card && !wizard.sacrifices.contains(id));
+                options.retain(|id| *id != wizard.card && !wizard.cost_objects.contains(id));
                 options.retain(|candidate| {
-                    let mut chosen = wizard.sacrifices.to_vec();
+                    let mut chosen = wizard.cost_objects.to_vec();
                     chosen.push(*candidate);
                     casting::additional_payment_capacity_for(
                         &self.state,

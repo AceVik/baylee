@@ -350,7 +350,7 @@ fn pick_block_choice(duel: &mut Duel, index: usize) -> bool {
 /// The list is rebuilt from the current `LegalActions` before the row is
 /// read, exactly as every other chooser in this file does — a bar drawn a
 /// frame ago must not be able to pick a way the board no longer offers.
-pub(super) fn take_cast_row(duel: &mut Duel, at: usize) {
+pub(crate) fn take_cast_row(duel: &mut Duel, at: usize) {
     let Some(card) = duel.cast_menu.as_ref().map(|m| m.card) else {
         return;
     };
@@ -362,6 +362,20 @@ pub(super) fn take_cast_row(duel: &mut Duel, at: usize) {
         return;
     };
     duel.cast_menu = None;
+    if matches!(mode.kind, baylee_engine::choice::CastModeKind::Foretell) {
+        // This is a special action from hand, not a cast mode to remember for
+        // the engine's later ChooseCastMode question.
+        duel.cast_answer = None;
+        arm(
+            duel,
+            card,
+            Deed::Run {
+                plan: mode.plan,
+                then: crate::RunEnd::Foretell,
+            },
+        );
+        return;
+    }
     if matches!(
         mode.kind,
         baylee_engine::choice::CastModeKind::PlayLandFace(_)

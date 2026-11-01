@@ -971,9 +971,10 @@ impl<L: CardLookup> Engine<L> {
                 continue;
             }
             if rules.must_attack(id)
-                && rules.mana_tax(id) == 0
                 && rules.sacrifice_tax(id).is_empty()
-                && allowed.iter().any(|&d| rules.life_tax(id, d) == 0)
+                && allowed
+                    .iter()
+                    .any(|&d| rules.mana_tax_for(id, d) == 0 && rules.life_tax(id, d) == 0)
             {
                 required.push(id);
             }

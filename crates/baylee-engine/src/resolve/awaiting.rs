@@ -56,6 +56,8 @@ pub enum AwaitingOp {
     },
     /// A library search has found a card to reveal without moving it.
     RevealLibrarySearch,
+    /// A vote gathered from each player before its jointly decided effect.
+    Vote(super::vote::Vote),
     /// Choose among multiple eligible physical meld partners.
     MeldPartner,
     /// Immediate plays offered by a dungeon room.
@@ -441,6 +443,8 @@ pub enum AwaitingOp {
     MaySearchBasicLand {
         /// The player permitted to search their own library.
         player: PlayerId,
+        /// Maximum number of basic lands to find, tapped on the battlefield.
+        count: u8,
     },
     /// A land whose linked counters this source has not yet removed.
     LinkedCounterCleanup {
@@ -1189,6 +1193,7 @@ impl AwaitingOp {
     )]
     pub(crate) fn search_fingerprint(&self) -> u64 {
         match self {
+            Self::Vote(vote) => crate::state::structural_fingerprint(&(82_u8, vote)),
             Self::SourceColor { source } => crate::state::structural_fingerprint(&(40_u8, source)),
             Self::ControlChoice(choice) => {
                 crate::state::structural_fingerprint(&("control-choice", choice))

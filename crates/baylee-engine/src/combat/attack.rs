@@ -142,6 +142,7 @@ pub struct AttackRules<'a> {
     idle_defenders: Vec<&'a crate::effects::ContinuousEffect>,
     cant_attack_you: Vec<&'a crate::effects::ContinuousEffect>,
     attack_tax_life: Vec<&'a crate::effects::ContinuousEffect>,
+    attack_tax_mana: Vec<&'a crate::effects::ContinuousEffect>,
     unless_pay_mana: Vec<&'a crate::effects::ContinuousEffect>,
     unless_sacrifice: Vec<&'a crate::effects::ContinuousEffect>,
     max_attackers: Option<usize>,
@@ -163,6 +164,7 @@ impl<'a> AttackRules<'a> {
         let mut idle_defenders = Vec::new();
         let mut cant_attack_you = Vec::new();
         let mut attack_tax_life = Vec::new();
+        let mut attack_tax_mana = Vec::new();
         let mut unless_pay_mana = Vec::new();
         let mut unless_sacrifice = Vec::new();
         let mut max_attackers: Option<usize> = None;
@@ -176,6 +178,7 @@ impl<'a> AttackRules<'a> {
                 Modifier::AttacksAloneOnly => alone.push(fx),
                 Modifier::CantAttackYou => cant_attack_you.push(fx),
                 Modifier::AttackTaxLife { .. } => attack_tax_life.push(fx),
+                Modifier::AttackTaxMana { .. } => attack_tax_mana.push(fx),
                 Modifier::CantAttackUnlessPayMana(_)
                 | Modifier::CantAttackUnlessPayManaPerCounter(_) => unless_pay_mana.push(fx),
                 Modifier::CantAttackUnlessYouSacrifice { .. } => unless_sacrifice.push(fx),
@@ -198,6 +201,7 @@ impl<'a> AttackRules<'a> {
             idle_defenders,
             cant_attack_you,
             attack_tax_life,
+            attack_tax_mana,
             unless_pay_mana,
             unless_sacrifice,
             max_attackers,
@@ -230,7 +234,7 @@ impl<'a> AttackRules<'a> {
     /// so that asking what mana its controller could make is worth it.
     #[must_use]
     pub fn has_mana_tax(&self) -> bool {
-        !self.unless_pay_mana.is_empty()
+        !self.unless_pay_mana.is_empty() || !self.attack_tax_mana.is_empty()
     }
 
     /// The same rules for a declaration whose mana tax may also be paid with
@@ -285,6 +289,34 @@ impl<'a> AttackRules<'a> {
                 crate::effects::applies_to(self.state, fx, obj).then_some(amount)
             })
             .fold(0_u32, u32::saturating_add)
+    }
+
+    /// Total generic mana for this particular defender, including effects
+    /// that protect only their own controller and planeswalkers.
+    #[must_use]
+    pub fn mana_tax_for(&self, creature: ObjectId, defender: Defender) -> u32 {
+        let base = self.mana_tax(creature);
+        if self.attack_tax_mana.is_empty()
+            || !matches!(defender, Defender::Player(_) | Defender::Planeswalker(_))
+        {
+            return base;
+        }
+        let Some(obj) = self.state.object(creature) else {
+            return base;
+        };
+        let Some(defending) = defending_player(self.state, defender) else {
+            return base;
+        };
+        self.attack_tax_mana
+            .iter()
+            .filter_map(|fx| {
+                let baylee_cards_dsl::Modifier::AttackTaxMana { mana } = fx.modifier else {
+                    return None;
+                };
+                (fx.controller == defending && crate::effects::applies_to(self.state, fx, obj))
+                    .then_some(mana)
+            })
+            .fold(base, u32::saturating_add)
     }
 
     /// Sacrifice costs `creature`'s controller must pay to declare `creature`
@@ -356,6 +388,7 @@ impl<'a> AttackRules<'a> {
             && self.idle_defenders.is_empty()
             && self.cant_attack_you.is_empty()
             && self.attack_tax_life.is_empty()
+            && self.attack_tax_mana.is_empty()
             && self.unless_pay_mana.is_empty()
             && self.unless_sacrifice.is_empty()
         {
@@ -365,7 +398,7 @@ impl<'a> AttackRules<'a> {
         let Some(obj) = state.object(creature) else {
             return false;
         };
-        let mana_tax = self.mana_tax(creature);
+        let mana_tax = self.mana_tax_for(creature, defender);
         if mana_tax > 0 {
             let pool = &state.players[usize::from(obj.controller.get())].mana_pool;
             let pays = crate::mana_pay::can_pay(

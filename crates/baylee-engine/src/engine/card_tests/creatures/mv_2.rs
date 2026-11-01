@@ -3,6 +3,10 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
+mod knight_of_the_white_orchid;
+mod loyal_warhound;
+mod serra_avenger;
+
 mod abyssal_gatekeeper;
 mod acidic_sliver;
 mod acridian;
@@ -93,6 +97,7 @@ mod elvish_farmer;
 mod elvish_hunter;
 mod elvish_vanguard;
 mod elvish_visionary;
+mod emberwilde_augur;
 mod emerald_dragonfly;
 mod enraging_licid;
 mod erg_raiders;
@@ -115,6 +120,7 @@ mod freyalise_supplicant;
 mod frightcrawler;
 mod gaea_s_skyfolk;
 mod geist_of_saint_thalia;
+mod giada_font_of_hope;
 mod giant_albatross;
 mod giant_slug;
 mod giant_tortoise;
@@ -196,6 +202,7 @@ mod mistfolk;
 mod mogg_jailer;
 mod mogg_maniac;
 mod mogg_squad;
+mod mogg_war_marshal;
 mod molten_hydra;
 mod monk_realist;
 mod moon_sprite;
@@ -278,6 +285,7 @@ mod silent_assassin;
 mod silkenfist_fighter;
 mod silverglade_pathfinder;
 mod sindbad;
+mod skirk_drill_sergeant;
 mod skittering_skirge;
 mod skittish_kavu;
 mod skulking_ghost;

@@ -6,6 +6,17 @@ the two lanes in use now are remote and cheap, which changes the constraint
 from "one at a time" to "what is each one actually good at". Maintained by
 the orchestrator; entries dated, newest first.
 
+## 2026-11-01 — Owner-requested cards and cross-surface casting modes
+
+1. **Treat a new casting mode as one vertical rules slice, not only an engine flag.**
+   Foretell needs consistent offer, pricing, payment, reversal, public prompt and desktop selection behavior. The engine, Seat narrator and desktop client must agree on the same `CastModeKind`, while replay and per-turn cleanup retain deterministic state.
+2. **Keep alternative costs composable and reversible.**
+   Pitch spells can require more than one hand card and can combine different payment parts. Offered legality and committed payment must use the same cost calculation, with atomic rollback when a later choice or payment cannot complete.
+3. **Represent choice-derived rules as data, not card-specific conditionals.**
+   Chosen card types and colors feed shared protection, cast restrictions and prompt code. This keeps Serra's Emissary, Iona and Chrome Mox on the same choice lifetime and prevents stale projections after zone changes.
+4. **Play both acceptance and refusal paths for optional clauses.**
+   Bruna's cast trigger, Goblin Matron's search and similar `may` abilities need yes/no scenarios plus illegal-target controls. A trigger that merely appears on the stack does not demonstrate that the printed option resolves correctly.
+
 ## 2026-10-31 — *Mirrodin* (`mrd`) Batch 2 review
 
 Two reviewers read the batch against its oracle text. One card played wrong;

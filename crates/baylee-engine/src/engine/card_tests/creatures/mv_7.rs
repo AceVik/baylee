@@ -3,6 +3,8 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
+mod resolute_archangel;
+
 // ---------------------------------------------------------------------------
 // Helpers shared by the generated seven-drops. Each reads one thing the
 // per-card tests would otherwise spell out again.
@@ -369,10 +371,13 @@ fn life_of(engine: &Engine<RegistryLookup>, seat: usize) -> i32 {
     engine.state().players[seat].life
 }
 
+mod akroma_vision_of_ixidor;
 mod amugaba;
 mod ancestor_s_chosen;
 mod angel_of_despair;
 mod angel_of_retribution;
+mod angel_of_serenity;
+mod angel_of_the_dire_hour;
 mod angler_turtle;
 mod archangel;
 mod archweaver;
@@ -385,6 +390,7 @@ mod black_dragon;
 mod bladewing_the_risen;
 mod blizzard_elemental;
 mod boldwyr_intimidator;
+mod bruna_the_fading_light;
 mod cat_gator;
 mod cateran_overlord;
 mod chaos_lord;
@@ -462,8 +468,10 @@ mod riven_turnbull;
 mod roaring_slagwurm;
 mod rockcaster_platoon;
 mod rune_scarred_demon;
+mod sephara_sky_s_blade;
 mod seraph;
 mod seraph_of_the_suns;
+mod serra_s_emissary;
 mod shaleskin_bruiser;
 mod shauku_endbringer;
 mod shivan_hellkite;

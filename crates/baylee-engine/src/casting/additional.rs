@@ -15,6 +15,35 @@ pub(crate) fn additional_card_enters_graveyard(
         && crate::replacement::graveyard_destination(state, card, destination).0 == destination
 }
 
+/// Whether every exile-from-hand part can be paid with a distinct card.
+/// `chosen` holds the answers to the leading parts, in cost order.
+pub(crate) fn pitch_costs_payable(
+    state: &GameState,
+    player: PlayerId,
+    card: ObjectId,
+    parts: &[CostPart],
+    chosen: &[ObjectId],
+) -> bool {
+    let menus: Vec<Vec<_>> = parts
+        .iter()
+        .filter_map(|part| match part {
+            CostPart::ExileFromHand(filter) => Some(*filter),
+            _ => None,
+        })
+        .skip(chosen.len())
+        .map(|filter| {
+            super::pitchable(state, player, card, filter)
+                .into_iter()
+                .filter(|id| !chosen.contains(id))
+                .collect()
+        })
+        .collect();
+    let mut candidates: Vec<_> = menus.iter().flatten().copied().collect();
+    candidates.sort_unstable();
+    candidates.dedup();
+    preferred_assignment(&menus, candidates).is_some()
+}
+
 /// Augmenting paths match cards to cost parts. Visiting graveyard-bound cards
 /// first maximizes their count; later augmentations preserve already matched
 /// cards. This avoids enumerating combinations of a large battlefield.
@@ -36,16 +65,14 @@ pub(crate) fn additional_payment_capacity_for(
     option: Option<crate::choice::CastModeKind>,
     chosen: &[ObjectId],
 ) -> Option<usize> {
-    let life = crate::engine::cast_wizard::wizard_mandatory_parts(face, option).fold(
-        0_i32,
-        |sum, part| {
+    let life =
+        crate::engine::cast_wizard::wizard_cost_parts(face, option).fold(0_i32, |sum, part| {
             sum.saturating_add(if let CostPart::PayLife(life) = part {
                 i32::from(*life)
             } else {
                 0
             })
-        },
-    );
+        });
     if !state.can_pay_life(player, life) {
         return None;
     }

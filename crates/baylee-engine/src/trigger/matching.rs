@@ -928,6 +928,23 @@ fn matches(
                     .object(*blocker)
                     .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context))
         }
+        (Trigger::ControlledBecomesBlocked(filter), GameEvent::BecameBlocker { attacker, .. }) => {
+            let hit = |attacker: ObjectId| {
+                state.object(attacker).is_some_and(|object| {
+                    eval::matches_with_context(filter, state, object, you, context)
+                })
+            };
+            if !hit(*attacker) {
+                return false;
+            }
+            let Some(at) = event_groups::index_of_event(event, batch) else {
+                return false;
+            };
+            !state.combat.blockers_of(*attacker).is_empty()
+                && !batch[..at].iter().any(|entry| {
+                    matches!(entry.event, GameEvent::BecameBlocker { attacker: earlier, .. } if earlier == *attacker)
+                })
+        }
         // CR 509.3c: once, on the first blocker declared for it.
         (Trigger::BecomesBlocked, GameEvent::BecameBlocker { attacker, .. }) => {
             if *attacker != source {

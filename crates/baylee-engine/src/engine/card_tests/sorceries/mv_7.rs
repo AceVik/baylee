@@ -3,6 +3,8 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
+mod sunscour;
+
 mod bloodsoaked_insight;
 mod cinder_storm;
 mod emeria_s_call;

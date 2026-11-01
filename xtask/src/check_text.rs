@@ -242,6 +242,8 @@ pub(crate) fn check_player_targets_match_the_printing(
         "TargetSpec::OpponentOrObject",
         "TargetSpec::PlayerOrObject",
         "TargetSpec::PlayerWhoAttackedThisTurn",
+        "TargetSpec::OpponentWithMoreThanActivePlayer",
+        "TargetSpec::OpponentWithMoreThanPlayer",
     ]
     .iter()
     .any(|spec| content.contains(spec))
@@ -847,6 +849,7 @@ pub(crate) fn check_scope_matches_the_text(
         || built.contains("AttackWithoutTappingWhileSourceUntappedThisCombat")
         // These scope the attack restriction/trigger to you and planeswalkers you control.
         || built.contains("AttackTaxLife")
+        || built.contains("AttackTaxMana")
         || built.contains("WheneverCreatureAttacksYouOrYourPlaneswalkerUntilYourNextTurn")
         // This cumulative coin-flip effect untaps only lands its controller controls.
         || built.contains("FlipCoinsUntilLossOrStopCumulative");

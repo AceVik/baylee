@@ -5,6 +5,7 @@
 use super::*;
 
 mod mv_3;
+mod mv_4;
 
 /// Karn, the Great Creator −2: "reveal an artifact card you own from outside
 /// the game ... put that card into your hand."

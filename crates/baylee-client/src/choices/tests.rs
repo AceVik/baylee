@@ -407,6 +407,7 @@ fn a_card_name_is_found_by_any_word_of_it_and_sent_as_its_card() {
     let rows = options(
         &Prompt::ChooseCardName {
             types: baylee_core::types::TypeSet::EMPTY,
+            excluded_types: baylee_core::types::TypeSet::EMPTY,
         },
         Lang::En,
         None,
@@ -423,6 +424,7 @@ fn a_card_name_is_found_by_any_word_of_it_and_sent_as_its_card() {
 
     let pending = baylee_engine::choice::Pending::ChooseCardName {
         types: baylee_core::types::TypeSet::EMPTY,
+        excluded_types: baylee_core::types::TypeSet::EMPTY,
         player: baylee_core::ids::PlayerId::new(0),
     };
     let mut interaction = Interaction::new(pending, baylee_core::ids::PlayerId::new(0));
@@ -446,18 +448,33 @@ fn a_card_name_is_found_by_any_word_of_it_and_sent_as_its_card() {
 #[test]
 fn a_back_face_is_named_and_a_leading_match_comes_first() {
     let rebirth = baylee_cards::decks::by_name("Malakir Rebirth").expect("in the pool");
-    let rows = card_name_rows("malakir mire", baylee_core::types::TypeSet::EMPTY);
+    let rows = card_name_rows(
+        "malakir mire",
+        baylee_core::types::TypeSet::EMPTY,
+        baylee_core::types::TypeSet::EMPTY,
+    );
     assert_eq!(
         rows.first().and_then(|row| card_name_at(row.index)),
         Some((rebirth, 1)),
         "Malakir Mire is the back of Malakir Rebirth"
     );
-    let rows = card_name_rows("pith", baylee_core::types::TypeSet::EMPTY);
+    let rows = card_name_rows(
+        "pith",
+        baylee_core::types::TypeSet::EMPTY,
+        baylee_core::types::TypeSet::EMPTY,
+    );
     assert_eq!(
         rows.first().map(|row| row.label.as_str()),
         Some("Pithing Needle")
     );
-    assert!(card_name_rows("zzzzqq", baylee_core::types::TypeSet::EMPTY).is_empty());
+    assert!(
+        card_name_rows(
+            "zzzzqq",
+            baylee_core::types::TypeSet::EMPTY,
+            baylee_core::types::TypeSet::EMPTY
+        )
+        .is_empty()
+    );
 }
 
 #[test]
@@ -481,8 +498,8 @@ fn a_filter_that_matches_nothing_offers_nothing() {
 #[test]
 fn a_land_name_choice_preserves_the_catalog_index() {
     use baylee_core::types::TypeSet;
-    assert!(card_name_rows("sol ring", TypeSet::LAND).is_empty());
-    let rows = card_name_rows("wasteland", TypeSet::LAND);
+    assert!(card_name_rows("sol ring", TypeSet::LAND, TypeSet::EMPTY).is_empty());
+    let rows = card_name_rows("wasteland", TypeSet::LAND, TypeSet::EMPTY);
     let row = rows.iter().find(|row| row.label == "Wasteland").unwrap();
     assert_eq!(
         card_name_at(row.index),

@@ -147,6 +147,8 @@ pub enum Condition {
     Revolt,
     /// You cast an instant or sorcery spell this turn, even if countered.
     CastInstantOrSorceryThisTurn,
+    /// You cast a creature spell this turn, even if countered.
+    CastCreatureThisTurn,
     /// You declared at least this many distinct creature incarnations as attackers this turn.
     AttackedWithAtLeast(u32),
     /// This exact incarnation attacked during its controller's last completed turn.
@@ -787,6 +789,10 @@ pub enum Trigger {
     /// "Whenever this creature becomes blocked" (CR 509.3c): once, however
     /// many creatures block it. The event object is the first of them.
     BecomesBlocked,
+    /// Whenever an attacking creature matching `filter` becomes blocked:
+    /// once per attacker, however many creatures block it. The attacker,
+    /// rather than a blocker, is the event object.
+    ControlledBecomesBlocked(&'static Filter),
     /// "Whenever [a creature matching the filter] blocks" (Ydwen Efreet):
     /// once when it is declared as a blocker, however many attackers it
     /// blocks (CR 509.3a). The blocker is the trigger's event object.

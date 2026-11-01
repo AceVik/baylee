@@ -579,6 +579,7 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         | T::AttachedBlocksOrBecomesBlockedBy(_)
         | T::BecomesBlockedBy(_)
         | T::BecomesBlocked
+        | T::ControlledBecomesBlocked(_)
         | T::BlocksCreature(_) => &["block"],
         // Ydwen Efreet, "Whenever this creature blocks".
         T::Blocks(_) => &["blocks"],
@@ -691,6 +692,7 @@ fn whose_trigger_fits(trigger: &Trigger, line: &str) -> bool {
         | Trigger::AttacksAlone(filter)
         | Trigger::OneOrMoreAttack(filter)
         | Trigger::Blocks(filter)
+        | Trigger::ControlledBecomesBlocked(filter)
         | Trigger::AttacksAndIsntBlocked(filter)
         | Trigger::AbilityActivated { filter, .. }
         | Trigger::BecomesTapped(filter)
@@ -949,7 +951,9 @@ fn alternative_fits(alt: &AlternativeCost, line: &str) -> bool {
         if free != (alt.cost.mana.is_empty() && alt.cost.parts.is_empty()) {
             return false;
         }
-        return condition_fits(alt.condition, &lower) && parts_fit(alt.cost.parts, &lower);
+        return condition_fits(alt.condition, &lower)
+            && cost_fits(&alt.cost, &text)
+            && parts_fit(alt.cost.parts, &lower);
     }
     // The keyword form. `cost_fits` reads the mana; the words after an em
     // dash carry a cost that has no symbols, and both are held to the
@@ -1010,6 +1014,24 @@ fn parts_fit(parts: &[CostPart], lower: &str) -> bool {
         CostPart::TapSelf | CostPart::UntapSelf => true,
         CostPart::ExertSelf => lower.contains("exert"),
         CostPart::PayLife(n) => lower.contains(&format!("pay {n} life")),
+        CostPart::TapN { count, .. } => {
+            let word = match *count {
+                0 => Some("zero"),
+                1 => Some("one"),
+                2 => Some("two"),
+                3 => Some("three"),
+                4 => Some("four"),
+                5 => Some("five"),
+                6 => Some("six"),
+                7 => Some("seven"),
+                8 => Some("eight"),
+                9 => Some("nine"),
+                10 => Some("ten"),
+                _ => None,
+            };
+            lower.contains(&format!("tap {count}"))
+                || word.is_some_and(|word| lower.contains(&format!("tap {word}")))
+        }
         CostPart::ExileFromHand(_) => lower.contains("exile") && lower.contains("from your hand"),
         CostPart::Discard(_) => lower.contains("discard"),
         CostPart::Sacrifice(_) | CostPart::SacrificeSelf => lower.contains("sacrifice"),

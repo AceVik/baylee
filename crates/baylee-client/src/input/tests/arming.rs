@@ -19,6 +19,7 @@ fn confirming_a_priority_choice_passes() {
                 mana_abilities: vec![],
                 abilities: vec![],
                 suspendable: vec![],
+                foretellable: vec![],
                 granted_actions: vec![],
             }),
         },

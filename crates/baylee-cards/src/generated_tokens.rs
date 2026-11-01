@@ -25,11 +25,11 @@
 use crate::tokens;
 pub use crate::tokens::{
     ALLY_1_1_WHITE, ANGEL_4_4_WHITE_FLYING, ARMY_0_0_BLACK, BEAST_5_5_GREEN, BIRD_1_1_WHITE_FLYING,
-    BLOOD, BOAR_2_2_GREEN, CLUE, CONSTRUCT_ARTIFACT_0_0, ELEMENTAL_X_X_GREEN_WHITE, FOOD,
-    GNOME_SOLDIER_WHITE_DYNAMIC, GOBLIN_SHAMAN_2_2_RED, HANWEIR_THE_WRITHING_TOWNSHIP,
-    HUMAN_SOLDIER_1_1_WHITE, ILLUSION_X_BLUE, JACE_PLANESWALKER_BLUE, JUNK,
-    KNIGHT_2_2_WHITE_BLUE_VIGILANCE, MAP, PHYREXIAN_GERM_0_0_BLACK, PHYREXIAN_MITE_1_1,
-    PILOT_1_1_COLORLESS, POWERSTONE, SERVO_1_1, SHAPESHIFTER_1_1_CHANGELING,
+    BLOOD, BOAR_2_2_GREEN, BRISELA_VOICE_OF_NIGHTMARES, CLUE, CONSTRUCT_ARTIFACT_0_0,
+    ELEMENTAL_X_X_GREEN_WHITE, FOOD, GNOME_SOLDIER_WHITE_DYNAMIC, GOBLIN_SHAMAN_2_2_RED,
+    HANWEIR_THE_WRITHING_TOWNSHIP, HUMAN_SOLDIER_1_1_WHITE, ILLUSION_X_BLUE,
+    JACE_PLANESWALKER_BLUE, JUNK, KNIGHT_2_2_WHITE_BLUE_VIGILANCE, MAP, PHYREXIAN_GERM_0_0_BLACK,
+    PHYREXIAN_MITE_1_1, PILOT_1_1_COLORLESS, POWERSTONE, SERVO_1_1, SHAPESHIFTER_1_1_CHANGELING,
     SHAPESHIFTER_2_2_BLUE_CHANGELING, SNAKE_1_1_ARTIFACT_POISON, SOLDIER_1_1_WHITE,
     SPIRIT_1_1_COLORLESS, SPIRIT_1_1_COLORLESS_SPIRIT_COMBAT,
     TETRAVITE_1_1_COLORLESS_ARTIFACT_FLYING, TREASURE, VIBRANIUM, WIZARD_0_1_BLACK,
@@ -2613,6 +2613,29 @@ pub static ELEMENTAL_7_7_GREEN_TRAMPLE: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// 0/4 colorless artifact Wall with defender.
+pub static WALL_ARTIFACT_0_4_DEFENDER: TokenDef = TokenDef {
+    name: "Wall",
+    types: TypeSet::ARTIFACT.union(TypeSet::CREATURE),
+    subtypes: &[creature::WALL],
+    power: Some(0),
+    toughness: Some(4),
+    keywords: KeywordSet::DEFENDER,
+    ..TokenDef::DEFAULT
+};
+
+/// 4/4 white Angel with flying and vigilance.
+pub static ANGEL_4_4_WHITE_FLYING_VIGILANCE: TokenDef = TokenDef {
+    name: "Angel",
+    colors: ColorSet::from_slice(&[Color::White]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ANGEL],
+    power: Some(4),
+    toughness: Some(4),
+    keywords: KeywordSet::FLYING.union(KeywordSet::VIGILANCE),
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is, in the order ids were assigned.
 pub static ALL: &[&TokenDef] = &[
     &tokens::ALLY_1_1_WHITE,
@@ -2873,6 +2896,9 @@ pub static ALL: &[&TokenDef] = &[
     &ELEMENTAL_CAT_1_1_RED_HASTE,
     &ELEMENTAL_7_7_GREEN_TRAMPLE,
     &tokens::BEAST_5_5_GREEN,
+    &WALL_ARTIFACT_0_4_DEFENDER,
+    &ANGEL_4_4_WHITE_FLYING_VIGILANCE,
+    &tokens::BRISELA_VOICE_OF_NIGHTMARES,
 ];
 
 /// The entries a reader wrote, as a subset of [`ALL`] — never a second
@@ -3099,4 +3125,6 @@ pub static GENERATED: &[&TokenDef] = &[
     &WURM_6_6_BLACK_TRAMPLE,
     &ELEMENTAL_CAT_1_1_RED_HASTE,
     &ELEMENTAL_7_7_GREEN_TRAMPLE,
+    &WALL_ARTIFACT_0_4_DEFENDER,
+    &ANGEL_4_4_WHITE_FLYING_VIGILANCE,
 ];

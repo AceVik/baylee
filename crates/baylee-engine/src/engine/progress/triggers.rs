@@ -273,8 +273,18 @@ impl<L: CardLookup> Engine<L> {
                     wall_only,
                 )
                 .len();
-                let players =
-                    eval::target_player_options(&self.state, &req.spec, t.controller).len();
+                let players = eval::target_player_options_from(
+                    &self.state,
+                    &t.bind_target(req.spec),
+                    t.controller,
+                    crate::text_changes::RuleContext {
+                        source: t.source,
+                        text: t.text,
+                        resolved_name: None,
+                        reference: t.event_object,
+                    },
+                )
+                .len();
                 objects + players >= usize::from(req.min)
             })
     }
@@ -648,8 +658,17 @@ impl<L: CardLookup> Engine<L> {
                 // ("it deals 1 damage to target opponent"), and "any target"
                 // offers both lists at once (CR 115.4). The choice is one
                 // choice, so the counts add up.
-                let player_options =
-                    eval::target_player_options(&self.state, &req.spec, t.controller);
+                let player_options = eval::target_player_options_from(
+                    &self.state,
+                    &t.bind_target(req.spec),
+                    t.controller,
+                    crate::text_changes::RuleContext {
+                        source: t.source,
+                        text: t.text,
+                        resolved_name: None,
+                        reference: t.event_object,
+                    },
+                );
                 let offered = options.len() + player_options.len();
                 if offered < req.min as usize {
                     // No legal target: the trigger is removed from the stack

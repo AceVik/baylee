@@ -713,3 +713,27 @@ pub static HANWEIR_THE_WRITHING_TOWNSHIP: TokenDef = TokenDef {
     scryfall_id: "671fe14d-0070-4bc7-8983-707b570f4492",
     ..TokenDef::DEFAULT
 };
+
+static BRISELA_VOICE_OF_NIGHTMARES_ABILITIES: &[AbilityDef] = &[static_ability!(
+    Filter::Any,
+    Modifier::OpponentsCantCast(&Filter::CmcAtMost(3))
+)];
+
+/// 9/10 colorless Legendary Creature — Eldrazi Angel with flying, first
+/// strike, vigilance and lifelink (Gisela // Bruna meld back face, EMN #15b).
+pub static BRISELA_VOICE_OF_NIGHTMARES: TokenDef = TokenDef {
+    name: "Brisela, Voice of Nightmares",
+    colors: ColorSet::EMPTY,
+    types: TypeSet::CREATURE,
+    supertypes: baylee_core::types::SupertypeSet::LEGENDARY,
+    subtypes: &[creature::ELDRAZI, creature::ANGEL],
+    power: Some(9),
+    toughness: Some(10),
+    keywords: KeywordSet::FLYING
+        .union(KeywordSet::FIRST_STRIKE)
+        .union(KeywordSet::VIGILANCE)
+        .union(KeywordSet::LIFELINK),
+    abilities: BRISELA_VOICE_OF_NIGHTMARES_ABILITIES,
+    scryfall_id: "5a7a212e-e0b6-4f12-a95c-173cae023f93",
+    ..TokenDef::DEFAULT
+};

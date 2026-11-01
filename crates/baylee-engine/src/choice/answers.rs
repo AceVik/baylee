@@ -171,6 +171,7 @@ impl Pending {
             Self::ChooseNumber { min, max, .. } => min <= max,
             Self::LegendChoice { options, .. } => !options.is_empty(),
             Self::ChooseSubtype { options, .. } => !options.is_empty(),
+            Self::ChooseCardType { options, .. } => !options.is_empty(),
             Self::ChooseColor { options, .. } => !options.is_empty(),
             Self::ChooseCastMode { options, .. } => !options.is_empty(),
             Self::ChoosePlayer { options, .. } => !options.is_empty(),
@@ -368,6 +369,9 @@ impl Pending {
             (Self::ChooseSubtype { options, .. }, A::ChooseSubtype(subtype)) => {
                 (!options.contains(subtype)).then_some(AnswerFault::NotOffered)
             }
+            (Self::ChooseCardType { options, .. }, A::ChooseCardType(card_type)) => {
+                (!options.contains(card_type)).then_some(AnswerFault::NotOffered)
+            }
             (Self::ChooseColor { options, .. }, A::ChooseColor(color)) => {
                 (!options.contains(color)).then_some(AnswerFault::NotOffered)
             }
@@ -407,6 +411,7 @@ impl Pending {
                 | Self::ChooseCards { .. }
                 | Self::ChooseTargets { .. }
                 | Self::ChooseSubtype { .. }
+                | Self::ChooseCardType { .. }
                 | Self::ChooseCardName { .. }
                 | Self::ChooseColor { .. }
                 | Self::YesNo { .. }
@@ -482,6 +487,7 @@ fn priority_fault(legal: &LegalActions, deed: &PlayerAction) -> Option<AnswerFau
             legal.granted_actions.iter().any(|offer| offer.id == *id)
         }
         PlayerAction::Suspend { card } => legal.suspendable.contains(card),
+        PlayerAction::Foretell { card } => legal.foretellable.contains(card),
         // Its shape only: whether a payment window is open is the engine's
         // question (`Engine::pay_window`), and each step is checked against
         // the question standing when it is applied.
@@ -688,6 +694,7 @@ pub fn timeout_answer(pending: &Pending) -> Option<PlayerAction> {
         | Pending::ChooseCards { .. }
         | Pending::ChooseTargets { .. }
         | Pending::ChooseSubtype { .. }
+        | Pending::ChooseCardType { .. }
         | Pending::ChooseCardName { .. }
         | Pending::ChooseColor { .. }
         | Pending::ChooseCastMode { .. }

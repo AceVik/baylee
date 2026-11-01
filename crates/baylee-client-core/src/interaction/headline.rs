@@ -211,6 +211,7 @@ impl Prompt {
                 Phrase::ChooseLandType.text(lang).to_string()
             }
             Self::ChooseSubtype { .. } => Phrase::ChooseCreatureType.text(lang).to_string(),
+            Self::ChooseCardType { .. } => Phrase::ChooseCardType.text(lang).to_string(),
             Self::ChooseCardName { .. } => Phrase::ChooseCardName.text(lang).to_string(),
             Self::ChooseColor { .. } => Phrase::ChooseColour.text(lang).to_string(),
             Self::ChooseNumber { min, max, reason } => {

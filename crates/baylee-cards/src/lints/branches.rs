@@ -167,11 +167,13 @@ pub(super) fn swept_filters(effect: &Effect) -> Vec<&'static Filter> {
             filters
         }
         Effect::DestroyAll { filter, .. }
+        | Effect::ExileMostVotedNotControlledByYou { filter }
         | Effect::ReturnAllToHand { filter, .. }
         | Effect::SetPTFilter { filter, .. }
         | Effect::AddCounterFilter { filter, .. }
         | Effect::DoubleCountersFilter { filter, .. }
         | Effect::PumpFilter { filter, .. }
+        | Effect::PumpFilterPerKeyword { filter, .. }
         | Effect::SacrificeFilter { filter, .. }
         | Effect::SacrificeAmountForPlayers { filter, .. }
         | Effect::EqualizePermanents { filter }
@@ -211,6 +213,7 @@ pub(super) fn target_filter(spec: TargetSpec) -> Option<&'static Filter> {
         | TargetSpec::ObjectOfEventPlayer(f)
         | TargetSpec::Spell(f)
         | TargetSpec::StackOrBattlefield(f)
+        | TargetSpec::ObjectOrCardInAnyGraveyard(f)
         | TargetSpec::CardInGraveyard(f, _)
         | TargetSpec::CardInFirstTargetsGraveyard(f)
         | TargetSpec::CardInPlayersGraveyard(f, _)
@@ -226,6 +229,8 @@ pub(super) fn target_filter(spec: TargetSpec) -> Option<&'static Filter> {
         | TargetSpec::AnyPlayer
         | TargetSpec::AnyOpponent
         | TargetSpec::PlayerWhoAttackedThisTurn
+        | TargetSpec::OpponentWithMoreThanActivePlayer(_)
+        | TargetSpec::OpponentWithMoreThanPlayer(..)
         | TargetSpec::AnyTarget => None,
     }
 }
@@ -270,6 +275,7 @@ pub(super) fn can_target_an_object(spec: TargetSpec) -> bool {
         | TargetSpec::ObjectOfEventPlayer(_)
         | TargetSpec::Spell(_)
         | TargetSpec::StackOrBattlefield(_)
+        | TargetSpec::ObjectOrCardInAnyGraveyard(_)
         | TargetSpec::CardInGraveyard(..)
         | TargetSpec::CardInGraveyardBelowEvent(..)
         | TargetSpec::CardInGraveyardBelowValue(..)
@@ -281,7 +287,9 @@ pub(super) fn can_target_an_object(spec: TargetSpec) -> bool {
         TargetSpec::Player(_)
         | TargetSpec::AnyPlayer
         | TargetSpec::AnyOpponent
-        | TargetSpec::PlayerWhoAttackedThisTurn => false,
+        | TargetSpec::PlayerWhoAttackedThisTurn
+        | TargetSpec::OpponentWithMoreThanActivePlayer(_)
+        | TargetSpec::OpponentWithMoreThanPlayer(..) => false,
     }
 }
 

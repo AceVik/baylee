@@ -3,6 +3,8 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
+mod unexpectedly_absent;
+
 mod abeyance;
 mod abrade;
 mod accelerate;

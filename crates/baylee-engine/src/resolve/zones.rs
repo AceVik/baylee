@@ -102,6 +102,7 @@ pub(super) fn spec_object(
         | TargetSpec::ObjectOfEventPlayer(_)
         | TargetSpec::Spell(_)
         | TargetSpec::StackOrBattlefield(_)
+        | TargetSpec::ObjectOrCardInAnyGraveyard(_)
         | TargetSpec::CardInGraveyard(..)
         | TargetSpec::CardInPlayersGraveyard(..)
         | TargetSpec::CardInGraveyardBelowEvent(..)
@@ -112,6 +113,8 @@ pub(super) fn spec_object(
         | TargetSpec::AnyPlayer
         | TargetSpec::AnyOpponent
         | TargetSpec::PlayerWhoAttackedThisTurn
+        | TargetSpec::OpponentWithMoreThanActivePlayer(_)
+        | TargetSpec::OpponentWithMoreThanPlayer(..)
         | TargetSpec::AnyTarget => res.targets.first().copied(),
     }
 }
@@ -948,7 +951,8 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
-        Effect::RollDiePutTargetIntoLibraryBeneathTop { sides } => {
+        Effect::RollDiePutTargetIntoLibraryBeneathTop { .. }
+        | Effect::PutTargetIntoLibraryBeneathTop { .. } => {
             let moves: Vec<(ObjectId, ZoneLocation)> = res
                 .targets
                 .iter()
@@ -960,7 +964,15 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             if let Some(pending) = ask_commander_replace(state, res, &moves) {
                 return Some(pending);
             }
-            let x = (state.rng.below(u64::from(sides.max(1))) as usize) + 1;
+            let x = match op {
+                Effect::RollDiePutTargetIntoLibraryBeneathTop { sides } => {
+                    (state.rng.below(u64::from(sides.max(1))) as usize) + 1
+                }
+                Effect::PutTargetIntoLibraryBeneathTop { count } => {
+                    usize::try_from(amount2(&count, state, you, res)).unwrap_or(usize::MAX)
+                }
+                _ => unreachable!(),
+            };
             for (target, to) in moves {
                 if let Some(obj) = state.object_mut(target) {
                     obj.kind = ObjectKind::Card;

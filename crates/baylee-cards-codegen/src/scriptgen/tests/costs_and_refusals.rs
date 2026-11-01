@@ -1012,3 +1012,21 @@ fn a_refused_script_always_says_why() {
         assert_eq!(refusal_reason(&parsed, &cats(), None), None, "{script}");
     }
 }
+
+/// Doomskar's `K:Foretell:1 W W` is the later cast cost. The fixed {2}
+/// special action belongs to the engine, and a non-mana or extended spelling
+/// remains an honest stub rather than silently charging a different price.
+#[test]
+fn foretell_reads_only_its_complete_mana_cost() {
+    let body = read("Name:Doomskar\nTypes:Sorcery\nK:Foretell:1 W W");
+    assert_eq!(body.foretell.as_deref(), Some("Some(mana!(\"{1}{W}{W}\"))"));
+    assert!(!body.is_empty());
+    for script in [
+        "Name:X\nTypes:Sorcery\nK:Foretell:",
+        "Name:X\nTypes:Sorcery\nK:Foretell:Sac<1/Creature>",
+        "Name:X\nTypes:Sorcery\nK:Foretell:1 W W:Unexpected",
+    ] {
+        let parsed = parse(script);
+        assert!(transcode(&parsed, &cats(), None).is_none(), "{script}");
+    }
+}

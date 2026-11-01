@@ -3,8 +3,6 @@
 //! Set: CMR #337 — Commander Legends | Scryfall ID: dfaaa58d-89bb-4cb3-96a6-b480e6f6954e | Oracle ID: 648bd03d-247e-4d6f-87a9-12a67688cbf5
 // GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
 
-// Held back: Unsafe rule approximation found in Argon PR 394: missing printed cost, restriction, drawback, choice or target/zone semantics; the concrete finding for this card is recorded in docs/history/2026-10-23-argon-review.md.
-
 use baylee_cards_dsl::prelude::*;
 
 card!(

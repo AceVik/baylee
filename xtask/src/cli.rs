@@ -64,6 +64,11 @@ pub(crate) enum Cmd {
         /// Does not read or regenerate card implementations or the corpus.
         #[arg(long, conflicts_with = "tables")]
         subtypes: bool,
+        /// Reconcile card placement, the module list and the registry without
+        /// rewriting any card implementation. Uses cached printings and needs
+        /// no card-script reference. Run before `--tables` for a new hand-owned card.
+        #[arg(long, conflicts_with_all = ["reclaim", "complete_stub", "hold_back", "hold_back_file", "hold_back_reason", "adopt_stub", "tables", "subtypes"])]
+        registry: bool,
         /// Path to the card-script reference cardsfolder.
         #[arg(long, default_value = "../mtg/card-scripts")]
         scripts: PathBuf,

@@ -330,6 +330,7 @@ impl HeuristicAgent {
         // A source's chosen colour is not in a view, and a colour compared
         // across the board is a gap like the reference family.
         | Filter::OfSourceChosenColor
+        | Filter::OfSourceChosenCardType
         | Filter::SharesAColorWith(_)
         | Filter::Equipped
         | Filter::CmcEqualsCountersOnSource(_)

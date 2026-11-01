@@ -12,6 +12,7 @@ const fn choose_and_shoot(remember: bool) -> [Effect; 3] {
         Effect::ChooseCardName {
             player: PlayerRel::You,
             types: TypeSet::EMPTY,
+            excluded_types: TypeSet::EMPTY,
             remember,
         },
         Effect::RevealRandomFromHand {

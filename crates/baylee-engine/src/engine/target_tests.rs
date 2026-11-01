@@ -128,7 +128,8 @@ fn named(action: &PlayerAction) -> Vec<ObjectId> {
         PlayerAction::Arrange { piles } => piles.concat(),
         PlayerAction::PlayLand { card }
         | PlayerAction::CastSpell { card }
-        | PlayerAction::Suspend { card } => vec![*card],
+        | PlayerAction::Suspend { card }
+        | PlayerAction::Foretell { card } => vec![*card],
         PlayerAction::ActivateManaAbility { source }
         | PlayerAction::ActivateAbility { source, .. } => vec![*source],
         PlayerAction::DeclareAttackers { attackers } => {
@@ -148,6 +149,7 @@ fn named(action: &PlayerAction) -> Vec<ObjectId> {
         | PlayerAction::PassPriority
         | PlayerAction::ChooseColor(_)
         | PlayerAction::ChooseSubtype(_)
+        | PlayerAction::ChooseCardType(_)
         // A card name is a card of the pool, not an object of the game.
         | PlayerAction::ChooseCardName { .. }
         | PlayerAction::ChooseMode(_)

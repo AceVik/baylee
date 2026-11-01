@@ -434,7 +434,9 @@ express at all yet.
   pitch/evoke/conditional-free (conditions: `Always`, `NotYourTurn`,
   `CommanderControlled`). Its `parts` pay `PayLife` and `ExileFromHand`, and
   both are asked about before the card is offered: a pitch with nothing in
-  hand to exile is not a cast the engine lists.
+  hand to exile is not a cast the engine lists. Repeated `ExileFromHand` parts
+  require distinct cards, both in the offer and in payment; the desktop planner
+  uses the same collective availability check rather than counting one card twice.
 - `FaceDef.additional_costs: &[Cost]` — kicker (optional, yes/no at cast).
   Only its `mana` is read; `parts` is paid by nothing and is held empty.
 - `waterbend = true` — "you may waterbend {N}": the additional cost above is
@@ -467,6 +469,15 @@ express at all yet.
   mana cost, when there is one), and the spell is exiled afterwards.
   `validate` holds it against the printing. What the cast paid is
   `Amount::ManaSpentToCast` (Memory Deluge).
+- `FaceDef.foretell: Option<ManaCost>` — a printed "Foretell {…}" (CR
+  702.143a), mana only. During its owner's turn, with priority, the fixed {2}
+  special action exiles that hand card face down without using the stack; it
+  needs neither a main phase nor an empty stack. Only that exiled incarnation
+  may be cast by its owner on a later turn as `CastModeKind::Foretell`, at this
+  printed cost and with the card's ordinary timing. The desktop offers normal
+  casting and the special action as separate choices when both are available.
+  `scriptgen` reads `K:Foretell:<cost>` only for a complete mana-only cost;
+  every other spelling stays an honest stub.
 - `Amount::TargetsPutIntoGraveyard` — "the number of Mountains put into a
   graveyard this way" (Volcanic Eruption): the resolving ability's targets
   that a graveyard holds as new objects since the resolution began, so a
@@ -1115,6 +1126,9 @@ rule: a teammate is not an opponent and a player who has lost is out),
 `TappedOrPayLife(n)`, `ChooseSubtype`
 (Roaming Throne, Reflections of Littjara, Cavern of Souls — answer stored
 on `obj.chosen_subtype`; creatures also gain the subtype in their base),
+`ChooseCardType` (Serra's Emissary — one of the sixteen card types of CR
+205.2a, answered through `Pending::ChooseCardType` and stored on
+`obj.chosen_card_type`; read back by `Filter::OfSourceChosenCardType`),
 `ChooseBasicLandType` (Phantasmal Terrain — the same question and the same
 place for the answer, offering the five basic land types of CR 205.3i and
 nothing else; read back by `Modifier::SetLandTypeToChosen`; the reader
@@ -2484,6 +2498,17 @@ Effects:
 
 - **`Effect::ExileAll { filter }`** is "Exile all [permanents]" (Farewell).
   Nothing is targeted.
+- **`Effect::ExileMostVotedNotControlledByYou { filter }`** gathers one legal
+  vote per player in turn order, starting with the resolving controller. These
+  are choices during resolution, not targets. Every matching permanent tied for
+  the most votes is exiled, including all first places in a tie; a player with
+  no legal ballot is skipped.
+- **`Effect::ExileAttackingForThenMaySearchBasicLands { player }`** exiles all
+  attacking creatures the chosen player controls, then offers that player up to
+  one basic land per creature that actually reached exile. The finds enter
+  tapped together and that player shuffles after an accepted search, including
+  a search for zero. Declining searches and shuffles nothing. Other attackers,
+  nonattackers and the caster's creatures are untouched.
 - **`Effect::ChooseYoursThen { filter, then }`** is "Choose a creature you
   control. It …" (Final Showdown). The choice is made as the effect
   resolves (CR 608.2d), is not a target, and must be made if it can be.
@@ -4152,6 +4177,11 @@ Effects:
   included) can't be attacked; their planeswalkers can.
 - `Filter::OfSourceChosenColor` — of the colour the source chose as it
   entered (`EnterModifier::ChooseColor`).
+- `Filter::OfSourceChosenCardType` — has the card type chosen for the source
+  by `EnterModifier::ChooseCardType`. It reads projected characteristics and
+  belongs in a source-relative modifier such as `Modifier::ProtectionFrom` or
+  `Modifier::PlayerProtectionFrom { who, from }`; the latter applies only the
+  damage-prevention and targeting parts of protection to a player (CR 702.16b).
 - `Condition::ChosenOpponentControls(&filter)` — the opponent the source chose
   as it entered (`EnterModifier::ChooseOpponent`) controls a matching
   permanent. Jihad: `enter_modifiers = &[EnterModifier::ChooseColor, EnterModifier::ChooseOpponent]`;

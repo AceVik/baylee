@@ -26,10 +26,12 @@ fn reads_amount(value: Amount) -> bool {
         Amount::Sum { left, right } | Amount::Difference { left, right } => {
             reads_amount(*left) || reads_amount(*right)
         }
-        Amount::Players(who) | Amount::LibrarySize(who) | Amount::LifeTotal(who) => {
-            reads_player(who)
-        }
-        Amount::CountOf {
+        Amount::Players(who)
+        | Amount::LibrarySize(who)
+        | Amount::LifeTotal(who)
+        | Amount::StartingLifeTotal(who)
+        | Amount::LifeGainedThisTurn(who)
+        | Amount::CountOf {
             zone: baylee_cards_dsl::ZoneSel::GraveyardOf(who),
             ..
         } => reads_player(who),
@@ -52,6 +54,7 @@ fn reads_event(effect: &Effect) -> bool {
         Effect::TapEventObject
         | Effect::EventObjectDealsDamageEqualToPower { .. }
         | Effect::EventObjectDealsDamage { .. }
+        | Effect::SacrificeEventDealDamageToEachBlocker { .. }
         | Effect::CopyEventSpellOrAbility
         | Effect::TargetsCopyEventSpellUntilEndOfTurn
         | Effect::IfEventObjectMatches { .. }
@@ -86,6 +89,7 @@ fn reads_event(effect: &Effect) -> bool {
         | Effect::PlayerMayPayCostOr { player, .. }
         | Effect::PlayerMayPayManaOr { player, .. }
         | Effect::PlayerMayPayManaThen { player, .. }
+        | Effect::ExileAttackingForThenMaySearchBasicLands { player }
         | Effect::OptionalBasicLandSearchFor { player, .. } => reads_player(*player),
         Effect::PreventNextDamageToAttached { amount }
         | Effect::DealDamageToBothTargetInstances { amount }

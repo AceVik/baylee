@@ -588,6 +588,7 @@ fn render_face(
     cats: &SubtypeCatalogs,
     enter_modifiers: &[String],
     flashback: Option<&str>,
+    foretell: Option<&str>,
     cost_reduction: Option<&str>,
     entwine: Option<&str>,
     is_back: bool,
@@ -638,6 +639,9 @@ fn render_face(
     }
     if let Some(fb) = flashback {
         fields.push(format!("flashback = {fb}"));
+    }
+    if let Some(ft) = foretell {
+        fields.push(format!("foretell = {ft}"));
     }
     if let Some(cr) = cost_reduction {
         fields.push(format!("cost_reduction = {cr}"));

@@ -393,3 +393,59 @@ fn clicking_an_unreached_rift_says_why_and_arms_nothing_while_a_target_arms_it()
     assert_eq!(target.last_error, None);
     assert!(target.armed.is_some());
 }
+
+#[test]
+fn foretell_is_reachable_throughout_its_owners_turn_only() {
+    let card = ObjectId::new(50, 0);
+    let mut duel = duel_holding_named("Doomskar", vec![forest(1), forest(2)], vec![]);
+    duel.view.as_mut().expect("the view").phase = baylee_view::Phase::Combat;
+    duel.view
+        .as_mut()
+        .expect("the view")
+        .stack
+        .push(token(90, 0, "An instant", 0, 0));
+    assert!(foretell_reach(&duel).contains(&card));
+    assert_eq!(
+        crate::foretell_mana_for(&duel, card)
+            .expect("a plan")
+            .taps(),
+        2
+    );
+
+    duel.view.as_mut().expect("the view").active = PlayerId::new(1);
+    assert!(foretell_reach(&duel).is_empty());
+}
+
+#[test]
+fn a_castable_foretell_card_offers_both_and_the_choice_arms_the_special_action() {
+    let plains = |slot| basic(slot, "Plains", land::PLAINS);
+    let card = ObjectId::new(50, 0);
+    let mut duel = duel_holding_named("Doomskar", (1..=5).map(plains).collect(), vec![]);
+    duel.reachable = reachable(&duel);
+    duel.foretell_reach = foretell_reach(&duel);
+    crate::input::activate_card(&mut duel, card);
+    let menu = duel
+        .cast_menu
+        .as_ref()
+        .expect("cast and foretell are two deeds");
+    assert_eq!(menu.modes.len(), 2);
+    assert_eq!(
+        menu.modes[1].kind,
+        baylee_engine::choice::CastModeKind::Foretell
+    );
+
+    crate::input::take_cast_row(&mut duel, 1);
+    assert!(duel.cast_answer.is_none());
+    assert!(matches!(
+        duel.armed.as_ref().map(|armed| &armed.deed),
+        Some(crate::Deed::Run {
+            then: crate::RunEnd::Foretell,
+            ..
+        })
+    ));
+    crate::input::fire_armed(&mut duel);
+    assert_eq!(
+        duel.mana_run.as_ref().expect("the funded run").then(),
+        crate::RunEnd::Foretell
+    );
+}

@@ -64,6 +64,18 @@ pub fn amount_with_context(
         Amount::CreaturesEnteredUnderYourControlThisTurn => state.per_turn.creatures_entered
             .get(usize::from(you.get())).copied().unwrap_or(0),
         Amount::X | Amount::NegX => x.unwrap_or(0),
+        Amount::XIfSourceWasForetold { otherwise } => {
+            if state.object(this).is_some_and(|object| {
+                object
+                    .riders
+                    .iter()
+                    .any(|rider| matches!(rider, crate::object::Rider::Foretold { .. }))
+            }) {
+                x.unwrap_or(0)
+            } else {
+                *otherwise
+            }
+        }
         // The magnitude, like every other arm here: the sign is
         // `Amount::is_negative`'s question and no caller of this reads one.
         Amount::Negated(inner) => self::amount_with_context(inner, state, you, context, x),
@@ -85,6 +97,21 @@ pub fn amount_with_context(
         Amount::LifeTotal(who) => players(*who, state, you)
             .and_then(|p| p.first().copied())
             .map_or(0, |p| u32::try_from(state.players[usize::from(p.get())].life).unwrap_or(0)),
+        Amount::StartingLifeTotal(who) => players(*who, state, you)
+            .and_then(|p| p.first().copied())
+            .map_or(0, |p| {
+                u32::try_from(state.players[usize::from(p.get())].starting_life).unwrap_or(0)
+            }),
+        Amount::LifeGainedThisTurn(who) => players(*who, state, you)
+            .and_then(|p| p.first().copied())
+            .map_or(0, |p| {
+                state
+                    .per_turn
+                    .life_gained_amount
+                    .get(usize::from(p.get()))
+                    .copied()
+                    .unwrap_or(0)
+            }),
         Amount::ControlledCount { who, filter } => players(*who, state, you)
             .and_then(|p| p.first().copied())
             .map_or(0, |controller| {

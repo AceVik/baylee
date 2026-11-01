@@ -24,6 +24,7 @@ mod intrinsic;
 mod lands;
 pub(crate) use additional::{
     additional_card_enters_graveyard, additional_payment_capacity, additional_payment_capacity_for,
+    pitch_costs_payable,
 };
 mod payment;
 mod permissions;
@@ -583,7 +584,13 @@ pub(crate) fn requirement_is_reachable_for(
         )
         .len(),
     };
-    let players = crate::eval::target_player_options(state, &req.spec, player).len();
+    let players = crate::eval::target_player_options_from(
+        state,
+        &req.spec,
+        player,
+        crate::eval::live_context(state, card),
+    )
+    .len();
     objects + players >= req.min as usize
 }
 
@@ -765,6 +772,18 @@ pub fn flashback_granted(state: &GameState, card: ObjectId) -> bool {
     })
 }
 
+/// Whether this exact exiled incarnation was foretold by `player` on an
+/// earlier turn. The printed card supplies the alternative cost separately.
+pub(crate) fn foretell_permission(state: &GameState, player: PlayerId, card: ObjectId) -> bool {
+    state.object(card).is_some_and(|object| {
+        object.zone == Zone::Exile
+            && object.zone_owner == Some(player)
+            && object.riders.iter().any(|rider| {
+                matches!(rider, crate::object::Rider::Foretold { turn } if *turn < state.turn.number)
+            })
+    })
+}
+
 /// Whether `card` can be cast by `player` right now (printed cost or any
 /// alternative/mode).
 ///
@@ -921,6 +940,17 @@ pub(crate) fn can_cast_form_paying(
             .card
             .and_then(|c| lookup.card(c.index))
             .is_some_and(|def| def.faces.iter().any(|f| f.disturb));
+    // Foretell (CR 702.143a): this exact exiled incarnation may be cast by
+    // its owner after the turn on which it was foretold, for its printed
+    // alternative cost. Its hidden face is restored by SpellForm::Foretell.
+    let foretell_cost = obj
+        .card
+        .and_then(|c| lookup.card(c.index))
+        .and_then(|def| def.faces[0].foretell);
+    let foretell_ok = foretell_cost.is_some() && foretell_permission(state, player, card);
+    if matches!(form, Some(SpellForm::Foretell(_))) && !foretell_ok {
+        return Err(CastError::NotInHand);
+    }
     // Adventure (CR 715): a card on an adventure may be cast from exile.
     let on_adventure = adventure_only_permission(state, player, card);
     let adventure_ok = !in_hand && adventure_permission(state, player, card);
@@ -951,6 +981,12 @@ pub(crate) fn can_cast_form_paying(
     } else {
         play_permission(state, player, card)
     };
+    // Generic legality probes do not preselect a mode. With no other exile
+    // permission, the only such mode is the later-turn foretell cost.
+    let form = form.or_else(|| {
+        (foretell_ok && permission.is_none())
+            .then(|| SpellForm::Foretell(foretell_cost.expect("foretell permission has a cost")))
+    });
     let granted_escape =
         in_own_graveyard && !granted_escape_options(state, lookup, player, card, paying).is_empty();
     // Wrenn's emblem and Muldrotha: a permanent card cast from its owner's
@@ -981,6 +1017,7 @@ pub(crate) fn can_cast_form_paying(
         && !adventure_ok
         && !takeover_ok
         && !commander_ok
+        && !foretell_ok
         && permission.is_none()
     {
         return Err(CastError::NotInHand);
@@ -1051,7 +1088,7 @@ pub(crate) fn can_cast_form_paying(
             state,
             player,
             pool,
-            &adjustment.price(form.cost(), 0),
+            &adjustment.price(form.cost().with_x(0), 0),
             SpendFor::SpellAs(card, form),
             adjustment.allowance(state, SpendFor::SpellAs(card, form), 0),
         ) || matches!(form, SpellForm::Prototype(_))
@@ -1226,7 +1263,18 @@ pub(crate) fn can_cast_form_paying(
     // so from the graveyard its cost is the price — or, beside a grant
     // (Past in Flames), one of two, the grant's being the mana cost below.
     if flashback_ok && let Some(cost) = printed_flashback {
-        if probe(&cost.with_x(0)) {
+        let parts_payable = printed.is_some_and(|def| {
+            additional_payment_capacity_for(
+                state,
+                player,
+                card,
+                &def.faces[0],
+                Some(crate::choice::CastModeKind::Flashback),
+                &[],
+            )
+            .is_some()
+        });
+        if parts_payable && probe(&cost.with_x(0)) {
             return Ok(());
         }
         if !flashback_granted(state, card) && !graveyard_ok {
@@ -1372,7 +1420,7 @@ pub(crate) fn can_cast_form_paying(
         // stage. Every part is asked about here, the way every condition is
         // asked about below — the two halves of the same offer.
         let any_alt = !flashback_only
-            && face.alternative_costs.iter().any(|alt| {
+            && face.alternative_costs.iter().enumerate().any(|(i, alt)| {
                 // Every condition, not merely the one that was written first.
                 // `CommanderControlled` fell through the old `!matches!` as
                 // "true", so Flawless Maneuver and Fierce Guardianship were
@@ -1389,6 +1437,15 @@ pub(crate) fn can_cast_form_paying(
                 condition_ok
                     && probe(&alt.cost.mana)
                     && alternative_parts_payable(state, player, card, alt.cost.parts)
+                    && additional_payment_capacity_for(
+                        state,
+                        player,
+                        card,
+                        face,
+                        Some(crate::choice::CastModeKind::Alternative(i)),
+                        &[],
+                    )
+                    .is_some()
             });
         // Affordable *and* pointable, of the **same** mode. A mode's price
         // and a mode's target line are the two halves of one way to cast the
@@ -1609,6 +1666,9 @@ fn alternative_parts_payable(
     parts: &[baylee_cards_dsl::CostPart],
 ) -> bool {
     use baylee_cards_dsl::CostPart;
+    if !pitch_costs_payable(state, player, card, parts, &[]) {
+        return false;
+    }
     parts.iter().all(|part| match part {
         CostPart::DiscardRandom => {
             state
@@ -1624,7 +1684,6 @@ fn alternative_parts_payable(
         }
         CostPart::PayLife(n) => state.can_pay_life(player, i32::from(*n)),
         CostPart::DiscardLastDrawnThisTurn => state.last_drawn_in_hand(player).is_some(),
-        CostPart::ExileFromHand(filter) => !pitchable(state, player, card, filter).is_empty(),
         // The same question `can_afford` asks of an activation, asked of the
         // card about to be cast. It answers `false` for every card in hand,
         // because a card in a hand carries no counters — and that is the
@@ -1647,7 +1706,10 @@ fn alternative_parts_payable(
         | CostPart::PayCommanderColors
         | CostPart::PayAttachedManaCost
         | CostPart::ExileTopOfLibrary(_) => false,
-        CostPart::DiscardHand
+        // `pitch_costs_payable` already proved a distinct card for every
+        // exile-from-hand part; the rest are paid off the card or the board.
+        CostPart::ExileFromHand(_)
+        | CostPart::DiscardHand
         | CostPart::TapSelf
         | CostPart::UntapSelf
         | CostPart::SacrificeSelf

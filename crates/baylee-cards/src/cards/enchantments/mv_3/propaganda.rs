@@ -3,8 +3,6 @@
 //! Set: MSC #151 — Marvel Super Heroes Commander | Scryfall ID: ac943e31-26bc-4b54-b73f-460e6e402d86 | Oracle ID: ea9709b6-4c37-4d5a-b04d-cd4c42e4f9dd
 // GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
 
-// Held back: Unsafe rule approximation found in Argon PR 394: missing printed cost, restriction, drawback, choice or target/zone semantics; the concrete finding for this card is recorded in docs/history/2026-10-23-argon-review.md.
-
 use baylee_cards_dsl::prelude::*;
 
 card!(

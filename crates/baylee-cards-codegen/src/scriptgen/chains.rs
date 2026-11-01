@@ -630,7 +630,7 @@ impl Tx<'_> {
                     return None;
                 }
                 vec![
-                    "Effect::ChooseCardName { player: PlayerRel::You, types: TypeSet::EMPTY, remember: false }"
+                    "Effect::ChooseCardName { player: PlayerRel::You, types: TypeSet::EMPTY, excluded_types: TypeSet::EMPTY, remember: false }"
                         .to_string(),
                 ]
             }

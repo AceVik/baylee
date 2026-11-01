@@ -39,6 +39,7 @@ impl Duel {
             pay_reason: None,
             reachable: Default::default(),
             suspend_reach: Default::default(),
+            foretell_reach: Default::default(),
             ability_reach: Default::default(),
             activatable: Default::default(),
             proposed: Default::default(),

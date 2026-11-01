@@ -215,7 +215,13 @@ impl<L: CardLookup> Engine<L> {
     }
 
     fn enter_combat_or_skip(&mut self) -> (Phase, Step) {
-        if self.state.per_turn.skip_combat_phases {
+        let active = usize::from(self.state.turn.active.get());
+        let player = &mut self.state.players[active];
+        let delayed_skip = player.combats_to_skip > 0;
+        if delayed_skip {
+            player.combats_to_skip -= 1;
+        }
+        if self.state.per_turn.skip_combat_phases || delayed_skip {
             self.enter_second_main_or_skip()
         } else {
             (Phase::Combat, Step::CombatBegin)
