@@ -61,8 +61,8 @@ fn sunscour_exiles_exactly_two_white_cards_and_destroys_all_creatures() {
         "both white cards were pitched"
     );
     pass_until(&mut e, stack_is_empty);
-    assert!(exiled(&e, p0, white_card()) >= 1);
-    assert!(exiled(&e, p0, serra_angel()) >= 1);
+    assert_eq!(exiled(&e, p0, white_card()), 1);
+    assert_eq!(exiled(&e, p0, serra_angel()), 1);
     assert!(in_hand(&e, p0, lightning_bolt()).is_some());
     assert!(on_battlefield(&e, p0, llanowar_elves()).is_none());
     assert!(on_battlefield(&e, p1, oboro_envoy()).is_none());
