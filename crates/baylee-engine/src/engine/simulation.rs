@@ -14,7 +14,9 @@
 //!
 //! This is not the live-play seam: a seat playing over the gateway has no
 //! engine to copy, and `docs/proposals/lookahead-design.md` is the design
-//! for that one.
+//! for that one. It is compiled only under the `simulation` feature (and in
+//! this crate's tests), which `cargo dev gate shipped-features` keeps out of
+//! every hosting build.
 
 mod driver;
 mod redeal;

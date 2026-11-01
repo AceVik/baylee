@@ -52,6 +52,7 @@ impl GameRng {
     /// seed the caller chose and never a game's: its hidden cards are dealt
     /// from one stream and its future randomness drawn from another, so
     /// dealing more or fewer cards cannot move what the fork rolls next.
+    #[cfg(any(test, feature = "simulation"))]
     #[must_use]
     pub(crate) fn stream(seed: u64, stream: u64) -> Self {
         let mut rng = ChaCha8Rng::seed_from_u64(seed);

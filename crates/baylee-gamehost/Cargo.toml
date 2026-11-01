@@ -8,6 +8,14 @@ description = "Shared game hosting: sessions (engine + AI seats), hidden-info vi
 [lints]
 workspace = true
 
+[features]
+# The engine's `Engine::fork_for`, for lookahead that a training or evaluation
+# harness runs through a `Session` it owns in-process. Only the training
+# crates may turn it on (through a feature `xtask` does not enable, such as
+# `baylee-train/play`): `cargo dev gate shipped-features` fails if a hosting
+# build does.
+simulation = ["baylee-engine/simulation"]
+
 [dependencies]
 baylee-ai.workspace = true
 # The build a record's header names, which decides how a replay checks it

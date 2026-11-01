@@ -2049,7 +2049,12 @@ evaluator, `eval4`, runs its games in-process through
 `baylee_gamehost::session::Session`. It is **not** for live play: a seat
 playing over the gateway has no engine to fork, and
 `docs/proposals/lookahead-design.md` remains the design for that one. It
-needs `L: CardLookup + Clone`; the registry lookups are unit structs.
+needs `L: CardLookup + Clone`; the registry lookups are unit structs. It
+exists only under the engine's `simulation` feature (gamehost forwards it):
+`cargo dev gate shipped-features` fails when any crate outside the training
+crates enables it, so no hosting build can fork a live game, and the
+training crates turn it on through a feature `xtask` does not enable (such
+as `baylee-train/play`).
 
 A fork is the whole engine copied field by field, so it carries the complete
 driver continuation — priority holder, passes, a regrant owed, combat

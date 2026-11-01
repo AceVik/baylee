@@ -16,7 +16,6 @@ use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
 #[path = "basics/rally.rs"]
 mod rally;
 
-#[derive(Clone, Copy)]
 struct RegistryLookup;
 
 impl CardLookup for RegistryLookup {
@@ -140,35 +139,6 @@ fn bench_snapshot_hash(c: &mut Criterion) {
     }
     c.bench_function("state/snapshot_hash_3k_tokens", |b| {
         b.iter(|| board.snapshot_hash());
-    });
-}
-
-/// A lookahead fork (`Engine::fork_for`) at the first main phase: the
-/// engine copied, both libraries and the other hand dealt again (113 cards
-/// in three pools), the journal rewritten and the projection and offer
-/// rebuilt. The clone of the same game's state is `state/clone`, beside it.
-///
-/// The main phase and not the upkeep `engine_started` stops in: the opening
-/// draws leave their miracle check queued until the upkeep's round closes,
-/// and a fork refuses that queue (`ForkRefusal::Continuation`).
-fn bench_fork(c: &mut Criterion) {
-    let mut engine = engine_started();
-    while engine.state().turn.phase != baylee_engine::turn::Phase::FirstMain {
-        let Pending::Priority { player, .. } = engine.pending().clone() else {
-            panic!("priority until the main phase");
-        };
-        engine.apply(player, PlayerAction::PassPriority).unwrap();
-    }
-    c.bench_function("engine/fork_for", |b| {
-        b.iter(|| {
-            engine
-                .fork_for(
-                    baylee_core::ids::PlayerId::new(0),
-                    baylee_engine::engine::DeckKnowledge::Known,
-                    7,
-                )
-                .expect("a settled priority forks")
-        });
     });
 }
 
@@ -552,7 +522,6 @@ criterion_group!(
     bench_setup,
     bench_clone,
     bench_snapshot_hash,
-    bench_fork,
     bench_priority_pass,
     bench_layers,
     bench_layers_deep_stack,
