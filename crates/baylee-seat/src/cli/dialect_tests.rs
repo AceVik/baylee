@@ -166,6 +166,15 @@ fn every_tool_has_a_dialect_that_agrees_with_the_panel() {
     }
 }
 
+/// Only Junie's processes leave the bridge's process group for a session
+/// of their own: every other tool ends with the group it was started in.
+#[test]
+fn only_junie_runs_in_a_session_of_its_own() {
+    for tool in CliTool::ALL {
+        assert_eq!(dialect(tool).detaches(), tool == CliTool::Junie, "{tool:?}");
+    }
+}
+
 /// A conversation's id is handed back in an argument only as letters,
 /// digits, `_` and `-`, never first, and not too long.
 #[test]

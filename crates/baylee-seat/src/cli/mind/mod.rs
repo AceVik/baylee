@@ -173,9 +173,9 @@ impl CliMind {
             let left = time_left(request, started);
             let extras =
                 report_and_look_up(&seat, &self.library, &making, taken.as_ref().ok(), left);
-            // A lookup asks the same question again with the card's text;
-            // one that may not be made is passed over, and the answer is
-            // taken if it answers.
+            // A lookup alone asks the same question again with the card's
+            // text; one beside an answer, or one that may not be made, is
+            // passed over, and the answer is taken if it answers.
             let no_lookup = match extras.await {
                 Looked::Made(message) => {
                     looked += 1;
@@ -662,7 +662,9 @@ impl CliMind {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .kill_on_drop(true);
-        detach(&mut command);
+        if self.launch.dialect.detaches() {
+            detach(&mut command);
+        }
         let child = command
             .spawn()
             .map_err(|e| format!("{tool} did not start for its login check: {e}"))?;

@@ -418,3 +418,46 @@ async fn a_hosts_bridge_report_goes_to_central_where_the_operator_says_so() {
     drop(desk);
     agent.abort();
 }
+
+/// The host's reports an hour (`report::REPORTS_PER_WINDOW`).
+const HOST_REPORTS_AN_HOUR: usize = 64;
+
+/// A chair's report refused for its host's budget (`429`: the host's
+/// account sent its reports for the hour) was not sent, so the chair may
+/// send it again: it is refused for the budget again, never as one the
+/// chair already sent (`409`), and nothing of it reached the service.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_chair_report_refused_for_its_host_s_budget_may_be_sent_again() {
+    let (url, inbox, _down) = stub_service().await;
+    let gw = spawn_gateway_with(
+        "chair_report_budget",
+        &[
+            ("BAYLEE_FEEDBACK_URL", url),
+            (
+                "BAYLEE_FEEDBACK_TOKEN",
+                "intake-secret-for-tests".to_owned(),
+            ),
+            ("BAYLEE_FEEDBACK_KEY", "pseudonym-key".to_owned()),
+        ],
+    );
+    let port = gw.port;
+    let agent = attach_agent(&gw).await;
+    let host = login(port, "hana", "HanaHost");
+    let (game, bridge, _) = a_finished_bridge_game(&gw, &host).await;
+    let null = serde_json::Value::Null;
+    for n in 0..HOST_REPORTS_AN_HOUR {
+        let (status, answer) = http(port, "POST", "/reports", Some(&host), &body(&null));
+        assert_eq!(status, 201, "the host's report {n}: {answer}");
+    }
+    let path = format!("/lobby/games/{game}/chair/report");
+    for attempt in 0..2 {
+        let (status, answer) = http(port, "POST", &path, Some(&bridge), &body(&null));
+        assert_eq!(status, 429, "attempt {attempt}: {answer}");
+    }
+    assert_eq!(
+        inbox.lock().len(),
+        HOST_REPORTS_AN_HOUR,
+        "the chair's report never reached the service"
+    );
+    agent.abort();
+}

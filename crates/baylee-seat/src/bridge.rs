@@ -95,7 +95,7 @@ pub struct PlayOptions {
     /// the room is still open.
     pub room_check: Duration,
     /// Whether the game's reports go to the gateway as its bug report when
-    /// it ends ([`crate::reports`]); they are written to the transcripts'
+    /// it ends ([`crate::reports`]); they are written to the mind's
     /// reports file either way (`join --no-send-reports` turns it off).
     pub send_reports: bool,
 }

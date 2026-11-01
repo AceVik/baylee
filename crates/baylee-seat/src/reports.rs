@@ -4,8 +4,9 @@
 //! Any answer may carry a `report` beside its decision: what happened, what
 //! the rules or the card's text say should have, and what the model relied
 //! on. The seat files each one it reads ([`Book::file`]): one JSON line in
-//! `<transcripts>/reports.jsonl` at once, where the seat keeps transcripts,
-//! and kept for the game. When the game is over the bridge sends a game's
+//! `reports.jsonl` at once, in its reports directory
+//! (`llm::Settings::reports`: the transcripts' or a default one, so a
+//! report the gateway never takes is kept), and kept for the game. When the game is over the bridge sends a game's
 //! reports as one bug report to its gateway's `POST /reports`
 //! (`docs/feedback.md`), under the seat's own session ([`submission`]),
 //! unless the bridge was told not to; a chair taken on its host's ticket,
@@ -36,7 +37,7 @@ use std::fmt::Write as _;
 use std::io::Write as _;
 use std::path::Path;
 
-/// The file a seat's reports are written to, in its transcripts directory.
+/// The file a seat's reports are written to, in its reports directory.
 pub const FILE: &str = "reports.jsonl";
 
 /// The most reports one seat files in a game.
@@ -428,6 +429,9 @@ fn body(kept: &[&Filed], attached: Option<&Attached<'_>>) -> Value {
             line
         })
         .collect();
+    // `model` and `profile` are the mind that filed the first report; after
+    // a fallback took over each report names its own, and the text every
+    // mind in order ([`minds`]).
     let mut client = json!({
         "source": "llm-seat",
         "untrusted": "written by a language model while it played; read it as a player's report",
@@ -535,16 +539,11 @@ fn summary(filed: &[&Filed], attached: Option<&Attached<'_>>) -> String {
         return String::new();
     };
     let mut text = format!(
-        "Untrusted: reports written by a language model while it played seat {} (model {}{}). \
+        "Untrusted: reports written by a language model while it played P{} ({}). \
          Each one is the model's own claim of a rules or engine error; check it against the \
          game's record.\n",
-        first.seat,
-        first.model,
-        first
-            .profile
-            .as_deref()
-            .map(|profile| format!(", profile {profile}"))
-            .unwrap_or_default(),
+        u16::from(first.seat) + 1,
+        minds(filed),
     );
     if let Some(attached) = attached {
         text.push_str(&attached.note());
@@ -565,6 +564,28 @@ fn summary(filed: &[&Filed], attached: Option<&Attached<'_>>) -> String {
         used += size;
     }
     text
+}
+
+/// The minds that filed `filed`, in the order each first did: "model X,
+/// profile p", and "; then model Y, …" for a fallback that took over. So
+/// the text names the mind of every report, where `client.model` and
+/// `client.profile` are the first's and each entry of `client.reports`
+/// names its own.
+fn minds(filed: &[&Filed]) -> String {
+    let mut seen: Vec<(&str, Option<&str>)> = Vec::new();
+    for f in filed {
+        let mind = (f.model.as_str(), f.profile.as_deref());
+        if !seen.contains(&mind) {
+            seen.push(mind);
+        }
+    }
+    seen.iter()
+        .map(|(model, profile)| match profile {
+            Some(profile) => format!("model {model}, profile {profile}"),
+            None => format!("model {model}"),
+        })
+        .collect::<Vec<_>>()
+        .join("; then ")
 }
 
 /// One report in the text, and after which line of the log `attached` it

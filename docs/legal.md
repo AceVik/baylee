@@ -382,8 +382,10 @@ below remain the basis for runtime card images and finishes.
    gateway's catalog under its own session second; only a profile with
    `"lookup": "scryfall"` asks `api.scryfall.com`, for a card's rulings and
    for a card neither knows. It keeps the requirements recorded above: at
-   most ten requests a second (one at a time, 100 ms apart within a
-   process), what it fetched kept (a week, in the user's cache directory,
+   most ten requests a second (one at a time, 100 ms apart, for every
+   seat of this machine that keeps the same cache directory: its processes
+   take turns under a lock file there), what it fetched kept (a week, in
+   the user's cache directory,
    for this machine's seats alone: no mirror, no proxy), and it names
    itself (`User-Agent: baylee-seat/<version>`, `Accept:
    application/json;q=0.9,*/*;q=0.8`). A request carries the card's name

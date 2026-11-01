@@ -382,7 +382,9 @@ paragraphs (`prompt::system`), since 31.10.2026:
   ````
 
   With tools, the `decide` call's result says "Looked up" and the text
-  follows it. A lookup is not a try: the question's two tries for an
+  follows it. An answer that answers as well (a `pick`, `attacks`, …
+  beside the `lookup`) is taken as it is, and the card is not looked up.
+  A lookup is not a try: the question's two tries for an
   answer that cannot be taken stay whole. Past 3 a question, 30 a game or
   the time a lookup needs, the field is passed over: an answer that also
   answers is taken, else the reason is the refusal ("no lookups left for

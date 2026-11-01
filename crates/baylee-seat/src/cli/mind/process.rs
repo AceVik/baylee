@@ -59,7 +59,9 @@ impl CliMind {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .kill_on_drop(true);
-        detach(&mut command);
+        if dialect.detaches() {
+            detach(&mut command);
+        }
         let mut child = command
             .spawn()
             .map_err(|e| format!("{tool} could not start: {e}"))?;

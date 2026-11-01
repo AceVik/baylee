@@ -190,6 +190,11 @@ pub(crate) enum Looked {
 /// be ([`Seat::may_look_up`], with `left` of the question's time) in
 /// `library`, off the executor. The seat is never held while the card is
 /// looked up.
+///
+/// Only an answer of `ask` and `lookup` alone asks for a card: one that
+/// also answers its question ([`Decision::answers`]) is taken as it is,
+/// and its lookup is passed over (a line of the mind's transcript), never
+/// made at the cost of the answer.
 pub(crate) async fn report_and_look_up<T: Holds>(
     holder: &Mutex<T>,
     library: &Arc<Library>,
@@ -209,6 +214,10 @@ pub(crate) async fn report_and_look_up<T: Holds>(
         let Some(name) = decision.lookup.clone() else {
             return Looked::Nothing;
         };
+        if decision.answers() {
+            seat.passed_over(making, &name);
+            return Looked::Nothing;
+        }
         match seat.may_look_up(making, left) {
             Ok(timeout) => (name, timeout),
             Err(why) => return Looked::Refused(why),
@@ -231,8 +240,9 @@ pub(crate) async fn report_and_look_up<T: Holds>(
 
 impl Seat {
     /// Files the report an answer carried ([`crate::reports`]): written to
-    /// the reports file where there are transcripts, and kept for the
-    /// bridge.
+    /// the reports file in the settings' reports directory at once
+    /// ([`Settings::reports`]), so it outlives a bug report the gateway
+    /// never takes, and kept for the bridge.
     fn file_report(&mut self, report: &Report, at: &Making) {
         let request = at.request;
         let filed = reports::Filed {
@@ -253,7 +263,7 @@ impl Seat {
                 .from
                 .saturating_add(u32::try_from(request.log.entries.len()).unwrap_or(u32::MAX)),
         };
-        if self.reports.file(filed, at.settings.transcripts.as_deref()) {
+        if self.reports.file(filed, at.settings.reports.as_deref()) {
             self.transcript.write_value(&json!({
                 "question": request.question,
                 "turn": request.view.turn,
@@ -299,6 +309,20 @@ impl Seat {
                 "text": found.text,
                 "of_question": at.looked + 1,
                 "of_game": self.lookups,
+            },
+        }));
+        self.transcript.flush();
+    }
+
+    /// Writes to the mind's transcript that the lookup of `name` an
+    /// answer asked for beside answering was not made: the answer is taken.
+    fn passed_over(&mut self, at: &Making, name: &str) {
+        self.transcript.write_value(&json!({
+            "question": at.request.question,
+            "turn": at.request.view.turn,
+            "lookup_passed_over": {
+                "name": name,
+                "why": "the answer also answered the question",
             },
         }));
         self.transcript.flush();

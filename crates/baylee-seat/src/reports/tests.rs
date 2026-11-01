@@ -238,6 +238,32 @@ fn a_game_s_reports_are_one_bug_report_marked_as_a_model_s() {
     assert_eq!(submission(&[], None), None, "no reports, no report");
 }
 
+/// The text names the seat as its log and its model do (`P2` for the
+/// view's seat 1), and every mind that filed a report, in order: after a
+/// fallback took over, `client.model` is the first's, and each report
+/// names its own.
+#[test]
+fn a_bug_report_names_the_seat_as_its_log_does_and_every_mind() {
+    let mut reports = vec![filed("Bolt dealt 2.", 12), filed("No trigger.", 14)];
+    reports[1].model = "TEST-fallback".into();
+    reports[1].profile = Some("backup".into());
+    reports.push(filed("Wrong mana.", 15));
+    let body = submission(&reports, None).unwrap();
+    let text = body["text"].as_str().unwrap();
+    assert!(
+        text.starts_with(
+            "Untrusted: reports written by a language model while it played P2 (model \
+             TEST-model, profile collector; then model TEST-fallback, profile backup)."
+        ),
+        "{text}"
+    );
+    let client = &body["client"];
+    assert_eq!(client["model"], "TEST-model");
+    assert_eq!(client["reports"][1]["model"], "TEST-fallback");
+    assert_eq!(client["reports"][1]["profile"], "backup");
+    assert_eq!(client["seat"], 1, "the view's number, as each report's");
+}
+
 #[test]
 fn a_bug_report_s_text_holds_to_its_bound() {
     let long = "x".repeat(FIELD_CHARS);

@@ -252,7 +252,7 @@ async fn a_card_fetched_is_kept_for_the_next_seat() {
     .unwrap();
     assert_eq!(kept.asked().len(), 2, "one card, its rulings, once");
     assert_eq!(card.rulings.len(), 2);
-    let files: Vec<_> = std::fs::read_dir(&cache).unwrap().flatten().collect();
+    let files = cards_in(&cache);
     assert_eq!(files.len(), 1, "one file, no temporary left: {files:?}");
     let second = Scryfall::at(&base, Some(cache.clone()));
     let read =
@@ -262,6 +262,103 @@ async fn a_card_fetched_is_kept_for_the_next_seat() {
             .unwrap();
     assert_eq!(read, Some(card));
     assert_eq!(kept.asked().len(), 2, "read from the cache");
+    let _ = std::fs::remove_dir_all(&cache);
+}
+
+/// The files of a cache directory but the turn's lock file.
+fn cards_in(cache: &std::path::Path) -> Vec<std::path::PathBuf> {
+    std::fs::read_dir(cache)
+        .map(|dir| {
+            dir.flatten()
+                .map(|entry| entry.path())
+                .filter(|path| !path.ends_with(scryfall::TURN_FILE))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// A name Scryfall does not know is kept in memory only: asked once by
+/// a process, never written to the cache, so made-up names do not pile up
+/// there; another process asks it again.
+#[tokio::test]
+async fn a_name_scryfall_does_not_know_is_kept_in_memory_only() {
+    let (base, kept, _) = stand_in_scryfall().await;
+    let cache = scratch("unknown");
+    let first = Scryfall::at(&base, Some(cache.clone()));
+    let second = Scryfall::at(&base, Some(cache.clone()));
+    tokio::task::spawn_blocking(move || {
+        for scryfall in [&first, &first, &second] {
+            let card = scryfall.card("Nowhere Card", Duration::from_secs(5));
+            assert_eq!(card, Ok(None));
+        }
+    })
+    .await
+    .unwrap();
+    assert_eq!(kept.asked().len(), 2, "once a process");
+    assert_eq!(cards_in(&cache), Vec::<std::path::PathBuf>::new());
+    let _ = std::fs::remove_dir_all(&cache);
+}
+
+/// Every handle on one cache directory, as every process of this machine
+/// that keeps it, asks Scryfall one at a time and [`scryfall::SPACING`]
+/// apart: two at once, each with its own spacing, never come closer.
+#[tokio::test]
+async fn the_spacing_holds_across_every_handle_of_one_cache() {
+    let (base, kept, _) = stand_in_scryfall().await;
+    let cache = scratch("spacing");
+    let ask = |n: usize| {
+        let scryfall = Scryfall::at(&base, Some(cache.clone()));
+        std::thread::spawn(move || {
+            for at in 0..3 {
+                let name = format!("Nowhere {n}-{at}");
+                assert_eq!(scryfall.card(&name, Duration::from_secs(5)), Ok(None));
+            }
+        })
+    };
+    let asking = [ask(1), ask(2)];
+    tokio::task::spawn_blocking(move || {
+        for one in asking {
+            one.join().unwrap();
+        }
+    })
+    .await
+    .unwrap();
+    let mut at: Vec<Instant> = kept.asked().iter().map(|asked| asked.at).collect();
+    at.sort();
+    assert_eq!(at.len(), 6);
+    for pair in at.windows(2) {
+        let apart = pair[1].duration_since(pair[0]);
+        // The stand-in notes a request as its handler runs, a little
+        // after it arrived; the spacing is in whole milliseconds.
+        assert!(
+            apart + Duration::from_millis(10) >= scryfall::SPACING,
+            "{apart:?} apart"
+        );
+    }
+    let _ = std::fs::remove_dir_all(&cache);
+}
+
+/// A turn another process holds past a request's time fails that lookup
+/// in its time, and Scryfall is not asked: a seat never waits unbounded.
+#[tokio::test]
+async fn a_turn_held_elsewhere_fails_the_lookup_in_time() {
+    let (base, kept, _) = stand_in_scryfall().await;
+    let cache = scratch("held");
+    std::fs::create_dir_all(&cache).unwrap();
+    let held = std::fs::File::create(cache.join(scryfall::TURN_FILE)).unwrap();
+    held.lock().unwrap();
+    let scryfall = Scryfall::at(&base, Some(cache.clone()));
+    let started = Instant::now();
+    let card = tokio::task::spawn_blocking(move || {
+        scryfall.card("Scryfall Only", Duration::from_millis(200))
+    })
+    .await
+    .unwrap();
+    let why = card.unwrap_err();
+    assert!(why.contains("another seat of this machine"), "{why}");
+    assert!(started.elapsed() < Duration::from_secs(2), "bounded");
+    assert!(kept.asked().is_empty(), "nothing was asked");
+    drop(held);
     let _ = std::fs::remove_dir_all(&cache);
 }
 
