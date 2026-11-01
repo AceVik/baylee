@@ -78,3 +78,20 @@ fn angel_of_condemnation_exert_exiles_until_it_leaves_and_skips_one_untap() {
     kill(&mut e, angel);
     assert_eq!(on_battlefield(&e, p1, gray_ogre()), Some(ogre));
 }
+
+/// The exert ability exiles "until this creature leaves the battlefield"
+/// (CR 610.3): an Angel gone before the ability resolves exiles nothing
+/// (CR 610.3a). Written as an exile plus a separate leaves trigger, the
+/// trigger found nothing to return and the Ogre was exiled for good.
+#[test]
+fn angel_of_condemnation_gone_before_its_exert_ability_resolves_exiles_nothing() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let (mut e, angel, ogre) = condemnation_table();
+    tap_all_mana(&mut e, p0);
+    activate(&mut e, p0, angel_of_condemnation(), 1);
+    aim_at(&mut e, p0, ogre);
+    crate::sba::destroy(e.dev_state_mut(p0).expect("dev board"), angel);
+    pass_until(&mut e, stack_is_empty);
+    assert!(on_battlefield(&e, p0, angel_of_condemnation()).is_none());
+    assert_eq!(on_battlefield(&e, p1, gray_ogre()), Some(ogre));
+}

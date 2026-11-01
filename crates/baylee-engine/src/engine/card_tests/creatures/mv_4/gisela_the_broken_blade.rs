@@ -153,3 +153,42 @@ fn gisela_and_bruna_meld_on_my_end_step_and_brisela_locks_only_opponents() {
     assert_eq!(engine.state.object(blade).unwrap().base.power, Some(4));
     assert_eq!(engine.state.object(light).unwrap().base.power, Some(5));
 }
+
+/// "If you both own and control Gisela and a creature named Bruna" is an
+/// intervening "if" (CR 603.4): alone on your battlefield Gisela puts nothing
+/// on the stack at your end step. Without the condition the meld trigger went
+/// on the stack every end step and only fizzled on resolution, so a Bruna
+/// flashed in or stolen with the trigger on the stack still melded.
+#[test]
+fn gisela_without_bruna_does_not_trigger_at_my_end_step() {
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[gisela()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, P0);
+    let blade = on_battlefield(&engine, P0, gisela()).unwrap();
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == P0 && e.state().turn.step == Step::End
+    });
+    assert!(stack_is_empty(&engine), "{:?}", engine.pending());
+    assert_eq!(engine.state.object(blade).unwrap().zone, Zone::Battlefield);
+}
+
+/// "Own": a Bruna I control but an opponent owns does not meld with Gisela.
+#[test]
+fn gisela_does_not_trigger_with_a_bruna_i_control_but_do_not_own() {
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[gisela()])
+        .battlefield(1, &[bruna()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, P0);
+    let light = on_battlefield(&engine, P1, bruna()).unwrap();
+    engine.state.object_mut(light).unwrap().set_controller(P0);
+    engine.state.invalidate_projections();
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == P0 && e.state().turn.step == Step::End
+    });
+    assert!(stack_is_empty(&engine), "{:?}", engine.pending());
+    assert_eq!(engine.state.object(light).unwrap().zone, Zone::Battlefield);
+}

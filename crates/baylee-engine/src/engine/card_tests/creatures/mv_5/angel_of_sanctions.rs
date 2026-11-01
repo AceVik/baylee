@@ -78,7 +78,7 @@ fn angel_of_sanctions_embalms_only_as_a_sorcery_into_the_printed_token() {
     keep_mulligans(&mut e);
     reach_main_phase(&mut e, p0);
     let card = hand_to_graveyard(&mut e, p0, angel_of_sanctions());
-    let embalm = (card, 2);
+    let embalm = (card, 1);
     assert!(!priority_offer(&e).abilities.contains(&embalm));
     tap_all_mana(&mut e, p0);
     cast_with_floating(&mut e, p0, llanowar_elves());
@@ -88,7 +88,7 @@ fn angel_of_sanctions_embalms_only_as_a_sorcery_into_the_printed_token() {
     );
     pass_until(&mut e, stack_is_empty);
     assert!(priority_offer(&e).abilities.contains(&embalm));
-    activate(&mut e, p0, angel_of_sanctions(), 2);
+    activate(&mut e, p0, angel_of_sanctions(), 1);
     assert_eq!(
         e.state().object(card).expect("embalmed card").zone,
         Zone::Exile
@@ -119,4 +119,32 @@ fn angel_of_sanctions_embalms_only_as_a_sorcery_into_the_printed_token() {
     );
     assert_eq!(chars.mana_cost.cmc(), 0, "no mana cost");
     assert!(keywords(&e, token).contains(KeywordSet::FLYING));
+}
+
+/// "Until this creature leaves the battlefield" (CR 610.3): an Angel that is
+/// gone before its trigger resolves exiles nothing (CR 610.3a). Written as an
+/// exile plus a separate leaves trigger, the trigger found nothing to return
+/// and the Ring went into exile for good.
+#[test]
+fn angel_of_sanctions_gone_before_its_trigger_resolves_exiles_nothing() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(0, &[plains(), plains(), plains(), plains(), plains()])
+        .hand(0, &[angel_of_sanctions()])
+        .battlefield(1, &[sol_ring()])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let ring = on_battlefield(&e, p1, sol_ring()).expect("opponent nonland");
+    cast_from_hand(&mut e, p0, angel_of_sanctions());
+    pass_until(&mut e, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    aim_at(&mut e, p0, ring);
+    let angel = on_battlefield(&e, p0, angel_of_sanctions()).expect("the Angel");
+    // The trigger is on the stack; the Angel dies in response.
+    crate::sba::destroy(e.dev_state_mut(p0).expect("dev board"), angel);
+    pass_until(&mut e, stack_is_empty);
+    assert!(on_battlefield(&e, p0, angel_of_sanctions()).is_none());
+    assert_eq!(on_battlefield(&e, p1, sol_ring()), Some(ring));
 }
