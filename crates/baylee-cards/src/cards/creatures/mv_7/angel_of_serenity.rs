@@ -28,7 +28,9 @@ card!(
     abilities = &[
         triggered!(
             Trigger::ETB,
-            &[Effect::ExileTargetsWithSource],
+            &[Effect::MayDo {
+                effects: &[Effect::ExileTargetsWithSource],
+            }],
             targets = Some(TargetReq::up_to(
                 TargetSpec::ObjectOrCardInAnyGraveyard(&OTHER_CREATURE_OR_CARD),
                 3,

@@ -3,7 +3,7 @@
 //! Oracle: When this creature enters, you may exile target nonland permanent an opponent controls until this creature leaves the battlefield.
 //! Oracle: Embalm {5}{W} ({5}{W}, Exile this card from your graveyard: Create a token that's a copy of it, except it's a white Zombie Angel with no mana cost. Embalm only as a sorcery.)
 //! Set: C19 #61 — Commander 2019 | Scryfall ID: f3f7f258-7ac0-4149-9d8c-712b5ea7f0a8 | Oracle ID: 3c49e98d-d33b-47fa-8b07-b38b367de2c7
-// IMPLEMENTED — optional linked exile, return on leaving, and embalm.
+// IMPLEMENTED — optional exile until it leaves (CR 610.3), and embalm.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -30,13 +30,12 @@ card!(
         triggered!(
             Trigger::ETB,
             &[Effect::MayDo {
-                effects: &[Effect::exile_linked(TargetSpec::Object(&OPPONENT_NONLAND))],
+                effects: &[Effect::exile_until(
+                    TargetSpec::Object(&OPPONENT_NONLAND),
+                    ExileUntil::SourceLeavesBattlefield,
+                )],
             }],
             targets = Some(TargetReq::one(TargetSpec::Object(&OPPONENT_NONLAND))),
-        ),
-        triggered!(
-            Trigger::LeavesBattlefield(&Filter::This),
-            &[Effect::ReturnLinkedToBattlefield],
         ),
         activated!(
             cost!("{5}{W}", ExileSelf),

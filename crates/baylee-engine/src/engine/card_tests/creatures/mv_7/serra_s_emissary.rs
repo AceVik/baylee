@@ -21,6 +21,9 @@ fn cast_emissary(engine: &mut Engine<RegistryLookup>, chosen: TypeSet) -> Object
         unreachable!("the entry question is pending")
     };
     assert!(options.contains(&chosen));
+    // The fifteen card types of CR 205.2a; Attraction is an artifact type.
+    assert_eq!(options.len(), 15);
+    assert!(!options.contains(&TypeSet::ATTRACTION));
     engine
         .apply(P0, PlayerAction::ChooseCardType(chosen))
         .expect("the offered card type is a legal choice");

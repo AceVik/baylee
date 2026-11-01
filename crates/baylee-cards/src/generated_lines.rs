@@ -23771,14 +23771,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         alternatives: &[],
     }],
     &[],
-    // Opalescence
-    &[FaceLines {
-        sentences: 1,
-        stackable: 0,
-        lines: &[None],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     // Opposition
     &[FaceLines {
         sentences: 1,
@@ -27350,14 +27343,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    // Hazy Homunculus
-    &[FaceLines {
-        sentences: 1,
-        stackable: 0,
-        lines: &[None],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     &[],
     &[],
     &[],
@@ -27433,14 +27419,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     }],
     &[],
     &[],
-    // Mercenary Informer
-    &[FaceLines {
-        sentences: 2,
-        stackable: 1,
-        lines: &[None, Some(1)],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     // Mine Bearer
     &[FaceLines {
         sentences: 1,
@@ -27769,14 +27748,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    // Wall of Vipers
-    &[FaceLines {
-        sentences: 2,
-        stackable: 1,
-        lines: &[Some(1)],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     // Well of Discovery
     &[FaceLines {
         sentences: 1,
@@ -67067,8 +67039,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Angel of Sanctions
     &[FaceLines {
         sentences: 3,
-        stackable: 3,
-        lines: &[Some(1), Some(1), Some(2)],
+        stackable: 2,
+        lines: &[Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],
@@ -67806,8 +67778,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Angel of Condemnation
     &[FaceLines {
         sentences: 3,
-        stackable: 3,
-        lines: &[Some(1), Some(2), None],
+        stackable: 2,
+        lines: &[Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],

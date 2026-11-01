@@ -27,6 +27,7 @@ card!(
         &[Effect::RaiseLifeTotalTo {
             who: PlayerRel::You,
             amount: Amount::StartingLifeTotal(PlayerRel::You),
-        }]
+        }],
+        condition = Some(Condition::LifeBelowStarting)
     )],
 );
