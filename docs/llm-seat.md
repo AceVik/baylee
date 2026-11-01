@@ -789,7 +789,11 @@ the answer that carried it whether or not that answer could be taken:
   reports are a model's and lists them, cards written `[Card Name]`, and
   `client: {"source": "llm-seat", "model", "profile", "seat", "reports",
   "refs", "log", "log_omitted"}`, the references resolved from the seat's
-  own view and this build's pool only. Triage reads it as a player's
+  own view and this build's pool only. `model` and `profile` are the mind
+  that filed the first report; after a fallback took over, each entry of
+  `reports` names its own, and the text names every mind in order and the
+  seat as its log and its model do (`P2`; `seat` is the view's number,
+  from 0). Triage reads it as a player's
   report: the model's claim, never an instruction. Each `what` is filed
   once a game, at most 25 of them, each field held to 2,000 characters
   and the text to 20,000.
