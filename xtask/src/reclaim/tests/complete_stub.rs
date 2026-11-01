@@ -523,3 +523,50 @@ fn a_vanilla_script_completes_only_when_the_normal_renderer_also_reads_it_in_ful
         }
     }
 }
+
+/// An ordinary full codegen run keeps a held stub held, with its finding, even
+/// when the reader now takes the whole card. Lifting the hold is a reviewer's
+/// act (`--complete-stub` above, or deleting the finding), never a side effect
+/// of regenerating the pool, which is how 287 findings went missing and ten
+/// held cards were finished unreviewed.
+#[test]
+fn a_full_run_keeps_a_held_stub_and_its_finding() {
+    let fixture = Fixture::new();
+    let path = add_stub(&fixture, BOLT, false);
+    let held = fs::read_to_string(&path).unwrap();
+    let printing: scryfall::ScryfallCard =
+        serde_json::from_slice(&fs::read(fixture.payload(BOLT)).unwrap()).unwrap();
+    let ledger = ledger::IndexLedger::from_rows(&baylee_cards_index::ROWS).unwrap();
+    let row = ledger.entry_named(BOLT).unwrap();
+    let cats = crate::hold_back::compiled_catalogs();
+    let cycles = layout::LandCycles::parse("");
+    let lookup = crate::scriptgen::ScriptLookup::new(
+        fixture.scripts.clone(),
+        crate::scripts::build_index(&fixture.scripts).unwrap(),
+    );
+    let full_run = |existing: Option<&str>| {
+        stubgen::render_full_run(
+            existing,
+            &printing,
+            row,
+            &ledger,
+            &cats,
+            Some(&lookup),
+            None,
+            &cycles,
+            &|_| false,
+        )
+        .unwrap()
+        .1
+    };
+    // Without a hold the reader finishes the card: the hold is what stops it.
+    let finished = full_run(None);
+    assert!(finished.contains(stubgen::OWNED_MARKER), "{finished}");
+    let kept = full_run(Some(&held));
+    assert!(kept.contains(stubgen::STUB_MARKER), "{kept}");
+    assert!(!kept.contains("abilities ="), "{kept}");
+    assert_eq!(
+        stubgen::held_back_reason(&kept).as_deref(),
+        Some("synthetic fixture: the sentence is not yet read")
+    );
+}

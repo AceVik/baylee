@@ -356,9 +356,13 @@ impl<L: CardLookup> Engine<L> {
                 .filter(|req| req.count_is_x)
                 .map(|req| {
                     let objects = self.wizard_target_options(wizard, &req.spec).len();
-                    let players =
-                        crate::eval::target_player_options(&self.state, &req.spec, wizard.player)
-                            .len();
+                    let players = crate::eval::target_player_options_from(
+                        &self.state,
+                        &req.spec,
+                        wizard.player,
+                        crate::eval::live_context(&self.state, wizard.card),
+                    )
+                    .len();
                     u32::try_from(objects + players).unwrap_or(u32::MAX)
                 }),
             // The second instance of a spell cast with several modes belongs

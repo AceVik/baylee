@@ -234,12 +234,19 @@ impl CardDef {
     /// permanent that is already turned over.
     #[must_use]
     pub fn keywords_for_face(&self, face: usize) -> KeywordSet {
-        let keywords = if face == 0 {
+        let mut keywords = if face == 0 {
             let own = self.faces.first().map_or(KeywordSet::EMPTY, |f| f.keywords);
             if own.is_empty() { self.keywords } else { own }
         } else {
             self.faces[face.min(self.faces.len() - 1)].keywords
         };
+        // Generic partner is a keyword ability, not only deckbuilding
+        // metadata. Keeping it in the same projection as every other keyword
+        // lets copy effects, ability removal and rules that count abilities
+        // all observe it. `PartnerWith` is deliberately a different ability.
+        if face == 0 && self.partner == PartnerKind::Partner {
+            keywords = keywords.union(KeywordSet::PARTNER);
+        }
         if self
             .faces
             .get(face.min(self.faces.len().saturating_sub(1)))
@@ -414,14 +421,21 @@ pub struct FaceDef {
     /// `layout`). The engine reads it as that: such a face's mana value is
     /// its front face's (CR 202.3b, `Characteristics::front_mana_value`).
     pub castable_from_hand: bool,
+    /// Foretell cost: pay {2} to exile this from hand face down during its
+    /// owner's turn, then cast it after that turn for this alternative cost.
+    /// The permission is part of the exiled incarnation, not a suspend counter.
+    pub foretell: Option<ManaCost>,
     /// Miracle cost: when revealed as the first card drawn this turn, the
     /// card may be cast for this cost (CR 702.94).
     pub miracle: Option<ManaCost>,
     /// Flashback (CR 702.34a): this card may be cast from its owner's
     /// graveyard for this cost rather than its mana cost, and is exiled
-    /// instead of going anywhere else afterwards. Mana only: a flashback
-    /// that costs something other than mana is not written here.
+    /// instead of going anywhere else afterwards. A non-mana-only flashback
+    /// cost uses [`ManaCost::ZERO`] here and [`Self::flashback_parts`] below.
     pub flashback: Option<ManaCost>,
+    /// Non-mana parts of this face's flashback cost, paid while casting.
+    /// Empty for an ordinary mana-only flashback cost.
+    pub flashback_parts: &'static [crate::cost::CostPart],
     /// Beam me up: graveyard alternative mana cost plus returning a creature.
     /// The spell is exiled whenever it leaves the stack after paying this cost.
     pub beam_me_up: Option<ManaCost>,
@@ -515,8 +529,10 @@ impl FaceDef {
         keywords: KeywordSet::EMPTY,
         color_indicator: ColorSet::EMPTY,
         castable_from_hand: true,
+        foretell: None,
         miracle: None,
         flashback: None,
+        flashback_parts: &[],
         beam_me_up: None,
         delve: false,
         convoke: false,
@@ -692,6 +708,10 @@ pub enum EnterModifier {
     /// as the card and face it was read off, and
     /// [`crate::Modifier::ChosenNameCantActivate`] reads it back.
     ChooseCardName,
+    /// "As this enters, choose a card type" (Serra's Emissary, CR 205.2a).
+    /// The answer belongs to this permanent and is read by
+    /// [`crate::Filter::OfSourceChosenCardType`].
+    ChooseCardType,
     /// "As this enters, choose a color" (Uncharted Haven, Shimmerdrift Vale,
     /// the Gates).
     ///

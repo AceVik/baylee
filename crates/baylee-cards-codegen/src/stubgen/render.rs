@@ -1,9 +1,9 @@
 //! Per-card source rendering.
 
 use super::{
-    CardBody, CodegenError, IndexLedger, LedgerEntry, OWNED_MARKER, STUB_MARKER, ScryfallCard,
-    StubInfo, SubtypeCatalogs, doc_lines, faces_of, render_card_literal, render_face, set_line,
-    slug, transcode_card, vanilla,
+    CardBody, CodegenError, HELD_MARKER, IndexLedger, LedgerEntry, OWNED_MARKER, STUB_MARKER,
+    ScryfallCard, StubInfo, SubtypeCatalogs, doc_lines, faces_of, render_card_literal, render_face,
+    set_line, slug, transcode_card, vanilla,
 };
 
 /// Renders one stub file, and says where under `cards/` it belongs.
@@ -151,7 +151,7 @@ fn render_card(
     }
     if let Some(reason) = held {
         for line in reason.lines() {
-            out.push_str(&format!("// Held back: {line}\n"));
+            out.push_str(&format!("{HELD_MARKER}{line}\n"));
         }
         out.push('\n');
     }
@@ -177,6 +177,10 @@ fn render_card(
             (Some(body), 0) => body.flashback.as_deref(),
             _ => None,
         };
+        let foretell = match (&land, i) {
+            (Some(body), 0) => body.foretell.as_deref(),
+            _ => None,
+        };
         let cost_reduction = match (&land, i) {
             (Some(body), 0) => body.cost_reduction.as_deref(),
             _ => None,
@@ -191,6 +195,7 @@ fn render_card(
             cats,
             enters,
             flashback,
+            foretell,
             cost_reduction,
             entwine,
             i > 0,

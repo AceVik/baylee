@@ -1828,6 +1828,27 @@ Rebound, suspend, miracle, flashback, evoke, adventures, plot, foretell,
 madness, disturb decompose into: `CastPermission` (zone/cost/timing
 override) + `PendingCast` (with expiry) + `DelayedTrigger` + `ExileRider`.
 Keywords exist on stack objects (rebound can be granted).
+
+**Foretell is two actions with two prices** (CR 702.143a). `FaceDef::foretell`
+holds only the later cast's printed mana cost. While its owner has priority on
+their own turn, `engine/foretell` offers a {2} special action in
+`LegalActions::foretellable`; this is not sorcery timing, so combat and a
+nonempty stack do not close it. The action uses no stack, exiles that hand card
+face down and marks the exact incarnation with `Rider::Foretold` and the turn.
+Only its owner may inspect it, and only that incarnation may be cast after that
+turn for the printed foretell cost, with the card's ordinary timing. It has no
+time counters and no linked host. `Amount::XIfSourceWasForetold` reads how the
+resolving spell was cast, so Starnheim Unleashed also covers its ordinary cast.
+The rider survives a move from exile to exile only: the cast writes it again on
+the spell (CR 702.143c), and a foretold spell exiled from the stack is a new
+object with no foretell permission (CR 400.7; `foretell_tests`).
+
+The desktop plans {2} for the special action rather than the later cast cost,
+offers both choices where ordinary casting is also possible, and treats an
+offered or planned action as something to do for auto-pass purposes. Codegen
+accepts only `K:Foretell:<complete mana cost>`; a non-mana or extended spelling
+is refused instead of producing a partially translated card.
+
 Casting a permanent card from a graveyard under a player's permission
 (Muldrotha, Wrenn and Realmbreaker's emblem) has one reader,
 `casting::graveyard_cast_permission`, which the offer, `can_cast_form`, the

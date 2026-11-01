@@ -89,6 +89,7 @@ pub(in crate::hud) fn armed_label(
             let offered = match then {
                 crate::RunEnd::Cast => Some((&duel.reachable, Phrase::ArmedPayAndCast)),
                 crate::RunEnd::Suspend => Some((&duel.suspend_reach, Phrase::ArmedSuspend)),
+                crate::RunEnd::Foretell => Some((&duel.foretell_reach, Phrase::ArmedForetell)),
                 // A pour is never armed: [`crate::input::arm_ability`] starts
                 // its run on the press that picks the colour, which is the
                 // whole of "the card taps once the mana has been chosen". So
@@ -112,6 +113,14 @@ pub(in crate::hud) fn armed_label(
             .and_then(|i| i.suspend(armed.object))
             .map(|_| ArmedWords {
                 text: Phrase::ArmedSuspendNow.text(lang).to_string(),
+                cost: None,
+            }),
+        crate::Deed::Foretell => duel
+            .interaction
+            .as_ref()
+            .and_then(|i| i.foretell(armed.object))
+            .map(|_| ArmedWords {
+                text: Phrase::ArmedForetellNow.text(lang).to_string(),
                 cost: None,
             }),
     }

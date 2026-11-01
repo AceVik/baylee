@@ -299,20 +299,45 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
         .collect()
 }
 
-/// Which cards in hand a tap or two would make **suspendable**.
-///
-/// [`reachable`]'s counterpart, and it needs one because suspend is paid for
-/// like anything else: the engine offers `legal.suspendable` only once the
-/// cost is floating, so a suspend card over untapped lands is a card with
-/// nothing to do — which is precisely the report this answers, *"so first tap
-/// and pay mana, then suspend"*.
-///
-/// The timing gate is [`baylee_client_core::timing::sorcery_window`] and not
-/// `allows`: suspend's ability says "activate only as a sorcery" (CR 702.62a)
-/// whatever the card's own type is, and the engine gates its offer on exactly
-/// that. Flash on the card would be the wrong question — an instant with
-/// suspend still may not suspend at instant speed.
+/// Which cards a tap or two would make suspendable. Unlike casting an instant
+/// with suspend, the special action itself is always sorcery-speed (CR 702.62a).
 pub(super) fn suspend_reach(duel: &Duel) -> std::collections::HashSet<ObjectId> {
+    special_action_reach(
+        duel,
+        |legal| &legal.suspendable,
+        suspend_cost,
+        baylee_client_core::timing::sorcery_window,
+    )
+}
+
+/// Foretell needs only priority on its owner's turn, not a main phase or an
+/// empty stack (CR 702.143a). Its special action always costs {2}; the printed
+/// foretell cost is for the later cast, not for this payment.
+pub(super) fn foretell_reach(duel: &Duel) -> std::collections::HashSet<ObjectId> {
+    special_action_reach(
+        duel,
+        |legal| &legal.foretellable,
+        |card| {
+            let def = baylee_cards::by_index(card.index)?;
+            def.faces
+                .get(usize::from(card.face))
+                .or_else(|| def.faces.first())?
+                .foretell
+                .is_some()
+                .then(|| baylee_core::mana::ManaCost::parse("{2}"))
+        },
+        |view| view.active == view.seat,
+    )
+}
+
+/// Shared planner for hand-based special actions. The engine's offer remains
+/// authoritative: these are only cards not already payable from floating mana.
+fn special_action_reach(
+    duel: &Duel,
+    offered: impl for<'a> Fn(&'a baylee_engine::choice::LegalActions) -> &'a [ObjectId],
+    cost: impl Fn(baylee_view::CardIdentity) -> Option<baylee_core::mana::ManaCost>,
+    timing: impl Fn(&baylee_view::PlayerView) -> bool,
+) -> std::collections::HashSet<ObjectId> {
     let Some(view) = duel.view.as_ref() else {
         return std::collections::HashSet::new();
     };
@@ -323,13 +348,10 @@ pub(super) fn suspend_reach(duel: &Duel) -> std::collections::HashSet<ObjectId> 
     else {
         return std::collections::HashSet::new();
     };
-    if !baylee_client_core::timing::sorcery_window(view) {
+    if !timing(view) {
         return std::collections::HashSet::new();
     }
     let sources = manasources::sources(view, legal);
-    if sources.is_empty() {
-        return std::collections::HashSet::new();
-    }
     let Some(pool) = view
         .seat(baylee_client_core::decision::resource_player(view))
         .map(|s| s.mana_pool)
@@ -338,9 +360,9 @@ pub(super) fn suspend_reach(duel: &Duel) -> std::collections::HashSet<ObjectId> 
     };
     baylee_client_core::decision::hand(view)
         .iter()
-        .filter(|card| !legal.suspendable.contains(&card.id))
+        .filter(|card| !offered(legal).contains(&card.id))
         .filter(|card| {
-            suspend_cost(card.card).is_some_and(|cost| {
+            cost(card.card).is_some_and(|cost| {
                 baylee_client_core::manaplan::plan(&cost, &pool, &sources).is_some()
             })
         })

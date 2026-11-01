@@ -1335,6 +1335,7 @@ fn cast_mode_label(card: Option<baylee_view::CardIdentity>, option: &CastModeDes
         CastModeKind::Prototype => format!("Cast it prototyped for {cost}"),
         CastModeKind::Disguise => format!("Cast it face down with disguise for {cost}"),
         CastModeKind::Miracle => format!("Cast it for its miracle cost {cost}"),
+        CastModeKind::Foretell => format!("Cast it with foretell for {cost}"),
         CastModeKind::Flashback => format!("Cast it with flashback for {cost}"),
         CastModeKind::BeamMeUp => {
             format!("Cast it with beam me up for {cost}, returning a creature you control")

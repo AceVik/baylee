@@ -93,6 +93,7 @@ mod river;
 pub use discard::{DiscardReveal, DiscardThen};
 use discard::{discard_or_ask, resume_discard_destination};
 mod counter_move;
+mod dig;
 mod directed_search;
 #[cfg(test)]
 mod directed_search_tests;
@@ -126,8 +127,10 @@ pub(crate) mod hidden_exile;
 mod resume;
 mod search;
 mod search_group;
+mod settle;
 mod shared_land;
 mod upgrade;
+mod vote;
 
 pub use answers::*;
 pub use awaiting::*;
@@ -756,6 +759,21 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
         Amount::LifeTotal(who) => players_of(*who, state, you, res).first().map_or(0, |p| {
             u32::try_from(state.players[usize::from(p.get())].life).unwrap_or(0)
         }),
+        Amount::StartingLifeTotal(who) => {
+            players_of(*who, state, you, res).first().map_or(0, |p| {
+                u32::try_from(state.players[usize::from(p.get())].starting_life).unwrap_or(0)
+            })
+        }
+        Amount::LifeGainedThisTurn(who) => {
+            players_of(*who, state, you, res).first().map_or(0, |p| {
+                state
+                    .per_turn
+                    .life_gained_amount
+                    .get(usize::from(p.get()))
+                    .copied()
+                    .unwrap_or(0)
+            })
+        }
         Amount::ControlledCount { who, filter } => players_of(*who, state, you, res)
             .first()
             .map_or(0, |controller| {
@@ -863,6 +881,15 @@ pub(super) fn amount_for_player(
         Amount::LifeTotal(PlayerRel::Recipient) => {
             u32::try_from(state.players[usize::from(player.get())].life).unwrap_or(0)
         }
+        Amount::StartingLifeTotal(PlayerRel::Recipient) => {
+            u32::try_from(state.players[usize::from(player.get())].starting_life).unwrap_or(0)
+        }
+        Amount::LifeGainedThisTurn(PlayerRel::Recipient) => state
+            .per_turn
+            .life_gained_amount
+            .get(usize::from(player.get()))
+            .copied()
+            .unwrap_or(0),
         Amount::LibrarySize(PlayerRel::Recipient) => {
             u32::try_from(state.zones.list(ZoneLocation::Library(player)).len()).unwrap_or(u32::MAX)
         }

@@ -53,6 +53,9 @@ pub enum CastModeKind {
     Disguise,
     /// Miracle cast (CR 702.94).
     Miracle,
+    /// Cast a foretold card from exile for its foretell cost after the turn
+    /// it was exiled (CR 702.143a). This is an alternative cost.
+    Foretell,
     /// Cast from the graveyard for the card's printed flashback cost
     /// (CR 702.34a). A *granted* flashback is paid with the mana cost and is
     /// offered as [`Self::Normal`].

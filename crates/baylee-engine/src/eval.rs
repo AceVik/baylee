@@ -42,7 +42,7 @@ pub use relations::{controller_of_attached, defending_player_of, most_life, play
 pub use targets::{
     choice_options, choice_options_with_context, first_target_players, stack_target_options,
     stack_target_options_relative, target_options, target_options_with_context,
-    target_player_options, targeted_players,
+    target_player_options, target_player_options_from, targeted_players,
 };
 pub(crate) use targets::{
     spell_target_options_for, spell_target_options_relative, stack_retarget_options,
@@ -508,6 +508,10 @@ pub fn matches_projected_with_context(
             .object(this)
             .and_then(|src| src.chosen_subtype)
             .is_some_and(|s| chars.subtypes.contains(s)),
+        Filter::OfSourceChosenCardType => state
+            .object(this)
+            .and_then(crate::object::GameObject::chosen_card_type)
+            .is_some_and(|chosen| chars.types.intersects(chosen)),
         Filter::OfSourceChosenColor => {
             use baylee_core::color::Color;
             use baylee_core::mana::ManaColor;

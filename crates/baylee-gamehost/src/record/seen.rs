@@ -514,4 +514,77 @@ mod tests {
         numbers.dedup();
         assert_eq!(numbers, [0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11]);
     }
+
+    /// Rewrites the fixture's engine `hash` values after an intentional change
+    /// to what the engine hash covers, and nothing else: the record is played
+    /// again line by line, every public digest (`seen`) and the finish must
+    /// hold, and in each line only the 16-hex `hash` is replaced, so actions,
+    /// metadata and `seen` stay byte for byte (`seen/README.md`). By hand:
+    /// `cargo test -p baylee-gamehost --lib refresh_fixture_hashes -- --ignored`,
+    /// then update the README's SHA256.
+    #[test]
+    #[ignore = "rewrites the fixture; run by hand after a state-hash change"]
+    fn refresh_fixture_hashes() {
+        use baylee_engine::engine::Engine;
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/src/record/seen/acceptance-seed3.jsonl"
+        );
+        let text = std::fs::read_to_string(path).expect("the fixture");
+        let mut engine: Option<Engine<crate::session::RegistryLookup>> = None;
+        let mut out = String::with_capacity(text.len());
+        for raw in text.lines() {
+            let line: Line = serde_json::from_str(raw).expect("a record line");
+            let (old, recorded_seen) = match line {
+                Line::Header {
+                    preset, hash, seen, ..
+                } => {
+                    engine = Some(
+                        Engine::new(&preset, crate::session::RegistryLookup)
+                            .expect("the preset builds"),
+                    );
+                    (Some(hash), seen)
+                }
+                Line::Input {
+                    n,
+                    seat,
+                    action,
+                    hash,
+                    seen,
+                    ..
+                } => {
+                    engine
+                        .as_mut()
+                        .expect("a header first")
+                        .apply(PlayerId::new(seat), action)
+                        .unwrap_or_else(|e| panic!("input {n} refused: {e:?}"));
+                    (Some(hash), seen)
+                }
+                Line::End { .. } => {
+                    assert!(matches!(
+                        engine.as_ref().expect("a header first").pending(),
+                        baylee_engine::choice::Pending::GameOver(_)
+                    ));
+                    (None, None)
+                }
+                Line::Chair { .. } | Line::DeclaredMind { .. } => (None, None),
+            };
+            let mut fresh = raw.to_string();
+            if let Some(old) = old {
+                let state = engine.as_ref().expect("a header first");
+                if let Some(expected) = recorded_seen {
+                    assert_eq!(hex(seen(state.state())), expected, "public digest of {raw}");
+                }
+                let from = format!("\"hash\":\"{old}\"");
+                assert_eq!(raw.matches(&from).count(), 1, "one hash in {raw}");
+                fresh = raw.replace(
+                    &from,
+                    &format!("\"hash\":\"{}\"", hex(state.snapshot_hash())),
+                );
+            }
+            out.push_str(&fresh);
+            out.push('\n');
+        }
+        std::fs::write(path, out).expect("the fixture is written");
+    }
 }

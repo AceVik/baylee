@@ -263,6 +263,13 @@ fn a_timed_out_seat_does_nothing_wherever_the_question_allows_it() {
             None,
         ),
         (
+            Pending::ChooseCardType {
+                player: p,
+                options: vec![],
+            },
+            None,
+        ),
+        (
             Pending::ChooseColor {
                 player: p,
                 options: vec![],
@@ -273,6 +280,7 @@ fn a_timed_out_seat_does_nothing_wherever_the_question_allows_it() {
             Pending::ChooseCardName {
                 player: p,
                 types: baylee_core::types::TypeSet::EMPTY,
+                excluded_types: baylee_core::types::TypeSet::EMPTY,
             },
             None,
         ),
@@ -378,7 +386,7 @@ fn a_timed_out_seat_does_nothing_wherever_the_question_allows_it() {
 }
 
 /// How many kinds [`kind_of`] tells apart.
-const KINDS: usize = 50;
+const KINDS: usize = 51;
 
 /// Which kind of question this is, numbered without gaps. No wildcard
 /// arm: a new `Pending` variant or yes/no prompt does not compile here
@@ -399,6 +407,7 @@ fn kind_of(pending: &Pending) -> usize {
         Pending::ChooseCards { .. } => 7,
         Pending::ChooseTargets { .. } => 8,
         Pending::ChooseSubtype { .. } => 9,
+        Pending::ChooseCardType { .. } => 50,
         Pending::ChooseColor { .. } => 10,
         Pending::ChooseCastMode { .. } => 11,
         Pending::ChooseNumber { .. } => 12,

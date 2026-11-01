@@ -195,32 +195,20 @@ fn every_price_paid_by_naming_an_object_puts_a_menu_up() {
     );
 }
 
-/// No card in this pool asks for more than one card and refuses to settle
-/// for fewer.
+/// Only a search for a bare quantity may require an exact number of cards.
 ///
 /// `Effect::SearchLibrary` turns `optional` into the search's *minimum*:
-/// `false` makes `min` equal `finds.len()`, so a two-card search a player
-/// cannot decline half of. Every multi-card search in this pool names a
-/// **stated quality** — "two basic land cards", not "two cards" — and
-/// CR 701.23b says a player searching a hidden zone for those is never
-/// required to find them.
+/// `false` makes `min` equal `finds.len()`. A search for cards with a stated
+/// quality — "two basic land cards" — may find fewer under CR 701.23b, but
+/// CR 701.23d requires a search simply for a quantity of cards to find that
+/// many. Manipulate Fate is the pool's quantity-only case: three cards with
+/// no quality restriction, represented by `Filter::Any`.
 ///
-/// This is a pin on the pool and not a law of Magic, which is the half
-/// worth saying out loud: CR 701.23**d** is the other sentence, and a
-/// search "simply for a quantity of cards" *must* find that many. The
-/// reference writes one — "search your library for three cards, exile
-/// them" — so the day this pool reaches for that card it is hand-written,
-/// this test fails, and the failure is the conversation rather than a
-/// defect.
-///
-/// What the transcoder may write is the narrower thing, because a script
-/// does not say which sentence it is: Cultivate's "up to two" and "search
-/// your library for three cards" carry identical fields, so a `ChangeNum$`
-/// above one is now read only where the script says `Optional$ True` or
-/// `Mandatory$ True`. It guessed once: Blighted Woodland shipped as a card
-/// that had to find both lands, and this is the assertion that says so.
+/// The transcoder still emits a multi-card search only where the script says
+/// `Optional$ True` or `Mandatory$ True`: Cultivate's "up to two" and this
+/// exact three-card search must not be collapsed into one behavior.
 #[test]
-fn a_search_for_several_cards_may_always_settle_for_fewer() {
+fn only_a_quantity_only_search_may_require_an_exact_count() {
     let mut searches = 0;
     let mut several = 0;
     for (oracle_id, def) in baylee_cards::generated::ALL {
@@ -247,13 +235,11 @@ fn a_search_for_several_cards_may_always_settle_for_fewer() {
                 let optional = after
                     .split_once("optional: ")
                     .is_some_and(|(_, t)| t.starts_with("true"));
+                let quantity_only = rest.starts_with("SearchLibrary { filter: Any,");
                 assert!(
-                    optional,
-                    "{} ({oracle_id}) searches for {count} cards and may not \
-                     settle for fewer — either it names a quality and CR \
-                     701.23b lets the player stop short, or it is the \
-                     quantity-only search of CR 701.23d and the first one \
-                     this pool has ever held",
+                    optional || quantity_only,
+                    "{} ({oracle_id}) searches for {count} cards with a stated \
+                     quality but may not settle for fewer (CR 701.23b)",
                     def.name(),
                 );
             }

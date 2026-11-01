@@ -1263,6 +1263,7 @@ Brushfire Elemental
 Brushland
 Brushstrider
 Brushwagg
+Bruna, the Fading Light
 Brutal Nightstalker
 Brute Force
 Brute Strength
@@ -12406,3 +12407,44 @@ One Dozen Eyes
 Override
 Pearl Shard
 Platinum Angel
+Blinding Angel
+Sunscour
+Serra Avenger
+Coalition Relic
+Knight of the White Orchid
+Iona, Shield of Emeria
+Journey to Nowhere
+Herald of War
+Angel of Serenity
+Unexpectedly Absent
+Council's Judgment
+Resolute Archangel
+Angel of the Dire Hour
+Archangel of Tithes
+Gisela, the Broken Blade
+Angel of Sanctions
+Angel of Condemnation
+Settle the Wreckage
+Resplendent Angel
+Angel of Grace
+Serra the Benevolent
+Sephara, Sky's Blade
+The Birth of Meletis
+Akroma, Vision of Ixidor
+Doomskar
+Starnheim Aspirant
+Starnheim Unleashed
+Angel of the Ruins
+Serra's Emissary
+Loyal Warhound
+Giada, Font of Hope
+Inspiring Overseer
+Force of Vigor
+Fatal Push
+Akki Coalflinger
+Emberwilde Augur
+Goblin Cohort
+Goblin Matron
+Ib Halfheart, Goblin Tactician
+Mogg War Marshal
+Boggart Shenanigans

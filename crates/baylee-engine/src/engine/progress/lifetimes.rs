@@ -2,14 +2,17 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
 
-/// The static abilities of emblems not yet registered. "Abilities of emblems
-/// function in the command zone" (CR 114.4), and an emblem never leaves it,
-/// so each is registered once and lasts the game (Wrenn and Realmbreaker's
-/// "You may play lands and cast permanent spells from your graveyard").
+/// Emblem statics to register, and registered ones whose source condition
+/// has lapsed. "Abilities of emblems function in the command zone" (CR 114.4),
+/// and an emblem never leaves it, so an unconditional ability lasts the game.
 pub(super) fn emblem_statics(
     state: &crate::state::GameState,
-) -> Vec<crate::effects::ContinuousEffect> {
+) -> (
+    Vec<crate::effects::ContinuousEffect>,
+    Vec<baylee_core::ids::EffectId>,
+) {
     let mut found = Vec::new();
+    let mut lapsed = Vec::new();
     for seat in 0..state.players.len() {
         let zone = ZoneLocation::Command(PlayerId::new(seat as u8));
         for &id in state.zones.list(zone) {
@@ -26,7 +29,18 @@ pub(super) fn emblem_statics(
                 let AbilityDef::Static(sa) = ability else {
                     continue;
                 };
-                if state.effects.has_source_ability(id, sa.modifier) {
+                let registered = state
+                    .effects
+                    .iter()
+                    .find(|effect| effect.source == Some(id) && effect.modifier == sa.modifier)
+                    .map(|effect| effect.id);
+                if sa.condition.is_some_and(|condition| {
+                    !crate::eval::condition_holds(state, obj.controller, id, condition)
+                }) {
+                    lapsed.extend(registered);
+                    continue;
+                }
+                if registered.is_some() {
                     continue;
                 }
                 found.push(crate::effects::ContinuousEffect {
@@ -43,7 +57,7 @@ pub(super) fn emblem_statics(
             }
         }
     }
-    found
+    (found, lapsed)
 }
 
 /// Drops every effect for as long as the game lasts that names one object

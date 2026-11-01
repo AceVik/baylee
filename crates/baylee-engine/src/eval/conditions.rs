@@ -161,6 +161,16 @@ pub fn condition_holds_with_context(
         Condition::CastInstantOrSorceryThisTurn => {
             state.per_turn.instant_or_sorcery_cast[usize::from(you.get())]
         }
+        Condition::CastCreatureThisTurn => {
+            let seat = usize::from(you.get());
+            state.per_turn.spells_cast_by(you)
+                > state
+                    .per_turn
+                    .noncreature_spells
+                    .get(seat)
+                    .copied()
+                    .unwrap_or(0)
+        }
         Condition::OpponentWasDealtAtLeast(minimum) => state.players.iter().any(|p| {
             let player = p.id;
             !state.has_left(player)
@@ -248,6 +258,10 @@ pub fn condition_holds_with_context(
         }
         Condition::YourTurn => state.turn.active == you,
         Condition::LifeAtMost(n) => state.players[you.get() as usize].life <= n,
+        Condition::LifeBelowStarting => {
+            let player = &state.players[usize::from(you.get())];
+            player.life < player.starting_life
+        }
         Condition::APlayerHasMostLife => most_life(state).is_some(),
         // The announced X on the source, where `cast_wizard` writes it and
         // where `Filter::CmcAtMostX` reads it.

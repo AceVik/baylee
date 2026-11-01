@@ -382,6 +382,7 @@ impl<L: CardLookup> Engine<L> {
                     | EnterModifier::ChooseBasicLandType
                     | EnterModifier::ChooseTwoBasicLandTypes
                     | EnterModifier::ChooseCardName
+                    | EnterModifier::ChooseCardType
                     | EnterModifier::ChooseColor
                     | EnterModifier::ChooseOpponent
                     | EnterModifier::ChooseColorExcept(_)
@@ -524,6 +525,30 @@ impl<L: CardLookup> Engine<L> {
         true
     }
 
+    /// Asks for the subtype a permanent chooses as it enters.
+    fn ask_entry_subtype(
+        &mut self,
+        id: ObjectId,
+        controller: PlayerId,
+        modifier: &baylee_cards_dsl::EnterModifier,
+    ) -> bool {
+        use baylee_cards_dsl::EnterModifier;
+        // A basic land type is one of the five (CR 205.3i), in the
+        // order the rule names them, and nothing else.
+        let options = match modifier {
+            EnterModifier::ChooseBasicLandType => vec![PLAINS, ISLAND, SWAMP, MOUNTAIN, FOREST],
+            EnterModifier::ChooseSubtypeFrom(types) => types.to_vec(),
+            _ => (0..=349).map(baylee_core::ids::SubtypeId::new).collect(),
+        };
+        self.pending_plan = Some(PlanKind::ChooseSubtype { object: id });
+        self.pending = Pending::ChooseSubtype {
+            player: controller,
+            options,
+        };
+        self.awaiting_answer = true;
+        true
+    }
+
     /// Asks one permanent's as-it-enters question, or settles it without
     /// one when there is nothing to choose; says whether a question is out.
     fn ask_entry_modifier(
@@ -540,19 +565,13 @@ impl<L: CardLookup> Engine<L> {
             EnterModifier::ChooseSubtype
             | EnterModifier::ChooseSubtypeFrom(_)
             | EnterModifier::ChooseBasicLandType => {
-                // A basic land type is one of the five (CR 205.3i), in the
-                // order the rule names them, and nothing else.
-                let options = match modifier {
-                    EnterModifier::ChooseBasicLandType => {
-                        vec![PLAINS, ISLAND, SWAMP, MOUNTAIN, FOREST]
-                    }
-                    EnterModifier::ChooseSubtypeFrom(types) => types.to_vec(),
-                    _ => (0..=349).map(baylee_core::ids::SubtypeId::new).collect(),
-                };
-                self.pending_plan = Some(PlanKind::ChooseSubtype { object: id });
-                self.pending = Pending::ChooseSubtype {
+                self.ask_entry_subtype(id, controller, modifier)
+            }
+            EnterModifier::ChooseCardType => {
+                self.pending_plan = Some(PlanKind::ChooseCardType { object: id });
+                self.pending = Pending::ChooseCardType {
                     player: controller,
-                    options,
+                    options: baylee_core::types::TypeSet::CARD_TYPES.to_vec(),
                 };
                 self.awaiting_answer = true;
                 true
@@ -562,6 +581,7 @@ impl<L: CardLookup> Engine<L> {
                 self.pending = Pending::ChooseCardName {
                     player: controller,
                     types: baylee_core::types::TypeSet::EMPTY,
+                    excluded_types: baylee_core::types::TypeSet::EMPTY,
                 };
                 self.awaiting_answer = true;
                 true

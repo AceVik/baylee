@@ -15,6 +15,7 @@ mod creature_bond;
 mod earthbind;
 mod earthbind_independent;
 mod gloom;
+mod kindred;
 mod legends;
 mod lich;
 mod mv_1;

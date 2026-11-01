@@ -36,12 +36,13 @@
 //!   else — which is also where `{X}`, `{S}` and restricted mana are refused;
 //! - [`CostPart::PayLife`], against the seat's own life total;
 //! - [`CostPart::ExileFromHand`] with a colour filter, against the hand — the
-//!   pitch on Force of Will, Force of Negation, Misdirection and Solitude,
-//!   and the one non-mana part in this pool that a seat's view can answer.
+//!   pitch on Force of Will, Force of Negation, Misdirection and Solitude;
+//! - [`CostPart::Sacrifice`] and [`CostPart::TapN`], against distinct
+//!   permanents the seat controls whose projected filters are publicly known.
 //!
-//! Anything else — another filter shape, a sacrifice, a discard, a tap of
-//! something other than the source — takes the way off the list rather than
-//! being guessed at.
+//! Anything else — another pitch-filter shape, a discard, a tap of one
+//! separately chosen permanent — takes the way off the list rather than being
+//! guessed at.
 //!
 //! # And what it does not reach
 //!
@@ -207,7 +208,31 @@ pub fn reachable_modes(
             offer(CastModeKind::Alternative(i), alt.cost.mana);
         }
     }
+    out.extend(foretell_mode(view, legal, face, &pool));
     out
+}
+
+/// Foretell's special action (CR 702.143a), offered beside the ordinary ways
+/// so a foretell card that can also be cast never has either deed silently
+/// chosen for it. Its {2} is not a spell cost and receives no spell-cost
+/// increase.
+fn foretell_mode(
+    view: &PlayerView,
+    legal: &LegalActions,
+    face: &baylee_cards_dsl::FaceDef,
+    pool: &baylee_view::ManaPoolView,
+) -> Option<ReachableMode> {
+    if view.active != view.seat || face.foretell.is_none() {
+        return None;
+    }
+    let cost = const { ManaCost::parse("{2}") };
+    baylee_client_core::manaplan::plan(&cost, pool, &crate::manasources::sources(view, legal)).map(
+        |plan| ReachableMode {
+            kind: CastModeKind::Foretell,
+            cost,
+            plan,
+        },
+    )
 }
 
 /// Whether an alternative cost's condition holds, read off the view.
@@ -242,37 +267,26 @@ fn condition_holds(view: &PlayerView, condition: AltCondition) -> bool {
 /// version names them — a twelfth [`CostPart`] has to be looked at here too,
 /// rather than quietly falling into a wildcard and being declared payable.
 fn parts_payable(view: &PlayerView, card: ObjectId, parts: &[CostPart]) -> bool {
+    if !pitch_cards_payable(view, card, parts) || !permanents_payable(view, parts) {
+        return false;
+    }
     parts.iter().all(|part| match part {
         CostPart::PayLife(n) => view
             .seat(view.seat)
             .is_some_and(|seat| seat.life >= i32::from(*n)),
-        // `casting::pitchable`, and the card being cast is not a candidate
-        // for its own pitch — it is what is being paid for. A `HandObject`
-        // carries its own colours, so the one filter shape this pool prints
-        // here is answered exactly rather than approximately; any other shape
-        // takes the way off the list.
-        CostPart::ExileFromHand(filter) => match filter {
-            Filter::HasColor(colors) => view
-                .hand
-                .iter()
-                .any(|c| c.id != card && c.colors.intersects(*colors)),
-            _ => false,
-        },
-        // Refused, not because they cannot be paid, but because nothing in
-        // this pool prints one on an alternative cost and a reader that
-        // guessed would be guessing about a card nobody can test against.
-        // `Sacrifice`, `Discard`, `TapOther`, `ReturnToHand` and
-        // `ExileFromGraveyard` an *activation* can now ask about
-        // (`engine::cost_wizard`), but a
-        // spell's alternative cost still has nobody to ask, so
-        // `cast_wizard::paid_as_an_alternative_cost` does not name them and
-        // no card in the pool prints one there; the rest are paid off the
-        // source and would be safe to admit the day a card wants them.
-        CostPart::TapSelf
+        // Collective availability, including distinct cards and permanents
+        // for repeated parts, was established by the two matchers above.
+        CostPart::ExileFromHand(Filter::HasColor(_))
+        | CostPart::Sacrifice(_)
+        | CostPart::TapN { .. } => true,
+        // A pitch of another filter shape has no reader here, and the
+        // remaining parts have no alternative cost in this pool. Keep
+        // refusing them until a real card gives their view reader a test.
+        CostPart::ExileFromHand(_)
+        | CostPart::TapSelf
         | CostPart::UntapSelf
         | CostPart::ExertSelf
         | CostPart::SacrificeSelf
-        | CostPart::Sacrifice(_)
         | CostPart::ExilePermanent(_)
         | CostPart::Discard(_)
         | CostPart::DiscardRandom
@@ -281,7 +295,6 @@ fn parts_payable(view: &PlayerView, card: ObjectId, parts: &[CostPart]) -> bool 
         | CostPart::PayEnergy(_)
         | CostPart::PayEnergyX
         | CostPart::TapOther(_)
-        | CostPart::TapN { .. }
         | CostPart::Crew(_)
         | CostPart::Saddle(_)
         | CostPart::ReturnToHand(_)
@@ -302,6 +315,119 @@ fn parts_payable(view: &PlayerView, card: ObjectId, parts: &[CostPart]) -> bool 
         | CostPart::ExileTopOfLibrary(_)
         | CostPart::PayAttachedManaCost => false,
     })
+}
+
+/// Match sacrifices and nonsymbol taps to distinct permanents this seat
+/// controls. Unknown projected filters refuse the alternative cost.
+fn permanents_payable(view: &PlayerView, parts: &[CostPart]) -> bool {
+    let mut requirements = Vec::new();
+    for part in parts {
+        match part {
+            CostPart::Sacrifice(filter) => requirements.push((*filter, false)),
+            CostPart::TapN { filter, count } => {
+                for _ in 0..*count {
+                    requirements.push((*filter, true));
+                }
+            }
+            _ => {}
+        }
+    }
+    let candidates = view
+        .battlefield
+        .iter()
+        .filter(|object| object.controller == view.seat)
+        .collect::<Vec<_>>();
+    let mut assigned = vec![None; candidates.len()];
+    (0..requirements.len()).all(|part| {
+        let mut seen = vec![false; candidates.len()];
+        assign_permanent(
+            part,
+            &requirements,
+            &candidates,
+            &mut assigned,
+            &mut seen,
+            view,
+        )
+    })
+}
+
+/// Find one permanent for a cost part, reassigning an earlier part through
+/// an augmenting path when differently filtered parts compete for it.
+fn assign_permanent(
+    part: usize,
+    requirements: &[(&Filter, bool)],
+    candidates: &[&baylee_view::PublicObject],
+    assigned: &mut [Option<usize>],
+    seen: &mut [bool],
+    view: &PlayerView,
+) -> bool {
+    let (filter, untapped) = requirements[part];
+    for (index, object) in candidates.iter().enumerate() {
+        if seen[index]
+            || (untapped && object.status.is_tapped())
+            || crate::targeting::matches(view, object, filter) != Some(true)
+        {
+            continue;
+        }
+        seen[index] = true;
+        if assigned[index].is_none_or(|previous| {
+            assign_permanent(previous, requirements, candidates, assigned, seen, view)
+        }) {
+            assigned[index] = Some(part);
+            return true;
+        }
+    }
+    false
+}
+
+/// Match every pitch part to a different object in the decision actor's hand.
+/// Augmenting paths avoid both reusing one card and a greedy assignment that
+/// hides a valid pairing when different parts ask for different colours.
+fn pitch_cards_payable(view: &PlayerView, card: ObjectId, parts: &[CostPart]) -> bool {
+    let filters = parts
+        .iter()
+        .filter_map(|part| match part {
+            CostPart::ExileFromHand(Filter::HasColor(colors)) => Some(colors),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    if filters.is_empty() {
+        return true;
+    }
+    let candidates = baylee_client_core::decision::hand(view)
+        .iter()
+        .filter(|candidate| candidate.id != card)
+        .map(|candidate| candidate.colors)
+        .collect::<Vec<_>>();
+    let mut matches = vec![None; candidates.len()];
+    (0..filters.len()).all(|part| {
+        let mut seen = vec![false; candidates.len()];
+        assign_pitch(part, &filters, &candidates, &mut matches, &mut seen)
+    })
+}
+
+/// Find a card for one part, moving an earlier assignment along an augmenting
+/// path when necessary. `seen` bounds the search to each candidate once.
+fn assign_pitch(
+    part: usize,
+    filters: &[&baylee_core::color::ColorSet],
+    candidates: &[baylee_core::color::ColorSet],
+    matches: &mut [Option<usize>],
+    seen: &mut [bool],
+) -> bool {
+    for (index, colors) in candidates.iter().enumerate() {
+        if seen[index] || !colors.intersects(*filters[part]) {
+            continue;
+        }
+        seen[index] = true;
+        if matches[index]
+            .is_none_or(|previous| assign_pitch(previous, filters, candidates, matches, seen))
+        {
+            matches[index] = Some(part);
+            return true;
+        }
+    }
+    false
 }
 
 #[cfg(test)]
@@ -630,7 +756,9 @@ mod tests {
             for face in def.faces {
                 for alt in face.alternative_costs {
                     let readable = alt.cost.parts.iter().all(|part| match part {
-                        CostPart::PayLife(_) => true,
+                        CostPart::PayLife(_) | CostPart::Sacrifice(_) | CostPart::TapN { .. } => {
+                            true
+                        }
                         CostPart::ExileFromHand(filter) => {
                             matches!(filter, Filter::HasColor(_))
                         }
@@ -646,5 +774,82 @@ mod tests {
             unreadable.is_empty(),
             "these cards print an alternative cost this reader refuses: {unreadable:?}"
         );
+    }
+
+    #[test]
+    fn sunscour_requires_two_distinct_white_pitch_cards() {
+        let sunscour = card_in_hand(1, "Sunscour", &[Color::White]);
+        let white = card_in_hand(2, "Savannah Lions", &[Color::White]);
+        let another_white = card_in_hand(3, "Serra Avenger", &[Color::White]);
+        let green = card_in_hand(4, "Llanowar Elves", &[Color::Green]);
+        for (fodder, pitchable) in [
+            (vec![white.clone()], false),
+            (vec![white.clone(), green], false),
+            (vec![white, another_white], true),
+        ] {
+            let mut hand = vec![sunscour.clone()];
+            hand.extend(fodder);
+            let (view, legal) = table(hand, 0);
+            assert_eq!(
+                reachable_modes(&view, &legal, sunscour.id)
+                    .iter()
+                    .any(|mode| mode.kind == CastModeKind::Alternative(0)),
+                pitchable
+            );
+        }
+    }
+
+    #[test]
+    fn fireblast_requires_two_distinct_mountains_for_its_alternative_cost() {
+        let fireblast = card_in_hand(1, "Fireblast", &[Color::Red]);
+        for (mountains, pitchable) in [(1, false), (2, true)] {
+            let (view, legal) = lands_of(
+                vec![fireblast.clone()],
+                mountains,
+                "Mountain",
+                land::MOUNTAIN,
+            );
+            assert_eq!(
+                reachable_modes(&view, &legal, fireblast.id)
+                    .iter()
+                    .any(|mode| mode.kind == CastModeKind::Alternative(0)),
+                pitchable
+            );
+        }
+    }
+
+    #[test]
+    fn sephara_requires_four_untapped_flying_creatures_and_one_white_mana() {
+        let sephara = card_in_hand(1, "Sephara, Sky's Blade", &[Color::White]);
+        for (fliers, pitchable) in [(3, false), (4, true)] {
+            let (mut view, legal) = table(vec![sephara.clone()], 1);
+            for slot in 0..fliers {
+                let mut angel = token(200 + slot, 0, "Serra Angel", 4, 4);
+                angel.card = Some(card_in_hand(200 + slot, "Serra Angel", &[Color::White]).card);
+                angel.types = TypeSet::CREATURE;
+                angel.keywords = baylee_cards_dsl::KeywordSet::FLYING.bits();
+                view.battlefield.push(angel);
+            }
+            assert_eq!(
+                reachable_modes(&view, &legal, sephara.id)
+                    .iter()
+                    .any(|mode| mode.kind == CastModeKind::Alternative(0)),
+                pitchable
+            );
+        }
+    }
+
+    #[test]
+    fn foretell_plans_its_fixed_action_cost_beside_the_normal_cast() {
+        let hand = card_in_hand(1, "Doomskar", &[Color::White]);
+        let (view, legal) = table(vec![hand], 5);
+        let modes = reachable_modes(&view, &legal, ObjectId::new(1, 0));
+        assert_eq!(
+            kinds(&modes),
+            [CastModeKind::Normal, CastModeKind::Foretell]
+        );
+        assert_eq!(modes[1].cost, ManaCost::parse("{2}"));
+        assert_eq!(modes[1].plan.taps(), 2);
+        assert_eq!(modes[0].cost, ManaCost::parse("{3}{W}{W}"));
     }
 }

@@ -118,6 +118,7 @@ fn main() -> anyhow::Result<()> {
             hold_back_reason,
             check,
             tables,
+            registry,
             subtypes,
             scripts,
             cache,
@@ -135,7 +136,7 @@ fn main() -> anyhow::Result<()> {
                 check,
             ),
             None if subtypes => codegen::subtypes(&root, check, &cache),
-            None => codegen(&root, check, tables, &scripts, &cache),
+            None => codegen(&root, check, tables, registry, &scripts, &cache),
         },
         Cmd::Ledger {
             corpus,

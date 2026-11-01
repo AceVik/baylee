@@ -40,6 +40,7 @@ mod tests {
         let pending = Pending::ChooseCardName {
             player: PlayerId::new(0),
             types: TypeSet::CREATURE,
+            excluded_types: TypeSet::EMPTY,
         };
         let state = encode_state4(&view, Some(&pending), None, &[]);
         let candidates = encode_candidates4(&state, &view, &pending);
@@ -61,6 +62,40 @@ mod tests {
                 candidate.dsl_summary(&state),
                 encode_card_face(baylee_cards::by_index(card).unwrap(), face as usize).summary
             );
+        }
+    }
+
+    /// "Choose a nonland card name" (Cabal Therapy): no land face is offered.
+    /// The engine refuses one, so a candidate for it is an answer the net could
+    /// pick and be refused for.
+    #[test]
+    fn naming_candidates_leave_out_the_excluded_types() {
+        let d = HouseDeck::named("victory").unwrap();
+        let preset = table_for(42, &[&d, &d], &[AIProfile::STEADY; 2], &[]);
+        let session = Session::new(&preset).unwrap();
+        let view = session.observe_view(PlayerId::new(0));
+        let pending = Pending::ChooseCardName {
+            player: PlayerId::new(0),
+            types: TypeSet::EMPTY,
+            excluded_types: TypeSet::LAND,
+        };
+        let state = encode_state4(&view, Some(&pending), None, &[]);
+        let candidates = encode_candidates4(&state, &view, &pending);
+        let expected: usize = baylee_cards::all()
+            .map(|def| {
+                def.faces
+                    .iter()
+                    .filter(|face| !face.types.intersects(TypeSet::LAND))
+                    .count()
+            })
+            .sum();
+        assert_eq!(candidates.candidates.len(), expected);
+        for candidate in candidates.candidates {
+            let Some(PlayerAction::ChooseCardName { card, face }) = candidate.action else {
+                panic!("name action")
+            };
+            let printed = &baylee_cards::by_index(card).unwrap().faces[usize::from(face)];
+            assert!(!printed.types.intersects(TypeSet::LAND), "{}", printed.name);
         }
     }
 
@@ -178,6 +213,7 @@ mod tests {
         let pending = Pending::ChooseCardName {
             player: PlayerId::new(0),
             types: TypeSet::EMPTY,
+            excluded_types: TypeSet::EMPTY,
         };
         let state = encode_state4(&view, Some(&pending), None, &[]);
         let cands = encode_candidates4(&state, &view, &pending);

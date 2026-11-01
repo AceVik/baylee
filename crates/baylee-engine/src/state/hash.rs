@@ -493,6 +493,7 @@ impl GameState {
             h.u8(p.id.get());
             h.i32(p.life);
             h.u32(p.turns_to_skip);
+            h.u32(p.combats_to_skip);
             h.u16(p.poison);
             h.u16(p.energy);
             h.u8(p.speed);
@@ -1394,6 +1395,10 @@ fn hash_acquired_rider(h: &mut Hasher, rider: &crate::object::Rider) {
             h.u8(90);
             subtype.hash(h);
         }
+        crate::object::Rider::ChosenCardType(card_type) => {
+            h.u8(91);
+            card_type.hash(h);
+        }
         crate::object::Rider::ExhaustedAbility(index) => {
             h.u8(63);
             index.hash(h);
@@ -1526,6 +1531,8 @@ fn hash_player(h: &mut Hasher, player: &Player) {
     let Player {
         id,
         life,
+        // Preset-constant, like team: it cannot distinguish two game states.
+        starting_life: _,
         poison,
         energy,
         speed,
@@ -1538,6 +1545,7 @@ fn hash_player(h: &mut Hasher, player: &Player) {
         turn_start_timestamp,
         turns_started,
         turns_to_skip,
+        combats_to_skip,
         last_turn_attackers,
         blocked_since_upkeep,
         blocked_before_upkeep,
@@ -1566,6 +1574,7 @@ fn hash_player(h: &mut Hasher, player: &Player) {
     turn_start_timestamp.hash(h);
     turns_started.hash(h);
     turns_to_skip.hash(h);
+    combats_to_skip.hash(h);
     last_turn_attackers.hash(h);
     if !blocked_since_upkeep.is_empty() || !blocked_before_upkeep.is_empty() {
         0x7570_6b65_u32.hash(h);
@@ -1946,6 +1955,10 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                 h.u8(90);
                 subtype.hash(h);
             }
+            Rider::ChosenCardType(card_type) => {
+                h.u8(91);
+                card_type.hash(h);
+            }
             Rider::ExhaustedAbility(index) => {
                 h.u8(63);
                 index.hash(h);
@@ -1981,7 +1994,10 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                 h.u8(3);
                 h.u8(player.get());
             }
-            Rider::Foretold => h.u8(4),
+            Rider::Foretold { turn } => {
+                h.u8(4);
+                turn.hash(h);
+            }
             Rider::Plotted => h.u8(5),
             Rider::Suspend => h.u8(6),
             Rider::Flashback => h.u8(7),
@@ -2315,6 +2331,7 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
         F::SameNameAsLinkedExile => h.u8(147),
         F::CmcEqualsYourUnspentMana => h.u8(148),
         F::SharesColorWithExiledWithSource => h.u8(150),
+        F::OfSourceChosenCardType => h.u8(151),
     }
 }
 

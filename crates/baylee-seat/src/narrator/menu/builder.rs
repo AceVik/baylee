@@ -254,6 +254,18 @@ impl Builder<'_, '_> {
                 reason,
             ),
             Pending::ChooseSubtype { options, .. } => self.subtype(options),
+            Pending::ChooseCardType { options, .. } => {
+                self.line("QUESTION: Choose a card type.");
+                for (index, card_type) in options.iter().enumerate() {
+                    self.option(
+                        format!("cardtype{index}"),
+                        card_type.words().collect::<Vec<_>>().join(" "),
+                        Act::Now(PlayerAction::ChooseCardType(*card_type)),
+                    );
+                }
+                self.list_options();
+                self.answer_pick("pick=[one card type id]");
+            }
             Pending::ChooseCardName { types, .. } => {
                 if !types.is_empty() {
                     self.line("Only a card name with the required printed card types is eligible.");

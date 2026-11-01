@@ -86,7 +86,9 @@ pub fn encode_card_face(def: &CardDef, face_idx: usize) -> CardDslFeatures {
             }
             EnterModifier::ChooseColor | EnterModifier::ChooseColorExcept(_) => s[84] = 1.0,
             EnterModifier::ChooseSubtype | EnterModifier::ChooseSubtypeFrom(_) => s[85] = 1.0,
-            EnterModifier::ChooseCardName | EnterModifier::ChooseOpponent => s[86] = 1.0,
+            EnterModifier::ChooseCardName
+            | EnterModifier::ChooseCardType
+            | EnterModifier::ChooseOpponent => s[86] = 1.0,
             _ => s[87] = 1.0,
         }
     }

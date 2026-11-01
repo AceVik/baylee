@@ -154,6 +154,26 @@ pub(super) fn pt_count(
     i16::try_from(n).unwrap_or(i16::MAX)
 }
 
+/// Evaluate a live count for a rule outside the P/T layers, using the same
+/// filters and projected characteristics as the layer implementation.
+pub(crate) fn live_pt_count(
+    state: &GameState,
+    obj: &GameObject,
+    you: PlayerId,
+    count: baylee_cards_dsl::PtCount,
+) -> i16 {
+    let mut read_board = false;
+    pt_count(
+        state,
+        obj,
+        obj.characteristics(),
+        you,
+        count,
+        crate::eval::live_context(state, obj.id),
+        &mut read_board,
+    )
+}
+
 /// This layer only reads a currently attacking creature's defending player.
 /// Combat history keeps the original player when its attacked permanent leaves.
 fn defending_player_of(state: &GameState, attacker: ObjectId) -> Option<PlayerId> {

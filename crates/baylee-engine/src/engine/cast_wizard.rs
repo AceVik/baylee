@@ -148,9 +148,9 @@ pub(crate) struct CastWizard {
     pub escape_exiles: SmallVec<[ObjectId; 8]>,
     /// Permanents chosen to tap for convoke or a waterbend ({1} each).
     pub convoke_taps: SmallVec<[ObjectId; 8]>,
-    /// Permanents chosen to pay the additional cost's sacrifices, one per
-    /// asking part in the order the face prints them.
-    pub sacrifices: SmallVec<[ObjectId; 1]>,
+    /// Objects chosen for asking cost parts, one answer per object in cost
+    /// order. A `TapN` part consumes N distinct answers.
+    pub cost_objects: SmallVec<[ObjectId; 4]>,
     /// How each Phyrexian symbol of the chosen option's cost is paid, in the
     /// cost's own order: `true` is 2 life, `false` its mana (CR 107.4f),
     /// announced with the other costs (CR 601.2b) and charged as the cost
@@ -270,7 +270,7 @@ impl CastWizard {
             self.delve_exiles.as_slice(),
             self.escape_exiles.as_slice(),
             self.convoke_taps.as_slice(),
-            self.sacrifices.as_slice(),
+            self.cost_objects.as_slice(),
         ] {
             hash = hash.wrapping_mul(31).wrapping_add(targets.len() as u64);
             for target in targets {
@@ -322,54 +322,20 @@ pub(crate) enum EffectCast {
     AnyMana,
 }
 
-/// The cost parts [`Engine::finish_cast`] pays out of a chosen **alternative**
-/// cost.
-///
-/// A spell has three cost lists and no two of them are paid by the same code,
-/// so "the wizard pays it" is a claim that has to name which list. Everything
-/// the option scan lets through and this predicate does not name is paid by
-/// nobody — including a sacrifice or a discard, which an *activation* can now
-/// ask about (`engine::cost_wizard`) and a spell's alternative cost still
-/// cannot. That is the reason the pool-wide guard below is the gate here and
-/// `can_afford` is not: `can_afford` used to refuse those two parts on every
-/// board and no longer does, so what stops a spell being cast for free is a
-/// build failure and not a board question.
-///
-/// It is a *dead offer* only when the printed cost is unaffordable, which is
-/// the one case `casting.rs` reads this list at all: its `any_alt` probe sits
-/// inside `if !probe(printed)`, so a card whose mana cost is payable is
-/// castable on its own and a refused alternative costs it one mode. A card
-/// that had nothing else is put in `legal.castable` by that probe and then
-/// finds the wizard with no option to give it — the shape the
-/// `AltCondition::CommanderControlled` bug had, and the shape a Force of Will
-/// with nothing blue to pitch had until that probe learned to ask about the
-/// cost's parts as well as its mana.
-///
-/// Held pool-wide by
+/// The non-mana parts the wizard pays for an alternative casting cost.
+/// Pool-wide coverage is enforced by
 /// `offer_tests::no_spell_cost_list_carries_a_part_its_payment_walks_past`.
 pub(crate) const fn paid_as_an_alternative_cost(part: &CostPart) -> bool {
-    matches!(part, CostPart::PayLife(_) | CostPart::ExileFromHand(_))
+    matches!(
+        part,
+        CostPart::PayLife(_)
+            | CostPart::ExileFromHand(_)
+            | CostPart::Sacrifice(_)
+            | CostPart::TapN { .. }
+    )
 }
 
-/// The cost parts [`Engine::finish_cast`] pays out of
-/// `FaceDef.mandatory_additional_costs`.
-///
-/// Toxic Deluge's `PayLifeX`, and the "as an additional cost to cast this
-/// spell, sacrifice a creature" of Natural Order, Eldritch Evolution,
-/// Neoform and Crop Rotation. The sacrifice is the one part here that names
-/// an object, so it is the one that is *gated*: the `Sacrifice` stage asks
-/// which permanent pays it from `cost_wizard::options`, and
-/// `casting::can_cast_form` refuses the cast on a board where that list is
-/// empty — the same reader, so the offer and the question agree.
-///
-/// The rest of the list has no gate at all: nothing runs `can_afford` over
-/// it.
-///
-/// Which is why the one bound this list has is on the *question* instead: the
-/// `XValue` stage caps X at the caster's life total (CR 119.4), because
-/// `finish_cast` below subtracts what it is given and reads no total. A
-/// `PayLife(n)` written here has no such stage and would still be paid past
-/// zero — it belongs beside the X the day a card prints one.
+/// The non-mana parts the wizard pays for mandatory additional costs.
 pub(crate) const fn paid_as_a_mandatory_additional_cost(part: &CostPart) -> bool {
     matches!(
         part,
@@ -381,6 +347,7 @@ pub(crate) const fn paid_as_a_mandatory_additional_cost(part: &CostPart) -> bool
             | CostPart::Discard(_)
             | CostPart::DiscardHand
             | CostPart::DiscardLastDrawnThisTurn
+            | CostPart::TapN { .. }
     )
 }
 
@@ -399,8 +366,32 @@ pub(crate) fn wizard_mandatory_parts(
         .chain(entwine_parts.iter())
 }
 
-/// The parts of a spell's additional cost that ask which permanent pays
-/// them, in printed order: the questions the `Sacrifice` stage puts.
+/// The non-mana parts of the alternative cost chosen for this cast.
+/// Flashback is an alternative cost too, including one with no mana component.
+pub(crate) fn wizard_alternative_parts(
+    face: &'static baylee_cards_dsl::FaceDef,
+    option: Option<CastModeKind>,
+) -> &'static [CostPart] {
+    match option {
+        Some(CastModeKind::Alternative(index)) => face.alternative_costs[index].cost.parts,
+        Some(CastModeKind::Flashback) => face.flashback_parts,
+        _ => &[],
+    }
+}
+
+/// Every non-mana cost part the selected way of casting must pay. Alternative
+/// parts precede mandatory additional parts, matching the payment below.
+pub(crate) fn wizard_cost_parts(
+    face: &'static baylee_cards_dsl::FaceDef,
+    option: Option<CastModeKind>,
+) -> impl Iterator<Item = &'static CostPart> {
+    wizard_alternative_parts(face, option)
+        .iter()
+        .chain(wizard_mandatory_parts(face, option))
+}
+
+/// The object questions of a spell's cost, in payment order. `TapN` expands
+/// into N questions so offer, choice and payment share one answer per object.
 pub(crate) fn additional_card_costs(
     face: &'static baylee_cards_dsl::FaceDef,
 ) -> impl Iterator<Item = &'static CostPart> {
@@ -411,15 +402,24 @@ pub(crate) fn additional_card_costs_for(
     face: &'static baylee_cards_dsl::FaceDef,
     option: Option<CastModeKind>,
 ) -> impl Iterator<Item = &'static CostPart> {
-    wizard_mandatory_parts(face, option).filter(|p| {
-        matches!(
-            p,
-            CostPart::Sacrifice(_)
-                | CostPart::ExilePermanent(_)
-                | CostPart::ExileFromGraveyard(_)
-                | CostPart::Discard(_)
-        )
-    })
+    wizard_cost_parts(face, option)
+        .filter(|p| {
+            matches!(
+                p,
+                CostPart::Sacrifice(_)
+                    | CostPart::ExilePermanent(_)
+                    | CostPart::ExileFromGraveyard(_)
+                    | CostPart::Discard(_)
+                    | CostPart::TapN { .. }
+            )
+        })
+        .flat_map(|part| {
+            let count = match part {
+                CostPart::TapN { count, .. } => usize::try_from(*count).unwrap_or(usize::MAX),
+                _ => 1,
+            };
+            std::iter::repeat_n(part, count)
+        })
 }
 
 impl<L: CardLookup> Engine<L> {
@@ -462,7 +462,7 @@ impl<L: CardLookup> Engine<L> {
             delve_exiles: SmallVec::new(),
             escape_exiles: SmallVec::new(),
             convoke_taps: SmallVec::new(),
-            sacrifices: SmallVec::new(),
+            cost_objects: SmallVec::new(),
             phyrexian: SmallVec::new(),
             stage: WizardStage::ChooseMode,
             options,
@@ -534,7 +534,7 @@ impl<L: CardLookup> Engine<L> {
             delve_exiles: SmallVec::new(),
             escape_exiles: SmallVec::new(),
             convoke_taps: SmallVec::new(),
-            sacrifices: SmallVec::new(),
+            cost_objects: SmallVec::new(),
             phyrexian: SmallVec::new(),
             stage: WizardStage::Done,
             options: vec![CastModeDesc {
@@ -590,7 +590,12 @@ impl<L: CardLookup> Engine<L> {
         };
         if let Some(req) = self.wizard_target_req(&wizard) {
             let (min, max) = req.bounds(wizard.x);
-            let players = eval::target_player_options(&self.state, &req.spec, player);
+            let players = eval::target_player_options_from(
+                &self.state,
+                &req.spec,
+                player,
+                eval::live_context(&self.state, card),
+            );
             if matches!(req.spec, TargetSpec::AnyPlayer | TargetSpec::AnyOpponent) {
                 // The `ChoosePlayer` stage: one player, from this list.
                 if players.is_empty() {
@@ -655,7 +660,7 @@ impl<L: CardLookup> Engine<L> {
             delve_exiles: SmallVec::new(),
             escape_exiles: SmallVec::new(),
             convoke_taps: SmallVec::new(),
-            sacrifices: SmallVec::new(),
+            cost_objects: SmallVec::new(),
             phyrexian: SmallVec::new(),
             // A miracle cost is paid "rather than its mana cost" (CR 702.94a),
             // which makes it an alternative cost, and an alternative cost
@@ -815,7 +820,7 @@ impl<L: CardLookup> Engine<L> {
             delve_exiles: SmallVec::new(),
             escape_exiles: SmallVec::new(),
             convoke_taps: SmallVec::new(),
-            sacrifices: SmallVec::new(),
+            cost_objects: SmallVec::new(),
             phyrexian: SmallVec::new(),
             // `XValue` fixes a waived mana-cost X at zero, but still asks
             // about independent additional costs such as Toxic Deluge's X life.
@@ -888,7 +893,7 @@ impl<L: CardLookup> Engine<L> {
             delve_exiles: SmallVec::new(),
             escape_exiles: SmallVec::new(),
             convoke_taps: SmallVec::new(),
-            sacrifices: SmallVec::new(),
+            cost_objects: SmallVec::new(),
             phyrexian: SmallVec::new(),
             // `XValue` asks nothing of a free wizard (CR 107.3b); from there
             // on it is every other cast.
@@ -967,7 +972,7 @@ impl<L: CardLookup> Engine<L> {
             delve_exiles: SmallVec::new(),
             escape_exiles: SmallVec::new(),
             convoke_taps: SmallVec::new(),
-            sacrifices: SmallVec::new(),
+            cost_objects: SmallVec::new(),
             phyrexian: SmallVec::new(),
             stage: WizardStage::XValue,
             options: vec![CastModeDesc {
@@ -1635,20 +1640,11 @@ impl<L: CardLookup> Engine<L> {
         Some(req)
     }
 
-    fn wizard_pitch_filter(
-        &self,
-        wizard: &CastWizard,
-    ) -> Option<&'static baylee_cards_dsl::Filter> {
+    fn wizard_pitch_parts(&self, wizard: &CastWizard) -> &'static [CostPart] {
         let Some(CastModeKind::Alternative(i)) = wizard.option else {
-            return None;
+            return &[];
         };
-        let face = self.wizard_face(wizard);
-        face.alternative_costs.get(i).and_then(|alt| {
-            alt.cost.parts.iter().find_map(|p| match p {
-                CostPart::ExileFromHand(f) => Some(*f),
-                _ => None,
-            })
-        })
+        self.wizard_face(wizard).alternative_costs[i].cost.parts
     }
 
     /// Pays everything and puts the spell on the stack, or, refused, pays
@@ -1958,6 +1954,10 @@ pub(super) fn spend_for(
         Some(CastModeKind::Disguise) => {
             casting::SpendFor::SpellAs(wizard.card, casting::SpellForm::Disguise)
         }
+        Some(CastModeKind::Foretell) => casting::SpendFor::SpellAs(
+            wizard.card,
+            casting::SpellForm::Foretell(face.foretell.expect("foretell option")),
+        ),
         _ if wizard.face_index() != 0 => {
             casting::SpendFor::SpellOnFace(wizard.card, wizard.face_index())
         }

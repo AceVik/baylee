@@ -499,7 +499,12 @@ impl<L: CardLookup> Engine<L> {
             // offered in `LegalActions` (which does add the two counts) and
             // then refused here with "no legal targets", the two-probes
             // disagreement this engine treats as the worst kind.
-            let player_options = eval::target_player_options(&self.state, &req.spec, player);
+            let player_options = eval::target_player_options_from(
+                &self.state,
+                &req.spec,
+                player,
+                self.ability_rule_context(source, ability_index),
+            );
             if options.len() + player_options.len() < min as usize {
                 // The number was answered before this question was asked, so
                 // an activation that dies here has one to throw away.
@@ -555,7 +560,12 @@ impl<L: CardLookup> Engine<L> {
                 self.activation_x,
                 eval::target_domain::walls(first, second),
             );
-            let player_options = eval::target_player_options(&self.state, &req.spec, player);
+            let player_options = eval::target_player_options_from(
+                &self.state,
+                &req.spec,
+                player,
+                self.ability_rule_context(source, ability_index),
+            );
             if options.len() + player_options.len() < req.min as usize {
                 self.activation_x = None;
                 return Err(EngineError::IllegalAction("no legal targets"));

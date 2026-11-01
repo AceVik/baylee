@@ -536,6 +536,8 @@ macro_rules! card {
         $($field:ident = $value:expr),* $(,)?
     ) => {
         /// The compiled definition of this card.
+        // Even a currently complete field list keeps DEFAULT for future fields.
+        #[allow(clippy::needless_update)]
         pub static CARD: $crate::CardDef = $crate::CardDef {
             index: $index,
             oracle_id: $oracle,

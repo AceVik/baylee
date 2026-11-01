@@ -735,6 +735,7 @@ impl GameState {
                             | crate::object::Rider::ExhaustedAbility(_)
                             | crate::object::Rider::EntrySacrifices(_)
                             | crate::object::Rider::SecondChosenSubtype(_)
+                            | crate::object::Rider::ChosenCardType(_)
                             | crate::object::Rider::ChosenNumber { .. }
                             | crate::object::Rider::ChosenName { .. }
                             | crate::object::Rider::EntryTappingApplied
@@ -786,10 +787,18 @@ impl GameState {
                     )
                 });
             }
-            if to.zone() != Zone::Stack {
-                obj.riders
-                    .retain(|rider| *rider != crate::object::Rider::Uncounterable);
-            }
+            obj.riders.retain(|rider| match rider {
+                crate::object::Rider::Uncounterable => to.zone() == Zone::Stack,
+                // Foretell lasts for as long as the card remains exiled
+                // (CR 702.143a); a move from exile to exile does not end
+                // that. Every other move makes a new object (CR 400.7): the
+                // cast puts "was foretold" back on the spell itself after its
+                // move, and a spell exiled from the stack is not foretold.
+                crate::object::Rider::Foretold { .. } => {
+                    from_zone == Zone::Exile && to.zone() == Zone::Exile
+                }
+                _ => true,
+            });
             // What the card was in exile lasts only as long as the exile. A
             // card that leaves exile any other way than the return its host
             // makes (cast, put into a hand, shuffled away) is a new object

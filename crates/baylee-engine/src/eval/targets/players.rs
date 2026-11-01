@@ -6,6 +6,60 @@ use crate::state::GameState;
 use baylee_cards_dsl::{PlayerRel, TargetSpec};
 use baylee_core::ids::PlayerId;
 
+/// All player-targeting protection, collected in one pass over the effects.
+struct PlayerProtection<'a> {
+    specific: Vec<&'a crate::effects::ContinuousEffect>,
+    hexproof: baylee_core::ids::SeatSet,
+    everything: baylee_core::ids::SeatSet,
+    ignores_hexproof: bool,
+}
+
+impl<'a> PlayerProtection<'a> {
+    fn collect(state: &'a GameState, you: PlayerId) -> Self {
+        let mut protection = Self {
+            specific: Vec::new(),
+            hexproof: baylee_core::ids::SeatSet::new(),
+            everything: baylee_core::ids::SeatSet::new(),
+            ignores_hexproof: false,
+        };
+        for effect in state.effects.iter() {
+            match effect.modifier {
+                baylee_cards_dsl::Modifier::PlayerProtectionFrom { .. } => {
+                    protection.specific.push(effect);
+                }
+                baylee_cards_dsl::Modifier::PlayerProtectionFromEverything { who } => {
+                    if let Some(players) = players(who, state, effect.controller) {
+                        for player in players {
+                            protection.everything.insert(player);
+                        }
+                    }
+                }
+                baylee_cards_dsl::Modifier::PlayerProtectionFromOpponents { who } => {
+                    if let Some(players) = players(who, state, effect.controller) {
+                        for player in players {
+                            if state.is_opponent(player, you) {
+                                protection.everything.insert(player);
+                            }
+                        }
+                    }
+                }
+                baylee_cards_dsl::Modifier::PlayerHexproof { who } => {
+                    if let Some(players) = players(who, state, effect.controller) {
+                        for player in players {
+                            protection.hexproof.insert(player);
+                        }
+                    }
+                }
+                baylee_cards_dsl::Modifier::IgnoreOpponentsHexproof if effect.controller == you => {
+                    protection.ignores_hexproof = true;
+                }
+                _ => {}
+            }
+        }
+        protection
+    }
+}
+
 /// The players a spell or ability may target.
 ///
 /// A player is untargetable only through an effect, never through a
@@ -15,6 +69,23 @@ use baylee_core::ids::PlayerId;
 /// resolve their relation directly and never ask this targeting enumerator.
 #[must_use]
 pub fn target_player_options(state: &GameState, spec: &TargetSpec, you: PlayerId) -> Vec<PlayerId> {
+    target_player_options_from(
+        state,
+        spec,
+        you,
+        crate::eval::live_context(state, baylee_core::ids::ObjectId::NO_SOURCE),
+    )
+}
+
+/// Source-aware player targets. Protection from a quality is asked of the
+/// actual spell or ability source, with the granting permanent as `this`.
+#[must_use]
+pub fn target_player_options_from(
+    state: &GameState,
+    spec: &TargetSpec,
+    you: PlayerId,
+    context: crate::text_changes::RuleContext,
+) -> Vec<PlayerId> {
     if !matches!(
         spec,
         TargetSpec::AnyTarget
@@ -22,64 +93,53 @@ pub fn target_player_options(state: &GameState, spec: &TargetSpec, you: PlayerId
             | TargetSpec::AnyPlayer
             | TargetSpec::AnyOpponent
             | TargetSpec::PlayerWhoAttackedThisTurn
+            | TargetSpec::OpponentWithMoreThanActivePlayer(_)
+            | TargetSpec::OpponentWithMoreThanPlayer(..)
             | TargetSpec::OpponentOrObject(_)
             | TargetSpec::PlayerOrObject(_)
     ) {
         return Vec::new();
     }
+    // Only the bound form can compare with the player whose step triggered
+    // the ability, rather than accidentally with its controller.
+    if matches!(spec, TargetSpec::OpponentWithMoreThanActivePlayer(_)) {
+        return Vec::new();
+    }
+    let comparison = match spec {
+        TargetSpec::OpponentWithMoreThanPlayer(filter, player) => Some((
+            filter,
+            *player,
+            crate::eval::count_controlled_by(state, *player, you, filter, context),
+        )),
+        _ => None,
+    };
     let opponents_only = matches!(
         spec,
         TargetSpec::AnyOpponent | TargetSpec::OpponentOrObject(_)
     );
     let self_only = matches!(spec, TargetSpec::Player(PlayerRel::You));
     let attacked_only = matches!(spec, TargetSpec::PlayerWhoAttackedThisTurn);
-    // Build the small seat set once instead of rescanning all effects for
+    // Build the small seat sets once instead of rescanning all effects for
     // each potential player target.
-    let mut protected = baylee_core::ids::SeatSet::new();
-    let mut everything = baylee_core::ids::SeatSet::new();
-    let mut ignores_hexproof = false;
-    for effect in state.effects.iter() {
-        match effect.modifier {
-            baylee_cards_dsl::Modifier::PlayerProtectionFromEverything { who } => {
-                if let Some(players) = players(who, state, effect.controller) {
-                    for player in players {
-                        everything.insert(player);
-                    }
-                }
-            }
-            baylee_cards_dsl::Modifier::PlayerProtectionFromOpponents { who } => {
-                if let Some(players) = players(who, state, effect.controller) {
-                    for player in players {
-                        if state.is_opponent(player, you) {
-                            everything.insert(player);
-                        }
-                    }
-                }
-            }
-            baylee_cards_dsl::Modifier::PlayerHexproof { who } => {
-                if let Some(players) = players(who, state, effect.controller) {
-                    for player in players {
-                        protected.insert(player);
-                    }
-                }
-            }
-            baylee_cards_dsl::Modifier::IgnoreOpponentsHexproof if effect.controller == you => {
-                ignores_hexproof = true;
-            }
-            _ => {}
-        }
-    }
+    let protection = PlayerProtection::collect(state, you);
     state
         .players
         .iter()
         .filter(|p| {
-            if p.has_lost() || everything.contains(p.id) || (self_only && p.id != you) {
+            if p.has_lost() || protection.everything.contains(p.id) || (self_only && p.id != you) {
                 return false;
             }
             // "Target opponent" is a choice over a smaller set, not a
             // different kind of choice (CR 115.1) — and the set is the
             // opponents, so a teammate is out of it as surely as you are.
             if opponents_only && !state.is_opponent(p.id, you) {
+                return false;
+            }
+            if comparison.is_some_and(|(filter, reference, reference_count)| {
+                !state.is_opponent(p.id, reference)
+                    || crate::eval::count_controlled_by(state, p.id, you, filter, context)
+                        <= reference_count
+            }) {
                 return false;
             }
             if attacked_only
@@ -91,8 +151,35 @@ pub fn target_player_options(state: &GameState, spec: &TargetSpec, you: PlayerId
             {
                 return false;
             }
+            if protection.specific.iter().any(|effect| {
+                let baylee_cards_dsl::Modifier::PlayerProtectionFrom { who, from } =
+                    effect.modifier
+                else {
+                    unreachable!("collected by modifier above");
+                };
+                players(who, state, effect.controller)
+                    .is_some_and(|players| players.contains(&p.id))
+                    && state.object(context.source).is_some_and(|source| {
+                        crate::eval::matches_with_context(
+                            from,
+                            state,
+                            source,
+                            effect.controller,
+                            crate::text_changes::RuleContext {
+                                source: effect.source.unwrap_or(context.source),
+                                text: state.effect_text(effect),
+                                resolved_name: context.resolved_name,
+                                reference: context.reference,
+                            },
+                        )
+                    })
+            }) {
+                return false;
+            }
             // Player hexproof also stops only opponents (CR 702.11c).
-            !state.is_opponent(p.id, you) || ignores_hexproof || !protected.contains(p.id)
+            !state.is_opponent(p.id, you)
+                || protection.ignores_hexproof
+                || !protection.hexproof.contains(p.id)
         })
         .map(|p| p.id)
         .collect()
@@ -139,6 +226,8 @@ pub fn targeted_players(obj: &GameObject, spec: &TargetSpec) -> baylee_core::ids
             | TargetSpec::AnyPlayer
             | TargetSpec::AnyOpponent
             | TargetSpec::PlayerWhoAttackedThisTurn
+            | TargetSpec::OpponentWithMoreThanActivePlayer(_)
+            | TargetSpec::OpponentWithMoreThanPlayer(..)
             | TargetSpec::OpponentOrObject(_)
             | TargetSpec::PlayerOrObject(_)
     ) {

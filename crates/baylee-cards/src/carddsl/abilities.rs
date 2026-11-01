@@ -22,6 +22,8 @@ fn encode_target_req(req: Option<&TargetReq>) -> [f32; 8] {
         }
         TargetSpec::AnyPlayer
         | TargetSpec::AnyOpponent
+        | TargetSpec::OpponentWithMoreThanActivePlayer(_)
+        | TargetSpec::OpponentWithMoreThanPlayer(..)
         | TargetSpec::Player(_)
         | TargetSpec::PlayerWhoAttackedThisTurn => {
             player = 1.0;
@@ -36,6 +38,13 @@ fn encode_target_req(req: Option<&TargetReq>) -> [f32; 8] {
         TargetSpec::StackOrBattlefield(_) => {
             stack = 1.0;
             permanent = 1.0;
+        }
+        TargetSpec::ObjectOrCardInAnyGraveyard(filter) => {
+            permanent = 1.0;
+            graveyard = 1.0;
+            if filter_mentions_creature(filter) {
+                creature = 1.0;
+            }
         }
         TargetSpec::CardInGraveyard(_, _)
         | TargetSpec::CardInFirstTargetsGraveyard(_)

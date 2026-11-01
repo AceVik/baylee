@@ -104,12 +104,13 @@ impl<L: CardLookup> Engine<L> {
             .battlefield_seen()
             .filter(|id| {
                 rules.must_attack(*id)
-                    && rules.mana_tax(*id) == 0
                     && rules.sacrifice_tax(*id).is_empty()
                     && combat::can_attack(&self.state, player, *id)
-                    && legal
-                        .iter()
-                        .any(|d| rules.allows(*id, *d) && rules.life_tax(*id, *d) == 0)
+                    && legal.iter().any(|d| {
+                        rules.allows(*id, *d)
+                            && rules.mana_tax_for(*id, *d) == 0
+                            && rules.life_tax(*id, *d) == 0
+                    })
             })
             .collect();
         let required_target = rules.required_maximum(&required_able);
@@ -154,7 +155,7 @@ impl<L: CardLookup> Engine<L> {
         // declaration waits in it with nothing paid.
         let total_mana_tax = attackers
             .iter()
-            .map(|&(creature, _)| rules.mana_tax(creature))
+            .map(|&(creature, defending)| rules.mana_tax_for(creature, defending))
             .fold(0_u32, u32::saturating_add);
         drop(rules);
         let tax = baylee_core::mana::ManaCost::ZERO.with_more_generic(total_mana_tax);

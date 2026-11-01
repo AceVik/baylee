@@ -45,6 +45,7 @@ impl GameState {
                 .map(|(i, s)| Player {
                     id: PlayerId::new(i as u8),
                     life: s.starting_life.unwrap_or(default_life),
+                    starting_life: s.starting_life.unwrap_or(default_life),
                     poison: 0,
                     energy: 0,
                     speed: 0,
@@ -57,6 +58,7 @@ impl GameState {
                     turn_start_timestamp: 0,
                     turns_started: 0,
                     turns_to_skip: 0,
+                    combats_to_skip: 0,
                     last_turn_attackers: Vec::new(),
                     blocked_since_upkeep: Vec::new(),
                     blocked_before_upkeep: Vec::new(),

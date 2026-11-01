@@ -31,6 +31,7 @@ mod dread_rider;
 mod dripping_dead;
 mod ebon_praetor;
 mod ephemeron;
+mod exalted_angel;
 mod exalted_dragon;
 mod feral_thallid;
 mod firestorm_hellkite;

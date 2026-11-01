@@ -1380,6 +1380,12 @@ pub fn answer_one(engine: &Engine<RegistryLookup>) -> Result<(PlayerId, PlayerAc
             };
             (player, PlayerAction::ChooseSubtype(first))
         }
+        Pending::ChooseCardType { player, options } => {
+            let Some(first) = options.first().copied() else {
+                return Err(Rest::Unanswered("ChooseCardType"));
+            };
+            (player, PlayerAction::ChooseCardType(first))
+        }
         Pending::ChooseColor { player, options } => {
             let Some(first) = options.first().copied() else {
                 return Err(Rest::Unanswered("ChooseColor"));

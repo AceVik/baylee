@@ -7,6 +7,7 @@ mod blaze;
 mod bloodcurdling_scream;
 mod bubbling_muck;
 mod builder_s_bane;
+mod cabal_therapy;
 mod cateran_summons;
 mod chain_lightning;
 mod cloak_of_feathers;

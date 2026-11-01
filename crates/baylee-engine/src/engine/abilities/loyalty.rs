@@ -159,9 +159,18 @@ impl<L: CardLookup> Engine<L> {
         {
             let found = if matches!(
                 req.spec,
-                baylee_cards_dsl::TargetSpec::AnyPlayer | baylee_cards_dsl::TargetSpec::AnyOpponent
+                baylee_cards_dsl::TargetSpec::AnyPlayer
+                    | baylee_cards_dsl::TargetSpec::AnyOpponent
+                    | baylee_cards_dsl::TargetSpec::OpponentWithMoreThanActivePlayer(_)
+                    | baylee_cards_dsl::TargetSpec::OpponentWithMoreThanPlayer(..)
             ) {
-                eval::target_player_options(&self.state, &req.spec, player).len()
+                eval::target_player_options_from(
+                    &self.state,
+                    &req.spec,
+                    player,
+                    self.ability_rule_context(source, ability_index),
+                )
+                .len()
             } else {
                 eval::target_options_in_domain(
                     &req.spec,
@@ -228,9 +237,17 @@ impl<L: CardLookup> Engine<L> {
         {
             if matches!(
                 req.spec,
-                baylee_cards_dsl::TargetSpec::AnyPlayer | baylee_cards_dsl::TargetSpec::AnyOpponent
+                baylee_cards_dsl::TargetSpec::AnyPlayer
+                    | baylee_cards_dsl::TargetSpec::AnyOpponent
+                    | baylee_cards_dsl::TargetSpec::OpponentWithMoreThanActivePlayer(_)
+                    | baylee_cards_dsl::TargetSpec::OpponentWithMoreThanPlayer(..)
             ) {
-                let options = eval::target_player_options(&self.state, &req.spec, player);
+                let options = eval::target_player_options_from(
+                    &self.state,
+                    &req.spec,
+                    player,
+                    self.ability_rule_context(source, ability_index),
+                );
                 if options.len() < req.min as usize {
                     return Err(EngineError::IllegalAction("no legal targets"));
                 }

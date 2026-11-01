@@ -215,7 +215,16 @@ impl<L: CardLookup> Engine<L> {
     }
 
     fn enter_combat_or_skip(&mut self) -> (Phase, Step) {
-        if self.state.per_turn.skip_combat_phases {
+        let active = usize::from(self.state.turn.active.get());
+        let skipped_anyway = self.state.per_turn.skip_combat_phases;
+        let player = &mut self.state.players[active];
+        // "Skips their next combat phase" waits for a combat phase it can
+        // skip (CR 614.10a): one another effect skips already does not use it.
+        let delayed_skip = !skipped_anyway && player.combats_to_skip > 0;
+        if delayed_skip {
+            player.combats_to_skip -= 1;
+        }
+        if skipped_anyway || delayed_skip {
             self.enter_second_main_or_skip()
         } else {
             (Phase::Combat, Step::CombatBegin)

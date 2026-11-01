@@ -878,8 +878,12 @@ pub enum Rider {
     Rebound,
     /// On an adventure; this player may play its non-Adventure face from exile.
     Adventure(PlayerId),
-    /// Foretold (castable for its foretell cost).
-    Foretold,
+    /// This incarnation was foretold on the given turn. In exile it grants
+    /// the later-turn alternative cost; on the stack it answers "was foretold".
+    Foretold {
+        /// Turn on which this exact incarnation entered exile by foretell.
+        turn: u32,
+    },
     /// Plotted (castable without paying as a sorcery).
     Plotted,
     /// Suspended (time counters tick down at upkeep; cast for free at zero).
@@ -953,6 +957,11 @@ pub enum Rider {
     EntrySacrifices(u32),
     /// The second basic land type chosen for this permanent incarnation.
     SecondChosenSubtype(baylee_core::ids::SubtypeId),
+    /// The card type chosen as this permanent incarnation entered (Serra's
+    /// Emissary, CR 205.2a), read by `Filter::OfSourceChosenCardType`. A
+    /// rider rather than a field: one card in the pool chooses one, and a
+    /// field cost every object eight bytes (`tests/footprint.rs`).
+    ChosenCardType(baylee_core::types::TypeSet),
     /// Last number chosen for this permanent incarnation (not a copiable value).
     ChosenNumber {
         /// Linked ability acquisition that owns this value.
@@ -1065,7 +1074,7 @@ impl Rider {
             | Self::PlayableFromExileFor(_)
             | Self::Suspend
             | Self::Rebound
-            | Self::Foretold
+            | Self::Foretold { .. }
             | Self::Plotted
             | Self::NotedCounter(_, _) => true,
             // About the stack or the battlefield, not exile.
@@ -1078,6 +1087,7 @@ impl Rider {
             | Self::ExhaustedAbility(_)
             | Self::EntrySacrifices(_)
             | Self::SecondChosenSubtype(_)
+            | Self::ChosenCardType(_)
             | Self::ChosenNumber { .. }
             | Self::ChosenName { .. }
             | Self::RulesAcquisition(_)
@@ -2015,6 +2025,24 @@ impl GameObject {
     pub const fn set_controller(&mut self, player: PlayerId) {
         self.controller = player;
         self.base_controller = player;
+    }
+
+    /// The card type this permanent chose as it entered
+    /// ([`Rider::ChosenCardType`]), if it chose one.
+    #[must_use]
+    pub fn chosen_card_type(&self) -> Option<baylee_core::types::TypeSet> {
+        self.riders.iter().find_map(|rider| match rider {
+            Rider::ChosenCardType(card_type) => Some(*card_type),
+            _ => None,
+        })
+    }
+
+    /// Record the card type chosen as this permanent entered, replacing any
+    /// earlier answer of this incarnation.
+    pub fn set_chosen_card_type(&mut self, card_type: baylee_core::types::TypeSet) {
+        self.riders
+            .retain(|rider| !matches!(rider, Rider::ChosenCardType(_)));
+        self.riders.push(Rider::ChosenCardType(card_type));
     }
 }
 

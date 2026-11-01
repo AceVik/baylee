@@ -564,6 +564,21 @@ pub enum Effect {
         /// Who.
         who: PlayerRel,
     },
+    /// Set the chosen player's life total to an exact value (CR 118.4).
+    SetLifeTotal {
+        /// Whose life total changes.
+        who: PlayerRel,
+        /// The new life total.
+        amount: Amount,
+    },
+    /// Raise the chosen player's life total to at least this value, leaving
+    /// an equal or greater total unchanged.
+    RaiseLifeTotalTo {
+        /// Whose life total may change.
+        who: PlayerRel,
+        /// The minimum resulting life total.
+        amount: Amount,
+    },
     /// Exile a target object.
     Exile {
         /// What.
@@ -660,6 +675,20 @@ pub enum Effect {
         /// Destination for the matching card.
         matched: SearchDest,
         /// Destination for each nonmatching card.
+        otherwise: SearchDest,
+    },
+    /// Reveal down to the first card matching `filter`. The match moves to
+    /// `matched`, and every other revealed card moves to `otherwise`. All
+    /// cards are revealed before any of them moves; a library with no match
+    /// reveals and moves its entire contents.
+    RevealUntilMatching {
+        /// Affected library and recipient of a battlefield destination.
+        player: PlayerRel,
+        /// What stops the reveal.
+        filter: &'static Filter,
+        /// Destination for the matching card.
+        matched: SearchDest,
+        /// Destination for every nonmatching card.
         otherwise: SearchDest,
     },
     /// Reveal one card by name, running the failure branch only on a mismatch.
@@ -813,6 +842,17 @@ pub enum Effect {
         matched: SearchDest,
         /// Where it goes if it does not.
         otherwise: SearchDest,
+    },
+    /// Reveal the top `count` cards. Move every card matching `filter` to
+    /// `found`, then put the rest on the bottom in their controller's chosen
+    /// order. All cards are revealed before any of them moves.
+    RevealTopAllMatching {
+        /// Number of cards revealed, limited by the library's size.
+        count: u8,
+        /// Which revealed cards move to `found`.
+        filter: &'static Filter,
+        /// Destination and entry details shared by all matching cards.
+        found: Find,
     },
     /// Look at the top card of your library; if it is a `filter` card you
     /// may put it where `matched` says, and if you don't — or it is not —
@@ -1335,6 +1375,8 @@ pub enum Effect {
         player: PlayerRel,
         /// Required printed types; empty permits any card name.
         types: TypeSet,
+        /// Printed types a named face must not have; empty excludes nothing.
+        excluded_types: TypeSet,
         /// Retain the choice on the source permanent for its linked abilities.
         remember: bool,
     },
@@ -1808,6 +1850,11 @@ pub enum Effect {
     RollDiePutTargetIntoLibraryBeneathTop {
         /// Number of sides on the die (`10` for a d10).
         sides: u8,
+    },
+    /// Put each target into its owner's library beneath this many cards.
+    PutTargetIntoLibraryBeneathTop {
+        /// Number of cards to leave above each target.
+        count: Amount,
     },
     /// "Sacrifice a [filter]. If you sacrifice a [`if_it_was`] this way,
     /// [then]." (Serendib Djinn: a land, and 3 damage to you if it was an
@@ -2477,6 +2524,21 @@ pub enum Effect {
         /// later ability can return those cards (Worldgorger Dragon). Ordinary
         /// exile sweeps leave this false and create no such relationship.
         linked: bool,
+    },
+    /// Starting with the controller, each player votes for a matching permanent
+    /// the controller does not control. Exile every permanent with the most
+    /// votes, including every permanent tied for the most. These are votes
+    /// during resolution, not targets.
+    ExileMostVotedNotControlledByYou {
+        /// What each vote may name, in addition to the controller restriction.
+        filter: &'static Filter,
+    },
+    /// Exile every attacking creature the chosen player controls. That player
+    /// may then search for up to one basic land per creature actually exiled,
+    /// put their finds onto the battlefield tapped, and shuffle.
+    ExileAttackingForThenMaySearchBasicLands {
+        /// The player whose attackers are exiled and who may search.
+        player: PlayerRel,
     },
     /// "Choose a creature you control. It gains indestructible until end of
     /// turn." (Final Showdown): as this resolves its controller chooses one
@@ -3336,6 +3398,21 @@ pub enum Effect {
         /// How long.
         duration: crate::static_ability::Duration,
     },
+    /// Each object matching a filter gets +N/+N, where N is the number of
+    /// `keywords` it has, plus one for protection when `count_protection` is
+    /// set. The objects are bound now; the count is read once, as the effect
+    /// resolves (Akroma, Vision of Ixidor). Multiple protection abilities
+    /// count as the single listed ability "protection", not once per variant.
+    PumpFilterPerKeyword {
+        /// Which objects are pumped.
+        filter: &'static Filter,
+        /// The keyword abilities to count on each object.
+        keywords: KeywordSet,
+        /// Whether any protection ability contributes one to the count.
+        count_protection: bool,
+        /// How long the pump lasts.
+        duration: crate::static_ability::Duration,
+    },
     /// The spell's or ability's targets get P/T modifiers, and optionally
     /// keywords, until a duration ends (Giant Growth, Titanic Growth,
     /// Brute Force; with keywords, Might of Old Krosa or Rush of Blood).
@@ -3931,6 +4008,13 @@ pub enum Effect {
         /// Who or what receives the damage.
         target: TargetSpec,
     },
+    /// Sacrifice the event object. If it was sacrificed, its last battlefield
+    /// incarnation deals `amount` damage to each creature that was blocking it
+    /// immediately before the sacrifice (Ib Halfheart, Goblin Tactician).
+    SacrificeEventDealDamageToEachBlocker {
+        /// Damage dealt to each captured blocker.
+        amount: Amount,
+    },
     /// The source deals `amount` damage divided evenly, rounded down, among
     /// all permanents on the battlefield matching `filter` (Dwarven Catapult:
     /// "deals X damage divided evenly, rounded down, among all creatures
@@ -3988,6 +4072,11 @@ pub enum Effect {
     ExchangeControlOfEventAndTarget,
     /// Unattach all Equipment from the first target creature (Disarm).
     UnattachAllEquipmentFromTarget,
+    /// Each selected player skips their next combat phase (CR 506, CR 614.10).
+    SkipNextCombatPhase {
+        /// Whose next combat phase is skipped.
+        player: PlayerRel,
+    },
     /// Target/event player chooses draw step, main phase, or combat phase and
     /// skips each instance of the chosen step or phase this turn (Fatespinner).
     ChoosePhaseToSkipThisTurn,

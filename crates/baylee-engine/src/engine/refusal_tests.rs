@@ -371,6 +371,11 @@ fn offered(
                 out.push(PlayerAction::ChooseSubtype(s));
             }
         }
+        Pending::ChooseCardType { options, .. } => {
+            for &card_type in &dice.pick(options, options.len()) {
+                out.push(PlayerAction::ChooseCardType(card_type));
+            }
+        }
         Pending::ChooseColor { options, .. } => {
             for &c in &dice.pick(options, options.len()) {
                 out.push(PlayerAction::ChooseColor(c));

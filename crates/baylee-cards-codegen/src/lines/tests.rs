@@ -843,6 +843,43 @@ fn an_alternative_cost_is_found_as_a_sentence_or_as_a_keyword_line() {
     );
 }
 
+/// A nonsymbol tapping cost keeps its printed count as well as its mana.
+#[test]
+fn an_alternative_tapping_cost_matches_its_mana_and_count() {
+    let sephara = baylee_cards_dsl::cost!(
+        "{W}",
+        TapN {
+            filter: &Filter::Any,
+            count: 4,
+        }
+    );
+    let text = "You may pay {W} and tap four untapped creatures you control \
+                with flying rather than pay this spell's mana cost.";
+    assert_eq!(
+        map_alternatives(&[alt(sephara, AltCondition::Always)], text),
+        vec![Some(0)]
+    );
+    let wrong_mana = baylee_cards_dsl::Cost {
+        mana: baylee_core::mana!("{U}"),
+        ..sephara
+    };
+    assert_eq!(
+        map_alternatives(&[alt(wrong_mana, AltCondition::Always)], text),
+        vec![None]
+    );
+    let wrong_count = baylee_cards_dsl::Cost {
+        parts: &[CostPart::TapN {
+            filter: &Filter::Any,
+            count: 3,
+        }],
+        ..sephara
+    };
+    assert_eq!(
+        map_alternatives(&[alt(wrong_count, AltCondition::Always)], text),
+        vec![None]
+    );
+}
+
 /// "Without paying its mana cost" is the cost of nothing, and "rather
 /// than pay" is a cost that was substituted.
 ///

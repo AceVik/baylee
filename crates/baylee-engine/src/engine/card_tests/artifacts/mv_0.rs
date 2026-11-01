@@ -5,6 +5,7 @@ use super::*;
 
 mod black_lotus;
 mod chalice_of_the_void;
+mod chrome_mox;
 mod claws_of_gix;
 mod dark_sphere;
 mod delif_s_cone;

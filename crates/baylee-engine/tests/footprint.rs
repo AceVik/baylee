@@ -86,6 +86,15 @@ const CACHE_BUDGET: usize = 8;
 /// Lowered 312 → 296 on 2026-10-06, to what the object measures once the
 /// projection cache's generation stamp went: it was written on every
 /// refresh and never read (`CachedChar`).
+///
+/// Raised 296 → 304 on 2026-11-01 by the card type chosen as a permanent
+/// entered (`GameObject::chosen_card_type`, Serra's Emissary). Its
+/// `Option<TypeSet>` is four bytes; the object's alignment rounds that to
+/// the same eight-byte step a boxed record would cost.
+///
+/// Lowered 304 → 296 the same day: the chosen card type is a rider
+/// (`Rider::ChosenCardType`), as the second chosen basic land type is, since
+/// one card in the pool chooses one.
 const OBJECT_BUDGET: usize = 296;
 
 #[test]

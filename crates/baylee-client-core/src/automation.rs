@@ -646,8 +646,8 @@ pub struct Situation {
     /// Answered by the caller because it is the shell that plans the taps:
     /// `crate::manaplan` needs the card registry to know what a printed mana
     /// ability makes, and this crate does not have it. It is the union of the
-    /// two indigo sets — a spell whose lands could be tapped for it, and a
-    /// card that could be suspended the same way.
+    /// three indigo sets — a spell to cast, a card to suspend, or a card to
+    /// foretell after tapping lands for it.
     pub offering: bool,
     /// Whether this window is a payment window the local seat is asked to
     /// pay in (`PlayerView::owed` while it is awaited): a miracle's cost, a
@@ -684,7 +684,7 @@ pub fn auto_answer(
     match pending {
         // Nothing to answer with is nothing to answer with, stack or no
         // stack. This rule fires only when the seat has no land, no spell, no
-        // ability and nothing to suspend, so withholding the pass would leave
+        // ability and no special action, so withholding the pass would leave
         // a player looking at a window whose only legal action is the one
         // being withheld.
         //
@@ -763,6 +763,7 @@ fn nothing_to_do(legal: &LegalActions) -> bool {
         && legal.castable.is_empty()
         && legal.abilities.is_empty()
         && legal.suspendable.is_empty()
+        && legal.foretellable.is_empty()
         && legal.granted_actions.is_empty()
 }
 
@@ -836,6 +837,7 @@ mod tests {
                 mana_abilities: vec![],
                 abilities: vec![],
                 suspendable: vec![],
+                foretellable: vec![],
                 granted_actions: vec![],
             }),
         }
@@ -856,6 +858,7 @@ mod tests {
                 mana_abilities: vec![],
                 abilities: vec![],
                 suspendable: vec![],
+                foretellable: vec![],
                 granted_actions: vec![],
             }),
         }
@@ -1643,6 +1646,7 @@ mod tests {
                 mana_abilities: vec![],
                 abilities: vec![],
                 suspendable: vec![],
+                foretellable: vec![],
                 granted_actions: vec![],
             }),
         };
@@ -1680,6 +1684,7 @@ mod tests {
                 mana_abilities: vec![baylee_core::ids::ObjectId::new(1, 0)],
                 abilities: vec![],
                 suspendable: vec![],
+                foretellable: vec![],
                 granted_actions: vec![],
             }),
         };
@@ -1809,7 +1814,7 @@ mod tests {
     /// the pool empties at the end of the step and the turn's lands are gone.
     ///
     /// It is `Situation::offering` that carries the missing half, set by the
-    /// shell from the two indigo sets. The negative case below is the whole
+    /// shell from the three indigo sets. The negative case below is the whole
     /// point of the flag: with nothing to reach for, the rule still fires.
     #[test]
     fn a_window_this_client_is_offering_something_in_is_not_passed_away() {
@@ -1842,6 +1847,34 @@ mod tests {
             ),
             AutoAnswer::None,
             "but a spell the lands could be tapped for is something to do"
+        );
+    }
+
+    #[test]
+    fn an_offered_foretell_action_is_not_passed_away() {
+        let card = baylee_core::ids::ObjectId::new(50, 0);
+        let pending = Pending::Priority {
+            player: PlayerId::new(0),
+            legal: Box::new(LegalActions {
+                can_pass: true,
+                foretellable: vec![card],
+                ..LegalActions::default()
+            }),
+        };
+        let rules = AutoRules {
+            pass_when_nothing_to_do: true,
+            ..AutoRules::default()
+        };
+        assert_eq!(
+            auto_answer(
+                &pending,
+                at(true, true, Phase::Combat, Step::CombatBegin),
+                &PhaseOrders::default(),
+                &rules,
+                None,
+            ),
+            AutoAnswer::None,
+            "the engine offered a special action, so the window is not empty"
         );
     }
 

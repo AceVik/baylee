@@ -70,6 +70,7 @@ mod ghazban_ogre;
 mod goblin_artisans;
 mod goblin_balloon_brigade;
 mod goblin_cadets;
+mod goblin_cohort;
 mod goblin_digging_team;
 mod goblin_lackey;
 mod goblin_patrol;

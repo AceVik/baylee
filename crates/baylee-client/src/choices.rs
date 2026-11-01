@@ -806,6 +806,7 @@ pub fn options(
                 .collect(),
         ),
         Prompt::ChooseSubtype { options } => Some(subtype_rows(options, filter, lang)),
+        Prompt::ChooseCardType { options } => Some(card_type_rows(options, lang)),
         // A pile is its cards: the row names them, in the order the
         // separation gave them, and an empty pile says so rather than
         // drawing a blank row, because it is a pile that may be taken.
@@ -835,7 +836,10 @@ pub fn options(
                 })
                 .collect(),
         ),
-        Prompt::ChooseCardName { types } => Some(card_name_rows(filter, *types)),
+        Prompt::ChooseCardName {
+            types,
+            excluded_types,
+        } => Some(card_name_rows(filter, *types, *excluded_types)),
         _ => None,
     }
 }
@@ -918,6 +922,23 @@ fn card_name_row(card: CardIndex, face: u8) -> Option<usize> {
         .position(|row| row.card == card && row.face == face)
 }
 
+/// "Choose a card type" (Serra's Emissary): one row per offered type, in the
+/// engine's order, named in the interface's language.
+fn card_type_rows(options: &[baylee_core::types::TypeSet], lang: Lang) -> Vec<ChoiceOption> {
+    options
+        .iter()
+        .enumerate()
+        .map(|(index, card_type)| {
+            let label = card_type
+                .words()
+                .map(|word| baylee_client_core::type_names::name(word, lang))
+                .collect::<Vec<_>>()
+                .join(" ");
+            ChoiceOption::text(index, label)
+        })
+        .collect()
+}
+
 /// The card names matching `filter`, cut to what the bar holds.
 ///
 /// A name that begins with what was typed first, then one with a word that
@@ -925,7 +946,11 @@ fn card_name_row(card: CardIndex, face: u8) -> Option<usize> {
 /// Needle, and a prefix match alone would never offer it. In the pool's
 /// English, which is the name's identity in the rules and the one every
 /// client has; nothing is matched inside a word.
-fn card_name_rows(filter: &str, types: baylee_core::types::TypeSet) -> Vec<ChoiceOption> {
+fn card_name_rows(
+    filter: &str,
+    types: baylee_core::types::TypeSet,
+    excluded_types: baylee_core::types::TypeSet,
+) -> Vec<ChoiceOption> {
     let needle = filter.trim().to_lowercase();
     let word_start = |lower: &str| {
         lower
@@ -936,7 +961,9 @@ fn card_name_rows(filter: &str, types: baylee_core::types::TypeSet) -> Vec<Choic
         .iter()
         .enumerate()
         .filter_map(|(i, row)| {
-            if !types.is_empty() && !row.types.intersects(types) {
+            if (!types.is_empty() && !row.types.intersects(types))
+                || row.types.intersects(excluded_types)
+            {
                 return None;
             }
             let first = row.lower.starts_with(&needle);
@@ -1054,6 +1081,7 @@ fn cast_label(
         K::Prototype => Phrase::CastPrototype.text(lang).to_string(),
         K::Miracle => Phrase::CastMiracle.text(lang).to_string(),
         K::Flashback => Phrase::CastFlashback.text(lang).to_string(),
+        K::Foretell => Phrase::CastForetell.text(lang).to_string(),
         K::BeamMeUp => Phrase::CastBeamMeUp.text(lang).to_string(),
         K::Dash => Phrase::CastDash.text(lang).to_string(),
         K::Mutate => Phrase::CastMutate.text(lang).to_string(),

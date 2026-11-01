@@ -297,15 +297,18 @@ fn mismatch(
             let want = expected_subtypes(def, face);
             (c.subtypes == want, subtypes(want), subtypes(c.subtypes))
         }
-        // The other rule stated twice: a front face keeps the keywords it
-        // prints and falls back to the card's list when it prints none.
+        // Use the same face projection as the engine: front-face fallback,
+        // generic partner and free-running are printed abilities too.
         Field::Keywords => {
+            let face_index = def
+                .faces
+                .iter()
+                .position(|candidate| core::ptr::eq(candidate, face))
+                .expect("mismatch receives a face of this card");
             let want = if locked {
                 baylee_cards_dsl::KeywordSet::EMPTY
-            } else if face.keywords.is_empty() {
-                def.keywords
             } else {
-                face.keywords
+                def.keywords_for_face(face_index)
             };
             (
                 c.keywords == want,

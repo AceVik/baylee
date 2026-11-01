@@ -43,6 +43,9 @@ impl Tx<'_> {
         if let Some(rest) = line.strip_prefix("Flashback:") {
             return self.flashback(rest);
         }
+        if let Some(rest) = line.strip_prefix("Foretell:") {
+            return self.foretell(rest);
+        }
         if let Some(rest) = line.strip_prefix("Entwine:") {
             if rest.contains(':') {
                 return self.deny(format!("an `Entwine` with extra fields `{rest}`"));
@@ -353,6 +356,21 @@ impl Tx<'_> {
         }
         self.body.flashback = Some(format!("Some(mana!(\"{mana}\"))"));
         self.body.notes.push("flashback".to_string());
+        Some(())
+    }
+
+    /// `K:Foretell:<cost>` for a mana-only later cast cost (CR 702.143a).
+    /// The {2} special action is supplied by the engine, not by this field.
+    pub(super) fn foretell(&mut self, rest: &str) -> Option<()> {
+        if rest.contains(':') {
+            return self.deny(format!("a `Foretell` with extra fields `{rest}`"));
+        }
+        let (mana, parts) = self.cost_pieces(rest)?;
+        if mana.is_empty() || !parts.is_empty() {
+            return self.deny(format!("a non-mana `Foretell` cost `{rest}`"));
+        }
+        self.body.foretell = Some(format!("Some(mana!(\"{mana}\"))"));
+        self.body.notes.push("foretell".to_string());
         Some(())
     }
 
