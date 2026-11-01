@@ -8,11 +8,15 @@
 //! - every request names its program (`User-Agent: baylee-seat/<version>`)
 //!   and what it takes (`Accept: application/json;q=0.9,*/*;q=0.8`);
 //! - at most ten requests a second: one at a time, each [`SPACING`] after
-//!   the last one ended, for every mind of the process;
+//!   the last one ended, for every mind of the process and, where there is
+//!   a cache directory, for every process of this machine that keeps it
+//!   ([`Turn`]: a lock file there, holding when the last request ended);
 //! - what was fetched is kept, at least a day ([`KEEP`]): in memory, and as
 //!   one file a card in the user's cache directory, written whole through a
 //!   temporary file so seats of other processes never read half of one.
-//!   Only this machine's seats read it; it is no mirror for anyone.
+//!   Only this machine's seats read it; it is no mirror for anyone. A name
+//!   Scryfall does not know is kept in memory only, so names a model made
+//!   up never pile up on disk.
 //!
 //! A request carries a card's name and nothing else: no game, no player,
 //! no key. Two requests a card at most: `/cards/named?fuzzy=`, then the
@@ -24,6 +28,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
+use std::io::{Read as _, Seek as _, Write as _};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -48,6 +53,15 @@ const MAX_BODY: u64 = 2 << 20;
 
 /// The `Accept` header Scryfall asks for.
 const ACCEPT: &str = "application/json;q=0.9,*/*;q=0.8";
+
+/// The lock file in the cache directory whose lock is this machine's turn
+/// to ask Scryfall, and which holds when the last request ended
+/// ([`Turn`]).
+pub const TURN_FILE: &str = ".requests.lock";
+
+/// How often a request waiting for another process's turn to end looks
+/// again.
+const TURN_POLL: Duration = Duration::from_millis(5);
 
 /// A card as Scryfall has it: its text and its rulings.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -183,9 +197,12 @@ impl Scryfall {
             card,
         };
         // A card whose rulings could not be fetched is asked again next
-        // time, not kept without them.
+        // time, not kept without them. A name Scryfall does not know is
+        // kept in memory only: a model may make up any number of them.
         if whole {
-            self.write_kept(&kept);
+            if kept.card.is_some() {
+                self.write_kept(&kept);
+            }
             crate::llm::lock(&self.memo).insert(key, kept.clone());
         }
         Ok(kept.card)
@@ -243,11 +260,23 @@ impl Scryfall {
     }
 
     /// One `GET`, [`SPACING`] after the last one ended, and none beside
-    /// it: the status, and the body where it is JSON.
+    /// it, in this process and, where there is a cache directory, in any
+    /// other that keeps it ([`Turn`], waited for at most `timeout`): the
+    /// status, and the body where it is JSON.
+    ///
+    /// # Errors
+    /// When the request fails, or another process holds the turn past
+    /// `timeout`: then nothing is asked.
     fn get(&self, url: &str, timeout: Duration) -> Result<(u16, Option<Value>), String> {
         let mut last = crate::llm::lock(&self.last);
-        if let Some(wait) = last.map(|at| SPACING.saturating_sub(at.elapsed())) {
-            std::thread::sleep(wait);
+        let mut turn = match &self.cache {
+            Some(dir) => Turn::take(dir, timeout)?,
+            None => None,
+        };
+        let here = last.map(|at| at.elapsed());
+        let anywhere = turn.as_mut().and_then(Turn::since_last);
+        if let Some(since) = here.into_iter().chain(anywhere).min() {
+            std::thread::sleep(SPACING.saturating_sub(since));
         }
         let answer = self
             .agent
@@ -278,6 +307,9 @@ impl Scryfall {
                 (status, body)
             });
         *last = Some(Instant::now());
+        if let Some(turn) = &mut turn {
+            turn.ended();
+        }
         answer
     }
 
@@ -302,6 +334,96 @@ impl Scryfall {
 /// Whether `kept` is younger than [`KEEP`] at `now`.
 fn fresh(kept: &Kept, now: u64) -> bool {
     now.saturating_sub(kept.fetched) < KEEP.as_secs()
+}
+
+/// This machine's turn to ask Scryfall: the exclusive lock on
+/// [`TURN_FILE`] in the cache directory, held from before a request's wait
+/// until it ended, so the seats of every process that keeps the directory
+/// ask one at a time. The file holds when the last request ended, in
+/// milliseconds since 1970. The lock is the operating system's (`flock`
+/// on Linux, as the spend book's), so a process that dies holding it lets
+/// it go.
+struct Turn {
+    file: std::fs::File,
+}
+
+impl Turn {
+    /// The turn in `dir`, waited for at most `within`; `None` where the
+    /// file cannot be opened or locked at all, and the spacing holds within
+    /// this process only.
+    ///
+    /// # Errors
+    /// When another process holds the turn for longer than `within`.
+    fn take(dir: &Path, within: Duration) -> Result<Option<Self>, String> {
+        let opened = std::fs::create_dir_all(dir).and_then(|()| {
+            let mut options = std::fs::OpenOptions::new();
+            options.read(true).write(true).create(true).truncate(false);
+            #[cfg(unix)]
+            std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
+            options.open(dir.join(TURN_FILE))
+        });
+        let file = match opened {
+            Ok(file) => file,
+            Err(e) => {
+                tracing::debug!(error = %e, "Scryfall's turn file could not be opened");
+                return Ok(None);
+            }
+        };
+        let deadline = Instant::now() + within;
+        loop {
+            match file.try_lock() {
+                Ok(()) => return Ok(Some(Self { file })),
+                Err(std::fs::TryLockError::WouldBlock) if Instant::now() < deadline => {
+                    std::thread::sleep(TURN_POLL);
+                }
+                Err(std::fs::TryLockError::WouldBlock) => {
+                    return Err(format!(
+                        "another seat of this machine was asking Scryfall for longer than \
+                         {:.1} s",
+                        within.as_secs_f32()
+                    ));
+                }
+                Err(std::fs::TryLockError::Error(e)) => {
+                    tracing::debug!(error = %e, "Scryfall's turn file could not be locked");
+                    return Ok(None);
+                }
+            }
+        }
+    }
+
+    /// How long ago the last request of any process ended, as the file
+    /// says; `None` before the first. A time ahead of this machine's clock
+    /// (a clock set back) counts as just now, so the wait is never longer
+    /// than [`SPACING`].
+    fn since_last(&mut self) -> Option<Duration> {
+        let mut text = String::new();
+        self.file.rewind().ok()?;
+        (&self.file).take(32).read_to_string(&mut text).ok()?;
+        let last: u64 = text.trim().parse().ok()?;
+        Some(Duration::from_millis(unix_millis().saturating_sub(last)))
+    }
+
+    /// Writes that a request ended now; the lock goes with the turn.
+    fn ended(&mut self) {
+        let now = unix_millis().to_string();
+        let written = self
+            .file
+            .rewind()
+            .and_then(|()| self.file.set_len(0))
+            .and_then(|()| self.file.write_all(now.as_bytes()));
+        if let Err(e) = written {
+            tracing::debug!(error = %e, "Scryfall's turn file could not be written");
+        }
+    }
+}
+
+/// Milliseconds since 1970.
+fn unix_millis() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |since| {
+            u64::try_from(since.as_millis()).unwrap_or(u64::MAX)
+        })
 }
 
 /// Seconds since 1970.

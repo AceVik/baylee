@@ -853,12 +853,20 @@ comes from the nearest source that has it, under its name:
    `api.scryfall.com`; no redirect is followed. The requests carry the
    card's name and nothing else, under `User-Agent: baylee-seat/<version>`
    and `Accept: application/json;q=0.9,*/*;q=0.8`, one at a time and
-   100 ms apart within a process (`docs/legal.md` §3: at most ten a
-   second). What was fetched is kept a week (at least the day Scryfall
+   100 ms apart (`docs/legal.md` §3: at most ten a second) for every
+   seat of the machine: within a process under a lock in memory, and
+   across the processes that keep the same cache directory (a collector's
+   seats) under an exclusive lock on `scryfall/.requests.lock` there,
+   which holds when the last request ended (`lookup::scryfall::Turn`). A
+   request waits for that lock at most its own time (≤ 10 s) and then
+   fails the lookup, never longer; where the file cannot be opened or
+   locked the spacing holds within the process only. What was fetched is
+   kept a week (at least the day Scryfall
    asks for) in memory and in `scryfall/` of the user's cache directory
    (`~/.cache/baylee/scryfall` on Linux), one file a card written through
-   a temporary file, for this machine's seats only; "not found" is kept,
-   a failure is not.
+   a temporary file, for this machine's seats only; "not found" is kept
+   in memory only (a model's made-up names never fill the directory), a
+   failure not at all.
 
 A failed source is a sentence in the text (`lookup failed: …`), never the
 mind's error. Each lookup, with the text the model was told, is a line of
