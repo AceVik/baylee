@@ -1395,6 +1395,10 @@ fn hash_acquired_rider(h: &mut Hasher, rider: &crate::object::Rider) {
             h.u8(90);
             subtype.hash(h);
         }
+        crate::object::Rider::ChosenCardType(card_type) => {
+            h.u8(91);
+            card_type.hash(h);
+        }
         crate::object::Rider::ExhaustedAbility(index) => {
             h.u8(63);
             index.hash(h);
@@ -1816,7 +1820,6 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
         modes,
         chosen_subtype,
         chosen_color,
-        chosen_card_type,
         chosen_name,
         doors,
         face_index,
@@ -1951,6 +1954,10 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
             Rider::SecondChosenSubtype(subtype) => {
                 h.u8(90);
                 subtype.hash(h);
+            }
+            Rider::ChosenCardType(card_type) => {
+                h.u8(91);
+                card_type.hash(h);
             }
             Rider::ExhaustedAbility(index) => {
                 h.u8(63);
@@ -2094,7 +2101,6 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
     modes.hash(h);
     chosen_subtype.hash(h);
     chosen_color.hash(h);
-    chosen_card_type.hash(h);
     chosen_name.hash(h);
     doors.hash(h);
     face_index.hash(h);

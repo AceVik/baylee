@@ -957,6 +957,11 @@ pub enum Rider {
     EntrySacrifices(u32),
     /// The second basic land type chosen for this permanent incarnation.
     SecondChosenSubtype(baylee_core::ids::SubtypeId),
+    /// The card type chosen as this permanent incarnation entered (Serra's
+    /// Emissary, CR 205.2a), read by `Filter::OfSourceChosenCardType`. A
+    /// rider rather than a field: one card in the pool chooses one, and a
+    /// field cost every object eight bytes (`tests/footprint.rs`).
+    ChosenCardType(baylee_core::types::TypeSet),
     /// Last number chosen for this permanent incarnation (not a copiable value).
     ChosenNumber {
         /// Linked ability acquisition that owns this value.
@@ -1082,6 +1087,7 @@ impl Rider {
             | Self::ExhaustedAbility(_)
             | Self::EntrySacrifices(_)
             | Self::SecondChosenSubtype(_)
+            | Self::ChosenCardType(_)
             | Self::ChosenNumber { .. }
             | Self::ChosenName { .. }
             | Self::RulesAcquisition(_)
@@ -1419,8 +1425,6 @@ pub struct GameObject {
     /// differs: two Thriving Moors on one battlefield are two colours, and
     /// the card they share can say neither.
     pub chosen_color: Option<baylee_core::mana::ManaColor>,
-    /// The card type chosen as this permanent entered (Serra's Emissary).
-    pub chosen_card_type: Option<baylee_core::types::TypeSet>,
     /// The card name chosen as this entered (Pithing Needle, CR 201.4): the
     /// card and face it is the name of, packed as a [`PrintedFace`] so the
     /// `Option` is four bytes. What `Modifier::ChosenNameCantActivate`
@@ -1561,7 +1565,6 @@ impl GameObject {
             modes: 0,
             chosen_subtype: None,
             chosen_color: None,
-            chosen_card_type: None,
             chosen_name: None,
             doors: Doors::NONE,
             face_index: 0,
@@ -2022,6 +2025,24 @@ impl GameObject {
     pub const fn set_controller(&mut self, player: PlayerId) {
         self.controller = player;
         self.base_controller = player;
+    }
+
+    /// The card type this permanent chose as it entered
+    /// ([`Rider::ChosenCardType`]), if it chose one.
+    #[must_use]
+    pub fn chosen_card_type(&self) -> Option<baylee_core::types::TypeSet> {
+        self.riders.iter().find_map(|rider| match rider {
+            Rider::ChosenCardType(card_type) => Some(*card_type),
+            _ => None,
+        })
+    }
+
+    /// Record the card type chosen as this permanent entered, replacing any
+    /// earlier answer of this incarnation.
+    pub fn set_chosen_card_type(&mut self, card_type: baylee_core::types::TypeSet) {
+        self.riders
+            .retain(|rider| !matches!(rider, Rider::ChosenCardType(_)));
+        self.riders.push(Rider::ChosenCardType(card_type));
     }
 }
 
