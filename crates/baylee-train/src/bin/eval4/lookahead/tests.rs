@@ -4,7 +4,10 @@
 use std::collections::BTreeMap;
 
 use super::*;
-use crate::{Args, CoverageMatrix4, collector, play_one_table, search_config, search_refusal};
+use crate::{
+    Args, CoverageMatrix4, collector, play_one_table, search_config, search_metadata,
+    search_refusal,
+};
 use baylee_ai::HeuristicAgent;
 use baylee_core::ids::PlayerId;
 use baylee_core::preset::AIProfile;
@@ -523,4 +526,16 @@ fn search_is_refused_where_it_cannot_run() {
         8
     );
     assert!(selected(&["--search", "4,2,3", "--search-threads", "0"]).is_err());
+
+    let reproducible = |extra: &[&str]| {
+        let args = args(extra);
+        search_metadata(&args, search_config(&args).unwrap(), None).unwrap()["bitwise_reproducible"]
+            .clone()
+    };
+    assert_eq!(reproducible(&["--search", "4,2,3"]), true);
+    assert_eq!(
+        reproducible(&["--search", "4,2,3", "--inference-batch", "64"]),
+        false,
+        "a batched search says it is not reproducible bit for bit"
+    );
 }

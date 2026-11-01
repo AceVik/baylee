@@ -252,6 +252,10 @@ fn search_metadata(
 ) -> Option<Value> {
     let mut metadata = config?.metadata();
     metadata["max_decisions_per_game"] = json!(args.search_max_decisions_per_game);
+    // A row's outputs in a batch differ from its outputs alone, and which
+    // rows share a batch depends on timing: a batched search is not
+    // reproducible bit for bit (`docs/trained-ai.md` §"Lookahead search").
+    metadata["bitwise_reproducible"] = json!(args.inference_batch == 0);
     metadata["critic_semantics"] = json!(identity.and_then(|i| i.critic_semantics.as_ref()));
     Some(metadata)
 }

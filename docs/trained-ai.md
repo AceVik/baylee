@@ -805,7 +805,8 @@ and the run's metadata says `threads: 1`. A batch can then hold up to
 `--inference-batch` to; `search.counts.parallel` counts the decisions
 searched at once. Running the rollouts at once changes how fast, not what is
 searched: the contract stays `belief_lookahead_v2`, and its metadata adds
-`threads`.
+`threads` and `bitwise_reproducible` (false under `--inference-batch`, in
+`run.json` and the summary alike).
 
 **Options.** `--search K,P,H` (off by default; K 1..=32, P 1..=256,
 H 0..=10000), `--search-select prior|paired|mean` (default `prior`) with
