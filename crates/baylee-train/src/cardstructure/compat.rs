@@ -128,6 +128,37 @@ pub fn owner(key: &str) -> String {
     }
 }
 
+/// An owner's ([`owner`]) name in this build: a card's or a token's.
+#[must_use]
+pub fn owner_name(owner: &str) -> Option<String> {
+    let mut parts = owner.split('/');
+    let kind = parts.next()?;
+    let id: u32 = parts.next()?.parse().ok()?;
+    match kind {
+        "card" => baylee_cards::by_index(baylee_core::ids::CardIndex::new(id))
+            .map(|card| card.name().to_owned()),
+        "token" => baylee_cards::tokens::ALL
+            .get(usize::try_from(id).ok()?)
+            .map(|token| token.name.to_owned()),
+        _ => None,
+    }
+}
+
+/// The owners ([`owner`]) only the compiled catalog has: cards and tokens
+/// appended since the model's export.
+#[must_use]
+pub fn appended(report: &Superset, model: &Forest) -> Vec<String> {
+    let known: std::collections::BTreeSet<String> =
+        model.roots.keys().map(|key| owner(key)).collect();
+    let added: std::collections::BTreeSet<String> = report
+        .new_roots
+        .iter()
+        .map(|key| owner(key))
+        .filter(|owner| !known.contains(owner))
+        .collect();
+    added.into_iter().collect()
+}
+
 /// The owners ([`owner`]) a superset withdraws: every card, token or
 /// reserved ability one of whose keys changed, went missing, or was added
 /// beside keys the model knows. Each of their keys is left out, as the keys

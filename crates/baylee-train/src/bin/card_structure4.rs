@@ -12,7 +12,8 @@ struct Args {
     out: Option<PathBuf>,
     /// Compare a model's `card_structure.json` (or the model directory
     /// holding it) with this build's catalog, print the comparison, and fail
-    /// unless every rule the model knows is unchanged.
+    /// unless every rule the model knows is unchanged (the strict superset;
+    /// what drift would withdraw is printed either way).
     #[arg(long, conflicts_with = "out")]
     check_model: Option<PathBuf>,
 }
@@ -59,7 +60,11 @@ fn main() -> anyhow::Result<()> {
             "catalog_roots": report.catalog_roots,
             "new_roots": report.new_roots.len(),
             "new_tags": report.new_tags,
-            "withdrawn_if_allowed": compat::withdrawn(&report, &model),
+            "appended": compat::appended(&report, &model).len(),
+            "withdrawn_under_drift": compat::withdrawn(&report, &model)
+                .iter()
+                .map(|owner| format!("{owner} {}", compat::owner_name(owner).unwrap_or_default()))
+                .collect::<Vec<_>>(),
             "changed": report.changed,
             "missing": report.missing,
             "superset": report.holds(),

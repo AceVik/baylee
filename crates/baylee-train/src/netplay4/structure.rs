@@ -63,19 +63,10 @@ pub struct DriftedRule4 {
 
 impl DriftedRule4 {
     fn of(owner: String) -> Self {
-        let mut parts = owner.split('/');
-        let kind = parts.next().unwrap_or_default();
-        let id = parts.next().and_then(|id| id.parse::<u32>().ok());
-        let name = match (kind, id) {
-            ("card", Some(id)) => baylee_cards::by_index(baylee_core::ids::CardIndex::new(id))
-                .map(|card| card.name().to_owned()),
-            ("token", Some(id)) => usize::try_from(id)
-                .ok()
-                .and_then(|slot| baylee_cards::tokens::ALL.get(slot))
-                .map(|token| token.name.to_owned()),
-            _ => None,
-        };
-        Self { owner, name }
+        Self {
+            name: compat::owner_name(&owner),
+            owner,
+        }
     }
 }
 
@@ -156,13 +147,7 @@ fn bind(
     binding.new_roots = report.new_roots.len();
     binding.new_tags = report.new_tags.len();
     binding.changed_roots = report.changed.len() + report.missing.len();
-    let known: BTreeSet<String> = model.roots.keys().map(|key| compat::owner(key)).collect();
-    let appended: BTreeSet<String> = report
-        .new_roots
-        .iter()
-        .map(|key| compat::owner(key))
-        .filter(|owner| !known.contains(owner))
-        .collect();
+    let appended = compat::appended(&report, &model);
     binding.appended_cards = appended.iter().filter(|o| o.starts_with("card/")).count();
     binding.appended_tokens = appended.iter().filter(|o| o.starts_with("token/")).count();
     if policy == CatalogPolicy4::Superset {
