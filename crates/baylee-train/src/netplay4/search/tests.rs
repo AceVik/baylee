@@ -225,7 +225,12 @@ fn preset(seed: u64) -> baylee_core::preset::GamePreset {
 
 /// [`preset`], seat 0 taken over, recorded.
 fn table(seed: u64) -> Session {
-    let mut session = Session::new_recorded(&preset(seed), "test").unwrap();
+    seated(&preset(seed))
+}
+
+/// `preset`'s table, seat 0 taken over, recorded.
+fn seated(preset: &baylee_core::preset::GamePreset) -> Session {
+    let mut session = Session::new_recorded(preset, "test").unwrap();
     session.describe("search".into(), vec!["0".into(), "1".into()]);
     assert!(session.take_over(ME));
     session
@@ -567,6 +572,120 @@ fn a_search_is_a_function_of_its_inputs() {
     assert!(report.rollout_steps > 0);
 }
 
+/// [`preset`] with my opening hand fixed, three lands and the first four
+/// other cards of my list, and everything else dealt from `seed`: their
+/// hand and both libraries.
+fn fixed_hand_preset(seed: u64) -> baylee_core::preset::GamePreset {
+    let mut preset = preset(seed);
+    let mine = &mut preset.seats[usize::from(ME.get())];
+    let is_land = |entry: &&baylee_core::preset::DeckEntry| {
+        baylee_cards::by_index(entry.card)
+            .is_some_and(|def| def.faces[0].types.contains(TypeSet::LAND))
+    };
+    let hand: Vec<_> = (mine.deck.iter().filter(is_land).take(3))
+        .chain(mine.deck.iter().filter(|e| !is_land(e)).take(4))
+        .copied()
+        .collect();
+    assert_eq!(hand.len(), 7);
+    mine.starting_hand = Some(hand);
+    preset
+}
+
+/// My first priority in my first main phase of the game, the table driven
+/// there as [`root`] drives it: `None` unless it is turn one (I start).
+fn first_main(session: &mut Session) -> Option<(Pending, PlayerView)> {
+    let (pending, view) = root(session, |view, _| view.turn <= 2);
+    (view.turn == 1).then_some((pending, view))
+}
+
+/// Two tables that differ in what I cannot see (their hand, both
+/// libraries, the seeds of the deal and of their house) and show me the
+/// same root, with their presets and the root's question and view.
+struct Twins {
+    tables: Vec<Session>,
+    presets: Vec<baylee_core::preset::GamePreset>,
+    pending: Pending,
+    view: PlayerView,
+}
+
+/// The first `wanted` twins among the deals of [`fixed_hand_preset`], each
+/// paired with the first deal whose root was found.
+fn twin_tables(wanted: usize) -> Vec<Twins> {
+    let mut first: Option<(
+        Session,
+        baylee_core::preset::GamePreset,
+        Pending,
+        PlayerView,
+    )> = None;
+    let mut twins = Vec::new();
+    for seed in 100..160 {
+        let preset = fixed_hand_preset(seed);
+        let mut session = seated(&preset);
+        let Some((pending, view)) = first_main(&mut session) else {
+            continue;
+        };
+        let Some((table, first_preset, first_pending, first_view)) = &first else {
+            first = Some((session, preset, pending, view));
+            continue;
+        };
+        if view != *first_view {
+            continue;
+        }
+        assert_eq!(format!("{pending:?}"), format!("{first_pending:?}"));
+        assert_ne!(
+            session.snapshot_hash(),
+            table.snapshot_hash(),
+            "the twins differ in what I cannot see"
+        );
+        // Each pair owns its first table: replay it from its preset.
+        let mut again = seated(first_preset);
+        assert!(first_main(&mut again).is_some_and(|(_, v)| v == view));
+        twins.push(Twins {
+            tables: vec![again, session],
+            presets: vec![first_preset.clone(), preset],
+            pending,
+            view,
+        });
+        if twins.len() == wanted {
+            return twins;
+        }
+    }
+    panic!("{} of {wanted} twin tables found", twins.len());
+}
+
+/// The search is a function of what I see: at twin tables it gives the
+/// same report, the same answer and the same memory, through worlds the
+/// house plays in.
+#[test]
+fn twin_tables_search_alike() {
+    for twins in twin_tables(2) {
+        let searched: Vec<_> = twins
+            .tables
+            .iter()
+            .map(|table| {
+                let mut player = Mock::new(steady, lands);
+                player.observe(&twins.view).unwrap();
+                let result = search_decision(
+                    &mut player,
+                    &KnownDecks(table),
+                    &twins.view,
+                    &twins.pending,
+                    &[],
+                    config(4, 3, 6),
+                    SEED,
+                )
+                .unwrap();
+                (result.answer.action, result.outcome, player.state)
+            })
+            .collect();
+        let SearchOutcome4::Searched(report) = &searched[0].1 else {
+            panic!("searched: {:?}", searched[0].1);
+        };
+        assert!(report.rollout_steps > 0, "the house played in the worlds");
+        assert_eq!(searched[0], searched[1]);
+    }
+}
+
 /// A table that forks `forks` worlds and refuses every one after.
 struct ForksThenRefuses<'a> {
     session: &'a Session,
@@ -904,4 +1023,45 @@ fn a_real_net_on_a_batched_session_searches_its_worlds_at_once() {
         rows > calls,
         "the rollouts shared batches: {rows} rows in {calls} calls"
     );
+}
+
+/// The real net, on the CPU, at twin tables: its memory starts from each
+/// table's own preset and takes in the same root, and the search gives the
+/// same report and answer and leaves the same memory, bit for bit. Run with
+/// `BAYLEE_TEST_MODEL=DIR BAYLEE_EP=cpu` and `--ignored`.
+#[test]
+#[ignore = "needs BAYLEE_TEST_MODEL, an exported v4/v5 model directory"]
+fn a_real_net_searches_twin_tables_alike() {
+    let Ok(dir) = std::env::var("BAYLEE_TEST_MODEL") else {
+        return;
+    };
+    let twins = twin_tables(1).remove(0);
+    let searched: Vec<_> = twins
+        .tables
+        .iter()
+        .zip(&twins.presets)
+        .map(|(table, preset)| {
+            let mut net = NetPlayer4::load_with(
+                std::path::Path::new(&dir),
+                crate::netplay4::CatalogPolicy4::Drift,
+            )
+            .unwrap();
+            net.init_game(preset);
+            net.observe(&twins.view).unwrap();
+            let result = search_decision(
+                &mut net,
+                &KnownDecks(table),
+                &twins.view,
+                &twins.pending,
+                &[],
+                config(4, 2, 6),
+                SEED,
+            )
+            .unwrap();
+            let memory = format!("{:?}", net.snapshot());
+            (result.answer.action, result.outcome, memory)
+        })
+        .collect();
+    assert!(matches!(searched[0].1, SearchOutcome4::Searched(_)));
+    assert_eq!(searched[0], searched[1]);
 }
