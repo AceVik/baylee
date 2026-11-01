@@ -1,6 +1,7 @@
 //! Multi-table LLM self-play replay collector and single-gateway/single-agent host supervisor.
 mod admin_cleanup;
 mod audit;
+mod compare;
 mod processes;
 mod quota_hold;
 mod schedule;
@@ -106,6 +107,14 @@ enum Commands {
         #[arg(long, default_value_t = 200)]
         report_games: usize,
     },
+    /// Profile against profile over the admitted games of collector roots:
+    /// wins with a Wilson 95 % interval, against the house apart, how often a
+    /// fallback took over, and the minds' answers, think time and tokens.
+    Compare {
+        /// Collector roots, each holding `attempts/`.
+        #[arg(required = true)]
+        roots: Vec<PathBuf>,
+    },
 }
 
 #[tokio::main]
@@ -169,6 +178,10 @@ async fn main() -> anyhow::Result<()> {
                 report_games,
             )
             .await
+        }
+        Commands::Compare { roots } => {
+            print!("{}", compare::report(&roots)?);
+            Ok(())
         }
     }
 }

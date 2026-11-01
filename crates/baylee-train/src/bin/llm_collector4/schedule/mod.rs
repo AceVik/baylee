@@ -982,7 +982,11 @@ impl Scheduler {
     /// A house seat (a pairing's `house:<level>`, its model so named) counts
     /// its answers as `house_answers`: never a model's, and never a
     /// fallback's, since it has no model to fall back from; so it counts in
-    /// neither `fallback_game_count` nor `completed_with_no_fallback`.
+    /// neither `fallback_game_count` nor `completed_with_no_fallback`. A
+    /// model's seat fell back where the house answered for it or a fallback
+    /// profile took over from it (`profile_fallbacks.took_over`); its
+    /// `fallback_answers` are both's (the profile's, `llm_answers` counts as
+    /// well).
     #[allow(clippy::too_many_lines, clippy::items_after_statements)]
     pub fn summarize(&self) -> anyhow::Result<Value> {
         let rows = self.load_receipts();
@@ -1075,21 +1079,34 @@ impl Scheduler {
                 } else {
                     g.losses += 1;
                 }
-                if let Some(counts) = tech
+                let seat_facts = tech
                     .get("seats")
                     .and_then(Value::as_array)
-                    .and_then(|s| s.get(seat))
-                    .and_then(|s| s.get("transcript_answer_counts"))
-                {
+                    .and_then(|s| s.get(seat));
+                if let Some(counts) = seat_facts.and_then(|s| s.get("transcript_answer_counts")) {
                     let h = counts.get("house").and_then(Value::as_u64).unwrap_or(0);
                     let l = counts.get("llm").and_then(Value::as_u64).unwrap_or(0);
                     let st = counts.get("standing").and_then(Value::as_u64).unwrap_or(0);
+                    // A fallback profile's answers (`llm_answers` counts them too).
+                    let taken: u64 = seat_facts
+                        .and_then(|s| s.pointer("/profile_fallbacks/played"))
+                        .and_then(Value::as_array)
+                        .map_or(0, |played| {
+                            played
+                                .iter()
+                                .filter_map(|f| f.get("answered").and_then(Value::as_u64))
+                                .sum()
+                        });
+                    let took_over = seat_facts
+                        .and_then(|s| s.pointer("/profile_fallbacks/took_over"))
+                        .and_then(Value::as_array)
+                        .is_some_and(|t| !t.is_empty());
                     g.llm_answers += l;
                     g.standing_answers += st;
                     if house_seat {
                         g.house_answers += h;
-                    } else if h > 0 {
-                        g.fallback_answers += h;
+                    } else if h > 0 || took_over {
+                        g.fallback_answers += h + taken;
                         g.fallback_game_count += 1;
                     } else {
                         g.completed_with_no_fallback += 1;
@@ -1382,13 +1399,8 @@ mod tests {
         }
     }
 
-    /// A game against the house freezes the house's model and empty chain
-    /// in the request, and the stats count the house seat's answers as its
-    /// own (`house_answers`), never a model's or a fallback's, while the
-    /// model it played keeps its fallbacks.
-    #[test]
-    fn a_game_against_the_house_is_requested_and_counted_as_the_house_s() {
-        let dir = TestDir::new("sched-house");
+    /// A scheduler of two decks and the one pairing house against `terra`.
+    fn house_against_terra(dir: &TestDir) -> Scheduler {
         let decks: Vec<Value> = (0..2)
             .map(|i| {
                 let p = dir.path().join(format!("d{i}.txt"));
@@ -1402,7 +1414,7 @@ mod tests {
         let config = profiles(dir.path());
         let pairings = dir.path().join("pairings.json");
         write_atomic_json(&pairings, &json!([["house:sharp", "terra"]])).unwrap();
-        let mut sched = Scheduler::new(
+        Scheduler::new(
             dir.path().to_path_buf(),
             "http://127.0.0.1:28768".to_owned(),
             config,
@@ -1411,7 +1423,23 @@ mod tests {
             90,
             3600,
         )
-        .unwrap();
+        .unwrap()
+    }
+
+    /// A seat's answer counts as the technical result gives them.
+    fn answer_counts(llm: u64, house: u64, standing: u64) -> Value {
+        json!({"transcript_answer_counts":
+            {"llm": llm, "house": house, "standing": standing, "other": 0}})
+    }
+
+    /// A game against the house freezes the house's model and empty chain
+    /// in the request, and the stats count the house seat's answers as its
+    /// own (`house_answers`), never a model's or a fallback's, while the
+    /// model it played keeps its fallbacks.
+    #[test]
+    fn a_game_against_the_house_is_requested_and_counted_as_the_house_s() {
+        let dir = TestDir::new("sched-house");
+        let mut sched = house_against_terra(&dir);
         let assignment = sched.next_assignment(0).unwrap();
         let request = &assignment.request;
         assert_eq!(request["profiles"], json!(["house:sharp", "terra"]));
@@ -1421,10 +1449,6 @@ mod tests {
         assert!(sched.seats_the_house());
         assert_eq!(assignment.house_seat(), Some(0));
 
-        let counts = |llm: u64, house: u64, standing: u64| {
-            json!({"transcript_answer_counts":
-                {"llm": llm, "house": house, "standing": standing, "other": 0}})
-        };
         write_atomic_json(
             &assignment.attempt_dir.join("receipt.json"),
             &json!({
@@ -1433,7 +1457,7 @@ mod tests {
                 "technical": {
                     "record_sha256": "a".repeat(64),
                     "terminal": {"winner_seat": 1, "draw": false},
-                    "seats": [counts(0, 40, 3), counts(30, 2, 5)],
+                    "seats": [answer_counts(0, 40, 3), answer_counts(30, 2, 5)],
                 },
             }),
         )
@@ -1489,6 +1513,52 @@ mod tests {
             .position(|name| *name == "house_answers")
             .unwrap();
         assert_eq!(row[column], "40");
+    }
+
+    /// A fallback profile that took over from a model is a fallback game
+    /// too, its answers fallback answers as well as LLM answers.
+    #[test]
+    fn a_profile_that_took_over_counts_as_a_fallback() {
+        let dir = TestDir::new("sched-took-over");
+        let mut sched = house_against_terra(&dir);
+        let second = sched.next_assignment(0).unwrap();
+        let mut taken = answer_counts(25, 0, 4);
+        taken["profile_fallbacks"] = json!({
+            "took_over": [{"cause": "limited", "profile": "haiku", "turn": 1}],
+            "played": [{"label": "haiku", "answered": 25, "turn": 1}],
+        });
+        write_atomic_json(
+            &second.attempt_dir.join("receipt.json"),
+            &json!({
+                "status": "admitted",
+                "request": &second.request,
+                "technical": {
+                    "record_sha256": "b".repeat(64),
+                    "terminal": {"winner_seat": 0, "draw": false},
+                    "seats": [answer_counts(0, 40, 3), taken],
+                },
+            }),
+        )
+        .unwrap();
+        let stats = sched.complete_assignment(&second.attempt_id).unwrap();
+        let model_total = |key: &str| -> u64 {
+            stats["strata"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter(|row| row["model"] == "gpt-6.1-terra")
+                .map(|row| row[key].as_u64().unwrap())
+                .sum()
+        };
+        assert_eq!(
+            [
+                model_total("fallback_game_count"),
+                model_total("fallback_answers"),
+                model_total("completed_with_no_fallback"),
+                model_total("llm_answers"),
+            ],
+            [1, 25, 0, 25]
+        );
     }
 
     #[test]
