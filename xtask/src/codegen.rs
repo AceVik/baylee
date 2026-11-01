@@ -115,7 +115,15 @@ pub(crate) fn cards(
                  sight: run `baylee-catalog corpus` and then `cargo xtask ledger`."
             );
         };
-        let (info, content) = stubgen::render_stub(
+        // A held-back stub is written again as the same stub, its review
+        // finding kept, however much of it the readers now take
+        // (`stubgen::held_back_reason`). Read where the card sits today,
+        // before any move.
+        let existing = found
+            .get(&front_face_slug(name))
+            .and_then(|path| fs::read_to_string(path).ok());
+        let (info, content) = stubgen::render_full_run(
+            existing.as_deref(),
             &card,
             row,
             &ledger,

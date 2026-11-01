@@ -1,9 +1,9 @@
 //! Per-card source rendering.
 
 use super::{
-    CardBody, CodegenError, IndexLedger, LedgerEntry, OWNED_MARKER, STUB_MARKER, ScryfallCard,
-    StubInfo, SubtypeCatalogs, doc_lines, faces_of, render_card_literal, render_face, set_line,
-    slug, transcode_card, vanilla,
+    CardBody, CodegenError, HELD_MARKER, IndexLedger, LedgerEntry, OWNED_MARKER, STUB_MARKER,
+    ScryfallCard, StubInfo, SubtypeCatalogs, doc_lines, faces_of, render_card_literal, render_face,
+    set_line, slug, transcode_card, vanilla,
 };
 
 /// Renders one stub file, and says where under `cards/` it belongs.
@@ -151,7 +151,7 @@ fn render_card(
     }
     if let Some(reason) = held {
         for line in reason.lines() {
-            out.push_str(&format!("// Held back: {line}\n"));
+            out.push_str(&format!("{HELD_MARKER}{line}\n"));
         }
         out.push('\n');
     }
