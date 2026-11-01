@@ -610,9 +610,9 @@ this build's rules, knowing the drifted and appended cards only by their
 summaries.
 
 `v6s-selfimit/s1` against this branch (1 November 2026): of its 39,496 roots,
-39,492 are unchanged, none are gone, 176 are new, and 4 changed: Mana Drain
-(card 623, `5c5bda190`) and Everybody Lives! (card 26615, `522380714`), both
-rules fixes. The strict superset therefore refuses s1, and drift binds it with
+39,492 are unchanged, none are gone, 176 are new (51 cards and tokens
+appended), and 4 changed: Mana Drain (card 623, `5c5bda190`) and Everybody
+Lives! (card 26615, `522380714`), both rules fixes. The strict superset therefore refuses s1, and drift binds it with
 those two withdrawn. The train-split decks never meet either card: the
 measured runs left 0 references out. PR #410 drifts many more: about 67
 former stubs implemented, hand-owned cards edited (Chrome Mox, Smokestack,
@@ -804,6 +804,47 @@ a player: a leaf should be a settled position (the seat's next own priority
 with an empty stack, or its next turn), and a change should need a margin
 over the noise, before any strength is claimed. The search is converted by `convert4` end to end (4
 games, 189 `Search` frames, no policy-gradient certification).
+
+**v2 measured (1 November 2026, CPU, load average 20 to 78 from other
+sessions' test suites).** Committed path, no bypass: `c21cd263c`,
+`v6s-selfimit/s1` bound with `--catalog-drift` (0 references left out on
+these decks), `--raw-policy`, greedy, K = 2, `BAYLEE_EP=cpu`, 16 deals
+against sharp on train-split manifest decks, 4 threads per arm, guarded
+jobs (`train_ops run`) compared by `paired_eval4`. Search at K,P,H = 4,2,6:
+
+| arm | won | searched | changed | land drop → pass / mana | cast → pass / mana | s per searched (mean, p50, p95) |
+| --- | --- | --- | --- | --- | --- | --- |
+| no search | 3/16 | — | — | — | — | — (117 ms p50 per decision) |
+| `paired` 0.05, z 1 | 4/16 | 816 of 5,272 | 76 (9.3 %) | 14 / 7 of 93 | 0 / 2 of 37 | 19.0, 14.2, 58.0 |
+| `prior` c 1 | 4/16 | 856 of 5,182 | 52 (6.1 %) | 3 / 0 of 79 | 0 / 3 of 47 | 17.8, 14.4, 48.9 |
+| `mean` (4 deals) | 1/4 | 313 of 1,681 | 166 (53 %) | 22 / 12 of 52 | 3 / 7 of 18 | 17.4, 14.7, 40.0 |
+
+Both search arms beat no search on one deal (deal 12, loss to win) and lose
+none: paired utility +0.0625 over 8 independent tables, a small sample from
+which no strength can be read. A game with search took 11 times as long
+(4,533 s against 405 s for the 16 deals). Per searched decision: 7.5
+rollouts of 15 actions, 3.1 of them the seat's counted decisions; 73 % of
+leaves settled, 26 % reached H, 1 % ended the game.
+
+What changed: the prior rule leaves land drops and casts alone in all but 3
+of 79 and 3 of 47, and its other changes are one land for another (13) or a
+mana tap skipped (16). The paired rule still replaced 14 of 93 land drops
+with a pass, at large paired gains (0.07 to 0.27) against policy priors of
+0.02 to 0.08 for the pass. The value head, given the policy's continuation,
+consistently prefers the pass in those positions. 40 of the paired rule's 76
+overrides had a standard error of 0: with greedy rollouts and leaves within
+the turn, the re-dealt hidden cards often change nothing, so two worlds show
+no noise, and only the margin guards. Selection by the mean alone changes
+half of all searched answers, so v1's churn came from the rule as much as
+from the leaves.
+
+So the paired test guards against world-to-world noise, not against the
+critic's systematic misjudgement; the prior rule does, by asking more
+evidence the surer the policy is. A margin calibrated on the value head's
+validation error, more worlds, or sampled rollouts would give the paired
+test something to measure; none of the three rules is evidence of a stronger
+player yet. An earlier v2 that scored a settled pass in the root's own phase
+compared a land drop before combat with a pass after it (`c21cd263c`).
 
 ### BayleeAI v5 relational pilot
 
