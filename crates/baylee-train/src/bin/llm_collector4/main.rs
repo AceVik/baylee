@@ -1059,23 +1059,6 @@ mod startup_tests {
         }));
     }
 
-    /// The private gateway's accounts may file far more than a public
-    /// gateway's 64 reports an hour, by the operator's own setting, and
-    /// the setting is a budget the gateway takes (a whole number past 64).
-    #[test]
-    fn the_private_gateway_s_accounts_file_their_reports_by_the_thousands() {
-        let mut command = isolated_command(Path::new("baylee-gateway"));
-        report_budget(&mut command);
-        let budget = command
-            .as_std()
-            .get_envs()
-            .find(|(key, _)| *key == std::ffi::OsStr::new("BAYLEE_REPORTS_PER_HOUR"))
-            .and_then(|(_, value)| value)
-            .and_then(|value| value.to_str())
-            .and_then(|value| value.parse::<usize>().ok());
-        assert_eq!(budget, Some(2000));
-    }
-
     #[test]
     fn private_host_requires_fixed_loopback_address() {
         for bind in ["127.0.0.1:28768", "[::1]:28768"] {

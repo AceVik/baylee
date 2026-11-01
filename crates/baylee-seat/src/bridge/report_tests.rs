@@ -378,6 +378,53 @@ async fn a_report_the_gateway_refuses_stays_in_the_reports_file() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// A gateway that takes each report just inside [`REPORT_WAIT`] holds the
+/// seat after its game for [`REPORTS_WAIT`] in all, not 25 times 15 s: the
+/// report under way when the minute is spent is cut off, the rest are not
+/// tried, and why says so. A fast gateway takes all 25. (The clock is
+/// tokio's, paused: no test waits a minute.)
+#[tokio::test(start_paused = true)]
+async fn the_game_s_reports_stop_when_their_minute_is_spent() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    let bodies = || -> Vec<Value> { (0..crate::reports::MOST).map(|n| json!({"n": n})).collect() };
+    let tried = AtomicUsize::new(0);
+    let started = Instant::now();
+    let (ids, why) = send_each(bodies(), &[], REPORTS_WAIT, |body| {
+        tried.fetch_add(1, Ordering::SeqCst);
+        async move {
+            tokio::time::sleep(REPORT_WAIT.saturating_sub(Duration::from_secs(1))).await;
+            Ok(format!("TEST-report-{}", body["n"]))
+        }
+    })
+    .await;
+    let took = started.elapsed();
+    assert_eq!(
+        ids,
+        [
+            "TEST-report-0",
+            "TEST-report-1",
+            "TEST-report-2",
+            "TEST-report-3"
+        ]
+    );
+    assert_eq!(tried.load(Ordering::SeqCst), 5, "the fifth was cut off");
+    assert_eq!(
+        why.as_deref(),
+        Some("not sent: the game's reports took longer than 60 s in all")
+    );
+    assert!(
+        took >= REPORTS_WAIT && took < REPORTS_WAIT + Duration::from_secs(1),
+        "{took:?}"
+    );
+
+    let (ids, why) = send_each(bodies(), &[], REPORTS_WAIT, |body| async move {
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        Ok(format!("TEST-report-{}", body["n"]))
+    })
+    .await;
+    assert_eq!((ids.len(), why), (crate::reports::MOST, None));
+}
+
 /// A bug report that holds the seat's session or seat token anywhere is
 /// not sent, and what is said of it names the token, never its value;
 /// the game's other reports still go.

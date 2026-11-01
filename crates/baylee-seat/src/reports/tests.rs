@@ -173,8 +173,15 @@ fn a_report_reads_its_fields_and_holds_them_to_their_bounds() {
     assert_eq!(long.cards[0].name.chars().count(), NAME_CHARS);
     let quote = long.cards[0].oracle_quote.as_deref().unwrap();
     assert_eq!(quote, "q".repeat(QUOTE_CHARS));
-    assert_eq!(long.observed.chars().count(), FIELD_CHARS + 1);
+    assert_eq!(
+        long.observed.chars().count(),
+        FIELD_CHARS,
+        "the ellipsis among them"
+    );
     assert!(long.observed.ends_with('…'));
+    assert_eq!(long.observed, format!("{}…", "o".repeat(FIELD_CHARS - 1)));
+    let exactly = Report::read(&json!({"observed": "o".repeat(FIELD_CHARS)})).unwrap();
+    assert_eq!(exactly.observed, "o".repeat(FIELD_CHARS), "whole, no mark");
     // A lone card and a lone rule where lists were asked for; a card that
     // is only a name; control characters left out.
     let lone = Report::read(&json!({
@@ -190,6 +197,20 @@ fn a_report_reads_its_fields_and_holds_them_to_their_bounds() {
     );
     assert_eq!(lone.rules, ["120.3"]);
     assert_eq!(lone.observed, "ab\nc");
+}
+
+/// A rule number's control characters are left out as a text's are, so
+/// one hidden inside a number neither splits it nor reaches the report.
+#[test]
+fn a_rule_number_s_control_characters_are_left_out() {
+    let read = Report::read(&json!({
+        "rules": ["CR 702.\u{0007}19b", "\u{001b}[31m601.2\u{0000}", "\t117.3a\n"],
+        "observed": "x"
+    }))
+    .unwrap();
+    assert_eq!(read.rules, ["702.19b", "[31m601.2", "117.3a"]);
+    assert!(rule_number(&read.rules[0]) && rule_number(&read.rules[2]));
+    assert!(read.rules.iter().all(|r| !r.chars().any(char::is_control)));
 }
 
 /// An enum value the reader does not know is read, never refused: a kind

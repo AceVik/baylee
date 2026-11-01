@@ -114,6 +114,12 @@ impl Default for PlayOptions {
 /// How long each of the game's bug reports may take to be sent.
 const REPORT_WAIT: Duration = Duration::from_secs(15);
 
+/// How long all of a game's bug reports may take to be sent, together: a
+/// slow gateway holds a seat after its game for at most this long, not
+/// [`crate::reports::MOST`] times [`REPORT_WAIT`]. Those not sent by then
+/// stay in the reports file, as any not sent do.
+const REPORTS_WAIT: Duration = Duration::from_secs(60);
+
 /// How a seat's game went.
 #[derive(Debug)]
 pub struct Played {
@@ -466,6 +472,58 @@ async fn run(
     }
 }
 
+/// Sends `bodies` in order with `send`: each sealed first (one holding a
+/// secret is not sent, and the next goes), each given at most
+/// [`REPORT_WAIT`] and all of them `all`, from the first. A refusal, no
+/// answer in time or `all` spent stops the rest. The ids the gateway gave,
+/// in order, and the first reason one was not sent.
+async fn send_each<F, Fut>(
+    bodies: Vec<serde_json::Value>,
+    secrets: &[baylee_client_core::bugreport::Secret<'_>],
+    all: Duration,
+    mut send: F,
+) -> (Vec<String>, Option<String>)
+where
+    F: FnMut(serde_json::Value) -> Fut,
+    Fut: Future<Output = anyhow::Result<String>>,
+{
+    let deadline = Instant::now() + all;
+    let mut ids = Vec::new();
+    let mut why = None;
+    for body in bodies {
+        if let Err(leaked) = baylee_client_core::bugreport::seal(&body, secrets) {
+            why.get_or_insert_with(|| format!("not sent: {leaked}"));
+            continue;
+        }
+        let now = Instant::now();
+        if now >= deadline {
+            why.get_or_insert_with(|| spent(all));
+            break;
+        }
+        let failed =
+            match tokio::time::timeout_at(deadline.min(now + REPORT_WAIT), send(body)).await {
+                Ok(Ok(id)) => {
+                    ids.push(id);
+                    continue;
+                }
+                Ok(Err(e)) => format!("not sent: {e:#}"),
+                Err(_) if Instant::now() >= deadline => spent(all),
+                Err(_) => "not sent: the gateway did not answer in time".to_string(),
+            };
+        why.get_or_insert(failed);
+        break;
+    }
+    (ids, why)
+}
+
+/// Why the rest of a game's reports were not sent once `all` was spent.
+fn spent(all: Duration) -> String {
+    format!(
+        "not sent: the game's reports took longer than {} s in all",
+        all.as_secs()
+    )
+}
+
 /// Writes what the core noted.
 fn record(core: &mut SeatCore, transcript: &mut Transcript) {
     for note in core.take_notes() {
@@ -561,7 +619,9 @@ impl Bridge {
     /// one that holds the session or the seat token anywhere is not sent,
     /// and the others still go. A refusal or no answer within
     /// [`REPORT_WAIT`] stops the rest, which would meet the same (the
-    /// gateway's 64 an hour, a gateway without a feedback service).
+    /// account's budget an hour spent, a gateway without a feedback
+    /// service), and so does [`REPORTS_WAIT`] for all of them
+    /// ([`send_each`]).
     async fn file_reports(
         &mut self,
         link: &SeatLink,
@@ -569,7 +629,7 @@ impl Bridge {
         memory: &crate::TableMemory,
     ) -> Option<Filing> {
         use crate::link::Reporter;
-        use baylee_client_core::bugreport::{Keyring, Secret, seal};
+        use baylee_client_core::bugreport::{Keyring, Secret};
         self.gather();
         if self.reports.is_empty() {
             return None;
@@ -603,34 +663,20 @@ impl Bridge {
             label: Keyring::SESSION,
             value,
         }));
-        let mut report_ids = Vec::new();
-        let mut why = None;
-        if self.options.send_reports {
-            for body in bodies {
-                if let Err(leaked) = seal(&body, &secrets) {
-                    why.get_or_insert_with(|| format!("not sent: {leaked}"));
-                    continue;
+        let (report_ids, why) = if self.options.send_reports {
+            let send = |body| async move {
+                match reporter {
+                    Reporter::Session(lobby, session) => lobby.report(session, body).await,
+                    Reporter::Chair(lobby, chair) => lobby.chair_report(chair, body).await,
                 }
-                let sending = async {
-                    match reporter {
-                        Reporter::Session(lobby, session) => lobby.report(session, body).await,
-                        Reporter::Chair(lobby, chair) => lobby.chair_report(chair, body).await,
-                    }
-                };
-                let failed = match tokio::time::timeout(REPORT_WAIT, sending).await {
-                    Ok(Ok(id)) => {
-                        report_ids.push(id);
-                        continue;
-                    }
-                    Ok(Err(e)) => format!("not sent: {e:#}"),
-                    Err(_) => "not sent: the gateway did not answer in time".to_string(),
-                };
-                why.get_or_insert(failed);
-                break;
-            }
+            };
+            send_each(bodies, &secrets, REPORTS_WAIT, send).await
         } else {
-            why = Some("not sent: the bridge was told not to".to_string());
-        }
+            (
+                Vec::new(),
+                Some("not sent: the bridge was told not to".to_string()),
+            )
+        };
         let filing = Filing {
             count,
             bug_reports,

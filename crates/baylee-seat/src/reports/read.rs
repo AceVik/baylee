@@ -282,16 +282,17 @@ fn card(value: &Value) -> Option<Card> {
     })
 }
 
-/// The rule numbers of `value`: each trimmed, a leading `CR` and a trailing
-/// full stop taken off, lower case, each once, at most [`MOST_RULES`]. A
-/// number in JSON is read as written.
+/// The rule numbers of `value`: each without its control characters (as
+/// [`text`] leaves them out), trimmed, a leading `CR` and a trailing full
+/// stop taken off, lower case, each once, at most [`MOST_RULES`]. A number
+/// in JSON is read as written.
 fn rules(value: Option<&Value>) -> Vec<String> {
     let mut rules: Vec<String> = Vec::new();
     for item in listed(value) {
-        let written = match item {
+        let written: String = match item {
             Value::Number(n) => n.to_string(),
             other => match other.as_str() {
-                Some(text) => text.to_string(),
+                Some(text) => text.chars().filter(|c| !c.is_control()).collect(),
                 None => continue,
             },
         };
@@ -336,12 +337,16 @@ fn enum_word(written: &str) -> String {
         .join("_")
 }
 
-/// `text`, at most `most` characters of it, an ellipsis saying it was cut.
-/// A name and a quote are [`cut`] without one: what is left of a quote is
-/// still words of the quote.
+/// `text`, at most `most` characters of it, the ellipsis that says it was
+/// cut among them. A name and a quote are [`cut`] without one: what is
+/// left of a quote is still words of the quote.
 fn held(text: &str, most: usize) -> String {
-    match text.char_indices().nth(most) {
-        Some((at, _)) => format!("{}…", &text[..at]),
-        None => text.to_string(),
+    if text.chars().nth(most).is_none() {
+        return text.to_string();
     }
+    let kept = text
+        .char_indices()
+        .nth(most.saturating_sub(1))
+        .map_or(text, |(at, _)| &text[..at]);
+    format!("{kept}…")
 }
