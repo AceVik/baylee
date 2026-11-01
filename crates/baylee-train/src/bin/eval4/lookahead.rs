@@ -58,6 +58,8 @@ pub(super) struct SearchTally {
     pub seat_decisions: u64,
     /// How the rollouts ended.
     pub leaves: LeafCounts4,
+    /// Searched decisions whose rollouts ran at once, on twins of the net.
+    pub parallel: u64,
     /// Wall time of every searched decision, for the report only: no
     /// decision reads it.
     pub ms: Vec<f64>,
@@ -78,6 +80,7 @@ impl SearchTally {
         self.rollout_steps += other.rollout_steps;
         self.seat_decisions += other.seat_decisions;
         self.leaves.add(&other.leaves);
+        self.parallel += other.parallel;
         self.ms.extend_from_slice(&other.ms);
     }
 
@@ -110,6 +113,7 @@ impl SearchTally {
             "leaves": self.leaves,
             "terminal_leaves": self.leaves.terminal,
             "value_leaves": self.leaves.value(),
+            "parallel": self.parallel,
             "searched_ms": {
                 "total": total,
                 "mean": if ms.is_empty() { 0.0 } else { total / ms.len() as f64 },
@@ -220,6 +224,7 @@ impl GameSearch {
                 self.tally.rollout_steps += report.rollout_steps;
                 self.tally.seat_decisions += report.seat_decisions;
                 self.tally.leaves.add(&report.leaves);
+                self.tally.parallel += u64::from(report.parallel);
             }
             SearchOutcome4::Skipped(reason) => {
                 bump(&mut self.tally.skipped, reason.key().into());

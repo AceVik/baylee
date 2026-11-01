@@ -1,4 +1,8 @@
 //! Playing the candidates in their worlds: the rollout and the rounds.
+use std::collections::BTreeMap;
+use std::panic::{self, AssertUnwindSafe};
+use std::sync::mpsc;
+
 use anyhow::Context as _;
 use baylee_view::Phase;
 
@@ -206,73 +210,283 @@ pub(super) struct Played {
     pub(super) worlds: Vec<Vec<f32>>,
 }
 
+/// One candidate rolled out in one world: its leaf, or `None` when the
+/// world refused the candidate.
+type Outcome = anyhow::Result<Option<Leaf>>;
+
+/// What every rollout of one searched decision starts from.
+#[derive(Clone, Copy)]
+struct Start<'a> {
+    view: &'a PlayerView,
+    teams: &'a [Option<u8>],
+    decision: &'a RootDecision4,
+    horizon: usize,
+}
+
+impl Start<'_> {
+    /// `action` applied for the seat in `world`, forked for it from the
+    /// policy seed `seed`, then played on by `player`, which stands in the
+    /// root's state.
+    fn roll_out<P: SearchPlayer4>(
+        self,
+        player: &mut P,
+        mut world: SimulationSession,
+        action: &PlayerAction,
+        seed: u64,
+    ) -> Outcome {
+        player.conclude(self.view, self.decision, action);
+        player.reseed_sampling(derive(seed, ROLLOUT, 0, 0));
+        if world.act_slice(self.view.seat, action.clone(), 0).is_err() {
+            return Ok(None);
+        }
+        rollout(player, &mut world, self.view, self.teams, self.horizon).map(Some)
+    }
+}
+
+/// One rollout to run: a candidate in the world forked from `seed`.
+#[derive(Clone, Copy)]
+struct Job<'a> {
+    seed: u64,
+    candidate: &'a Ranked4,
+}
+
+/// The rollouts' leaves, taken in the serial order (world by world, and
+/// in each world candidate by candidate) whatever order they ran in.
+struct Tally {
+    candidates: usize,
+    report: SearchReport4,
+    worlds: Vec<Vec<f32>>,
+    scores: Vec<f32>,
+}
+
+impl Tally {
+    fn new(candidates: &[Ranked4], particles: usize, parallel: bool) -> Self {
+        Self {
+            candidates: candidates.len(),
+            report: SearchReport4 {
+                candidates: candidates.len(),
+                actions: candidates.iter().map(|c| c.action.clone()).collect(),
+                rounds: 0,
+                chosen: 0,
+                changed: false,
+                means: Vec::new(),
+                diffs: Vec::new(),
+                ses: Vec::new(),
+                priors: Vec::new(),
+                scores: Vec::new(),
+                rollouts: 0,
+                rollout_steps: 0,
+                seat_decisions: 0,
+                leaves: LeafCounts4::default(),
+                parallel,
+            },
+            worlds: Vec::with_capacity(particles),
+            scores: Vec::with_capacity(candidates.len()),
+        }
+    }
+
+    /// Takes the next rollout's leaf. `false` when its world refused the
+    /// candidate, which ends the rounds; the incomplete round's rollouts
+    /// are counted, its scores are not.
+    fn add(&mut self, leaf: Option<Leaf>) -> bool {
+        let Some(leaf) = leaf else {
+            return false;
+        };
+        let report = &mut self.report;
+        report.rollouts += 1;
+        report.rollout_steps += leaf.steps;
+        report.seat_decisions += leaf.decisions;
+        let kind = &mut report.leaves;
+        *match leaf.kind {
+            LeafKind::Terminal => &mut kind.terminal,
+            LeafKind::Immediate => &mut kind.immediate,
+            LeafKind::Settled => &mut kind.settled,
+            LeafKind::Horizon => &mut kind.horizon,
+            LeafKind::TurnEnd => &mut kind.turn_end,
+            LeafKind::Stopped => &mut kind.stopped,
+        } += 1;
+        self.scores.push(leaf.score);
+        if self.scores.len() == self.candidates {
+            self.worlds.push(std::mem::take(&mut self.scores));
+            report.rounds += 1;
+        }
+        true
+    }
+
+    /// The complete rounds; `None` before the first.
+    fn played(self) -> Option<Played> {
+        let Self { report, worlds, .. } = self;
+        (report.rounds > 0).then_some(Played { report, worlds })
+    }
+}
+
 impl<S> Rounds<'_, S> {
-    /// Plays every candidate in each world, world by world, and reports the
-    /// complete rounds; `None` when a candidate was refused before one round
-    /// completed. Leaves `player` wherever its last rollout did.
-    pub(super) fn play<P: SearchPlayer4<Snapshot = S>, T: ForkSource4>(
+    /// Plays every candidate in each world and reports the complete rounds;
+    /// `None` when a candidate was refused before one round completed.
+    ///
+    /// When `player` lends rollout players ([`SearchPlayer4::rollout_player`])
+    /// up to `config.threads()` rollouts run at once, each on its own
+    /// thread, world and rollout player, and `player` is left as it was;
+    /// otherwise they run one by one on `player`, which is left wherever
+    /// its last rollout did. The report is the same either way: the
+    /// rollouts are tallied in the same order, and what ends the rounds
+    /// ends them at the same rollout.
+    pub(super) fn play<P, T>(
         &self,
         player: &mut P,
         table: &T,
         config: SearchConfig4,
         search_seed: u64,
-    ) -> Result<Option<Played>, Stop> {
-        let seat = self.view.seat;
+    ) -> Result<Option<Played>, Stop>
+    where
+        P: SearchPlayer4<Snapshot = S> + Send,
+        T: ForkSource4,
+    {
         let decision_seq = table.decision_seq();
-        let mut worlds = Vec::with_capacity(config.particles);
-        let mut report = SearchReport4 {
-            candidates: self.candidates.len(),
-            actions: self.candidates.iter().map(|c| c.action.clone()).collect(),
-            rounds: 0,
-            chosen: 0,
-            changed: false,
-            means: Vec::new(),
-            diffs: Vec::new(),
-            ses: Vec::new(),
-            priors: Vec::new(),
-            scores: Vec::new(),
-            rollouts: 0,
-            rollout_steps: 0,
-            seat_decisions: 0,
-            leaves: LeafCounts4::default(),
+        let jobs: Vec<Job<'_>> = (0..config.particles())
+            .flat_map(|particle| {
+                let seed = world_seed(search_seed, decision_seq, particle);
+                self.candidates
+                    .iter()
+                    .map(move |candidate| Job { seed, candidate })
+            })
+            .collect();
+        let threads = config.threads().min(jobs.len());
+        let parallel = threads > 1 && player.lends_rollout_players();
+        let mut tally = Tally::new(self.candidates, config.particles(), parallel);
+        let start = Start {
+            view: self.view,
+            teams: self.teams,
+            decision: self.decision,
+            horizon: config.horizon(),
         };
-        'rounds: for particle in 0..config.particles {
-            let seed = world_seed(search_seed, decision_seq, particle);
-            let mut scores = Vec::with_capacity(self.candidates.len());
-            for candidate in self.candidates {
-                let mut world = table.fork(seat, seed).map_err(Stop::Refused)?;
-                for other in 0..world.state().players.len() {
-                    if let Ok(other) = u8::try_from(other).map(PlayerId::new)
-                        && other != seat
-                    {
-                        world.release(other);
+        if parallel {
+            self.play_at_once(player, table, start, &jobs, threads, &mut tally)?;
+        } else {
+            self.play_in_turn(player, table, start, &jobs, &mut tally)?;
+        }
+        Ok(tally.played())
+    }
+
+    /// World `seed`, forked from `table` for the seat, every other chair
+    /// handed to the house.
+    fn world<T: ForkSource4>(
+        &self,
+        table: &T,
+        seed: u64,
+    ) -> Result<SimulationSession, ForkRefusal> {
+        let seat = self.view.seat;
+        let mut world = table.fork(seat, seed)?;
+        for other in 0..world.state().players.len() {
+            if let Ok(other) = u8::try_from(other).map(PlayerId::new)
+                && other != seat
+            {
+                world.release(other);
+            }
+        }
+        Ok(world)
+    }
+
+    /// Runs `jobs` one by one on `player`, restored to the root before each.
+    fn play_in_turn<P, T>(
+        &self,
+        player: &mut P,
+        table: &T,
+        start: Start<'_>,
+        jobs: &[Job<'_>],
+        tally: &mut Tally,
+    ) -> Result<(), Stop>
+    where
+        P: SearchPlayer4<Snapshot = S>,
+        T: ForkSource4,
+    {
+        for job in jobs {
+            let world = self.world(table, job.seed).map_err(Stop::Refused)?;
+            player.restore(self.root);
+            let leaf = start
+                .roll_out(player, world, &job.candidate.action, job.seed)
+                .map_err(Stop::Failed)?;
+            if !tally.add(leaf) {
+                break;
+            }
+        }
+        Ok(())
+    }
+
+    /// Runs up to `threads` of `jobs` at once, each on a thread, world and
+    /// rollout player of its own, and tallies them in the jobs' order. A
+    /// refused candidate, a failed rollout or a world the table will not
+    /// fork ends these rounds at the same job as it ends the serial ones:
+    /// no job past it is started, and none that already ran is counted.
+    fn play_at_once<P, T>(
+        &self,
+        player: &P,
+        table: &T,
+        start: Start<'_>,
+        jobs: &[Job<'_>],
+        threads: usize,
+        tally: &mut Tally,
+    ) -> Result<(), Stop>
+    where
+        P: SearchPlayer4<Snapshot = S> + Send,
+        T: ForkSource4,
+    {
+        std::thread::scope(|scope| {
+            let (done, finished) = mpsc::channel();
+            // Outcomes that finished before every job ahead of them.
+            let mut waiting: BTreeMap<usize, Outcome> = BTreeMap::new();
+            let (mut started, mut running, mut counted) = (0, 0, 0);
+            // Why no job from `started` on can run, once one cannot.
+            let mut cut: Option<Stop> = None;
+            loop {
+                while cut.is_none() && running < threads && started < jobs.len() {
+                    let job = jobs[started];
+                    let world = match self.world(table, job.seed) {
+                        Ok(world) => world,
+                        Err(refusal) => {
+                            cut = Some(Stop::Refused(refusal));
+                            break;
+                        }
+                    };
+                    let Some(mut twin) = player.rollout_player(self.root) else {
+                        cut = Some(Stop::Failed(anyhow::anyhow!(
+                            "the player lent no rollout player"
+                        )));
+                        break;
+                    };
+                    let done = done.clone();
+                    let index = started;
+                    scope.spawn(move || {
+                        // Caught so that every job reports once; the panic
+                        // is resumed on the searching thread.
+                        let outcome = panic::catch_unwind(AssertUnwindSafe(|| {
+                            start.roll_out(&mut twin, world, &job.candidate.action, job.seed)
+                        }));
+                        // Fails only once the search has stopped counting.
+                        let _ = done.send((index, outcome));
+                    });
+                    started += 1;
+                    running += 1;
+                }
+                if running == 0 {
+                    break;
+                }
+                let (index, outcome) = finished
+                    .recv()
+                    .expect("the searching thread holds a sender");
+                running -= 1;
+                waiting.insert(
+                    index,
+                    outcome.unwrap_or_else(|payload| panic::resume_unwind(payload)),
+                );
+                while let Some(outcome) = waiting.remove(&counted) {
+                    counted += 1;
+                    if !tally.add(outcome.map_err(Stop::Failed)?) {
+                        return Ok(());
                     }
                 }
-                player.restore(self.root);
-                player.conclude(self.view, self.decision, &candidate.action);
-                player.reseed_sampling(derive(seed, ROLLOUT, 0, 0));
-                if world.act_slice(seat, candidate.action.clone(), 0).is_err() {
-                    break 'rounds;
-                }
-                let leaf = rollout(player, &mut world, self.view, self.teams, config.horizon)
-                    .map_err(Stop::Failed)?;
-                report.rollouts += 1;
-                report.rollout_steps += leaf.steps;
-                report.seat_decisions += leaf.decisions;
-                let kind = &mut report.leaves;
-                *match leaf.kind {
-                    LeafKind::Terminal => &mut kind.terminal,
-                    LeafKind::Immediate => &mut kind.immediate,
-                    LeafKind::Settled => &mut kind.settled,
-                    LeafKind::Horizon => &mut kind.horizon,
-                    LeafKind::TurnEnd => &mut kind.turn_end,
-                    LeafKind::Stopped => &mut kind.stopped,
-                } += 1;
-                scores.push(leaf.score);
             }
-            worlds.push(scores);
-            report.rounds += 1;
-        }
-        Ok((report.rounds > 0).then_some(Played { report, worlds }))
+            cut.map_or(Ok(()), Err)
+        })
     }
 }

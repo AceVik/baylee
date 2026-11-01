@@ -17,7 +17,9 @@
 //!
 //! Budgets are counts, never time; every seed is derived from the deal's
 //! policy seed, the decision and the world; so a search is a function of
-//! its inputs. It is never a seat's path over the gateway.
+//! its inputs. A net on a shared batched session runs the rollouts at once
+//! on twins of itself, tallied in the order they would run one by one. It
+//! is never a seat's path over the gateway.
 
 use std::str::FromStr;
 
@@ -103,6 +105,7 @@ pub struct SearchConfig4 {
     particles: usize,
     horizon: usize,
     selection: Selection4,
+    threads: usize,
 }
 
 impl SearchConfig4 {
@@ -112,6 +115,10 @@ impl SearchConfig4 {
     pub const MAX_PARTICLES: usize = 256;
     /// The most decisions of the searching seat one rollout counts.
     pub const MAX_HORIZON: usize = 10_000;
+    /// The most rollouts one searched decision runs at once.
+    pub const MAX_THREADS: usize = 256;
+    /// Rollouts one searched decision runs at once unless told otherwise.
+    pub const DEFAULT_THREADS: usize = 16;
 
     /// `candidates` answers (K, the policy's own first), each tried in
     /// `particles` worlds (P), each rolled out at most `horizon` decisions
@@ -141,7 +148,30 @@ impl SearchConfig4 {
             particles,
             horizon,
             selection: Selection4::default(),
+            threads: Self::DEFAULT_THREADS,
         })
+    }
+
+    /// The same search, with at most `threads` rollouts at once. They run at
+    /// once only for a player that lends rollout players of its own
+    /// ([`SearchPlayer4::rollout_player`]: a net on a shared batched
+    /// session); `1` runs them one by one whatever the player.
+    ///
+    /// # Errors
+    /// When `threads` is zero or past [`Self::MAX_THREADS`].
+    pub fn with_threads(self, threads: usize) -> anyhow::Result<Self> {
+        anyhow::ensure!(
+            (1..=Self::MAX_THREADS).contains(&threads),
+            "search threads must be 1..={}",
+            Self::MAX_THREADS
+        );
+        Ok(Self { threads, ..self })
+    }
+
+    /// The most rollouts one searched decision runs at once.
+    #[must_use]
+    pub const fn threads(&self) -> usize {
+        self.threads
     }
 
     /// The same budgets, chosen among by `selection`.
@@ -201,6 +231,8 @@ impl SearchConfig4 {
             "prior": "softmax_of_raw_logits_over_every_legal_answer",
             "selection": self.selection,
             "default_selection": Selection4::default(),
+            "threads": self.threads,
+            "parallel": "rollouts_at_once_on_twin_players_of_a_shared_batched_net_tallied_in_serial_order",
             "provenance": "search_without_behavior_logprob",
         })
     }
@@ -299,6 +331,22 @@ pub trait SearchPlayer4 {
     fn reseed_sampling(&mut self, seed: u64);
     /// Counts a decision recorded under `from` as searched instead.
     fn attribute_to_search(&mut self, pending: &Pending, from: SourceKind4);
+    /// Whether [`Self::rollout_player`] lends players, so that a search can
+    /// run its rollouts at once.
+    fn lends_rollout_players(&self) -> bool {
+        false
+    }
+    /// A player of the player's own, configured as it is and in `snapshot`'s
+    /// state, to play one rollout on another thread: it answers every
+    /// question as the player would from that state. `None` when the player
+    /// lends none.
+    fn rollout_player(&self, snapshot: &Self::Snapshot) -> Option<Self>
+    where
+        Self: Sized,
+    {
+        let _ = snapshot;
+        None
+    }
 }
 
 impl SearchPlayer4 for NetPlayer4 {
@@ -348,6 +396,12 @@ impl SearchPlayer4 for NetPlayer4 {
         let row = &mut self.coverage.counts[PendingKind4::of(pending) as usize];
         row[from as usize] = row[from as usize].saturating_sub(1);
         row[SourceKind4::Search as usize] += 1;
+    }
+    fn lends_rollout_players(&self) -> bool {
+        self.is_on_shared_net()
+    }
+    fn rollout_player(&self, snapshot: &PlayerSnapshot4) -> Option<Self> {
+        self.twin_on_shared_net(snapshot)
     }
 }
 
@@ -437,6 +491,9 @@ pub struct SearchReport4 {
     pub seat_decisions: u64,
     /// How the rollouts ended.
     pub leaves: LeafCounts4,
+    /// Whether the rollouts ran at once, on rollout players of the player's
+    /// own ([`SearchPlayer4::rollout_player`]), rather than one by one.
+    pub parallel: bool,
 }
 
 /// How rollouts ended, by kind. All but `terminal` are scored by the value
@@ -593,15 +650,18 @@ fn unsearched<P: SearchPlayer4>(
 /// every answer. Searched: K candidates (the policy's answer first), P
 /// complete rounds of worlds forked from `table` with seeds derived from
 /// `search_seed`, the decision and the world, each candidate rolled out at
-/// most H actions; the best mean is played. Every world is the same for
-/// every candidate (one seed per world), so candidates are compared on the
-/// same deals. `player` ends exactly as if it had answered the chosen action
-/// itself (only its coverage counts the decision as searched); `table` is
-/// not changed.
+/// most H decisions of the seat; the [`Selection4`] picks the answer. Every
+/// world is the same for every candidate (one seed per world), so
+/// candidates are compared on the same deals. Up to `config.threads()`
+/// rollouts run at once when `player` lends rollout players
+/// ([`SearchPlayer4::rollout_player`]); the report is the one the rollouts
+/// would give one by one. `player` ends exactly as if it had answered the
+/// chosen action itself (only its coverage counts the decision as
+/// searched); `table` is not changed.
 ///
 /// # Errors
 /// When the player fails to observe in a rollout (its model failed).
-pub fn search_decision<P: SearchPlayer4, T: ForkSource4>(
+pub fn search_decision<P: SearchPlayer4 + Send, T: ForkSource4>(
     player: &mut P,
     table: &T,
     view: &PlayerView,

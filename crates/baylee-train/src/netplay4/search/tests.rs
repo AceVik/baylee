@@ -26,12 +26,13 @@ struct MockState {
 /// A stand-in for the net: its own answer at a root is `own`, its critic is
 /// `value`, its rollout answers are the steady house's, and its ranking is
 /// the real encoder's menu, in menu order, its own answer's logit raised by
-/// `confidence`.
+/// `confidence`. When it `lends`, its rollout players are copies of it.
 struct Mock {
     state: MockState,
     own: fn(&PlayerView, &Pending) -> Option<PlayerAction>,
     value: fn(&PlayerView) -> f32,
     confidence: f32,
+    lends: bool,
 }
 
 impl Mock {
@@ -47,6 +48,15 @@ impl Mock {
             own,
             value,
             confidence: 0.0,
+            lends: false,
+        }
+    }
+
+    /// The same stand-in, lending rollout players.
+    fn lending(self) -> Self {
+        Self {
+            lends: true,
+            ..self
         }
     }
 
@@ -155,6 +165,15 @@ impl SearchPlayer4 for Mock {
         let row = &mut self.state.coverage[PendingKind4::of(pending) as usize];
         row[from as usize] -= 1;
         row[SourceKind4::Search as usize] += 1;
+    }
+    fn lends_rollout_players(&self) -> bool {
+        self.lends
+    }
+    fn rollout_player(&self, snapshot: &MockState) -> Option<Self> {
+        self.lends.then(|| Self {
+            state: snapshot.clone(),
+            ..*self
+        })
     }
 }
 
@@ -548,6 +567,92 @@ fn a_search_is_a_function_of_its_inputs() {
     assert!(report.rollout_steps > 0);
 }
 
+/// A table that forks `forks` worlds and refuses every one after.
+struct ForksThenRefuses<'a> {
+    session: &'a Session,
+    forks: std::cell::Cell<usize>,
+}
+impl ForkSource4 for ForksThenRefuses<'_> {
+    fn fork(&self, seat: PlayerId, seed: u64) -> Result<SimulationSession, ForkRefusal> {
+        let left = self.forks.get();
+        if left == 0 {
+            return Err(ForkRefusal::FaceDown);
+        }
+        self.forks.set(left - 1);
+        KnownDecks(self.session).fork(seat, seed)
+    }
+    fn decision_seq(&self) -> u64 {
+        self.session.decision_seq()
+    }
+}
+
+/// The worlds of a decision run at once on rollout players of the player's
+/// own, at most `threads` together, and come to the same report, answer and
+/// player as when they run one by one on the player itself; a table that
+/// stops forking part way ends them the same way too.
+#[test]
+fn parallel_rounds_are_the_serial_rounds() {
+    let mut session = table(25);
+    let (pending, view) = root(&mut session, land_playable);
+    let run = |lends: bool, threads: usize, forks: usize| {
+        let mut player = Mock::new(steady, lands);
+        if lends {
+            player = player.lending();
+        }
+        player.observe(&view).unwrap();
+        let table = ForksThenRefuses {
+            session: &session,
+            forks: std::cell::Cell::new(forks),
+        };
+        let result = search_decision(
+            &mut player,
+            &table,
+            &view,
+            &pending,
+            &[],
+            config(4, 3, 6).with_threads(threads).unwrap(),
+            SEED,
+        )
+        .unwrap();
+        (result.answer.action, result.outcome, player.state)
+    };
+    let (action, outcome, state) = run(false, 16, usize::MAX);
+    let SearchOutcome4::Searched(report) = outcome else {
+        panic!("searched: {outcome:?}");
+    };
+    assert!(
+        !report.parallel,
+        "a player that lends none rolls out serially"
+    );
+    assert_eq!(report.rollouts, 3 * report.candidates as u64);
+    for threads in [2, 5, 12, 16] {
+        let (parallel_action, parallel_outcome, parallel_state) = run(true, threads, usize::MAX);
+        let SearchOutcome4::Searched(mut parallel) = parallel_outcome else {
+            panic!("searched: {parallel_outcome:?}");
+        };
+        assert!(parallel.parallel, "{threads} threads");
+        parallel.parallel = false;
+        assert_eq!(parallel, report, "{threads} threads");
+        assert_eq!(parallel_action, action);
+        assert_eq!(
+            parallel_state, state,
+            "the player ends where answering would"
+        );
+    }
+    let SearchOutcome4::Searched(one) = run(true, 1, usize::MAX).1 else {
+        panic!("searched");
+    };
+    assert!(!one.parallel, "one thread is the serial path");
+    // The second world's second fork is refused: the rollouts before it
+    // run either way, and the policy answers, the refusal named.
+    let forks = report.candidates + 1;
+    let serial = run(false, 16, forks);
+    assert_eq!(serial.1, SearchOutcome4::Refused(ForkRefusal::FaceDown));
+    for threads in [2, 5, 16] {
+        assert_eq!(run(true, threads, forks), serial, "{threads} threads");
+    }
+}
+
 #[test]
 fn a_refused_table_is_answered_by_the_policy_and_named() {
     let mut session = table(24);
@@ -691,30 +796,22 @@ fn seeds_are_tagged_by_purpose_and_position() {
     assert_eq!(world_seed(base, 10, 1), world_seed(base, 10, 1));
 }
 
-/// The real net, on the CPU: a one-candidate search answers what the net
-/// answers, and every world is undone down to the last float of its
-/// memory. Run with `BAYLEE_TEST_MODEL=DIR BAYLEE_EP=cpu` and `--ignored`.
-#[test]
-#[ignore = "needs BAYLEE_TEST_MODEL, an exported v4/v5 model directory"]
-fn a_real_net_ends_a_search_where_answering_would_have_left_it() {
-    let Ok(dir) = std::env::var("BAYLEE_TEST_MODEL") else {
-        return;
-    };
-    // Undo does not depend on the catalog: an older export binds as a superset.
-    let load = || {
-        NetPlayer4::load_with(
-            std::path::Path::new(&dir),
-            crate::netplay4::CatalogPolicy4::Drift,
-        )
-        .unwrap()
-    };
-    let (mut searched, mut plain) = (load(), load());
+/// Seat 0 of a real table, played by `searched` searching under `config`
+/// and by `plain` beside it, until three roots are searched: a
+/// one-candidate search answers what the net answers, and every world is
+/// undone down to the last float of the player's memory. The reports.
+fn searched_beside_plain(
+    mut searched: NetPlayer4,
+    mut plain: NetPlayer4,
+    config: SearchConfig4,
+) -> Vec<SearchReport4> {
+    assert_eq!(config.candidates(), 1);
+    let mut reports = Vec::new();
     let mut session = table(26);
     searched.init_game(&preset(26));
     plain.init_game(&preset(26));
-    let mut roots = 0;
     for _ in 0..400 {
-        if matches!(session.pending(), Pending::GameOver(_)) || roots == 3 {
+        if matches!(session.pending(), Pending::GameOver(_)) || reports.len() == 3 {
             break;
         }
         if session.needs_pump() {
@@ -731,19 +828,19 @@ fn a_real_net_ends_a_search_where_answering_would_have_left_it() {
             &view,
             &pending,
             &[],
-            config(1, 2, 8),
+            config,
             SEED,
         )
         .unwrap();
         let answer = plain.act_detailed(&view, &pending, &[]);
         assert_eq!(result.answer.action, answer.action);
-        if let SearchOutcome4::Searched(report) = &result.outcome {
-            roots += 1;
+        if let SearchOutcome4::Searched(report) = result.outcome {
             assert_eq!(
                 report.leaves.terminal + report.leaves.value(),
                 report.rollouts
             );
             SearchPlayer4::attribute_to_search(&mut plain, &pending, answer.provenance.source);
+            reports.push(*report);
         }
         assert_eq!(
             format!("{:?}", searched.snapshot()),
@@ -752,5 +849,59 @@ fn a_real_net_ends_a_search_where_answering_would_have_left_it() {
         );
         session.act_slice(ME, answer.action, 0).unwrap();
     }
-    assert!(roots > 0, "a root was searched");
+    assert!(!reports.is_empty(), "a root was searched");
+    reports
+}
+
+/// The real net, on the CPU, on sessions of its own: the rollouts run one
+/// by one on the player. Run with `BAYLEE_TEST_MODEL=DIR BAYLEE_EP=cpu`
+/// and `--ignored`.
+#[test]
+#[ignore = "needs BAYLEE_TEST_MODEL, an exported v4/v5 model directory"]
+fn a_real_net_ends_a_search_where_answering_would_have_left_it() {
+    let Ok(dir) = std::env::var("BAYLEE_TEST_MODEL") else {
+        return;
+    };
+    // Undo does not depend on the catalog: an older export binds as a superset.
+    let load = || {
+        NetPlayer4::load_with(
+            std::path::Path::new(&dir),
+            crate::netplay4::CatalogPolicy4::Drift,
+        )
+        .unwrap()
+    };
+    let reports = searched_beside_plain(load(), load(), config(1, 2, 8));
+    assert!(reports.iter().all(|r| !r.parallel && r.rounds == 2));
+}
+
+/// The real net, on the CPU, on one batched session: the rollouts run at
+/// once on twins whose steps share its batches, while the searching
+/// player's own steps run alone, so it still ends where answering would
+/// have left it, bit for bit. Run with `BAYLEE_TEST_MODEL=DIR
+/// BAYLEE_EP=cpu` and `--ignored`.
+#[test]
+#[ignore = "needs BAYLEE_TEST_MODEL, an exported v4/v5 model directory"]
+fn a_real_net_on_a_batched_session_searches_its_worlds_at_once() {
+    let Ok(dir) = std::env::var("BAYLEE_TEST_MODEL") else {
+        return;
+    };
+    let net = crate::netplay4::BatchedNet4::load(
+        std::path::Path::new(&dir),
+        crate::netplay4::BatchLimits4::for_rows(16),
+        crate::netplay4::CatalogPolicy4::Drift,
+    )
+    .unwrap();
+    let searched = NetPlayer4::shared(&net);
+    assert!(SearchPlayer4::lends_rollout_players(&searched));
+    let reports = searched_beside_plain(
+        searched,
+        NetPlayer4::shared(&net),
+        config(1, 4, 6).with_threads(4).unwrap(),
+    );
+    assert!(reports.iter().all(|r| r.parallel && r.rounds == 4));
+    let (calls, rows) = net.stats();
+    assert!(
+        rows > calls,
+        "the rollouts shared batches: {rows} rows in {calls} calls"
+    );
 }

@@ -1,6 +1,6 @@
 //! What a player changes while it plays one game, taken whole so a
 //! lookahead can play on from a decision and be undone.
-use super::{BTreeMap, CoverageMatrix4, FallbackDiagnostic4, NetPlayer4, ObjectId, Rng};
+use super::{BTreeMap, Backend, CoverageMatrix4, FallbackDiagnostic4, NetPlayer4, ObjectId, Rng};
 use crate::features4::SeatKnowledge4;
 use baylee_core::ids::PlayerId;
 
@@ -67,6 +67,31 @@ impl NetPlayer4 {
         self.observed_values.get(&seat.get()).copied()
     }
 
+    /// A second player on this one's batched session, configured as it is
+    /// (temperature, policy mode, thinking steps) and in `snapshot`'s
+    /// per-game state: a lookahead's rollout player, whose steps join the
+    /// same batches. `None` for a player with sessions of its own, which a
+    /// second player could not share.
+    #[must_use]
+    pub fn twin_on_shared_net(&self, snapshot: &PlayerSnapshot4) -> Option<Self> {
+        let Backend::Shared(net) = &self.backend else {
+            return None;
+        };
+        let mut twin = Self::shared(net);
+        twin.temperature = self.temperature;
+        twin.policy_mode = self.policy_mode;
+        twin.thinking_steps = self.thinking_steps;
+        twin.restore(snapshot);
+        Some(twin)
+    }
+
+    /// Whether this player's steps run on a batched session that a twin
+    /// can share ([`Self::twin_on_shared_net`]).
+    #[must_use]
+    pub const fn is_on_shared_net(&self) -> bool {
+        matches!(self.backend, Backend::Shared(_))
+    }
+
     /// Restarts only the sampling stream from `seed`, keeping the game:
     /// one rollout's own stream, never the deal's.
     pub fn reseed_sampling(&mut self, seed: u64) {
@@ -126,6 +151,13 @@ mod tests {
         net.restore(&before);
         assert_eq!(fingerprint(&net), printed);
         assert_eq!(net.observed_value(seat), Some(0.25));
+    }
+
+    #[test]
+    fn a_player_with_sessions_of_its_own_lends_no_twin() {
+        let net = player();
+        assert!(!net.is_on_shared_net());
+        assert!(net.twin_on_shared_net(&net.snapshot()).is_none());
     }
 
     #[test]

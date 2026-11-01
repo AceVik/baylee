@@ -30,12 +30,14 @@ struct Memory {
 }
 
 /// The steady house as a net: `passive` passes at every priority instead,
-/// and `critic` is its value.
+/// and `critic` is its value. When it `lends`, its rollout players are
+/// copies of it.
 struct Fixture {
     memory: Memory,
     coverage: CoverageMatrix4,
     passive: bool,
     critic: fn(&PlayerView) -> f32,
+    lends: bool,
 }
 
 impl Fixture {
@@ -45,6 +47,7 @@ impl Fixture {
             coverage: CoverageMatrix4::default(),
             passive,
             critic,
+            lends: false,
         }
     }
 
@@ -140,6 +143,16 @@ impl SearchPlayer4 for Fixture {
         let row = &mut self.coverage.counts[PendingKind4::of(pending) as usize];
         row[from as usize] -= 1;
         row[SourceKind4::Search as usize] += 1;
+    }
+    fn lends_rollout_players(&self) -> bool {
+        self.lends
+    }
+    fn rollout_player(&self, snapshot: &Self::Snapshot) -> Option<Self> {
+        self.lends.then(|| Self {
+            memory: snapshot.0.clone(),
+            coverage: snapshot.1.clone(),
+            ..*self
+        })
     }
 }
 
@@ -389,6 +402,32 @@ fn a_critic_that_likes_lands_changes_answers_and_the_game_still_plays() {
     );
 }
 
+/// A game whose searches run their worlds at once, on rollout players of
+/// the fixture's own, records the game they record one by one: the same
+/// bytes, the same counts, every searched decision counted as parallel.
+#[test]
+fn parallel_rollouts_record_the_serial_game() {
+    let run = |lends: bool| {
+        let mut player = Fixture::new(false, lands);
+        player.lends = lends;
+        let config = config(3, 2, 4).with_threads(4).unwrap();
+        let mut search = GameSearch::new(config, 6);
+        let played = play(&mut player, Some(&mut search));
+        (played, search.tally, player.memory)
+    };
+    let (serial, serial_tally, serial_memory) = run(false);
+    let (parallel, mut parallel_tally, parallel_memory) = run(true);
+    assert_eq!(serial_tally.parallel, 0);
+    assert!(parallel_tally.searched > 0);
+    assert_eq!(parallel_tally.parallel, parallel_tally.searched);
+    parallel_tally.parallel = 0;
+    parallel_tally.ms.clone_from(&serial_tally.ms);
+    assert_eq!(parallel_tally, serial_tally);
+    assert_eq!(parallel.0, serial.0, "the same outcome");
+    assert_eq!(parallel.2, serial.2, "the same record, byte for byte");
+    assert_eq!(parallel_memory, serial_memory);
+}
+
 #[test]
 fn the_budget_caps_searched_decisions_per_game() {
     let mut player = Fixture::new(false, flat);
@@ -461,4 +500,27 @@ fn search_is_refused_where_it_cannot_run() {
         "a wrong value is refused whichever rule is chosen"
     );
     assert!(selected(&["--search", "4,2,3", "--search-prior-c=-1"]).is_err());
+
+    let threads = |extra: &[&str]| selected(extra).unwrap().unwrap().threads();
+    assert_eq!(
+        threads(&["--search", "4,2,3", "--search-threads", "8"]),
+        1,
+        "without shared batches the rollouts run one by one"
+    );
+    assert_eq!(
+        threads(&["--search", "4,2,3", "--inference-batch", "64"]),
+        SearchConfig4::DEFAULT_THREADS
+    );
+    assert_eq!(
+        threads(&[
+            "--search",
+            "4,2,3",
+            "--inference-batch",
+            "64",
+            "--search-threads",
+            "8"
+        ]),
+        8
+    );
+    assert!(selected(&["--search", "4,2,3", "--search-threads", "0"]).is_err());
 }

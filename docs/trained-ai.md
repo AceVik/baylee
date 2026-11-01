@@ -776,12 +776,37 @@ log-probability, so PPO actor masks (`source_kind == 0`) never take it; and
 `certified_run` refuses any run that names a search, so a searched run never
 certifies a policy-gradient dataset.
 
+**Rollouts at once (v3).** Under `--inference-batch N` every worker's net
+runs on one shared batched session (`BatchedNet4`), and a search runs up to
+`--search-threads` (default 16) of its K × P rollouts at once, each on a
+thread, a world and a twin of the net of its own
+(`NetPlayer4::twin_on_shared_net`: the same batched session, temperature,
+policy mode and depth, in the root's memory), whose steps join the same
+batches as every other worker's. The deciding player is not touched until
+the choice. A new rollout starts as soon as one ends, so a long rollout
+does not hold the others back. The rollouts are tallied in the serial order
+(world by world, candidate by candidate), and whatever ends the rounds (a
+refused candidate, a failed rollout, a world the table will not fork) ends
+them at the same rollout as it would one by one; rollouts past it that
+already ran are not counted. With a stand-in net the report, the answer, the
+player and the recorded game are the serial ones byte for byte
+(`parallel_rounds_are_the_serial_rounds`,
+`parallel_rollouts_record_the_serial_game`). A player on sessions of its own
+lends no twin, so without `--inference-batch` the rollouts run one by one
+and the run's metadata says `threads: 1`. A batch can then hold up to
+`--threads × (--search-threads + 1)` rows, which is what to size
+`--inference-batch` to; `search.counts.parallel` counts the decisions
+searched at once. Running the rollouts at once changes how fast, not what is
+searched: the contract stays `belief_lookahead_v2`, and its metadata adds
+`threads`.
+
 **Options.** `--search K,P,H` (off by default; K 1..=32, P 1..=256,
 H 0..=10000), `--search-select prior|paired|mean` (default `prior`) with
 `--search-prior-c` (default 1), `--search-margin` and `--search-z` (finite,
-non-negative; run metadata names the selection used and the default), and
+non-negative; run metadata names the selection used and the default),
 `--search-max-decisions-per-game N` (0 = no cap; later decisions answer
-without searching, counted as `budget`). Refused with
+without searching, counted as `budget`), and `--search-threads N` (1..=256,
+default 16; only with `--inference-batch`). Refused with
 `--legacy-v3`, a frozen or self-play opponent or any collection purpose but
 `evaluation`, and `--shadow-teacher`.
 
@@ -790,7 +815,9 @@ the root, K, P, H, the selection and the deal's policy seed: budgets are
 counts, worlds and house seeds are derived from the policy seed, the engine
 and the house are deterministic, and the net is on the owned CPU path; time
 is measured only for the report. `--inference-batch` is not bitwise
-reproducible, as without search.
+reproducible, with or without search: a row's outputs in a batch differ from
+its outputs alone by under 1e-3, and which rows share a batch depends on
+timing, so a greedy rollout can turn another way.
 
 **Limits.** The worlds are dealt from the real remaining decks of the
 evaluator's known lists — an upper bound on what a seat without deck
@@ -800,8 +827,9 @@ knew earlier about a hidden card (a top it saw, a card revealed from a hand
 and kept there) is lost (`docs/engine-internals.md` §"Forking a
 simulation"). Only priority roots; attack and
 block declarations, targets and other questions are the policy's. The rest
-of the net's side plays as the house in a world. Every leaf costs a model
-call per observation, one call at a time; nothing is batched.
+of the net's side plays as the house in a world. Every observation in a
+rollout costs a model step: one call at a time on a net with sessions of its
+own, shared batches under `--inference-batch`.
 
 **v1 measured (1 November 2026, CPU, a loaded 24-core workstation).** The
 machinery alone (`lookahead::tests::measure_the_search_machinery_without_a_model`,

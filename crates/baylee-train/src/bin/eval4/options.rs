@@ -146,6 +146,13 @@ struct Args {
     /// answered without searching.
     #[arg(long, default_value_t = 0)]
     search_max_decisions_per_game: u64,
+    /// Rollouts one searched decision runs at once, each on its own thread
+    /// and a twin of the net whose steps join the `--inference-batch`
+    /// batches; without `--inference-batch` they run one by one. A batch
+    /// then holds up to `--threads × (this + 1)` rows. Batched searches are
+    /// not bitwise reproducible.
+    #[arg(long, default_value_t = SearchConfig4::DEFAULT_THREADS)]
+    search_threads: usize,
 }
 
 /// `--search-select`: which [`Selection4`] a search uses.
@@ -178,7 +185,16 @@ fn search_config(args: &Args) -> anyhow::Result<Option<SearchConfig4>> {
         SearchSelect::Paired => paired,
         SearchSelect::Prior => prior,
     };
-    config.with_selection(selection).map(Some)
+    let config = config
+        .with_selection(selection)?
+        .with_threads(args.search_threads)?;
+    // Only a net on shared batches lends rollout players; without them the
+    // rollouts run one by one, and the run's metadata says so.
+    if args.inference_batch > 0 {
+        Ok(Some(config))
+    } else {
+        config.with_threads(1).map(Some)
+    }
 }
 
 #[derive(Default)]
