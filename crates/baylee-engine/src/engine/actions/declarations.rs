@@ -22,7 +22,7 @@ impl<L: CardLookup> Engine<L> {
     /// window would offer, which is what the gate counts. Zero once a window
     /// for this step has closed short (`CombatDeclared::TaxDeclined`).
     pub(in crate::engine) fn attack_mana_reach(&self, player: PlayerId) -> u64 {
-        if self.combat_declared == CombatDeclared::TaxDeclined {
+        if matches!(self.combat_declared, CombatDeclared::TaxDeclined { .. }) {
             return 0;
         }
         let mut legal = self.compute_legal(player);
@@ -279,7 +279,7 @@ impl<L: CardLookup> Engine<L> {
             return true;
         }
         self.give_back_window(player, opened);
-        self.combat_declared = CombatDeclared::TaxDeclined;
+        self.combat_declared = CombatDeclared::TaxDeclined { after: None };
         false
     }
 
@@ -361,7 +361,9 @@ impl<L: CardLookup> Engine<L> {
         }
         // CR 509.1c: as many requirements obeyed as the most a declaration
         // could obey without breaking a restriction. `BlockRules` says how
-        // the most is found, and where it is only a good declaration's.
+        // the most is found, and where it is only a good declaration's. A
+        // blocker that costs mana counts on neither side, since nobody has
+        // to pay to obey (`BlockRules::demands`); the options still offer it.
         if rules.has_requirements() {
             let mana_reach = if window && rules.has_mana_tax() {
                 self.attack_mana_reach(defending)
@@ -454,7 +456,14 @@ impl<L: CardLookup> Engine<L> {
             return true;
         }
         self.give_back_window(defending, opened);
-        self.combat_declared = CombatDeclared::TaxDeclined;
+        // The defending players before this one have declared, and their
+        // blocks stand (CR 802.4): it is this one who is asked again.
+        let after = match self.combat_declared {
+            CombatDeclared::BlockersBy(seat) => Some(seat),
+            CombatDeclared::TaxDeclined { after } => after,
+            _ => None,
+        };
+        self.combat_declared = CombatDeclared::TaxDeclined { after };
         false
     }
 

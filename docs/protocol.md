@@ -1711,7 +1711,10 @@ cannot say, how many creatures may block one attacker (menace), is
   blocker, attacker, count }`, `count` the requirements asking for it; empty
   when none is in force. A declaration obeys the sum over its pairs, and
   `answer_fault` refuses one whose sum is below `obeying`'s
-  (`AnswerFault::MustBlock`).
+  (`AnswerFault::MustBlock`). A blocker that can't block unless its
+  controller pays (Myr Prototype) is offered and named in no demand: nobody
+  has to pay to obey a requirement (CR 509.1c), so it neither must block nor
+  obeys one in another's place, and `obeying` never uses it.
 
 ## The gateway runs no rules
 

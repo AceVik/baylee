@@ -336,7 +336,8 @@ pub enum Pending {
         obeying: Vec<(ObjectId, ObjectId)>,
         /// The pairs out of `blockers` a requirement asks for, with how many
         /// ask, which is how `obeying` and an answer are both counted.
-        /// Empty when no requirement is in force.
+        /// Empty when no requirement is in force. A blocker its controller
+        /// must pay for is in none (CR 509.1c: not required to pay).
         #[serde(default)]
         demands: Vec<BlockDemand>,
         /// The attackers whose blockers are counted, and the count each

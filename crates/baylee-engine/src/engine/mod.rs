@@ -68,9 +68,15 @@ enum CombatDeclared {
     Attackers,
     /// A declaration whose mana tax was left unpaid in its payment window
     /// was undone (CR 508.1i, CR 732.1). The step asks again, offering only
-    /// the attacks the pool already pays, so a seat that will not pay is not
-    /// walked round the same window twice.
-    TaxDeclined,
+    /// what the pool already pays, so a seat that will not pay is not walked
+    /// round the same window twice.
+    TaxDeclined {
+        /// For blocks, the last defending player whose blocks stand
+        /// (`BlockersBy`'s seat), so the one asked again is the one who
+        /// declined and not the first defending player (CR 802.4); `None`
+        /// for attacks and for the first defending player.
+        after: Option<PlayerId>,
+    },
     /// The blocks of every defending player up to and including this one,
     /// in APNAP order, are declared, and more defending players are still
     /// to declare (CR 802.4).
@@ -2155,6 +2161,8 @@ mod static_controller_tests;
 pub(crate) mod synthetic;
 #[cfg(test)]
 mod target_tests;
+#[cfg(test)]
+mod tax_window_tests;
 #[cfg(test)]
 mod team_tests;
 #[cfg(test)]

@@ -432,6 +432,13 @@ pub fn block_options(
 /// declaration and not necessarily the best: its count can fall short of
 /// the maximum, and a declaration between the two is accepted. It never
 /// refuses a legal declaration, since `obeying`'s own is always one.
+///
+/// A blocker that costs mana to block with counts for nothing, on either
+/// side: "that player is not required to pay that cost, even if blocking
+/// with that creature would increase the number of requirements being
+/// obeyed" (CR 509.1c). [`BlockRules::demands`] asks nothing of it, so the
+/// maximum is the one the other blockers can reach, and blocking with it
+/// obeys none of them in their place.
 pub struct BlockRules<'a> {
     state: &'a GameState,
     additional: Vec<&'a crate::effects::ContinuousEffect>,
@@ -579,8 +586,19 @@ impl<'a> BlockRules<'a> {
     /// on the attacker and each "blocks each attacking creature" on the
     /// blocker. Asked only of a pair [`block_options`] offers, which is
     /// what "able to block" means.
+    ///
+    /// None for a blocker that can't block unless its controller pays a cost
+    /// (Myr Prototype): "that player is not required to pay that cost, even
+    /// if blocking with that creature would increase the number of
+    /// requirements being obeyed" (CR 509.1c). Such a blocker is still
+    /// offered, and may be declared and paid for, but the declaration is
+    /// held to the requirements of the others alone, as an attack is
+    /// (`attack_question`, CR 508.1d).
     #[must_use]
     pub fn demands(&self, blocker: ObjectId, attacker: ObjectId) -> usize {
+        if self.mana_tax(blocker) > 0 {
+            return 0;
+        }
         let state = self.state;
         let on = |effects: &[&crate::effects::ContinuousEffect], id: ObjectId| {
             state.object(id).map_or(0, |obj| {
@@ -689,8 +707,11 @@ impl<'a> BlockRules<'a> {
             let (Some(&(lone, _)), None) = (on_it.next(), on_it.next()) else {
                 continue;
             };
+            // Never a blocker that costs mana: `obeying` is a declaration
+            // nobody has to pay for (CR 509.1c), and the clock answers with it.
             let helper = options.iter().find(|o| {
                 o.blocker != lone
+                    && self.mana_tax(o.blocker) == 0
                     && can_add_blocker(&distinct_blockers, o.blocker)
                     && o.attackers.contains(&attacker)
                     && chosen.iter().filter(|(b, _)| *b == o.blocker).count() < room(o.blocker)

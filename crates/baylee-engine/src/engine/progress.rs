@@ -815,7 +815,8 @@ impl<L: CardLookup> Engine<L> {
             }
             Step::DeclareBlockers if self.combat_declared != CombatDeclared::Blockers => {
                 let after = match self.combat_declared {
-                    CombatDeclared::BlockersBy(seat) => Some(seat),
+                    CombatDeclared::BlockersBy(seat)
+                    | CombatDeclared::TaxDeclined { after: Some(seat) } => Some(seat),
                     _ => None,
                 };
                 let defending = match (self.next_defending_player(after), after) {
