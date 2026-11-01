@@ -2070,6 +2070,8 @@ mod event_player_tests;
 #[cfg(test)]
 mod extra_turn_tests;
 #[cfg(test)]
+mod foretell_tests;
+#[cfg(test)]
 mod granted_this_tests;
 #[cfg(test)]
 mod house_rules_tests;

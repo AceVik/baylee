@@ -789,10 +789,13 @@ impl GameState {
             }
             obj.riders.retain(|rider| match rider {
                 crate::object::Rider::Uncounterable => to.zone() == Zone::Stack,
-                // Foretell lasts for as long as the card remains exiled;
-                // moving it to the stack or another exile does not end that.
+                // Foretell lasts for as long as the card remains exiled
+                // (CR 702.143a); a move from exile to exile does not end
+                // that. Every other move makes a new object (CR 400.7): the
+                // cast puts "was foretold" back on the spell itself after its
+                // move, and a spell exiled from the stack is not foretold.
                 crate::object::Rider::Foretold { .. } => {
-                    matches!(to.zone(), Zone::Stack | Zone::Exile)
+                    from_zone == Zone::Exile && to.zone() == Zone::Exile
                 }
                 _ => true,
             });
