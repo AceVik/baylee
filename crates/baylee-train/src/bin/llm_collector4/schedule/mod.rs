@@ -470,8 +470,9 @@ pub struct Assignment {
     pub decks: [DeckEntry; 2],
     pub profiles: [String; 2],
     pub models: [String; 2],
-    /// Whether this game's seats file their reports with the feedback
-    /// service; past the run's cap they keep them in `reports.jsonl` only.
+    /// Whether this game's seats send their reports through the gateway:
+    /// always, unless the operator set a limit ([`Scheduler::with_report_games`])
+    /// and this game is past it; then they keep them in `reports.jsonl` only.
     pub send_reports: bool,
     pub request: Value,
 }
@@ -502,8 +503,9 @@ pub struct Scheduler {
     call_timeout_seconds: u64,
     game_timeout_seconds: u64,
     next_index: usize,
-    /// Attempts, counted over the whole root, whose seats send reports.
-    report_games: usize,
+    /// The operator's limit: attempts, counted over the whole root, whose
+    /// seats send reports; `None`, every attempt's do.
+    report_games: Option<usize>,
     in_flight: BTreeMap<String, InFlight>,
     known_record_shas: BTreeSet<String>,
 }
@@ -648,19 +650,27 @@ impl Scheduler {
             call_timeout_seconds,
             game_timeout_seconds,
             next_index: max_idx.map_or(0, |m| m + 1),
-            report_games: usize::MAX,
+            report_games: None,
             in_flight: BTreeMap::new(),
             known_record_shas,
         })
     }
 
-    /// Only the first `games` attempts of this root file their seats'
-    /// reports with the feedback service, so a large run cannot flood its
-    /// triage; every later game keeps them in `reports.jsonl`.
+    /// With `Some(games)`, the operator's limit: only the first `games`
+    /// attempts of this root send their seats' reports through the
+    /// gateway, and every later game keeps them in `reports.jsonl`. With
+    /// `None`, the default (owner, 01.11.2026), every game sends them: the
+    /// gateway's budget an hour and each seat's dedupe bound how many.
     #[must_use]
-    pub const fn with_report_games(mut self, games: usize) -> Self {
+    pub const fn with_report_games(mut self, games: Option<usize>) -> Self {
         self.report_games = games;
         self
+    }
+
+    /// Whether the attempt numbered `index` (over the whole root) sends its
+    /// seats' reports ([`Self::with_report_games`]).
+    fn sends_reports(&self, index: usize) -> bool {
+        self.report_games.is_none_or(|games| index < games)
     }
 
     /// Whether any pairing seats the house (`house:<level>`), so that a
@@ -916,7 +926,7 @@ impl Scheduler {
         let ledger_dir = self.root.join("ledgers");
         std::fs::create_dir_all(&ledger_dir)?;
         let slot_ledger = ledger_dir.join(format!("slot-{slot_id:03}-spend.json"));
-        let send_reports = index < self.report_games;
+        let send_reports = self.sends_reports(index);
 
         let request = json!({
             "schema_version": 1,
@@ -1722,9 +1732,9 @@ mod tests {
         assert_eq!(a2.format, "Highlander");
     }
 
-    #[test]
-    fn profile_pairings_take_turns_even_when_every_deck_pair_is_new() {
-        let dir = TestDir::new("sched-efforts");
+    /// A scheduler in `dir` over 12 decks and three profiles, each paired
+    /// with itself, with no limit on the games that send reports.
+    fn three_efforts(dir: &TestDir) -> Scheduler {
         let decks: Vec<Value> = (0..12)
             .map(|i| {
                 let p = dir.path().join(format!("d{i}.txt"));
@@ -1751,7 +1761,7 @@ mod tests {
             &json!([["low", "low"], ["medium", "medium"], ["high", "high"]]),
         )
         .unwrap();
-        let mut sched = Scheduler::new(
+        Scheduler::new(
             dir.path().to_path_buf(),
             "http://127.0.0.1:28768".to_owned(),
             dir.path().join("profiles.json"),
@@ -1761,11 +1771,60 @@ mod tests {
             3600,
         )
         .unwrap()
-        .with_report_games(2);
+    }
+
+    /// By default every game of a root sends its seats' reports (owner,
+    /// 01.11.2026): the 201st and later too, where a cap of 200 used to
+    /// stop them.
+    #[test]
+    fn every_game_sends_its_reports_without_a_limit() {
+        let dir = TestDir::new("sched-reports-all");
+        let mut sched = three_efforts(&dir);
+        for slot in 0..3 {
+            let assignment = sched.next_assignment(slot).unwrap();
+            assert!(assignment.send_reports, "game {slot}");
+        }
+        // The root's numbering past the old cap, as a long run reaches it.
+        sched.next_index = 199;
+        for slot in 0..4 {
+            let assignment = sched.next_assignment(slot).unwrap();
+            let index = assignment.request["index"].as_u64().unwrap();
+            assert!(index >= 199);
+            assert!(assignment.send_reports, "game {index}");
+            assert_eq!(assignment.request["send_reports"], true, "game {index}");
+        }
+    }
+
+    /// An operator's `--report-games N` sends the first N games' reports
+    /// and keeps every later game's in `reports.jsonl`, counted over the
+    /// whole root.
+    #[test]
+    fn an_operator_s_limit_stops_the_reports_after_its_games() {
+        let dir = TestDir::new("sched-reports-limit");
+        let mut sched = three_efforts(&dir).with_report_games(Some(250));
+        sched.next_index = 248;
+        let sent: Vec<(u64, bool)> = (0..4)
+            .map(|slot| {
+                let assignment = sched.next_assignment(slot).unwrap();
+                assert_eq!(assignment.request["send_reports"], assignment.send_reports);
+                (
+                    assignment.request["index"].as_u64().unwrap(),
+                    assignment.send_reports,
+                )
+            })
+            .collect();
+        assert_eq!(sent, [(248, true), (249, true), (250, false), (251, false)]);
+    }
+
+    #[test]
+    fn profile_pairings_take_turns_even_when_every_deck_pair_is_new() {
+        let dir = TestDir::new("sched-efforts");
+        let mut sched = three_efforts(&dir).with_report_games(Some(2));
         let mut used: BTreeMap<String, usize> = BTreeMap::new();
         for slot in 0..6 {
             let assignment = sched.next_assignment(slot).unwrap();
-            // Only the run's first two games file their reports.
+            // The operator's limit: only the run's first two games send
+            // their reports.
             assert_eq!(assignment.send_reports, slot < 2);
             assert_eq!(assignment.request["send_reports"], slot < 2);
             *used

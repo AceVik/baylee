@@ -938,8 +938,14 @@ Which chairs send how, and with which record (`link::Reporter`):
   `client.reports_omitted` counts them. A gateway from before the route
   answers `404`, which `why` says.
 
-`join --no-send-reports` sends none either way and still writes the file:
-a collector that has filed enough for its run passes it.
+`join --no-send-reports` sends none either way and still writes the file.
+The LLM collector (`llm_collector4 collect`) sends every game's reports
+by default (owner, 01.11.2026; there is no cap of 200 games any more):
+how many reach the triage is bounded by its private gateway's budget an
+hour for its accounts (`BAYLEE_REPORTS_PER_HOUR`, 2000 as `serve` starts
+it) and by each seat's dedupe (each key once, at most 25 a game). An
+operator who wants fewer passes `--report-games N`: the root's first N
+games send theirs, and every later one passes `--no-send-reports`.
 
 **A model that watches the trained AI** (`client.source: "llm-trainer"`,
 `reports::Source::LlmTrainer`). The report's building is the same, with

@@ -101,11 +101,16 @@ enum Commands {
         game_timeout_seconds: u64,
         #[arg(long, default_value_t = 2200)]
         launch_interval_ms: u64,
-        /// Only the first this many games of the root file their seats'
-        /// reports with the feedback service; later games keep them in
-        /// `reports.jsonl`, so a large run cannot flood the triage.
-        #[arg(long, default_value_t = 200)]
-        report_games: usize,
+        /// An operator's limit, never a default: only the first this many
+        /// games of the root send their seats' reports through the gateway,
+        /// and later games keep them in `reports.jsonl` alone
+        /// (`--no-send-reports`). Absent, every game sends them (owner,
+        /// 01.11.2026), bounded by the private gateway's budget an hour
+        /// for its accounts (`BAYLEE_REPORTS_PER_HOUR`, 2000 as `serve`
+        /// starts it) and by each seat's dedupe (each key once, at most 25
+        /// a game).
+        #[arg(long)]
+        report_games: Option<usize>,
     },
     /// Profile against profile over the admitted games of collector roots:
     /// wins with a Wilson 95 % interval, against the house apart, how often a
@@ -596,7 +601,7 @@ async fn run_collect(
     call_timeout_seconds: u64,
     game_timeout_seconds: u64,
     launch_interval_ms: u64,
-    report_games: usize,
+    report_games: Option<usize>,
 ) -> anyhow::Result<()> {
     table::gateway_endpoint(&gateway)?;
     let admin_cleanup = Arc::new(admin_cleanup::AdminCleanup::from_env(&admin_url)?);
