@@ -929,3 +929,51 @@ fn bug_reports_hold_to_their_bounds() {
     assert!(text.chars().count() <= TEXT_CHARS);
     assert!(text.contains("more reports are in client.reports"), "said");
 }
+
+/// A refusal repeats the model's words ("not taken: board «…» is not
+/// full"), so an answer may be as long as the model made it. The text holds
+/// the question and the answer to the bounds `decision` keeps them to, so
+/// one long answer never pushes its report out of the text, alone or in a
+/// chair's bundle.
+#[test]
+fn a_long_answer_is_cut_in_the_text_as_in_the_decision() {
+    let wide = |n: usize, c: char| std::iter::repeat_n(c, n).collect::<String>();
+    let long = |f: &mut Filed| {
+        f.moment.pending = wide(500, 'P');
+        f.moment.answer = Some(format!(
+            "not taken: board «{}» is not full",
+            wide(30_000, 'x')
+        ));
+    };
+    let mut one = filed("Bolt dealt 2.", 12);
+    long(&mut one);
+    let line = format!(
+        "   The question: {}; the answer: {}\n",
+        wide(ID_CHARS, 'P'),
+        cut_to(one.moment.answer.as_deref().unwrap(), ANSWER_CHARS)
+    );
+    let body = submissions(std::slice::from_ref(&one), None).remove(0);
+    let text = body["text"].as_str().unwrap();
+    assert!(text.contains("Observed: Bolt dealt 2."), "{text}");
+    assert!(text.contains(&line), "{text}");
+    assert!(!text.contains("Shortened"), "{text}");
+    assert_eq!(
+        body["client"]["report"]["decision"]["answer"].as_str(),
+        Some(line.trim_end().rsplit("the answer: ").next().unwrap()),
+        "the text's answer is the decision's"
+    );
+
+    // A key of its own, or the bundle files it once.
+    let mut two = filed_with(report("Something else entirely.", "601.2"), 13);
+    long(&mut two);
+    let body = bundle(&[one, two], None).unwrap();
+    let text = body["text"].as_str().unwrap();
+    assert!(text.contains("1. q12") && text.contains("2. q13"), "{text}");
+    assert_eq!(text.matches(line.as_str()).count(), 2, "{text}");
+    assert!(!text.contains("Shortened"), "{text}");
+}
+
+/// `text`'s first `most` characters.
+fn cut_to(text: &str, most: usize) -> String {
+    text.chars().take(most).collect()
+}

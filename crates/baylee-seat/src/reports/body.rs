@@ -3,7 +3,7 @@
 //! ([`submissions`]), or all of them in one where a route takes one a game
 //! ([`bundle`]).
 
-use super::checks::{cut, hex};
+use super::checks::{ANSWER_CHARS, ID_CHARS, cut, hex};
 use super::read::Kind;
 use super::{CLIENT_BYTES, Filed, LOG_RESERVE, MOST, TEXT_CHARS};
 use baylee_client_core::bugreport::refs::{self, Candidates, CardRef};
@@ -540,11 +540,15 @@ fn block(n: Option<usize>, filed: &Filed, attached: Option<&Attached<'_>>) -> St
             filed.lookups
         );
     }
+    // Held to the bounds `decision` keeps them to (`Moment::value`): a
+    // refusal repeats the model's words, and one long answer would push
+    // the whole block out of the text.
     if let Some(answer) = &filed.moment.answer {
         let _ = writeln!(
             block,
-            "   The question: {}; the answer: {answer}",
-            filed.moment.pending
+            "   The question: {}; the answer: {}",
+            cut(&filed.moment.pending, ID_CHARS),
+            cut(answer, ANSWER_CHARS)
         );
     }
     block
