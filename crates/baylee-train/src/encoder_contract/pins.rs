@@ -282,6 +282,11 @@ const PINNED: [(Encoder, [&str; 2]); 4] = [
 
 #[test]
 fn every_encoder_writes_the_scripted_games_as_it_did_before_410() {
+    assert_eq!(
+        PINNED.map(|(encoder, _)| encoder),
+        Encoder::ALL,
+        "every encoder is pinned"
+    );
     let print = std::env::var_os("BAYLEE_PRINT_ENCODER_PINS").is_some();
     let mut moved = Vec::new();
     for (encoder, pins) in PINNED {
