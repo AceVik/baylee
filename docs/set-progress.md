@@ -37,6 +37,13 @@ restored the 287 review holds the full codegen run had dropped, and returned
 four cards that run finished wrong (Hazy Homunculus, Wall of Vipers,
 Opalescence, Mercenary Informer) to their stubs (`docs/generated-held-back.md`).
 
+The follow-up review (02.11.2026) completes those four cards with corrected
+clauses and individual tests, and closes the cross-crate compatibility gaps.
+Public ballots now reach every seat and spectator; Foretell reaches the LLM
+wake/menu path and neural candidates; counter replacement ordering rechecks
+applicability after Giada introduces the first counter. The PR records the
+final full-workspace and feature-gate results.
+
 ## Limited Edition Alpha
 
 290 distinct Oracle identities in `set_lea.rs`: **286 Implemented, 0 Partial,

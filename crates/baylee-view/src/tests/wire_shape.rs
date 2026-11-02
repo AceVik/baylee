@@ -338,7 +338,9 @@ fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
     // old readers ignore the field, so this does not require a version bump.
     // `announced_x` has the same default/omission compatibility, and is only
     // populated by a separate experimental native projection, never sockets.
-    const RECORDED: (u32, u64) = (82, 17_593_544_635_232_560_164);
+    // Version 83 adds public ballots and the Voted log variant; old readers
+    // cannot decode that variant. The version changelog names the wire change.
+    const RECORDED: (u32, u64) = (83, 3_641_075_776_616_308_151);
 
     let samples = core_samples();
     let sampled: std::collections::BTreeSet<String> =
