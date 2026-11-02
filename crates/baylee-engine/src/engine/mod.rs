@@ -1083,6 +1083,17 @@ impl<L: CardLookup> Engine<L> {
         &self.pending
     }
 
+    /// The ballots of the vote in progress, in the order they were cast,
+    /// and nothing outside one. Public to every seat: each vote is announced
+    /// as it is cast (CR 608.2d), in turn order (CR 701.38a).
+    #[must_use]
+    pub fn ballots(&self) -> &[resolve::Ballot] {
+        match self.resolution.as_ref().and_then(|r| r.awaiting.as_ref()) {
+            Some(resolve::AwaitingOp::Vote(vote)) => vote.ballots(),
+            _ => &[],
+        }
+    }
+
     /// Cards privately inspected during the current filtered selection,
     /// including cards that cannot be selected. Hosts must apply the same
     /// entitlement as `information_pending_for` before exposing this slice.
@@ -2207,6 +2218,8 @@ mod untap_tests;
 mod verification_tests;
 #[cfg(test)]
 mod vocabulary_tests;
+#[cfg(test)]
+mod vote_tests;
 #[cfg(test)]
 mod w1_tests;
 #[cfg(test)]

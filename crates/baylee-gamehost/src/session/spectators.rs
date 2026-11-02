@@ -50,6 +50,7 @@ impl Session {
             self.deciding(),
             self.engine.library_reveal_blocked(),
             &self.house_answered,
+            self.engine.ballots(),
         )
     }
 

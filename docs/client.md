@@ -8697,6 +8697,14 @@ answered a line earlier (it is part of a cost, not a selection) and
 `Generic` stays the plain noun, which is honest — the engine did not say
 what it was for either.
 
+A vote (`ChoicePrompt::Vote`, CR 701.38a) is no counted noun but a whole
+sentence, `CastYourVote`, since the answer is a ballot the table is told and
+not a card that moves. While a vote is in progress the shelf's sentence ends
+with its tally, `VotesSoFar` over one `BallotFor` per ballot
+(`interaction::ballots_line`, from `PlayerView::ballots`), for the voter and
+for every seat waiting on it alike: each vote is announced as it is cast (CR
+608.2d), and the log says the same line by line (`LogVoted`).
+
 A line that talks about **another chair** names it, and `i18n::seat_name` is
 the single place that decides how. Four sentences want it — a zone browser's
 tab, the player chooser's rows, "waiting for …", and a draw offer — and three

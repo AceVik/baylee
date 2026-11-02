@@ -3,12 +3,31 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary
 use super::*;
 
+/// One player's vote, as it was cast.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct Ballot {
+    /// The voter.
+    pub voter: PlayerId,
+    /// What they voted for.
+    pub choice: ObjectId,
+}
+
 /// The ballots already cast and the players still to vote, in turn order.
 #[derive(Clone, Debug, Hash)]
 pub struct Vote {
     remaining: Vec<PlayerId>,
-    ballots: Vec<ObjectId>,
+    /// The player asked now, whose answer is the next ballot.
+    asked: Option<PlayerId>,
+    ballots: Vec<Ballot>,
     filter: &'static baylee_cards_dsl::Filter,
+}
+
+impl Vote {
+    /// The ballots cast so far, in the order they were cast.
+    #[must_use]
+    pub fn ballots(&self) -> &[Ballot] {
+        &self.ballots
+    }
 }
 
 /// Begin with the resolving controller, then proceed in turn order.
@@ -30,6 +49,7 @@ pub(super) fn start(
         res,
         Vote {
             remaining,
+            asked: None,
             ballots: Vec::new(),
             filter,
         },
@@ -37,16 +57,25 @@ pub(super) fn start(
 }
 
 /// Record one legal ballot and ask the next player who has a legal choice.
+///
+/// Each vote is announced as it is cast (CR 608.2d), so the players after it
+/// vote knowing it (CR 701.38a): the journal says it now, not when the vote
+/// is counted.
 pub(super) fn resume(
     state: &mut GameState,
     res: &mut Resolution,
     mut vote: Vote,
     chosen: &[ObjectId],
 ) -> Option<Pending> {
-    if let Some(&ballot) = chosen.first()
-        && legal_options(state, res, vote.filter).contains(&ballot)
+    if let Some(voter) = vote.asked.take()
+        && let Some(&choice) = chosen.first()
+        && legal_options(state, res, vote.filter).contains(&choice)
     {
-        vote.ballots.push(ballot);
+        vote.ballots.push(Ballot { voter, choice });
+        state.journal.record(GameEvent::Voted {
+            player: voter,
+            object: choice,
+        });
     }
     advance(state, res, vote)
 }
@@ -64,13 +93,14 @@ fn advance(state: &mut GameState, res: &mut Resolution, mut vote: Vote) -> Optio
         if options.is_empty() {
             continue;
         }
+        vote.asked = Some(player);
         res.awaiting = Some(AwaitingOp::Vote(vote));
         return Some(Pending::ChooseCards {
             player,
             options,
             min: 1,
             max: 1,
-            prompt: ChoicePrompt::Generic,
+            prompt: ChoicePrompt::Vote,
             total: None,
         });
     }
@@ -103,28 +133,28 @@ fn legal_options(
 }
 
 /// Exile all first places together, including every tie for first place.
-fn exile_winners(state: &mut GameState, ballots: &[ObjectId]) {
-    let mut unique = Vec::new();
-    for &ballot in ballots {
-        if !unique.contains(&ballot) {
-            unique.push(ballot);
-        }
-    }
-    let most = unique.iter().fold(0_usize, |best, &candidate| {
-        best.max(
-            ballots
-                .iter()
-                .filter(|&&ballot| ballot == candidate)
-                .count(),
-        )
-    });
-    for winner in unique.into_iter().filter(|&candidate| {
+fn exile_winners(state: &mut GameState, ballots: &[Ballot]) {
+    let votes = |candidate: ObjectId| {
         ballots
             .iter()
-            .filter(|&&ballot| ballot == candidate)
+            .filter(|ballot| ballot.choice == candidate)
             .count()
-            == most
-    }) {
+    };
+    let mut unique = Vec::new();
+    for ballot in ballots {
+        if !unique.contains(&ballot.choice) {
+            unique.push(ballot.choice);
+        }
+    }
+    let most = unique
+        .iter()
+        .map(|&candidate| votes(candidate))
+        .max()
+        .unwrap_or(0);
+    for winner in unique
+        .into_iter()
+        .filter(|&candidate| votes(candidate) == most)
+    {
         let Some(owner) = state
             .object(winner)
             .filter(|object| {

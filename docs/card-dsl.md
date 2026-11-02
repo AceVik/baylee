@@ -2517,7 +2517,10 @@ Effects:
   vote per player in turn order, starting with the resolving controller. These
   are choices during resolution, not targets. Every matching permanent tied for
   the most votes is exiled, including all first places in a tie; a player with
-  no legal ballot is skipped.
+  no legal ballot is skipped. Each voter is asked `ChoicePrompt::Vote`, and
+  each ballot is announced as it is cast (CR 608.2d): journaled as
+  `GameEvent::Voted`, told in every seat's log, and carried in every view's
+  `ballots` while the next player decides (`Engine::ballots`).
 - **`Effect::ExileAttackingForThenMaySearchBasicLands { player }`** exiles all
   attacking creatures the chosen player controls, then offers that player up to
   one basic land per creature that actually reached exile. The finds enter

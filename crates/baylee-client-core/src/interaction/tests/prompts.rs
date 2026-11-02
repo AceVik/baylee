@@ -3,6 +3,28 @@
 #[allow(clippy::wildcard_imports)] // this module's own vocabulary
 use super::*;
 
+#[test]
+fn an_entry_counter_replacement_names_its_kind_in_both_languages() {
+    let headline = |kind, lang| {
+        interaction(Pending::YesNo {
+            player: me(),
+            prompt: YesNoPrompt::ApplyAdditionalCountersNext {
+                permanent: ObjectId::new(1, 0),
+                additional: 1,
+                kind,
+            },
+            source: None,
+        })
+        .prompt()
+        .headline(lang, Turn::Mine, None, false)
+    };
+    for lang in [Lang::En, Lang::De] {
+        let specific = headline(Some(baylee_cards_dsl::CounterKind::P1P1), lang);
+        assert!(specific.contains("+1/+1"), "{specific}");
+        assert_ne!(specific, headline(None, lang));
+    }
+}
+
 /// A priority window on somebody else's turn does not say it is yours.
 ///
 /// The same `Pending`, the same buttons under it, two sentences — and
@@ -1670,4 +1692,61 @@ fn mixed_payment_and_untap_replacement_questions_explain_the_complete_choice() {
             .contains("Ersatzeffekt")
     );
     assert_eq!(i.answer_yes_no(false), Some(PlayerAction::YesNo(false)));
+}
+
+/// A vote is headed as one, not as "choose 1 card", and the ballots cast so
+/// far are told in the order cast, the reader's own as "You" and another
+/// seat by its name (CR 701.38a, 608.2d). Outside a vote there is no line.
+#[test]
+fn a_vote_is_headed_as_one_and_its_ballots_are_told() {
+    let i = interaction(Pending::ChooseCards {
+        player: me(),
+        options: vec![obj(1), obj(2)],
+        min: 1,
+        max: 1,
+        prompt: ChoicePrompt::Vote,
+        total: None,
+    });
+    assert_eq!(
+        i.prompt().headline(Lang::En, Turn::Mine, None, false),
+        "Cast your vote: choose one."
+    );
+    assert_eq!(
+        i.prompt().headline(Lang::De, Turn::Mine, None, false),
+        "Gib deine Stimme ab: Wähle eine Option."
+    );
+
+    let mut roster = crate::test_support::statics(0);
+    roster.seats.push(baylee_view::SeatIdentity {
+        player: PlayerId::new(1),
+        display_name: "AceVik".to_string(),
+        is_ai: false,
+        away: false,
+        team: None,
+    });
+    let mut view = crate::test_support::ViewBuilder::new(2).build();
+    view.seat = me();
+    let name = |id: ObjectId| (id == obj(1)).then(|| "Sol Ring".to_string());
+    assert_eq!(
+        crate::interaction::ballots_line(Lang::En, &view, Some(&roster), &name),
+        None
+    );
+    view.ballots = vec![
+        baylee_view::Ballot {
+            voter: PlayerId::new(1),
+            choice: obj(1),
+        },
+        baylee_view::Ballot {
+            voter: me(),
+            choice: obj(2),
+        },
+    ];
+    assert_eq!(
+        crate::interaction::ballots_line(Lang::En, &view, Some(&roster), &name).as_deref(),
+        Some("Votes so far: AceVik for Sol Ring, You for a permanent")
+    );
+    assert_eq!(
+        crate::interaction::ballots_line(Lang::De, &view, Some(&roster), &name).as_deref(),
+        Some("Bisherige Stimmen: AceVik für Sol Ring, Du für ein Permanent")
+    );
 }

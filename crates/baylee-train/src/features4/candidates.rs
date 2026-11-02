@@ -135,6 +135,23 @@ pub fn encode_candidates4(
                 c.action = Some(PlayerAction::TakeGrantedAction { id: grant.id });
                 out.candidates.push(c);
             }
+            // Append the new special action so existing candidate indices and
+            // tensor widths stay unchanged. The suspend marker's scalar slot
+            // distinguishes foretell (0.5) from suspend (1.0) and casting (0.0).
+            for &card in &legal.foretellable {
+                if out.candidates.len() >= MAX_CANDIDATES {
+                    break;
+                }
+                let mut c = Candidate4::default();
+                c.feat[3] = 1.0;
+                c.feat[18] = 0.5;
+                if let Some(eidx) = state.find_entity(card) {
+                    c.entity_idx = eidx as i16;
+                    c.card_id = state.entity_card_ids[eidx];
+                }
+                c.action = Some(PlayerAction::Foretell { card });
+                out.candidates.push(c);
+            }
         }
 
         Pending::ChooseManaAbility {
@@ -603,6 +620,7 @@ pub fn encode_candidates4(
             options: objs,
             min,
             max,
+            prompt,
             ..
         } => {
             let single = *min == 1 && *max == 1;
@@ -617,6 +635,11 @@ pub fn encode_candidates4(
             for oid in prioritize_object_options(view, objs, cap) {
                 let mut c = Candidate4::default();
                 c.feat[6] = 1.0;
+                if *prompt == baylee_engine::choice::ChoicePrompt::Vote {
+                    c.feat[16] = unit(view.ballots.iter().filter(|b| b.choice == oid).count() as f32, 8.0);
+                    c.feat[17] = 1.0;
+                    c.feat[18] = unit(view.ballots.len() as f32, 8.0);
+                }
                 if let Some(eidx) = state.find_entity(oid) {
                     c.entity_idx = eidx as i16;
                     c.card_id = state.entity_card_ids[eidx];

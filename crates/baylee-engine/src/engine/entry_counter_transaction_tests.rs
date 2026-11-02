@@ -157,6 +157,7 @@ fn order_question(e: &Engine<SyntheticLookup>) -> ObjectId {
             YesNoPrompt::ApplyAdditionalCountersNext {
                 permanent,
                 additional: 1,
+                kind: None,
             },
         ..
     } = e.pending()

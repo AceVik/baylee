@@ -6,6 +6,29 @@ the two lanes in use now are remote and cheap, which changes the constraint
 from "one at a time" to "what is each one actually good at". Maintained by
 the orchestrator; entries dated, newest first.
 
+## 2026-11-02 — Landing review of PR #410 and the unfinished vote work
+
+- **A new special action needs every action consumer.** Foretell's casting
+  mode was mapped, but its initial hand-to-exile action was missing from the
+  LLM menu, the wake filter and the neural candidate encoder. A legal offer
+  must survive both automatic passing and action encoding/decoding. Append
+  new neural candidates to preserve existing candidate indices.
+- **Public decisions need observable state while the next player decides.**
+  Council's Judgment needs the voter and choice in the journal immediately,
+  plus the live ballots in every seat and spectator view. A hash alone does
+  not tell a neural policy the tally; its candidate features must include it.
+- **Rebase integration reaches simulation code too.** The newer simulation
+  transcript and redeal walkers must handle the vote event, the chosen card
+  type and Foretell's turn-bearing rider. A clean textual rebase does not
+  prove the merged enum consumers compile.
+- **A zero placeholder is not a counter placement.** Giada's entry
+  replacement creates the first +1/+1 counters; Doubling Season cannot be
+  used up on zero before that happens. Recheck applicability after each
+  choice (CR 616.1f), and do not let an ordinary additive replacement create
+  a new counter kind. Additions can need ordering even without a doubler
+  when one introduces a new kind. The decision must name that kind rather
+  than claim every replacement adds counters of every kind.
+
 ## 2026-11-01 — Review of the requested cards (PR #410, Kimi)
 
 One reviewer and four read-only sub-reviews read e6844a069 against its oracle
@@ -6014,3 +6037,23 @@ fixtures must settle characteristics before measuring a no-new-events boundary.
   happened to be zero and the fixtures passed; `record::seen` caught it only
   after the rebase. A new input to a replay hash must contribute nothing for
   its legacy value, so the term is now added only when the setting is on.
+
+## 2026-11-01 — The four cards PR #410's full run finished wrong, and public votes
+
+- Hazy Homunculus, Wall of Vipers, Opalescence and Mercenary Informer are
+  hand-owned and played as printed now; their reader rules are still wrong
+  (`docs/generated-held-back.md`). Each was `Generated`, green and stronger
+  than printed, because the reader dropped one clause it did not refuse.
+- A borrowed modifier carries its whole sentence. `AnimateNoncreatureArtifact`
+  also adds the artifact type and asks "noncreature"; Opalescence's sentence
+  is neither, so it got `Modifier::CreatureWithManaValuePT` and its own rule
+  tests rather than a second static beside an `AddType`.
+- The discriminating board for a condition is the one where the wrong reading
+  answers differently: a *tapped* land for "untapped land", a token copy for
+  "nontoken", an unblocked attacker for "it's blocking", an Aura for
+  "non-Aura". Rite of Replication is the pool's way to make a token of any
+  creature type a test needs.
+- A vote was a `Generic` card choice nobody else could see. Each ballot is
+  announced as it is cast (CR 608.2d), so it is a journaled event, a log line
+  and a public view field at once; the in-progress resolution is on the
+  `Engine`, not in the hashed state, so no replay hash moved.

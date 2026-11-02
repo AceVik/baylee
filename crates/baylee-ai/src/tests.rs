@@ -280,6 +280,7 @@ fn view(seat: u8, lives: &[i32], battlefield: Vec<PublicObject>) -> PlayerView {
         announced_x: None,
         sorcery_lock: None,
         sorceries_have_flash: false,
+        ballots: Vec::new(),
     }
 }
 

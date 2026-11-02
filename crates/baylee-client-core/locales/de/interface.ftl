@@ -10,6 +10,9 @@ ChooseEntryOrder = Die Ersatzeffekte welches Permanents möchtest du zuerst anwe
 ChooseEntryReplacement = Welchen Ersatzeffekt möchtest du als Nächstes anwenden?
 ChooseDredge = Eine Karte ausgraben, statt zu ziehen? Wähle eine aus deinem Friedhof oder bestätige ohne Auswahl, um normal zu ziehen.
 ChooseDrawReplacement = Welchen Ersatzeffekt möchtest du als Nächstes auf dieses Ziehen anwenden?
+CastYourVote = Gib deine Stimme ab: Wähle eine Option.
+VotesSoFar = Bisherige Stimmen: { $ballots }
+BallotFor = { $voter } für { $choice }
 SacrificeToEnter =
     { $count ->
         [one] { $count } passendes Permanent opfern, damit diese Karte ins Spiel kommt?
@@ -1203,6 +1206,7 @@ ApplyAdditionalCountersNext =
         [one] zusätzliche Marke
        *[other] zusätzliche Marken
     } jeder Art hinzufügen? „Nein“ wendet zuerst einen anderen Ersatzeffekt an.
+ApplyAdditionalCountersOfKindNext = Als Nächstes { $count } zusätzliche { $kind } hinzufügen? „Nein“ wendet zuerst einen anderen Ersatzeffekt an.
 UseTheOptionalAbility = Diese Fähigkeit ist optional. Einsetzen?
 TopOfLibraryOrBottom = Deine Karte kommt in deine Bibliothek. Oben drauf? („Nein“ legt sie nach unten.)
 TakeOneOfType = Nimm bis zu eine Karte vom Typ { $card_type } auf deine Hand
@@ -1757,6 +1761,8 @@ LogTurnedFaceUp = { $object } wurde aufgedeckt
 LogTransformed = { $object } wurde transformiert
 LogCardsKeptYou = { $you_subject } hast gewählt, { $cards } zu behalten
 LogCardsKept = { $player } hat gewählt, { $cards } zu behalten
+LogVotedYou = { $you_subject } hast für { $object } gestimmt
+LogVoted = { $player } hat für { $object } gestimmt
 LogRevealedYou = { $you_subject } hast { $cards } offen vorgezeigt
 LogRevealed = { $player } hat { $cards } offen vorgezeigt
 LogShuffledYou = { $you_subject } hast deine Bibliothek gemischt

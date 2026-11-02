@@ -1566,4 +1566,39 @@ fn untap_replacement_refusal_does_not_offer_a_free_untap() {
     );
 }
 
+mod foretell;
 mod triage;
+
+/// A vote is told as one, and the ballot cast before it reaches the model
+/// in the log it is narrated (CR 701.38a, 608.2d): the line is client-core's
+/// log writer, the question this crate's own words.
+#[test]
+fn a_vote_is_asked_as_one_after_the_ballot_before_it() {
+    use baylee_engine::choice::ChoicePrompt;
+    let (view, _) = board();
+    let serra = card(45, "Serra Angel");
+    let log = LogTail {
+        from: 0,
+        entries: vec![line(
+            7,
+            LogEvent::Voted {
+                player: THEM,
+                object: known(&serra),
+            },
+        )],
+    };
+    let pending = Pending::ChooseCards {
+        player: ME,
+        options: vec![id(45), id(46)],
+        min: 1,
+        max: 1,
+        prompt: ChoicePrompt::Vote,
+        total: None,
+    };
+    let request = request(view, pending, log.clone());
+    let mut narrator = Narrator::new(&request.context);
+    narrator.hear(&log);
+    let text = narrator.wake(&request, &[], None).text;
+    assert!(text.contains("P2 voted for Serra Angel"), "{text}");
+    assert!(text.contains("Vote: choose the one you vote for"), "{text}");
+}

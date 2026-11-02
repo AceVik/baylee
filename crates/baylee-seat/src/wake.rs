@@ -470,6 +470,7 @@ impl WakeFilter {
             | PlayerAction::CastSpell { .. }
             | PlayerAction::PlayLand { .. }
             | PlayerAction::Suspend { .. }
+            | PlayerAction::Foretell { .. }
             | PlayerAction::DeclareAttackers { .. }
             | PlayerAction::DeclareBlockers { .. }
             | PlayerAction::MulliganKeep
@@ -486,6 +487,7 @@ fn nothing_but_mana(view: &PlayerView, legal: &LegalActions) -> bool {
     legal.lands.is_empty()
         && legal.castable.is_empty()
         && legal.suspendable.is_empty()
+        && legal.foretellable.is_empty()
         && reachable_abilities(view, legal).is_empty()
         && legal
             .abilities

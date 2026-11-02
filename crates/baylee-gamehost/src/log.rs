@@ -719,6 +719,16 @@ impl GameLog {
                 );
                 self.cause_before_effect(batch);
             }
+            GameEvent::Voted { player, object } => {
+                let (object, sees) = self.refer(state, *object);
+                self.push(
+                    LogEvent::Voted {
+                        player: *player,
+                        object,
+                    },
+                    vec![sees],
+                );
+            }
             GameEvent::CoinFlipped { player, won } => self.push(
                 LogEvent::CoinFlipped {
                     player: *player,

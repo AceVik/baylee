@@ -57,6 +57,10 @@ pub struct SpectatorView {
     /// Hands revealed to everyone by a continuous rule, never private sharing.
     #[serde(default)]
     pub revealed_hands: Vec<crate::SharedHand>,
+    /// The ballots of the vote in progress, public to a spectator as to
+    /// every seat ([`PlayerView::ballots`]).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ballots: Vec<crate::Ballot>,
 }
 
 impl SpectatorView {
@@ -105,6 +109,7 @@ impl SpectatorView {
             exile: self.exile,
             command: self.command,
             combat: self.combat,
+            ballots: self.ballots,
             looking_at: Vec::new(),
             library_tops: self.library_tops,
             sorcery_lock: None,

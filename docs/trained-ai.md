@@ -30,6 +30,18 @@ invalid multi-member bands without changing sampling version 2. It sacrifices
 band tactics until those constraints are represented for neural sampling.
 Experienced-human strength and Phoenix NPU deployment are not established.
 
+**Requested-card choices (2 November 2026):** The shared v4 candidate reader
+also offers the foretell special action from the engine's `foretellable` list.
+It appends these candidates after existing priority actions, using the existing
+cast feature and scalar slot 18 (`0.5` for foretell, `1.0` for suspend).
+Tensor widths and candidates outside these new offers stay unchanged.
+For `ChoicePrompt::Vote`, candidate slots 16/17/18 hold the votes for that
+permanent divided by eight, the vote marker, and ballots cast divided by
+eight. They read only the public `PlayerView::ballots`; other card choices
+keep their previous bytes. The observation hash includes ballots only while
+nonempty. These additions make the actions and information representable;
+they do not establish that an existing checkpoint has learned their value.
+
 **Opt-in payment context (28 October 2026):** Encoder 8 is a new observation
 contract for **BayleeAI v5**, requiring relational revision 2; it is not a new
 model generation or a demonstrated strength improvement. Encoder 7 remains

@@ -127,6 +127,7 @@ impl Session {
                 inspected_cards: self.engine.inspected_cards(),
                 decision_remaining_ms: awaiting.and_then(|s| self.decision_remaining_ms(s)),
                 policy_acts: &self.policy_acts,
+                ballots: self.engine.ballots(),
             },
             &self.house_answered,
         );

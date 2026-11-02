@@ -31,6 +31,10 @@ impl Duel {
     ///
     /// `texts` names the creatures a question is about in the player's
     /// language ([`crate::face::name_of`]); client-core decides which.
+    ///
+    /// While a vote is in progress the sentence ends with its tally
+    /// ([`baylee_client_core::interaction::ballots_line`]), whatever the
+    /// question: the voter's own and every waiting seat's alike.
     #[must_use]
     pub fn headline(
         &self,
@@ -83,7 +87,7 @@ impl Duel {
         {
             return Some(baylee_client_core::interaction::payment_line(lang, payment));
         }
-        Some(prompt.headline_naming_targets(
+        let headline = prompt.headline_naming_targets(
             lang,
             turn,
             self.statics.as_ref(),
@@ -100,7 +104,16 @@ impl Duel {
                     self.statics.as_ref(),
                 ))
             },
-        ))
+        );
+        // A vote in progress tells every ballot cast so far, to the voter
+        // and to every seat waiting on it alike (CR 608.2d, 701.38a).
+        let ballots = self.view.as_ref().and_then(|view| {
+            baylee_client_core::interaction::ballots_line(lang, view, self.statics.as_ref(), &name)
+        });
+        Some(match ballots {
+            Some(ballots) => format!("{headline} {ballots}"),
+            None => headline,
+        })
     }
 
     /// Queues an action for the host.

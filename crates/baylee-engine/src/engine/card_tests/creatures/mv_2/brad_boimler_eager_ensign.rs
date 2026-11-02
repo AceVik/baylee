@@ -364,6 +364,7 @@ fn batch57_brad_empower_resumes_after_token_entry_before_zero_loyalty_state_base
                 crate::choice::YesNoPrompt::ApplyAdditionalCountersNext {
                     permanent,
                     additional,
+                    kind: None,
                 },
             ..
         } = e.pending()
