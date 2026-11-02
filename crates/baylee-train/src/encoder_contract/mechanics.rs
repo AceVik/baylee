@@ -4,16 +4,20 @@
 //! to that answer, and the engine takes the decoded answer.
 //!
 //! - Foretell, the special action (CR 702.143a), is a Priority candidate
-//!   marked as suspend is, on the card's own row.
+//!   marked as suspend is, on the card's own row, with 0.5 where suspend
+//!   has 1.0.
 //! - The foretell cost is an alternative cost: cast mode slot 28.
 //! - "Choose a card type" (Serra's Emissary) is a type choice: the subtype
 //!   question's kind, one candidate per offered type in the engine's order.
 //! - "Choose a nonland card name" (Cabal Therapy) offers, and so decodes, no
 //!   land's name.
+//! - A vote (Council's Judgment, CR 701.38a) is a card choice whose
+//!   candidates carry the public tally; a ballot keeps otherwise identical
+//!   permanents apart where Encoders 7 to 9 group them.
 
 use baylee_core::mana::ManaCost;
 use baylee_core::types::TypeSet;
-use baylee_engine::choice::{CastModeDesc, CastModeKind, Pending, PlayerAction};
+use baylee_engine::choice::{CastModeDesc, CastModeKind, ChoicePrompt, Pending, PlayerAction};
 
 use super::{Encoder, P0, P1, card, scenes};
 use crate::features4::{
@@ -56,7 +60,8 @@ fn foretell_is_offered_like_suspend_and_the_engine_takes_it(encoder: Encoder) {
         .expect("foretelling is a candidate");
     let candidate = &candidates.candidates[index];
     let row = state.find_entity(card).expect("the card has a row");
-    assert_eq!(candidate.feat, marked(&[(3, 1.0), (18, 1.0)]));
+    // Suspend's marker, with 0.5 in its scalar slot where suspend has 1.0.
+    assert_eq!(candidate.feat, marked(&[(3, 1.0), (18, 0.5)]));
     assert_eq!(candidate.entity_idx, row as i16);
     assert_eq!(candidate.card_id, state.entity_card_ids[row]);
     assert_eq!(state.entity_feat[row][27], 1.0, "the row is offered");
@@ -309,6 +314,64 @@ fn nonland_naming_never_offers_or_decodes_a_land(encoder: Encoder) {
     );
 }
 
+fn a_ballot_tells_identical_permanents_apart(encoder: Encoder) {
+    let (mut table, [unvoted, voted]) = scenes::second_ballot_asked();
+    let (pending, view) = encoder.view_for(&table.session, P1);
+    let Pending::ChooseCards { player, prompt, .. } = &pending else {
+        panic!("a vote, not {pending:?}")
+    };
+    assert_eq!((*player, *prompt), (P1, ChoicePrompt::Vote));
+    assert_eq!(view.ballots.len(), 1, "the caster's ballot is public");
+    let (_, candidates) = encoder.encode(&view, &pending, None);
+    assert_eq!(candidates.pending_kind, PendingKind4::ChooseCards);
+    assert_eq!(candidates.head, HeadKind4::SingleChoice);
+    let ballot = |object| PlayerAction::ChooseObjects {
+        objects: vec![object],
+    };
+    let answer = |object| {
+        let target = target_for(&candidates, &pending, &ballot(object));
+        let decoded = decode_action4(&candidates, &view, &pending, &target).expect("decodes");
+        (usize::from(target.single_idx), decoded)
+    };
+    let (with, decoded_with) = answer(voted);
+    let (without, decoded_without) = answer(unvoted);
+    // Encoders 7 to 9 group the twin rings; the ballot keeps them apart, so
+    // a teacher's vote for either is learned, and played back, as cast.
+    assert_ne!(
+        with, without,
+        "the ring with a vote is a candidate of its own"
+    );
+    assert_eq!(decoded_with, ballot(voted));
+    assert_eq!(decoded_without, ballot(unvoted));
+    let marks = |index: usize| {
+        let feat = &candidates.candidates[index].feat;
+        (feat[16], feat[17], feat[18])
+    };
+    assert!(marks(with).0 > marks(without).0, "one more vote");
+    assert_eq!(marks(with).1, 1.0, "a vote is marked as one");
+    assert_eq!(
+        marks(with).2,
+        marks(without).2,
+        "both know one ballot is cast"
+    );
+    assert_eq!(pending.answer_fault(&decoded_with), None);
+
+    table
+        .session
+        .act(P1, decoded_with)
+        .expect("the engine takes the decoded ballot");
+    table.answer_until(|session| session.observe_view(P0).stack.is_empty());
+    let left: Vec<_> = table
+        .session
+        .observe_view(P1)
+        .battlefield
+        .iter()
+        .map(|object| object.id)
+        .collect();
+    assert!(left.contains(&unvoted), "the ring without votes stays");
+    assert!(!left.contains(&voted), "the ring with both votes is exiled");
+}
+
 /// One test per encoder and question, so a failure names both.
 macro_rules! per_encoder {
     ($($module:ident => $encoder:expr),* $(,)?) => {$(
@@ -333,6 +396,11 @@ macro_rules! per_encoder {
             #[test]
             fn nonland_naming_never_offers_or_decodes_a_land() {
                 super::nonland_naming_never_offers_or_decodes_a_land($encoder);
+            }
+
+            #[test]
+            fn a_ballot_tells_identical_permanents_apart() {
+                super::a_ballot_tells_identical_permanents_apart($encoder);
             }
         }
     )*};

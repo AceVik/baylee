@@ -526,7 +526,7 @@ so they answer each question the same way:
 
 | Engine | Encoder 6 (v4) | Encoders 7, 8, 9 |
 | --- | --- | --- |
-| `LegalActions.foretellable`, answered `PlayerAction::Foretell { card }` | A Priority candidate per card, after the suspend ones, marked as suspend is (`feat[3]`, cast family, and `feat[18]`, special action), pointing at the card's hand row; the row's `entity_feat[27]` ("offered to cast") is set | The same candidates; the v7 state sets the same bit, `encode_candidates7` counts them, permanent grouping keys them (kind 9) |
+| `LegalActions.foretellable`, answered `PlayerAction::Foretell { card }` | A Priority candidate per card, after the granted actions, marked as suspend is (`feat[3]`, cast family) with `feat[18] = 0.5` where suspend has 1.0, pointing at the card's hand row; the row's `entity_feat[27]` ("offered to cast") is set | The same candidates; the v7 state sets the same bit, `encode_candidates7` counts them, permanent grouping keys them (kind 9) |
 | `CastModeKind::Foretell` (the later cast) | An alternative cost: cast-mode slot 28 (and 2 in the v3 `policy::mode_kind`); no extra rule reference (the structure catalog has no foretell entry) | The same |
 | `Pending::ChooseCardType` | The subtype question: `PendingKind4::ChooseSubtype` (global 34), and kind 9 in the v3 `features::question`; one candidate per offered type in the engine's order, `feat[15]` and `feat[18] = index / 16` | The same |
 | `Pending::ChooseCardName.excluded_types` | No candidate for a face with an excluded type: an excluded teacher name is unencodable (`unencoded_decisions`), and the policy cannot decode one | The same |
@@ -534,8 +534,8 @@ so they answer each question the same way:
 The v3 policy leaves the card-type question to its fallback, as it does a
 card name, and never foretells. Foretell is marked as suspend because it is
 the same act (pay from the pool, exile from hand, cast on a later turn); the
-card tells the two apart, and a slot of its own would be one no trained net
-has read. A pass with a foretell on offer keeps its full imitation weight
+card and the scalar tell the two apart, and a slot of its own would be one
+no trained net has read. A pass with a foretell on offer keeps its full imitation weight
 (`convert4::idle_pass`), and the tactical guards count a foretell offer where
 they count a suspend offer. Like suspend, foretell is offered only once {2}
 floats, and the tactical guard taps mana only for a sink it can see, so in
@@ -551,14 +551,20 @@ each encoder (candidate, teacher target, decoding, the engine taking the
 decoded answer), and `netplay4::policy::questions_tests` has both sampling
 modes play the favoured answer with no house fallback.
 
-**Votes.** The engine asks Council's Judgment's votes as
-`Pending::ChooseCards { prompt: ChoicePrompt::Generic, min: 1, max: 1 }`,
-which every encoder already reads as the ChooseCards kind with one
-single-choice candidate per permanent (`feat[6]`). No encoder reads a
-`ChoicePrompt` or a `GameEvent`, so a `ChoicePrompt::Vote` on that question
-and a `GameEvent::Voted` need no encoder change; only a new `Pending`
-variant for votes would need a `PendingKind4::of` arm, mapped to
-`ChooseCards`, and a candidate arm like the ChooseCards one.
+**Votes.** The engine asks each ballot of Council's Judgment (CR 701.38a)
+as `Pending::ChooseCards { prompt: ChoicePrompt::Vote, min: 1, max: 1 }`,
+in turn order from the caster, and every ballot cast so far is public in
+`PlayerView::ballots`. Every encoder reads the question as the ChooseCards
+kind, one single-choice candidate per permanent (`feat[6]`), and a vote's
+candidates also carry the tally: `feat[16]` the votes for that permanent,
+`feat[17] = 1` (a vote), `feat[18]` the ballots cast (both `/ 8`).
+Encoders 7–9 group identical permanents into one candidate; for a vote the
+group key includes `feat[16]`, so a permanent that already has a vote
+stays a candidate of its own. A teacher's ballot for it is then learned as
+cast, and the net can vote with the caster instead of forcing a tie that
+exiles both. Every other question writes 0 there, so no older encoding
+moved. `encoder_contract::mechanics` plays a second ballot over two
+identical Sol Rings through each encoder.
 
 **Current objective (`LOSS_VERSION = 4`):** categorical cross-entropy and ordinary
 Bernoulli BCE use symmetric class treatment and unit policy-head coefficients.

@@ -152,8 +152,12 @@ fn deduplicate_grouped_single_choices(state: &EncodedState4, candidates: &mut Ve
                 source,
                 ability_index,
             }) => Some(((2, eidx, *ability_index), *source)),
+            // A vote's tally (slot 16, zero for every other question) tells
+            // otherwise identical permanents apart: the most votes decide
+            // which is exiled (CR 701.38a), so a ballot for the one already
+            // voted for is a different answer from a ballot for its twin.
             Some(PlayerAction::ChooseObjects { objects }) if objects.len() == 1 => {
-                Some(((3, eidx, 0), objects[0]))
+                Some(((3, eidx, cand.feat[16].to_bits()), objects[0]))
             }
             Some(PlayerAction::ChooseTargets { objects, players })
                 if objects.len() == 1 && players.is_empty() =>
