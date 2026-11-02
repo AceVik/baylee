@@ -223,13 +223,16 @@ option; use `cargo clippy --config ...` with the config after the subcommand.
 
 On 2026-11-02, the backend Central revision `24bf90dae9ae0175c6bcd4701bdebd87dd3e19d1` passed the real PostgreSQL 18 Central/Gateway integration, including the personal transport scenario. The focused core social tests (334), native social tests (153), account tests (9), workspace formatting and Clippy for those crates and the integration target passed. This verification used the committed Git dependency, without a local path override. Publish that Central revision before publishing the dependent native revision; these changes do not deploy either service.
 
-The coordinated deployment now pins Central `f66568b985656eb1677c33c6f6515e107b126c93`.
+The coordinated deployment now pins merged Central main
+`2b54a3944150a1aecbc20b94854966d787d31cd5` (Central PR #60).
 The hook selects Central and its website from the SDK pin, so it must include the
 completed PWA and its generated WASM, not just the earlier backend milestone.
-Publish this Central revision before the dependent native revision. The Rust SDK
-and backend code are unchanged from the verified backend pin above.
+Central published this revision before the dependent native revision. It also
+includes the reviewed migration-purpose checks and browser push/logout fixes;
+the crypto source and dependency graph remain unchanged from the preceding
+PWA pin `f66568b985656eb1677c33c6f6515e107b126c93`.
 
-The final PWA-inclusive pin passed `cargo dev central integration` against real
+The preceding PWA-inclusive pin passed `cargo dev central integration` against real
 PostgreSQL 18.6 (including personal chat and legacy cutover), all five advisory-guard
 regressions, and `cargo dev gate shipped-features`. Its lockfile change contains only
 the eight Central Git source revisions; no registry package or feature changed.
