@@ -206,8 +206,8 @@ retention policy. Original gameplay data and identifiers remain at the
 gateway; this integration does not relocate replay blobs or uploaded images.
 Native chat keys and complete retained private history are backed up in the
 client-encrypted Central account archive and restored without the source
-device. The sole active account session resumes one logical chat identity per
-gateway. An existing local vault is imported with a key derived from the
+device. The sole active account session resumes the account-derived personal chat
+identity; gateway-scoped encrypted archives remain separate. An existing local vault is imported with a key derived from the
 master key, which a password sign-in attached to it without modifying it; the
 password is dropped after that sign-in and never kept for the chat
 (`password-vault.md` §"The account key").

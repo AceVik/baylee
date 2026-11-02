@@ -32,8 +32,8 @@ use crate::lobby::LobbyState;
 #[cfg(not(target_arch = "wasm32"))]
 mod central;
 pub(crate) mod drawer;
-pub(crate) mod glass;
 mod driver;
+pub(crate) mod glass;
 pub(crate) mod keys;
 pub(crate) mod menu;
 pub(crate) mod rows;

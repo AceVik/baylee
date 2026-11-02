@@ -4,8 +4,8 @@ The native client keeps chat keys and history in the client-encrypted Central ac
 OPAQUE authenticates the account; only the serial account worker owns the SDK session
 and master key. A gateway receives an origin-bound admission capability and its own
 session token. `GatewayHttp` has no password operation. The only legacy password
-transport is the fixed official migration gateway (or an explicit numeric-loopback
-development fixture). Account deletion is refused in the native Central dispatcher
+transport is Central's discovered legacy sign-in over verified TLS (or an explicit
+numeric-loopback development fixture); no gateway receives that password. Account deletion is refused in the native Central dispatcher
 until a Central step-up and deletion flow exists.
 
 Central permits one active account session. A successful login revokes previous

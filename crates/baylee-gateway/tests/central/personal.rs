@@ -73,7 +73,7 @@ fn directory(account: &Account, crypto: &mut Chat, tags: &[u32]) {
     }
 }
 pub(super) fn run(runtime: &Runtime, db: &DatabaseConnection, endpoint: &Endpoint) {
-    let (alice, a, mut ac) = signed_in(runtime, db, endpoint, "synthetic", "a-very-fine-password");
+    let (alice, a, mut ac) = signed_in(runtime, db, endpoint, "synthetic", super::PASSWORD);
     let (bob, b, mut bc) = signed_in(
         runtime,
         db,
