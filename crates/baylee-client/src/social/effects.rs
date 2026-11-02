@@ -25,21 +25,7 @@ impl SocialHost {
                 method,
                 path,
                 body,
-            } => {
-                #[cfg(not(target_arch = "wasm32"))]
-                if central::request(self, &tag, method, &path, body.as_ref()) {
-                    return;
-                }
-                transport::request(
-                    &self.mailbox,
-                    &session.gateway,
-                    &session.token,
-                    tag,
-                    method,
-                    &path,
-                    body.as_ref(),
-                );
-            }
+            } => self.request_http(&session, tag, method, &path, body.as_ref()),
             Effect::Up(up) => self.send_up(up),
             Effect::Dial => {
                 #[cfg(not(target_arch = "wasm32"))]
@@ -122,6 +108,29 @@ impl SocialHost {
             Effect::OpenDrawer => self.asks.push(UiAsk::Drawer),
             Effect::Copy(text) => self.copy = Some(text),
         }
+    }
+
+    fn request_http(
+        &mut self,
+        session: &Session,
+        tag: social::HttpTag,
+        method: social::Method,
+        path: &str,
+        body: Option<&serde_json::Value>,
+    ) {
+        #[cfg(not(target_arch = "wasm32"))]
+        if central::request(self, &tag, method, path, body) {
+            return;
+        }
+        transport::request(
+            &self.mailbox,
+            &session.gateway,
+            &session.token,
+            tag,
+            method,
+            path,
+            body,
+        );
     }
 
     fn send_up(&mut self, up: baylee_protocol::social::Up) {

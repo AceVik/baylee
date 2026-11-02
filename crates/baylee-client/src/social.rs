@@ -8,16 +8,18 @@
 //! the machine holds. It never builds a frame or an HTTP body.
 //!
 //! - [`SocialHost`]: the machine, the transport, the secret store and the
-//!   chat folder, for as long as the lobby is signed in at a gateway whose
-//!   `/info` says it has chat. It persists across the lobby and the table.
+//!   chat folder for the lobby's signed-in session. Personal chat uses its
+//!   Central account, or a chat-enabled gateway for legacy sessions. The host
+//!   persists across the lobby and the table.
 //! - [`ChatUi`]: what the window shows (open, which tab, typing, the peek,
 //!   the drawer, the sheets), per device.
 //! - `window`: the one chat window, at the table in the log's place and in
 //!   the lobby docked bottom-right; `drawer` the friends list; `toasts`;
 //!   `sheet` the encryption notice, safety numbers and devices.
 //!
-//! Signed in nowhere, offline (`LocalHost`) or at a gateway with no chat,
-//! nothing here is drawn and the table's log panel is today's.
+//! Signed in nowhere or offline (`LocalHost`), nothing here is drawn. A
+//! Central session can use personal chat even when the gateway has no chat;
+//! a legacy session then keeps only the table's log panel.
 
 use std::collections::VecDeque;
 
