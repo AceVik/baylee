@@ -95,6 +95,17 @@ mod tests {
         assert!(!is_offered(&v("0.2.0"), &v("0.2.0")));
     }
 
+    #[test]
+    fn requested_beta_9c_keeps_semver_downgrade_protection() {
+        let requested = v("0.1.0-beta.9c");
+        assert_eq!(of_tag("v0.1.0-beta.9c"), Some(requested.clone()));
+        assert!(is_offered(&requested, &v("0.1.0-beta.9b")));
+        // The owner explicitly selected this base version after being told
+        // that existing 0.1.1 builds will not accept it as an update.
+        assert!(!is_offered(&requested, &v("0.1.1-beta.9b")));
+        assert!(!is_offered(&requested, &requested));
+    }
+
     /// Build metadata is not part of precedence: a rebuild of the same
     /// version is not offered as newer.
     #[test]

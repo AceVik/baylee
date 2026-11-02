@@ -34,7 +34,8 @@ baylee-protocol.workspace = true
 baylee-view.workspace = true
 # The header logo's accessible name (`shellkit::header::brand_mark`); bevy_a11y
 # no longer re-exports it, so the same version bevy links.
-accesskit = "0.24"
+# AccessibilityNode exposes Bevy 0.20.1's accesskit types directly.
+accesskit = "=0.24.1"
 bevy = { workspace = true, features = ["bevy_clipboard"] }
 getrandom.workspace = true
 zeroize.workspace = true

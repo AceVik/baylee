@@ -6,6 +6,7 @@ use crate::{
     power::Power,
     types::{Disk, Facts, Network, Point, Process, Snapshot, Temperature},
 };
+use anyhow::Context;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 use sysinfo::{Components, Disks, Networks, ProcessRefreshKind, ProcessesToUpdate, System};
 
@@ -21,34 +22,36 @@ pub(crate) struct Sampler {
 }
 
 impl Sampler {
-    pub fn new() -> Self {
-        let mut system = System::new();
+    pub fn new() -> anyhow::Result<Self> {
+        let mut system = System::new().context("System telemetry unavailable")?;
         system.refresh_cpu_all();
         system.refresh_memory();
         refresh_processes(&mut system);
-        Self {
+        Ok(Self {
             system,
-            networks: Networks::new_with_refreshed_list(),
-            components: Components::new_with_refreshed_list(),
-            disks: Disks::new_with_refreshed_list(),
+            networks: Networks::new_with_refreshed_list()
+                .context("Network telemetry unavailable")?,
+            components: Components::new_with_refreshed_list()
+                .context("Temperature telemetry unavailable")?,
+            disks: Disks::new_with_refreshed_list().context("Disk telemetry unavailable")?,
             gpu: Gpus::new(),
             power: Power::new(),
             previous: Instant::now(),
             disk_at: Instant::now(),
-        }
+        })
     }
 
     pub fn facts(&self, interval_ms: u64) -> Facts {
         Facts {
-            hostname: System::host_name().unwrap_or_else(|| "Workstation".into()),
-            os: System::long_os_version().unwrap_or_else(|| std::env::consts::OS.into()),
+            hostname: System::host_name().unwrap_or_else(|_| "Workstation".into()),
+            os: System::long_os_version().unwrap_or_else(|_| std::env::consts::OS.into()),
             cpu: self
                 .system
                 .cpus()
                 .first()
                 .map_or("CPU", sysinfo::Cpu::brand)
                 .into(),
-            physical_cores: System::physical_core_count(),
+            physical_cores: System::physical_core_count().ok(),
             threads: self.system.cpus().len(),
             interval_ms,
         }
@@ -78,24 +81,17 @@ impl Sampler {
             .iter()
             .filter(|(name, _)| *name != "lo")
             .map(|(name, data)| Network {
-                name: name.clone(),
+                name: name.to_string_lossy().into_owned(),
                 rx_bps: data.received() as f64 / elapsed,
                 tx_bps: data.transmitted() as f64 / elapsed,
             })
             .collect();
-        // Aggregate physical interfaces only; bridges/veth repeat the same traffic.
-        let physical: Vec<_> = networks
-            .iter()
-            .filter(|n| {
-                std::path::Path::new("/sys/class/net")
-                    .join(&n.name)
-                    .join("device")
-                    .exists()
-            })
-            .collect();
+        let (net_rx, net_tx) = physical_rates(&self.networks, elapsed);
         let processes = collect_processes(&self.system, &gpus, elapsed);
         let primary = gpus.first();
-        let load = System::load_average();
+        let load = System::load_average()
+            .ok()
+            .map(|load| [load.one, load.five, load.fifteen]);
         Snapshot {
             point: Point {
                 at_ms: SystemTime::now()
@@ -113,17 +109,12 @@ impl Sampler {
                     .filter(|v| !v.is_empty())
                     .map(|v| v.iter().sum()),
                 cpu_watts,
-                net_rx: physical.iter().map(|n| n.rx_bps).sum(),
-                net_tx: physical.iter().map(|n| n.tx_bps).sum(),
+                net_rx,
+                net_tx,
             },
-            uptime_secs: System::uptime(),
-            load: [load.one, load.five, load.fifteen],
-            cores: self
-                .system
-                .cpus()
-                .iter()
-                .map(sysinfo::Cpu::cpu_usage)
-                .collect(),
+            uptime_secs: System::uptime().ok(),
+            load,
+            cores: self.system.cpus().iter().map(sysinfo::Cpu::usage).collect(),
             ram_used: self.system.used_memory(),
             ram_total: self.system.total_memory(),
             swap_used: self.system.used_swap(),
@@ -170,6 +161,25 @@ fn refresh_processes(system: &mut System) {
             .with_memory()
             .with_disk_usage(),
     );
+}
+
+// Aggregate physical interfaces only; bridges/veth repeat the same traffic.
+// Keep native names for filesystem lookup, including non-UTF-8 interfaces.
+fn physical_rates(networks: &Networks, elapsed: f64) -> (f64, f64) {
+    networks
+        .iter()
+        .filter(|(name, _)| {
+            std::path::Path::new("/sys/class/net")
+                .join(name)
+                .join("device")
+                .exists()
+        })
+        .fold((0.0, 0.0), |(rx, tx), (_, data)| {
+            (
+                rx + data.received() as f64 / elapsed,
+                tx + data.transmitted() as f64 / elapsed,
+            )
+        })
 }
 
 fn percent(used: u64, total: u64) -> f64 {

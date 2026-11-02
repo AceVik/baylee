@@ -28,8 +28,8 @@ pub(crate) struct Point {
 #[derive(Clone, Serialize)]
 pub(crate) struct Snapshot {
     pub point: Point,
-    pub uptime_secs: u64,
-    pub load: [f64; 3],
+    pub uptime_secs: Option<u64>,
+    pub load: Option<[f64; 3]>,
     pub cores: Vec<f32>,
     pub ram_used: u64,
     pub ram_total: u64,

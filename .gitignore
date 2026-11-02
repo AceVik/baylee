@@ -1,4 +1,6 @@
 /target
+# The independent API workspace also supports direct Cargo invocations.
+/tools/api-docs/target/
 **/*.rs.bk
 .DS_Store
 

@@ -60,6 +60,12 @@ matching setting.
 
 ## Metric semantics
 
+With sysinfo 0.40, unavailable uptime/load values are JSON `null` and displayed
+as unavailable, rather than a fabricated zero. Failure to initialize a required
+system provider returns a startup error. Interface names are used in their
+native OS representation for physical-device detection and converted only for
+display; collecting aggregate rates does not allocate an extra interface list.
+
 - CPU overview is a percentage of all logical CPUs; process CPU uses 100% per
   logical CPU and can exceed 100%. Physical cores and threads are separate.
   Startup waits one sampling interval for a second CPU observation.

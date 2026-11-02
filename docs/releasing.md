@@ -31,6 +31,13 @@ start, and each `README.txt` explains how to get past the warning.
 
 ## Version numbers
 
+Preparation on 2 November 2026 deliberately uses **`0.1.0-beta.9c`**, exactly
+as confirmed by the owner, including the dot before `9c`. It is lower than
+the previously prepared `0.1.1-beta.9b`. The updater's SemVer/downgrade checks
+remain unchanged: existing `0.1.1` installations will not be offered this
+version. A regression test records that consequence. This preparation does
+not create a tag, publish binaries or deploy any service.
+
 `workspace.package.version` is the one version. `baylee-build` stamps it into
 every binary together with the commit and the CI run.
 While the version is `0.x`:
