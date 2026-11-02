@@ -110,7 +110,7 @@ Its `U256` is a typenum length, not `crypto_bigint::U256`. The affected
 arithmetic is therefore unreachable through this reviewed fixed suite; this
 is not a general safety claim for bigint 0.5.5.
 
-The current pin `24bf90dae9ae0175c6bcd4701bdebd87dd3e19d1` was re-reviewed
+The crypto source at `24bf90dae9ae0175c6bcd4701bdebd87dd3e19d1` was re-reviewed
 by the implementing agent on 2026-11-02; this is not an independent audit. The
 fixed suite and all OPAQUE operations are unchanged. Its only OPAQUE source changes
 make the existing Argon2 work-buffer guard crate-visible for legacy verification.
@@ -121,7 +121,11 @@ all-feature graph retains exactly the reverse edges below. Central's own
 `dc888a48775be2adcdc5ece504a4b0c3683dc4d08dbd809b5f6071a7eb54b871`
 and exact curve/signature features; its review is in
 `docs/crypto-proposal/bigint-advisory.md` at that immutable revision. The native
-guard pins this exact revision; no scanner ignore or allowed reverse edge changes.
+guard now pins `f66568b985656eb1677c33c6f6515e107b126c93`, which includes the finished
+PWA used by the deployment hook. Its entire Rust crate tree, Cargo manifest,
+lockfile and toolchain are byte-identical to the reviewed backend revision above;
+only website artifacts, legal texts and documentation changed. No scanner ignore or allowed reverse
+edge changes.
 
 `deny.toml` and the audit job exclude this advisory only under that reviewed
 scope. The required `shipped-features` job and local feature gate run
