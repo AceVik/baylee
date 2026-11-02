@@ -69,7 +69,7 @@ current dependency chain contains 0.5.5 through `elliptic-curve` 0.13.8,
 `voprf` 0.5.0 and `opaque-ke` 4.0.1. The elliptic-curve dependency requires
 bigint 0.5, so changing the lockfile to 0.7.6 is not a compatible upgrade.
 
-The specific Central revision
+The former Central revision
 `0a941953f8c0d5573e82e0979e7faf1fb9e40299` contains the `central-crypto`
 source tree reviewed independently by two models on 24.10.2026, with two
 additions. The 31.10.2026 pin (Central #54, and #52's version) adds the
@@ -109,6 +109,19 @@ hashes, byte arrays, XOR and public lengths; they perform no bigint arithmetic.
 Its `U256` is a typenum length, not `crypto_bigint::U256`. The affected
 arithmetic is therefore unreachable through this reviewed fixed suite; this
 is not a general safety claim for bigint 0.5.5.
+
+The current pin `24bf90dae9ae0175c6bcd4701bdebd87dd3e19d1` was re-reviewed
+by the implementing agent on 2026-11-02; this is not an independent audit. The
+fixed suite and all OPAQUE operations are unchanged. Its only OPAQUE source changes
+make the existing Argon2 work-buffer guard crate-visible for legacy verification.
+The added HPKE pairing uses X25519/HKDF/ChaCha, and chat uses Ed25519/X25519 and
+XChaCha20-Poly1305. Neither added path calls the affected arithmetic. The actual
+all-feature graph retains exactly the reverse edges below. Central's own
+`cargo xtask crypto-scope` additionally pins the complete crypto source fingerprint
+`dc888a48775be2adcdc5ece504a4b0c3683dc4d08dbd809b5f6071a7eb54b871`
+and exact curve/signature features; its review is in
+`docs/crypto-proposal/bigint-advisory.md` at that immutable revision. The native
+guard pins this exact revision; no scanner ignore or allowed reverse edge changes.
 
 `deny.toml` and the audit job exclude this advisory only under that reviewed
 scope. The required `shipped-features` job and local feature gate run
