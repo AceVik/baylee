@@ -576,3 +576,85 @@ fn the_seat_teferi_locks_is_told_which_card_is_locking_it() {
         "the static is the lock, not the +1: nobody's sorceries have flash"
     );
 }
+
+/// A reflexive or synthetic trigger (`AbilityRef::SYNTHETIC`) asking for its
+/// target as it goes on the stack (CR 603.12, CR 603.3d) exposes its source
+/// card, effect slice, and exact Oracle sentence to the choosing seat.
+#[test]
+fn reflexive_synthetic_trigger_target_exposes_source_and_sentence_in_targeting_context() {
+    let entry = |name: &str| DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
+        card: baylee_cards::decks::by_name(name).unwrap(),
+        print: PrintRef::new(0),
+    };
+    let mut preset = mixed_print_preset();
+    preset.seats[0].starting_battlefield = vec![
+        entry("Eden, Seat of the Sanctum"),
+        entry("Forest"),
+        entry("Forest"),
+        entry("Forest"),
+        entry("Forest"),
+        entry("Forest"),
+    ];
+    let mut engine = Engine::new(&preset, Registry).unwrap();
+    let view = settle(&mut engine, None);
+    let me = PlayerId::new(0);
+    let eden = view
+        .battlefield
+        .iter()
+        .find(|o| o.name == "Eden, Seat of the Sanctum")
+        .unwrap()
+        .id;
+    for land in view.battlefield.iter().filter(|o| o.name == "Forest") {
+        engine
+            .apply(me, PlayerAction::ActivateManaAbility { source: land.id })
+            .unwrap();
+    }
+    engine
+        .apply(
+            me,
+            PlayerAction::ActivateAbility {
+                source: eden,
+                ability_index: 1,
+            },
+        )
+        .unwrap();
+    while let Pending::Priority { player, .. } = engine.pending().clone() {
+        engine.apply(player, PlayerAction::PassPriority).unwrap();
+    }
+    assert!(matches!(engine.pending(), Pending::YesNo { .. }));
+    engine.apply(me, PlayerAction::YesNo(true)).unwrap();
+    assert!(
+        matches!(engine.pending(), Pending::ChooseTargets { .. }),
+        "expected reflexive ChooseTargets, got {:?}",
+        engine.pending()
+    );
+    let dctx = engine.decision_context();
+    assert_eq!(dctx.source, Some(eden));
+    assert_eq!(
+        dctx.ability_index,
+        Some(baylee_core::ids::AbilityRef::SYNTHETIC)
+    );
+    assert!(
+        !dctx.effects.is_empty(),
+        "synthetic trigger decision_context must carry its effects for AI target evaluation"
+    );
+    let context = targeting_context(&engine, me).expect("targeting_context for reflexive trigger");
+    assert_eq!(context.source.id, eden);
+    assert_eq!(context.source.name, "Eden, Seat of the Sanctum");
+    let text = context
+        .text
+        .expect("reflexive trigger should resolve to its Oracle sentence");
+    let sentence = baylee_cards::oracle::sentence(
+        baylee_cards::decks::by_name("Eden, Seat of the Sanctum").unwrap(),
+        usize::from(text.face),
+        text.line,
+    )
+    .unwrap();
+    assert!(
+        sentence.contains("When you do, return another target permanent card"),
+        "unexpected sentence: {sentence}"
+    );
+    assert!(targeting_context(&engine, PlayerId::new(1)).is_none());
+}

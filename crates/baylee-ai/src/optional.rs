@@ -47,14 +47,46 @@ fn blocker_strength(o: &PublicObject) -> i64 {
 /// else is assumed to hold, as before, because the engine is the one that
 /// knows.
 fn closed(view: &PlayerView, condition: &Condition) -> bool {
+    let me = baylee_client_core::decision::resource_player(view);
     match condition {
-        Condition::MaxSpeed => view.seat(view.seat).is_none_or(|seat| seat.speed != 4),
-        Condition::YourTurn => view.active != view.seat,
-        Condition::OpponentsTurn => view.active == view.seat,
+        Condition::MaxSpeed => view.seat(me).is_none_or(|seat| seat.speed != 4),
+        Condition::YourTurn => view.active != me,
+        Condition::OpponentsTurn => view.active == me,
         Condition::DuringCombat => view.phase != baylee_view::Phase::Combat,
         Condition::DuringStep(step) => !during(view, *step),
         Condition::BeforeStep(step) => {
             turn_position(view.phase, view.step) >= baylee_engine::turn::position_of(*step)
+        }
+        Condition::ControlCount(filter, min) => {
+            let agent = HeuristicAgent::new(crate::AIProfile::default());
+            view.battlefield_of(me)
+                .filter(|o| {
+                    agent.filter_matches(
+                        filter,
+                        view,
+                        o,
+                        baylee_cards_dsl::ZoneRef::Battlefield,
+                        None,
+                    ) != Some(false)
+                })
+                .count()
+                < usize::from(*min)
+        }
+        Condition::BattlefieldCountAtMost(filter, max) => {
+            let agent = HeuristicAgent::new(crate::AIProfile::default());
+            view.battlefield
+                .iter()
+                .filter(|o| {
+                    agent.filter_matches(
+                        filter,
+                        view,
+                        o,
+                        baylee_cards_dsl::ZoneRef::Battlefield,
+                        None,
+                    ) == Some(true)
+                })
+                .count()
+                > usize::from(*max)
         }
         Condition::All(parts) => parts.iter().any(|c| closed(view, c)),
         Condition::Any(parts) => parts.iter().all(|c| closed(view, c)),

@@ -668,3 +668,128 @@ fn grist_is_a_creature_spell_on_the_stack_that_remove_soul_can_counter() {
         "and lies in its owner's graveyard"
     );
 }
+
+/// Because Grist is a 1/1 Insect creature spell in addition to being a
+/// planeswalker spell while on the stack (CR 113.6b-c), Negate ("Counter
+/// target noncreature spell") has no legal target when Grist is the only spell
+/// on the stack.
+#[test]
+fn grist_is_a_creature_spell_on_the_stack_that_negate_cannot_target() {
+    let (p0, p1) = (kit::P0, kit::P1);
+    let negate = baylee_core::generated::index::NEGATE;
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[swamp(), forest(), swamp()])
+        .hand(0, &[grist_the_hunger_tide()])
+        .battlefield(1, &[island(), island()])
+        .hand(1, &[negate])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    cast_from_hand(&mut engine, p0, grist_the_hunger_tide());
+    let spell = on_stack(&engine, grist_the_hunger_tide()).expect("Grist is on the stack");
+    assert!(types(&engine, spell).contains(TypeSet::CREATURE));
+    assert!(types(&engine, spell).contains(TypeSet::PLANESWALKER));
+    assert_eq!(pt(&engine, spell), (1, 1));
+    assert!(kit::has_subtype(&engine, spell, creature::INSECT));
+
+    kit::let_the_engine_step(&mut engine);
+    let negate_id = in_hand(&engine, p1, negate).expect("Negate in hand");
+    let Pending::Priority { player, legal } = engine.pending() else {
+        panic!("expected priority for p1: {:?}", engine.pending());
+    };
+    assert_eq!(*player, p1);
+    assert!(
+        !legal.castable.contains(&negate_id) && !legal.payable.contains(&negate_id),
+        "Negate cannot target a creature spell on the stack"
+    );
+}
+
+/// Grist's off-battlefield static ability ("As long as Grist isn't on the
+/// battlefield, it's a 1/1 Insect creature in addition to its other types",
+/// CR 113.6b-c, CR 604.2) stops applying the instant Grist enters the
+/// battlefield and resumes the instant Grist leaves the battlefield:
+/// - Resolving Grist onto the battlefield alongside Soul Warden ("Whenever
+///   another creature enters, you gain 1 life") does not trigger Soul Warden,
+///   and on the battlefield Grist is a Planeswalker only (neither a Creature
+///   nor an Insect).
+/// - When Grist leaves the battlefield for the graveyard or exile, it is
+///   immediately a 1/1 Insect Planeswalker Creature card again, even before
+///   the next `sync_board_rules` pass runs.
+#[test]
+fn grist_resolves_as_a_noncreature_planeswalker_and_becomes_a_creature_card_again_on_leaving() {
+    let p0 = kit::P0;
+    let soul_warden = baylee_core::generated::index::SOUL_WARDEN;
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[soul_warden, swamp(), forest(), swamp()])
+        .hand(0, &[grist_the_hunger_tide()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    cast_from_hand(&mut engine, p0, grist_the_hunger_tide());
+    pass_until(&mut engine, stack_is_empty);
+
+    let grist = on_battlefield(&engine, p0, grist_the_hunger_tide()).expect("Grist resolved");
+    assert_eq!(
+        kit::life(&engine, p0),
+        20,
+        "Soul Warden must not trigger when Grist enters the battlefield"
+    );
+    assert!(
+        !types(&engine, grist).contains(TypeSet::CREATURE),
+        "on the battlefield Grist is not a creature"
+    );
+    assert!(
+        types(&engine, grist).contains(TypeSet::PLANESWALKER),
+        "on the battlefield Grist is a planeswalker"
+    );
+    assert!(
+        !kit::has_subtype(&engine, grist, creature::INSECT),
+        "on the battlefield Grist is not an Insect"
+    );
+
+    // Move Grist from the battlefield to the graveyard and refresh
+    // characteristics directly without running `sync_board_rules`.
+    engine
+        .state
+        .move_object(
+            grist,
+            crate::zone::ZoneLocation::Graveyard(p0),
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::Destroy,
+        )
+        .unwrap();
+    engine.state.refresh_characteristics();
+
+    assert!(
+        types(&engine, grist).contains(TypeSet::CREATURE),
+        "immediately upon entering the graveyard from the battlefield, Grist is a creature card"
+    );
+    assert!(
+        types(&engine, grist).contains(TypeSet::PLANESWALKER),
+        "and still a planeswalker card"
+    );
+    assert!(
+        kit::has_subtype(&engine, grist, creature::INSECT),
+        "and an Insect card"
+    );
+    assert_eq!(pt(&engine, grist), (1, 1));
+
+    // And moving from the graveyard to exile keeps the off-battlefield static
+    // active immediately as well.
+    engine
+        .state
+        .move_object(
+            grist,
+            crate::zone::ZoneLocation::Exile(p0),
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::Effect,
+        )
+        .unwrap();
+    engine.state.refresh_characteristics();
+
+    assert!(types(&engine, grist).contains(TypeSet::CREATURE));
+    assert!(kit::has_subtype(&engine, grist, creature::INSECT));
+    assert_eq!(pt(&engine, grist), (1, 1));
+}

@@ -665,4 +665,213 @@ mod tests {
             "mana_for should plan 3 Swamps for Phyrexian Metamorph in hand"
         );
     }
+
+    #[test]
+    fn ability_reach_and_options_cover_hand_cycling_face_down_turn_up_and_room_unlock() {
+        use baylee_client_core::i18n::Lang;
+        use baylee_core::generated::subtypes::land;
+        use baylee_core::ids::PrintRef;
+        use baylee_core::mana::ManaCost;
+        use baylee_core::types::{SubtypeSet, TypeSet};
+        use baylee_engine::choice::{LegalActions, TURN_FACE_UP, unlock_door};
+        use baylee_view::{CardIdentity, HandObject, ObjectStatus, PublicObject};
+
+        let card_id = |name: &str| CardIdentity {
+            index: baylee_cards::decks::by_name(name).expect(name),
+            print: PrintRef::new(0),
+            face: 0,
+        };
+        let closet_id = CardIdentity {
+            index: baylee_cards::by_oracle_id("52e77cc3-f8e9-4a20-811b-fe1e46a96ad7")
+                .expect("Walk-In Closet // Forgotten Cellar")
+                .index,
+            print: PrintRef::new(0),
+            face: 0,
+        };
+        let forest = |slot: u32| PublicObject {
+            types: TypeSet::LAND,
+            subtypes: SubtypeSet::from_slice(&[land::FOREST]),
+            power: None,
+            toughness: None,
+            ..token(slot, 0, "Forest", 0, 0)
+        };
+        let cavern = PublicObject {
+            status: ObjectStatus::FACE_DOWN,
+            card: Some(card_id("Zoetic Cavern")),
+            ..token(50, 0, "", 2, 2)
+        };
+        let room = PublicObject {
+            types: TypeSet::ENCHANTMENT,
+            unlocked_doors: Some([false, false]),
+            card: Some(closet_id),
+            rules: Some(closet_id.into()),
+            ..token(51, 0, "Walk-In Closet", 0, 0)
+        };
+        let mut view = ViewBuilder::new(2)
+            .with_battlefield(0, vec![forest(1), forest(2), forest(3), cavern, room])
+            .build();
+        view.hand.push(HandObject {
+            id: obj(60),
+            card: card_id("Ash Barrens"),
+            name: "Ash Barrens".to_string(),
+            mana_value: 0,
+            colors: baylee_core::color::ColorSet::default(),
+            types: TypeSet::LAND,
+            commander: false,
+        });
+
+        let legal = LegalActions {
+            mana_abilities: vec![obj(1), obj(2), obj(3)],
+            unpaid_abilities: vec![
+                (obj(50), TURN_FACE_UP, ManaCost::parse("{2}")),
+                (obj(51), unlock_door(0), ManaCost::parse("{2}{G}")),
+                (obj(51), unlock_door(1), ManaCost::parse("{3}{G}{G}")),
+                (obj(60), 1, ManaCost::parse("{1}")),
+            ],
+            ..LegalActions::default()
+        };
+        let duel = Duel {
+            interaction: Some(Interaction::new(
+                Pending::Priority {
+                    player: view.seat,
+                    legal: Box::new(legal.clone()),
+                },
+                view.seat,
+            )),
+            view: Some(view.clone()),
+            ..Duel::default()
+        };
+        let interaction = duel.interaction.as_ref().expect("interaction");
+
+        let reach = ability_reach(&duel);
+        assert!(reach.contains(&obj(50)) && reach.contains(&obj(51)) && reach.contains(&obj(60)));
+
+        let cavern_opts =
+            crate::abilities::options_for(Lang::En, &view, interaction, obj(50), None);
+        assert_eq!(cavern_opts.len(), 1);
+        assert_eq!(cavern_opts[0].cost.as_deref(), Some("{2}"));
+        assert_eq!(
+            crate::abilities::mana_for(&view, &legal, obj(50), TURN_FACE_UP).map(|p| p.taps()),
+            Some(2)
+        );
+
+        let room_opts = crate::abilities::options_for(Lang::En, &view, interaction, obj(51), None);
+        assert_eq!(room_opts.len(), 1);
+        assert_eq!(room_opts[0].cost.as_deref(), Some("{2}{G}"));
+        assert_eq!(
+            crate::abilities::mana_for(&view, &legal, obj(51), unlock_door(0)).map(|p| p.taps()),
+            Some(3)
+        );
+        assert!(crate::abilities::mana_for(&view, &legal, obj(51), unlock_door(1)).is_none());
+
+        let barrens_opts =
+            crate::abilities::options_for(Lang::En, &view, interaction, obj(60), None);
+        assert_eq!(barrens_opts.len(), 1);
+        assert_eq!(
+            crate::abilities::mana_for(&view, &legal, obj(60), 1).map(|p| p.taps()),
+            Some(1)
+        );
+        assert!(crate::abilities::printed_words(None, &view, obj(60), &barrens_opts[0]).is_some());
+    }
+
+    #[test]
+    fn derelor_colored_tax_and_wild_growth_bonus_govern_client_reach_and_mana_for() {
+        use baylee_core::generated::subtypes::land;
+        use baylee_core::ids::{PrintRef, SubtypeId};
+        use baylee_core::types::{SubtypeSet, TypeSet};
+        use baylee_engine::choice::{CastModeKind, LegalActions};
+        use baylee_view::{CardIdentity, HandObject, PublicObject};
+
+        let card_id = |name: &str| CardIdentity {
+            index: baylee_cards::decks::by_name(name).expect(name),
+            print: PrintRef::new(0),
+            face: 0,
+        };
+        let basic = |slot: u32, name: &str, sub: SubtypeId| PublicObject {
+            types: TypeSet::LAND,
+            subtypes: SubtypeSet::from_slice(&[sub]),
+            power: None,
+            toughness: None,
+            ..token(slot, 0, name, 0, 0)
+        };
+        let derelor_id = card_id("Derelor");
+        let derelor = PublicObject {
+            card: Some(derelor_id),
+            rules: Some(derelor_id.into()),
+            ..token(10, 0, "Derelor", 4, 4)
+        };
+        let wg_id = card_id("Wild Growth");
+        let wild_growth = PublicObject {
+            types: TypeSet::ENCHANTMENT,
+            attached_to: Some(obj(3)),
+            card: Some(wg_id),
+            rules: Some(wg_id.into()),
+            ..token(11, 0, "Wild Growth", 0, 0)
+        };
+        let hand_card = |slot: u32, name: &str, types: TypeSet| {
+            let cid = card_id(name);
+            let def = baylee_cards::by_index(cid.index).expect(name);
+            HandObject {
+                id: obj(slot),
+                card: cid,
+                name: name.to_string(),
+                mana_value: 1,
+                colors: def.faces[0].mana_cost.colors(),
+                types,
+                commander: false,
+            }
+        };
+
+        let mut view = ViewBuilder::new(2)
+            .with_battlefield(
+                0,
+                vec![
+                    basic(1, "Swamp", land::SWAMP),
+                    basic(2, "Mountain", land::MOUNTAIN),
+                    basic(3, "Forest", land::FOREST),
+                    derelor,
+                    wild_growth,
+                ],
+            )
+            .build();
+        view.hand = vec![
+            hand_card(60, "Dark Ritual", TypeSet::INSTANT),
+            hand_card(61, "Grizzly Bears", TypeSet::CREATURE),
+        ];
+
+        let mut legal = LegalActions {
+            mana_abilities: vec![obj(1), obj(2), obj(3)],
+            spell_increases: vec![(obj(60), CastModeKind::Normal, 1)],
+            ..LegalActions::default()
+        };
+        let make_duel = |v: &baylee_view::PlayerView, l: &LegalActions| Duel {
+            interaction: Some(Interaction::new(
+                Pending::Priority {
+                    player: v.seat,
+                    legal: Box::new(l.clone()),
+                },
+                v.seat,
+            )),
+            view: Some(v.clone()),
+            ..Duel::default()
+        };
+
+        let duel = make_duel(&view, &legal);
+        let reach = reachable(&duel);
+        assert!(
+            !reach.contains(&obj(60)),
+            "Dark Ritual costs {{B}}{{B}} under Derelor"
+        );
+        assert!(
+            reach.contains(&obj(61)),
+            "Grizzly Bears is reachable from Wild Growth Forest"
+        );
+        assert_eq!(crate::mana_for(&duel, obj(61)).map(|p| p.taps()), Some(1));
+
+        view.battlefield.push(basic(4, "Swamp", land::SWAMP));
+        legal.mana_abilities.push(obj(4));
+        let duel = make_duel(&view, &legal);
+        assert!(reachable(&duel).contains(&obj(60)));
+        assert_eq!(crate::mana_for(&duel, obj(60)).map(|p| p.taps()), Some(2));
+    }
 }

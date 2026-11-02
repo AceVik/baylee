@@ -607,24 +607,26 @@ pub struct AbilityReach {
 /// it.
 #[must_use]
 pub fn reachable(view: &PlayerView, legal: &LegalActions) -> Vec<Reach> {
-    if baylee_ai::mana_sources(view, legal).is_empty() {
+    let sources = baylee_ai::mana_sources(view, legal);
+    if sources.is_empty() {
         return Vec::new();
     }
-    let Some(pool) = view
-        .seat(baylee_client_core::decision::resource_player(view))
-        .map(|seat| seat.mana_pool)
-    else {
+    let me = baylee_client_core::decision::resource_player(view);
+    let Some(pool) = view.seat(me).map(|seat| seat.mana_pool) else {
         return Vec::new();
     };
-    let convoke_creatures = view
+    let mut convoke_creatures: Vec<baylee_core::color::ColorSet> = view
         .battlefield
         .iter()
         .filter(|o| {
-            o.controller == view.seat
+            o.controller == me
                 && o.types.contains(TypeSet::CREATURE)
                 && !o.status.is_tapped()
+                && !sources.iter().any(|s| s.id == o.id)
         })
-        .count();
+        .map(|o| o.colors)
+        .collect();
+    convoke_creatures.sort_by_key(|c| c.len());
     // `{X}` at its least: the caster chooses it (CR 107.3a), the matcher
     // will not guess at it, and a spell castable with X = 0 is castable.
     // A plan with nothing to tap is no reach: the mana is in the pool
@@ -635,9 +637,8 @@ pub fn reachable(view: &PlayerView, legal: &LegalActions) -> Vec<Reach> {
             cost.symbols().next()?;
             let increase = baylee_ai::spell_mana_increase(view, id, card, legal, mode);
             let mut total = cost.with_x(0).combine(&increase);
-            if has_convoke(card) && convoke_creatures > 0 {
-                let reduce = u32::try_from(convoke_creatures).unwrap_or(u32::MAX);
-                total = total.with_less_generic(reduce);
+            if has_convoke(card) && !convoke_creatures.is_empty() {
+                total = reduce_for_convoke(total, &convoke_creatures);
             }
             baylee_ai::plan_for_spell(&total, &pool, view, legal, id)
                 .filter(|plan| !plan.steps.is_empty())
@@ -873,6 +874,25 @@ fn has_convoke(card: baylee_view::CardIdentity) -> bool {
     baylee_cards::by_index(card.index)
         .and_then(|def| def.faces.get(usize::from(card.face)).or(def.faces.first()))
         .is_some_and(|face| face.convoke)
+}
+
+fn reduce_for_convoke(cost: ManaCost, creatures: &[baylee_core::color::ColorSet]) -> ManaCost {
+    let mut available: Vec<baylee_core::color::ColorSet> = creatures.to_vec();
+    let mut out = ManaCost::ZERO;
+    for symbol in cost.symbols() {
+        let sym_colors = symbol.colors();
+        if !sym_colors.is_empty()
+            && let Some(idx) = available
+                .iter()
+                .position(|c| !c.intersection(sym_colors).is_empty())
+        {
+            available.remove(idx);
+            continue;
+        }
+        out = out.with_symbol(symbol, 1);
+    }
+    let remaining = u32::try_from(available.len()).unwrap_or(u32::MAX);
+    out.with_less_generic(remaining)
 }
 
 /// A card face's printed mana cost.

@@ -1035,6 +1035,51 @@ impl GameState {
                         _ => {}
                     }
                 }
+            } else if to
+                .zone()
+                .matches_ref(baylee_cards_dsl::ZoneRef::NotBattlefield)
+                && let Some((owner, timestamp, abilities)) = self.object(id).map(|obj| {
+                    let controller = if matches!(obj.zone, Zone::Battlefield | Zone::Stack) {
+                        obj.controller
+                    } else {
+                        obj.owner
+                    };
+                    (
+                        controller,
+                        obj.timestamp,
+                        obj.printed_abilities(self.bases.as_ref()),
+                    )
+                })
+            {
+                for (index, ability) in abilities.iter().enumerate() {
+                    let baylee_cards_dsl::AbilityDef::Static(sa) = ability else {
+                        continue;
+                    };
+                    if sa.source_zone != baylee_cards_dsl::ZoneRef::NotBattlefield
+                        || sa.condition.is_some()
+                    {
+                        continue;
+                    }
+                    let effect_id = self.effects.register(crate::effects::ContinuousEffect {
+                        id: baylee_core::ids::EffectId::new(0),
+                        source: Some(id),
+                        controller: owner,
+                        origin: crate::effects::EffectOrigin::Static,
+                        layer: sa.layer,
+                        timestamp,
+                        duration: baylee_cards_dsl::Duration::WhileSourceInZone(sa.source_zone),
+                        filter: crate::effects::EffectFilter::Dsl(&sa.filter),
+                        modifier: sa.modifier,
+                    });
+                    self.effect_text_overrides.push((
+                        effect_id,
+                        crate::text_changes::TextOrigin::Ability {
+                            source: new_identity,
+                            index: index as u32,
+                            base: abilities.base_text(index),
+                        },
+                    ));
+                }
             }
         }
         if to.zone() == Zone::Battlefield {

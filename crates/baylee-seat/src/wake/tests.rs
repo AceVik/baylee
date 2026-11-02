@@ -36,6 +36,7 @@ fn permanent(slot: u32, name: &str) -> PublicObject {
     object.card = Some(identity(name));
     object.rules = object.card.map(RulesFace::from);
     object.types = def(name).faces[0].types;
+    object.colors = def(name).faces[0].mana_cost.colors();
     // A basic land's mana is read off its land type (CR 305.6).
     object.subtypes = baylee_core::types::SubtypeSet::from_slice(def(name).faces[0].subtypes);
     object
@@ -674,4 +675,127 @@ fn combat_begin_stop_accepts_beginning_combat_aliases() {
     filter.apply_orders(Some(&stops), None, 0, &view, &[]);
     assert!(filter.stops_at(RailSide::Mine, RailRow::CombatBegin));
     assert!(filter.stops_at(RailSide::Theirs, RailRow::CombatBegin));
+}
+
+#[test]
+fn convoke_reduces_generic_and_matching_colored_pips_without_double_counting_mana_dorks() {
+    // Chord of Calling is {X}{G}{G}{G} with Convoke (CR 702.51a).
+    // Two Forests + one white creature (Eager Cadet) cannot pay the third {G}.
+    let (mut view, legal) = table(&["Forest", "Forest"], &["Chord of Calling"]);
+    view.battlefield.push(permanent(10, "Eager Cadet"));
+    assert!(
+        reachable(&view, &legal).is_empty(),
+        "a white creature cannot convoke a green pip on Chord of Calling"
+    );
+
+    // Replacing Eager Cadet with a green creature (Grizzly Bears) convokes the third {G}.
+    view.battlefield.pop();
+    view.battlefield.push(permanent(10, "Grizzly Bears"));
+    let reach = reachable(&view, &legal);
+    assert_eq!(
+        reach.len(),
+        1,
+        "two Forests + one green creature pay {{G}}{{G}}{{G}} via Convoke"
+    );
+    assert_eq!(reach[0].plan.steps.len(), 2);
+
+    // Siege Wurm is {5}{G}{G} with Convoke.
+    // One Forest + one active Llanowar Elves (which is already a mana source in legal.abilities)
+    // + four white creatures = only 6 total mana/convoke, not 7 (Llanowar Elves is not double-counted).
+    let (mut view, legal) = table(&["Forest", "Llanowar Elves"], &["Siege Wurm"]);
+    for slot in 10..14 {
+        view.battlefield.push(permanent(slot, "Eager Cadet"));
+    }
+    assert!(
+        reachable(&view, &legal).is_empty(),
+        "an active mana dork must not be double-counted as both a mana source and a convoke tap"
+    );
+    // Adding a fifth white creature reaches {5}{G}{G} (Forest + Elves pay {G}{G}, 5 Cadets convoke {5}).
+    view.battlefield.push(permanent(14, "Eager Cadet"));
+    assert_eq!(reachable(&view, &legal).len(), 1);
+}
+
+#[test]
+fn self_tapping_unpaid_ability_cannot_tap_its_own_source_for_mana() {
+    // Eden, Seat of the Sanctum has 0: {T}: Add {C} and 1: {5}, {T}: Mill two cards...
+    // With 4 Forests + Eden itself untapped (5 mana sources total, including Eden),
+    // Eden's ability 1 ({5}, {T}) is NOT reachable because Eden cannot tap itself for {C}
+    // and also tap itself to pay {T} of ability 1.
+    let (mut view, mut legal) = table(
+        &[
+            "Forest",
+            "Forest",
+            "Forest",
+            "Forest",
+            "Eden, Seat of the Sanctum",
+        ],
+        &[],
+    );
+    legal
+        .unpaid_abilities
+        .push((o(5), 1, "{5}".parse::<ManaCost>().unwrap()));
+    assert!(
+        reachable_abilities(&view, &legal).is_empty(),
+        "Eden cannot tap itself for mana to pay for its own {{5}}, {{T}} ability"
+    );
+    // Adding a fifth Forest makes Eden's ability 1 reachable without tapping Eden for mana.
+    view.battlefield.push(permanent(6, "Forest"));
+    legal.mana_abilities.push(o(6));
+    let reach = reachable_abilities(&view, &legal);
+    assert_eq!(reach.len(), 1);
+    assert!(
+        reach[0].plan.steps.iter().all(|s| s.source != o(5)),
+        "the mana plan for Eden's {{T}} ability must not tap Eden"
+    );
+}
+
+#[test]
+fn mdfc_spell_pitch_spell_and_graveyard_exile_permissions_are_reachable() {
+    // 1. MDFC spell front face (Shatterskull Smashing {X}{R}{R}) remains reachable as a spell
+    // even when its back land face puts its ObjectId in legal.lands.
+    let (view, mut legal) = table(&["Mountain", "Mountain"], &["Shatterskull Smashing"]);
+    legal.lands.push(o(20));
+    let reach = reachable(&view, &legal);
+    assert_eq!(reach.len(), 1);
+    assert_eq!(reach[0].object, o(20));
+    assert_eq!(reach[0].from, ReachFrom::Hand);
+
+    // 2. Pitch spell (Force of Will {3}{U}{U}) in legal.castable (because it can be pitch-cast)
+    // is still offered in reachable when lands can pay its mana cost and the pool does not yet hold {3}{U}{U}.
+    let (mut view, mut legal) = table(
+        &["Island", "Island", "Island", "Island", "Island"],
+        &["Force of Will"],
+    );
+    view.stack.push(token(90, 1, "Shock", 0, 0));
+    legal.castable.push(o(20));
+    let reach = reachable(&view, &legal);
+    assert_eq!(
+        reach.len(),
+        1,
+        "pitch spell in legal.castable should still have a tap plan for its normal mana cost"
+    );
+    // Once {3}{U}{U} is already floating in the pool, no tap plan is needed.
+    view.seats[0].mana_pool.blue = 5;
+    assert!(reachable(&view, &legal).is_empty());
+
+    // 3. Graveyard flashback and Exile payable permissions.
+    let (mut view, mut legal) = table(&["Forest", "Forest"], &[]);
+    let mut gy_card = permanent(70, "Grizzly Bears");
+    gy_card.flashback = Some("{1}{G}".parse::<ManaCost>().unwrap());
+    view.graveyards[0].push(gy_card);
+    let ex_card = permanent(71, "Grizzly Bears");
+    view.exile[0].push(ex_card);
+    legal.payable.push(o(71));
+    let reach = reachable(&view, &legal);
+    assert_eq!(reach.len(), 2);
+    assert!(
+        reach
+            .iter()
+            .any(|r| r.object == o(70) && r.from == ReachFrom::Graveyard)
+    );
+    assert!(
+        reach
+            .iter()
+            .any(|r| r.object == o(71) && r.from == ReachFrom::Exile)
+    );
 }
