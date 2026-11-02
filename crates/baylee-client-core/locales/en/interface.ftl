@@ -24,14 +24,14 @@ ChooseDredge = Dredge a card instead of drawing? Choose one from your graveyard,
 # Choice among the replacements that could modify one card draw (CR 616.1): dredge cards, Chains of Mephistopheles, Aladdin's Lamp, Ring of Ma'rûf.
 ChooseDrawReplacement = Which replacement will you apply to this draw next?
 
-# A vote (CR 701.38a): the menu is what this player may vote for, and the one chosen is their ballot. Every earlier ballot is told beside it (VotesSoFar).
+# A vote (CR 701.38a): the menu is what this player may vote for, and the one chosen is their ballot. Every earlier ballot is told beside it (`VotesSoFar`).
 CastYourVote = Cast your vote: choose one.
 
-# The ballots cast so far in the vote in progress, after the question or the wait. `$ballots` is the list of BallotFor lines, joined by commas.
+# The ballots cast so far in the vote in progress, after the question or the wait. `$ballots` is the list of `BallotFor` lines, joined by commas.
 # Arguments: ballots
 VotesSoFar = Votes so far: { $ballots }
 
-# One ballot in VotesSoFar: `$voter` (a seat's name, or You) voted for `$choice`.
+# One ballot in `VotesSoFar`: `$voter` (a seat's name, or You) voted for `$choice`.
 # Arguments: voter, choice
 BallotFor = { $voter } for { $choice }
 
