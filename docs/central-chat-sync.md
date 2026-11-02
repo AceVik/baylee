@@ -183,9 +183,12 @@ archived read-only using gateway pins, with encrypted publication before ACK.
 Existing archived histories and identity records are preserved. This change does
 not silently turn old gateway friendships or memberships into Central relationships:
 participants request/accept contacts and group invitations in Central. Unread old
-queues addressed only to an older gateway device are not migrated by this adapter;
-retain those identities and the old service until a separate drain/import has been
-validated. No legacy queue or archive is deleted as part of cutover.
+queues addressed only to an older gateway device are not migrated by this adapter.
+On 2026-11-02 the owner authorized discarding the existing live messages and contact
+links at cutover instead of importing them. Their preservation is no longer a
+cutover prerequisite. Existing account keys and encrypted archive documents remain
+outside that live-data reset. No production deletion was executed by the local PWA
+work; startup does not automatically purge legacy records.
 
 Central currently retains at most 5000 sent messages per account and 5000 deliveries
 per device, without automatic deletion; full quotas reject new sends. An owner-approved
@@ -218,4 +221,15 @@ Run the ordinary account/client/core tests plus `cargo dev central integration`.
 For coordinated sibling development, use its `--cargo-config target/central-patch.toml`
 option; use `cargo clippy --config ...` with the config after the subcommand.
 
-On 2026-11-02, the final pinned Central revision `24bf90dae9ae0175c6bcd4701bdebd87dd3e19d1` passed the real PostgreSQL 18 Central/Gateway integration, including the personal transport scenario. The focused core social tests (334), native social tests (153), account tests (9), workspace formatting and Clippy for those crates and the integration target passed. This verification used the committed Git dependency, without a local path override. Publish that Central revision before publishing the dependent native revision; these changes do not deploy either service.
+On 2026-11-02, the backend Central revision `24bf90dae9ae0175c6bcd4701bdebd87dd3e19d1` passed the real PostgreSQL 18 Central/Gateway integration, including the personal transport scenario. The focused core social tests (334), native social tests (153), account tests (9), workspace formatting and Clippy for those crates and the integration target passed. This verification used the committed Git dependency, without a local path override. Publish that Central revision before publishing the dependent native revision; these changes do not deploy either service.
+
+The coordinated deployment now pins Central `f66568b985656eb1677c33c6f6515e107b126c93`.
+The hook selects Central and its website from the SDK pin, so it must include the
+completed PWA and its generated WASM, not just the earlier backend milestone.
+Publish this Central revision before the dependent native revision. The Rust SDK
+and backend code are unchanged from the verified backend pin above.
+
+The final PWA-inclusive pin passed `cargo dev central integration` against real
+PostgreSQL 18.6 (including personal chat and legacy cutover), all five advisory-guard
+regressions, and `cargo dev gate shipped-features`. Its lockfile change contains only
+the eight Central Git source revisions; no registry package or feature changed.
