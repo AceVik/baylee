@@ -29,6 +29,8 @@ use bevy::prelude::*;
 
 use crate::lobby::LobbyState;
 
+#[cfg(not(target_arch = "wasm32"))]
+mod central;
 pub(crate) mod drawer;
 pub(crate) mod glass;
 mod driver;
@@ -118,6 +120,8 @@ pub struct SocialHost {
     info: InfoState,
     mailbox: Mailbox,
     socket: Socket,
+    #[cfg(not(target_arch = "wasm32"))]
+    central: Option<central::Bridge>,
     store: Option<Box<dyn social::SecretStore>>,
     disk: Option<ChatHome>,
     /// The state file, waiting out its debounce.
@@ -210,33 +214,40 @@ impl SocialHost {
                 method,
                 path,
                 body,
-            } => transport::request(
-                &self.mailbox,
-                &session.gateway,
-                &session.token,
-                tag,
-                method,
-                &path,
-                body.as_ref(),
-            ),
-            Effect::Up(up) => {
+            } => {
                 #[cfg(not(target_arch = "wasm32"))]
-                if let baylee_protocol::social::Up::Ack { upto } = &up
-                    && self.vault.defer_ack(*upto)
-                {
+                if central::request(self, &tag, method, &path, body.as_ref()) {
                     return;
                 }
-                if let Ok(text) = serde_json::to_string(&up)
-                    && !self.socket.send(text)
-                    && let Some(machine) = self.machine.as_mut()
-                {
-                    // No socket: the machine keeps the send pending and
-                    // goes again once the link is back.
-                    let _ = machine.on_link(SocialLink::Down, now_ms());
-                }
+                transport::request(
+                    &self.mailbox,
+                    &session.gateway,
+                    &session.token,
+                    tag,
+                    method,
+                    &path,
+                    body.as_ref(),
+                );
             }
-            Effect::Dial => self.socket.want(),
-            Effect::Hang => self.socket.hang(),
+            Effect::Up(up) => self.send_up(up),
+            Effect::Dial => {
+                #[cfg(not(target_arch = "wasm32"))]
+                if let Some(bridge) = self.central.as_mut() {
+                    bridge.resume();
+                    if bridge.game_registered() {
+                        self.socket.want();
+                    }
+                    return;
+                }
+                self.socket.want();
+            }
+            Effect::Hang => {
+                #[cfg(not(target_arch = "wasm32"))]
+                if let Some(bridge) = self.central.as_mut() {
+                    bridge.pause();
+                }
+                self.socket.hang();
+            }
             Effect::StoreSecrets(value) => {
                 if let (Some(store), Some(machine)) = (self.store.as_ref(), self.machine.as_ref())
                     && let Err(why) = store.store(&machine.secret_slot(), value.expose())
@@ -302,11 +313,40 @@ impl SocialHost {
         }
     }
 
+    fn send_up(&mut self, up: baylee_protocol::social::Up) {
+        #[cfg(not(target_arch = "wasm32"))]
+        if central::up(self, &up) {
+            return;
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        if let baylee_protocol::social::Up::Ack { upto } = &up
+            && self.vault.defer_ack(*upto)
+        {
+            return;
+        }
+        if let Ok(text) = serde_json::to_string(&up)
+            && !self.socket.send(text)
+            && let Some(machine) = self.machine.as_mut()
+        {
+            // No socket: the machine keeps the send pending and
+            // goes again once the link is back.
+            #[cfg(not(target_arch = "wasm32"))]
+            if self.central.is_some() {
+                return;
+            }
+            let _ = machine.on_link(SocialLink::Down, now_ms());
+        }
+    }
+
     /// Ends the session: the socket closes, the state file is written.
     fn end(&mut self) {
         self.flush_save();
         self.socket.hang();
         self.socket = Socket::default();
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            self.central = None;
+        }
         self.machine = None;
         self.store = None;
         self.disk = None;

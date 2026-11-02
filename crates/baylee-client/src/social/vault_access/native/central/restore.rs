@@ -15,6 +15,7 @@ use std::{
 };
 
 mod bootstrap;
+mod identity;
 
 #[allow(clippy::too_many_arguments)] // one background startup's immutable inputs
 pub(super) fn start(
@@ -65,10 +66,10 @@ pub(super) fn start(
             records.push(local.clone());
         }
     }
-    let device = select_device(&records)
-        .ok_or(Error::Authentication)?
-        .clone();
-    let base = bootstrap::archive(&handle, &device, local.as_ref(), root, &context, &session)?;
+    let derived = handle.chat_identity().map_err(|_| Error::Authentication)?;
+    let (device, base) = identity::prepare(&handle, &session, &mut records, derived, |source| {
+        bootstrap::archive(&handle, source, local.as_ref(), root, &context, &session)
+    })?;
     let (mut machine, mut disk, deferred) = start_shared(base, &device, &session, prefs, keep)?;
     machine.trust_own_devices(
         records
@@ -247,11 +248,7 @@ fn import_keys(
             {
                 return Err(Error::Missing);
             }
-            if records.is_empty() {
-                Some(baylee_seal::DeviceSecrets::generate(&mut OsEntropy))
-            } else {
-                None
-            }
+            None
         }
     };
     let Some(keys) = keys else {

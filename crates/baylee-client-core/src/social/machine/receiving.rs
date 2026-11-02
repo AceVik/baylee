@@ -112,14 +112,19 @@ impl Social {
         out: &mut Vec<Effect>,
     ) {
         let seq = msg.seq;
-        if seq <= self.acked && !retried {
+        let retained = msg.retained;
+        if !retained && seq <= self.acked && !retried {
             // Already handled and acked: an at-least-once redelivery.
             return;
         }
         let verdict = self.open_delivery(&msg, retried, now_ms, rng, out);
         match verdict {
             Verdict::Hold => {
-                if !self.held.iter().any(|h| h.seq == seq) {
+                if !self
+                    .held
+                    .iter()
+                    .any(|h| h.seq == seq && h.retained == retained)
+                {
                     let bytes = self.held.iter().fold(msg.bytes(), |total, entry| {
                         total.saturating_add(entry.bytes())
                     });
@@ -135,8 +140,10 @@ impl Social {
             }
             Verdict::Done => {}
         }
-        self.held.retain(|h| h.seq != seq);
-        self.high = self.high.max(seq);
+        self.held.retain(|h| h.seq != seq || h.retained != retained);
+        if !retained {
+            self.high = self.high.max(seq);
+        }
     }
 
     pub(super) fn ack(&mut self, out: &mut Vec<Effect>) {
@@ -146,7 +153,13 @@ impl Social {
         if self.dirty || self.removed || self.held_paused {
             return;
         }
-        let safe = match self.held.iter().map(|h| h.seq).min() {
+        let safe = match self
+            .held
+            .iter()
+            .filter(|h| !h.retained)
+            .map(|h| h.seq)
+            .min()
+        {
             Some(lowest) => lowest.saturating_sub(1).min(self.high),
             None => self.high,
         };
@@ -161,11 +174,14 @@ impl Social {
         // never passes one still waiting (oldest first, as they came).
         self.held.sort_by_key(|h| h.seq);
         let held = self.held.clone();
+        let original = self.game_keys_active;
         for msg in held {
+            self.select_key_scope(!msg.retained);
             if !self.fetching.contains(&msg.from.tag) {
                 self.receive(msg, true, now_ms, rng, out);
             }
         }
+        self.select_key_scope(original);
     }
 
     #[allow(clippy::too_many_lines)]
@@ -183,7 +199,13 @@ impl Social {
         // A notice goes only where the sender may write: a forged delivery
         // must not open a tab (or a state entry) for a conversation this
         // account isn't in.
-        let member = self.may_hear(&conv, &msg.from.tag, now_ms);
+        // A retained Central delivery was authorized at send time. Leaving a
+        // group must not erase already addressed history. The signed original
+        // conversation, pinned sender and own-device wrap are still verified;
+        // this grants no membership or permission to send.
+        let member = msg.legacy_member
+            || (msg.retained && matches!(conv, Conv::Group { .. }))
+            || self.may_hear(&conv, &msg.from.tag, now_ms);
         let decoded = match Decoded::read(&msg.conv, &msg.from, &msg.sealed) {
             Ok(decoded) => decoded,
             Err(fault) => {

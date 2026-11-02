@@ -45,7 +45,7 @@ pub use convs::{
     LineKind, LineState,
 };
 pub use disk::{ChatDisk, MemoryDisk};
-pub use machine::{ArchiveError, Social};
+pub use machine::{ArchiveError, RetainedMessage, Social};
 pub use notify::{ChatCue, Notify, NotifyContext};
 pub use select::{DrawnLine, Pos, Selection, copy_text};
 pub use table::{RosterSeat, TableContext, tag_of};
@@ -194,6 +194,8 @@ pub enum HttpTag {
     OwnDevices,
     /// `GET /social/keys?tag=…`.
     Keys(Vec<String>),
+    /// Gateway game/legacy directory, isolated from account-owned personal trust.
+    GameKeys(Vec<String>),
     /// `GET /social/players/{handle}`, then a friend request.
     Lookup(String),
     /// `POST /social/friends/requests`.

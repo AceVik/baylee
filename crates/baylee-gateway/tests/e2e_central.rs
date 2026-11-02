@@ -11,6 +11,8 @@ mod fresh;
 mod held;
 #[path = "central/official.rs"]
 mod official;
+#[path = "central/personal.rs"]
+mod personal;
 #[path = "central/registered.rs"]
 mod registered;
 #[path = "central/renewal.rs"]
@@ -169,6 +171,7 @@ fn central_login_migrates_then_restores_and_admits_without_the_legacy_password()
         terms::run(&runtime, &operator, endpoint);
         aliases::run(gateway, endpoint);
         official::run(&runtime, &operator, endpoint, &served.bridge, origin);
+        personal::run(&runtime, &operator, endpoint);
         token::run(&runtime, &store, &operator, endpoint);
         held::run(&runtime, &store, &legacy, &operator);
         ui_fixture(endpoint, origin);

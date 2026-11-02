@@ -71,6 +71,10 @@ pub(super) fn drive(
                 }
             }
             Arrived::Http { tag, status, body } => {
+                #[cfg(not(target_arch = "wasm32"))]
+                if central::gateway_http(host, &tag, status, &body) {
+                    continue;
+                }
                 if let Some(machine) = host.machine.as_mut() {
                     let effects = machine.on_http(tag, status, &body, now, &mut OsEntropy);
                     host.carry_out(effects);
@@ -99,7 +103,13 @@ pub(super) fn drive(
         &host.mailbox,
         &mut news,
     );
+    #[cfg(not(target_arch = "wasm32"))]
+    central::tick(host, now);
     for item in news {
+        #[cfg(not(target_arch = "wasm32"))]
+        if central::gateway_news(host, &item) {
+            continue;
+        }
         let Some(machine) = host.machine.as_mut() else {
             break;
         };

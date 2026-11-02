@@ -8,6 +8,7 @@ use central_client::Session;
 use zeroize::Zeroizing;
 
 mod archive;
+mod social;
 
 /// Restored native account. All network operations are blocking and belong on a worker.
 pub struct Account {
