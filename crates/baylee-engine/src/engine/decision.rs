@@ -132,6 +132,25 @@ impl<L: CardLookup> Engine<L> {
                 ..DecisionContext::default()
             };
         }
+        if let Some(PlanKind::SyntheticTriggerTarget { trigger, .. }) = &self.pending_plan {
+            let printed = trigger
+                .abilities
+                .as_ref()
+                .and_then(|list| list.origin(trigger.ability_index as usize).origin)
+                .and_then(crate::object::AbilityOrigin::printed)
+                .or_else(|| {
+                    self.state
+                        .object(trigger.source)
+                        .and_then(crate::object::GameObject::printed_face)
+                });
+            return DecisionContext {
+                source: Some(trigger.source),
+                printed,
+                ability_index: Some(trigger.ability_index),
+                effects: trigger.synthetic_effects.unwrap_or(&[]),
+                ..DecisionContext::default()
+            };
+        }
         let mut first: &[ObjectId] = &[];
         let handle = match &self.pending_plan {
             Some(PlanKind::ActivateAbilitySecondTargets {

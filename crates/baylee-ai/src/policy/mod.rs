@@ -2450,8 +2450,14 @@ pub(crate) fn spell_mana_increase(
     legal: &LegalActions,
     mode: baylee_engine::choice::CastModeKind,
 ) -> ManaCost {
+    let total = legal.spell_increase(id, mode);
+    if total == 0 {
+        return ManaCost::ZERO;
+    }
     let mut colored = ManaCost::ZERO;
-    if let Some(f) = face(card) {
+    if mode != baylee_engine::choice::CastModeKind::Disguise
+        && let Some(f) = face(card)
+    {
         let obj = card_as_object(view, Some(id), card, f);
         let agent = HeuristicAgent::new(crate::AIProfile::default());
         for perm in &view.battlefield {
@@ -2471,13 +2477,14 @@ pub(crate) fn spell_mana_increase(
                     baylee_cards_dsl::ZoneRef::Stack,
                     Some(perm.id),
                 ) == Some(true)
+                    && colored.cmc().saturating_add(extra.cmc()) <= total
                 {
                     colored = colored.combine(extra);
                 }
             }
         }
     }
-    let rest = legal.spell_increase(id, mode).saturating_sub(colored.cmc());
+    let rest = total.saturating_sub(colored.cmc());
     colored.with_more_generic(rest)
 }
 
@@ -3392,5 +3399,427 @@ mod tests {
             };
             assert!(priced(&cost), "{parts:?}");
         }
+    }
+
+    fn test_identity(name: &str) -> super::CardIdentity {
+        let index =
+            baylee_cards::decks::by_name(name).unwrap_or_else(|| panic!("missing card {name}"));
+        super::CardIdentity {
+            index,
+            print: baylee_core::ids::PrintRef::new(0),
+            face: 0,
+        }
+    }
+
+    fn test_public_object(
+        id: u32,
+        name: &str,
+        controller: u8,
+        attached_to: Option<u32>,
+    ) -> baylee_view::PublicObject {
+        let card = test_identity(name);
+        let def = baylee_cards::by_index(card.index).expect("card exists");
+        let face = &def.faces[0];
+        let mut subtypes = baylee_core::types::SubtypeSet::EMPTY;
+        for &s in face.subtypes {
+            subtypes.insert(s);
+        }
+        baylee_view::PublicObject {
+            battle_protector: None,
+            id: super::ObjectId::new(id, 0),
+            card: Some(card),
+            rules: Some(card.into()),
+            prepared_spell: None,
+            name: face.name.into(),
+            controller: baylee_core::ids::PlayerId::new(controller),
+            owner: baylee_core::ids::PlayerId::new(controller),
+            commander: false,
+            status: baylee_view::ObjectStatus::default(),
+            types: face.types,
+            supertypes: face.supertypes,
+            subtypes,
+            chosen_subtype: None,
+            chosen_name: None,
+            chosen_opponent: None,
+            unlocked_doors: None,
+            suspended: false,
+            token: None,
+            colors: face.mana_cost.colors().union(face.color_indicator),
+            mana_value: face.mana_cost.cmc(),
+            keywords: def.keywords_for_face(0).bits(),
+            power: face.power,
+            toughness: face.toughness,
+            base_power: face.power,
+            base_toughness: face.toughness,
+            loyalty: face.loyalty,
+            damage: 0,
+            counters: Vec::new(),
+            attached_to: attached_to.map(|t| super::ObjectId::new(t, 0)),
+            targets: Vec::new(),
+            stack_item: None,
+            summoning_sick: false,
+            ability_mana_spending: baylee_core::mana::ManaSpending::EXACT,
+            grants: Vec::new(),
+            granted_mana: None,
+            board_mana: None,
+            flashback: None,
+            ability_sources: Vec::new(),
+            word_changes: Vec::new(),
+        }
+    }
+
+    fn base_view() -> super::PlayerView {
+        use baylee_core::ids::{PlayerId, SeatSet};
+        let seat_view = |p: u8| baylee_view::SeatView {
+            player: PlayerId::new(p),
+            life: 20,
+            poison: 0,
+            energy: 0,
+            speed: 0,
+            rad: 0,
+            hand_count: 0,
+            no_max_hand_size: false,
+            library_count: 40,
+            graveyard_count: 0,
+            loss: None,
+            house_answered: None,
+            mana_pool: baylee_view::ManaPoolView::default(),
+            commanders: Vec::new(),
+            commander_damage: Vec::new(),
+        };
+        super::PlayerView {
+            damage_sources: Vec::new(),
+            target_objects: Vec::new(),
+            seq: 1,
+            seat: PlayerId::new(0),
+            turn: 1,
+            phase: baylee_view::Phase::FirstMain,
+            step: baylee_view::Step::Main,
+            active: PlayerId::new(0),
+            awaiting: Some(PlayerId::new(0)),
+            deciding: SeatSet::new(),
+            decision_remaining_ms: None,
+            clocks: Vec::new(),
+            lost: Vec::new(),
+            priority_held: false,
+            policy_acts: Vec::new(),
+            monarch: None,
+            day_night: None,
+            seats: vec![seat_view(0), seat_view(1)],
+            hand: Vec::new(),
+            shared_hands: Vec::new(),
+            controlled_hands: Vec::new(),
+            decision_player: None,
+            hand_shared_with: SeatSet::new(),
+            hand_requests: SeatSet::new(),
+            hand_requested: SeatSet::new(),
+            battlefield: Vec::new(),
+            stack: Vec::new(),
+            graveyards: vec![Vec::new(), Vec::new()],
+            exile: vec![Vec::new(), Vec::new()],
+            command: vec![Vec::new(), Vec::new()],
+            combat: baylee_view::CombatView::default(),
+            looking_at: Vec::new(),
+            library_tops: Vec::new(),
+            owed: None,
+            targeting: None,
+            casting: None,
+            announced_cast: None,
+            announced_x: None,
+            sorcery_lock: None,
+            sorceries_have_flash: false,
+        }
+    }
+
+    #[test]
+    fn spell_mana_increase_extracts_colored_pips_from_derelor_and_respects_engine_cap() {
+        use baylee_core::mana::ManaCost;
+        use baylee_engine::choice::{CastModeKind, LegalActions};
+
+        let spell_id = super::ObjectId::new(50, 0);
+        let dark_ritual = test_identity("Dark Ritual");
+        let lightning_bolt = test_identity("Lightning Bolt");
+        let mut view = base_view();
+        view.battlefield
+            .push(test_public_object(10, "Derelor", 0, None));
+
+        // 1. Controlled Derelor taxes black spells by {B}, not {1} generic.
+        let mut legal = LegalActions::default();
+        legal
+            .spell_increases
+            .push((spell_id, CastModeKind::Normal, 1));
+        assert_eq!(
+            super::spell_mana_increase(&view, spell_id, dark_ritual, &legal, CastModeKind::Normal),
+            ManaCost::parse("{B}")
+        );
+
+        // 2. Non-black spell with generic tax {1} stays {1} generic even with Derelor out.
+        assert_eq!(
+            super::spell_mana_increase(
+                &view,
+                spell_id,
+                lightning_bolt,
+                &legal,
+                CastModeKind::Normal
+            ),
+            ManaCost::parse("{1}")
+        );
+
+        // 3. Controlled Derelor ({B}) + generic tax of {2} (total = 3) produces {2}{B}.
+        legal.spell_increases = vec![(spell_id, CastModeKind::Normal, 3)];
+        assert_eq!(
+            super::spell_mana_increase(&view, spell_id, dark_ritual, &legal, CastModeKind::Normal),
+            ManaCost::parse("{2}{B}")
+        );
+
+        // 4. Opponent's Derelor does not match `Filter::YOUR_BLACK` for seat 0.
+        view.battlefield[0].controller = baylee_core::ids::PlayerId::new(1);
+        legal.spell_increases = vec![(spell_id, CastModeKind::Normal, 1)];
+        assert_eq!(
+            super::spell_mana_increase(&view, spell_id, dark_ritual, &legal, CastModeKind::Normal),
+            ManaCost::parse("{1}")
+        );
+
+        // 5. Face-down disguise/morph casts are colorless (CR 708.2) and never get {B}.
+        view.battlefield[0].controller = baylee_core::ids::PlayerId::new(0);
+        legal.spell_increases = vec![(spell_id, CastModeKind::Disguise, 1)];
+        assert_eq!(
+            super::spell_mana_increase(
+                &view,
+                spell_id,
+                dark_ritual,
+                &legal,
+                CastModeKind::Disguise
+            ),
+            ManaCost::parse("{1}")
+        );
+    }
+
+    #[test]
+    fn apply_triggered_mana_bonus_adds_mana_from_wild_growth_and_mana_flare() {
+        use baylee_client_core::manaplan::{Source, Tap};
+        use baylee_core::mana::ManaColor;
+
+        let mut view = base_view();
+        let forest_1 = test_public_object(1, "Forest", 0, None);
+        let forest_2 = test_public_object(2, "Forest", 0, None);
+        let mountain = test_public_object(3, "Mountain", 0, None);
+        let elves = test_public_object(4, "Llanowar Elves", 0, None);
+        // Wild Growth attached to Mountain #3.
+        let wild_growth = test_public_object(10, "Wild Growth", 0, Some(3));
+        view.battlefield = vec![
+            forest_1.clone(),
+            forest_2.clone(),
+            mountain.clone(),
+            elves.clone(),
+            wild_growth,
+        ];
+
+        // Unattached Forest #1 gets no bonus from Wild Growth on Mountain #3.
+        let mut s_forest = Source::fixed(forest_1.id, Tap::Intrinsic, ManaColor::Green);
+        super::apply_triggered_mana_bonus(&view, &forest_1, &mut s_forest);
+        assert_eq!(s_forest.amount, 1);
+        assert_eq!(s_forest.colors, vec![ManaColor::Green]);
+
+        // Enchanted Mountain #3 gets +{G}, turning {R} into a 2-mana bundle [Red, Green].
+        let mut s_mountain = Source::fixed(mountain.id, Tap::Intrinsic, ManaColor::Red);
+        super::apply_triggered_mana_bonus(&view, &mountain, &mut s_mountain);
+        assert_eq!(s_mountain.amount, 2);
+        assert!(s_mountain.bundle);
+        assert_eq!(s_mountain.colors, vec![ManaColor::Red, ManaColor::Green]);
+
+        // Adding Mana Flare doubles land mana (+1 of the type produced) but not Llanowar Elves.
+        view.battlefield
+            .push(test_public_object(11, "Mana Flare", 1, None));
+        let mut s_forest_flare = Source::fixed(forest_2.id, Tap::Intrinsic, ManaColor::Green);
+        super::apply_triggered_mana_bonus(&view, &forest_2, &mut s_forest_flare);
+        assert_eq!(s_forest_flare.amount, 2);
+
+        let mut s_elves = Source::fixed(elves.id, Tap::Ability(0), ManaColor::Green);
+        super::apply_triggered_mana_bonus(&view, &elves, &mut s_elves);
+        assert_eq!(
+            s_elves.amount, 1,
+            "Mana Flare only triggers when a land is tapped for mana"
+        );
+    }
+
+    #[test]
+    fn taps_set_off_a_trigger_and_tap_destroys_or_locks_distinguish_cursed_and_clean_sources() {
+        use baylee_engine::choice::LegalActions;
+
+        let mut view = base_view();
+        let cursed_forest = test_public_object(1, "Forest", 0, None);
+        let clean_forest = test_public_object(2, "Forest", 0, None);
+        let island = test_public_object(3, "Island", 0, None);
+        let mana_vault = test_public_object(4, "Mana Vault", 0, None);
+        // Blight attached to Forest #1; Wild Growth attached to Forest #2.
+        let blight = test_public_object(10, "Blight", 1, Some(1));
+        let wild_growth = test_public_object(11, "Wild Growth", 0, Some(2));
+        view.battlefield = vec![
+            cursed_forest.clone(),
+            clean_forest.clone(),
+            island.clone(),
+            mana_vault.clone(),
+            blight,
+            wild_growth,
+        ];
+
+        assert!(
+            super::taps_set_off_a_trigger(&view, &cursed_forest),
+            "Blight on Forest #1 sets off a trigger when Forest #1 becomes tapped"
+        );
+        assert!(
+            super::tap_destroys_or_locks(&view, &cursed_forest),
+            "Blight destroys enchanted land when tapped"
+        );
+        assert!(
+            !super::taps_set_off_a_trigger(&view, &clean_forest),
+            "Wild Growth is a triggered mana ability (CR 605.1b), not a stack trigger, and Blight is on Forest #1"
+        );
+        assert!(!super::tap_destroys_or_locks(&view, &clean_forest));
+        assert!(
+            super::tap_destroys_or_locks(&view, &mana_vault),
+            "Mana Vault has DoesNotUntap so tapping locks it"
+        );
+
+        // Lifetap controlled by opponent (seat 1) triggers when seat 0 taps a Forest,
+        // but NOT when seat 0 taps an Island, and NOT when Lifetap is controlled by seat 0.
+        let mut lifetap = test_public_object(12, "Lifetap", 1, None);
+        view.battlefield.push(lifetap.clone());
+        assert!(super::taps_set_off_a_trigger(&view, &clean_forest));
+        assert!(!super::taps_set_off_a_trigger(&view, &island));
+        view.battlefield.last_mut().unwrap().controller = baylee_core::ids::PlayerId::new(0);
+        lifetap.controller = baylee_core::ids::PlayerId::new(0);
+        assert!(
+            !super::taps_set_off_a_trigger(&view, &clean_forest),
+            "own Lifetap only triggers on an opponent's Forest"
+        );
+
+        // Verify `sources` ranks the clean Forest ahead of the Blighted Forest.
+        let legal = LegalActions {
+            mana_abilities: vec![cursed_forest.id, clean_forest.id],
+            ..LegalActions::default()
+        };
+        let ranked = super::sources(&view, &legal);
+        let c1 = ranked.iter().find(|s| s.id == cursed_forest.id).unwrap();
+        let c2 = ranked.iter().find(|s| s.id == clean_forest.id).unwrap();
+        assert!(c1.priced && !c2.priced);
+        assert!(c1.preserve >= c2.preserve + 15_000);
+    }
+
+    #[test]
+    fn pays_tax_declines_untap_self_payment_when_source_is_already_untapped() {
+        use baylee_cards_dsl::{Amount, Effect, PlayerRel};
+        use baylee_core::mana::ManaCost;
+
+        static UNTAP_EFFECTS: &[Effect] = &[Effect::PlayerMayPayThen {
+            player: PlayerRel::You,
+            mana: Amount::Fixed(4),
+            effects: &[Effect::UntapSelf],
+        }];
+
+        let mut view = base_view();
+        let mut vault = test_public_object(1, "Mana Vault", 0, None);
+        let f1 = test_public_object(2, "Forest", 0, None);
+        let f2 = test_public_object(3, "Forest", 0, None);
+        let f3 = test_public_object(4, "Forest", 0, None);
+        let f4 = test_public_object(5, "Forest", 0, None);
+        view.battlefield = vec![vault.clone(), f1, f2, f3, f4];
+
+        let ctx = baylee_engine::engine::DecisionContext {
+            source: Some(vault.id),
+            effects: UNTAP_EFFECTS,
+            ..Default::default()
+        };
+
+        // Untapped Mana Vault: never pay {4} to untap an already-untapped permanent.
+        assert!(!super::pays_tax(&view, ManaCost::parse("{4}"), &ctx));
+
+        // Tapped Mana Vault with 4 untapped Forests: pay {4} to untap it.
+        vault.status = baylee_view::ObjectStatus::TAPPED;
+        view.battlefield[0] = vault;
+        assert!(super::pays_tax(&view, ManaCost::parse("{4}"), &ctx));
+    }
+
+    #[test]
+    fn spell_can_be_cast_now_checks_conditions_mandatory_costs_and_stack_targets() {
+        let spell_id = super::ObjectId::new(99, 0);
+        let sirens_call = test_identity("Siren's Call");
+        let blizzard = test_identity("Blizzard");
+        let tidal_influence = test_identity("Tidal Influence");
+        let artifact_blast = test_identity("Artifact Blast");
+        let sacrifice = test_identity("Sacrifice");
+
+        let mut view = base_view();
+
+        // 1. Siren's Call: only during opponent's turn before DeclareAttackers.
+        assert!(
+            !super::spell_can_be_cast_now(&view, spell_id, sirens_call),
+            "cannot cast Siren's Call on own turn"
+        );
+        view.active = baylee_core::ids::PlayerId::new(1);
+        view.phase = baylee_view::Phase::FirstMain;
+        view.step = baylee_view::Step::Main;
+        assert!(
+            super::spell_can_be_cast_now(&view, spell_id, sirens_call),
+            "can cast Siren's Call on opponent's FirstMain before DeclareAttackers"
+        );
+        view.phase = baylee_view::Phase::Combat;
+        view.step = baylee_view::Step::DeclareAttackers;
+        assert!(
+            !super::spell_can_be_cast_now(&view, spell_id, sirens_call),
+            "cannot cast Siren's Call once DeclareAttackers has begun"
+        );
+
+        // 2. Blizzard: only if you control a snow land.
+        view.active = baylee_core::ids::PlayerId::new(0);
+        view.phase = baylee_view::Phase::FirstMain;
+        view.step = baylee_view::Step::Main;
+        view.battlefield = vec![test_public_object(1, "Forest", 0, None)];
+        assert!(
+            !super::spell_can_be_cast_now(&view, spell_id, blizzard),
+            "cannot cast Blizzard with only a non-snow Forest"
+        );
+        view.battlefield
+            .push(test_public_object(2, "Snow-Covered Forest", 0, None));
+        assert!(
+            super::spell_can_be_cast_now(&view, spell_id, blizzard),
+            "can cast Blizzard when controlling a Snow-Covered Forest"
+        );
+
+        // 3. Tidal Influence: only if no permanent named Tidal Influence is on the battlefield.
+        assert!(super::spell_can_be_cast_now(
+            &view,
+            spell_id,
+            tidal_influence
+        ));
+        view.battlefield
+            .push(test_public_object(3, "Tidal Influence", 1, None));
+        assert!(
+            !super::spell_can_be_cast_now(&view, spell_id, tidal_influence),
+            "cannot cast Tidal Influence when one is already on the battlefield"
+        );
+
+        // 4. Artifact Blast: requires an artifact spell on the stack.
+        view.stack = vec![test_public_object(20, "Lightning Bolt", 1, None)];
+        assert!(
+            !super::spell_can_be_cast_now(&view, spell_id, artifact_blast),
+            "Artifact Blast cannot target Lightning Bolt on the stack"
+        );
+        view.stack = vec![test_public_object(21, "Sol Ring", 1, None)];
+        assert!(
+            super::spell_can_be_cast_now(&view, spell_id, artifact_blast),
+            "Artifact Blast can target Sol Ring on the stack"
+        );
+
+        // 5. Sacrifice: mandatory sacrifice of a creature you control.
+        view.battlefield = vec![test_public_object(30, "Grizzly Bears", 1, None)];
+        assert!(
+            !super::spell_can_be_cast_now(&view, spell_id, sacrifice),
+            "opponent's creature cannot pay your mandatory sacrifice cost"
+        );
+        view.battlefield
+            .push(test_public_object(31, "Grizzly Bears", 0, None));
+        assert!(super::spell_can_be_cast_now(&view, spell_id, sacrifice));
     }
 }

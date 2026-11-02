@@ -846,10 +846,28 @@ pub(crate) fn targeting_context<L: baylee_engine::state::CardLookup>(
             baylee_cards::lines::mode_line(rules.card, face, mode)
         } else if let Some(index) = context.ability_index {
             baylee_cards::lines::ability_line(rules.card, face, index).or_else(|| {
+                if index != baylee_core::ids::AbilityRef::SYNTHETIC {
+                    return None;
+                }
                 let text = baylee_cards::oracle::face(rules.card, face)?;
-                (index == baylee_core::ids::AbilityRef::SYNTHETIC
-                    && baylee_core::oracle::sentence_count(text) == 1)
-                    .then_some(baylee_cards::lines::AbilityLine { line: 0, of: 1 })
+                let of = u8::try_from(baylee_core::oracle::sentence_count(text)).ok()?;
+                if of == 1 {
+                    return Some(baylee_cards::lines::AbilityLine { line: 0, of: 1 });
+                }
+                let mut matches = baylee_core::oracle::sentences(text)
+                    .enumerate()
+                    .filter(|(_, s)| {
+                        let lower = s.to_ascii_lowercase();
+                        lower.contains("when you do")
+                            || (lower.contains("when a ") && lower.contains("this way"))
+                            || (lower.contains("whenever ") && lower.contains("target"))
+                    })
+                    .filter_map(|(i, _)| u8::try_from(i).ok());
+                let line = matches.next()?;
+                matches
+                    .next()
+                    .is_none()
+                    .then_some(baylee_cards::lines::AbilityLine { line, of })
             })
         } else {
             None
