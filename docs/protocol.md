@@ -3281,6 +3281,16 @@ vendor as where the game data goes, and a fallback plays on in that chair.
 
 ## Friends and chat (beta.8)
 
+For Central accounts, the native adapter routes personal contacts, direct messages,
+key lookup and personal groups to Central's authenticated `operation: social` API.
+The pinned `central-api::{social, chat, groups}` enums specify that transport. The
+browser uses the same API with its separate cookie-session gate. Durable inbox
+reads have a Central-only cursor and no destructive ACK. Personal key pins and
+confirmations are separate from game/gateway pins. See
+[Central chat synchronization](central-chat-sync.md) for identity derivation,
+retained history, migration and quota boundaries. The gateway protocol below
+continues to serve legacy accounts, public/game chat, presence and table invitations.
+
 Friends, presence for friends, whispers, groups and table chat, every
 message body end-to-end encrypted, and one public lobby chat that is not
 (below). The types are

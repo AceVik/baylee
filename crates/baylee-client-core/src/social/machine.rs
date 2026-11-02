@@ -51,7 +51,12 @@ pub const MAX_HELD_BYTES: usize = 4 * 1024 * 1024;
 const STATE_VERSION: u32 = 1;
 
 mod archive;
+mod identity;
+mod legacy;
+mod retained;
+mod scope;
 pub use archive::ArchiveError;
+pub use retained::RetainedMessage;
 
 /// What the state file holds (§10.2): no secret, only public keys, ids,
 /// tags and preferences. Sealed under the vault key before it leaves.
@@ -62,6 +67,8 @@ struct StoredState {
     device_id: String,
     registered: bool,
     keys: KeyCache,
+    /// Independent gateway pins after adopting Central personal chat.
+    game_keys: Option<KeyCache>,
     /// Message ids seen, with when they were seen; kept 30 days.
     seen: BTreeMap<String, u64>,
     nicknames: BTreeMap<String, String>,
@@ -75,6 +82,7 @@ struct StoredState {
     last_whisper: Option<String>,
     /// Own device ids as last seen, for the new-device notice.
     own_devices: Vec<String>,
+    game_own_devices: Vec<String>,
     status: Option<Status>,
 }
 
@@ -123,6 +131,8 @@ enum Wait {
 /// A delivery waiting for its sender's keys.
 #[derive(Clone, Debug)]
 struct Held {
+    legacy_member: bool,
+    retained: bool,
     seq: u64,
     at: u64,
     conv: String,
@@ -213,6 +223,11 @@ pub struct Social {
     /// Own-account recipients authenticated by Central, never by the gateway's
     /// directory. Absence retains the legacy TOFU/device-confirmation policy.
     trusted_own_devices: Option<Vec<([u8; 32], [u8; 32])>>,
+    account_transport: bool,
+    game_keys_active: bool,
+    game_fetching: BTreeSet<String>,
+    game_refetched: BTreeSet<String>,
+    game_stale: BTreeSet<String>,
 }
 
 impl Social {
@@ -299,6 +314,11 @@ impl Social {
             dirty: true,
             removed: false,
             trusted_own_devices: None,
+            account_transport: false,
+            game_keys_active: false,
+            game_fetching: BTreeSet::new(),
+            game_refetched: BTreeSet::new(),
+            game_stale: BTreeSet::new(),
         };
         for conv in social.state.convs.clone() {
             if let Ok(id) = conv.id.parse::<Conv>() {
@@ -443,7 +463,7 @@ impl Social {
 
     /// An HTTP answer for a request this machine asked for.
     #[allow(clippy::too_many_lines)] // one arm per request, read top to bottom
-    pub fn on_http(
+    fn on_http_in_scope(
         &mut self,
         tag: HttpTag,
         status: u16,
@@ -484,7 +504,7 @@ impl Social {
                         .collect();
                 }
             }
-            HttpTag::Keys(tags) => {
+            HttpTag::Keys(tags) | HttpTag::GameKeys(tags) => {
                 for tag in &tags {
                     self.fetching.remove(tag);
                 }
@@ -525,7 +545,10 @@ impl Social {
                     // A refused fetch (429 and the like): the sends waiting
                     // on it go again on the next tick.
                     for p in &mut self.outbox {
-                        if p.wait == Wait::Keys {
+                        if p.wait == Wait::Keys
+                            && (!self.account_transport
+                                || scope::game(&p.key.conv) == self.game_keys_active)
+                        {
                             p.wait = Wait::RetryAt(now_ms + RATE_RETRY_MS);
                         }
                     }
@@ -586,7 +609,12 @@ impl Social {
 
     /// A frame from the social socket.
     #[allow(clippy::too_many_lines)] // one arm per frame, read top to bottom
-    pub fn on_frame(&mut self, frame: Down, now_ms: u64, rng: &mut dyn Entropy) -> Vec<Effect> {
+    fn on_frame_in_scope(
+        &mut self,
+        frame: Down,
+        now_ms: u64,
+        rng: &mut dyn Entropy,
+    ) -> Vec<Effect> {
         let mut out = Vec::new();
         if self.held_paused {
             return out;
@@ -654,6 +682,8 @@ impl Social {
                 from.handle = super::text::clean_name(&from.handle);
                 self.receive(
                     Held {
+                        legacy_member: false,
+                        retained: false,
                         seq,
                         at,
                         conv,
@@ -1004,7 +1034,7 @@ impl Social {
     }
 
     /// What the player asked for.
-    pub fn act(&mut self, intent: Intent, now_ms: u64, rng: &mut dyn Entropy) -> Vec<Effect> {
+    fn act_in_scope(&mut self, intent: Intent, now_ms: u64, rng: &mut dyn Entropy) -> Vec<Effect> {
         let mut out = Vec::new();
         self.last_now = self.last_now.max(now_ms);
         self.intent(intent, now_ms, rng, &mut out);
@@ -1013,7 +1043,7 @@ impl Social {
     }
 
     /// A key for the open composer; Enter with something typed submits.
-    pub fn key(
+    fn key_in_scope(
         &mut self,
         key: ComposerKey,
         now_ms: u64,
@@ -1254,8 +1284,8 @@ impl Social {
     /// A contact's safety number, when both accounts' keys are known.
     #[must_use]
     pub fn safety(&self, tag: &str) -> Option<SafetyView> {
-        let theirs = self.state.keys.get(tag)?;
-        let mine = self.state.keys.get(&self.me.tag)?;
+        let theirs = self.display_keys().get(tag)?;
+        let mine = self.display_keys().get(&self.me.tag)?;
         let digits = baylee_seal::safety_number((&self.me.tag, &mine.iks()), (tag, &theirs.iks()));
         Some(SafetyView {
             expected: theirs.public_keys(),
@@ -1264,7 +1294,7 @@ impl Social {
                 .chunks(5)
                 .map(|c| String::from_utf8_lossy(c).into_owned())
                 .collect(),
-            verified: theirs.verified() && self.keys_confirmed(tag),
+            verified: theirs.verified() && self.confirmed_keyset(tag, theirs),
             devices: theirs
                 .devices
                 .iter()
@@ -1276,7 +1306,7 @@ impl Social {
     /// A contact's keys, as cached.
     #[must_use]
     pub fn contact_keys(&self, tag: &str) -> Option<&ContactKeys> {
-        self.state.keys.get(tag)
+        self.display_keys().get(tag)
     }
 
     /// Restrict own-account encryption recipients to public keys authenticated by
@@ -1377,7 +1407,7 @@ impl Social {
         let people = tags.iter().filter(|t| **t != self.me.tag).count();
         let devices = tags
             .iter()
-            .filter_map(|t| self.state.keys.get(t))
+            .filter_map(|t| self.keys_for_scope(scope::game(id)).get(t))
             .map(|k| {
                 k.devices
                     .iter()
@@ -1408,7 +1438,13 @@ impl Social {
         if !self.dirty || self.removed {
             return;
         }
-        let Ok(json) = serde_json::to_vec(&self.state).map(Zeroizing::new) else {
+        // The persistent names always mean Personal and Game, regardless of which
+        // input is currently being processed. Never persist the temporary swap.
+        let game = self.game_keys_active;
+        self.select_key_scope(false);
+        let json = serde_json::to_vec(&self.state).map(Zeroizing::new);
+        self.select_key_scope(game);
+        let Ok(json) = json else {
             return;
         };
         if let Ok(sealed) = at_rest_seal(

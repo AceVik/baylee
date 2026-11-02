@@ -10,6 +10,19 @@ the pointers, because line numbers move.
 
 ## At a glance
 
+For Central accounts, personal contacts, blocks and group membership are stored
+by Central, as are public chat-device keys and durable encrypted personal deliveries.
+Central can see participant tags, membership, timestamps and ciphertext sizes; it
+does not receive message plaintext or private chat keys. The current retained limit
+is 5000 sent messages per account and 5000 deliveries per device. Reaching a limit
+refuses new sends rather than deleting history. Automatic expiry is not enabled.
+The encrypted native archive remains in the account's encrypted objects. The browser
+keeps message plaintext in memory and only encrypted peer trust in localStorage.
+The following gateway rows continue to describe legacy accounts and game chat;
+old gateway data is preserved during the transition. See
+[Central chat synchronization](central-chat-sync.md) for cutover limits.
+
+
 | What | Where | Kept | Removed by |
 | --- | --- | --- | --- |
 | Account | Postgres `account` | until its player deletes it | `DELETE /account` |

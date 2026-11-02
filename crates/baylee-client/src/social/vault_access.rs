@@ -93,6 +93,12 @@ pub(crate) struct Access {
 
 impl Access {
     #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) fn reject_transport(&mut self) {
+        self.attempted = true;
+        self.error = Some(Error::Authentication);
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
     pub(crate) fn clear_sync(&mut self) {
         self.sync = None;
         self.ack = AckGate::default();

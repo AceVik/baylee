@@ -63,6 +63,10 @@ impl Handle {
         self.active.load(Ordering::Acquire) && self.send.try_send(Box::new(operation)).is_ok()
     }
 
+    pub(crate) fn chat_identity(&self) -> Result<baylee_account::chat::DeviceKey, Error> {
+        self.call(|account| account.chat_identity())
+    }
+
     pub(crate) fn chat_history(
         &self,
         device: baylee_account::chat::ChatDevice,
