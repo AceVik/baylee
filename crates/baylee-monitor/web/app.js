@@ -82,8 +82,8 @@ function render() {
   text("power-value", p.gpu_watts == null ? "—" : `${number(p.gpu_watts)} W`);
   text("cpu-watts", p.cpu_watts == null ? "nicht verfügbar" : `${number(p.cpu_watts)} W`);
   text("power-note", `${s.cpu_power_status}. GPU-Werte enthalten nicht den Verbrauch des gesamten PCs.`);
-  text("uptime", `Online seit ${Math.floor(s.uptime_secs / 86400)} T. ${Math.floor(s.uptime_secs % 86400 / 3600)} Std.`);
-  text("load", s.load.map(number).join(" / "));
+  text("uptime", s.uptime_secs == null ? "Laufzeit nicht verfügbar" : `Online seit ${Math.floor(s.uptime_secs / 86400)} T. ${Math.floor(s.uptime_secs % 86400 / 3600)} Std.`);
+  text("load", s.load == null ? "—" : s.load.map(number).join(" / "));
   text("swap", `${bytes(s.swap_used)} / ${bytes(s.swap_total)}`);
   text("rx-value", rate(p.net_rx)); text("tx-value", rate(p.net_tx));
   text("network-caption", `Physische Anschlüsse im Diagramm · Interfaces: ${s.networks.map(n => n.name).join(", ") || "keine"}`);

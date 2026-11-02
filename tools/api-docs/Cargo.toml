@@ -16,4 +16,4 @@ publish = false
 [workspace]
 
 [dependencies]
-oas-forge = "0.2.0"
+oas-forge = "=0.2.1"

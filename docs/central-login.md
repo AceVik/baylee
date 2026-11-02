@@ -69,6 +69,18 @@ current dependency chain contains 0.5.5 through `elliptic-curve` 0.13.8,
 `voprf` 0.5.0 and `opaque-ke` 4.0.1. The elliptic-curve dependency requires
 bigint 0.5, so changing the lockfile to 0.7.6 is not a compatible upgrade.
 
+For `0.1.0-beta.9c`, the Central dependency migration was reviewed again:
+`Suite` still fixes both the OPRF and TripleDH group to Ristretto255, using
+the explicit SHA-512 0.10 compatibility type required by OPAQUE 4. The fixed
+Argon2 KSF moves to 0.6 with unchanged salt, parameters and wiped work memory;
+its output is compared against OPAQUE's previous Argon2 0.5 implementation.
+The current SHA/HKDF/HMAC APIs used by vaults and chat do not add a bigint
+consumer. Central pins the reviewed crypto source fingerprint to
+`399770971518b98546ad6380b7579245b933489e12efd2cc1075b8b7fdb19946`.
+Baylee's shipping guard still requires the exact Central Git revision and
+the same OPAQUE/VOPRF/elliptic-curve/bigint versions and reverse graph. This
+is a renewed scope review, not a claim that bigint 0.5 has been patched.
+
 The former Central revision
 `0a941953f8c0d5573e82e0979e7faf1fb9e40299` contains the `central-crypto`
 source tree reviewed independently by two models on 24.10.2026, with two

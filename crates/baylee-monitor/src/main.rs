@@ -39,7 +39,7 @@ async fn main() -> anyhow::Result<()> {
     let listener = tokio::net::TcpListener::bind(options.bind).await?;
     let interval = Duration::from_millis(options.interval_ms);
     let keep = (options.history_minutes * 60_000 / options.interval_ms) as usize;
-    let mut sampler = tokio::task::spawn_blocking(sampler::Sampler::new).await?;
+    let mut sampler = tokio::task::spawn_blocking(sampler::Sampler::new).await??;
     let facts = sampler.facts(options.interval_ms);
     // First published CPU rates need two observations separated by an interval.
     tokio::time::sleep(interval).await;
