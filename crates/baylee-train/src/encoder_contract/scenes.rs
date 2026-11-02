@@ -2,7 +2,7 @@
 //! encoder tests here and the policy's (`netplay4::policy`).
 
 use baylee_core::ids::ObjectId;
-use baylee_engine::choice::{Pending, PlayerAction, timeout_answer};
+use baylee_engine::choice::{ChoicePrompt, Pending, PlayerAction, timeout_answer};
 
 use super::{P0, P1, Seat, Table, at_rest_in_main};
 
@@ -72,6 +72,60 @@ pub(crate) fn card_type_asked() -> Table {
         .expect("cast Serra's Emissary");
     table.answer_until(|session| matches!(session.pending(), Pending::ChooseCardType { .. }));
     table
+}
+
+/// Council's Judgment resolving over the other player's two Sol Rings, with
+/// the caster's ballot cast for the second: the other player is asked to
+/// vote (CR 701.38a). Returns the rings in the order the vote offered them.
+pub(crate) fn second_ballot_asked() -> (Table, [ObjectId; 2]) {
+    let mut table = Table::new(
+        45,
+        "Plains",
+        [
+            Seat {
+                hand: &["Council's Judgment"],
+                battlefield: &["Plains"; 3],
+            },
+            Seat {
+                hand: &[],
+                battlefield: &["Sol Ring"; 2],
+            },
+        ],
+    );
+    table.reach_main(P0);
+    table.tap_lands(P0);
+    let judgment = table.in_hand(P0, "Council's Judgment");
+    table
+        .session
+        .act(P0, PlayerAction::CastSpell { card: judgment })
+        .expect("cast Council's Judgment");
+    table.answer_until(|session| {
+        matches!(
+            session.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::Vote,
+                ..
+            }
+        )
+    });
+    let Pending::ChooseCards {
+        player, options, ..
+    } = table.session.pending().clone()
+    else {
+        unreachable!("a vote is open")
+    };
+    assert_eq!(player, P0, "the caster votes first");
+    let rings: [ObjectId; 2] = options.try_into().expect("the two rings, nothing else");
+    table
+        .session
+        .act(
+            P0,
+            PlayerAction::ChooseObjects {
+                objects: vec![rings[1]],
+            },
+        )
+        .expect("the caster's ballot");
+    (table, rings)
 }
 
 /// Cabal Therapy resolving at the other player, who holds Grizzly Bears and
