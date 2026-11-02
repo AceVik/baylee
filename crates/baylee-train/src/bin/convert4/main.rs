@@ -77,6 +77,11 @@ struct Args {
     /// Verified executed external LLM labels only; all other policy weights zero.
     #[arg(long, conflicts_with = "shadow_bc")]
     llm_bc: bool,
+    /// With `--llm-bc`: leave out the games a failed conversion of the same
+    /// runs could not replay on this build (its `rejected-games.json`; every
+    /// entry must be a replay-audit refusal). The dataset records them.
+    #[arg(long, requires = "llm_bc")]
+    llm_bc_skip_unreplayable: Option<PathBuf>,
     /// Build a BC-only dataset from exported live-server game records.
     #[arg(long, conflicts_with_all = ["shadow_bc", "llm_bc"])]
     live_bc: bool,
@@ -133,6 +138,7 @@ mod policy_provenance;
 mod research;
 mod self_imitation;
 mod shadow;
+mod unreplayable;
 use output::{GameWriter, publish_ready};
 
 #[allow(
@@ -166,6 +172,11 @@ fn main() -> anyhow::Result<()> {
         .game_weights
         .as_deref()
         .map(|path| self_imitation::Weights::load(path, &args.runs))
+        .transpose()?;
+    let mut unreplayable = args
+        .llm_bc_skip_unreplayable
+        .as_deref()
+        .map(unreplayable::Skip::load)
         .transpose()?;
     fs::create_dir_all(&args.out)?;
 
@@ -245,6 +256,12 @@ fn main() -> anyhow::Result<()> {
                 .context("missing shard name in games.jsonl")?;
             let offset = v["offset"].as_u64().context("missing offset")?;
             let len = v["len"].as_u64().context("missing len")?;
+            if let Some(skip) = &mut unreplayable {
+                let shard = run_dir.join("records").join(shard_name).canonicalize()?;
+                if skip.takes(&shard, offset, len) {
+                    continue;
+                }
+            }
             let seed = v["seed"].as_u64().unwrap_or(0);
             let sidecar: Option<Vec<RolloutStepSidecar4>> = v
                 .get("rollout_sidecar")
@@ -443,6 +460,10 @@ fn main() -> anyhow::Result<()> {
                 .filter_map(|g| g.llm.as_ref().map(|s| s.metadata(g.game_id)))
                 .collect::<Vec<_>>()
         );
+        if let Some(skip) = &unreplayable {
+            // Before any game converts: a stale list stops the conversion.
+            meta["llm_bc_skipped_unreplayable"] = skip.metadata()?;
+        }
     }
     if args.live_bc {
         meta["live_bc_version"] = json!(1);

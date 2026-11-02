@@ -688,6 +688,18 @@ on the new catalog: replayed feature data converted against it, so the new
 operators and the drifted cards' new trees are trained. Fresh memory and
 optimizer, as `refresh_structure4.py` records.
 
+Replaying LLM games recorded on an older build is where a rules change
+shows: the replay audit refuses an input, or finds a different table, in
+each game whose cards now play differently (47 of the 1,008 games of
+`dataset-e7-v3a10` on the build after #410). An LLM-BC conversion publishes
+only when every game converts, so a second conversion of the same runs
+takes the first one's `rejected-games.json` as
+`convert4 --llm-bc --llm-bc-skip-unreplayable <file>`: it leaves those
+games out and records them, with their reasons and the list's digest, as
+`llm_bc_skipped_unreplayable` in `meta.json`. Only replay-audit refusals
+may be listed, and a list naming a game the runs lack is refused, so the
+selection never depends on an outcome or goes stale silently.
+
 ### Lookahead search (`eval4 --search K,P,H`)
 
 The first thinking BayleeAI does beyond one forward pass, for **training and
