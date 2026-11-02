@@ -1129,10 +1129,14 @@ pub async fn run_attempt(
         }),
     )?;
 
+    // The gateway must speak the protocol and view this collector was built
+    // with; literal versions went stale with every bump (#410's votes).
     let info = account.client.get_json("/info", None, 15).await?;
     ensure!(
-        info.get("protocol_version").and_then(Value::as_u64) == Some(36)
-            && info.get("view_version").and_then(Value::as_u64) == Some(82),
+        info.get("protocol_version").and_then(Value::as_u64)
+            == Some(u64::from(baylee_protocol::PROTOCOL_VERSION))
+            && info.get("view_version").and_then(Value::as_u64)
+                == Some(u64::from(baylee_view::VIEW_VERSION)),
         "Wrong gateway ABI: {info}"
     );
 
