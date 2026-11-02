@@ -200,14 +200,18 @@ pub(super) fn up(host: &mut SocialHost, up: &Up) -> bool {
             true
         }
         Up::Send { req, conv, sealed } if personal(conv) => {
-            let job = bridge.members(conv).map(|tags| Job::Send {
+            let Some(tags) = bridge.members(conv) else {
+                refused(host, *req, wire::Why::NotMember);
+                return true;
+            };
+            let job = Job::Send {
                 req: *req,
                 conv: conv.clone(),
                 tags,
                 sealed: sealed.clone(),
-            });
-            if !job.is_some_and(|job| bridge.queue(job)) {
-                refused(host, *req, wire::Why::NotMember);
+            };
+            if !bridge.queue(job) {
+                refused(host, *req, wire::Why::Rate);
             }
             true
         }

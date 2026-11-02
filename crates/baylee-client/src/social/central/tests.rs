@@ -38,6 +38,61 @@ pub(super) fn host() -> SocialHost {
 }
 
 #[test]
+fn a_full_account_queue_keeps_a_personal_message_pending() {
+    use baylee_client_core::social::{ComposerKey, ComposerOutcome, Intent, LineState};
+    let mut host = host();
+    let conv: wire::Conv = "dm:0007:0009".parse().unwrap();
+    let machine = host.machine.as_mut().unwrap();
+    let mut rng = Seeded::new(40);
+    machine.act(Intent::OpenConv(conv.clone()), 100, &mut rng);
+    machine.composer_mut().typed("Please keep this queued");
+    assert_eq!(
+        machine.key(ComposerKey::Enter, 100, &mut rng).0,
+        ComposerOutcome::Submit
+    );
+    let line = machine.conversation(&conv).unwrap().lines.last().unwrap();
+    assert_eq!(line.state, LineState::Pending);
+    let line_id = line.key.id.clone();
+    let bridge = host.central.as_mut().unwrap();
+    while bridge.jobs.len() < 16 {
+        assert!(bridge.queue(Job::Connect {
+            own: "0007".into(),
+            device: "synthetic".into()
+        }));
+    }
+    assert!(up(
+        &mut host,
+        &Up::Send {
+            req: 1,
+            conv: conv.to_string(),
+            sealed: wire::Sealed {
+                hdr: "pending ciphertext".into(),
+                n: String::new(),
+                ct: String::new(),
+                epk: String::new(),
+                sig: String::new(),
+                wraps: vec![],
+            },
+        }
+    ));
+    let line = host
+        .machine
+        .as_ref()
+        .unwrap()
+        .conversation(&conv)
+        .unwrap()
+        .line(&line_id)
+        .unwrap();
+    assert_eq!(
+        line.state,
+        LineState::Pending,
+        "a full local queue is temporary backpressure"
+    );
+    assert_eq!(line.failure, None);
+    assert_eq!(host.central.as_ref().unwrap().jobs.len(), 16);
+}
+
+#[test]
 fn backpressure_drops_queued_reads_and_invalidates_all_late_inbox_answers() {
     let mut host = host();
     let bridge = host.central.as_mut().unwrap();
