@@ -7,6 +7,13 @@ use super::*;
 impl Social {
     // ---- sending ----
 
+    /// Whether this message can still be sent or retried. Transports may discard
+    /// cached ciphertext only after its request has left this queue.
+    #[must_use]
+    pub fn has_pending_message(&self, id: &str) -> bool {
+        self.outbox.iter().any(|pending| pending.key.id == id)
+    }
+
     /// The member tags of a conversation this account may write to now,
     /// itself included; `None` when it may not. A table's members are
     /// checked against the roster drawn (§5.4).

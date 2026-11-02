@@ -15,6 +15,7 @@ mod gateway;
 mod http;
 mod mapping;
 mod poll;
+mod retries;
 mod worker;
 pub(super) use gateway::{gateway_http, gateway_news};
 pub(super) use poll::tick;
@@ -200,6 +201,9 @@ pub(super) fn up(host: &mut SocialHost, up: &Up) -> bool {
             true
         }
         Up::Send { req, conv, sealed } if personal(conv) => {
+            if let Some(machine) = host.machine.as_ref() {
+                retries::retain_pending(&bridge.retries, machine);
+            }
             let Some(tags) = bridge.members(conv) else {
                 refused(host, *req, wire::Why::NotMember);
                 return true;
