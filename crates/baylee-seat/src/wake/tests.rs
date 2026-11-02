@@ -9,6 +9,8 @@ use baylee_core::mana::{ManaColor, ManaCost};
 use baylee_engine::choice::{BlockOption, TargetPrompt};
 use baylee_view::{CardIdentity, HandObject, PublicObject, RulesFace};
 
+mod phasing;
+
 const ME: PlayerId = PlayerId::new(0);
 const THEM: PlayerId = PlayerId::new(1);
 
@@ -699,19 +701,17 @@ fn convoke_reduces_generic_and_matching_colored_pips_without_double_counting_man
     );
     assert_eq!(reach[0].plan.steps.len(), 2);
 
-    // Siege Wurm is {5}{G}{G} with Convoke.
-    // One Forest + one active Llanowar Elves (which is already a mana source in legal.abilities)
-    // + four white creatures = only 6 total mana/convoke, not 7 (Llanowar Elves is not double-counted).
-    let (mut view, legal) = table(&["Forest", "Llanowar Elves"], &["Siege Wurm"]);
-    for slot in 10..14 {
-        view.battlefield.push(permanent(slot, "Eager Cadet"));
-    }
+    // Clever Concealment is {2}{W}{W} with Convoke.
+    // Plains + active Llanowar Elves + one white creature make only three
+    // mana/convoke payments: the Elves cannot both make mana and convoke.
+    let (mut view, legal) = table(&["Plains", "Llanowar Elves"], &["Clever Concealment"]);
+    view.battlefield.push(permanent(10, "Eager Cadet"));
     assert!(
         reachable(&view, &legal).is_empty(),
         "an active mana dork must not be double-counted as both a mana source and a convoke tap"
     );
-    // Adding a fifth white creature reaches {5}{G}{G} (Forest + Elves pay {G}{G}, 5 Cadets convoke {5}).
-    view.battlefield.push(permanent(14, "Eager Cadet"));
+    // The second white creature supplies the fourth payment.
+    view.battlefield.push(permanent(11, "Eager Cadet"));
     assert_eq!(reachable(&view, &legal).len(), 1);
 }
 

@@ -625,6 +625,7 @@ pub fn reachable(view: &PlayerView, legal: &LegalActions) -> Vec<Reach> {
             o.controller == me
                 && o.types.contains(TypeSet::CREATURE)
                 && !o.status.is_tapped()
+                && !o.status.is_phased_out()
                 && !sources.iter().any(|s| s.id == o.id)
         })
         .map(|o| o.colors)

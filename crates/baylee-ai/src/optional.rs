@@ -60,6 +60,7 @@ fn closed(view: &PlayerView, condition: &Condition) -> bool {
         Condition::ControlCount(filter, min) => {
             let agent = HeuristicAgent::new(crate::AIProfile::default());
             view.battlefield_of(me)
+                .filter(|o| !o.status.is_phased_out())
                 .filter(|o| {
                     agent.filter_matches(
                         filter,
@@ -76,6 +77,7 @@ fn closed(view: &PlayerView, condition: &Condition) -> bool {
             let agent = HeuristicAgent::new(crate::AIProfile::default());
             view.battlefield
                 .iter()
+                .filter(|o| !o.status.is_phased_out())
                 .filter(|o| {
                     agent.filter_matches(
                         filter,
