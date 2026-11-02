@@ -3,6 +3,10 @@
 mod tactical_tests;
 
 #[cfg(test)]
+#[path = "foretell_tests.rs"]
+mod foretell_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
 

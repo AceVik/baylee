@@ -349,6 +349,11 @@ pub enum ChoicePrompt {
         /// The N of "Crew N".
         power: u8,
     },
+    /// A vote (CR 701.38a): the menu holds the choices this player may vote
+    /// for, and the one named is their ballot. Asked of each player in turn
+    /// order; the ballots cast before it are public (CR 608.2d), journaled as
+    /// `GameEvent::Voted` and read by `Engine::ballots`.
+    Vote,
     /// Generic selection.
     Generic,
     /// Choose the Army that receives amass counters and the named subtype.
@@ -525,8 +530,10 @@ pub enum YesNoPrompt {
     ApplyAdditionalCountersNext {
         /// Permanent receiving counters.
         permanent: ObjectId,
-        /// Additional counters of each kind in this placement.
+        /// Additional counters of the specified kind, or each kind in this placement.
         additional: u16,
+        /// An entry replacement's counter kind; none adds to every existing kind.
+        kind: Option<baylee_cards_dsl::CounterKind>,
     },
     /// Use a one-shot shield rather than a standing regeneration replacement.
     UseRegenerationShield {

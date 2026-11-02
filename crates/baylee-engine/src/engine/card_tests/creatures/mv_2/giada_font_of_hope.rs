@@ -28,6 +28,21 @@ fn counters(engine: &Engine<RegistryLookup>, id: ObjectId) -> u16 {
 }
 
 #[test]
+fn giada_adds_the_first_counter_before_doubling_season_can_apply() {
+    let doubling_season = card_index("01546b7d-a233-4176-8843-d732074dc5b6");
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(0, &[giada(), doubling_season, plains(), plains(), plains()])
+        .hand(0, &[inspiring_overseer()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, P0);
+    cast_from_hand(&mut engine, P0, inspiring_overseer());
+    pass_until(&mut engine, stack_is_empty);
+    let angel = on_battlefield(&engine, P0, inspiring_overseer()).unwrap();
+    assert_eq!(counters(&engine, angel), 2);
+}
+
+#[test]
 fn giada_counts_angels_already_controlled_and_excludes_herself_and_other_permanents() {
     let mut engine = Duel::new(SEED, plains())
         .battlefield(

@@ -146,6 +146,25 @@ fn a_coin_flip_reads_as_won_or_lost() {
     assert_eq!(flip(BO, false), "Bo flipped a coin and lost the flip");
 }
 
+/// A ballot is told as it is cast, the reader's own and another seat's
+/// (CR 701.38a, 608.2d).
+#[test]
+fn a_vote_says_who_voted_for_what() {
+    let voted = |lang, player| {
+        say(
+            lang,
+            LogEvent::Voted {
+                player,
+                object: bolt(3),
+            },
+        )
+    };
+    assert_eq!(voted(Lang::En, ME), "You voted for Lightning Bolt");
+    assert_eq!(voted(Lang::En, BO), "Bo voted for Lightning Bolt");
+    assert_eq!(voted(Lang::De, ME), "Du hast für Blitzschlag gestimmt");
+    assert_eq!(voted(Lang::De, BO), "Bo hat für Blitzschlag gestimmt");
+}
+
 // ---- the book ----------------------------------------------------------
 
 /// Tails that follow each other are appended in order, each once.
@@ -849,10 +868,11 @@ fn variant(event: &LogEvent) -> usize {
         LogEvent::BecameMonarch { .. } => 32,
         LogEvent::ConnectionLost { .. } => 33,
         LogEvent::Aimed { .. } => 36,
+        LogEvent::Voted { .. } => 37,
     }
 }
 
-const VARIANTS: usize = 37;
+const VARIANTS: usize = 38;
 
 /// Every kind of line, about `player`, with every answer, cause, zone and
 /// counter a line can carry.
@@ -992,6 +1012,10 @@ fn every_line_about(player: PlayerId) -> Vec<LogEvent> {
         },
         LogEvent::CoinFlipped { player, won: true },
         LogEvent::CoinFlipped { player, won: false },
+        LogEvent::Voted {
+            player,
+            object: card.clone(),
+        },
         LogEvent::GameOver {
             winners: SeatSet::new(),
         },
@@ -1211,6 +1235,7 @@ fn about_whom(event: &LogEvent) -> Option<PlayerId> {
         }
         | LogEvent::ControlChanged { new: player, .. }
         | LogEvent::CardsKept { player, .. }
+        | LogEvent::Voted { player, .. }
         | LogEvent::Revealed { player, .. }
         | LogEvent::Shuffled { player }
         | LogEvent::BecameMonarch { player }

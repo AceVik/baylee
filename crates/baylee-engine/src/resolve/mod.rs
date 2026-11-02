@@ -131,6 +131,7 @@ mod settle;
 mod shared_land;
 mod upgrade;
 mod vote;
+pub use vote::Ballot;
 
 pub use answers::*;
 pub use awaiting::*;

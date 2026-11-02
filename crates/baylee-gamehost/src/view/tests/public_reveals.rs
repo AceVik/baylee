@@ -42,7 +42,15 @@ fn phoenix_reveal_reaches_other_seats_and_spectators_without_exposing_the_rest_o
     assert_eq!(opponent.shared_hands[0].cards[0].id, phoenix);
     assert!(opponent.shared_hands[0].public);
     assert!(seen_by(&engine, p0).shared_hands.is_empty());
-    let watcher = spectator_view(engine.state(), 1, None, SeatSet::new(), SeatSet::new(), &[]);
+    let watcher = spectator_view(
+        engine.state(),
+        1,
+        None,
+        SeatSet::new(),
+        SeatSet::new(),
+        &[],
+        &[],
+    );
     assert_eq!(watcher.revealed_hands, opponent.shared_hands);
 
     show_whole_hand(engine.state(), &mut opponent, p0);
@@ -97,7 +105,15 @@ fn public_revelation_reaches_every_seat_and_spectators_then_becomes_private_agai
             }
             assert!(view.library_tops.is_empty());
         }
-        let watcher = spectator_view(engine.state(), 1, None, SeatSet::new(), SeatSet::new(), &[]);
+        let watcher = spectator_view(
+            engine.state(),
+            1,
+            None,
+            SeatSet::new(),
+            SeatSet::new(),
+            &[],
+            &[],
+        );
         assert_eq!(watcher.revealed_hands.len(), if visible { 3 } else { 0 });
         let converted = watcher.into_player_view(p0);
         assert!(
@@ -151,7 +167,15 @@ fn field_of_dreams_reveals_only_one_library_card_per_player_to_every_view() {
         );
         assert!(view.shared_hands.is_empty());
     }
-    let watcher = spectator_view(engine.state(), 1, None, SeatSet::new(), SeatSet::new(), &[]);
+    let watcher = spectator_view(
+        engine.state(),
+        1,
+        None,
+        SeatSet::new(),
+        SeatSet::new(),
+        &[],
+        &[],
+    );
     assert_eq!(
         watcher
             .library_tops

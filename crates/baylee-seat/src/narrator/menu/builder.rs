@@ -413,6 +413,10 @@ impl Builder<'_, '_> {
             let label = format!("Suspend {}", table.named(card));
             self.offer(label, Act::Now(PlayerAction::Suspend { card }), None);
         }
+        for &card in &legal.foretellable {
+            let label = format!("Foretell {} for {{2}} (exile face down)", table.named(card));
+            self.offer(label, Act::Now(PlayerAction::Foretell { card }), None);
+        }
         for &(source, index) in &legal.abilities {
             if baylee_ai::only_makes_mana(view, source, index) {
                 continue;

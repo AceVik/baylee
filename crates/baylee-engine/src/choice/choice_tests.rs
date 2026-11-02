@@ -122,6 +122,7 @@ fn a_timed_out_seat_does_nothing_wherever_the_question_allows_it() {
             yes_no(YesNoPrompt::ApplyAdditionalCountersNext {
                 permanent: object(),
                 additional: 1,
+                kind: None,
             }),
             None,
         ),
@@ -695,6 +696,7 @@ fn only_the_questions_whose_answer_cannot_go_stale_are_automatable() {
         YesNoPrompt::ApplyAdditionalCountersNext {
             permanent: object(),
             additional: 1,
+            kind: None,
         },
         YesNoPrompt::SacrificeToEnter { count: 2 },
         YesNoPrompt::EnterTappedForCounters {

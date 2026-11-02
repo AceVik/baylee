@@ -11,8 +11,8 @@ use std::collections::VecDeque;
 /// entry additions name exactly the kind printed by their ability.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub(crate) struct CounterAddition {
-    kind: Option<CounterKind>,
-    n: u16,
+    pub(crate) kind: Option<CounterKind>,
+    pub(crate) n: u16,
 }
 
 impl CounterAddition {
@@ -20,8 +20,9 @@ impl CounterAddition {
         Self { kind: None, n }
     }
 
-    fn applies_to(self, kind: CounterKind) -> bool {
-        self.kind.is_none_or(|additional| additional == kind)
+    fn applies_to(self, kind: CounterKind, amount: u16) -> bool {
+        self.kind
+            .map_or(amount > 0, |additional| additional == kind)
     }
 }
 
@@ -68,7 +69,7 @@ impl CounterPlacementPlan {
     fn add(&mut self, index: usize) {
         let addition = self.additions.remove(index);
         for (kind, amount) in &mut self.counters {
-            if addition.applies_to(*kind) {
+            if addition.applies_to(*kind, *amount) {
                 *amount = amount.saturating_add(addition.n);
             }
         }
@@ -88,17 +89,48 @@ impl CounterPlacementPlan {
         self.next = 0;
     }
 
+    fn applicable_addition(&self, start: usize) -> Option<usize> {
+        self.additions
+            .iter()
+            .enumerate()
+            .skip(start)
+            .find_map(|(index, addition)| {
+                self.counters
+                    .iter()
+                    .any(|&(kind, amount)| addition.applies_to(kind, amount))
+                    .then_some(index)
+            })
+    }
+
+    fn can_double(&self) -> bool {
+        self.doubles > 0 && self.by_effect && self.counters.iter().any(|&(_, n)| n > 0)
+    }
+
+    /// An entry addition can introduce a new kind. An ordinary addition
+    /// affects that kind only if the entry addition was applied first.
+    fn additions_commute(&self) -> bool {
+        !self
+            .additions
+            .iter()
+            .any(|addition| addition.kind.is_none())
+            || !self.additions.iter().any(|addition| {
+                addition
+                    .kind
+                    .is_some_and(|kind| self.counters.contains(&(kind, 0)))
+            })
+    }
+
     /// Return the proposed additive replacement, or finish every forced step.
-    pub(crate) fn question(&mut self) -> Option<u16> {
+    pub(crate) fn question(&mut self) -> Option<CounterAddition> {
         loop {
-            if self.doubles == 0 {
-                while !self.additions.is_empty() {
-                    self.add(0);
+            if self.doubles == 0 && self.additions_commute() {
+                while let Some(index) = self.applicable_addition(0) {
+                    self.add(index);
                 }
                 return None;
             }
-            if self.additions.is_empty() {
-                if self.by_effect {
+            if self.applicable_addition(0).is_none() {
+                if self.can_double() {
                     // Saturating nonnegative multiplication is associative;
                     // an unrepresentable power of two saturates every positive
                     // amount, while a zero amount remains zero.
@@ -114,11 +146,19 @@ impl CounterPlacementPlan {
                 }
                 return None;
             }
-            if !self.by_effect && self.next + 1 == self.additions.len() {
+            // CR 616.1f: reconsider applicability after every replacement.
+            // A zero placeholder for Giada is not a counter placement yet.
+            let Some(next) = self.applicable_addition(self.next) else {
+                debug_assert!(self.can_double(), "last applicable additive is mandatory");
+                self.double();
+                continue;
+            };
+            self.next = next;
+            if !self.can_double() && self.applicable_addition(self.next + 1).is_none() {
                 self.add(self.next);
                 continue;
             }
-            return Some(self.additions[self.next].n);
+            return Some(self.additions[self.next]);
         }
     }
 
@@ -127,10 +167,6 @@ impl CounterPlacementPlan {
             self.add(self.next);
         } else {
             self.next += 1;
-            if self.next == self.additions.len() {
-                debug_assert!(self.by_effect, "last initial additive is mandatory");
-                self.double();
-            }
         }
     }
 }
@@ -365,7 +401,8 @@ pub(crate) fn pending(state: &mut GameState) -> Option<Pending> {
                     player: controller,
                     prompt: YesNoPrompt::ApplyAdditionalCountersNext {
                         permanent,
-                        additional,
+                        additional: additional.n,
+                        kind: additional.kind,
                     },
                     source: None,
                 });

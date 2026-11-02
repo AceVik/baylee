@@ -177,8 +177,15 @@ fn a_face_down_card_is_blank_to_a_spectator() {
         .expect("there")
         .status
         .insert(baylee_engine::object::Status::FACE_DOWN);
-    let view =
-        crate::view::spectator_view(engine.state(), 1, None, SeatSet::new(), SeatSet::new(), &[]);
+    let view = crate::view::spectator_view(
+        engine.state(),
+        1,
+        None,
+        SeatSet::new(),
+        SeatSet::new(),
+        &[],
+        &[],
+    );
     let blank = view
         .battlefield
         .iter()

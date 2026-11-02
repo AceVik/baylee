@@ -5016,3 +5016,35 @@ The public object's `TOKEN` status distinguishes an actual token permanent from
 identifier. Image identity alone is not rules identity. Internal merged
 components are omitted from the command-zone view; the battlefield permanent
 shows its top printing and retains its existing object handle.
+
+## Votes (protocol 37, view 83)
+
+A vote (CR 701.38a: each player, starting with a specified player and
+proceeding in turn order, chooses one of the choices) is asked of each voter
+in turn as `Pending::ChooseCards` with `ChoicePrompt::Vote`, `min == max == 1`;
+the options are what that player may vote for. A player with no legal choice
+is not asked. Each ballot is announced as it is cast (CR 608.2d), so the next
+voter knows every vote before theirs, and nothing about a vote is hidden:
+
+- `LogEvent::Voted { player, object }` is written to every seat's log as the
+  ballot is cast, not when the vote is counted. `object` is a `LogObject`
+  with the ordinary visibility of what was voted for.
+- `PlayerView::ballots` (and `SpectatorView::ballots`) is the vote in
+  progress: every `Ballot { voter, choice }` cast so far, in the order cast,
+  the same in every seat's view and a spectator's. It is empty outside a
+  vote, absent on the wire while empty and read as empty when absent.
+
+The prompt and the log line are enum variants an older reader cannot
+decode, so `PROTOCOL_VERSION` is 37 and `VIEW_VERSION` 83; `ballots` alone
+would be additive. The client heads the question "Cast your vote" and ends
+the prompt line, the voter's and every waiting seat's, with the tally
+("Votes so far: …"); the LLM seat reads the prompt in its own words and the
+ballots in the log it is narrated.
+
+Protocol 37 also distinguishes the counter kind in
+`YesNoPrompt::ApplyAdditionalCountersNext`: `kind: Some(kind)` introduces
+that kind through an entry replacement, while `kind: None` adds to each
+kind already being placed. The client and LLM narrator name the specific
+kind when present. Replacement applicability is recalculated after each
+choice (CR 616.1f); an entry replacement must introduce the first counters
+before a counter doubler can apply.

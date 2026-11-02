@@ -314,6 +314,7 @@ pub fn play_report<L: CardLookup>(
                 inspected_cards: engine.inspected_cards(),
                 decision_remaining_ms: None,
                 policy_acts: &[],
+                ballots: engine.ballots(),
             },
             &[],
         );
@@ -656,6 +657,7 @@ mod tests {
                     owed: crate::view::owed_payment(engine),
                     library_reveal_blocked: engine.library_reveal_blocked(),
                     inspected_cards: engine.inspected_cards(),
+                    ballots: engine.ballots(),
                     ..Default::default()
                 },
                 &[],
@@ -1128,6 +1130,7 @@ mod tests {
                     inspected_cards: engine.inspected_cards(),
                     decision_remaining_ms: None,
                     policy_acts: &[],
+                    ballots: engine.ballots(),
                 },
                 &[],
             );

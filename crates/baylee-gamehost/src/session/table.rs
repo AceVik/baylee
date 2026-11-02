@@ -67,6 +67,7 @@ impl Table<'_> {
                 // What a policy answered is told to the seat's player; it is
                 // not an input to a decision.
                 policy_acts: &[],
+                ballots: engine.ballots(),
             },
             self.house_answered,
         )
@@ -100,6 +101,7 @@ impl Table<'_> {
                 inspected_cards: engine.inspected_cards(),
                 decision_remaining_ms: None,
                 policy_acts: &[],
+                ballots: engine.ballots(),
             },
             self.house_answered,
         )

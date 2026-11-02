@@ -354,6 +354,7 @@ fn choice_noun(reason: ChoicePrompt) -> Phrase {
         | ChoicePrompt::EntryReplacement
         | ChoicePrompt::Dredge
         | ChoicePrompt::DrawReplacement
+        | ChoicePrompt::Vote
         | ChoicePrompt::Generic => Phrase::NounCards,
     }
 }
@@ -378,6 +379,9 @@ fn cards_line(
         ChoicePrompt::EntryReplacement => Some(Phrase::ChooseEntryReplacement),
         ChoicePrompt::Dredge => Some(Phrase::ChooseDredge),
         ChoicePrompt::DrawReplacement => Some(Phrase::ChooseDrawReplacement),
+        // A vote is not "choose 1 card": the answer is a ballot the table is
+        // told (CR 701.38a), and the tally stands beside it (`ballots_line`).
+        ChoicePrompt::Vote => Some(Phrase::CastYourVote),
         _ => None,
     };
     if let Some(phrase) = sentence {
@@ -748,8 +752,20 @@ fn yes_no_line(lang: Lang, question: YesNoPrompt, statics: Option<&GameStatic>) 
                 ],
             )
         }
-        YesNoPrompt::ApplyAdditionalCountersNext { additional, .. } => {
-            Phrase::ApplyAdditionalCountersNext.fill(lang, &[&additional.to_string()])
+        YesNoPrompt::ApplyAdditionalCountersNext {
+            additional, kind, ..
+        } => {
+            if let Some(kind) = kind {
+                Phrase::ApplyAdditionalCountersOfKindNext.fill(
+                    lang,
+                    &[
+                        &additional.to_string(),
+                        &counter_label_counted(kind, lang, usize::from(additional)),
+                    ],
+                )
+            } else {
+                Phrase::ApplyAdditionalCountersNext.fill(lang, &[&additional.to_string()])
+            }
         }
         YesNoPrompt::MayDo => Phrase::UseTheOptionalAbility.text(lang).to_string(),
         // The owner answers, about a card that may be somebody else's
@@ -768,4 +784,41 @@ fn priority_line(lang: Lang, turn: Turn) -> String {
         Turn::Mine => Phrase::YourMove.text(lang).to_string(),
         Turn::Theirs => Phrase::YouMayRespond.text(lang).to_string(),
     }
+}
+
+/// The vote in progress, as the line beside the question or the wait:
+/// "Votes so far: Ada for Sol Ring, you for Juzám Djinn". `None` outside a
+/// vote and before its first ballot.
+///
+/// Every ballot, the reading seat's own and every other seat's, in the order
+/// cast, for every seat alike: each vote is announced as it is cast (CR
+/// 608.2d) and the next player votes knowing it (CR 701.38a). `name` is the
+/// renderer's name of a permanent on the table; one it cannot name is "a
+/// permanent".
+#[must_use]
+pub fn ballots_line(
+    lang: Lang,
+    view: &PlayerView,
+    statics: Option<&GameStatic>,
+    name: &dyn Fn(ObjectId) -> Option<String>,
+) -> Option<String> {
+    if view.ballots.is_empty() {
+        return None;
+    }
+    let ballots: Vec<String> = view
+        .ballots
+        .iter()
+        .map(|ballot| {
+            let voter = if ballot.voter == view.seat {
+                Phrase::You.text(lang).to_owned()
+            } else {
+                seat_name(lang, statics, ballot.voter)
+            };
+            let choice = name(ballot.choice)
+                .filter(|n| !n.trim().is_empty())
+                .unwrap_or_else(|| Phrase::APermanent.text(lang).to_owned());
+            Phrase::BallotFor.fill(lang, &[&voter, &choice])
+        })
+        .collect();
+    Some(Phrase::VotesSoFar.fill(lang, &[&ballots.join(", ")]))
 }

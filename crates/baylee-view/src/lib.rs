@@ -58,7 +58,7 @@ pub use objects::{
     AbilitySource, BoardMana, CardIdentity, DamageSourceView, GrantSource, GrantedMana, HandObject,
     NamedFace, ObjectSummaryKey, PublicObject, RulesFace, StackItem, StackText, TokenAbility,
 };
-pub use player_view::{LostSeat, PlayerView, SeatClock, TargetingContext, WordChange};
+pub use player_view::{Ballot, LostSeat, PlayerView, SeatClock, TargetingContext, WordChange};
 pub use seats::{CommanderDamage, CommanderView, HouseAnswer, LossCause, ManaPoolView, SeatView};
 pub use seen::{Seen, SeenIn};
 pub use shown_hands::{SeatSetting, SharedHand};
@@ -234,7 +234,11 @@ pub use turn::{DayNight, Phase, Step};
 /// optional battle protector field is an additive public designation.
 /// Version 82 adds mutate/dungeon resolution choices and separates token status
 /// from the image identifier used for a physical melded permanent.
-pub const VIEW_VERSION: u32 = 82;
+/// Version 83 tells votes (CR 701.38a): the engine choice's `ChoicePrompt::Vote`
+/// and the game log's [`LogEvent::Voted`], variants a reader of 82 cannot
+/// parse. Compatible addition beside them: [`PlayerView::ballots`] and
+/// [`SpectatorView::ballots`], the vote in progress, absent while empty.
+pub const VIEW_VERSION: u32 = 83;
 
 // ------------------------------------------------------------------- targets
 

@@ -466,7 +466,7 @@ const fn rider_object(rider: &Rider) -> Option<ObjectId> {
         | Rider::CounterSourceVersion(_)
         | Rider::Rebound
         | Rider::Adventure(_)
-        | Rider::Foretold
+        | Rider::Foretold { .. }
         | Rider::Plotted
         | Rider::Suspend
         | Rider::Flashback
@@ -492,6 +492,7 @@ const fn rider_object(rider: &Rider) -> Option<ObjectId> {
         | Rider::SecondChosenSubtype(_)
         | Rider::ChosenNumber { .. }
         | Rider::ChosenName { .. }
+        | Rider::ChosenCardType(_)
         | Rider::RulesAcquisition(_)
         | Rider::HideawayHost(_)
         | Rider::ExileVisibility { .. }

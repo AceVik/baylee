@@ -9,6 +9,7 @@ use baylee_core::mana::{ManaColor, ManaCost};
 use baylee_engine::choice::{BlockOption, TargetPrompt};
 use baylee_view::{CardIdentity, HandObject, PublicObject, RulesFace};
 
+mod foretell;
 mod phasing;
 
 const ME: PlayerId = PlayerId::new(0);

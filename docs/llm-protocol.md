@@ -49,6 +49,12 @@ plan or a standing pass could have: the calls were the cost.
 
 ## The format
 
+Foretell's special action is an explicit priority option when the engine
+offers it: pay {2} and exile the named hand card face down. Standing orders
+must not classify a window containing `LegalActions::foretellable` as
+"nothing to do". Taking the action also ends the preceding mana-tapping
+sequence. The later cast uses its separate foretell casting mode.
+
 The state stays prose. On 602 captured boards, re-encoding the same state
 (header, log and question unchanged) costs, per whole wake:
 

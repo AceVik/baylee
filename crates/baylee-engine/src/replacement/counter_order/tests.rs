@@ -36,6 +36,55 @@ fn reference(n: u16, additions: Vec<u16>, doubles: u16, effect: bool) -> BTreeSe
 }
 
 #[test]
+fn entry_additions_enable_counter_replacements_only_after_the_first_counter() {
+    let plan = |entries, ordinary, doubles| {
+        let mut plan = CounterPlacementPlan::new(
+            DamageSourceRef {
+                object: ObjectId::new(0, 0),
+                version: 0,
+            },
+            PlayerId::new(0),
+            CounterKind::P1P1,
+            0,
+            ordinary,
+            doubles,
+            true,
+        );
+        plan.additions.extend((0..entries).map(|_| CounterAddition {
+            kind: Some(CounterKind::P1P1),
+            n: 1,
+        }));
+        plan
+    };
+    assert_eq!(results(plan(1, vec![], 1)), BTreeSet::from([2]));
+    assert_eq!(results(plan(2, vec![], 1)), BTreeSet::from([3, 4]));
+    assert_eq!(results(plan(1, vec![1], 1)), BTreeSet::from([3, 4]));
+    assert_eq!(results(plan(1, vec![1], 0)), BTreeSet::from([2]));
+}
+
+#[test]
+fn an_additional_counter_cannot_create_a_kind_that_has_not_been_added_yet() {
+    let mut plan = CounterPlacementPlan::new(
+        DamageSourceRef {
+            object: ObjectId::new(0, 0),
+            version: 0,
+        },
+        PlayerId::new(0),
+        CounterKind::P1P1,
+        0,
+        vec![1],
+        0,
+        true,
+    );
+    plan.counters.push((CounterKind::Charge, 1));
+    plan.additions.push(CounterAddition {
+        kind: Some(CounterKind::P1P1),
+        n: 1,
+    });
+    assert_eq!(results(plan), BTreeSet::from([1, 2]));
+}
+
+#[test]
 fn decision_tree_matches_every_legal_replacement_permutation() {
     for n in 1..=4 {
         for additions in [vec![], vec![1], vec![1, 1], vec![1, 2]] {
@@ -104,13 +153,7 @@ fn placement_waits_for_recipient_choice_and_preserves_placing_player() {
     for (add_first, expected) in [(true, 4), (false, 3)] {
         let (mut state, target) = setup();
         let before = state.journal.last_seq();
-        super::super::put_counters_by(
-            &mut state,
-            PlayerId::new(1),
-            target,
-            CounterKind::Charge,
-            1,
-        );
+        super::super::put_counters_by(&mut state, PlayerId::new(1), target, CounterKind::Charge, 1);
         assert_eq!(
             state
                 .object(target)
@@ -276,7 +319,7 @@ fn forced_arithmetic_matches_repeated_operations_at_saturation() {
             // Independent linear reference performs every individual addition.
             for extra in std::mem::take(&mut expected.additions) {
                 for (kind, amount) in &mut expected.counters {
-                    if extra.applies_to(*kind) {
+                    if extra.applies_to(*kind, *amount) {
                         *amount = amount.saturating_add(extra.n);
                     }
                 }

@@ -45,6 +45,16 @@ pub struct LostSeat {
     pub remaining_ms: Option<u32>,
 }
 
+/// One player's vote in the vote in progress, as [`PlayerView::ballots`]
+/// tells it (CR 701.38a).
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
+pub struct Ballot {
+    /// The voter.
+    pub voter: PlayerId,
+    /// What they voted for: an object this view shows.
+    pub choice: ObjectId,
+}
+
 // ---------------------------------------------------------------------- view
 
 /// The complete, hidden-information-filtered state of a game as one seat sees
@@ -289,6 +299,18 @@ pub struct PlayerView {
     pub command: Vec<Vec<PublicObject>>,
     /// Combat, when combat is declared.
     pub combat: CombatView,
+    /// The ballots of the vote in progress, in the order they were cast,
+    /// and empty outside a vote (CR 701.38a: each player in turn order).
+    ///
+    /// **Public**, the same in every seat's view and a spectator's: each
+    /// vote is announced as it is cast (CR 608.2d), so a player votes knowing
+    /// every ballot before theirs. The game log tells the same line by line
+    /// ([`LogEvent::Voted`](crate::LogEvent::Voted)); this is the tally a
+    /// client can draw beside the question without reading the log.
+    ///
+    /// Additive: absent on the wire while empty, and read as empty when absent.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ballots: Vec<Ballot>,
     /// Cards this seat is being *shown*, which live in no zone it can see.
     ///
     /// A library search, a scry, an opponent's revealed hand: the engine asks

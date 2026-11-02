@@ -50,7 +50,7 @@ pub use ending::{
     Outcome, ending_reason, loss_lines, loss_phrases, outcome, table_losses, verdict,
 };
 mod headline;
-pub use headline::{counter_label, counter_label_counted, payment_line};
+pub use headline::{ballots_line, counter_label, counter_label_counted, payment_line};
 
 /// What a combat declaration is currently pointed at.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]

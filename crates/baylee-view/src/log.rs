@@ -454,6 +454,14 @@ pub enum LogEvent {
         /// Whose.
         player: PlayerId,
     },
+    /// A player cast a ballot in a vote (CR 701.38a), told to every seat as
+    /// it is cast (CR 608.2d).
+    Voted {
+        /// The voter.
+        player: PlayerId,
+        /// What they voted for.
+        object: LogObject,
+    },
     /// A coin was flipped (CR 705).
     CoinFlipped {
         /// Who flipped it.
@@ -561,6 +569,7 @@ impl LogEvent {
             | Self::Attacked { attacker: o, .. }
             | Self::ControlChanged { object: o, .. }
             | Self::TurnedFaceUp { object: o }
+            | Self::Voted { object: o, .. }
             | Self::Transformed { object: o } => out.push(o),
             Self::Drew { cards, .. }
             | Self::Revealed { cards, .. }
@@ -625,6 +634,7 @@ impl LogEvent {
             | Self::Attacked { attacker: o, .. }
             | Self::ControlChanged { object: o, .. }
             | Self::TurnedFaceUp { object: o }
+            | Self::Voted { object: o, .. }
             | Self::Transformed { object: o } => out.push(o),
             Self::Drew { cards, .. }
             | Self::Revealed { cards, .. }

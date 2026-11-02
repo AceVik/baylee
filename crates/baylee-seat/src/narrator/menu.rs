@@ -968,7 +968,8 @@ fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, Str
         YesNoPrompt::ApplyAdditionalCountersNext {
             permanent,
             additional,
-        } => additional_counter_words(table, *permanent, *additional),
+            kind,
+        } => additional_counter_words(table, *permanent, *additional, *kind),
         YesNoPrompt::Kicker => (
             "Pay the kicker or additional cost?".into(),
             "pay it".into(),
@@ -1137,10 +1138,21 @@ fn additional_counter_words(
     table: &Table<'_>,
     permanent: ObjectId,
     additional: u16,
+    kind: Option<baylee_cards_dsl::CounterKind>,
 ) -> (String, String, String) {
+    let counters = kind.map_or_else(
+        || "counters of each kind".into(),
+        |kind| {
+            baylee_client_core::interaction::counter_label_counted(
+                kind,
+                baylee_client_core::Lang::En,
+                usize::from(additional),
+            )
+        },
+    );
     (
         format!(
-            "Apply {additional} additional counters of each kind to {} next?",
+            "Apply {additional} additional {counters} to {} next?",
             table.named(permanent)
         ),
         "apply the additive counter replacement next".into(),

@@ -309,6 +309,10 @@ pub fn choice_prompt(prompt: ChoicePrompt) -> String {
         ChoicePrompt::KeepCreatures => "Choose creatures to keep; sacrifice the rest".into(),
         ChoicePrompt::KeepPermanents => "Choose permanents to keep; sacrifice the rest".into(),
         ChoicePrompt::Amass => "Choose an Army to receive the amass counters".into(),
+        ChoicePrompt::Vote => {
+            "Vote: choose the one you vote for. Every earlier ballot is public and in the log"
+                .into()
+        }
         ChoicePrompt::Generic => "Choose cards".into(),
     }
 }
@@ -350,6 +354,15 @@ mod tests {
         assert!(text.contains("fixed activation cost"));
         assert!(text.contains("choose none to decline"));
         assert!(choice_prompt(ChoicePrompt::CommandCard).contains("affected player"));
+    }
+
+    /// A vote says it is one, and that the ballots before it are known
+    /// (CR 701.38a, 608.2d): the log tells each as it is cast.
+    #[test]
+    fn a_vote_says_it_is_a_vote() {
+        let text = choice_prompt(ChoicePrompt::Vote);
+        assert!(text.starts_with("Vote"));
+        assert!(text.contains("earlier ballot"));
     }
 
     /// A draw can be replaced (K12): dredge is optional and says what naming

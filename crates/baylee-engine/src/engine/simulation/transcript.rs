@@ -134,6 +134,7 @@ fn for_each_object(event: &mut GameEvent, f: &mut impl FnMut(&mut ObjectId)) {
             }
         }
         GameEvent::PlayerBecameTarget { object, .. }
+        | GameEvent::Voted { object, .. }
         | GameEvent::ZoneChanged { object, .. }
         | GameEvent::CounterChanged { object, .. }
         | GameEvent::ObjectTapped { object, .. }

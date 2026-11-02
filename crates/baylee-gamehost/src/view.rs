@@ -436,6 +436,22 @@ pub struct SeatContext<'a> {
     /// seat's own row, so no other seat's reaches it
     /// ([`PlayerView::policy_acts`]).
     pub policy_acts: &'a [Vec<PolicyAct>],
+    /// The ballots of the vote in progress. Pass `engine.ballots()`. Public:
+    /// every seat's view carries them all ([`PlayerView::ballots`]).
+    pub ballots: &'a [baylee_engine::resolve::Ballot],
+}
+
+/// The vote in progress as a view tells it: every ballot, to every seat and
+/// a spectator alike, since each was announced as it was cast (CR 608.2d).
+#[must_use]
+pub fn ballot_views(ballots: &[baylee_engine::resolve::Ballot]) -> Vec<baylee_view::Ballot> {
+    ballots
+        .iter()
+        .map(|ballot| baylee_view::Ballot {
+            voter: ballot.voter,
+            choice: ballot.choice,
+        })
+        .collect()
 }
 
 /// This seat's own hand, which is the one hand a view spells out.
@@ -581,6 +597,7 @@ pub fn player_view(
         exile: per_seat_zone(state, ZoneLocation::Exile, seat, ctx.controlled_players),
         command: per_seat_zone(state, ZoneLocation::Command, seat, ctx.controlled_players),
         combat: combat_view(state),
+        ballots: ballot_views(ctx.ballots),
         looking_at: looking_at(state, seat, pending, ctx),
         damage_sources: damage_sources(state, seat, pending, ctx, &mut references),
         target_objects: target_objects(state, seat, pending, ctx, &mut references),
@@ -671,6 +688,8 @@ pub const SPECTATOR: PlayerId = PlayerId::new(u8::MAX);
 /// which is asked for [`SPECTATOR`], a viewer who controls nothing and is in
 /// no set. `awaiting` is the seat every other seat is told the table waits
 /// for, and `library_reveal_blocked` holds a top back as it does for seats.
+/// `ballots` is the vote in progress (`engine.ballots()`), public to a
+/// spectator as to every seat.
 #[must_use]
 pub fn spectator_view(
     state: &GameState,
@@ -679,6 +698,7 @@ pub fn spectator_view(
     deciding: SeatSet,
     library_reveal_blocked: SeatSet,
     house_answered: &[Option<HouseAnswer>],
+    ballots: &[baylee_engine::resolve::Ballot],
 ) -> baylee_view::SpectatorView {
     let nobody = SeatSet::new();
     baylee_view::SpectatorView {
@@ -699,6 +719,7 @@ pub fn spectator_view(
         command: per_seat_zone(state, ZoneLocation::Command, SPECTATOR, nobody),
         combat: combat_view(state),
         revealed_hands: revealed_hands(state, None),
+        ballots: ballot_views(ballots),
         library_tops: state
             .players
             .iter()

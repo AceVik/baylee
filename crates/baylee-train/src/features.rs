@@ -303,6 +303,7 @@ pub fn seat_view(
             owed: owed_payment(engine),
             library_reveal_blocked: engine.library_reveal_blocked(),
             inspected_cards: engine.inspected_cards(),
+            ballots: engine.ballots(),
             decision_remaining_ms: None,
             policy_acts: &[],
         },

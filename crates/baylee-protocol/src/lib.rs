@@ -32,7 +32,9 @@ pub mod tape;
 /// Version 34 adds battle defenders and defense counters to serialized choices.
 /// Version 35 adds resolution choices for mutate positions and dungeon paths.
 /// Version 36 requires authoritative per-seat participation endings from engines.
-pub const PROTOCOL_VERSION: u32 = 36;
+/// Version 37 asks a vote as one (`ChoicePrompt::Vote`, CR 701.38a).
+/// Counter-order prompts also carry the entry replacement's counter kind.
+pub const PROTOCOL_VERSION: u32 = 37;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;
@@ -315,7 +317,9 @@ mod tests {
         // 35: MutatePosition, Dungeon and DungeonRoom cast-mode choices.
         // 36: engines report each seat's participation ending, which the
         // gateway now requires to release an account-bound game.
-        assert_eq!(PROTOCOL_VERSION, 36);
+        // 37: a vote, `ChoicePrompt::Vote`, a variant an older client cannot
+        // decode.
+        assert_eq!(PROTOCOL_VERSION, 37);
     }
 
     #[test]

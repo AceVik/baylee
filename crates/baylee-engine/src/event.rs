@@ -132,6 +132,14 @@ pub enum GameEvent {
         /// The kept permanents.
         cards: Vec<ObjectId>,
     },
+    /// A player cast a ballot in a vote (CR 701.38a), announced as it is
+    /// cast (CR 608.2d), so every later voter knows it.
+    Voted {
+        /// The voter.
+        player: PlayerId,
+        /// What they voted for.
+        object: ObjectId,
+    },
     /// A player flipped a coin and won or lost the flip (CR 705).
     CoinFlipped {
         /// Who flipped.

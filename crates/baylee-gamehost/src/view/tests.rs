@@ -33,6 +33,7 @@ mod revealed;
 mod seats;
 mod shared_hand;
 mod spectator;
+mod votes;
 
 struct Registry;
 impl CardLookup for Registry {
@@ -141,6 +142,7 @@ fn seen_by(engine: &Engine<Registry>, seat: PlayerId) -> baylee_view::PlayerView
         controlled_players: engine.controlled_players(seat),
         library_reveal_blocked: engine.library_reveal_blocked(),
         inspected_cards: engine.inspected_cards(),
+        ballots: engine.ballots(),
         ..SeatContext::default()
     };
     player_view(

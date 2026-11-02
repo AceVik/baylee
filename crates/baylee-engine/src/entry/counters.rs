@@ -34,7 +34,8 @@ pub(super) fn question(state: &mut GameState, entry: &mut Attempt) -> Option<Pen
                 player: entry.controller,
                 prompt: YesNoPrompt::ApplyAdditionalCountersNext {
                     permanent: entry.object,
-                    additional,
+                    additional: additional.n,
+                    kind: additional.kind,
                 },
                 source: None,
             });
