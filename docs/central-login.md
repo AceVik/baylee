@@ -130,16 +130,17 @@ The added HPKE pairing uses X25519/HKDF/ChaCha, and chat uses Ed25519/X25519 and
 XChaCha20-Poly1305. Neither added path calls the affected arithmetic. The actual
 all-feature graph retains exactly the reverse edges below. Central's own
 `cargo xtask crypto-scope` additionally pins the complete crypto source fingerprint
-`dc888a48775be2adcdc5ece504a4b0c3683dc4d08dbd809b5f6071a7eb54b871`
+`399770971518b98546ad6380b7579245b933489e12efd2cc1075b8b7fdb19946`
 and exact curve/signature features; its review is in
 `docs/crypto-proposal/bigint-advisory.md` at that immutable revision. The native
 guard now pins the merged Central main revision
-`2b54a3944150a1aecbc20b94854966d787d31cd5`, which includes the finished
-PWA used by the deployment hook and the final migration/logout fixes. Its
-`central-crypto` source, root Cargo manifest and lockfile are byte-identical
-to the preceding PWA pin `f66568b985656eb1677c33c6f6515e107b126c93`;
-the reviewed crypto fingerprint is unchanged. No scanner ignore or allowed reverse
-edge changes.
+`df00faf8d9f434cfa2bf030b99e11edd04b08e25` (Central PR #61), which includes
+the finished PWA used by the deployment hook, migration/logout fixes and the
+reviewed beta.9c dependency migration described above. The previous PWA-inclusive
+pin `2b54a3944150a1aecbc20b94854966d787d31cd5` had identical crypto sources
+and dependencies to `f66568b985656eb1677c33c6f6515e107b126c93`; beta.9c
+requires the renewed source review and fingerprint. No scanner ignore or
+allowed reverse edge was broadened.
 
 `deny.toml` and the audit job exclude this advisory only under that reviewed
 scope. The required `shipped-features` job and local feature gate run
@@ -540,6 +541,15 @@ before commit. For Clippy, pass the option after the subcommand:
 subcommand does not preserve this global option in the same way as built-in
 `check`/`test`. Both test scripts own their temporary PostgreSQL fixture and
 verify cleanup on success, failure and cancellation.
+
+If the sibling changes exact dependency requirements, first resolve the local
+graph with `cargo update --config target/central-patch.toml`. Also pass that
+configuration to the outer Cargo alias, which builds `baylee-dev` before the
+fixture starts: `cargo --config target/central-patch.toml dev central integration
+--cargo-config target/central-patch.toml`. Alternatively, an already built
+`target/tools/baylee-dev` can run the same fixture command directly. Restore the
+committed lockfile after a temporary sibling test; final gates use the immutable
+Git pins and no local patch configuration.
 
 `cargo dev central client` exercises the actual native client against
 that fixture. The 19 October 2026 Windows run passed: no saved gateways before

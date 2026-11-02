@@ -26,6 +26,13 @@ compatible transitive dependencies are refreshed. Bevy now admits ruzstd
 configuration. The existing ttf-parser maintenance notice and narrowly bounded
 Central bigint exception remain documented; no additional ignore was added.
 
+The final native resolution also picks up ctutils 0.4.8, published during this
+work. Its two changed source files were compared with 0.4.7: additional
+constant-time barriers apply to Thumb-1 and RISCV32 nonzero comparisons, and
+the manifest's dependencies/features remain unchanged. It forbids first-party
+unsafe; the already existing cmov implementation remains its dependency.
+Central's own lockfile retains the owner's exact accepted 45-change scope.
+
 Two newer direct API generations cannot be used independently of current
 Bevy: it exposes glam 0.33.2 and accesskit 0.24.1 types. Both are pinned to those
 compatible versions; adding glam 0.34 or accesskit 0.25 in parallel produces
@@ -79,3 +86,30 @@ weakened. All 13 motion regressions, including the new zero-time test, pass.
 The 37-test rerun covering those motion tests, ticketed sockets, social
 presence/table isolation and the database-backed language/name caches passes
 against the corrected fixture, which was removed with its port verified closed.
+
+The real PostgreSQL 18.6 Central/Gateway integration passes with the updated
+SDK: legacy cutover/sign-in, restore, admission and personal transport are
+exercised. This coordinated test used the documented local path override;
+Central PR #61's rebase merge has a byte-identical source tree. All eight final
+SDK pins use that immutable merged revision, `df00faf8d9f434cfa2bf030b99e11edd04b08e25`,
+and the local patch configuration was removed before landing. The final
+958-package native lockfile passes cargo-audit 0.22.2 with the two existing
+reviewed exceptions and cargo-deny 0.20.2. Final gates use the Git revision.
+
+The final `cargo dev gate` passes formatting, complete-workspace Clippy,
+all 24,912 tests (39 existing skips), validation against all 12,542 cached
+Scryfall payloads, the generated API comparison and four API-documentation
+tests. The test suite took 3,059 seconds under the observed host load; this
+is correctness evidence, not a performance benchmark. Its temporary database
+used 195 MiB of the bounded 4 GiB storage after the complete suite.
+
+The client development-feature variant also passes Clippy and 2,392 tests,
+including 42 `devctl::` tests against the gate's minimum of 15. These features
+remain local-only; the shipping graph checks keep them out of release builds.
+The complete `cargo dev gate features` and separate `cargo dev gate
+shipped-features` both pass: gateway `dev-table` Clippy/tests, test support,
+training without `play`, fuzzing, simulation, mutation, feature isolation and
+the reviewed bigint source/graph scope. The Linux-only collector check is
+reported as inapplicable on this macOS host, as the existing gate specifies.
+The owned PostgreSQL container was removed, its port closure verified by the
+fixture, and no test or gateway process remained from the worktree.
