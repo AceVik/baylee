@@ -166,6 +166,10 @@ seconds. Definitive session rejection drops unlocked keys and prevents automatic
 legacy fallback. Late inbox pages cannot advance a restarted or locked session's
 cursor. Uncertain sends retain the exact ciphertext and request ID across retries;
 retries leave room for inbox and directory reads.
+Local queue saturation keeps a send pending for retry. A terminal refusal releases
+only that request's ciphertext-cache slot; uncertain or rate-limited requests keep
+their exact ciphertext. This prevents rejected sends from exhausting the bounded
+retry cache and blocking unrelated future messages.
 
 Central inbox reads are non-destructive, with a separate cursor and at most 50
 messages per page. Their cursor never becomes a gateway ACK. Core checks still

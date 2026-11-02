@@ -116,3 +116,43 @@ fn an_uncertain_send_does_not_starve_directory_and_inbox_reads() {
         Some(Job::Poll { .. })
     ));
 }
+
+#[test]
+fn a_terminal_send_failure_releases_only_its_own_retry_slot() {
+    for error in [Error::Rejected, Error::TermsRequired] {
+        let mut host = host();
+        let sealed = wire::Sealed {
+            hdr: "terminal request".into(),
+            n: String::new(),
+            ct: String::new(),
+            epk: String::new(),
+            sig: String::new(),
+            wraps: vec![],
+        };
+        let retries = host.central.as_ref().unwrap().retries.clone();
+        for key in ["terminal request", "still uncertain"] {
+            retries.lock().unwrap().insert(
+                key.into(),
+                serde_json::from_value(serde_json::to_value(&sealed).unwrap()).unwrap(),
+            );
+        }
+        failed(
+            &mut host,
+            Job::Send {
+                req: 1,
+                conv: "dm:0007:0009".into(),
+                tags: vec!["0007".into(), "0009".into()],
+                sealed,
+            },
+            error,
+            100,
+        );
+        let retries = retries.lock().unwrap();
+        assert_eq!(
+            retries.len(),
+            1,
+            "terminal failures must not exhaust the 64-slot cache"
+        );
+        assert!(retries.contains_key("still uncertain"));
+    }
+}

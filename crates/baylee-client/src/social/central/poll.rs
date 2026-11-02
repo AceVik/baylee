@@ -180,17 +180,24 @@ fn failed(host: &mut SocialHost, job: Job, error: Error, now: u64) {
             http_answer(host, HttpTag::RegisterDevice, worker::status(error), &[]);
         }
         Job::Http { tag, .. } => http_answer(host, tag, worker::status(error), &[]),
-        Job::Send { req, .. } => refused(
-            host,
-            req,
-            match error {
+        Job::Send { req, sealed, .. } => {
+            // These refusals end the core request. A manual retry creates a
+            // new message ID, so retaining this ciphertext would leak a slot.
+            // Busy/unavailable requests still need their exact sealed retry.
+            if matches!(error, Error::Rejected | Error::TermsRequired)
+                && let Ok(mut retries) = bridge.retries.lock()
+            {
+                retries.remove(&sealed.hdr);
+            }
+            let why = match error {
                 Error::Conflict => wire::Why::Devices,
                 // Keep the core's request ID and the worker's exact ciphertext,
                 // while allowing directory/inbox jobs between bounded retries.
                 Error::Busy | Error::Unavailable => wire::Why::Rate,
                 Error::Rejected | Error::TermsRequired => wire::Why::NotMember,
-            },
-        ),
+            };
+            refused(host, req, why);
+        }
         Job::Poll { .. } if error == Error::Rejected => reject_session(host),
         Job::Poll { .. } => {}
     }
