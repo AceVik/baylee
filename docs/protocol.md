@@ -1431,9 +1431,10 @@ earlier draws. While a hand is shown, the view names a card that the log
 line for its draw still tells that teammate as `Hidden`. That leaks nothing
 and adds no knowledge after the fact.
 
-A seat socket has no frame-rate bound yet (#284). A client toggling its
-setting makes the engine build its teammate's views as fast as it sends, the
-same as any other frame today. Only settings that change nothing are free.
+A seat socket has a burst allowance of 512 frames and then 240 frames per
+second (#284), counted across game and transport frames. Exceeding the
+allowance closes the socket with code 1008. Changing a sharing setting still
+builds the teammate's views; only settings that change nothing are free.
 
 Tests: the hidden-information guarantees are in `crates/baylee-gamehost/src/view.rs`,
 one per rule ("a teammate's hand is shown only while it is shared"). The
@@ -2434,43 +2435,25 @@ part of #294.
 
 ### Once a socket is open
 
-A ticket says who may open a socket; what the socket may still do is
-asked again while it is open. The lobby, watch and social sockets check
-their session in full every five seconds and close when it fails. A seat
-socket (`crates/baylee-gateway/src/routes/seat_socket.rs`) is checked on
-three beats, because its frames are actions:
+A ticket authorizes opening a socket; it does not replace the checks while
+the socket remains open. A seat socket checks its complete capability after
+receiving each binary game envelope and before forwarding it: the current seat
+token and, for a Central-bound seat, its original session and Central lease.
+It also checks every five seconds to close an idle socket whose authorization
+has ended. Reclaiming the chair cannot update an older socket's frozen session.
 
-- **Every frame**, before it goes to the engine: the seat token is still
-  the chair's (a chair handed out again, or forgotten with a deleted or
-  banned account, has none). Read from memory, under the lobby lock that
-  also hands the frame on, so it costs nothing.
-- **In full** when the socket opens, every five seconds whether it sends
-  or not, and **before the next frame** whenever the gateway itself
-  withdrew something of the seat's account (`departed`: moved to Baylee
-  Central, a password changed or reset, banned, deleted). In full is the
-  capability behind the token: an account that has not moved to Central
-  (one database query), or the Central-bound session the seat was taken
-  with, with its lease asked of Central.
-- A withdrawal the gateway **does not make itself** it learns only by
-  asking: a lease Central revoked (a newer login elsewhere, a ban at
-  Central), a session or lease that ran out, a Central-bound session signed
-  out (`POST /auth/logout` names no account on `departed`, which would
-  close that account's lobby sockets on every device), a change another
-  process made in the database. Such a seat's frames still reach the
-  engine until the next five-second check: **up to five seconds**, and the
-  length of one check.
+The final ownership check and engine enqueue share the lobby lock. The remote
+authorization check precedes that lock, so a frame already checked when a
+withdrawal occurs can still be forwarded. There is no five-second cache of
+authorization for subsequent game frames.
 
-Either way one frame already past its check when a withdrawal lands still
-goes on, as it did when every frame was checked in full (the check and
-the hand-on were never one step). What a seat token opens over HTTP (a
-seat's `POST /ws-ticket`, `/games/{id}/cosmetics`, a seat bridge's
-`/lobby/games/{id}/chair…`) is checked in full on every request. Until 21.10.2026 every seat frame was checked in
-full: one database query a frame, and for a Central-bound seat two and a
-call to Central, which kept a flooding socket on a loaded machine from
-being read fast enough to reach its frame allowance (#284).
+Transport pings and pongs spend the same frame allowance but are not forwarded
+to the engine and need no per-frame database check. The flood regression uses
+these control frames so database latency cannot pace the test below its rate
+limit; it asserts both the burst floor and the elapsed-time ceiling from the
+gateway's actual received-frame count.
 
 ## Accounts are Baylee Central's (the cutover)
->>>>>>> f9cbb6676 (fix(gateway): a seat frame costs no database query; withdrawals the gateway makes still stop the next one)
 
 Since the cutover (owner's decision of 30.10.2026, `docs/central-login.md`
 §"Cutover") nobody registers, signs in with a password, changes or resets a
