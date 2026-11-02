@@ -2,6 +2,8 @@ use super::*;
 use baylee_client_core::social::{ChatPrefs, Me, Social};
 use baylee_seal::testkit::Seeded;
 
+mod retries;
+
 pub(super) fn host() -> SocialHost {
     let session = Session {
         gateway: "https://gateway.invalid".into(),
