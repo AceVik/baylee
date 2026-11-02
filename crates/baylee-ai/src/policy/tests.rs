@@ -1,6 +1,8 @@
 use super::{mix, priced};
 use baylee_cards_dsl::{Cost, CostPart};
 
+mod mana_effects;
+
 #[test]
 fn color_planning_does_not_overflow_a_full_pool_counter() {
     use baylee_core::mana::ManaColor;

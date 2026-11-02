@@ -11,6 +11,20 @@ use baylee_view::{CardIdentity, PlayerView};
 use super::{card_as_object, effects_self_harm, face, player_rel_hits_you};
 use crate::HeuristicAgent;
 
+/// These readers inspect triggers and rules effects, which stop when their
+/// abilities are removed. Phased-out permanents remain in the view for drawing
+/// but affect nothing in play (CR 702.26b).
+fn active_abilities(object: &baylee_view::PublicObject) -> &'static [AbilityDef] {
+    if object.status.is_phased_out()
+        || object.status.has_no_abilities()
+        || object.status.is_face_down()
+    {
+        &[]
+    } else {
+        crate::activate::printed_list(object)
+    }
+}
+
 fn tappers_filter_matches(
     view: &PlayerView,
     filter: &Filter,
@@ -34,7 +48,7 @@ pub(super) fn tap_trigger_harm(view: &PlayerView, object: &baylee_view::PublicOb
     let you = resource_player(view);
     for perm in &view.battlefield {
         let perm_is_you = perm.controller == you;
-        for ability in crate::activate::printed_list(perm) {
+        for ability in active_abilities(perm) {
             match ability {
                 AbilityDef::Triggered {
                     trigger: baylee_cards_dsl::Trigger::BecomesTapped(filter),
@@ -67,7 +81,7 @@ pub(crate) fn taps_set_off_a_trigger(
     view: &PlayerView,
     object: &baylee_view::PublicObject,
 ) -> bool {
-    if crate::activate::printed_list(object).iter().any(|ability| {
+    if active_abilities(object).iter().any(|ability| {
         matches!(
             ability,
             AbilityDef::Triggered {
@@ -80,7 +94,7 @@ pub(crate) fn taps_set_off_a_trigger(
     }
     for perm in &view.battlefield {
         let same_side = perm.controller == object.controller;
-        for ability in crate::activate::printed_list(perm) {
+        for ability in active_abilities(perm) {
             match ability {
                 AbilityDef::Triggered {
                     trigger: baylee_cards_dsl::Trigger::BecomesTapped(filter),
@@ -115,7 +129,7 @@ pub(crate) fn taps_set_off_a_trigger(
 }
 
 pub(super) fn tap_destroys_or_locks(view: &PlayerView, object: &baylee_view::PublicObject) -> bool {
-    if crate::activate::printed_list(object).iter().any(|ability| {
+    if active_abilities(object).iter().any(|ability| {
         matches!(
             ability,
             AbilityDef::Static(baylee_cards_dsl::StaticAbility {
@@ -127,7 +141,7 @@ pub(super) fn tap_destroys_or_locks(view: &PlayerView, object: &baylee_view::Pub
         return true;
     }
     for perm in &view.battlefield {
-        for ability in crate::activate::printed_list(perm) {
+        for ability in active_abilities(perm) {
             if let AbilityDef::Triggered {
                 trigger: baylee_cards_dsl::Trigger::BecomesTapped(filter),
                 effects,
@@ -183,7 +197,7 @@ pub(crate) fn apply_triggered_mana_bonus(
     };
     for perm in &view.battlefield {
         let same_side = perm.controller == object.controller;
-        for ability in crate::activate::printed_list(perm) {
+        for ability in active_abilities(perm) {
             let AbilityDef::Triggered {
                 trigger: baylee_cards_dsl::Trigger::TappedForMana { by, filter },
                 effects,
@@ -239,7 +253,7 @@ pub(crate) fn apply_triggered_mana_bonus(
 pub(crate) fn spell_mana_increase(
     view: &PlayerView,
     id: ObjectId,
-    card: CardIdentity,
+    mut card: CardIdentity,
     legal: &LegalActions,
     mode: baylee_engine::choice::CastModeKind,
 ) -> ManaCost {
@@ -247,14 +261,30 @@ pub(crate) fn spell_mana_increase(
     if total == 0 {
         return ManaCost::ZERO;
     }
+    if let baylee_engine::choice::CastModeKind::Face(index) = mode {
+        let Ok(index) = u8::try_from(index) else {
+            return ManaCost::from_symbol_generic(total);
+        };
+        card.face = index;
+    }
     let mut colored = ManaCost::ZERO;
     if mode != baylee_engine::choice::CastModeKind::Disguise
         && let Some(f) = face(card)
     {
-        let obj = card_as_object(view, Some(id), card, f);
+        let mut obj = card_as_object(view, Some(id), card, f);
+        if mode == baylee_engine::choice::CastModeKind::Prototype
+            && let Some(prototype) = f.prototype
+        {
+            // CR 718.3a-b: cast restrictions and taxes see the prototype's
+            // alternative characteristics, including its colored mana cost.
+            obj.colors = prototype.cost.colors();
+            obj.mana_value = prototype.cost.cmc();
+            obj.power = Some(prototype.power);
+            obj.toughness = Some(prototype.toughness);
+        }
         let agent = HeuristicAgent::new(crate::AIProfile::default());
         for perm in &view.battlefield {
-            for ability in crate::activate::printed_list(perm) {
+            for ability in active_abilities(perm) {
                 let AbilityDef::Static(baylee_cards_dsl::StaticAbility {
                     filter,
                     modifier: baylee_cards_dsl::Modifier::SpellsCostMoreMana(extra),
