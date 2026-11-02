@@ -121,10 +121,12 @@ all-feature graph retains exactly the reverse edges below. Central's own
 `dc888a48775be2adcdc5ece504a4b0c3683dc4d08dbd809b5f6071a7eb54b871`
 and exact curve/signature features; its review is in
 `docs/crypto-proposal/bigint-advisory.md` at that immutable revision. The native
-guard now pins `f66568b985656eb1677c33c6f6515e107b126c93`, which includes the finished
-PWA used by the deployment hook. Its entire Rust crate tree, Cargo manifest,
-lockfile and toolchain are byte-identical to the reviewed backend revision above;
-only website artifacts, legal texts and documentation changed. No scanner ignore or allowed reverse
+guard now pins the merged Central main revision
+`2b54a3944150a1aecbc20b94854966d787d31cd5`, which includes the finished
+PWA used by the deployment hook and the final migration/logout fixes. Its
+`central-crypto` source, root Cargo manifest and lockfile are byte-identical
+to the preceding PWA pin `f66568b985656eb1677c33c6f6515e107b126c93`;
+the reviewed crypto fingerprint is unchanged. No scanner ignore or allowed reverse
 edge changes.
 
 `deny.toml` and the audit job exclude this advisory only under that reviewed
