@@ -49,9 +49,7 @@ fn looking_at_lists_all_inspected_cards_past_twelve_while_graveyard_keeps_twelve
 }
 
 #[test]
-fn number_choice_names_stack_ability_and_fixed_payment_notes_existing_pool_and_plan_resolves_pretapped_activate()
- {
-    // 1. NumberPrompt::Choice names the top stack item.
+fn number_choice_names_the_top_stack_item() {
     let (mut view, log) = board();
     let mut stack_obj = card(88, "Serra Angel");
     stack_obj.stack_item = Some(baylee_view::StackItem::Spell);
@@ -64,16 +62,18 @@ fn number_choice_names_stack_ability_and_fixed_payment_notes_existing_pool_and_p
             max: 3,
             reason: baylee_engine::choice::NumberPrompt::Choice,
         },
-        log.clone(),
+        log,
     );
     let wake = Narrator::new(&num_req.context).wake(&num_req, &[], None);
     assert!(
-        wake.text.contains("How many for Serra Angel #88"),
+        wake.text.contains("Choose a number for Serra Angel #88"),
         "NumberPrompt::Choice should name the stack item: {}",
         wake.text
     );
+}
 
-    // 2. ManaPayment::Fixed with mana already in the pool notes that passing applies it.
+#[test]
+fn fixed_payment_notes_mana_already_in_the_pool() {
     let (mut view, _) = board();
     view.owed = Some(baylee_core::mana::ManaPayment::Fixed(
         "{1}{G}".parse().unwrap(),
@@ -86,15 +86,17 @@ fn number_choice_names_stack_ability_and_fixed_payment_notes_existing_pool_and_p
         "fixed payment prompt with floating mana should note pool mana: {}",
         wake.text
     );
+}
 
-    // 3. Menu::plan_decision resolves Step::Activate against a pre-tapped unpaid ability (Act::Taps).
+#[test]
+fn an_activation_plan_resolves_the_pretapped_unpaid_ability() {
     let (mut view, _) = board();
-    view.battlefield.push(card(75, "Grizzly Bears"));
+    view.battlefield.push(card(75, "Jayemdae Tome"));
     let mut pending = priority(&view);
     if let Pending::Priority { legal, .. } = &mut pending {
         legal
             .unpaid_abilities
-            .push((id(75), 0, "{1}{G}".parse().unwrap()));
+            .push((id(75), 0, "{4}".parse().unwrap()));
     }
     let act_req = request(view, pending, LogTail::default());
     let menu = Narrator::new(&act_req.context).menu(&act_req);
