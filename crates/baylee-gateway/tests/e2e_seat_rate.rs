@@ -5,12 +5,11 @@
 //! other test in this suite plays through it. So this one only floods: ten
 //! thousand frames at once, far past any allowance the gateway could run.
 //!
-//! The allowance is counted as the gateway reads, so it trips only while
-//! the gateway reads faster than [`RATE`]. A full authorization check on
-//! every frame (one database query each) held a loaded machine's reading
-//! below that on 21.10.2026, and the socket stayed open past the wait.
-//! Reading costs no query now, and what is asserted is the allowance's own
-//! arithmetic on what the gateway says it read, not how fast it read.
+//! The allowance is counted as the gateway reads, so this test uses transport
+//! pongs, which need no database authorization and never reach the engine.
+//! Game envelopes still receive the full authorization check before forwarding.
+//! The assertions compare the actual read count with the burst and elapsed
+//! allowance, so a wrong limit cannot pass merely because the socket closed.
 
 #![allow(clippy::missing_docs_in_private_items)]
 
