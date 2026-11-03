@@ -104,18 +104,27 @@ pub(super) struct ActivationPayment {
 }
 impl ActivationPayment {
     pub(super) fn fingerprint(&self) -> u64 {
+        // Keep the historical field order for every payment that predates
+        // imposed non-mana costs; only that new suffix extends the digest.
         let a = crate::state::structural_fingerprint(&(
             self.source,
             self.ability_index,
             &self.targets,
-            &self.cost,
+            self.cost.mana,
             self.fixed_cost,
-            self.additional_life,
+            (self.additional_life, self.cost.allowance),
             &self.players,
             &self.choices,
             &self.second,
             &self.references,
         ));
+        let imposed = self.cost.imposed_parts();
+        let a = if imposed.is_empty() {
+            a
+        } else {
+            a.wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&imposed))
+        };
         let b = crate::state::structural_fingerprint(&(
             (self.answered, self.mode, &self.target_choice),
             self.x,
