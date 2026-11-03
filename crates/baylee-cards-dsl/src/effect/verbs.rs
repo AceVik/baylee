@@ -1207,6 +1207,7 @@ impl Effect {
             | Effect::ProtectionFromChosenColor { .. }
             | Effect::Regenerate { .. }
             | Effect::PumpTarget { .. }
+            | Effect::PumpEventObject { .. }
             | Effect::PumpTargetSlot { .. } => (NONE, NONE),
         }
     }

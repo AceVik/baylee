@@ -110,6 +110,7 @@ impl<L: CardLookup> Engine<L> {
                     || self.pending_plan.is_some()
                     || self.resolution.is_some()
                     || self.combat_damage.is_some()
+                    || self.attack_sacrifice.is_some()
                     || self.state.entries.waiting()
             }
         }
@@ -282,6 +283,13 @@ impl<L: CardLookup> Engine<L> {
 
     /// The leaver was the one being asked.
     fn drop_the_leavers_question(&mut self, player: PlayerId) {
+        // Nothing was declared or paid. Nobody declares in the leaver's place
+        // (CR 800.4j), so the step simply goes on without this continuation.
+        if self.attack_sacrifice.take().is_some() {
+            self.awaiting_answer = false;
+            self.run_until_choice();
+            return;
+        }
         // A draw needs the agreement of the players in the game (CR 104.4i),
         // and they are no longer one of them: the offer goes on to the next.
         if let Some(PlanKind::DrawOffer { remaining, .. }) = &mut self.pending_plan {

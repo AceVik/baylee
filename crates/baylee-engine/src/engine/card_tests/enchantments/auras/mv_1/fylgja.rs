@@ -43,7 +43,8 @@ fn fylgja_enters_with_four_healing_counters_prevents_damage_and_recharges() {
     );
 
     // Activate once so 1 of Lightning Bolt's 3 damage is prevented on the 4/4 Serra Angel.
-    lk::use_ability(&mut engine, P0, fylgja(), 1, &[angel], &[]);
+    // The printed ability has no target; it shields the enchanted creature.
+    lk::use_ability(&mut engine, P0, fylgja(), 1, &[], &[]);
     assert_eq!(
         engine
             .state()
@@ -77,4 +78,53 @@ fn fylgja_enters_with_four_healing_counters_prevents_damage_and_recharges() {
             .get(baylee_cards_dsl::counters::HEALING),
         4
     );
+}
+
+#[test]
+fn fylgja_shields_a_creature_that_gained_shroud_without_targeting_it() {
+    let mut engine = lk::game(
+        SEED,
+        &[index::SERRA_ANGEL],
+        &[],
+        &[fylgja(), index::MAGE_S_GUILE, index::PYROCLASM],
+        &[],
+    );
+    let angel = lk::obj(&engine, P0, index::SERRA_ANGEL);
+
+    lk::float(&mut engine, P0, &[(ManaColor::White, 1)]);
+    lk::cast_at(&mut engine, P0, fylgja(), &[angel], &[]);
+    let aura = lk::obj(&engine, P0, fylgja());
+
+    lk::float(
+        &mut engine,
+        P0,
+        &[(ManaColor::Colorless, 1), (ManaColor::Blue, 1)],
+    );
+    lk::cast_at(&mut engine, P0, index::MAGE_S_GUILE, &[angel], &[]);
+    assert!(keywords(&engine, angel).contains(KeywordSet::SHROUD));
+    assert!(
+        lk::offered(&engine, fylgja(), P0, 1),
+        "shroud does not remove an untargeted ability from the offer"
+    );
+
+    lk::use_ability(&mut engine, P0, fylgja(), 1, &[], &[]);
+    assert_eq!(
+        engine
+            .state()
+            .object(aura)
+            .unwrap()
+            .counters
+            .get(baylee_cards_dsl::counters::HEALING),
+        3
+    );
+
+    // Untargeted damage can reach a shrouded creature. Exactly one of the two
+    // damage is prevented, proving both the shield and its finite capacity.
+    lk::float(
+        &mut engine,
+        P0,
+        &[(ManaColor::Colorless, 1), (ManaColor::Red, 1)],
+    );
+    lk::cast_at(&mut engine, P0, index::PYROCLASM, &[], &[]);
+    assert_eq!(lk::damage_on(&engine, angel), 1);
 }

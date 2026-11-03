@@ -30,6 +30,7 @@ pub(super) struct Checkpoint {
     effect_plays: Vec<effect_play::EffectPlay>,
     player_control: player_control::PlayerControl,
     combat_damage: Option<crate::damage::DamageWork>,
+    attack_sacrifice: Option<attack_sacrifice::AttackSacrificeWork>,
     mana_window: Option<PaymentWindow>,
     trigger_scan_seq: u64,
     pending_plan: Option<PlanKind>,
@@ -74,6 +75,7 @@ impl Checkpoint {
         ))
     }
 
+    #[allow(clippy::too_many_lines)] // one line per engine field: the list is the guard
     pub(super) fn capture<L: CardLookup>(engine: &Engine<L>) -> Self {
         let Engine {
             lookup: _,
@@ -93,6 +95,7 @@ impl Checkpoint {
             effect_plays,
             player_control,
             combat_damage,
+            attack_sacrifice,
             mana_window,
             trigger_scan_seq,
             pending_plan,
@@ -143,6 +146,7 @@ impl Checkpoint {
             effect_plays: effect_plays.clone(),
             player_control: player_control.clone(),
             combat_damage: combat_damage.clone(),
+            attack_sacrifice: attack_sacrifice.clone(),
             mana_window: mana_window.clone(),
             trigger_scan_seq: *trigger_scan_seq,
             pending_plan: pending_plan.clone(),
@@ -175,6 +179,7 @@ impl Checkpoint {
         }
     }
 
+    #[allow(clippy::too_many_lines)] // one line per engine field: the list is the guard
     pub(super) fn restore<L: CardLookup>(self, engine: &mut Engine<L>) {
         let Engine {
             lookup: _,
@@ -194,6 +199,7 @@ impl Checkpoint {
             effect_plays,
             player_control,
             combat_damage,
+            attack_sacrifice,
             mana_window,
             trigger_scan_seq,
             pending_plan,
@@ -245,6 +251,7 @@ impl Checkpoint {
         *effect_plays = self.effect_plays;
         *player_control = self.player_control;
         *combat_damage = self.combat_damage;
+        *attack_sacrifice = self.attack_sacrifice;
         *mana_window = self.mana_window;
         *trigger_scan_seq = self.trigger_scan_seq;
         *pending_plan = self.pending_plan;

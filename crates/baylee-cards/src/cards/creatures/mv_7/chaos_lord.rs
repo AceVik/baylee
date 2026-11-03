@@ -3,22 +3,16 @@
 //! Oracle: At the beginning of your upkeep, target opponent gains control of this creature if the number of permanents is even.
 //! Oracle: This creature can attack as though it had haste unless it entered this turn.
 //! Set: ICE #178 — Ice Age | Scryfall ID: ee245922-b380-4b2e-a43f-ab1ba8078943 | Oracle ID: 16d0aea2-4ca4-4a9d-8674-2863e085f514
-// PARTIAL: first strike only; the upkeep control change and the haste clause are not played.
-
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-// NOT SUPPORTED: At the beginning of your upkeep, target opponent gains control of this creature if the number of permanents is even. No `Condition` reads the parity of a count, so the trigger is left out entirely.
-// NOT SUPPORTED: This creature can attack as though it had haste unless it entered this turn. It would be the pool's first static reading `Filter::EnteredThisTurn`, which `state::filter_reads_board_state` says needs its turn-boundary door first.
 card!(
     index = index::CHAOS_LORD,
     oracle_id = "16d0aea2-4ca4-4a9d-8674-2863e085f514",
     scryfall_id = "ee245922-b380-4b2e-a43f-ab1ba8078943",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::FIRST_STRIKE,
-    coverage = Coverage::Partial(
-        "no upkeep control change (no condition reads the parity of the permanent count) and no attacking as though it had haste (a static reading Filter::EnteredThisTurn needs the engine's turn-boundary door first)"
-    ),
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Chaos Lord",
         mana_cost = mana!("{4}{R}{R}{R}"),
@@ -27,4 +21,26 @@ card!(
         power = Some(7),
         toughness = Some(7),
     ),],
+    abilities = &[
+        triggered!(
+            Trigger::StepBegin {
+                step: StepKind::Upkeep,
+                whose: PlayerRel::You,
+            },
+            &[Effect::ChangeController {
+                new_controller: PlayerRel::TargetPlayerOrController,
+            }],
+            condition = Some(Condition::AmountIsEven(Amount::CountOf {
+                filter: &Filter::Any,
+                zone: ZoneSel::Battlefield,
+            })),
+            targets = Some(TargetReq::one(TargetSpec::AnyOpponent)),
+        ),
+        // Only the attack restriction is relaxed. This is deliberately not
+        // the Haste keyword, which would also enable activated {T} abilities.
+        static_ability!(
+            Filter::And(&[Filter::This, Filter::Not(&Filter::EnteredThisTurn)]),
+            Modifier::AttacksAsThoughHaste
+        ),
+    ],
 );

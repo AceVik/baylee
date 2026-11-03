@@ -1954,6 +1954,9 @@ impl<L: CardLookup> Engine<L> {
             (Pending::ChooseCards { player: p, .. }, PlayerAction::ChooseObjects { objects })
                 if *p == player =>
             {
+                if self.attack_sacrifice.is_some() {
+                    return self.answer_attack_sacrifice(objects);
+                }
                 if matches!(self.pending_plan, Some(PlanKind::SkipDraw { .. })) {
                     let Some(PlanKind::SkipDraw { source }) = self.pending_plan.take() else {
                         unreachable!()

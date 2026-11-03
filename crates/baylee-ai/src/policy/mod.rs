@@ -434,6 +434,19 @@ impl HeuristicAgent {
         ranked
     }
 
+    fn automatic_card_answer(
+        &self,
+        view: &PlayerView,
+        options: &[ObjectId],
+        min: u8,
+        max: u8,
+        prompt: baylee_engine::choice::ChoicePrompt,
+    ) -> Option<Vec<ObjectId>> {
+        let forced_discard = (prompt == baylee_engine::choice::ChoicePrompt::LookAtHand && max > 0)
+            .then(|| self.best_offered_cards(view, options, min));
+        draw_answer(view, options, prompt).or(forced_discard)
+    }
+
     pub(crate) fn select_cards(
         &self,
         view: &PlayerView,
@@ -454,9 +467,11 @@ impl HeuristicAgent {
             ranked.truncate(usize::from(max));
             return Some(ranked);
         }
-        // Ahead of the skill gate as well: neither draw question is a
-        // judgement a profile makes better or worse.
-        if let Some(answer) = draw_answer(view, options, prompt) {
+        // Ahead of the skill gate as well: neither draw question is a judgement.
+        // A private inspection with a nonzero count is a forced discard, not an
+        // acknowledgement; take the best cards for that opponent. Pure inspection
+        // has min == max == 0 and falls through.
+        if let Some(answer) = self.automatic_card_answer(view, options, min, max, prompt) {
             return Some(answer);
         }
         // Ahead of the gate as well: a revealed card put into the hand is a

@@ -317,7 +317,9 @@ fn choice_noun(reason: ChoicePrompt) -> Phrase {
         ChoicePrompt::CostSacrifice | ChoicePrompt::SacrificeFor { .. } => {
             Phrase::NounPermanentsToSacrifice
         }
-        ChoicePrompt::CostDiscard | ChoicePrompt::Discard => Phrase::NounCardsToDiscard,
+        ChoicePrompt::CostDiscard | ChoicePrompt::Discard | ChoicePrompt::LookAtHand => {
+            Phrase::NounCardsToDiscard
+        }
         ChoicePrompt::CostTap
         | ChoicePrompt::CostTapExactlyOrNone { .. }
         | ChoicePrompt::CostCrew { .. }
@@ -345,7 +347,6 @@ fn choice_noun(reason: ChoicePrompt) -> Phrase {
         ChoicePrompt::NewHost { .. } => Phrase::NounNewHostsFor,
         ChoicePrompt::Behold
         | ChoicePrompt::LookAtLibrary
-        | ChoicePrompt::LookAtHand
         | ChoicePrompt::Delve
         | ChoicePrompt::OneOfType { .. }
         | ChoicePrompt::CastFaceDown { .. }
@@ -396,7 +397,7 @@ fn cards_line(
     if reason == ChoicePrompt::Behold {
         return Phrase::BeholdInstructions.text(lang).to_owned();
     }
-    if reason == ChoicePrompt::LookAtHand {
+    if reason == ChoicePrompt::LookAtHand && max == 0 {
         return Phrase::InspectHand.text(lang).to_owned();
     }
     if let ChoicePrompt::Band { with } = reason

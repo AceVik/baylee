@@ -465,7 +465,12 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // batch's full codegen run had finished wrong, to stubs, and then wrote
     // both by hand as printed: their one activated ability each is back,
     // both read (docs/generated-held-back.md).
-    assert_eq!((read, of), (2978, 3781), "activated/loyalty reader census");
+    // Barbarian Guides keeps its readable activation after gaining the full
+    // landwalk clause, and Giant Slug's delayed source-only choice joins the
+    // same per-defender reader: one net additional readable activation.
+    // Kjeldoran Guard's pump is tied to a future sacrifice of its source when
+    // the target leaves. That linked, turn-dependent exchange stays unread.
+    assert_eq!((read, of), (2979, 3782), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

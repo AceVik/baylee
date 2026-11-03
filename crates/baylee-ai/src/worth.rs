@@ -34,8 +34,11 @@ use crate::activate::printed_list;
 use crate::combat::{self, Fighter};
 use crate::tactics::material;
 
+mod landwalk;
 mod linked_exile;
 mod permissions;
+
+pub(crate) use landwalk::subtype_choice;
 
 /// Match engine counter identities to their public representation.
 fn counter_view(kind: CounterKind) -> baylee_view::CounterKind {
@@ -1213,6 +1216,16 @@ impl HeuristicAgent {
         view: &PlayerView,
         change: &dyn Fn(&PublicObject) -> Option<Pump>,
     ) -> i64 {
+        self.attack_gain_for(view, change, &|_| true)
+    }
+
+    /// The same attack gain, evaluated only against defenders `affected` names.
+    fn attack_gain_for(
+        &self,
+        view: &PlayerView,
+        change: &dyn Fn(&PublicObject) -> Option<Pump>,
+        affected: &dyn Fn(PlayerId) -> bool,
+    ) -> i64 {
         let me = view.seat;
         let early = matches!(view.phase, Phase::Beginning | Phase::FirstMain)
             || view.phase == Phase::Combat && view.step == Step::CombatBegin;
@@ -1251,7 +1264,7 @@ impl HeuristicAgent {
         }
         view.seats
             .iter()
-            .filter(|s| !s.has_lost() && self.hostile(s.player, me))
+            .filter(|s| !s.has_lost() && self.hostile(s.player, me) && affected(s.player))
             .map(|s| {
                 let a = i64::from(combat::through_to(view, &before, s.player));
                 let b = i64::from(combat::through_to(view, &after, s.player));
@@ -1635,6 +1648,24 @@ impl HeuristicAgent {
                     on_board(filter)?
                 };
                 self.modifier_worth(view, origin, &objects, modifier, *duration)?
+            }
+            Effect::ChooseLandwalk {
+                lands,
+                target,
+                basic_only,
+                duration,
+            } => {
+                let recipient = match target {
+                    TargetSpec::EventObject => subject,
+                    TargetSpec::ThisObject => origin.object,
+                    _ => return None,
+                };
+                let objects: Vec<_> = recipient.into_iter().collect();
+                landwalk::chosen_worth(self, view, origin, &objects, lands, *basic_only, *duration)?
+            }
+            Effect::ChooseSourceLandwalk { duration } => {
+                let objects: Vec<_> = origin.object.into_iter().collect();
+                landwalk::chosen_worth(self, view, origin, &objects, &Filter::Any, true, *duration)?
             }
             Effect::ModifySource { modifier, duration } => {
                 let objects: Vec<_> = origin.object.into_iter().collect();

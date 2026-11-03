@@ -5,14 +5,12 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-// NOT SUPPORTED: "Choose a land type. Target creature you control gains snow landwalk of the chosen type until end of turn" —
-// Effect::ChooseBasicLandTypeAndGrantLandwalk grants basic landwalk rather than snow landwalk of the chosen type.
 card!(
     index = index::BARBARIAN_GUIDES,
     oracle_id = "ef8c324a-582b-401e-add1-1985c5596908",
     scryfall_id = "fe65a045-dacb-4392-bcb6-843394ef98c9",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Partial("missing snow landwalk of a chosen land type"),
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Barbarian Guides",
         mana_cost = mana!("{2}{R}"),
@@ -23,9 +21,17 @@ card!(
     ),],
     abilities = &[activated!(
         cost!("{2}{R}", TapSelf),
-        &[Effect::AtNextEndStep {
-            effects: &[Effect::bounce(TargetSpec::EventObject)],
-        }],
+        &[
+            Effect::ChooseLandwalk {
+                lands: &Filter::HasSupertype(SupertypeSet::SNOW),
+                target: TargetSpec::EventObject,
+                basic_only: false,
+                duration: Duration::UntilEndOfTurn,
+            },
+            Effect::AtNextEndStep {
+                effects: &[Effect::bounce(TargetSpec::EventObject)],
+            },
+        ],
         target = Some(TargetSpec::Object(&Filter::YOUR_CREATURE))
     )],
 );

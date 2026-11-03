@@ -432,7 +432,7 @@ mod tests {
     /// and on one at its end.
     #[test]
     fn what_the_table_shows_moves_seen() {
-        for replayed in [forty_inputs().1, finished()] {
+        for replayed in vec![forty_inputs().1, finished()].into_boxed_slice() {
             every_public_change_moves_seen(replayed.engine.state());
         }
     }

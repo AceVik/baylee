@@ -3,10 +3,8 @@
 //! Oracle:
 //! - "{T}: Choose two target blocked attacking creatures. If each of those creatures could be blocked by all creatures that the other is blocked by, each creature that's blocking exactly one of those attacking creatures stops blocking it and is blocking the other attacking creature. Activate only during the declare blockers step."
 //!
-//! The card is `Coverage::Partial`: the reblock itself is not played. What
-//! is played is the activation — its timing and its two targets — and the
-//! last assertion pins that nothing moves yet, so the day the reblock lands
-//! this test has to change with it.
+//! The activation's timing and target restrictions are played through, as are
+//! a legal blocker exchange and the atomic refusal of an illegal exchange.
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
@@ -21,7 +19,7 @@ fn general_jarkeld() -> CardIndex {
 }
 
 #[test]
-fn general_jarkeld_activates_only_during_declare_blockers_on_two_blocked_attackers() {
+fn general_jarkeld_exchanges_blockers_during_declare_blockers() {
     let mut engine = lk::game(
         SEED,
         &[
@@ -61,7 +59,53 @@ fn general_jarkeld_activates_only_during_declare_blockers_on_two_blocked_attacke
     lk::aim(&mut engine, &[a1, a2], &[]);
     lk::settle(&mut engine);
     assert!(lk::tapped(&engine, jarkeld));
-    // The gap the card's `Partial` names: no blocker has moved.
-    assert_eq!(engine.state().combat.blocked_by(b1), vec![a1]);
-    assert_eq!(engine.state().combat.blocked_by(b2), vec![a2]);
+    assert_eq!(engine.state().combat.blocked_by(b1), vec![a2]);
+    assert_eq!(engine.state().combat.blocked_by(b2), vec![a1]);
+
+    lk::through_combat(&mut engine);
+    assert_eq!(lk::zone_of(&engine, a2), Zone::Graveyard);
+    assert_eq!(lk::zone_of(&engine, b2), Zone::Graveyard);
+    assert_eq!(lk::zone_of(&engine, a1), Zone::Battlefield);
+    assert_eq!(lk::zone_of(&engine, b1), Zone::Battlefield);
+    assert_eq!(engine.state().players[1].life, 17);
+}
+
+/// A ground blocker cannot take over a block on a flying attacker. That one
+/// illegal resulting pair prevents the entire exchange, including the legal half.
+#[test]
+fn general_jarkeld_leaves_every_block_unchanged_if_either_exchange_is_illegal() {
+    let mut engine = lk::game(
+        SEED,
+        &[general_jarkeld(), index::GRIZZLY_BEARS, index::WIND_DRAKE],
+        &[index::GRIZZLY_BEARS, index::WIND_DRAKE],
+        &[],
+        &[],
+    );
+    let ground_attacker = lk::obj(&engine, P0, index::GRIZZLY_BEARS);
+    let flying_attacker = lk::obj(&engine, P0, index::WIND_DRAKE);
+    let ground_blocker = lk::obj(&engine, P1, index::GRIZZLY_BEARS);
+    let flying_blocker = lk::obj(&engine, P1, index::WIND_DRAKE);
+
+    let _ = lk::attack(&mut engine, &[ground_attacker, flying_attacker]);
+    lk::block(
+        &mut engine,
+        &[
+            (ground_blocker, ground_attacker),
+            (flying_blocker, flying_attacker),
+        ],
+    );
+    activate(&mut engine, P0, general_jarkeld(), 0);
+    lk::aim(&mut engine, &[ground_attacker, flying_attacker], &[]);
+    lk::settle(&mut engine);
+
+    assert_eq!(
+        engine.state().combat.blocked_by(ground_blocker),
+        vec![ground_attacker],
+        "the otherwise legal half does not happen on its own"
+    );
+    assert_eq!(
+        engine.state().combat.blocked_by(flying_blocker),
+        vec![flying_attacker],
+        "the ground Bear cannot be moved onto the flying attacker"
+    );
 }

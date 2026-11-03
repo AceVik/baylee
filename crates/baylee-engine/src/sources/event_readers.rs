@@ -52,6 +52,7 @@ fn reads_event(effect: &Effect) -> bool {
             reads_amount(*amount) || reads_amount(*life_limit)
         }
         Effect::TapEventObject
+        | Effect::PumpEventObject { .. }
         | Effect::EventObjectDealsDamageEqualToPower { .. }
         | Effect::EventObjectDealsDamage { .. }
         | Effect::SacrificeEventDealDamageToEachBlocker { .. }
@@ -90,7 +91,8 @@ fn reads_event(effect: &Effect) -> bool {
         | Effect::PlayerMayPayManaOr { player, .. }
         | Effect::PlayerMayPayManaThen { player, .. }
         | Effect::ExileAttackingForThenMaySearchBasicLands { player }
-        | Effect::OptionalBasicLandSearchFor { player, .. } => reads_player(*player),
+        | Effect::OptionalBasicLandSearchFor { player, .. }
+        | Effect::LookHandDiscard { player, .. } => reads_player(*player),
         Effect::PreventNextDamageToAttached { amount }
         | Effect::DealDamageToBothTargetInstances { amount }
         | Effect::DealDamageWithCappedLifeGain { amount, .. }
@@ -206,5 +208,25 @@ fn reads_event(effect: &Effect) -> bool {
                 || reads_amount(*toughness)
         }
         _ => false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    static EFFECTS: &[Effect] = &[Effect::PlayerMayPayManaThen {
+        player: PlayerRel::You,
+        cost: baylee_core::mana!("{B}{B}"),
+        effects: &[Effect::LookHandDiscard {
+            player: PlayerRel::ControllerOfEvent,
+            count: Amount::Fixed(1),
+            filter: &baylee_cards_dsl::Filter::Any,
+        }],
+    }];
+
+    #[test]
+    fn nested_private_hand_discard_retains_the_event_player_reference() {
+        assert!(refers_to_event(EFFECTS));
     }
 }

@@ -3442,6 +3442,18 @@ pub enum Effect {
         /// How long.
         duration: crate::static_ability::Duration,
     },
+    /// The exact permanent that caused the trigger gets P/T modifiers, and
+    /// optionally keywords, without becoming a target (Battle Cry's "it").
+    PumpEventObject {
+        /// Power modifier (may be negative/X-driven).
+        power: Amount,
+        /// Toughness modifier (may be negative/X-driven).
+        toughness: Amount,
+        /// Keywords granted for the same duration.
+        keywords: KeywordSet,
+        /// How long the changes last.
+        duration: crate::static_ability::Duration,
+    },
     /// Apply a pump to one explicit target instance, preserving its binding
     /// when another instance becomes illegal (Agony Warp's two clauses).
     PumpTargetSlot {
