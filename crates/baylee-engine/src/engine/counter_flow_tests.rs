@@ -167,3 +167,56 @@ fn a_counter_with_nothing_on_the_stack_cannot_be_cast() {
         "a spell with a target needs one (CR 601.2c)"
     );
 }
+
+/// Seat 0 casts an elf; seat 1 counters it; seat 0 counters the
+/// counter. The top Counterspell resolves first and the one it targets
+/// never does, so the elf resolves (CR 405.5, 701.6a).
+#[test]
+fn a_counter_on_a_counter_lets_the_first_spell_resolve() {
+    let mut engine = Duel::new(SEED, basic_forest())
+        .hand(0, &[quiet_creature(), counterspell()])
+        .hand(1, &[counterspell()])
+        .battlefield(0, &[basic_forest(), island(), island()])
+        .battlefield(1, &[island(), island()])
+        .start();
+    keep_mulligans(&mut engine);
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == P0
+            && e.state().turn.phase == Phase::FirstMain
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == P0)
+    });
+    tap_all_mana(&mut engine, P0);
+    super::testkit::cast_with_floating(&mut engine, P0, quiet_creature());
+    let elf_spell = on_stack(&engine, quiet_creature()).unwrap();
+    engine.apply(P0, PlayerAction::PassPriority).unwrap();
+    tap_all_mana(&mut engine, P1);
+    let theirs = in_hand(&engine, P1, counterspell()).unwrap();
+    engine
+        .apply(P1, PlayerAction::CastSpell { card: theirs })
+        .unwrap();
+    aim(&mut engine, elf_spell);
+    engine.apply(P1, PlayerAction::PassPriority).unwrap();
+    let their_counter = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Stack)
+        .last()
+        .copied()
+        .unwrap();
+    let mine = in_hand(&engine, P0, counterspell()).unwrap();
+    engine
+        .apply(P0, PlayerAction::CastSpell { card: mine })
+        .unwrap();
+    engine
+        .apply(
+            P0,
+            PlayerAction::ChooseObjects {
+                objects: vec![their_counter],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(on_battlefield(&engine, P0, quiet_creature()).is_some());
+    assert!(in_graveyard(&engine, P1, counterspell()).is_some());
+    assert!(in_graveyard(&engine, P0, counterspell()).is_some());
+}
