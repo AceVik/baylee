@@ -144,3 +144,42 @@ fn a_blocked_attacker_deals_no_damage_to_the_player() {
     let (engine, _, _) = fight(troll(), biter());
     assert_eq!(engine.state().players[1].life, 20);
 }
+
+/// Child of Night, a 2/1 with lifelink: unblocked, its two damage to the
+/// player gain its controller two (CR 702.15b).
+#[test]
+fn an_unblocked_lifelinker_gains_what_it_deals() {
+    let child = card_index("c650a7bc-e350-44a0-a698-d4a233d66156");
+    let mut engine = Duel::new(SEED, basic_forest())
+        .battlefield(0, &[child])
+        .start();
+    keep_mulligans(&mut engine);
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == P0),
+    );
+    let a = on_battlefield(&engine, P0, child).unwrap();
+    engine
+        .apply(
+            P0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(a, Defender::Player(P1))],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| e.state().turn.phase == Phase::SecondMain);
+    assert_eq!(engine.state().players[0].life, 22);
+    assert_eq!(engine.state().players[1].life, 18);
+}
+
+/// Blocked by a 1/1, it still deals both points to the blocker and its
+/// controller gains both: lifelink counts the damage dealt, not the
+/// toughness it needed.
+#[test]
+fn a_blocked_lifelinker_gains_all_the_damage_it_deals_to_the_blocker() {
+    let child = card_index("c650a7bc-e350-44a0-a698-d4a233d66156");
+    let (engine, _, _) = fight(child, quiet_creature());
+    assert_eq!(engine.state().players[0].life, 22);
+    assert_eq!(engine.state().players[1].life, 20);
+    assert!(!alive(&engine, P0, child), "the elf's point killed the 2/1");
+}
