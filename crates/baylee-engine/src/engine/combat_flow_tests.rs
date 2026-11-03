@@ -223,3 +223,34 @@ fn a_player_cannot_block_with_a_creature_they_do_not_control() {
             .is_err()
     );
 }
+
+/// Lionheart Maverick has vigilance: attacking does not tap it
+/// (CR 702.20b), and its damage reaches the player all the same.
+#[test]
+fn a_vigilant_attacker_stays_untapped() {
+    let maverick = super::testkit::card_index("5058b9f1-9941-495d-9eed-554ae2f6d500");
+    let mut engine = Duel::new(SEED, basic_forest())
+        .battlefield(0, &[maverick])
+        .start();
+    keep_mulligans(&mut engine);
+    to_attackers(&mut engine);
+    let knight = on_battlefield(&engine, P0, maverick).expect("the knight");
+    engine
+        .apply(
+            P0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(knight, Defender::Player(P1))],
+            },
+        )
+        .unwrap();
+    assert!(
+        !engine
+            .state()
+            .object(knight)
+            .unwrap()
+            .status
+            .contains(crate::object::Status::TAPPED)
+    );
+    after_combat(&mut engine);
+    assert_eq!(life(&engine, P1), 19);
+}
