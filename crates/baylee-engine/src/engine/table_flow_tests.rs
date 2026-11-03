@@ -1,12 +1,14 @@
 //! A table of three, played through the engine: turns go round in seat
-//! order (CR 101.4, 500.1), an attacker chooses which opponent it attacks
-//! (CR 506.2), only the attacked player may block it (CR 802.4a), and a
-//! player who has left takes no more turns (CR 800.4a).
+//! order, an attacker chooses which opponent each creature attacks
+//! (CR 802.3), only the attacked player may block it (CR 802.4a), a
+//! player who has left takes no more turns (CR 800.4k), and no player
+//! skips the draw of their first turn (CR 103.8c).
 
 use super::testkit::{
     Duel, basic_forest, keep_mulligans, on_battlefield, pass_until, quiet_creature,
 };
 use super::*;
+use crate::zone::ZoneLocation;
 use baylee_core::ids::Defender;
 
 const SEED: u64 = 0x7ab1_0003;
@@ -64,15 +66,6 @@ fn an_attacker_may_choose_either_opponent() {
     for target in [P1, P2] {
         let mut engine = table();
         attack(&mut engine, target);
-        pass_until(&mut engine, |e| {
-            e.state().turn.phase == Phase::SecondMain
-                || matches!(e.pending(), Pending::ChooseBlockers { .. })
-        });
-        if let Pending::ChooseBlockers { player, .. } = engine.pending().clone() {
-            engine
-                .apply(player, PlayerAction::DeclareBlockers { blockers: vec![] })
-                .unwrap();
-        }
         pass_until(&mut engine, |e| e.state().turn.phase == Phase::SecondMain);
         for seat in [P1, P2] {
             let expected = if seat == target { 19 } else { 20 };
@@ -98,14 +91,15 @@ fn only_the_attacked_player_is_asked_to_block() {
     assert_eq!(player, P2);
     let bystander = on_battlefield(&engine, P1, quiet_creature()).unwrap();
     assert!(
-        engine
-            .apply(
+        matches!(
+            engine.apply(
                 P2,
                 PlayerAction::DeclareBlockers {
                     blockers: vec![(bystander, elf)],
                 },
-            )
-            .is_err(),
+            ),
+            Err(EngineError::IllegalAction(_))
+        ),
         "seat 1's creature is not seat 2's to block with"
     );
 }
@@ -118,16 +112,15 @@ fn a_player_cannot_attack_themselves_at_a_table_of_three() {
         |e| matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == P0),
     );
     let elf = on_battlefield(&engine, P0, quiet_creature()).unwrap();
-    assert!(
-        engine
-            .apply(
-                P0,
-                PlayerAction::DeclareAttackers {
-                    attackers: vec![(elf, Defender::Player(P0))],
-                },
-            )
-            .is_err()
-    );
+    assert!(matches!(
+        engine.apply(
+            P0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(elf, Defender::Player(P0))],
+            },
+        ),
+        Err(EngineError::IllegalAction(_))
+    ));
 }
 
 #[test]
@@ -137,4 +130,25 @@ fn a_player_who_left_is_skipped() {
     let seen = actives(&mut engine, 5);
     assert!(!seen[1..].contains(&P1), "{seen:?}");
     assert_eq!(seen, vec![P0, P2, P0, P2, P0]);
+}
+
+/// CR 103.8c: only the two-player starting player skips the first draw, so
+/// at a table of three every seat, the first one included, draws on its
+/// first turn.
+#[test]
+fn at_a_table_of_three_every_seat_draws_on_its_first_turn() {
+    let mut engine = table();
+    for (number, seat) in [(1, P0), (2, P1), (3, P2)] {
+        pass_until(&mut engine, |e| {
+            e.state().turn.number == number
+                && e.state().turn.phase == Phase::FirstMain
+                && matches!(e.pending(), Pending::Priority { .. })
+        });
+        assert_eq!(engine.state().turn.active, seat);
+        assert_eq!(
+            engine.state().zones.list(ZoneLocation::Hand(seat)).len(),
+            1,
+            "{seat:?} drew on its first turn"
+        );
+    }
 }

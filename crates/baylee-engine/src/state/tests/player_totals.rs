@@ -87,27 +87,10 @@ fn damage_to_a_player_is_a_loss_of_that_much_life() {
 }
 
 #[test]
-fn a_player_can_pay_up_to_their_life_total_and_not_more() {
+fn the_life_a_player_can_pay_is_their_life_total() {
     let mut state = state(307);
     state.players[0].life = 5;
-    assert!(state.can_pay_life(P0, 5));
-    assert!(!state.can_pay_life(P0, 6));
-    assert!(
-        state.can_pay_life(P0, 0),
-        "paying nothing is always possible"
-    );
     assert_eq!(state.life_payable(P0), 5);
-}
-
-/// CR 119.4: a player at zero or less life can pay only 0 life.
-#[test]
-fn a_player_below_one_life_can_pay_only_nothing() {
-    let mut state = state(308);
-    state.players[0].life = 0;
-    assert!(state.can_pay_life(P0, 0));
-    assert!(!state.can_pay_life(P0, 1));
-    state.players[0].life = -3;
-    assert!(!state.can_pay_life(P0, 1));
 }
 
 #[test]

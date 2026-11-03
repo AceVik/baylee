@@ -80,7 +80,8 @@ fn an_attachment_is_forgotten_when_the_attached_permanent_leaves() {
     let host = permanent(&mut state);
     let gear = permanent(&mut state);
     state.object_mut(gear).unwrap().attached_to = Some(host);
-    let gear = go(&mut state, gear, ZoneLocation::Hand(P0));
+    assert_eq!(state.object(gear).unwrap().attached_to, Some(host));
+    go(&mut state, host, ZoneLocation::Graveyard(P0));
     assert_eq!(state.object(gear).unwrap().attached_to, None);
 }
 

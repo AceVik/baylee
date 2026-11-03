@@ -42,11 +42,17 @@ fn duel() -> Game {
     engine
 }
 
-fn play(engine: &mut Game, seat: PlayerId) -> Result<(), String> {
-    let card = in_hand(engine, seat, basic_forest()).ok_or("no forest in hand")?;
-    engine
-        .apply(seat, PlayerAction::PlayLand { card })
-        .map_err(|e| format!("{e:?}"))
+fn play(engine: &mut Game, seat: PlayerId) -> Result<(), EngineError> {
+    let card = in_hand(engine, seat, basic_forest()).expect("a forest in hand");
+    engine.apply(seat, PlayerAction::PlayLand { card })
+}
+
+/// A land drop the rules refuse, not one that failed for want of a card.
+fn refused(result: &Result<(), EngineError>) -> bool {
+    matches!(
+        result,
+        Err(EngineError::Cast(_) | EngineError::IllegalAction(_))
+    )
 }
 
 fn lands(engine: &Game, seat: PlayerId) -> usize {
@@ -78,7 +84,7 @@ fn a_second_land_in_one_turn_is_refused() {
     let mut engine = duel();
     play(&mut engine, P0).unwrap();
     let before = engine.state().snapshot_hash();
-    assert!(play(&mut engine, P0).is_err());
+    assert!(refused(&play(&mut engine, P0)));
     assert_eq!(engine.state().snapshot_hash(), before);
 }
 
@@ -98,7 +104,7 @@ fn a_land_is_not_played_in_the_opponents_turn() {
         &mut engine,
         |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == P0),
     );
-    assert!(play(&mut engine, P0).is_err());
+    assert!(refused(&play(&mut engine, P0)));
 }
 
 #[test]
@@ -106,7 +112,7 @@ fn a_land_is_not_played_while_a_spell_is_on_the_stack() {
     let mut engine = duel();
     cast_from_hand(&mut engine, P0, quiet_creature());
     assert!(!engine.state().zones.stack_is_empty());
-    assert!(play(&mut engine, P0).is_err());
+    assert!(refused(&play(&mut engine, P0)));
 }
 
 #[test]
@@ -117,7 +123,7 @@ fn a_land_is_not_played_outside_a_main_phase() {
             && e.state().turn.phase == Phase::Ending
             && matches!(e.pending(), Pending::Priority { player, .. } if *player == P0)
     });
-    assert!(play(&mut engine, P0).is_err());
+    assert!(refused(&play(&mut engine, P0)));
 }
 
 #[test]

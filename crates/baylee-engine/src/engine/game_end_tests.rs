@@ -101,6 +101,7 @@ fn both_players_losing_at_once_is_a_draw() {
         unreachable!()
     };
     assert_eq!(result.winner, None);
+    assert_eq!(result.reason, EndReason::Draw);
 }
 
 #[test]
@@ -110,7 +111,10 @@ fn a_finished_game_takes_no_more_answers() {
     run_to_the_end(&mut engine);
     let before = engine.state().snapshot_hash();
     for seat in [P0, P1] {
-        assert!(engine.apply(seat, PlayerAction::PassPriority).is_err());
+        assert!(matches!(
+            engine.apply(seat, PlayerAction::PassPriority),
+            Err(EngineError::GameOver)
+        ));
     }
     assert_eq!(engine.state().snapshot_hash(), before);
     assert!(over(&engine));

@@ -1,6 +1,6 @@
 //! "At the beginning of your upkeep" with real cards: Nyx-Fleece Ram
-//! (gain 1 life) and Moroii (lose 1 life). The trigger fires in its
-//! controller's upkeep only (CR 503.1a), once per upkeep, for each
+//! (gain 1 life) and Moroii (lose 1 life). Such a trigger fires in its
+//! controller's upkeep only (CR 500.6, 603.2), once per upkeep, for each
 //! permanent that has it, and not in the turn the permanent arrived after
 //! the upkeep had passed.
 

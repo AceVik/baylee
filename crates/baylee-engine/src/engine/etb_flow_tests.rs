@@ -1,11 +1,13 @@
-//! "When this creature enters" with real cards (Healer of the Glade, {G}:
-//! gain 3 life; Kindly Customer, {1}{W}: draw a card): the trigger goes
-//! on the stack the next time a player would receive priority (CR 603.3)
-//! and resolves like a spell, it belongs to the creature's controller,
-//! and each creature that enters triggers once.
+//! "When this creature enters" with real cards (Healer of the Glade, a
+//! creature that gains 3 life when it enters; Kindly Customer, one that
+//! draws a card): the trigger goes on the stack the next time a
+//! player would receive priority (CR 603.3) and resolves like a spell, it
+//! belongs to the creature's controller, and each creature that enters
+//! triggers once.
 
 use super::testkit::{
-    Duel, card_index, cast_from_hand, keep_mulligans, on_battlefield, pass_until, stack_is_empty,
+    Duel, card_index, cast_from_hand, in_hand, keep_mulligans, on_battlefield, pass_until,
+    stack_is_empty,
 };
 use super::*;
 use crate::zone::ZoneLocation;
@@ -102,9 +104,17 @@ fn a_draw_trigger_draws_its_controller_one_card() {
 #[test]
 fn a_creature_that_cannot_be_cast_never_triggers() {
     let mut engine = duel(&[healer()], &[]);
+    let card = in_hand(&engine, P0, healer()).expect("in hand");
+    assert!(
+        engine.apply(P0, PlayerAction::CastSpell { card }).is_err(),
+        "no mana, no cast"
+    );
+    assert!(in_hand(&engine, P0, healer()).is_some());
+    assert_eq!(stack_len(&engine), 0);
     let turn = engine.state().turn.number;
     pass_until(&mut engine, |e| e.state().turn.number > turn);
     assert_eq!(life(&engine, P0), 20);
+    assert!(on_battlefield(&engine, P0, healer()).is_none());
 }
 
 #[test]

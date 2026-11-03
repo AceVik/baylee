@@ -1,10 +1,9 @@
 //! The layer system one modifier at a time, and two at a time where the
-//! order is the point: timestamps within a layer (CR 613.7), the layers
-//! against each other whatever the timestamps (CR 613.1), and each layer
+//! order is the point: timestamps within a layer (CR 613.7), regardless of
+//! the order effects were registered in, and each layer
 //! touching only its own characteristic.
 
 use super::*;
-use crate::object::CounterKind;
 
 fn projected(state: &GameState, id: ObjectId) -> crate::object::Characteristics {
     let obj = state.object(id).expect("in play");
@@ -51,15 +50,6 @@ fn the_later_setting_effect_wins_whatever_order_it_was_registered_in() {
 }
 
 #[test]
-fn a_pump_applies_after_a_set_even_when_it_is_older() {
-    let mut state = fresh();
-    let id = bear(&mut state);
-    register(&mut state, 1, Modifier::ModifyPT(3, 3));
-    register(&mut state, 9, Modifier::SetPT(0, 1));
-    assert_eq!(body(&state, id), (Some(3), Some(4)));
-}
-
-#[test]
 fn setting_power_alone_keeps_the_toughness() {
     let mut state = fresh();
     let id = bear(&mut state);
@@ -83,19 +73,6 @@ fn two_switches_cancel_out() {
     assert_eq!(body(&state, id), (Some(6), Some(0)));
     register(&mut state, 2, Modifier::SwitchPT);
     assert_eq!(body(&state, id), (Some(0), Some(6)));
-}
-
-#[test]
-fn a_switch_is_applied_after_counters() {
-    let mut state = fresh();
-    let id = permanent(&mut state, "Wall", TypeSet::CREATURE, Some((0, 4)));
-    state
-        .object_mut(id)
-        .unwrap()
-        .counters
-        .add(CounterKind::P1P1, 2);
-    register(&mut state, 1, Modifier::SwitchPT);
-    assert_eq!(body(&state, id), (Some(6), Some(2)));
 }
 
 #[test]

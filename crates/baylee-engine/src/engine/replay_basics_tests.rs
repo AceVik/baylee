@@ -3,7 +3,7 @@
 //! and an answer from a player the engine did not ask is refused without
 //! touching the state.
 
-use super::testkit::{Duel, basic_forest, keep_mulligans, pass_until};
+use super::testkit::{Duel, basic_forest, keep_mulligans, pass_until, quiet_creature};
 use super::*;
 
 const SEED: u64 = 0x5eed_0f01;
@@ -41,11 +41,79 @@ fn one_seed_and_one_sequence_of_answers_give_one_game() {
     assert!(a.state().turn.number > 1, "the walk crossed a turn");
 }
 
+/// A game from a deck of two kinds of card, so that a seed has a library order
+/// to change and an opening hand to deal.
+fn mixed_game(seed: u64) -> Engine<super::testkit::RegistryLookup> {
+    use baylee_core::ids::PrintRef;
+    use baylee_core::preset::{
+        AIProfile, DeckEntry, Finish, FormatId, GamePreset, HouseRules, PrintInfo,
+        SeatCapabilities, SeatController, SeatSpec,
+    };
+    let entry = |card| DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
+        card,
+        print: PrintRef::new(0),
+    };
+    let deck: Vec<DeckEntry> = (0..60)
+        .map(|i| {
+            entry(if i % 2 == 0 {
+                basic_forest()
+            } else {
+                quiet_creature()
+            })
+        })
+        .collect();
+    let seat = || SeatSpec {
+        controller: SeatController::Ai(AIProfile::default()),
+        capabilities: SeatCapabilities::default(),
+        deck: deck.clone(),
+        sideboard: vec![],
+        commanders: vec![],
+        starting_life: None,
+        starting_hand: None,
+        starting_battlefield: vec![],
+        emblems: vec![],
+        team: None,
+    };
+    let preset = GamePreset {
+        rules: baylee_core::card_metadata::RulesMetadata::default(),
+        format: FormatId::Freeform,
+        seed,
+        house_rules: HouseRules {
+            starting_player: Some(0),
+            ..HouseRules::default()
+        },
+        modifiers: vec![],
+        prints: vec![PrintInfo {
+            scryfall_id: uuid::Uuid::nil(),
+            lang: "EN".into(),
+            finish: Finish::Normal,
+        }],
+        seats: vec![seat(), seat()],
+    };
+    Engine::new(&preset, super::testkit::RegistryLookup).expect("game starts")
+}
+
 #[test]
 fn two_seeds_give_two_games() {
-    let a = game(SEED);
-    let b = game(SEED ^ 0xffff);
+    let a = mixed_game(SEED);
+    let b = mixed_game(SEED ^ 0xffff);
     assert_ne!(a.state().snapshot_hash(), b.state().snapshot_hash());
+    let opening = |e: &Engine<super::testkit::RegistryLookup>| {
+        e.state()
+            .zones
+            .list(crate::zone::ZoneLocation::Hand(PlayerId::new(0)))
+            .iter()
+            .map(|id| e.state().object(*id).and_then(|o| o.card).map(|c| c.index))
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(opening(&a).len(), 7);
+    let same = mixed_game(SEED);
+    assert_eq!(opening(&a), opening(&same), "one seed deals one hand");
+    // Sixty cards in two kinds: some seed in a few must deal another hand.
+    let differs = (1..8u64).any(|k| opening(&mixed_game(SEED ^ (k << 8))) != opening(&a));
+    assert!(differs, "another seed deals another opening hand");
 }
 
 #[test]
@@ -60,7 +128,10 @@ fn a_pass_from_a_player_without_priority_is_refused_and_changes_nothing() {
     let other = PlayerId::new(1 - player.get());
     let before = engine.state().snapshot_hash();
     assert!(
-        engine.apply(other, PlayerAction::PassPriority).is_err(),
+        matches!(
+            engine.apply(other, PlayerAction::PassPriority),
+            Err(EngineError::IllegalAction(_) | EngineError::MismatchedAction)
+        ),
         "only the player with priority may pass it"
     );
     assert_eq!(engine.state().snapshot_hash(), before);
@@ -74,11 +145,10 @@ fn a_seat_that_is_not_at_the_table_is_refused() {
         matches!(e.pending(), Pending::Priority { .. })
     });
     let before = engine.state().snapshot_hash();
-    assert!(
-        engine
-            .apply(PlayerId::new(7), PlayerAction::PassPriority)
-            .is_err()
-    );
+    assert!(matches!(
+        engine.apply(PlayerId::new(7), PlayerAction::PassPriority),
+        Err(EngineError::IllegalAction(_) | EngineError::MismatchedAction)
+    ));
     assert_eq!(engine.state().snapshot_hash(), before);
 }
 

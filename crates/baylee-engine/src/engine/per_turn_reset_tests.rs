@@ -1,6 +1,7 @@
-//! "This turn" is one turn: what the state tallies per turn — life lost,
-//! life gained, damage marked on creatures (CR 514.2) — is cleared as the
-//! next turn begins, for every seat and not only the active one.
+//! "This turn" is one turn: what the state tallies per turn (life lost, life
+//! gained) is cleared as the next turn begins, and damage marked on
+//! creatures is removed in the cleanup step (CR 514.2), for every seat and
+//! not only the active one.
 
 use super::testkit::{Duel, basic_forest, keep_mulligans, pass_until, quiet_creature};
 use super::*;

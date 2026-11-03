@@ -40,7 +40,8 @@ fn to_discard_or_next_turn(engine: &mut Game) {
 fn nine_cards_are_discarded_down_to_seven() {
     let mut engine = duel(9, 0);
     to_discard_or_next_turn(&mut engine);
-    let over = hand(&engine, P0).len() - 7;
+    assert_eq!(hand(&engine, P0).len(), 9, "seat 0 skips its first draw");
+    let over = 2;
     assert!(
         matches!(engine.pending(), Pending::DiscardChoice { player, count }
             if *player == P0 && usize::from(*count) == over),
@@ -70,19 +71,18 @@ fn a_discard_of_the_wrong_size_is_refused() {
     let Pending::DiscardChoice { count, .. } = engine.pending().clone() else {
         panic!("a discard is asked: {:?}", engine.pending())
     };
+    assert_eq!(count, 2);
     let cards = hand(&engine, P0);
     let too_few = cards[..usize::from(count) - 1].to_vec();
-    assert!(
-        engine
-            .apply(P0, PlayerAction::ChooseObjects { objects: too_few })
-            .is_err()
-    );
+    assert!(matches!(
+        engine.apply(P0, PlayerAction::ChooseObjects { objects: too_few }),
+        Err(EngineError::IllegalAction(_))
+    ));
     let too_many = cards[..=usize::from(count)].to_vec();
-    assert!(
-        engine
-            .apply(P0, PlayerAction::ChooseObjects { objects: too_many })
-            .is_err()
-    );
+    assert!(matches!(
+        engine.apply(P0, PlayerAction::ChooseObjects { objects: too_many }),
+        Err(EngineError::IllegalAction(_))
+    ));
     assert!(matches!(engine.pending(), Pending::DiscardChoice { .. }));
 }
 
@@ -93,12 +93,12 @@ fn a_card_from_the_other_hand_is_refused() {
     let Pending::DiscardChoice { count, .. } = engine.pending().clone() else {
         panic!("a discard is asked: {:?}", engine.pending())
     };
+    assert_eq!(count, 1);
     let theirs = hand(&engine, P1)[..usize::from(count)].to_vec();
-    assert!(
-        engine
-            .apply(P0, PlayerAction::ChooseObjects { objects: theirs })
-            .is_err()
-    );
+    assert!(matches!(
+        engine.apply(P0, PlayerAction::ChooseObjects { objects: theirs }),
+        Err(EngineError::IllegalAction(_))
+    ));
 }
 
 #[test]
@@ -119,7 +119,7 @@ fn the_player_whose_turn_it_is_not_keeps_a_big_hand() {
         engine.state().turn.number > turn,
         "seat 1 is not asked during seat 0's cleanup"
     );
-    assert!(hand(&engine, P1).len() >= 10);
+    assert_eq!(hand(&engine, P1).len(), 10);
 }
 
 #[test]

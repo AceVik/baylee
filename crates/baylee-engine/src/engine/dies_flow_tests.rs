@@ -1,8 +1,7 @@
 //! "When this creature dies" with real cards: Tarpan (dies: you gain 1
 //! life) and Feral Prowler (dies: draw a card). Dying is being put into a
 //! graveyard from the battlefield (CR 700.4), so a bounce does not trigger
-//! it; the trigger is its controller's, whoever killed it (CR 603.3a), and
-//! it looks back at the creature as it last existed (CR 603.10a).
+//! it; the trigger is its controller's, whoever killed it (CR 603.3a).
 
 use super::testkit::{
     Duel, basic_forest, card_index, in_hand, keep_mulligans, on_battlefield, pass_until,
