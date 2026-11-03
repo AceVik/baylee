@@ -114,3 +114,57 @@ fn the_forest_untaps_for_its_controller_next_turn() {
     );
     assert_eq!(tap_all_mana(&mut engine, P0), 1);
 }
+
+/// Llanowar Elves taps for {G} (CR 605.1a): a mana ability, so nothing
+/// goes on the stack and its controller keeps priority (CR 605.3a).
+#[test]
+fn a_mana_creature_adds_its_mana_without_the_stack() {
+    let elf_card = super::testkit::quiet_creature();
+    let mut engine = Duel::new(SEED, basic_forest())
+        .battlefield(0, &[elf_card])
+        .start();
+    keep_mulligans(&mut engine);
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == P0
+            && e.state().turn.phase == Phase::FirstMain
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == P0)
+    });
+    assert_eq!(tap_all_mana(&mut engine, P0), 1);
+    assert_eq!(green(&engine, P0), 1);
+    assert!(engine.state().zones.stack_is_empty());
+    assert!(matches!(engine.pending(), Pending::Priority { player, .. } if *player == P0));
+}
+
+/// A mana ability with {T} in its cost is still a {T} ability: an elf that
+/// arrived this turn cannot tap for mana (CR 302.6).
+#[test]
+fn a_mana_creature_that_just_arrived_cannot_tap_for_mana() {
+    let elf_card = super::testkit::quiet_creature();
+    let mut engine = Duel::new(SEED, elf_card).start();
+    keep_mulligans(&mut engine);
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == P0
+            && e.state().turn.phase == Phase::FirstMain
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == P0)
+    });
+    {
+        let state = engine.dev_state_mut(P0).expect("dev board");
+        let card = state.draw_cards(P0, 1)[0];
+        state
+            .move_object(
+                card,
+                crate::zone::ZoneLocation::Battlefield,
+                crate::zone::ZonePosition::Top,
+                crate::event::Cause::Effect,
+            )
+            .unwrap();
+    }
+    // Let the game offer again now that the elf is there.
+    let step = engine.state().turn.step;
+    pass_until(&mut engine, |e| {
+        e.state().turn.step != step
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == P0)
+    });
+    assert_eq!(engine.state().turn.active, P0);
+    assert_eq!(tap_all_mana(&mut engine, P0), 0);
+}
