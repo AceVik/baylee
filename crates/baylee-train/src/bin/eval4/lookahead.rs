@@ -151,6 +151,9 @@ pub(super) struct GameSearch {
     /// The target the last searched cast was chosen with, and its seat,
     /// until the target question that follows it answers it.
     follow: Option<(PlayerId, PlayerAction)>,
+    /// Whether the last answer given was a chosen target, not a searched
+    /// decision of its own.
+    answered_follow: bool,
     pub tally: SearchTally,
     /// Per searched decision: where its answer is in the record, the
     /// candidates in order (the policy's first), their means, paired
@@ -167,6 +170,7 @@ impl GameSearch {
             max_searched,
             seed: 0,
             follow: None,
+            answered_follow: false,
             tally: SearchTally::default(),
             events: Vec::new(),
         }
@@ -178,14 +182,18 @@ impl GameSearch {
     pub fn begin(&mut self, policy_seed: u64) {
         self.seed = search_seed(policy_seed);
         self.follow = None;
+        self.answered_follow = false;
         self.tally = SearchTally::default();
         self.events.clear();
     }
 
     /// The table refused the last searched answer: its event names no
     /// recorded input, and a target chosen with it has no question to
-    /// answer.
+    /// answer. A refused chosen target leaves its cast's event alone.
     pub fn refused(&mut self) {
+        if std::mem::take(&mut self.answered_follow) {
+            return;
+        }
         if self.follow.take().is_some() {
             self.tally.follow_lost += 1;
         }
@@ -237,8 +245,10 @@ impl GameSearch {
         pending: &Pending,
         teams: &[Option<u8>],
     ) -> anyhow::Result<Option<Answer4>> {
-        if let Some(answer) = self.follow(net, view, pending, teams)? {
-            return Ok(Some(answer));
+        let followed = self.follow(net, view, pending, teams)?;
+        self.answered_follow = followed.is_some();
+        if followed.is_some() {
+            return Ok(followed);
         }
         self.tally.decisions += 1;
         if self.max_searched > 0 && self.tally.searched >= self.max_searched {
