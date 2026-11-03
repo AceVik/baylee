@@ -7617,8 +7617,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Chromatic Armor
     &[FaceLines {
         sentences: 5,
-        stackable: 0,
-        lines: &[None, None],
+        stackable: 1,
+        lines: &[None, None, Some(4)],
         modes: &[],
         alternatives: &[],
     }],
