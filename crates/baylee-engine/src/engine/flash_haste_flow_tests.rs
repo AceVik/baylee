@@ -133,3 +133,46 @@ fn a_creature_without_haste_cannot_attack_the_turn_it_arrives() {
     let elf = on_battlefield(&engine, P0, quiet_creature()).unwrap();
     assert!(!crate::combat::can_attack(engine.state(), P0, elf));
 }
+
+fn island() -> CardIndex {
+    card_index("b2c6aa39-2d2a-459c-a555-fb48ba993373")
+}
+
+fn swamp() -> CardIndex {
+    card_index("56719f6a-1a6c-4c0a-8d21-18f7d7350b68")
+}
+
+fn shred_freak() -> CardIndex {
+    card_index("e900b2b5-4bb2-482d-89ee-b5bbaf246698")
+}
+
+fn castable_with(card: CardIndex, lands: &[CardIndex]) -> bool {
+    let mut engine = duel(&[card], lands);
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == P0
+            && e.state().turn.phase == Phase::FirstMain
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == P0)
+    });
+    tap_all_mana(&mut engine, P0);
+    let spell = in_hand(&engine, P0, card).unwrap();
+    engine
+        .apply(P0, PlayerAction::CastSpell { card: spell })
+        .is_ok()
+}
+
+/// A hybrid symbol is paid with either of its colours (CR 107.4e).
+#[test]
+fn a_hybrid_symbol_takes_either_colour_and_no_other() {
+    assert!(castable_with(guardian(), &[plains()]));
+    assert!(castable_with(guardian(), &[island()]));
+    assert!(!castable_with(guardian(), &[basic_forest()]));
+}
+
+#[test]
+fn two_hybrid_symbols_take_one_of_each_or_two_of_one() {
+    assert!(castable_with(shred_freak(), &[swamp(), mountain()]));
+    assert!(castable_with(shred_freak(), &[swamp(), swamp()]));
+    assert!(castable_with(shred_freak(), &[mountain(), mountain()]));
+    assert!(!castable_with(shred_freak(), &[swamp(), basic_forest()]));
+    assert!(!castable_with(shred_freak(), &[swamp()]));
+}
