@@ -431,6 +431,19 @@ impl Builder<'_, '_> {
             let label = format!("Foretell {} for {{2}} (exile face down)", table.named(card));
             self.offer(label, Act::Now(PlayerAction::Foretell { card }), None);
         }
+        // The {2} still in the lands: tapped first, then foretold.
+        for (card, plan) in reachable_foretell(view, legal) {
+            let label = format!(
+                "Foretell {} for {{2}} (exile face down) ({})",
+                table.named(card),
+                self.taps(&plan.steps)
+            );
+            let act = Act::Taps {
+                steps: plan.steps,
+                then: PlayerAction::Foretell { card },
+            };
+            self.offer(label, act, None);
+        }
         for &(source, index) in &legal.abilities {
             if baylee_ai::only_makes_mana(view, source, index) {
                 continue;

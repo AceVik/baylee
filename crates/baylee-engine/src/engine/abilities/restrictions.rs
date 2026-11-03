@@ -144,15 +144,10 @@ impl<L: CardLookup> Engine<L> {
         });
     }
 
-    /// Keeps of the cards the pool could not pay for (`legal.payable`, the
-    /// candidates the sweep collected) those that may be cast and paid for
-    /// while casting (CR 601.2g): only while the seat has a mana ability on
-    /// offer, and only a card with something to point at, as `castable`.
-    pub(super) fn settle_payable(&self, player: PlayerId, legal: &mut LegalActions) {
-        if legal.payable.is_empty() {
-            return;
-        }
-        let makes_mana = !legal.mana_abilities.is_empty()
+    /// Whether `legal` offers anything that makes mana: a CR 305.6 tap, a
+    /// mana ability, or a granted action that adds mana.
+    pub(in crate::engine) fn offers_mana(&self, legal: &LegalActions) -> bool {
+        !legal.mana_abilities.is_empty()
             || legal
                 .abilities
                 .iter()
@@ -162,8 +157,18 @@ impl<L: CardLookup> Engine<L> {
                     offer.effect,
                     crate::choice::GrantedActionKind::AddMana { .. }
                 )
-            });
-        if !makes_mana {
+            })
+    }
+
+    /// Keeps of the cards the pool could not pay for (`legal.payable`, the
+    /// candidates the sweep collected) those that may be cast and paid for
+    /// while casting (CR 601.2g): only while the seat has a mana ability on
+    /// offer, and only a card with something to point at, as `castable`.
+    pub(super) fn settle_payable(&self, player: PlayerId, legal: &mut LegalActions) {
+        if legal.payable.is_empty() {
+            return;
+        }
+        if !self.offers_mana(legal) {
             legal.payable.clear();
             return;
         }
@@ -234,6 +239,7 @@ impl<L: CardLookup> Engine<L> {
         legal.payable.clear();
         legal.suspendable.clear();
         legal.foretellable.clear();
+        legal.unpaid_foretell.clear();
         legal
             .abilities
             .retain(|&(source, index)| self.is_payment_mana_offer(source, index));

@@ -1854,7 +1854,9 @@ Keywords exist on stack objects (rebound can be granted).
 holds only the later cast's printed mana cost. While its owner has priority on
 their own turn, `engine/foretell` offers a {2} special action in
 `LegalActions::foretellable`; this is not sorcery timing, so combat and a
-nonempty stack do not close it. The action uses no stack, exiles that hand card
+nonempty stack do not close it. With the {2} still in the lands it is a
+planning hint, `LegalActions::unpaid_foretell`, while a mana ability is on
+offer (CR 605.3a): the seat taps, then foretells. The action uses no stack, exiles that hand card
 face down and marks the exact incarnation with `Rider::Foretold` and the turn.
 Only its owner may inspect it, and only that incarnation may be cast after that
 turn for the printed foretell cost, with the card's ordinary timing. It has no

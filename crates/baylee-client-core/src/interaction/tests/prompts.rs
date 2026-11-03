@@ -49,6 +49,7 @@ fn the_bar_says_whose_turn_it_is_over_the_same_two_buttons() {
             abilities: vec![],
             suspendable: vec![],
             foretellable: vec![],
+            unpaid_foretell: vec![],
             granted_actions: vec![],
         }),
     });
@@ -816,6 +817,7 @@ fn a_payment_window_says_what_it_is_instead_of_your_move() {
             abilities: vec![],
             suspendable: vec![],
             foretellable: vec![],
+            unpaid_foretell: vec![],
             granted_actions: vec![],
         }),
     });

@@ -147,3 +147,50 @@ fn a_foretold_card_moved_within_exile_stays_foretold() {
             .any(|r| matches!(r, Rider::Foretold { .. }))
     );
 }
+
+/// Bug hunt of 3.11.2026, game 1, q65: Starnheim Unleashed was never
+/// offered for foretell with two untapped lands, because the {2} had to be
+/// floating already. The engine names such a card a planning hint
+/// (`unpaid_foretell`), a seat taps for the {2} (CR 605.3a), and the card
+/// is then `foretellable` (CR 702.143a).
+#[test]
+fn a_card_whose_foretell_the_lands_can_pay_is_a_hint_until_the_mana_is_made() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[plains(), plains()])
+        .hand(0, &[doomskar()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let card = engine.state.zones.list(ZoneLocation::Hand(p0))[0];
+    let legal = engine.compute_legal(p0);
+    assert_eq!(legal.unpaid_foretell, vec![card]);
+    assert!(legal.foretellable.is_empty());
+    assert!(
+        engine.apply(p0, PlayerAction::Foretell { card }).is_err(),
+        "a hint is not an action"
+    );
+    assert_eq!(tap_all_mana(&mut engine, p0), 2);
+    let legal = engine.compute_legal(p0);
+    assert_eq!(legal.foretellable, vec![card]);
+    assert!(legal.unpaid_foretell.is_empty());
+    engine
+        .apply(p0, PlayerAction::Foretell { card })
+        .expect("the {2} is floating now");
+    assert_eq!(
+        engine.state().object(card).map(|o| o.zone),
+        Some(Zone::Exile)
+    );
+}
+
+/// With nothing left to make mana with, foretell is not hinted at.
+#[test]
+fn no_foretell_hint_without_a_mana_ability_on_offer() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest()).hand(0, &[doomskar()]).start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let legal = engine.compute_legal(p0);
+    assert!(legal.unpaid_foretell.is_empty());
+    assert!(legal.foretellable.is_empty());
+}

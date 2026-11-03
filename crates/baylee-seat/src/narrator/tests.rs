@@ -294,6 +294,7 @@ pub(crate) fn priority(view: &PlayerView) -> Pending {
             abilities: vec![(id(30), 0), (id(31), 0)],
             suspendable: Vec::new(),
             foretellable: Vec::new(),
+            unpaid_foretell: vec![],
             granted_actions: vec![],
         }),
     }

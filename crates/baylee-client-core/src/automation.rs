@@ -839,6 +839,7 @@ mod tests {
                 abilities: vec![],
                 suspendable: vec![],
                 foretellable: vec![],
+                unpaid_foretell: vec![],
                 granted_actions: vec![],
             }),
         }
@@ -861,6 +862,7 @@ mod tests {
                 abilities: vec![],
                 suspendable: vec![],
                 foretellable: vec![],
+                unpaid_foretell: vec![],
                 granted_actions: vec![],
             }),
         }
@@ -1650,6 +1652,7 @@ mod tests {
                 abilities: vec![],
                 suspendable: vec![],
                 foretellable: vec![],
+                unpaid_foretell: vec![],
                 granted_actions: vec![],
             }),
         };
@@ -1689,6 +1692,7 @@ mod tests {
                 abilities: vec![],
                 suspendable: vec![],
                 foretellable: vec![],
+                unpaid_foretell: vec![],
                 granted_actions: vec![],
             }),
         };
@@ -1862,6 +1866,7 @@ mod tests {
             legal: Box::new(LegalActions {
                 can_pass: true,
                 foretellable: vec![card],
+                unpaid_foretell: vec![],
                 ..LegalActions::default()
             }),
         };

@@ -84,6 +84,13 @@ activations, confirm them with the player and recheck the actual offer after
 making mana. Older clients ignore this additive field and retain manual
 payment. The cost uses the existing protocol-8 notation.
 
+`LegalActions.unpaid_foretell` is the same kind of hint for foretell's {2}
+(CR 702.143a): an optional, default-empty list of hand cards that would be
+in `foretellable` once {2} is floating, offered only while the seat has a
+mana ability to activate (CR 605.3a). It never authorizes
+`PlayerAction::Foretell`: only membership in `foretellable` does, so a client
+makes the mana first. Older clients ignore it.
+
 ## Ward life payments (protocol 7)
 
 `Pending::YesNo` can carry `PayLife { amount }`. The client displays the

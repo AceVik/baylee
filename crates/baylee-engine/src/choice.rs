@@ -739,6 +739,14 @@ pub struct LegalActions {
     /// Cards with foretell that may be exiled face down for {2} right now.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub foretellable: Vec<ObjectId>,
+    /// Cards with foretell that may be exiled face down once {2} is made:
+    /// every rule `foretellable` asks holds except that the mana is not
+    /// floating yet, and the seat has a mana ability to activate
+    /// (CR 702.143a, 605.3a). Planning hints, never accepted actions, as
+    /// `unpaid_abilities` are: a client makes the mana, and the card is then
+    /// `foretellable`. Never in `foretellable` as well.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub unpaid_foretell: Vec<ObjectId>,
 }
 
 impl LegalActions {

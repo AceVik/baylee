@@ -45,6 +45,7 @@ fn a_draw_is_only_offered_from_this_seats_own_priority() {
                     abilities: vec![],
                     suspendable: vec![],
                     foretellable: vec![],
+                    unpaid_foretell: vec![],
                     granted_actions: vec![],
                 }),
             },

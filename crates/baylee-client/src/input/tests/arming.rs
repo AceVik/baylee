@@ -21,6 +21,7 @@ fn confirming_a_priority_choice_passes() {
                 abilities: vec![],
                 suspendable: vec![],
                 foretellable: vec![],
+                unpaid_foretell: vec![],
                 granted_actions: vec![],
             }),
         },

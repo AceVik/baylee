@@ -789,8 +789,9 @@ impl<L: CardLookup> Engine<L> {
                 }
             }
         }
-        self.offer_foretell(player, &mut legal);
         self.offer_granted_actions(player, &mut legal);
+        // After every mana offer, which `unpaid_foretell` asks after.
+        self.offer_foretell(player, &mut legal);
         self.settle_payable(player, &mut legal);
         self.narrow_under_chosen_names(&mut legal);
         self.narrow_under_split_second(&mut legal);

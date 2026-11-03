@@ -525,6 +525,7 @@ fn nothing_but_mana(view: &PlayerView, legal: &LegalActions) -> bool {
         && legal.suspendable.is_empty()
         && legal.foretellable.is_empty()
         && reachable_abilities(view, legal).is_empty()
+        && reachable_foretell(view, legal).is_empty()
         && legal
             .abilities
             .iter()
@@ -802,6 +803,37 @@ pub fn reachable_abilities(view: &PlayerView, legal: &LegalActions) -> Vec<Abili
         .collect()
 }
 
+/// Every card in `legal.unpaid_foretell` whose {2} the seat's untapped
+/// sources pay now, with the taps; none while a payment is owed
+/// ([`owes`]). Foretell is a special action, not a spell (CR 702.143a), so
+/// its {2} is planned as an activation's is: mana that may be spent only on
+/// spells does not pay it.
+#[must_use]
+pub fn reachable_foretell(view: &PlayerView, legal: &LegalActions) -> Vec<(ObjectId, Plan)> {
+    if owes(view)
+        || legal.unpaid_foretell.is_empty()
+        || baylee_ai::mana_sources(view, legal).is_empty()
+    {
+        return Vec::new();
+    }
+    let Some(pool) = view
+        .seat(baylee_client_core::decision::resource_player(view))
+        .map(|seat| seat.mana_pool)
+    else {
+        return Vec::new();
+    };
+    let cost = ManaCost::parse("{2}");
+    legal
+        .unpaid_foretell
+        .iter()
+        .filter_map(|&card| {
+            let plan = baylee_ai::plan_for_activation(&cost, &pool, view, legal, card, false)
+                .filter(|plan| !plan.steps.is_empty())?;
+            Some((card, plan))
+        })
+        .collect()
+}
+
 /// The printed ability `index` of `source`, on the battlefield, in a
 /// graveyard or in the hand, as the face it shows now prints it; `None`
 /// for a special action, a granted ability or an object the view cannot
@@ -871,11 +903,14 @@ fn bound_to_this_step(view: &PlayerView, legal: &LegalActions) -> bool {
         })
 }
 
-/// Whether the seat could cast or activate something by tapping what it has
-/// untapped ([`reachable`], [`reachable_abilities`]).
+/// Whether the seat could cast, activate or foretell something by tapping
+/// what it has untapped ([`reachable`], [`reachable_abilities`],
+/// [`reachable_foretell`]).
 #[must_use]
 pub fn offering(view: &PlayerView, legal: &LegalActions) -> bool {
-    !reachable(view, legal).is_empty() || !reachable_abilities(view, legal).is_empty()
+    !reachable(view, legal).is_empty()
+        || !reachable_abilities(view, legal).is_empty()
+        || !reachable_foretell(view, legal).is_empty()
 }
 
 /// Commanders standing in their owner's command zone, not yet castable,

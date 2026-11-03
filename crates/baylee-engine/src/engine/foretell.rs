@@ -10,32 +10,38 @@ use baylee_core::mana::ManaCost;
 const FORETELL_ACTION_COST: ManaCost = ManaCost::parse("{2}");
 
 impl<L: CardLookup> Engine<L> {
+    /// Foretell any time its player has priority in their own turn
+    /// (CR 702.143a): `foretellable` when the pool pays the {2}, and
+    /// `unpaid_foretell` when it does not yet but a mana ability is on offer
+    /// to make it with first (CR 605.3a). Called once the mana offers are in.
     pub(super) fn offer_foretell(&self, player: PlayerId, legal: &mut LegalActions) {
         if self.state.turn.active != player {
             return;
         }
-        legal.foretellable = self
-            .state
-            .zones
-            .list(ZoneLocation::Hand(player))
-            .iter()
-            .copied()
-            .filter(|&card| {
-                let Some(source) = self.state.source_identity(card) else {
-                    return false;
-                };
-                self.state
-                    .object(card)
-                    .and_then(|object| object.card)
-                    .and_then(|card| self.lookup.card(card.index))
-                    .is_some_and(|def| def.faces[0].foretell.is_some())
-                    && self.can_pay_mana(
-                        player,
-                        crate::casting::SpendFor::OtherFrom(source),
-                        &FORETELL_ACTION_COST,
-                    )
-            })
-            .collect();
+        let makes_mana = self.offers_mana(legal);
+        for &card in self.state.zones.list(ZoneLocation::Hand(player)) {
+            let Some(source) = self.state.source_identity(card) else {
+                continue;
+            };
+            let foretells = self
+                .state
+                .object(card)
+                .and_then(|object| object.card)
+                .and_then(|card| self.lookup.card(card.index))
+                .is_some_and(|def| def.faces[0].foretell.is_some());
+            if !foretells {
+                continue;
+            }
+            if self.can_pay_mana(
+                player,
+                crate::casting::SpendFor::OtherFrom(source),
+                &FORETELL_ACTION_COST,
+            ) {
+                legal.foretellable.push(card);
+            } else if makes_mana {
+                legal.unpaid_foretell.push(card);
+            }
+        }
     }
 
     pub(super) fn foretell(&mut self, player: PlayerId, card: ObjectId) -> Result<(), EngineError> {
