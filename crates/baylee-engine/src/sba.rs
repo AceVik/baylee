@@ -1677,6 +1677,7 @@ mod tests {
         bare(state, "Test Creature", TypeSet::CREATURE, &[])
     }
 
+    mod basics;
     mod cow_reset;
 
     fn attach(

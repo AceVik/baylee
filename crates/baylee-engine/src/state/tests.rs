@@ -1772,3 +1772,6 @@ fn the_turn_reset_forgets_what_was_tapped_to_pay_for_an_ability() {
         "a permanent tapped last turn was not tapped this turn"
     );
 }
+
+mod moves_reset;
+mod player_totals;
