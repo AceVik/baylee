@@ -31,21 +31,9 @@ fn consult(top_first: &[CardIndex], named: CardIndex) -> Outcome {
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, P0);
 
-    for card in kit::library_of(&engine, P0) {
-        engine
-            .dev_state_mut(P0)
-            .expect("the harness may prepare an exact library")
-            .move_object(
-                card,
-                ZoneLocation::OutsideGame(P0),
-                ZonePosition::Top,
-                Cause::Effect,
-            )
-            .expect("the backing deck leaves the library");
-    }
     let consultation =
         in_hand(&engine, P0, consultation_card).expect("Consultation starts in hand");
-    let stacked = kit::stack_library(&mut engine, P0, top_first);
+    let stacked = kit::replace_library(&mut engine, P0, top_first);
     let library_before = kit::library_of(&engine, P0);
     lk::float(&mut engine, P0, &[(ManaColor::Black, 1)]);
     cast_with_floating(&mut engine, P0, consultation_card);

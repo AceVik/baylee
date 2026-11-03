@@ -6376,3 +6376,18 @@ got wrong was in the tests, not in the cards:
   zero cards does not itself make the library empty. The existing card-name
   choice and automatic resolution serve desktop, house AI and LLM seats without
   a new decision type or card-specific policy.
+
+## 2026-11-03 — Diabolic Vision's private pick and top-library order
+
+- Reuse `LookAtTopPickThenReorder { count: Fixed(5), pick: 1 }`: it privately
+  offers the available top cards, then uses the existing `Arrange` continuation
+  for the unchosen cards. No reveal or draw event belongs to either instruction.
+  Three played tests cover an arbitrary returned order and untouched suffix,
+  one- and three-card libraries, an empty library, and the opponent's unchanged
+  library. The shared `replace_library` harness helper now supplies exact decks
+  to both this card and Demonic Consultation instead of duplicating fixture code.
+- Desktop and LLM seats reuse the existing private choice and arrangement
+  decisions; this sorcery adds no activation-census row. The house AI's generic
+  top-pick valuation now includes the reorder variant: its regression was red
+  with zero instead of the picked card's value before the fix and passes with
+  the full 313-test AI suite afterwards. No card-specific policy was added.
