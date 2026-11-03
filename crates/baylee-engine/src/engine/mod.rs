@@ -2062,6 +2062,8 @@ mod fight_tests;
 #[cfg(test)]
 mod flanking_tests;
 #[cfg(test)]
+mod flash_haste_flow_tests;
+#[cfg(test)]
 mod flashback_tests;
 #[cfg(test)]
 mod graveyard_order_tests;
