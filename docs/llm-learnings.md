@@ -5369,7 +5369,7 @@ resolved battle-damage holds:
 - A declaration whose mana tax the pool does not cover now opens a payment
   window (`PaymentContinuation::AttackTax`) with nothing paid yet. Passing
   declares out of the pool. A window left short is undone the way a cast is
-  (CR 732.1, `give_back_window`), and the step asks again with
+  (CR 733.1, `give_back_window`), and the step asks again with
   `CombatDeclared::TaxDeclined`.
 - The offer counts one unit per mana source the window would offer
   (`Engine::attack_mana_reach`), an estimate and not a promise. That is why a

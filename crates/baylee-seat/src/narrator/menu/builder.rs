@@ -1078,8 +1078,8 @@ impl Builder<'_, '_> {
             // same question comes again.
             self.line(
                 "Say yes only if you can pay the whole cost with it now: a cast whose cost \
-                 cannot be paid is taken back, and you get priority again (CR 601.2h, 732.1, \
-                 732.2).",
+                 cannot be paid is taken back, and you get priority again (CR 601.2h, 733.1, \
+                 733.2).",
             );
         }
         self.option(

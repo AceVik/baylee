@@ -346,7 +346,7 @@ fn a_cast_that_cannot_pay_hands_priority_back() {
     // for both of them and is what leaves the cost unpayable. The answers
     // are taken — they are what the questions offered — and the payment
     // after them is what makes the casting illegal (CR 601.2h), which
-    // returns the game to before the cast (CR 732.1).
+    // returns the game to before the cast (CR 733.1).
     for _ in 0..8 {
         match engine.pending().clone() {
             Pending::ChooseTargets { .. } => {

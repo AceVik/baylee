@@ -525,7 +525,7 @@ fn reversed(engine: &Engine<RegistryLookup>, elves: ObjectId, life: i32) {
     let p0 = PlayerId::new(0);
     assert!(
         matches!(engine.pending(), Pending::Priority { player, .. } if *player == p0),
-        "the activator keeps priority (CR 732.2): {:?}",
+        "the activator keeps priority (CR 733.2): {:?}",
         engine.pending()
     );
     assert!(stack_is_empty(engine), "no ability reached the stack");
@@ -538,7 +538,7 @@ fn reversed(engine: &Engine<RegistryLookup>, elves: ObjectId, life: i32) {
 }
 
 /// A target answer whose activation can no longer be completed reverses the
-/// activation and hands its activator priority (CR 732.1, CR 732.2).
+/// activation and hands its activator priority (CR 733.1, CR 733.2).
 ///
 /// The answer is one the question offered, and by the time `start_activation`
 /// refuses to go on, the question's continuation has already been taken. The

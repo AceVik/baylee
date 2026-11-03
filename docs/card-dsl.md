@@ -878,7 +878,7 @@ Chromatic Sphere and the five Eggs use the stack because they draw cards.
 Quoted grants and delayed triggers are separate abilities. External replacements
 do not change this classification. Scry or shuffling alone does not cross a
 library zone boundary, but can still prohibit reversing an action under
-CR 732.1; mana classification is not an undo-safety guarantee. Triggered mana
+CR 733.1; mana classification is not an undo-safety guarantee. Triggered mana
 abilities retain their separate CR 605.1b criteria.
 
 Three of them go one step further and drop a field the card never decided.
@@ -4718,7 +4718,7 @@ goes on once, from the result kept.
 
 **Triggers and conditions.** `Trigger::BecomesUntapped(&Filter)` [Mesmeric
 Orb] fires when a matching permanent becomes untapped, by any cause but the
-reversal of an undone payment (CR 732.1); the permanent is the event object,
+reversal of an undone payment (CR 733.1); the permanent is the event object,
 so `PlayerRel::ControllerOfEvent` is its controller.
 `Condition::HandSizeAtTurnStartAtMost(n)` [Mindstorm Crown] holds when the
 active player had at most `n` cards in hand as this turn began, before any

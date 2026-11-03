@@ -192,8 +192,8 @@ fn a_damage_trigger_set_off_by_a_painland_waits_until_the_spell_is_cast() {
 }
 
 /// Passing a window the pool does not cover reverses the cast (CR 601.2h,
-/// 732.1): the card goes back to the hand and the player has priority
-/// again (CR 732.2). The Wastes' mana ability is reversed with it, its
+/// 733.1): the card goes back to the hand and the player has priority
+/// again (CR 733.2). The Wastes' mana ability is reversed with it, its
 /// damage included (`cancel_cast_tests`).
 #[test]
 fn a_cast_its_window_cannot_pay_goes_back_to_the_hand() {

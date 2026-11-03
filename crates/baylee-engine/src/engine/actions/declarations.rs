@@ -269,7 +269,7 @@ impl<L: CardLookup> Engine<L> {
     /// The window of [`Self::open_attack_tax_window`] closing: the
     /// declaration is made out of the pool if it now pays, and otherwise it
     /// was never made, and what the window made is given back (CR 508.1i,
-    /// CR 732.1). Returns whether it was made.
+    /// CR 733.1). Returns whether it was made.
     pub(in crate::engine) fn settle_attack_tax(
         &mut self,
         player: PlayerId,

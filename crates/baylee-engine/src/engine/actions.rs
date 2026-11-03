@@ -1852,7 +1852,7 @@ impl<L: CardLookup> Engine<L> {
                     };
                     // "Yes" is taken like every answer a question offers.
                     // A cast it cannot follow through is reversed (CR 601.2,
-                    // 732.1) and the card stays in hand: the offer was the
+                    // 733.1) and the card stays in hand: the offer was the
                     // miracle's one chance (CR 702.94a), so that is a "no".
                     // It used to be refused, which a driver that proposes
                     // yes again reads as a question with no answer (the
@@ -2004,7 +2004,7 @@ impl<L: CardLookup> Engine<L> {
                     self.cast_wizard = Some(wizard);
                     // Taken like every other answer the wizard asks, and a
                     // cast that cannot go on from it is reversed (CR 601.2,
-                    // 732.1). It was the one wizard answer refused instead,
+                    // 733.1). It was the one wizard answer refused instead,
                     // after the wizard had already been dropped: a refusal
                     // that moved the engine, and a question left standing
                     // with nothing behind it.

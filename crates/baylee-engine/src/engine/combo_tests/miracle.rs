@@ -13,7 +13,7 @@
 //! (`Engine::payment_window`, which the view projects as
 //! `PlayerView::owed`), and the player makes the mana there one tap at a
 //! time (CR 601.2g). Passing with the cost made casts it. Passing short
-//! casts nothing, and the play that was begun is reversed (CR 732.1): the
+//! casts nothing, and the play that was begun is reversed (CR 733.1): the
 //! card stays in hand, and the lands tapped for it are untapped with their
 //! mana taken back. Before the reversal they stayed tapped and their mana
 //! floated until the step ended, which is what the owner asked to change.
@@ -206,7 +206,7 @@ fn a_miracle_drawn_on_their_turn_is_paid_in_its_window_and_cast() {
 }
 
 /// Passing after one tap of two leaves the miracle uncast and the card in
-/// hand, and the play is reversed (CR 732.1): the Island tapped for it is
+/// hand, and the play is reversed (CR 733.1): the Island tapped for it is
 /// untapped and its {U} taken back. The Island Brainstorm was paid with
 /// stays tapped: that mana was spent before the window opened.
 #[test]

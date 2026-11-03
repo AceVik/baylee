@@ -52,7 +52,7 @@ pub enum DamageTarget {
     Object(ObjectId),
 }
 
-/// Why a cast was taken back (CR 732.1), as [`GameEvent::CastCancelled`]
+/// Why a cast was taken back (CR 733.1), as [`GameEvent::CastCancelled`]
 /// records it.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub enum CastCancelReason {
@@ -465,7 +465,7 @@ pub enum GameEvent {
         now: crate::turn::DayNight,
     },
     /// A cast was taken back before it was complete (`PlayerAction::CancelCast`,
-    /// or a payment window passed short), and reversed (CR 732.1). The card
+    /// or a payment window passed short), and reversed (CR 733.1). The card
     /// never left its zone, so this says nothing an opponent did not see.
     CastCancelled {
         /// The player who was casting.
@@ -743,7 +743,7 @@ impl Journal {
     }
 
     /// Drops every entry after the first `len`: the one exception to "only
-    /// grows", for a payment that was canceled (CR 732.1) and so never
+    /// grows", for a payment that was canceled (CR 733.1) and so never
     /// happened ([`crate::state::GameState::roll_back`]).
     pub(crate) fn cancel_from(&mut self, len: usize) {
         if len < self.entries.len() {

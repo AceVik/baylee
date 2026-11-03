@@ -1117,7 +1117,7 @@ impl GameState {
 
     /// Keeps the game as it stands, for [`Self::roll_back`].
     ///
-    /// CR 732.1: an action that cannot legally be completed is reversed and
+    /// CR 733.1: an action that cannot legally be completed is reversed and
     /// "any payments already made are canceled", and no ability triggers and
     /// no effect applies as a result of it. A payment is written part by
     /// part, so the one sure way to cancel whatever of it was written is to

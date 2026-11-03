@@ -107,7 +107,7 @@ impl<L: CardLookup> Engine<L> {
                     // it, so X is bounded only by the number type, as an
                     // activation's is (`abilities/x_value.rs`). An answer
                     // the window then cannot pay is reversed there and says
-                    // so (`GameEvent::CastCancelled`, CR 601.2h, 732.1).
+                    // so (`GameEvent::CastCancelled`, CR 601.2h, 733.1).
                     // Life payments still cannot exceed payable life.
                     let more_mana = !wizard.makes_mana_after_choices()
                         && self.can_make_mana_for_cast(wizard.player);

@@ -688,8 +688,8 @@ the cast's own questions (mode, X, targets) and then opens a payment window
 trigger that mana sets off (City of Brass, a painland beside "whenever
 you're dealt damage") waits until the spell is cast (CR 601.2i) and goes on
 the stack above it. Passing the window with the cost unpaid reverses the
-cast (CR 601.2h, 732.1) as `CancelCast` does (below), and the player keeps
-priority (CR 732.2). Whether the seat's sources can
+cast (CR 601.2h, 733.1) as `CancelCast` does (below), and the player keeps
+priority (CR 733.2). Whether the seat's sources can
 make that mana is not checked; a client plans it (`manaplan`). The reverse
 holds as well: a planner taps toward nothing outside `castable` and
 `payable` (`LegalActions::castable_once_paid`), because a card in neither has
@@ -722,7 +722,7 @@ mana ability inside the window asks its colour (answer that first) and for
 every cast an effect makes (rebound, a miracle, "you may cast it"), which only
 the effect can take back.
 
-The cast is reversed as CR 732.1 reverses an action that is not completed:
+The cast is reversed as CR 733.1 reverses an action that is not completed:
 the card stays where it was (the engine moves it to the stack only as the
 cost is paid), the costs chosen for it are not paid (a sacrifice chosen in
 the wizard was never made), and the mana abilities activated for it are
@@ -733,9 +733,9 @@ reversed mana ability did beside its mana is undone with it, since "no
 abilities trigger and no effects apply as a result of an undone action": a
 painland's damage is not dealt and City of Brass's trigger never goes on the
 stack. A cast whose mana touched a library (moved a card to or from it,
-shuffled it, revealed from it), which CR 732.1 forbids reversing, is still
+shuffled it, revealed from it), which CR 733.1 forbids reversing, is still
 taken back and its mana abilities stand. The player keeps priority
-(CR 732.2). The journal records `GameEvent::CastCancelled` with its
+(CR 733.2). The journal records `GameEvent::CastCancelled` with its
 `reason`: `Withdrawn` for `CancelCast`, `Unpaid` for a window passed short
 (CR 601.2h allows no partial payment), `Illegal` when the card moved or an
 object a cost named is gone. The game log writes no line, because the card never left its zone and naming it would

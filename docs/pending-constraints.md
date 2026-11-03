@@ -34,7 +34,7 @@ answers the same way, finds none on the whole house-deck grid.
 
 Three refusals came *after* an answer the question offered had been taken,
 from a continuation that could not go on. Each now reverses what it began
-instead (CR 732.1: an action that cannot be completed is reversed), and
+instead (CR 733.1: an action that cannot be completed is reversed), and
 the answer is taken:
 
 | question | answer | was | now |

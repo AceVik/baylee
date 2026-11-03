@@ -804,7 +804,7 @@ Temporal Mastery payment and extra turn through the projected debt.
 
 A window that closes without its cast (a miracle declined after a tap, or
 paid short; a `PaymentContinuation::Cast` likewise) gives back what was made
-in it: the play was never completed, and CR 732.1 lets its player reverse the
+in it: the play was never completed, and CR 733.1 lets its player reverse the
 mana abilities activated while making it. The window holds a `WindowStart`
 (the journal's length, the payer's pool, the generated-mana obligations and
 the trigger queue's length when it opened), and `Engine::give_back_window`
@@ -814,7 +814,7 @@ cut back, because each tap was its own `apply` and a host has read past it:
 the untaps are journalled as `ObjectUntapped { cause: Cost }`, which nothing
 triggers on. A window in which anything but a tap and its mana happened (a
 sacrificed Lotus Petal, life paid, a library touched) is left as it stands,
-which 732.1's "may" allows. A cast started from a `Cast` window carries its
+which 733.1's "may" allows. A cast started from a `Cast` window carries its
 start into the window its wizard opens for the rest
 (`CastWizard::window_start`), so both are given back together
 (`combo_tests::miracle`, `conduit_of_worlds_paid_short_gives_back_the_forest_tapped_for_it`).

@@ -805,7 +805,7 @@ pub fn can_cast(
 /// What it does not know is whether the seat's mana abilities can make that
 /// mana, which is a question about colours and amounts a player answers by
 /// tapping; a cast that cannot be paid is reversed in its payment window
-/// (CR 601.2h, 732.1).
+/// (CR 601.2h, 733.1).
 ///
 /// # Errors
 /// [`CastError`] describing the first legality violation.

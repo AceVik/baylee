@@ -571,7 +571,7 @@ impl<L: CardLookup> Engine<L> {
     ///
     /// Choosing the targets is a step of casting (CR 601.2c), and a spell
     /// that cannot take it cannot be cast: the attempt is illegal and is
-    /// reversed (CR 601.2, CR 732.1). A "yes" to such a miracle can only
+    /// reversed (CR 601.2, CR 733.1). A "yes" to such a miracle can only
     /// come back as a "no", so the question has one outcome and is not
     /// asked. Banishing Stroke drawn onto a board with no artifact, creature
     /// or enchantment was asked anyway; the house said yes, the engine
@@ -926,7 +926,7 @@ impl<L: CardLookup> Engine<L> {
     ///
     /// `opened` is where that window began. The wizard carries it, so a
     /// second window its Done stage opens for what the pool still lacks
-    /// gives back what both made if it closes without the cast (CR 732.1).
+    /// gives back what both made if it closes without the cast (CR 733.1).
     pub(crate) fn start_paid_cast(
         &mut self,
         player: PlayerId,
@@ -1193,7 +1193,7 @@ impl<L: CardLookup> Engine<L> {
     /// the rest of the checklist then finds. A step the caster cannot
     /// complete — the total cost with the X they named, the targets their
     /// mode needs — makes the casting illegal, and the game returns to the
-    /// moment before it was proposed (CR 601.2, CR 732.1): that is the
+    /// moment before it was proposed (CR 601.2, CR 733.1): that is the
     /// answer's consequence, not a reason to refuse it.
     ///
     /// It used to be refused *and* reversed, which is the one combination a
@@ -1204,7 +1204,7 @@ impl<L: CardLookup> Engine<L> {
     /// What taking it costs: the reason is no longer handed back. Nobody read
     /// it — gamehost's `Session` answers every refusal with the same "illegal
     /// action for your seat" — and the caster now sees the priority they are
-    /// back at instead. The reversal journals nothing, as CR 732.1 has it:
+    /// back at instead. The reversal journals nothing, as CR 733.1 has it:
     /// an undone action leaves nothing behind.
     pub(crate) fn continue_cast_wizard(&mut self) {
         // Read before the stages run: `finish_cast` nulls the wizard itself
@@ -1216,7 +1216,7 @@ impl<L: CardLookup> Engine<L> {
     }
 
     /// Returns the game to the moment before a cast was proposed (CR 601.2,
-    /// CR 732.1), once the cast has turned out to be illegal part-way.
+    /// CR 733.1), once the cast has turned out to be illegal part-way.
     pub(crate) fn reverse_cast(&mut self, caster: Option<PlayerId>) {
         // The X the card was given as it was announced goes with the rest
         // of the cast: a card that never left its zone announced nothing.
@@ -1377,7 +1377,7 @@ impl<L: CardLookup> Engine<L> {
     /// activate mana abilities before paying (CR 601.2g), and is not sent
     /// back to priority for want of mana they could have made. From then on
     /// it is paid as a cast from `payable` is, so a window closed short
-    /// hands the caster their priority back (CR 732.1).
+    /// hands the caster their priority back (CR 733.1).
     fn cast_or_make_miracle_mana(&mut self, wizard: CastWizard) -> Result<(), EngineError> {
         let cost = self.wizard_paid(&wizard);
         if self.commanded_card(wizard.card) || !self.wizard_pool_can_pay(&wizard, cost) {
@@ -1419,7 +1419,7 @@ impl<L: CardLookup> Engine<L> {
                 // A commanded card is played only "if able" (Word of
                 // Command). A price its player's lands cannot pay at all is
                 // a casting that cannot comply with CR 601.2g-h: it is
-                // reversed (CR 732.1) before anything is tapped, and the
+                // reversed (CR 733.1) before anything is tapped, and the
                 // card stays where it was.
                 if self.commanded_payment_feasible() == Some(false) {
                     self.mana_window = None;
@@ -1438,7 +1438,7 @@ impl<L: CardLookup> Engine<L> {
     /// The captured version also protects casts from graveyard or exile.
     ///
     /// A window that closes without the cast gives back what was made in it
-    /// (CR 732.1, `Engine::give_back_window`): declining a miracle the
+    /// (CR 733.1, `Engine::give_back_window`): declining a miracle the
     /// player had begun to pay for leaves the lands they tapped untapped and
     /// nothing floating.
     pub(super) fn finish_miracle_payment(
@@ -1472,7 +1472,7 @@ impl<L: CardLookup> Engine<L> {
                 return Err(EngineError::IllegalAction("generated mana remains unspent"));
             }
             // A cast begun from priority is put back whole, its mana
-            // abilities with it (CR 732.1); any other gives back the taps.
+            // abilities with it (CR 733.1); any other gives back the taps.
             if self.rewind_cast(wizard) {
                 self.state.journal.record(GameEvent::CastCancelled {
                     player: wizard.player,
@@ -1486,7 +1486,7 @@ impl<L: CardLookup> Engine<L> {
                 card.x_value = 0;
             }
             // A cast from priority that could not be paid is reversed, and
-            // the player who had priority keeps it (CR 732.2).
+            // the player who had priority keeps it (CR 733.2).
             if !self.finish_nested_cast() && wizard.paying == casting::Paying::DuringTheCast {
                 self.after_action(wizard.player);
             }
@@ -1665,7 +1665,7 @@ impl<L: CardLookup> Engine<L> {
     /// The mana is paid first and all at once, and every refusal after it (a
     /// delve, pitch or sacrifice answer naming an object that is gone, the
     /// card itself gone) used to leave what was paid by then spent while the
-    /// cast was reversed. CR 732.1 cancels "any payments already made", so
+    /// cast was reversed. CR 733.1 cancels "any payments already made", so
     /// the game is kept before the first of them and put back on a refusal,
     /// with the spell-rider abilities the mana put on the stack.
     fn finish_cast(&mut self, wizard: &CastWizard) -> Result<(), EngineError> {

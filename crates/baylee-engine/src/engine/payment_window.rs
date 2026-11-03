@@ -159,7 +159,7 @@ impl<L: CardLookup> Engine<L> {
         // "The player plays that card if able" (Word of Command): while the
         // commanded card's price can still be paid and the pool does not
         // pay it yet, closing the window gives up a card the player is able
-        // to play — an illegal attempt (CR 732.1), refused.
+        // to play — an illegal attempt (CR 733.1), refused.
         if self.commanded_payment_feasible() == Some(true) && !self.commanded_pool_completes() {
             return Err(EngineError::IllegalAction(
                 "the commanded card can still be paid",
@@ -228,7 +228,7 @@ impl<L: CardLookup> Engine<L> {
             // The cast pays out of the pool as any cast does; one it cannot
             // pay is not made, and the card stays where it is (CR 601.2h
             // reverses a casting that cannot be paid), and what the window
-            // made for it is given back (CR 732.1).
+            // made for it is given back (CR 733.1).
             PaymentContinuation::Cast {
                 card,
                 version,
@@ -319,21 +319,21 @@ impl<L: CardLookup> Engine<L> {
     /// Gives back what a payment window made when it closes without the
     /// cast it was opened for: the play was never completed, and each
     /// player may reverse the legal mana abilities they activated while
-    /// making it (CR 732.1). Returns whether it did.
+    /// making it (CR 733.1). Returns whether it did.
     ///
     /// The owner wants the reversal, so it is taken for the player. What it
     /// puts back is exactly what a mana ability that taps for mana does:
     /// every permanent tapped as a cost since the window opened is untapped,
     /// the pool and the generated-mana obligations are what they were, and
     /// the triggered abilities the taps queued are dropped, because no
-    /// ability triggers from an action that is undone (CR 732.1). Every
+    /// ability triggers from an action that is undone (CR 733.1). Every
     /// mana ability of the window is reversed together, so none of them
-    /// paid for one that stays, which is the one reversal 732.1 forbids.
+    /// paid for one that stays, which is the one reversal 733.1 forbids.
     ///
     /// A window in which anything else happened is left as it stands: a
     /// sacrificed Lotus Petal cannot be put back as the object it was
     /// (CR 400.7), life paid or damage dealt by a mana ability is not a tap,
-    /// and 732.1 forbids reversing anything that touched a library. CR 732.1
+    /// and 733.1 forbids reversing anything that touched a library. CR 733.1
     /// lets the player reverse, it does not make them, so leaving those is
     /// a legal answer and not a half-reversal: nothing is given back at all.
     pub(super) fn give_back_window(&mut self, player: PlayerId, opened: &WindowStart) -> bool {
@@ -377,7 +377,7 @@ impl<L: CardLookup> Engine<L> {
                 });
             }
         }
-        // No ability triggers from an undone action (CR 732.1): neither from
+        // No ability triggers from an undone action (CR 733.1): neither from
         // what the window did nor from its reversal, so "whenever a
         // permanent becomes untapped" (Mesmeric Orb) does not hear these
         // untaps. The scan passes over them.

@@ -1,4 +1,4 @@
-//! A reversed action gives back what was paid for it (CR 732.1).
+//! A reversed action gives back what was paid for it (CR 733.1).
 //!
 //! "If a player takes an illegal action or starts to take an action but
 //! can't legally complete it, the entire action is reversed and any payments
@@ -239,7 +239,7 @@ fn a_reversed_cast_gives_its_mana_back() {
 /// battlefield, and they return inside the move that takes it away (CR
 /// 610.3, `GameState::move_object`), so a cost that sacrifices it sets them
 /// free while the payment is still running. When a later part of that cost
-/// refuses, the whole action is reversed (CR 732.1): the Bodyguard stands,
+/// refuses, the whole action is reversed (CR 733.1): the Bodyguard stands,
 /// the Elves are in exile again as the object they were and held by it, and
 /// the journal has neither move. No card prints a sacrifice followed by a
 /// part that can refuse; this cost is written for the test, and asks for a
@@ -327,7 +327,7 @@ fn island() -> CardIndex {
 
 /// Uro escaped with five other cards, the fifth of which is gone by the
 /// time the answer is paid: four were exiled and the mana was spent before
-/// the fifth refused. The cast is reversed (CR 732.1), and the four are back
+/// the fifth refused. The cast is reversed (CR 733.1), and the four are back
 /// in the graveyard as they were, Uro with them, and the {G}{G}{U}{U} back
 /// in the pool. The gone card is named last on purpose, so the refusal
 /// comes after exiles that a reversal without the roll-back would keep.
@@ -441,7 +441,7 @@ fn counterspell() -> CardIndex {
 /// life pay for it rather than its mana cost. The pitched card is gone by
 /// the time the answer is paid — the harness makes it so, the way it makes
 /// the Vault's creature and Uro's fifth card so above. The cast is
-/// reversed (CR 732.1): the life is back, Force of Will is back in hand,
+/// reversed (CR 733.1): the life is back, Force of Will is back in hand,
 /// and the spell it would have countered sits on the stack exactly as it
 /// did before the question was asked.
 #[test]
@@ -564,7 +564,7 @@ fn unlicensed_hearse() -> CardIndex {
 /// asks which one before it asks which cards. The Hearse itself is gone by
 /// the time the answer is paid — the harness makes it so, the way the
 /// other tests here make a creature or a graveyard card so. The
-/// activation is reversed (CR 732.1, 732.2): neither graveyard is
+/// activation is reversed (CR 733.1, 733.2): neither graveyard is
 /// touched, nothing is exiled, and priority returns to the activator.
 #[test]
 fn a_reversed_graveyard_choice_touches_neither_graveyard() {
@@ -678,7 +678,7 @@ fn birthing_pod() -> CardIndex {
 /// or by 2 life, asked only where a board can afford it either way. The
 /// Pod itself is gone by the time the answer is paid — the harness makes
 /// it so, the way the other tests here make their own object so. The
-/// activation is reversed (CR 732.1, 732.2): no life is paid, no mana is
+/// activation is reversed (CR 733.1, 733.2): no life is paid, no mana is
 /// spent, the Elves stand unsacrificed, and priority returns to the
 /// activator.
 #[test]
