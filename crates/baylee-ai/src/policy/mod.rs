@@ -1475,6 +1475,7 @@ impl HeuristicAgent {
                     | Effect::DrawThenDiscardDrawn { .. }
                     | Effect::DrawCardsFor { .. }
                     | Effect::LookAtTopPick { .. }
+                    | Effect::LookAtTopPickThenReorder { .. }
                     | Effect::RevealTopAndSort { .. }
             ) {
                 value += 300 + self.strategy.draw_bonus;
@@ -1535,6 +1536,7 @@ impl HeuristicAgent {
                         Effect::DrawCards { .. }
                             | Effect::DrawCardsFor { .. }
                             | Effect::LookAtTopPick { .. }
+                            | Effect::LookAtTopPickThenReorder { .. }
                             | Effect::RevealTopAndSort { .. }
                     )
                 })
