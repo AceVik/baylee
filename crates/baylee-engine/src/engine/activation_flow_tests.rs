@@ -138,8 +138,25 @@ fn a_creature_that_just_arrived_cannot_use_a_tap_ability() {
             )
             .unwrap()
     };
+    // The offer was made before the Sorcerer arrived; let the game ask
+    // again in the next step of the same turn, so the refusal below is
+    // the rule's and not a stale offer's.
+    let step = engine.state().turn.step;
+    pass_until(&mut engine, |e| {
+        e.state().turn.step != step
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == P0)
+    });
+    assert_eq!(engine.state().turn.active, P0, "still the turn it arrived");
     assert!(!ping(&mut engine, wizard, P1));
     assert!(!tapped(&engine, wizard));
+    // And on its controller's next turn it may.
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == P0
+            && e.state().turn.phase == Phase::FirstMain
+            && e.state().turn.number > 1
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == P0)
+    });
+    assert!(ping(&mut engine, wizard, P1));
 }
 
 #[test]

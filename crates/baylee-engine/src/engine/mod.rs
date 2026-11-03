@@ -2243,6 +2243,8 @@ mod s7b_tests;
 #[cfg(test)]
 mod s7c_tests;
 #[cfg(test)]
+mod sacrifice_flow_tests;
+#[cfg(test)]
 mod saga_tests;
 #[cfg(test)]
 mod search_tests;
