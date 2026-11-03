@@ -55,7 +55,13 @@ An option that says \"(taps ...)\" taps those sources for you and then casts; yo
 yourself. When you cast a spell or activate an ability that will ask for targets, you may add \
 then={\"targets\": [ids]} to name them at once; if they are not legal then, you are asked.
 Add say: one short sentence for the people watching, about your plan. Keep it to the game.
-To change when you are asked, add stops: {\"mine\": [\"main1\", \"main2\", \"attackers\"], \"theirs\": [\"upkeep\", \"attackers\", \"end_step\"]}.
+Priority is put to you in the steps you stop at, when you could do something there, and whenever \
+an opponent's spell or ability is on the stack. Until you set stops they are your main1, blockers \
+and main2, and their attackers, blockers and end_step. blockers is the window after blockers are \
+declared, in a combat a creature of yours attacks or blocks in: the time for a pump, a \
+regeneration or another trick. To change them, add stops from upkeep, draw, main1, combat_begin, \
+attackers, blockers, damage, combat_end, main2, end_step: {\"mine\": [\"main1\", \"blockers\", \
+\"main2\"], \"theirs\": [\"attackers\", \"blockers\", \"end_step\"]}.
 To see the whole board in the next message rather than what changed, add board: \"full\".
 If the table refuses an answer, the tool result says why: answer the same question again.
 When another player offers a draw, answer that question with pick=[\"y\"] to accept or \

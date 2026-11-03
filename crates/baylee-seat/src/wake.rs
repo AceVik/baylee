@@ -8,10 +8,20 @@
 //!
 //! # The rail
 //!
-//! [`MIND_STOPS`], the rail of the design (`llm-seat.md` §4.3): on its own
-//! turn the seat is woken in both main phases; on the other side's turn once
-//! their attackers are declared and at their end step. Every other window
-//! passes, unless the other side has something on the stack.
+//! [`MIND_STOPS`], the rail of the design (`docs/llm-protocol.md`
+//! §"Stops"): on its own turn the seat is woken in both main phases; on the
+//! other side's turn once their attackers are declared and at their end
+//! step; and on either side once blockers are declared, in a combat it has
+//! a creature in. Every other window passes, unless the other side has
+//! something on the stack. A mind's `stops` replace the rows; the names it
+//! may write are [`stop_row`]'s.
+//!
+//! The blockers row is held to a combat the seat fights in, whoever chose
+//! it ([`fights`]): after blocks is the window for a pump, a regeneration
+//! or a removal on a blocker (CR 509.4), and that is a decision only for a
+//! seat with a creature in the combat. Without the row the seat passed
+//! every such window, and games played by models had no combat tricks in
+//! them; with it unheld, every combat would cost a call.
 //!
 //! The rail answers priority and nothing else. The client's rail also
 //! answers a declaration on a red row with "nobody attacks" or "nobody
@@ -81,11 +91,14 @@ mod convoke;
 use convoke::{has_convoke, reduce_for_convoke};
 
 /// The windows a mind is woken in when it could do something there: its
-/// own two main phases, and the other side's attack and end step.
-pub const MIND_STOPS: [(RailSide, RailRow); 4] = [
+/// own two main phases, the other side's attack and end step, and on both
+/// sides the window after blocks of a combat it fights in ([`fights`]).
+pub const MIND_STOPS: [(RailSide, RailRow); 6] = [
     (RailSide::Mine, RailRow::Main1),
+    (RailSide::Mine, RailRow::Blockers),
     (RailSide::Mine, RailRow::Main2),
     (RailSide::Theirs, RailRow::Attackers),
+    (RailSide::Theirs, RailRow::Blockers),
     (RailSide::Theirs, RailRow::EndStep),
 ];
 
@@ -278,9 +291,10 @@ impl WakeFilter {
                     if !row.grants_priority() {
                         continue;
                     }
+                    let named = |names: &[String]| names.iter().any(|s| stop_row(s) == Some(row));
                     let keep = match side {
-                        RailSide::Mine => stops.mine.iter().any(|s| row_matches(s, row)),
-                        RailSide::Theirs => stops.theirs.iter().any(|s| row_matches(s, row)),
+                        RailSide::Mine => named(&stops.mine),
+                        RailSide::Theirs => named(&stops.theirs),
                     };
                     if !keep {
                         orders.toggle(side, row);
@@ -427,6 +441,11 @@ impl WakeFilter {
         }
         if view.step == Step::Cleanup {
             return Verdict::Wake(Why::Cleanup);
+        }
+        // After blocks, a trick is a decision only in a combat the seat
+        // fights in (module docs, "The rail").
+        if view.step == Step::DeclareBlockers && !fights(view, teams) {
+            return standing(PlayerAction::PassPriority, Standing::QuietWindow);
         }
         let at = Situation {
             mine: true,
@@ -964,17 +983,52 @@ pub fn flash(card: baylee_view::CardIdentity) -> bool {
     })
 }
 
-#[cfg(test)]
-mod tests;
-
-fn row_matches(s: &str, row: RailRow) -> bool {
-    s.eq_ignore_ascii_case(row_id(row))
-        || matches!(row, RailRow::CombatBegin)
-            && (s.eq_ignore_ascii_case("beginning_combat")
-                || s.eq_ignore_ascii_case("begin_combat"))
+/// Whether a creature of the seat's side attacks or blocks in this combat
+/// (CR 506.4): the combat the blockers row stops for.
+fn fights(view: &PlayerView, teams: &[Option<u8>]) -> bool {
+    let ours = |id: ObjectId| {
+        view.object(id)
+            .is_some_and(|object| same_side(teams, object.controller, view.seat))
+    };
+    view.combat.attackers.iter().any(|a| ours(a.creature))
+        || view.combat.blockers.iter().any(|b| ours(b.blocker))
 }
 
-fn row_id(row: RailRow) -> &'static str {
+/// The rail row a step's name in `stops` means: the name the header gives
+/// it ([`crate::narrator::step_id`]: `main1`, `blockers`, `end_step`), or
+/// the step's name in the rules (`declare_blockers`, `combat_damage`), in
+/// any case, with spaces or hyphens for the underscores and with or
+/// without `_step`. `None` for a name that is no step.
+///
+/// Models wrote `declare_blockers` and were never woken there: the rows
+/// were matched by their short names alone (codex attempt 62).
+#[must_use]
+pub fn stop_row(name: &str) -> Option<RailRow> {
+    let name = name.trim().to_ascii_lowercase().replace([' ', '-'], "_");
+    let name = name.strip_suffix("_step").unwrap_or(&name);
+    Some(match name {
+        "untap" => RailRow::Untap,
+        "upkeep" => RailRow::Upkeep,
+        "draw" => RailRow::Draw,
+        "main1" | "main_1" | "first_main" | "precombat_main" => RailRow::Main1,
+        "combat_begin" | "begin_combat" | "beginning_combat" | "beginning_of_combat" => {
+            RailRow::CombatBegin
+        }
+        "attackers" | "declare_attackers" => RailRow::Attackers,
+        "blockers" | "declare_blockers" => RailRow::Blockers,
+        "damage" | "combat_damage" | "first_strike_damage" => RailRow::Damage,
+        "combat_end" | "end_combat" | "end_of_combat" => RailRow::CombatEnd,
+        "main2" | "main_2" | "second_main" | "postcombat_main" => RailRow::Main2,
+        "end" | "end_of_turn" => RailRow::EndStep,
+        "cleanup" => RailRow::Cleanup,
+        _ => return None,
+    })
+}
+
+/// The short name of each step a model may stop at, as the header writes
+/// it and the system prompt lists it.
+#[must_use]
+pub fn stop_id(row: RailRow) -> &'static str {
     match row {
         RailRow::Untap => "untap",
         RailRow::Upkeep => "upkeep",
@@ -990,3 +1044,6 @@ fn row_id(row: RailRow) -> &'static str {
         RailRow::Cleanup => "cleanup",
     }
 }
+
+#[cfg(test)]
+mod tests;

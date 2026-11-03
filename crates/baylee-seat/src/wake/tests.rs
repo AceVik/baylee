@@ -9,6 +9,7 @@ use baylee_core::mana::{ManaColor, ManaCost};
 use baylee_engine::choice::{BlockOption, TargetPrompt};
 use baylee_view::{CardIdentity, HandObject, PublicObject, RulesFace};
 
+mod combat;
 mod foretell;
 mod phasing;
 

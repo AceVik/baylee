@@ -29,3 +29,40 @@ fn the_prompt_says_what_a_zone_change_does_to_an_id() {
         assert!(system.contains(&format!("\"{word}\"")), "{system}");
     }
 }
+
+/// NEW-10: the prompt names every step a model may stop at by the name the
+/// seat reads, and the default it states is the rail's (`MIND_STOPS`). It
+/// used to give one example with neither `blockers` nor `damage` in it, and
+/// no model stopped where a combat trick is cast.
+#[test]
+fn the_prompt_teaches_every_stop_and_the_default_rail() {
+    use crate::wake::{MIND_STOPS, stop_id, stop_row};
+    use baylee_client_core::automation::{RAIL_ROWS, RailSide};
+    let system = prompt::SYSTEM;
+    let taught = "from upkeep, draw, main1, combat_begin, attackers, blockers, damage, combat_end, \
+                  main2, end_step";
+    assert!(system.contains(taught), "{system}");
+    for row in RAIL_ROWS.into_iter().filter(|row| row.grants_priority()) {
+        assert!(taught.contains(stop_id(row)), "{row:?}");
+        assert_eq!(stop_row(stop_id(row)), Some(row));
+    }
+    let side = |side: RailSide| -> Vec<&str> {
+        MIND_STOPS
+            .iter()
+            .filter(|(s, _)| *s == side)
+            .map(|&(_, row)| stop_id(row))
+            .collect()
+    };
+    assert_eq!(side(RailSide::Mine), ["main1", "blockers", "main2"]);
+    assert_eq!(
+        side(RailSide::Theirs),
+        ["attackers", "blockers", "end_step"]
+    );
+    assert!(
+        system.contains(
+            "Until you set stops they are your main1, blockers and main2, and their attackers, \
+             blockers and end_step."
+        ),
+        "{system}"
+    );
+}
