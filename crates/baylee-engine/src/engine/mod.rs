@@ -2135,6 +2135,8 @@ mod loop_false_positive_tests;
 #[cfg(test)]
 mod loop_tests;
 #[cfg(test)]
+mod loyalty_flow_tests;
+#[cfg(test)]
 mod m2_tests;
 #[cfg(test)]
 mod mana_criteria_tests;
