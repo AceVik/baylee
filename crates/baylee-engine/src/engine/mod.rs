@@ -2191,6 +2191,8 @@ mod printed_tests;
 #[cfg(test)]
 mod priority_tests;
 #[cfg(test)]
+mod protection_flow_tests;
+#[cfg(test)]
 mod pump_flow_tests;
 #[cfg(test)]
 mod redirection_tests;
