@@ -1334,6 +1334,15 @@ the fix went: the effect learned to read the spec, and the card was **not**
 given a target requirement, because that would have turned a sentence that
 does not target into one that does.
 
+Written as a target requirement it is still no target in the rules: the
+engine never re-checks it (`instance_legality`), so no hexproof or
+protection stops it. The view lists the bound object in the stack object's
+`targets`, as it lists a rule's own trigger's (prowess, undying); the game
+log writes no `Aimed` line for it (`baylee_gamehost::log::aim_of`) and the
+language-model seat tells it as "about #N (not a target)"
+(`narrator::board::names_without_targeting`), since "targets" made models
+report exalted, undying and Spirit Shackle as targeting (3 Nov 2026).
+
 The catch-all in `spec_object` is gone with it. It was `_ =>
 res.targets.first()`, and a spec that *names* something rather than asking
 for it reads there as "nobody chose anything" — which is how the second one
