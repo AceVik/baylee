@@ -6,7 +6,7 @@ mod api;
 mod central;
 mod changes;
 mod deploy;
-mod devctl;
+mod e2e;
 mod features;
 mod fixture;
 mod gate;
@@ -100,6 +100,9 @@ enum Task {
         #[command(subcommand)]
         which: Option<Api>,
     },
+    /// The client's end-to-end tests: real dev-control clients, one per test
+    /// (`docs/dev/e2e.md`).
+    E2e(e2e::E2e),
     /// Central's integration checks against an owned PostgreSQL container.
     Central {
         #[command(subcommand)]
@@ -205,6 +208,7 @@ fn main() -> ExitCode {
                 }),
             ),
             Task::Deploy { force } => ("deploy", deploy::run(force)),
+            Task::E2e(options) => ("e2e", e2e::run(&options)),
             Task::Android {
                 env: Some(AndroidEnv::Env),
                 ..

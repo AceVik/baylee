@@ -64,6 +64,21 @@ type ChatControlFilter = Or<(
     With<crate::social::vault_ui::Press>,
 )>;
 
+/// Every UI tree's root that `shell_nodes` does not walk (the table's HUD,
+/// the chat, the tours, the updater's card), with its box for a stable order.
+type OtherUiRoots<'w, 's> = Query<
+    'w,
+    's,
+    (Entity, &'static ComputedNode, &'static UiGlobalTransform),
+    (
+        With<Node>,
+        Without<ChildOf>,
+        Without<crate::lobby::LobbyRoot>,
+        Without<crate::shellkit::gallery::GalleryRoot>,
+        Without<crate::report::DeskRoot>,
+    ),
+>;
+
 /// Everything `/state` reads, in one parameter.
 ///
 /// A bundle rather than six more arguments on [`pump`], which is already at
@@ -133,6 +148,8 @@ pub(super) struct Believed<'w, 's> {
     /// The report sheet (window B), dumped after them with `"r":"report"`,
     /// its tour anchors, and its reference preview.
     report_parts: ReportParts<'w, 's>,
+    /// Every other UI tree, for `ui_nodes`.
+    other_ui_roots: OtherUiRoots<'w, 's>,
     #[allow(clippy::type_complexity)] // one row of a tree walk
     shell_nodes: Query<
         'w,
@@ -147,6 +164,7 @@ pub(super) struct Believed<'w, 's> {
             Option<&'static crate::shellkit::Role>,
             Option<&'static bevy::text::TextLayoutInfo>,
             Option<&'static InheritedVisibility>,
+            Option<&'static Node>,
         ),
     >,
     legal_text: Query<
@@ -665,6 +683,98 @@ fn desk_controls_json(believed: &Believed) -> String {
     format!("[{}]", rows.join(","))
 }
 
+/// One node of a UI tree as a `shell_nodes` row, then its children,
+/// depth first.
+fn walk_tree(
+    believed: &Believed,
+    entity: Entity,
+    depth: usize,
+    root: Option<&str>,
+    out: &mut Vec<String>,
+) {
+    let Ok((text, _, node, place, children, pressable, role, laid, shown, style)) =
+        believed.shell_nodes.get(entity)
+    else {
+        return;
+    };
+    let (Some(node), Some(place)) = (node, place) else {
+        return;
+    };
+    let scale = node.inverse_scale_factor * believed.ui();
+    let size = node.size() * scale;
+    let mid = place.translation * scale;
+    let mut row = format!(
+        "{{\"d\":{depth},\"x\":{x:.1},\"y\":{y:.1},\"w\":{w:.1},\"h\":{h:.1}",
+        x = mid.x - size.x / 2.0,
+        y = mid.y - size.y / 2.0,
+        w = size.x,
+        h = size.y,
+    );
+    if let Some(text) = text {
+        let mut said = text.0.clone();
+        for span in children.into_iter().flatten() {
+            if let Ok((_, Some(span), ..)) = believed.shell_nodes.get(*span) {
+                said.push_str(&span.0);
+            }
+        }
+        row.push_str(",\"t\":");
+        row.push_str(&quoted(&said));
+        // What the glyphs measure, beside the box they were given: a
+        // label wider than its box spills or is cut, which the box's
+        // own rect cannot show (`check.py`'s `fit`), and how many lines
+        // it broke into (`lines`: one inside a control).
+        if let Some(laid) = laid {
+            let extent = laid.size * scale;
+            let lines = laid
+                .glyphs
+                .iter()
+                .map(|g| g.line_index + 1)
+                .max()
+                .unwrap_or(0);
+            let _ = std::fmt::Write::write_fmt(
+                &mut row,
+                format_args!(
+                    ",\"tw\":{:.1},\"th\":{:.1},\"ln\":{lines}",
+                    extent.x, extent.y
+                ),
+            );
+        }
+    }
+    if shown.is_some_and(|v| !v.get()) {
+        row.push_str(",\"hid\":true");
+    }
+    // A node that clips what it holds, per axis (`cx`, `cy`): what lies
+    // outside its box is not drawn, which a layout check cannot tell from
+    // the rects alone. `"scroll"` can still bring it into view; `"cut"`
+    // (clip or hidden) never does, the window-sized root included.
+    if let Some(overflow) = style.map(|s| s.overflow) {
+        for (key, axis) in [("cx", overflow.x), ("cy", overflow.y)] {
+            let how = match axis {
+                OverflowAxis::Scroll => "scroll",
+                axis if axis.is_visible() => continue,
+                _ => "cut",
+            };
+            let _ = std::fmt::Write::write_fmt(&mut row, format_args!(",\"{key}\":\"{how}\""));
+        }
+    }
+    if pressable {
+        row.push_str(",\"i\":true");
+    }
+    if let Some(role) = role {
+        row.push_str(",\"k\":");
+        row.push_str(&quoted(role.name()));
+    }
+    if let Some(root) = root {
+        row.push_str(",\"r\":");
+        row.push_str(&quoted(root));
+    }
+    row.push('}');
+    out.push(row);
+    for child in children.into_iter().flatten() {
+        walk_tree(believed, *child, depth + 1, None, out);
+    }
+}
+
 /// Every node of the lobby's tree, in tree order: depth, rect in logical
 /// pixels, the text it draws (spans joined) and whether it is pressable.
 ///
@@ -679,90 +789,42 @@ fn desk_controls_json(believed: &Believed) -> String {
 /// (`baylee-tools shell check`): a button's label against its budget, a hit
 /// wrapper against 44 × 44, a panel's rect as the ground for contrast.
 fn shell_nodes_json(believed: &Believed) -> String {
-    fn walk(
-        believed: &Believed,
-        entity: Entity,
-        depth: usize,
-        root: Option<&str>,
-        out: &mut Vec<String>,
-    ) {
-        let Ok((text, _, node, place, children, pressable, role, laid, shown)) =
-            believed.shell_nodes.get(entity)
-        else {
-            return;
-        };
-        let (Some(node), Some(place)) = (node, place) else {
-            return;
-        };
-        let scale = node.inverse_scale_factor * believed.ui();
-        let size = node.size() * scale;
-        let mid = place.translation * scale;
-        let mut row = format!(
-            "{{\"d\":{depth},\"x\":{x:.1},\"y\":{y:.1},\"w\":{w:.1},\"h\":{h:.1}",
-            x = mid.x - size.x / 2.0,
-            y = mid.y - size.y / 2.0,
-            w = size.x,
-            h = size.y,
-        );
-        if let Some(text) = text {
-            let mut said = text.0.clone();
-            for span in children.into_iter().flatten() {
-                if let Ok((_, Some(span), ..)) = believed.shell_nodes.get(*span) {
-                    said.push_str(&span.0);
-                }
-            }
-            row.push_str(",\"t\":");
-            row.push_str(&quoted(&said));
-            // What the glyphs measure, beside the box they were given: a
-            // label wider than its box spills or is cut, which the box's
-            // own rect cannot show (`check.py`'s `fit`), and how many lines
-            // it broke into (`lines`: one inside a control).
-            if let Some(laid) = laid {
-                let extent = laid.size * scale;
-                let lines = laid
-                    .glyphs
-                    .iter()
-                    .map(|g| g.line_index + 1)
-                    .max()
-                    .unwrap_or(0);
-                let _ = std::fmt::Write::write_fmt(
-                    &mut row,
-                    format_args!(
-                        ",\"tw\":{:.1},\"th\":{:.1},\"ln\":{lines}",
-                        extent.x, extent.y
-                    ),
-                );
-            }
-        }
-        if shown.is_some_and(|v| !v.get()) {
-            row.push_str(",\"hid\":true");
-        }
-        if pressable {
-            row.push_str(",\"i\":true");
-        }
-        if let Some(role) = role {
-            row.push_str(",\"k\":");
-            row.push_str(&quoted(role.name()));
-        }
-        if let Some(root) = root {
-            row.push_str(",\"r\":");
-            row.push_str(&quoted(root));
-        }
-        row.push('}');
-        out.push(row);
-        for child in children.into_iter().flatten() {
-            walk(believed, *child, depth + 1, None, out);
-        }
-    }
     let mut out = Vec::new();
     for root in &believed.shell_roots {
-        walk(believed, root, 0, None, &mut out);
+        walk_tree(believed, root, 0, None, &mut out);
     }
     for root in &believed.gallery_roots {
-        walk(believed, root, 0, Some("gallery"), &mut out);
+        walk_tree(believed, root, 0, Some("gallery"), &mut out);
     }
     for root in &believed.report_parts.0 {
-        walk(believed, root, 0, Some("report"), &mut out);
+        walk_tree(believed, root, 0, Some("report"), &mut out);
+    }
+    format!("[{}]", out.join(","))
+}
+
+/// Every other UI tree in `shell_nodes`' rows: the table's HUD (the prompt
+/// and its answers, the seat bars, the stack, the drawer), the chat, the
+/// tours, the updater's card — what an end-to-end test reads off a duel.
+/// Each root says `"r":"ui"`; roots stand top to bottom, then left to right,
+/// so two dumps of one screen compare byte for byte here too.
+fn ui_nodes_json(believed: &Believed) -> String {
+    let mut roots: Vec<(Entity, Vec2)> = believed
+        .other_ui_roots
+        .iter()
+        .map(|(entity, node, place)| {
+            let corner = place.translation - node.size() / 2.0;
+            (entity, corner * node.inverse_scale_factor)
+        })
+        .collect();
+    roots.sort_by(|(a, at), (b, bt)| {
+        (at.y, at.x)
+            .partial_cmp(&(bt.y, bt.x))
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then(a.cmp(b))
+    });
+    let mut out = Vec::new();
+    for (root, _) in roots {
+        walk_tree(believed, root, 0, Some("ui"), &mut out);
     }
     format!("[{}]", out.join(","))
 }
@@ -1109,7 +1171,7 @@ pub(super) fn state_dump(believed: &Believed, window: Vec2) -> String {
          \"last_cue\":{last_cue},\"last_count\":{last_count},\"cues_suppressed\":{cues_suppressed},\
          \"departing\":{departing},\"cards\":{cards},\"buttons\":{buttons},\"browser\":{browser},\"shelves\":{shelves},\
          \"presentation\":{presentation},\"phase\":{phase},\"loading\":{loading},\"account\":{account},\"lobby_controls\":{lobby_controls},\"update_buttons\":{update_buttons},\"exits\":{exits},\"face_builds\":{face_builds},\
-         \"ui_rebuilds\":{ui_rebuilds},\"shell_nodes\":{shell_nodes},\"desk_controls\":{desk_controls},\"report\":{report},\"chat\":{chat},\
+         \"ui_rebuilds\":{ui_rebuilds},\"shell_nodes\":{shell_nodes},\"ui_nodes\":{ui_nodes},\"desk_controls\":{desk_controls},\"report\":{report},\"chat\":{chat},\
          \"reveal\":{reveal},\"shell\":{shell},\"camera\":{camera},\"arrangement\":{arrangement},\"dial\":{dial},\"chips\":{chips},\"plates\":{plates},\"tour\":{tour},\"replay\":{replay}}}",
         tour = tour_json(believed, settings),
         replay = replay_json(duel),
@@ -1125,6 +1187,7 @@ pub(super) fn state_dump(believed: &Believed, window: Vec2) -> String {
         report = report_json(believed),
         chat = chat_json(believed),
         shell_nodes = shell_nodes_json(believed),
+        ui_nodes = ui_nodes_json(believed),
         // Which screen this is, and — on the end screen only — the ways off
         // it with `duel_exit` saying which the keyboard can see. See
         // [`exits_json`] for why that flag is the row rather than a detail

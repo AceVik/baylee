@@ -12,11 +12,11 @@
 //! `--exercise-failure` fails right after the container is up, to prove the
 //! cleanup path; it reports `synthetic fixture failure` only after cleanup.
 use crate::{
-    devctl::Devctl,
     fixture::{self, Owned, Postgres},
     run::cargo,
 };
 use anyhow::{Context, Result, bail, ensure};
+use baylee_client_e2e::Devctl;
 use serde_json::{Value, json};
 use std::{
     fmt::Write as _,

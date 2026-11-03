@@ -17,6 +17,7 @@ cargo dev gate shipped-features               # release graphs: shipped hooks, h
 cargo dev gate wasm                           # optional experimental browser check (coming soon)
 DATABASE_URL=… cargo dev land [--check]       # full + features under the cargo lock, then ff-push to main
 cargo dev --help                              # every development task (crates/baylee-dev); `cargo tools --help` the release/asset tools
+cargo dev e2e [filter…] [--jobs N]            # the client's end-to-end tests: a real dev-control client per test (docs/dev/e2e.md); local, not CI
 cargo dev api [check]                         # write (check) the API documents in docs/api/ from the servers' sources
 cargo dev api serve [--port 28768]            # those documents in Swagger UI, on 127.0.0.1 only
 ```
