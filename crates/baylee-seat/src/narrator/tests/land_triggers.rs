@@ -27,9 +27,12 @@ fn manabarbs_main_phase() -> (PlayerView, LegalActions) {
         .build();
     view.turn = 18;
     view.hand = vec![in_hand(100, "Royal Assassin")];
+    // Royal Assassin is castable once paid (`payable`), as the engine
+    // publishes it with the mana still in the lands.
     let legal = LegalActions {
         can_pass: true,
         mana_abilities: vec![id(73), id(88), id(108), id(112), id(70)],
+        payable: vec![id(100)],
         ..LegalActions::default()
     };
     (view, legal)
