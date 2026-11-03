@@ -88,9 +88,11 @@ fn duel_holding(def: &'static baylee_cards_dsl::CardDef) -> Duel {
         types: def.faces[0].types,
         commander: false,
     }];
+    // The engine would cast the card once paid: it lists it as payable.
     let legal = LegalActions {
         can_pass: true,
         mana_abilities: ids,
+        payable: vec![ObjectId::new(50, 0)],
         ..LegalActions::default()
     };
     Duel {
@@ -269,6 +271,7 @@ fn duel_holding_named(
                 legal: Box::new(LegalActions {
                     can_pass: true,
                     mana_abilities: ids,
+                    payable: vec![ObjectId::new(50, 0)],
                     ..LegalActions::default()
                 }),
             },

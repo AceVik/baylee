@@ -25,6 +25,7 @@ fn mana_planning_taps_the_right_color_and_does_not_tap_for_an_unaffordable_spell
         player: v.seat,
         legal: Box::new(baylee_engine::choice::LegalActions {
             can_pass: true,
+            payable: vec![obj(3)],
             mana_abilities: vec![obj(1), obj(2)],
             ..Default::default()
         }),
@@ -90,6 +91,7 @@ fn commander_mana_planning_reads_the_command_zone_and_its_tax() {
         player: v.seat,
         legal: Box::new(baylee_engine::choice::LegalActions {
             can_pass: true,
+            payable: vec![obj(10)],
             mana_abilities: (1..=3).map(obj).collect(),
             ..Default::default()
         }),
@@ -293,6 +295,7 @@ fn pain_mana_sources_order_by_self_harm_and_refuse_lethal_taps() {
     v.hand = vec![hand_card(1, "Lightning Bolt")];
     let legal = baylee_engine::choice::LegalActions {
         can_pass: true,
+        payable: vec![obj(1)],
         abilities: vec![(obj(10), 0), (obj(10), 1), (obj(11), 1)],
         ..Default::default()
     };
@@ -340,6 +343,7 @@ fn pain_mana_sources_order_by_self_harm_and_refuse_lethal_taps() {
     v2.hand = vec![hand_card(1, "Grizzly Bears")];
     let legal2 = baylee_engine::choice::LegalActions {
         can_pass: true,
+        payable: vec![obj(1)],
         abilities: vec![(obj(11), 1), (obj(12), 1)],
         ..Default::default()
     };
@@ -444,6 +448,7 @@ fn the_house_taps_a_plains_before_a_karakas() {
         player: me,
         legal: Box::new(baylee_engine::choice::LegalActions {
             can_pass: true,
+            payable: vec![obj(3)],
             abilities: vec![(obj(1), 0)],
             mana_abilities: vec![obj(2)],
             ..Default::default()

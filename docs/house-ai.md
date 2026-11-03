@@ -13,7 +13,10 @@ network lobby. Existing `novice`, `steady`, and `sharp` keys still work.
 
 All levels plan coloured payments through the same renderer-free mana matcher
 as the human client. Simple printed and granted mana abilities count, with one
-source per permanent. The agent does not tap toward an unaffordable spell.
+source per permanent. The agent does not tap toward an unaffordable spell, nor
+toward one the engine would not cast once paid
+(`LegalActions::castable_once_paid`: in neither `castable` nor `payable`, such
+as Terror with no nonblack creature to point at, CR 601.2c).
 Printed mana bonuses, tap penalties and coloured taxes count only while their
 abilities are active; phased-out permanents contribute nothing. Coloured taxes
 use the chosen spell face or prototype characteristics. Phased-out permanents

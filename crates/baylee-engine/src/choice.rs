@@ -764,6 +764,22 @@ impl LegalActions {
         by_cast_mode(&self.spell_reductions, card, kind)
     }
 
+    /// Whether this seat may cast `card` once its mana is made: it is in
+    /// [`Self::castable`], or in [`Self::payable`], where every rule but the
+    /// mana has been asked — timing, additional costs, and a legal target
+    /// for each target the spell must have (CR 601.2c).
+    ///
+    /// The question a planner asks before it taps a land for a cast, and the
+    /// engine's answer to it rather than the planner's reading of the board.
+    /// A card outside both lists is one the engine refuses after the lands
+    /// are tapped, which spends the mana on nothing: Terror with no
+    /// nonblack creature to point at, an Aura with nothing to enchant
+    /// (CR 303.4a), Disenchant over a board of creatures (NEW-04).
+    #[must_use]
+    pub fn castable_once_paid(&self, card: ObjectId) -> bool {
+        self.castable.contains(&card) || self.payable.contains(&card)
+    }
+
     /// Whether passing is the only thing this seat could do.
     ///
     /// Mana abilities are excluded on purpose: the engine pays from the

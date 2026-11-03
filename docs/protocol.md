@@ -690,7 +690,11 @@ you're dealt damage") waits until the spell is cast (CR 601.2i) and goes on
 the stack above it. Passing the window with the cost unpaid reverses the
 cast (CR 601.2h, 732.1) as `CancelCast` does (below), and the player keeps
 priority (CR 732.2). Whether the seat's sources can
-make that mana is not checked; a client plans it (`manaplan`). The field is
+make that mana is not checked; a client plans it (`manaplan`). The reverse
+holds as well: a planner taps toward nothing outside `castable` and
+`payable` (`LegalActions::castable_once_paid`), because a card in neither has
+failed a rule other than mana, such as having no legal target (CR 601.2c). The
+house, the LLM seat and the client all read it that way. The field is
 an additive JSON field defaulted when absent, and an old client never sends
 `CastSpell` for a card outside `castable`, so engine and clients may deploy
 in either order. During the window the card is still in its zone; the

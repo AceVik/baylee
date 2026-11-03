@@ -104,3 +104,38 @@ fn a_goblin_under_the_warchief_is_reached_for_its_reduced_price() {
         "the third Mountain is not tapped for a price the engine does not charge"
     );
 }
+
+/// A spell that must target and has no legal target cannot be cast
+/// (CR 601.2c), and the orders tapped the lands for it anyway: Terror over
+/// empty battlefields, Terror at a black creature, Fear (an Aura targets
+/// what it will enchant, CR 303.4a) with no creature, Disenchant over a board
+/// of creatures, Righteousness with nothing blocking. The engine refused the
+/// cast with the mana already floating (NEW-04, 3.11.2026). What a spell may
+/// target is the engine's to say: it lists the card in neither `castable`
+/// nor `payable`.
+#[test]
+fn a_spell_with_no_legal_target_is_not_reached_for() {
+    for (spell, lands, theirs) in [
+        ("Terror", &["Swamp", "Swamp"][..], &[][..]),
+        ("Terror", &["Swamp", "Swamp"][..], &["Vampire Bats"][..]),
+        ("Fear", &["Swamp", "Swamp"][..], &[][..]),
+        (
+            "Disenchant",
+            &["Plains", "Plains"][..],
+            &["Grizzly Bears"][..],
+        ),
+        // "Target blocking creature": in a main phase nothing blocks.
+        ("Righteousness", &["Plains"][..], &["Grizzly Bears"][..]),
+    ] {
+        let (_, view, legal) = position(lands, &[spell], theirs);
+        assert!(
+            reach_of(&reachable(&view, &legal), spell).is_none(),
+            "{spell} reached for with nothing to target among {theirs:?}"
+        );
+    }
+    // And with a target it is reached for: the engine's answer, not a blanket no.
+    let (_, view, legal) = position(&["Swamp", "Swamp"], &["Terror"], &["Grizzly Bears"]);
+    let reach = reachable(&view, &legal);
+    let terror = reach_of(&reach, "Terror").expect("the Bears are a target");
+    assert_eq!(terror.plan.steps.len(), 2);
+}

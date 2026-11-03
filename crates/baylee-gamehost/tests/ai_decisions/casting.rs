@@ -360,3 +360,53 @@ fn the_ai_casts_a_goblin_for_the_price_the_warchief_leaves() {
     }
     panic!("the table never moved past the first turn");
 }
+
+/// A spell that has to target and has nothing to point at is not cast, and
+/// so nothing is tapped for it (CR 601.2c). Terror, Fear (an Aura's "enchant
+/// creature" is its target, CR 303.4a) and Disenchant over boards that hold
+/// no legal target for them: the house's first turn ends with every land it
+/// had still untapped. NEW-04, 3.11.2026.
+#[test]
+fn the_ai_taps_nothing_for_a_spell_with_no_legal_target() {
+    let me = PlayerId::new(0);
+    for (spell, lands, theirs) in [
+        ("Terror", &["Swamp", "Swamp"][..], &[][..]),
+        // Terror says "nonblack": a black creature is no target for it.
+        ("Terror", &["Swamp", "Swamp"][..], &["Vampire Bats"][..]),
+        ("Fear", &["Swamp", "Swamp"][..], &[][..]),
+        (
+            "Disenchant",
+            &["Plains", "Plains"][..],
+            &["Grizzly Bears"][..],
+        ),
+    ] {
+        let mut preset = position(&[spell], lands);
+        preset.seats[1].starting_battlefield = theirs.iter().map(|name| entry(name)).collect();
+        let mut engine = Engine::new(&preset, RegistryLookup).unwrap();
+        let agent = HeuristicAgent::new(AIProfile::EXPERT);
+        for seq in 0..100 {
+            let pending = engine.pending();
+            let seat = pending_player(pending).expect("fixture remains live");
+            let view = asked_view(engine.state(), seat, seq, pending);
+            if view.turn > 1 {
+                break;
+            }
+            let tapped = view
+                .battlefield_of(me)
+                .filter(|o| o.status.contains(baylee_view::ObjectStatus::TAPPED))
+                .count();
+            assert_eq!(
+                tapped, 0,
+                "the house tapped a land for {spell} with nothing to target ({theirs:?})"
+            );
+            let action = match pending {
+                Pending::Mulligan { .. } => PlayerAction::MulliganKeep,
+                Pending::Priority { .. } if seat != me => PlayerAction::PassPriority,
+                _ => agent.act_with_context(&view, pending, &engine.decision_context()),
+            };
+            engine
+                .apply(seat, action)
+                .expect("the house answers from its offer");
+        }
+    }
+}

@@ -236,6 +236,7 @@ fn a_delve_spell_is_priced_with_the_graveyard_before_the_first_tap() {
         player: v.seat,
         legal: Box::new(baylee_engine::choice::LegalActions {
             can_pass: true,
+            payable: vec![obj(1)],
             mana_abilities: vec![obj(20), obj(21)],
             ..Default::default()
         }),
@@ -381,6 +382,7 @@ fn a_treasure_pays_for_a_spell_when_nothing_else_can() {
         player: PlayerId::new(0),
         legal: Box::new(baylee_engine::choice::LegalActions {
             can_pass: true,
+            payable: vec![obj(1)],
             abilities: vec![(obj(20), 0)],
             mana_abilities,
             ..Default::default()
@@ -451,6 +453,7 @@ fn restricted_mana_is_not_counted_as_held_up() {
         player: PlayerId::new(0),
         legal: Box::new(baylee_engine::choice::LegalActions {
             can_pass: true,
+            payable: vec![obj(1), obj(2)],
             abilities: vec![(obj(20), 0)],
             mana_abilities: vec![obj(21)],
             ..Default::default()

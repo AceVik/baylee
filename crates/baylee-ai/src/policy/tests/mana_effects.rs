@@ -129,14 +129,19 @@ fn phased_out_permanents_do_not_satisfy_or_block_casting_conditions() {
     let mut view = base_view();
     let spell = ObjectId::new(50, 0);
     let blizzard = test_identity("Blizzard");
+    // The engine would cast it once paid; what is asked here is the view.
+    let legal = baylee_engine::choice::LegalActions {
+        payable: vec![spell],
+        ..Default::default()
+    };
     view.battlefield = vec![test_public_object(1, "Snow-Covered Forest", 0, None)];
-    assert!(spell_can_be_cast_now(&view, spell, blizzard));
+    assert!(spell_can_be_cast_now(&view, &legal, spell, blizzard));
     view.battlefield[0].status = ObjectStatus::PHASED_OUT;
-    assert!(!spell_can_be_cast_now(&view, spell, blizzard));
+    assert!(!spell_can_be_cast_now(&view, &legal, spell, blizzard));
 
     let tidal = test_identity("Tidal Influence");
     view.battlefield = vec![test_public_object(1, "Tidal Influence", 1, None)];
-    assert!(!spell_can_be_cast_now(&view, spell, tidal));
+    assert!(!spell_can_be_cast_now(&view, &legal, spell, tidal));
     view.battlefield[0].status = ObjectStatus::PHASED_OUT;
-    assert!(spell_can_be_cast_now(&view, spell, tidal));
+    assert!(spell_can_be_cast_now(&view, &legal, spell, tidal));
 }

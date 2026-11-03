@@ -800,6 +800,11 @@ impl HeuristicAgent {
             if !legal.castable.contains(&id) && (!main && !instant || !f.castable_from_hand) {
                 continue;
             }
+            // Nothing is tapped for a card the engine would not cast once it
+            // is paid for: a spell with no legal target, say (CR 601.2c).
+            if !legal.castable_once_paid(id) {
+                continue;
+            }
             if view.sorcery_lock.is_some() && !main {
                 continue;
             }
@@ -2225,8 +2230,26 @@ pub(crate) fn plan_for_activation(
     manaplan::plan(cost, &pool, &all)
 }
 
-#[allow(clippy::too_many_lines)]
-pub(crate) fn spell_can_be_cast_now(view: &PlayerView, id: ObjectId, card: CardIdentity) -> bool {
+/// Whether `id` may be tapped for: the engine lists it as castable once paid
+/// ([`LegalActions::castable_once_paid`]), which is where whether it has a
+/// legal target for every target it must have is answered (CR 601.2c), and
+/// the timing and mandatory costs the view can read agree.
+///
+/// The targets were read here off the view, and only for graveyard and stack
+/// specs: every battlefield and player spec answered yes, so Terror over a
+/// board of black creatures, Fear with no creature to enchant and Disenchant
+/// with nothing to destroy had their lands tapped and the cast refused
+/// (NEW-04, 3.11.2026). The engine's answer counts protection, hexproof and
+/// every filter, and is about this seat's own cards only.
+pub(crate) fn spell_can_be_cast_now(
+    view: &PlayerView,
+    legal: &LegalActions,
+    id: ObjectId,
+    card: CardIdentity,
+) -> bool {
+    if !legal.castable_once_paid(id) {
+        return false;
+    }
     let Some(def) = baylee_cards::by_index(card.index) else {
         return true;
     };
@@ -2303,88 +2326,7 @@ pub(crate) fn spell_can_be_cast_now(view: &PlayerView, id: ObjectId, card: CardI
             _ => {}
         }
     }
-    for ability in spells {
-        match ability {
-            AbilityDef::Spell { targets, .. } => {
-                if let Some(req) = targets
-                    && !has_possible_targets(&agent, view, id, req)
-                {
-                    return false;
-                }
-            }
-            AbilityDef::ModalSpell { modes, choose } if choose.min >= 1 => {
-                let any_mode_open = modes.iter().any(|mode| {
-                    mode.targets
-                        .as_ref()
-                        .is_none_or(|req| has_possible_targets(&agent, view, id, req))
-                        && mode
-                            .second_targets
-                            .as_ref()
-                            .is_none_or(|req| has_possible_targets(&agent, view, id, req))
-                });
-                if !any_mode_open {
-                    return false;
-                }
-            }
-            _ => {}
-        }
-    }
     true
-}
-
-fn has_possible_targets(
-    agent: &HeuristicAgent,
-    view: &PlayerView,
-    id: ObjectId,
-    req: &baylee_cards_dsl::TargetReq,
-) -> bool {
-    use baylee_cards_dsl::{TargetSpec, ZoneRef};
-    if req.min == 0 {
-        return true;
-    }
-    let need = usize::from(req.min);
-    let me = resource_player(view);
-    let count = match req.spec {
-        TargetSpec::CardInGraveyard(filter, rel) => view
-            .graveyards
-            .iter()
-            .flatten()
-            .filter(|o| match rel {
-                baylee_cards_dsl::PlayerRel::You => o.owner == me,
-                baylee_cards_dsl::PlayerRel::Opponent
-                | baylee_cards_dsl::PlayerRel::EachOpponent => agent.hostile(o.owner, me),
-                _ => true,
-            })
-            .filter(|o| {
-                agent.filter_matches(filter, view, o, ZoneRef::Graveyard, Some(id)) != Some(false)
-            })
-            .count(),
-        TargetSpec::Spell(filter) => view
-            .stack
-            .iter()
-            .filter(|o| !matches!(o.stack_item, Some(baylee_view::StackItem::Ability { .. })))
-            .filter(|o| {
-                agent.filter_matches(filter, view, o, ZoneRef::Stack, Some(id)) != Some(false)
-            })
-            .count(),
-        TargetSpec::AbilityOnStack(filter) => view
-            .stack
-            .iter()
-            .filter(|o| matches!(o.stack_item, Some(baylee_view::StackItem::Ability { .. })))
-            .filter(|o| {
-                agent.filter_matches(filter, view, o, ZoneRef::Stack, Some(id)) != Some(false)
-            })
-            .count(),
-        TargetSpec::SpellOrAbility(filter) => view
-            .stack
-            .iter()
-            .filter(|o| {
-                agent.filter_matches(filter, view, o, ZoneRef::Stack, Some(id)) != Some(false)
-            })
-            .count(),
-        _ => return true,
-    };
-    count >= need
 }
 
 /// Costs visible from the card and public commander/graveyard bookkeeping.

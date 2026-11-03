@@ -63,3 +63,34 @@ fn a_goblin_under_the_warchief_is_planned_at_the_reduced_price() {
         );
     }
 }
+
+/// A spell that must target and has no legal target cannot be cast
+/// (CR 601.2c). The client's own proof (`targeting`) reads a filter and not
+/// what stops a target beyond it, and the AI check it fell back on was
+/// skipped once a cast mode was payable: Terror lit up beside a White Knight
+/// (protection from black, CR 702.16b) and Righteousness ("target blocking
+/// creature") in a main phase, and the click tapped the lands for a cast the
+/// engine refused (NEW-04, 3.11.2026). The engine's word,
+/// `LegalActions::castable_once_paid`, keeps them dark; with a creature Terror
+/// may destroy, Terror lights again.
+#[test]
+fn a_spell_with_no_legal_target_is_not_in_reach() {
+    for (theirs, terror) in [
+        (&["White Knight"][..], false),
+        (&["Grizzly Bears"][..], true),
+    ] {
+        let mut preset = red_preset(&["Terror", "Righteousness"], &["Swamp", "Swamp", "Plains"]);
+        preset.seats[1].starting_battlefield = theirs.iter().copied().map(named).collect();
+        let mut table = Table::open_with(&preset);
+        table.walk_to_main();
+        let mut duel = baylee_client::Duel::default();
+        refresh(&mut duel, &table);
+        for (spell, reached) in [("Terror", terror), ("Righteousness", false)] {
+            assert_eq!(
+                duel.reachable.contains(&id_in_hand(&table, spell)),
+                reached,
+                "{spell} with {theirs:?} across the table"
+            );
+        }
+    }
+}
