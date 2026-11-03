@@ -4942,3 +4942,20 @@ every graveyard. `TargetSpec::OpponentWithMoreThanActivePlayer(&Filter)`
 active player] and is their opponent"; the trigger binds it to the player
 whose step it is (`OpponentWithMoreThanPlayer`) before targets are offered,
 and an unbound occurrence offers nobody.
+
+### Symbol-counted non-mana costs (Drought, 03.11.2026)
+
+`Modifier::SpellsCostSacrificePerManaSymbol { color, sacrifice }` adds one
+`CostPart::Sacrifice(sacrifice)` to each spell matched by the static ability's
+filter for every mana symbol of `color` in the announced face's mana cost.
+`Modifier::AbilitiesCostSacrificePerManaSymbol` does the same for activated
+abilities matched by its filter, counting the printed activation cost before
+generic taxes and reductions; `PayAttachedManaCost` contributes the attached
+object's mana cost. Each hybrid, two-or-color, Phyrexian or hybrid-Phyrexian
+symbol counts once when it contains the color. Multiple effects add separate
+sacrifices, and every chosen permanent may pay only one part.
+
+These are rules modifiers, not layer effects with a locked object set. Spell
+costs are evaluated against the projected stack object and activation costs
+against the projected source. Both use the ordinary `CostSacrifice` choice and
+the complete announced price survives payment windows and continuations.

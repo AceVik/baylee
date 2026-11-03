@@ -404,6 +404,21 @@ fn has_spell_adjustments(state: &GameState) -> bool {
 }
 
 /// Match the projected stack characteristics, including alternative faces.
+pub(crate) fn projected_spell(
+    state: &GameState,
+    player: PlayerId,
+    object: &crate::object::GameObject,
+) -> crate::object::GameObject {
+    let mut spell = object.clone();
+    spell.zone = Zone::Stack;
+    spell.controller = player;
+    spell.base_controller = player;
+    spell.cache.clear();
+    let projected = crate::layers::recompute(state, &spell);
+    spell.base = std::sync::Arc::new(projected.characteristics);
+    spell
+}
+
 pub(crate) fn spell_adjustment(
     state: &GameState,
     player: PlayerId,
@@ -419,13 +434,7 @@ pub(crate) fn spell_adjustment(
     if !has_spell_adjustments(state) {
         return adjustment;
     }
-    let mut spell = object.clone();
-    spell.zone = Zone::Stack;
-    spell.controller = player;
-    spell.base_controller = player;
-    spell.cache.clear();
-    let projected = crate::layers::recompute(state, &spell);
-    spell.base = std::sync::Arc::new(projected.characteristics);
+    let spell = projected_spell(state, player, object);
     for effect in state.effects.iter() {
         match effect.modifier {
             baylee_cards_dsl::Modifier::SpellsCostMore(amount) => {

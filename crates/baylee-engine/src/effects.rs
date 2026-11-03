@@ -178,10 +178,12 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::SpellsCostLessPerCounter(_)
         | Modifier::BuybackCostsLess(_)
         | Modifier::SpellsCostMore(_)
-                    | Modifier::SpellsCostMorePerControlled(_)
+        | Modifier::SpellsCostMorePerControlled(_)
+        | Modifier::SpellsCostSacrificePerManaSymbol { .. }
         | Modifier::ManaAbilitiesCostLife(_)
         | Modifier::ReplaceTappedMana { .. }
         | Modifier::AbilitiesCostMore(_)
+        | Modifier::AbilitiesCostSacrificePerManaSymbol { .. }
             | Modifier::AbilitiesCostLess { .. }
             | Modifier::EquipCostsLess(_)
             | Modifier::CantActivateNonMana
@@ -655,6 +657,7 @@ impl EffectTable {
                     | Modifier::SpellsCostLess(_)
                     | Modifier::SpellsCostLessPerCounter(_)
                     | Modifier::BuybackCostsLess(_)
+                    | Modifier::SpellsCostSacrificePerManaSymbol { .. }
             ),
         );
         self.hints.insert_if(
@@ -662,6 +665,7 @@ impl EffectTable {
             matches!(
                 fx.modifier,
                 Modifier::AbilitiesCostMore(_)
+                    | Modifier::AbilitiesCostSacrificePerManaSymbol { .. }
                     | Modifier::AbilitiesCostLess { .. }
                     | Modifier::EquipCostsLess(_)
                     | Modifier::CantActivate
@@ -1697,7 +1701,15 @@ mod tests {
             Modifier::BuybackCostsLess(2),
             Modifier::SpellsCostMore(3),
             Modifier::SpellsCostMorePerControlled(&Filter::ARTIFACT),
+            Modifier::SpellsCostSacrificePerManaSymbol {
+                color: Color::Black,
+                sacrifice: &Filter::LAND,
+            },
             Modifier::AbilitiesCostMore(3),
+            Modifier::AbilitiesCostSacrificePerManaSymbol {
+                color: Color::Black,
+                sacrifice: &Filter::LAND,
+            },
             Modifier::ManaAbilitiesCostLife(1),
             Modifier::ReplaceTappedMana {
                 from: baylee_core::mana::ManaColor::White,
@@ -1775,6 +1787,7 @@ mod tests {
             Modifier::DoubleCountersPlacedByYou,
             Modifier::NextDestructionClearsDamage,
             Modifier::CombatDamageCantBePrevented,
+            Modifier::DamageFromColoredSourcesIsColorless(ColorSet::of(Color::Black)),
             Modifier::CantBlock(&Filter::CREATURE),
             Modifier::CrewSaddlePowerBonus(2),
             Modifier::CounterMaximum {
@@ -1905,7 +1918,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            188,
+            191,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -1996,9 +2009,11 @@ mod tests {
         // adds five more: counted entry counters, per-counter cost reduction,
         // filtered player protection and mana taxes on attacks and blocks.
         // Its review adds one characteristic modifier, Opalescence's
-        // creature with mana-value power and toughness.
-        // Buyback adds one rules-only modifier, its cost reduction.
-        assert_eq!((locking, all.len() - locking), (55, 133));
+        // creature with mana-value power and toughness. Ghostly Flame's
+        // damage projection and Drought's two symbol-counted sacrifice costs
+        // modify rules and lock no object set. Buyback's cost reduction is
+        // another rules-only modifier.
+        assert_eq!((locking, all.len() - locking), (55, 136));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

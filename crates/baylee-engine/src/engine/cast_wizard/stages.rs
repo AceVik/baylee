@@ -618,8 +618,14 @@ impl<L: CardLookup> Engine<L> {
             WizardStage::Sacrifice => {
                 let face = self.wizard_face(&wizard);
                 let asked = wizard.cost_objects.len();
-                let Some(part) = additional_card_costs_for(face, wizard.cost_choice()).nth(asked)
-                else {
+                let parts = additional_card_costs_for(
+                    &self.state,
+                    wizard.player,
+                    wizard.card,
+                    face,
+                    wizard.cost_choice(),
+                );
+                let Some(part) = parts.get(asked) else {
                     let mut wizard = wizard;
                     wizard.stage = WizardStage::Done;
                     self.cast_wizard = Some(wizard);

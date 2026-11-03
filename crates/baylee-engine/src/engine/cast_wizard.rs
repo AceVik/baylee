@@ -443,9 +443,9 @@ pub(crate) const fn paid_as_a_buyback_cost(part: &CostPart) -> bool {
 /// The mandatory additional cost parts for `face`, plus entwine's non-mana
 /// cost parts when `option` chooses all modes (CR 702.42a).
 pub(crate) fn wizard_mandatory_parts(
-    face: &'static baylee_cards_dsl::FaceDef,
+    face: &baylee_cards_dsl::FaceDef,
     option: Option<CastModeKind>,
-) -> impl Iterator<Item = &'static CostPart> {
+) -> impl Iterator<Item = &CostPart> {
     let entwine_parts = match (option, face.entwine) {
         (Some(CastModeKind::Modes(_)), Some(entwine)) => entwine.parts,
         _ => &[],
@@ -514,17 +514,15 @@ pub(crate) fn wizard_cost_parts(
 
 /// The object questions of a spell's cost, in payment order. `TapN` expands
 /// into N questions so offer, choice and payment share one answer per object.
-pub(crate) fn additional_card_costs(
-    face: &'static baylee_cards_dsl::FaceDef,
-) -> impl Iterator<Item = &'static CostPart> {
-    additional_card_costs_for(face, CostChoice::default())
-}
-
+/// Externally imposed parts follow the card's printed and selected alternative parts.
 pub(crate) fn additional_card_costs_for(
+    state: &crate::state::GameState,
+    player: PlayerId,
+    card: ObjectId,
     face: &'static baylee_cards_dsl::FaceDef,
     choice: impl Into<CostChoice>,
-) -> impl Iterator<Item = &'static CostPart> {
-    wizard_cost_parts(face, choice)
+) -> SmallVec<[CostPart; 4]> {
+    let mut parts: SmallVec<[CostPart; 4]> = wizard_cost_parts(face, choice)
         .filter(|p| {
             matches!(
                 p,
@@ -540,8 +538,11 @@ pub(crate) fn additional_card_costs_for(
                 CostPart::TapN { count, .. } => usize::try_from(*count).unwrap_or(usize::MAX),
                 _ => 1,
             };
-            std::iter::repeat_n(part, count)
+            std::iter::repeat_n(*part, count)
         })
+        .collect();
+    parts.extend(casting::additional_spell_costs(state, player, card, face));
+    parts
 }
 
 impl<L: CardLookup> Engine<L> {
@@ -1028,8 +1029,8 @@ impl<L: CardLookup> Engine<L> {
         {
             return false;
         }
-        if additional_card_costs(&def.faces[0])
-            .any(|part| super::cost_wizard::options(&self.state, player, card, part).is_empty())
+        if casting::additional_payment_capacity(&self.state, player, card, &def.faces[0], &[])
+            .is_none()
         {
             return false;
         }

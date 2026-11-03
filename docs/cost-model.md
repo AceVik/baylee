@@ -92,5 +92,17 @@ Casting follows CR 601.2a–h as a stepwise `CastPlan` assembled through
 `ChoiceRequest`s: modes → alternative/additional costs → targets → X →
 total cost → payment.
 
+Continuous effects may add non-mana parts as well as change mana. For a spell,
+`casting::additional_spell_costs` reads the projected stack object and appends
+those parts after the selected face's printed and alternative parts. For an
+activation, `ActivationPrice` owns the printed and imposed parts beside its
+mana and source allowance. In both paths the same ordered parts drive legality,
+X bounds, object choices, mana-window continuations and payment; no temporary
+`Cost` references or card-specific payment loop is needed. Symbol-counted costs
+count each matching mana symbol once, including hybrid, two-or-color,
+Phyrexian and hybrid-Phyrexian symbols. Object costs require distinct payments;
+spell affordability uses augmenting-path matching rather than accepting one
+permanent for two parts.
+
 Delayed payment (Pact of Negation) is a delayed triggered ability, not a
 cost — see `docs/engine-internals.md` (unusual casting).

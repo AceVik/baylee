@@ -1146,7 +1146,7 @@ impl<L: CardLookup> Engine<L> {
                 Some((window.player, ManaPayment::Fixed(*cost)))
             }
             PaymentContinuation::Activation(payment) => {
-                Some((window.player, ManaPayment::Fixed(payment.cost)))
+                Some((window.player, ManaPayment::Fixed(payment.cost.mana)))
             }
             PaymentContinuation::Tax(resolution) => match resolution.awaiting {
                 Some(crate::resolve::AwaitingOp::PlayerMayPay { player, cost, .. })

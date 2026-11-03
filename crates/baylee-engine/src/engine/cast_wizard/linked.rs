@@ -129,9 +129,14 @@ impl<L: CardLookup> Engine<L> {
                     && self.state.is_opponent(effect.controller, player)
             })
             || !casting::spell_condition_allows(&self.state, player, card, def, face)
-            || additional_card_costs(&def.faces[face]).any(|part| {
-                crate::engine::cost_wizard::options(&self.state, player, card, part).is_empty()
-            })
+            || casting::additional_payment_capacity(
+                &self.state,
+                player,
+                card,
+                &def.faces[face],
+                &[],
+            )
+            .is_none()
         {
             return false;
         }

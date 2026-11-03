@@ -41,21 +41,34 @@ impl<L: CardLookup> Engine<L> {
         &self,
         player: PlayerId,
         source: ObjectId,
-        cost: &Cost,
+        price: &ActivationPrice,
     ) -> Option<u32> {
         let mut bound = None;
-        for part in cost.parts {
+        for part in &price.parts {
             let (held, fixed, variables) = match part {
-                CostPart::SacrificeX(_) | CostPart::TapX(_) => (
-                    u32::try_from(cost_wizard::menu(&self.state, player, source, cost, part).len())
+                CostPart::SacrificeX(filter) | CostPart::TapX(filter) => (
+                    u32::try_from(
+                        cost_wizard::menu(&self.state, player, source, &price.parts, part).len(),
+                    )
+                    .unwrap_or(u32::MAX),
+                    price
+                        .parts
+                        .iter()
+                        .filter(|other| match (part, other) {
+                            (CostPart::SacrificeX(_), CostPart::Sacrifice(other))
+                            | (CostPart::TapX(_), CostPart::TapOther(other)) => other == filter,
+                            _ => false,
+                        })
+                        .count()
+                        .try_into()
                         .unwrap_or(u32::MAX),
-                    0,
-                    cost.parts.iter().filter(|p| *p == part).count(),
+                    price.parts.iter().filter(|p| *p == part).count(),
                 ),
                 CostPart::PayEnergyX => (
                     u32::from(self.state.players[usize::from(player.get())].energy),
-                    cost.energy_payment(0),
-                    cost.parts
+                    energy_payment(&price.parts, 0),
+                    price
+                        .parts
                         .iter()
                         .filter(|p| matches!(p, CostPart::PayEnergyX))
                         .count(),
@@ -64,7 +77,8 @@ impl<L: CardLookup> Engine<L> {
                     self.state
                         .object(source)
                         .map_or(0, |o| u32::from(o.counters.get(*kind))),
-                    cost.parts
+                    price
+                        .parts
                         .iter()
                         .map(|p| match p {
                             CostPart::RemoveCounterSelf { kind: k, n } if k == kind => {
@@ -73,7 +87,8 @@ impl<L: CardLookup> Engine<L> {
                             _ => 0,
                         })
                         .sum::<u32>(),
-                    cost.parts
+                    price
+                        .parts
                         .iter()
                         .filter(
                             |p| matches!(p, CostPart::RemoveCounterSelfX { kind: k } if k == kind),
@@ -94,7 +109,7 @@ impl<L: CardLookup> Engine<L> {
         player: PlayerId,
         source: ObjectId,
         index: u32,
-        cost: &Cost,
+        cost: &ActivationPrice,
     ) -> Result<bool, EngineError> {
         let resource_max = self.activation_resource_x_max(player, source, cost);
         let rule = self.activation_x_rule(source, index);
@@ -115,25 +130,25 @@ impl<L: CardLookup> Engine<L> {
         }
         let mut max = resource_max.unwrap_or(u32::MAX);
         if cost.mana.has_variable() && !self.can_make_more_mana(player, source, index) {
-            let (printed, reduction) = match self.activation_definition(source, index) {
-                Some(
-                    AbilityDef::Activated {
-                        cost,
-                        cost_reduction,
-                        ..
-                    }
-                    | AbilityDef::ModalActivated {
-                        cost,
-                        cost_reduction,
-                        ..
-                    }
-                    | AbilityDef::ActivatedConditional {
-                        cost,
-                        cost_reduction,
-                        ..
-                    },
-                ) => (cost, cost_reduction),
-                _ => (*cost, None),
+            let Some(
+                AbilityDef::Activated {
+                    cost: printed,
+                    cost_reduction: reduction,
+                    ..
+                }
+                | AbilityDef::ModalActivated {
+                    cost: printed,
+                    cost_reduction: reduction,
+                    ..
+                }
+                | AbilityDef::ActivatedConditional {
+                    cost: printed,
+                    cost_reduction: reduction,
+                    ..
+                },
+            ) = self.activation_definition(source, index)
+            else {
+                return Err(EngineError::IllegalAction("not an activated ability"));
             };
             let credit = self.state.object(source).map_or(0, |object| {
                 self.state
@@ -244,7 +259,8 @@ mod tests {
                 let reference = (0..=35)
                     .filter(|x| 3 + 2 * x <= u32::from(energy) && 2 + 3 * x <= u32::from(counters))
                     .max();
-                assert_eq!(e.activation_resource_x_max(p, source, &cost), reference);
+                let price = ActivationPrice::new(&cost, casting::SourceAllowance::default());
+                assert_eq!(e.activation_resource_x_max(p, source, &price), reference);
             }
         }
     }

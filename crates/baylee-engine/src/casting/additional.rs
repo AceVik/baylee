@@ -1,7 +1,54 @@
 //! Distinct cards pay distinct additional costs; maximize usable escape fodder.
 use crate::{engine::cast_wizard::CostChoice, state::GameState, zone::ZoneLocation};
-use baylee_cards_dsl::{CostPart, FaceDef};
-use baylee_core::ids::{ObjectId, PlayerId};
+use baylee_cards_dsl::{CostPart, FaceDef, Filter};
+use baylee_core::{
+    color::Color,
+    ids::{ObjectId, PlayerId},
+    mana::ManaCost,
+};
+use smallvec::SmallVec;
+
+/// Append one distinct sacrifice question for every matching mana symbol.
+/// Hybrid, two-or-color, Phyrexian and hybrid-Phyrexian symbols each count once.
+pub(crate) fn extend_sacrifices_per_mana_symbol(
+    parts: &mut SmallVec<[CostPart; 4]>,
+    cost: &ManaCost,
+    color: Color,
+    sacrifice: &'static Filter,
+) {
+    let count = cost
+        .symbols()
+        .filter(|symbol| symbol.colors().contains(color))
+        .count();
+    parts.extend(std::iter::repeat_n(CostPart::Sacrifice(sacrifice), count));
+}
+
+/// Non-mana costs imposed on a spell by the current continuous effects.
+/// These follow the selected face's printed and alternative cost parts.
+pub(crate) fn additional_spell_costs(
+    state: &GameState,
+    player: PlayerId,
+    card: ObjectId,
+    face: &FaceDef,
+) -> SmallVec<[CostPart; 4]> {
+    let mut parts = SmallVec::new();
+    if !state.effects.may_change_spell_costs() {
+        return parts;
+    }
+    let Some(object) = state.object(card) else {
+        return parts;
+    };
+    let spell = super::projected_spell(state, player, object);
+    for effect in state.effects.iter() {
+        if let baylee_cards_dsl::Modifier::SpellsCostSacrificePerManaSymbol { color, sacrifice } =
+            effect.modifier
+            && crate::effects::applies_to(state, effect, &spell)
+        {
+            extend_sacrifices_per_mana_symbol(&mut parts, &face.mana_cost, color, sacrifice);
+        }
+    }
+    parts
+}
 
 pub(crate) fn additional_card_enters_graveyard(
     state: &GameState,
@@ -77,7 +124,11 @@ pub(crate) fn additional_payment_capacity_for(
     if !state.can_pay_life(player, life) {
         return None;
     }
-    let menus: Vec<Vec<_>> = crate::engine::cast_wizard::additional_card_costs_for(face, choice)
+    let parts = crate::engine::cast_wizard::additional_card_costs_for(
+        state, player, card, face, choice,
+    );
+    let menus: Vec<Vec<_>> = parts
+        .iter()
         .skip(chosen.len())
         .map(|part| {
             crate::engine::cost_wizard::options(state, player, card, part)
@@ -193,6 +244,22 @@ mod tests {
                     .map(|other| other + usize::from(preferred & bit != 0))
             })
             .max()
+    }
+
+    #[test]
+    fn sacrifice_count_includes_each_matching_symbol_once() {
+        let cost = baylee_core::mana!("{W}{B}{B/G}{2/B}{B/P}{B/G/P}{W/B}{C}");
+        let mut parts = SmallVec::new();
+        extend_sacrifices_per_mana_symbol(&mut parts, &cost, Color::Black, &Filter::LAND);
+        assert_eq!(parts.len(), 6);
+        assert!(
+            parts
+                .iter()
+                .all(|part| *part == CostPart::Sacrifice(&Filter::LAND))
+        );
+        parts.clear();
+        extend_sacrifices_per_mana_symbol(&mut parts, &cost, Color::White, &Filter::LAND);
+        assert_eq!(parts.len(), 2);
     }
 
     #[test]
