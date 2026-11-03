@@ -7,6 +7,9 @@ impl<L: CardLookup> Engine<L> {
     #[allow(clippy::too_many_lines)] // payment is a flat checklist; extraction would obscure it
     pub(super) fn pay_and_cast(&mut self, wizard: &CastWizard) -> Result<(), EngineError> {
         let face = self.wizard_face(wizard);
+        // Freeze externally imposed costs before any payment can change the board.
+        let imposed =
+            casting::additional_spell_costs(&self.state, wizard.player, wizard.card, face);
         if wizard.escapes()
             && wizard.escape_exiles.len() != usize::from(wizard.escape_count(face).unwrap_or(0))
         {
@@ -200,7 +203,7 @@ impl<L: CardLookup> Engine<L> {
             });
         }
         let mut graveyard_batch = crate::graveyard_order::PaymentBatch::new(&self.state);
-        for part in super::wizard_mandatory_parts(face, wizard.option) {
+        for part in super::wizard_mandatory_parts(face, wizard.option).chain(imposed.iter()) {
             graveyard_batch.before_part(&mut self.state, part);
             if !paid_as_a_mandatory_additional_cost(part) {
                 continue;

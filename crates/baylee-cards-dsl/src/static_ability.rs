@@ -8,7 +8,7 @@
 
 use crate::KeywordSet;
 use crate::filter::Filter;
-use baylee_core::color::ColorSet;
+use baylee_core::color::{Color, ColorSet};
 use baylee_core::ids::SubtypeId;
 use baylee_core::types::TypeSet;
 
@@ -122,8 +122,25 @@ pub enum Modifier {
     /// Matching spells cost {1} less for each counter of this kind on the
     /// continuous effect's source (Herald of War).
     SpellsCostLessPerCounter(crate::CounterKind),
+    /// Matching spells cost one additional sacrifice of a permanent matching
+    /// `sacrifice` for each symbol of `color` in the announced face's mana cost.
+    SpellsCostSacrificePerManaSymbol {
+        /// The mana-symbol color counted once per symbol, including hybrids.
+        color: Color,
+        /// The permanent each additional sacrifice must match.
+        sacrifice: &'static Filter,
+    },
     /// Generic cost increase for activated abilities of matching objects.
     AbilitiesCostMore(u32),
+    /// Activated abilities of matching objects cost one additional sacrifice
+    /// of a permanent matching `sacrifice` for each symbol of `color` in their
+    /// activation costs.
+    AbilitiesCostSacrificePerManaSymbol {
+        /// The mana-symbol color counted once per symbol, including hybrids.
+        color: Color,
+        /// The permanent each additional sacrifice must match.
+        sacrifice: &'static Filter,
+    },
     /// Additional life paid when activating a mana ability of the affected object.
     ManaAbilitiesCostLife(u32),
     /// Replace a type of mana produced by tapping the affected object for mana.
@@ -1239,7 +1256,9 @@ impl Modifier {
             | Self::CreatureAbilityManaAnyColor
             | Self::SpellsCostMore(_)
             | Self::SpellsCostMorePerControlled(_)
+            | Self::SpellsCostSacrificePerManaSymbol { .. }
             | Self::AbilitiesCostMore(_)
+            | Self::AbilitiesCostSacrificePerManaSymbol { .. }
             | Self::ManaAbilitiesCostLife(_)
             | Self::ReplaceTappedMana { .. }
             | Self::AbilitiesCostLess { .. }
@@ -1835,7 +1854,15 @@ mod tests {
             Modifier::BuybackCostsLess(2),
             Modifier::SpellsCostMore(3),
             Modifier::SpellsCostMorePerControlled(&Filter::ARTIFACT),
+            Modifier::SpellsCostSacrificePerManaSymbol {
+                color: Color::Black,
+                sacrifice: &Filter::LAND,
+            },
             Modifier::AbilitiesCostMore(3),
+            Modifier::AbilitiesCostSacrificePerManaSymbol {
+                color: Color::Black,
+                sacrifice: &Filter::LAND,
+            },
             Modifier::ManaAbilitiesCostLife(1),
             Modifier::ReplaceTappedMana {
                 from: crate::ManaColor::White,

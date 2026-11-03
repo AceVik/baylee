@@ -427,7 +427,9 @@ fn encode_static_into(sa: &StaticAbility, ch: &mut EffectChannels) {
         }
         Modifier::SpellsCostMore(_)
         | Modifier::SpellsCostMoreMana(_)
+        | Modifier::SpellsCostSacrificePerManaSymbol { .. }
         | Modifier::AbilitiesCostMore(_)
+        | Modifier::AbilitiesCostSacrificePerManaSymbol { .. }
         | Modifier::OpponentsCantCast(_)
         | Modifier::PlayersCantCast { .. }
         | Modifier::PlayersCantPlay(_)

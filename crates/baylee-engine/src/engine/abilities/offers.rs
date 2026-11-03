@@ -506,7 +506,7 @@ impl<L: CardLookup> Engine<L> {
                         if self.activation_limit_spent(player, id, i, *limit) {
                             continue;
                         }
-                        if !self.source_cost_parts_ready(id, cost) {
+                        if !self.source_cost_parts_ready(id, cost.parts) {
                             continue;
                         }
                         let cost = self.activation_price(player, id, i, cost, *cost_reduction);
@@ -559,7 +559,7 @@ impl<L: CardLookup> Engine<L> {
                         if self.activation_limit_spent(player, id, i, *limit) {
                             continue;
                         }
-                        if !self.source_cost_parts_ready(id, cost) {
+                        if !self.source_cost_parts_ready(id, cost.parts) {
                             continue;
                         }
                         if !crate::eval::condition_holds_with_context(

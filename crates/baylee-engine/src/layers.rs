@@ -1233,7 +1233,9 @@ fn apply(
         | Modifier::BandsWithOther(_)
         | Modifier::SpellsCostMore(_)
         | Modifier::SpellsCostMorePerControlled(_)
+        | Modifier::SpellsCostSacrificePerManaSymbol { .. }
         | Modifier::AbilitiesCostMore(_)
+        | Modifier::AbilitiesCostSacrificePerManaSymbol { .. }
         | Modifier::ManaAbilitiesCostLife(_)
         | Modifier::ReplaceTappedMana { .. }
         | Modifier::AbilitiesCostLess { .. }

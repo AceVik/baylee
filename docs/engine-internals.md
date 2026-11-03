@@ -1924,6 +1924,18 @@ madness, disturb decompose into: `CastPermission` (zone/cost/timing
 override) + `PendingCast` (with expiry) + `DelayedTrigger` + `ExileRider`.
 Keywords exist on stack objects (rebound can be granted).
 
+**Externally imposed non-mana costs belong to the announced price.** Spell
+legality and the cast wizard call `casting::additional_spell_costs` against the
+same `projected_spell` used by mana pricing, then append the owned parts after
+the selected face's printed and alternative costs. Activated abilities keep
+the equivalent complete list in `ActivationPrice`; it is frozen before payment
+and carried by mana-window and counter continuations. Offer, X bounds, object
+menus, snapshot fingerprints and final payment therefore cannot silently drop
+an imposed sacrifice or ask for a different price later. The spell path's
+augmenting-path matcher proves that distinct objects can pay all object parts;
+the payment path consumes the same ordered answers and records LKI through the
+ordinary cost payer.
+
 **Foretell is two actions with two prices** (CR 702.143a). `FaceDef::foretell`
 holds only the later cast's printed mana cost. While its owner has priority on
 their own turn, `engine/foretell` offers a {2} special action in

@@ -253,7 +253,7 @@ fn granted_replay_and_continuation_hash_include_nested_payment() {
     if let PaymentContinuation::Activation(payment) =
         &mut first.mana_window.as_mut().unwrap().suspended
     {
-        payment.cost = mana!("{3}");
+        payment.cost.mana = mana!("{3}");
     }
     assert_ne!(first.snapshot_hash(), before);
 }

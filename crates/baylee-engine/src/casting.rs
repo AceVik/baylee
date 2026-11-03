@@ -24,7 +24,7 @@ mod intrinsic;
 mod lands;
 pub(crate) use additional::{
     additional_card_enters_graveyard, additional_payment_capacity, additional_payment_capacity_for,
-    pitch_costs_payable,
+    additional_spell_costs, extend_sacrifices_per_mana_symbol, pitch_costs_payable,
 };
 mod payment;
 mod permissions;
@@ -44,8 +44,8 @@ pub(crate) use payment::*;
 pub(crate) use permissions::*;
 pub(crate) use pricing::{
     SpellAdjustment, activation_increase, component_affordable, face_adjustment,
-    normal_spell_affordable, north_star_effect, north_star_face_allowed, spell_adjustment,
-    spell_mana_spending,
+    normal_spell_affordable, north_star_effect, north_star_face_allowed, projected_spell,
+    spell_adjustment, spell_mana_spending,
 };
 pub use pricing::{
     ability_mana_spending, commander_tax, convoke_sources, delve_sources, has_improvise,

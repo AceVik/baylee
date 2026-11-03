@@ -22,28 +22,42 @@ mod restrictions;
 mod stack;
 mod x_value;
 
-/// A determined activation price keeps source permissions beside its mana.
-#[derive(Clone, Copy, Debug, Hash)]
+/// A determined activation price keeps every printed and imposed cost part
+/// beside its mana and source permissions. Owning the parts lets payment
+/// windows and counter continuations retain the exact announced price.
+#[derive(Clone, Debug, Hash)]
 pub(crate) struct ActivationPrice {
-    pub cost: Cost,
+    pub mana: baylee_core::mana::ManaCost,
+    pub parts: SmallVec<[CostPart; 4]>,
     pub allowance: casting::SourceAllowance,
 }
-impl std::ops::Deref for ActivationPrice {
-    type Target = Cost;
-    fn deref(&self) -> &Cost {
-        &self.cost
-    }
-}
 impl ActivationPrice {
-    pub(super) fn with_mana(self, mana: baylee_core::mana::ManaCost) -> Self {
+    #[cfg(test)]
+    pub(super) fn new(cost: &Cost, allowance: casting::SourceAllowance) -> Self {
         Self {
-            cost: Cost {
-                mana,
-                parts: self.cost.parts,
-            },
-            ..self
+            mana: cost.mana,
+            parts: cost.parts.iter().copied().collect(),
+            allowance,
         }
     }
+
+    pub(super) fn with_mana(&self, mana: baylee_core::mana::ManaCost) -> Self {
+        Self {
+            mana,
+            ..self.clone()
+        }
+    }
+}
+
+/// Total energy owed by static or dynamically assembled cost parts.
+pub(super) fn energy_payment(parts: &[CostPart], x: u32) -> u32 {
+    parts.iter().fold(0_u32, |sum, part| {
+        sum.saturating_add(match part {
+            CostPart::PayEnergy(n) => u32::from(*n),
+            CostPart::PayEnergyX => x,
+            _ => 0,
+        })
+    })
 }
 
 /// The cost parts an activation would leave unpaid, and think it had paid.

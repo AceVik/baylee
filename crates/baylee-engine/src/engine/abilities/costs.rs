@@ -17,9 +17,8 @@ impl<L: CardLookup> Engine<L> {
         }
     }
 
-    fn can_pay_random_discards(&self, player: PlayerId, cost: &Cost) -> bool {
-        let needed = cost
-            .parts
+    fn can_pay_random_discards(&self, player: PlayerId, parts: &[CostPart]) -> bool {
+        let needed = parts
             .iter()
             .filter(|part| {
                 matches!(
@@ -71,23 +70,26 @@ impl<L: CardLookup> Engine<L> {
                     .any(|effect| matches!(effect, baylee_cards_dsl::Effect::AttachSelf { .. })),
                 _ => false,
             });
+        let mut parts: SmallVec<[CostPart; 4]> = cost.parts.iter().copied().collect();
         // Apply reductions with a local floor first, so they do not limit
-        // an independent unrestricted reduction applied afterwards.
-        if full.generic_total() > 0
-            && self.state.effects.may_change_or_forbid_abilities()
+        // an independent unrestricted reduction applied afterwards. External
+        // non-mana costs also apply when the printed activation has no generic mana.
+        if self.state.effects.may_change_or_forbid_abilities()
             && let Some(object) = self.state.object(source)
         {
             for effect in self.state.effects.iter() {
                 match effect.modifier {
                     baylee_cards_dsl::Modifier::AbilitiesCostLess { amount, minimum }
-                        if crate::effects::applies_to(&self.state, effect, object) =>
+                        if full.generic_total() > 0
+                            && crate::effects::applies_to(&self.state, effect, object) =>
                     {
                         // A minimum limits this reduction, never increases a free cost.
                         let reduction = amount.min(mana.cmc().saturating_sub(minimum));
                         mana = mana.with_less_generic(reduction);
                     }
                     baylee_cards_dsl::Modifier::EquipCostsLess(amount)
-                        if crate::effects::applies_to(&self.state, effect, object)
+                        if full.generic_total() > 0
+                            && crate::effects::applies_to(&self.state, effect, object)
                             && object.characteristics().subtypes.contains(
                                 baylee_core::generated::subtypes::artifact::EQUIPMENT,
                             )
@@ -95,16 +97,22 @@ impl<L: CardLookup> Engine<L> {
                     {
                         mana = mana.with_less_generic(amount);
                     }
+                    baylee_cards_dsl::Modifier::AbilitiesCostSacrificePerManaSymbol {
+                        color,
+                        sacrifice,
+                    } if crate::effects::applies_to(&self.state, effect, object) => {
+                        casting::extend_sacrifices_per_mana_symbol(
+                            &mut parts, &base_mana, color, sacrifice,
+                        );
+                    }
                     _ => {}
                 }
             }
         }
         mana = mana.with_less_generic(off);
         ActivationPrice {
-            cost: Cost {
-                mana,
-                parts: cost.parts,
-            },
+            mana,
+            parts,
             allowance: casting::base_allowance(&self.state, casting::SpendFor::Ability(source))
                 .adjusted(
                     eligible,
@@ -229,8 +237,8 @@ impl<L: CardLookup> Engine<L> {
         })
     }
 
-    pub(super) fn source_cost_parts_ready(&self, source: ObjectId, cost: &Cost) -> bool {
-        cost.parts.iter().all(|part| match part {
+    pub(super) fn source_cost_parts_ready(&self, source: ObjectId, parts: &[CostPart]) -> bool {
+        parts.iter().all(|part| match part {
             CostPart::TapSelf | CostPart::UntapSelf | CostPart::ExertSelf => {
                 self.can_pay_source_action(source, part)
             }
@@ -256,23 +264,35 @@ impl<L: CardLookup> Engine<L> {
         cost: &Cost,
         what: casting::SpendFor,
     ) -> bool {
-        if !self.source_cost_parts_ready(source, cost) {
+        self.can_afford_parts(player, source, cost.mana, cost.parts, what)
+    }
+
+    #[allow(clippy::too_many_lines)]
+    pub(crate) fn can_afford_parts(
+        &self,
+        player: PlayerId,
+        source: ObjectId,
+        mana: baylee_core::mana::ManaCost,
+        parts: &[CostPart],
+        what: casting::SpendFor,
+    ) -> bool {
+        if !self.source_cost_parts_ready(source, parts) {
             return false;
         }
-        if !self.can_pay_mana(player, what, &cost.mana) {
+        if !self.can_pay_mana(player, what, &mana) {
             return false;
         }
-        for part in cost.parts {
+        for part in parts {
             match part {
                 CostPart::PayEnergy(_) => {
                     if u32::from(self.state.players[usize::from(player.get())].energy)
-                        < cost.energy_payment(0)
+                        < energy_payment(parts, 0)
                     {
                         return false;
                     }
                 }
                 CostPart::DiscardRandom => {
-                    if !self.can_pay_random_discards(player, cost) {
+                    if !self.can_pay_random_discards(player, parts) {
                         return false;
                     }
                 }
@@ -296,7 +316,7 @@ impl<L: CardLookup> Engine<L> {
                         _ => self.activation_x.unwrap_or(0),
                     };
                     let count = usize::try_from(count).unwrap_or(usize::MAX);
-                    if cost_wizard::menu(&self.state, player, source, cost, part).len() < count {
+                    if cost_wizard::menu(&self.state, player, source, parts, part).len() < count {
                         return false;
                     }
                 }
@@ -306,8 +326,7 @@ impl<L: CardLookup> Engine<L> {
                     }
                 }
                 CostPart::ExileTopOfLibrary(_) => {
-                    let needed: usize = cost
-                        .parts
+                    let needed: usize = parts
                         .iter()
                         .filter_map(|p| match p {
                             CostPart::ExileTopOfLibrary(n) => Some(usize::from(*n)),
@@ -333,7 +352,7 @@ impl<L: CardLookup> Engine<L> {
                 // any answer can reach; a creature with a negative power
                 // only lowers a total (CR 107.1b), so nobody would name it.
                 CostPart::Crew(power) | CostPart::Saddle(power) => {
-                    let menu = cost_wizard::menu(&self.state, player, source, cost, part);
+                    let menu = cost_wizard::menu(&self.state, player, source, parts, part);
                     if !cost_wizard::PowerPayment::new(&self.state, source, part)
                         .can_reach(&menu, *power)
                     {
@@ -371,8 +390,8 @@ impl<L: CardLookup> Engine<L> {
                     // are two questions with two lists, and the overlap
                     // between them is a matching problem this does not
                     // pretend to solve. Nothing in the pool prints one.
-                    let asked = cost.parts.iter().filter(|other| *other == part).count();
-                    if cost_wizard::menu(&self.state, player, source, cost, part).len() < asked {
+                    let asked = parts.iter().filter(|other| *other == part).count();
+                    if cost_wizard::menu(&self.state, player, source, parts, part).len() < asked {
                         return false;
                     }
                 }
@@ -471,10 +490,7 @@ impl<L: CardLookup> Engine<L> {
         self.pay_priced_cost(
             player,
             source,
-            &ActivationPrice {
-                cost: *cost,
-                allowance,
-            },
+            &ActivationPrice::new(cost, allowance),
             chosen,
             x,
         )
@@ -519,7 +535,7 @@ impl<L: CardLookup> Engine<L> {
             &self.state,
             player,
             source,
-            *cost,
+            cost.clone(),
             chosen.to_vec(),
             x,
         );
@@ -562,7 +578,7 @@ impl<L: CardLookup> Engine<L> {
     ) -> Result<bool, EngineError> {
         let player = work.player;
         let source = work.source;
-        let cost = work.cost;
+        let cost = work.cost.clone();
         let x = work.x;
         let mut answers = work.chosen[work.answer..].iter();
         let mut paid = std::mem::take(&mut work.paid);
@@ -898,7 +914,7 @@ impl<L: CardLookup> Engine<L> {
                     let selected = answers
                         .next()
                         .ok_or(EngineError::IllegalAction("unanswered tap group"))?;
-                    let options = cost_wizard::menu(&self.state, player, source, &cost, part);
+                    let options = cost_wizard::menu(&self.state, player, source, &cost.parts, part);
                     if selected.len() != usize::try_from(*count).unwrap_or(usize::MAX)
                         || selected
                             .iter()
@@ -929,7 +945,7 @@ impl<L: CardLookup> Engine<L> {
                     let selected = answers.next().ok_or(EngineError::IllegalAction(
                         "unanswered graveyard exile group",
                     ))?;
-                    let options = cost_wizard::menu(&self.state, player, source, &cost, part);
+                    let options = cost_wizard::menu(&self.state, player, source, &cost.parts, part);
                     let first_owner = selected
                         .first()
                         .and_then(|id| self.state.object(*id))

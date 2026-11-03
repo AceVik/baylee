@@ -96,6 +96,5 @@ pub(crate) fn free_face_affordable(
         card,
     ));
     super::source_affordable(state, player, what, pool, &cost, &[], Some(allowance))
-        && !crate::engine::cast_wizard::additional_card_costs(&def.faces[face])
-            .any(|part| crate::engine::cost_wizard::options(state, player, card, part).is_empty())
+        && super::additional_payment_capacity(state, player, card, &def.faces[face], &[]).is_some()
 }

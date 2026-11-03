@@ -42,8 +42,7 @@
 //! problem, and not one a card is asking yet.
 
 use super::{
-    Cause, Cost, CostPart, EngineError, GameEvent, ObjectId, PlayerId, Status, ZoneLocation,
-    ZonePosition,
+    Cause, CostPart, EngineError, GameEvent, ObjectId, PlayerId, Status, ZoneLocation, ZonePosition,
 };
 use crate::choice::ChoicePrompt;
 use crate::eval;
@@ -77,8 +76,8 @@ pub(crate) const fn needs_an_answer(part: &CostPart) -> bool {
 }
 
 /// How many answers a cost needs before it can be paid.
-pub(crate) fn answers_wanted(cost: &Cost) -> usize {
-    cost.parts.iter().filter(|p| needs_an_answer(p)).count()
+pub(crate) fn answers_wanted(parts: &[CostPart]) -> usize {
+    parts.iter().filter(|p| needs_an_answer(p)).count()
 }
 
 /// The parts that need an answer, in the order the cost prints them.
@@ -86,8 +85,8 @@ pub(crate) fn answers_wanted(cost: &Cost) -> usize {
 /// The order is the contract between the question and the payment: the nth
 /// answer pays the nth asking part, so a cost with a sacrifice and a discard
 /// cannot pay one with the other's card.
-pub(crate) fn asking_parts(cost: &Cost) -> impl Iterator<Item = &CostPart> {
-    cost.parts.iter().filter(|p| needs_an_answer(p))
+pub(crate) fn asking_parts(parts: &[CostPart]) -> impl Iterator<Item = &CostPart> {
+    parts.iter().filter(|p| needs_an_answer(p))
 }
 
 /// What `part` may be paid with, on this board.
@@ -267,11 +266,11 @@ pub(crate) fn menu(
     state: &GameState,
     player: PlayerId,
     source: ObjectId,
-    cost: &Cost,
+    parts: &[CostPart],
     part: &CostPart,
 ) -> Vec<ObjectId> {
     let mut listed = options(state, player, source, part);
-    if cost.parts.iter().any(|own| spends_the_source_as(own, part)) {
+    if parts.iter().any(|own| spends_the_source_as(own, part)) {
         listed.retain(|id| *id != source);
     }
     listed
@@ -663,18 +662,18 @@ mod tests {
 
         let tap = CostPart::TapOther(&Filter::CREATURE);
         let evangel = baylee_cards_dsl::cost!("{1}", TapSelf, TapOther(&Filter::CREATURE));
-        assert_eq!(menu(&state, me(), source, &evangel, &tap), vec![other]);
+        assert_eq!(menu(&state, me(), source, evangel.parts, &tap), vec![other]);
 
         let sacrifice = CostPart::Sacrifice(&Filter::CREATURE);
         let tap_and_sacrifice = baylee_cards_dsl::cost!(TapSelf, Sacrifice(&Filter::CREATURE));
         assert_eq!(
-            menu(&state, me(), source, &tap_and_sacrifice, &sacrifice),
+            menu(&state, me(), source, tap_and_sacrifice.parts, &sacrifice),
             vec![source, other],
             "a tap and a sacrifice are two ways, and one permanent may pay both"
         );
         let both = baylee_cards_dsl::cost!(SacrificeSelf, Sacrifice(&Filter::CREATURE));
         assert_eq!(
-            menu(&state, me(), source, &both, &sacrifice),
+            menu(&state, me(), source, both.parts, &sacrifice),
             vec![other],
             "a source sacrificed by name is not there to be sacrificed again"
         );
@@ -697,15 +696,15 @@ mod tests {
             Discard(&Filter::CREATURE)
         );
 
-        assert_eq!(answers_wanted(&cost), 2);
-        let asking: Vec<&CostPart> = asking_parts(&cost).collect();
+        assert_eq!(answers_wanted(cost.parts), 2);
+        let asking: Vec<&CostPart> = asking_parts(cost.parts).collect();
         assert!(matches!(
             asking[0],
             CostPart::Sacrifice(_) | CostPart::SacrificeX(_) | CostPart::SacrificeAll(_)
         ));
         assert!(matches!(asking[1], CostPart::Discard(_)));
         assert_eq!(
-            answers_wanted(&baylee_cards_dsl::cost!("{2}", TapSelf, PayLife(3))),
+            answers_wanted(baylee_cards_dsl::cost!("{2}", TapSelf, PayLife(3)).parts),
             0,
             "a cost that names no object asks nothing"
         );

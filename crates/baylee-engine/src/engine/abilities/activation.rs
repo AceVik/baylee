@@ -93,12 +93,7 @@ impl<L: CardLookup> Engine<L> {
         source: ObjectId,
         ability_index: u32,
         targets: SmallVec<[ObjectId; 2]>,
-        locked_price: Option<(
-            baylee_core::mana::ManaCost,
-            baylee_core::mana::ManaCost,
-            u32,
-            casting::SourceAllowance,
-        )>,
+        locked_price: Option<(ActivationPrice, baylee_core::mana::ManaCost, u32)>,
     ) -> Result<(), EngineError> {
         // The player half of a choice this activation has already answered,
         // put here by `apply`. Read out before anything at all can return,
@@ -329,43 +324,36 @@ impl<L: CardLookup> Engine<L> {
             ));
         }
         let _ = zone;
-        if self.announce_activation_x(player, source, ability_index, &cost)? {
+        let resource_price =
+            self.activation_price(player, source, ability_index, &cost, cost_reduction);
+        if self.announce_activation_x(player, source, ability_index, &resource_price)? {
             return Ok(());
         }
         let variable_mana = cost.mana.has_variable();
-        let (mana, fixed_mana_cost, additional_life, allowance) =
-            locked_price.unwrap_or_else(|| {
-                let price = |x| {
-                    self.activation_price(
-                        player,
-                        source,
-                        ability_index,
-                        &Cost {
-                            mana: cost.mana.with_x(x),
-                            parts: cost.parts,
-                        },
-                        cost_reduction,
-                    )
-                };
-                let selected = price(self.activation_x.unwrap_or(0));
-                (
-                    selected.mana,
-                    price(0).mana,
-                    if mana_ability {
-                        crate::mana_rules::life_price(&self.state, source)
-                    } else {
-                        0
+        let (cost, fixed_mana_cost, additional_life) = locked_price.unwrap_or_else(|| {
+            let price = |x| {
+                self.activation_price(
+                    player,
+                    source,
+                    ability_index,
+                    &Cost {
+                        mana: cost.mana.with_x(x),
+                        parts: cost.parts,
                     },
-                    selected.allowance,
+                    cost_reduction,
                 )
-            });
-        let cost = ActivationPrice {
-            cost: Cost {
-                mana,
-                parts: cost.parts,
-            },
-            allowance,
-        };
+            };
+            let selected = price(self.activation_x.unwrap_or(0));
+            (
+                selected,
+                price(0).mana,
+                if mana_ability {
+                    crate::mana_rules::life_price(&self.state, source)
+                } else {
+                    0
+                },
+            )
+        });
         // Each Phyrexian symbol: 2 life or its mana, announced beside the X
         // (CR 601.2b through CR 602.2b; CR 118.13a). Asked only where both
         // answers still leave a way to pay; where one does, it is taken
@@ -612,7 +600,7 @@ impl<L: CardLookup> Engine<L> {
         let planned = if deferred {
             cost.with_mana(baylee_core::mana::ManaCost::ZERO)
         } else {
-            cost
+            cost.clone()
         };
         if !self.can_plan_activation(player, source, &planned, activation_life)
             || !self.state.can_pay_life(player, activation_life)
@@ -629,12 +617,13 @@ impl<L: CardLookup> Engine<L> {
         // part at a time, because a cost with two asking parts is two
         // questions and answering them together would lose which answer
         // belongs to which.
-        let wanted = cost_wizard::answers_wanted(&cost);
+        let priced_cost = cost.parts.as_slice();
+        let wanted = cost_wizard::answers_wanted(priced_cost);
         // X = 0 still supplies one (empty) answer for its cost part.
         while self.activation_cost_choices.len() < wanted
             && self.activation_x == Some(0)
             && matches!(
-                cost_wizard::asking_parts(&cost).nth(self.activation_cost_choices.len()),
+                cost_wizard::asking_parts(priced_cost).nth(self.activation_cost_choices.len()),
                 Some(CostPart::SacrificeX(_) | CostPart::TapX(_))
             )
         {
@@ -642,10 +631,10 @@ impl<L: CardLookup> Engine<L> {
         }
         if self.activation_cost_choices.len() < wanted {
             let asked = self.activation_cost_choices.len();
-            let part = cost_wizard::asking_parts(&cost)
+            let part = cost_wizard::asking_parts(priced_cost)
                 .nth(asked)
                 .expect("fewer answers in hand than the cost has asking parts");
-            let mut options = cost_wizard::menu(&self.state, player, source, &cost, part);
+            let mut options = cost_wizard::menu(&self.state, player, source, priced_cost, part);
             // Nothing is paid until every question has an answer (CR 601.2h
             // pays the whole cost at once), so the board the second question
             // is asked of still holds the object the first one named. Taking
@@ -766,10 +755,9 @@ impl<L: CardLookup> Engine<L> {
                 ability_index,
                 targets,
                 (
-                    cost.mana.with_x(self.activation_x.unwrap_or(0)),
+                    cost.with_mana(cost.mana.with_x(self.activation_x.unwrap_or(0))),
                     fixed_mana_cost,
                     additional_life,
-                    cost.allowance,
                 ),
             );
         }
@@ -831,7 +819,7 @@ impl<L: CardLookup> Engine<L> {
             ability_index,
             targets,
             chosen_players,
-            cost,
+            cost: cost.clone(),
             x,
             fixed_mana_cost,
             activation_life,
@@ -868,7 +856,7 @@ impl<L: CardLookup> Engine<L> {
         player: PlayerId,
         source: ObjectId,
         version: Option<u32>,
-        cost: &baylee_cards_dsl::Cost,
+        cost: &ActivationPrice,
         ability: Option<ObjectId>,
     ) {
         self.state.journal.record(GameEvent::AbilityActivated {
