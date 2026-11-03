@@ -296,3 +296,71 @@ fn a_flier_cannot_be_blocked_by_a_ground_creature() {
     assert_eq!(life(&engine, P1), 15);
     assert!(on_battlefield(&engine, P1, quiet_creature()).is_some());
 }
+
+/// Two creatures may block one attacker (CR 509.1a): both deal their
+/// damage to it, and its one point goes to one of them.
+#[test]
+fn two_blockers_on_one_attacker() {
+    let mut engine = duel(&[quiet_creature(), quiet_creature()]);
+    to_attackers(&mut engine);
+    let mine = on_battlefield(&engine, P0, quiet_creature()).unwrap();
+    let theirs: Vec<_> = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .filter(|id| {
+            engine
+                .state()
+                .object(*id)
+                .is_some_and(|o| o.controller == P1)
+        })
+        .collect();
+    assert_eq!(theirs.len(), 2);
+    engine
+        .apply(
+            P0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(mine, Defender::Player(P1))],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+    engine
+        .apply(
+            P1,
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(theirs[0], mine), (theirs[1], mine)],
+            },
+        )
+        .unwrap();
+    for _ in 0..40 {
+        if engine.state().turn.phase == Phase::SecondMain {
+            break;
+        }
+        match engine.pending().clone() {
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            _ => {
+                let (player, action) = super::testkit::answer_one(&engine).expect("answerable");
+                engine.apply(player, action).unwrap();
+            }
+        }
+    }
+    assert!(on_battlefield(&engine, P0, quiet_creature()).is_none());
+    let survivors = theirs
+        .iter()
+        .filter(|id| {
+            engine
+                .state()
+                .object(**id)
+                .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
+        })
+        .count();
+    assert_eq!(survivors, 1, "one point of damage kills one 1/1");
+    assert_eq!(life(&engine, P1), 20);
+}
