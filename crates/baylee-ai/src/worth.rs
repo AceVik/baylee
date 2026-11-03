@@ -1550,6 +1550,7 @@ impl HeuristicAgent {
             | Effect::SearchLibraryUpTo { .. }
             | Effect::WishToHand { .. }
             | Effect::LookAtTopPick { .. }
+            | Effect::LookAtTopPickThenReorder { .. }
             | Effect::RevealTopAndSort { .. }
             | Effect::LookAtTopMayPut { .. } => 350,
             Effect::TakeExtraTurn => 10_000,

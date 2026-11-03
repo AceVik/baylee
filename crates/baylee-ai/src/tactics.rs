@@ -465,6 +465,7 @@ pub(crate) fn meaning(effects: &[Effect], x: u32) -> Meaning {
             Effect::SearchLibrary { .. }
             | Effect::SearchLibraryUpTo { .. }
             | Effect::LookAtTopPick { .. }
+            | Effect::LookAtTopPickThenReorder { .. }
             | Effect::RevealTopAndSort { .. }
             | Effect::LookAtTopMayPut { .. } => m.value = 350,
             Effect::GainLife { .. } => m.value = 80,
@@ -1433,5 +1434,27 @@ mod tests {
         assert_eq!(amount(Amount::Fixed(u32::MAX), 0), i32::MAX);
         assert_eq!(amount(Amount::X, u32::MAX), i32::MAX);
         assert_eq!(amount(Amount::NegXFixed(u32::MAX), 0), -i32::MAX);
+    }
+
+    #[test]
+    fn picking_from_the_top_has_the_same_value_whichever_end_keeps_the_rest() {
+        let bottom = meaning(
+            &[Effect::LookAtTopPick {
+                count: Amount::Fixed(5),
+                pick: 1,
+                random: false,
+            }],
+            0,
+        );
+        let top = meaning(
+            &[Effect::LookAtTopPickThenReorder {
+                count: Amount::Fixed(5),
+                pick: 1,
+            }],
+            0,
+        );
+
+        assert!(bottom.value > 0);
+        assert_eq!(top.value, bottom.value);
     }
 }

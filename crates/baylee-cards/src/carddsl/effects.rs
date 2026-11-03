@@ -89,7 +89,7 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
             ch.draw += 1.0;
             ch.discard += 1.0;
         }
-        Effect::LookAtTopPick { .. }
+        Effect::LookAtTopPick { .. } | Effect::LookAtTopPickThenReorder { .. }
         | Effect::LookAtTopFind { .. }
         | Effect::LookAtTopMayTake { .. }
         | Effect::LookAtTopKeepBottomPlay { .. }
