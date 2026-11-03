@@ -1570,6 +1570,7 @@ mod event_object;
 mod foretell;
 mod land_triggers;
 mod owed;
+mod power_surge;
 mod triage;
 
 /// A vote is told as one, and the ballot cast before it reaches the model

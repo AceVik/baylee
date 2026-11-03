@@ -543,6 +543,9 @@ impl Builder<'_, '_> {
         }
         self.granted_actions(legal);
         self.plays(legal);
+        if owed.is_none() && legal.can_pass {
+            self.tap_against_untapped_counts(legal);
+        }
         if legal.can_pass {
             let label = if matches!(owed, Some(ManaPayment::AnyAmount { .. })) {
                 "Finish generating mana and choose the payment amount".into()
@@ -555,6 +558,51 @@ impl Builder<'_, '_> {
         self.line("Options:");
         self.list_options();
         self.answer_pick("pick=[one option id]");
+    }
+
+    /// Tapping the seat's untapped lands for mana it then loses, as one
+    /// option, while a permanent counts the lands a player has untapped as
+    /// a turn begins (Power Surge, `Amount::UntappedLandsAtTurnStart`). A
+    /// mana ability may be activated at any priority (CR 605.3a), and a land
+    /// tapped now is still tapped when the seat's next turn begins; the menu
+    /// otherwise offers a tap only as part of something it pays for, so the
+    /// play against Power Surge was missing (G001-C, codex attempt 184,
+    /// q286). A land whose tap hurts or sets off a trigger (`priced`) is
+    /// left out.
+    pub(super) fn tap_against_untapped_counts(&mut self, legal: &LegalActions) {
+        let view = self.table.view;
+        let Some(counter) = view.battlefield.iter().find(|o| counts_untapped_lands(o)) else {
+            return;
+        };
+        let me = baylee_client_core::decision::resource_player(view);
+        let steps: Vec<manaplan::Step> = baylee_ai::mana_sources(view, legal)
+            .iter()
+            .filter(|source| !source.priced)
+            .filter(|source| {
+                view.object(source.id).is_some_and(|o| {
+                    o.controller == me && o.types.contains(baylee_core::types::TypeSet::LAND)
+                })
+            })
+            .map(|source| manaplan::Step {
+                source: source.id,
+                tap: source.tap,
+                color: (!source.bundle && source.colors.len() > 1).then(|| source.colors[0]),
+            })
+            .collect();
+        if steps.is_empty() {
+            return;
+        }
+        let label = format!(
+            "Tap your untapped lands for mana and pass; the mana is lost, and {} counts the \
+             lands a player controls untapped as a turn begins ({})",
+            self.table.named(counter.id),
+            self.taps(&steps)
+        );
+        let act = Act::Taps {
+            steps,
+            then: PlayerAction::PassPriority,
+        };
+        self.offer(label, act, None);
     }
 
     /// A variable payment has no fixed plan: every legal mana ability is usable.
@@ -1383,4 +1431,33 @@ impl Builder<'_, '_> {
             &|target| self.damage_target(target),
         )
     }
+}
+
+/// Whether `object`'s card has a triggered ability that counts the lands a
+/// player controlled untapped as the turn began (Power Surge).
+fn counts_untapped_lands(object: &PublicObject) -> bool {
+    use baylee_cards_dsl::{Amount, Effect};
+    let Some(rules) = object.rules.or_else(|| object.card.map(Into::into)) else {
+        return false;
+    };
+    baylee_cards::by_index(rules.card).is_some_and(|def| {
+        def.abilities_for_face(usize::from(rules.face))
+            .iter()
+            .any(|ability| {
+                let AbilityDef::Triggered { effects, .. } = ability else {
+                    return false;
+                };
+                let mut counts = false;
+                Effect::walk(effects, &mut 0, &mut |effect| {
+                    counts |= matches!(
+                        effect,
+                        Effect::DealDamage {
+                            amount: Amount::UntappedLandsAtTurnStart,
+                            ..
+                        }
+                    );
+                });
+                counts
+            })
+    })
 }
