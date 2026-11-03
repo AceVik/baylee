@@ -2052,6 +2052,8 @@ mod enter_tests;
 #[cfg(test)]
 mod entry_counter_transaction_tests;
 #[cfg(test)]
+mod etb_flow_tests;
+#[cfg(test)]
 mod fight_tests;
 #[cfg(test)]
 mod flanking_tests;
@@ -2152,6 +2154,8 @@ mod pact_payment_tests;
 mod pay_in_cast_tests;
 #[cfg(test)]
 mod pay_window_tests;
+#[cfg(test)]
+mod per_turn_reset_tests;
 #[cfg(test)]
 mod phasing_tests;
 #[cfg(test)]
