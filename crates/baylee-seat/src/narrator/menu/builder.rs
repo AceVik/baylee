@@ -247,15 +247,16 @@ impl Builder<'_, '_> {
                 total,
                 ..
             } => {
-                let question =
-                    if let baylee_engine::choice::ChoicePrompt::SacrificeFor { player } = prompt {
-                        format!(
-                            "Choose the permanents that {} sacrifices",
-                            self.table.player(*player)
-                        )
-                    } else {
-                        self.table.for_decider(&words::choice_prompt(*prompt))
-                    };
+                let question = match prompt {
+                    baylee_engine::choice::ChoicePrompt::SacrificeFor { player } => format!(
+                        "Choose the permanents that {} sacrifices",
+                        self.table.player(*player)
+                    ),
+                    baylee_engine::choice::ChoicePrompt::LookAtHand => {
+                        self.table.for_decider(words::hand_choice_prompt(*max))
+                    }
+                    _ => self.table.for_decider(&words::choice_prompt(*prompt)),
+                };
                 self.line(format!("QUESTION: {question}."));
                 if options.is_empty() || *max == 0 {
                     self.line("No matching cards are available; submit pick=[].");

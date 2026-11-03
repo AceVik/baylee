@@ -321,19 +321,28 @@ modifiers that change what a creature may do):
   is asked of the permanents of the player the creature would attack, and
   of a planeswalker's controller when it attacks one.
 
-`combat::AttackRules` collects both once per declaration. The offer drops
-a creature that no defender allows, names in `limits` a creature some
-defenders do not allow (with the ones it may attack), and lists in
-`required` the creatures that must attack. `declare_attackers` refuses a
-pair a restriction forbids, and refuses a declaration that leaves out a
-creature that must attack and could: untapped, able to attack under CR
-508.1a, and allowed at least one defender. That is the whole of CR
-508.1d's maximum here, because this engine has no attack costs and no
-restriction on how many creatures attack, so obeying one requirement never
-costs another. The clock's answer (`choice::timeout_answer`) declares the
-required creatures and nothing else, each at the first defender it may
-attack; the house AI keeps its own choice and adds what the rules make it
-(`combat::obey_attack_rules`).
+`combat::AttackRules` collects restrictions, requirements, attacker caps and
+costs once per declaration. The offer drops a creature that no defender
+allows, names in `limits` a creature some defenders do not allow (with the
+ones it may attack), and lists in `required` the creatures that must attack.
+`declare_attackers` refuses a forbidden pair or a declaration that leaves out
+a creature that must attack and can attack for free. A player is never
+required to pay a cost to make a required attacker attack (CR 508.1d);
+`required_maximum` also accounts for attack-alone restrictions and any cap on
+the number of attackers. The clock's answer (`choice::timeout_answer`)
+declares the required creatures and nothing else, each at the first defender
+it may attack; the house AI keeps its own choice and adds what the rules make
+it (`combat::obey_attack_rules`).
+
+Mana, life and sacrifice costs are determined for the complete declaration
+before any of them is paid (CR 508.1h). Each sacrifice cost becomes a
+`Pending::ChooseCards` question with `ChoicePrompt::CostSacrifice`: its
+controller chooses exactly the required number of matching permanents they
+control, and one permanent cannot pay two costs. Nothing is sacrificed,
+tapped or declared between those answers. A mana payment window retains the
+chosen permanents and the determined life cost; a short payment reverses the
+window without sacrificing them. The final payment is validated again before
+the attackers are declared.
 
 ### Historical land count at turn start
 

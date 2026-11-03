@@ -470,6 +470,48 @@ fn dredge_is_read_off_a_cards_printed_rules() {
 }
 
 #[test]
+fn private_hand_discard_takes_the_best_card_instead_of_the_first() {
+    let (elves, wurm) = (obj(1), obj(2));
+    let me = PlayerId::new(0);
+    let opponent = PlayerId::new(1);
+    let mut v = view(0, &[20, 20], vec![]);
+    v.looking_at = vec![
+        carded(
+            permanent(elves, opponent, 1),
+            "Llanowar Elves",
+            TypeSet::CREATURE,
+        ),
+        carded(
+            permanent(wurm, opponent, 6),
+            "Endless Wurm",
+            TypeSet::CREATURE,
+        ),
+    ];
+    let ask = |options| Pending::ChooseCards {
+        player: me,
+        options,
+        min: 1,
+        max: 1,
+        prompt: baylee_engine::choice::ChoicePrompt::LookAtHand,
+        total: None,
+    };
+    assert_eq!(
+        HeuristicAgent::new(AIProfile::EXPERT).act(&v, &ask(vec![wurm, elves])),
+        PlayerAction::ChooseObjects {
+            objects: vec![elves]
+        },
+        "the ranking values the castable accelerator above the uncastable Wurm"
+    );
+    assert_eq!(
+        HeuristicAgent::new(AIProfile::STEADY).act(&v, &ask(vec![wurm, elves])),
+        PlayerAction::ChooseObjects {
+            objects: vec![elves]
+        },
+        "a profile that does not rank cards still makes a legal deterministic choice"
+    );
+}
+
+#[test]
 fn balance_keeps_the_valuable_permanent_or_castable_hand_card() {
     use baylee_engine::choice::ChoicePrompt;
     let me = PlayerId::new(0);
@@ -711,4 +753,75 @@ fn optional_exact_tap_payment_is_declined_without_a_partial_payment() {
             );
         }
     }
+}
+
+/// Landwalk reads its own resolution clause and the defenders' matching lands,
+/// including nonbasic types; unrelated subtype questions keep their old policy.
+#[test]
+fn landwalk_subtype_choice_uses_matching_snow_lands_and_allows_desert() {
+    use baylee_core::generated::subtypes::{ALL_LAND_TYPES, land};
+    use baylee_core::types::{SubtypeSet, SupertypeSet};
+
+    let land = |id, subtype, snow| PublicObject {
+        name: "Land".into(),
+        types: TypeSet::LAND,
+        supertypes: if snow {
+            SupertypeSet::SNOW
+        } else {
+            SupertypeSet::EMPTY
+        },
+        subtypes: SubtypeSet::from_slice(&[subtype]),
+        power: None,
+        toughness: None,
+        ..permanent(obj(id), PlayerId::new(1), 0)
+    };
+    let guides = carded(
+        permanent(obj(1), PlayerId::new(0), 1),
+        "Barbarian Guides",
+        TypeSet::CREATURE,
+    );
+    let mut v = view(
+        0,
+        &[20, 20],
+        vec![
+            guides,
+            land(3, land::MOUNTAIN, true),
+            land(4, land::MOUNTAIN, true),
+            land(5, land::FOREST, true),
+        ],
+    );
+    let definition = baylee_cards::decks::by_name("Barbarian Guides").unwrap();
+    let AbilityDef::Activated { effects, .. } =
+        baylee_cards::by_index(definition).unwrap().abilities[0]
+    else {
+        panic!("Barbarian Guides has an activated ability")
+    };
+    let context = baylee_engine::engine::DecisionContext {
+        source: Some(obj(1)),
+        effects,
+        ..Default::default()
+    };
+    let pending = Pending::ChooseSubtype {
+        player: v.seat,
+        options: ALL_LAND_TYPES.iter().collect(),
+    };
+    let agent = HeuristicAgent::new(AIProfile::EXPERT);
+    assert_eq!(
+        agent.act_with_context(&v, &pending, &context),
+        PlayerAction::ChooseSubtype(land::MOUNTAIN),
+        "two snow Mountains make Mountain more useful than one snow Forest"
+    );
+
+    v.battlefield
+        .retain(|object| object.id == obj(1) || object.id == obj(5));
+    assert_eq!(
+        agent.act_with_context(&v, &pending, &context),
+        PlayerAction::ChooseSubtype(land::FOREST)
+    );
+    v.battlefield[1].subtypes = SubtypeSet::from_slice(&[land::DESERT]);
+    assert_eq!(
+        agent.act_with_context(&v, &pending, &context),
+        PlayerAction::ChooseSubtype(land::DESERT),
+        "the card's unrestricted land-type choice includes Desert"
+    );
 }

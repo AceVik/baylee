@@ -302,7 +302,7 @@ pub fn choice_prompt(prompt: ChoicePrompt) -> String {
         }
         ChoicePrompt::LookAtLibrary => "Inspect the library cards, then confirm without selecting any".into(),
         ChoicePrompt::Behold => "Behold: choose a matching permanent you control or reveal a matching hand card; choose none to decline".into(),
-        ChoicePrompt::LookAtHand => "Inspect the hand, then confirm with no cards selected".into(),
+        ChoicePrompt::LookAtHand => hand_choice_prompt(0).into(),
         ChoicePrompt::RemoveLandCounters => "Choose a land to remove its counters from".into(),
         ChoicePrompt::Keep => "Choose hand cards to keep; discard the rest".into(),
         ChoicePrompt::KeepLands => "Choose lands to keep; sacrifice the rest".into(),
@@ -314,6 +314,16 @@ pub fn choice_prompt(prompt: ChoicePrompt) -> String {
                 .into()
         }
         ChoicePrompt::Generic => "Choose cards".into(),
+    }
+}
+
+/// Private hand inspection either ends at confirmation or names the discard.
+#[must_use]
+pub const fn hand_choice_prompt(max: u8) -> &'static str {
+    if max == 0 {
+        "Inspect the hand, then confirm with no cards selected"
+    } else {
+        "Inspect the hand, then choose the cards for its owner to discard"
     }
 }
 
@@ -354,6 +364,15 @@ mod tests {
         assert!(text.contains("fixed activation cost"));
         assert!(text.contains("choose none to decline"));
         assert!(choice_prompt(ChoicePrompt::CommandCard).contains("affected player"));
+    }
+
+    #[test]
+    fn private_hand_choices_distinguish_inspection_from_discard() {
+        assert!(hand_choice_prompt(0).contains("no cards selected"));
+        let discard = hand_choice_prompt(1);
+        assert!(discard.contains("choose the cards"));
+        assert!(discard.contains("owner to discard"));
+        assert!(!discard.contains("no cards selected"));
     }
 
     /// A vote says it is one, and that the ballots before it are known

@@ -160,12 +160,22 @@ fn leviathan_attacks_for_ten_by_sacrificing_two_more_islands() {
             attackers: vec![(levi, Defender::Player(P1))],
         },
     )
-    .expect("Leviathan attacks");
+    .expect("Leviathan's controller may choose the attack's Islands");
+    let Pending::ChooseCards {
+        options, min, max, ..
+    } = e.pending().clone()
+    else {
+        panic!("the attack asks for two Islands, got {:?}", e.pending());
+    };
+    assert_eq!((min, max), (2, 2));
+    assert!(!is_tapped(&e, levi), "nothing is declared before payment");
+    choose_objects(&mut e, options);
     assert_eq!(
         lands_of(&e, P0).len(),
         0,
         "the attack cost the other two Islands"
     );
+    assert!(is_tapped(&e, levi));
 
     pass_until(&mut e, |e| e.state().turn.phase == Phase::SecondMain);
     assert_eq!(e.state().players[1].life, 10, "ten unblocked damage");

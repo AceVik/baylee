@@ -300,6 +300,21 @@ fn a_shield_on_its_own_source_is_on_the_source() {
     );
 }
 
+/// `landwalk::choose` reads its recipient through `subjects::source` for
+/// `ThisObject`, and through `life::recipients` for the other specifications.
+/// Its `lands` field precedes `target`, so a prefix-only spelling cannot
+/// recognize it. Both pool censuses use this same complete-effect check.
+fn landwalk_targets_read(text: &str, target: &str) -> usize {
+    let needle = format!("target: {target}");
+    text.split("ChooseLandwalk {")
+        .skip(1)
+        .filter(|tail| {
+            tail.split_once(" }")
+                .is_some_and(|(effect, _)| effect.contains(&needle))
+        })
+        .count()
+}
+
 /// Which effects may be spelled with `ThisObject`, held against the pool.
 ///
 /// The spec must reach an implicit-subject reader, such as
@@ -376,7 +391,8 @@ fn every_this_object_in_the_pool_is_one_the_resolver_reads() {
             .iter()
             .map(|shape| text.matches(shape).count())
             .sum::<usize>()
-            + text.matches(&redirect_to_self).count();
+            + text.matches(&redirect_to_self).count()
+            + landwalk_targets_read(&text, "ThisObject");
         seen += total;
         if read < total {
             unread.push(format!(
@@ -435,6 +451,7 @@ fn every_event_object_in_the_pool_is_one_the_engine_reads() {
     const READ: &[&str] = &[
         "spec: EventObject",
         "TapEventObject",
+        "PumpEventObject",
         "RemoveEventObjectFromCombat",
         "SuppressUntap { target: EventObject",
         "CantAttackDuringNextControllerTurn { target: EventObject",
@@ -485,7 +502,11 @@ fn every_event_object_in_the_pool_is_one_the_engine_reads() {
         if total == 0 {
             continue;
         }
-        let read: usize = READ.iter().map(|shape| text.matches(shape).count()).sum();
+        let read: usize = READ
+            .iter()
+            .map(|shape| text.matches(shape).count())
+            .sum::<usize>()
+            + landwalk_targets_read(&text, "EventObject");
         seen += total;
         if read < total {
             unread.push(format!(

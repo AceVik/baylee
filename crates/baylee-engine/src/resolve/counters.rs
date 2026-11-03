@@ -648,17 +648,38 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             toughness,
             keywords,
             duration,
+        }
+        | Effect::PumpEventObject {
+            power,
+            toughness,
+            keywords,
+            duration,
         } => {
             let p = signed(&power, state, you, res);
             let t = signed(&toughness, state, you, res);
-            // Every target, not just the first: a spell that pumps two
-            // creatures is one effect per creature, because an
-            // `EffectFilter` names exactly one object.
-            let filters: SmallVec<[crate::effects::EffectFilter; 4]> = res
-                .targets
-                .iter()
-                .map(|target| crate::effects::EffectFilter::object(state, *target))
-                .collect();
+            let filters: SmallVec<[crate::effects::EffectFilter; 4]> =
+                if matches!(op, Effect::PumpTarget { .. }) {
+                    // Every target, not just the first: a spell that pumps two
+                    // creatures is one effect per creature, because an
+                    // `EffectFilter` names exactly one object.
+                    res.targets
+                        .iter()
+                        .map(|target| crate::effects::EffectFilter::object(state, *target))
+                        .collect()
+                } else {
+                    // "It gets ..." is not a target. Retain the triggering
+                    // incarnation, and do nothing if it left or returned.
+                    super::subjects::event(state, res)
+                        .filter(|reference| super::subjects::on_battlefield(state, *reference))
+                        .map(|reference| {
+                            crate::effects::EffectFilter::ObjectIs(
+                                reference.object,
+                                reference.version,
+                            )
+                        })
+                        .into_iter()
+                        .collect()
+                };
             pump(state, res, you, &filters, (p, t), keywords, duration);
             None
         }
@@ -860,6 +881,78 @@ mod pump_tests {
             keywords,
             duration: Duration::UntilEndOfTurn,
         }
+    }
+
+    #[test]
+    fn event_object_pump_binds_the_triggering_incarnation_without_targeting() {
+        let mut state = state();
+        let creature = permanent(&mut state, me(), "blocking creature");
+        let source = permanent(&mut state, me(), "Battle Cry trigger");
+        let identity = state.source_identity(creature).unwrap();
+        let mut res = resolution(source, &[]);
+        res.event_object = Some(creature);
+        res.subject.set_event_identity(Some((identity, 1)));
+
+        exec(
+            &mut state,
+            &mut res,
+            Effect::PumpEventObject {
+                power: Amount::Fixed(0),
+                toughness: Amount::Fixed(1),
+                keywords: KeywordSet::EMPTY,
+                duration: Duration::UntilEndOfTurn,
+            },
+        );
+
+        assert!(res.targets.is_empty());
+        assert!(!res.targeted);
+        let effects: Vec<_> = state.effects.iter().collect();
+        assert_eq!(effects.len(), 1);
+        assert_eq!(effects[0].modifier, Modifier::ModifyPT(0, 1));
+        let crate::effects::EffectFilter::ObjectIs(object, version) = effects[0].filter else {
+            panic!("the pump is bound to one exact object");
+        };
+        assert_eq!((object, version), (creature, identity.version));
+    }
+
+    #[test]
+    fn event_object_pump_does_not_follow_a_new_incarnation() {
+        let mut state = state();
+        let creature = permanent(&mut state, me(), "blocking creature");
+        let source = permanent(&mut state, me(), "Battle Cry trigger");
+        let identity = state.source_identity(creature).unwrap();
+        let mut res = resolution(source, &[]);
+        res.event_object = Some(creature);
+        res.subject.set_event_identity(Some((identity, 1)));
+        state
+            .move_object(
+                creature,
+                ZoneLocation::Graveyard(me()),
+                ZonePosition::Top,
+                crate::event::Cause::Effect,
+            )
+            .unwrap();
+        state
+            .move_object(
+                creature,
+                ZoneLocation::Battlefield,
+                ZonePosition::Top,
+                crate::event::Cause::Effect,
+            )
+            .unwrap();
+
+        exec(
+            &mut state,
+            &mut res,
+            Effect::PumpEventObject {
+                power: Amount::Fixed(0),
+                toughness: Amount::Fixed(1),
+                keywords: KeywordSet::EMPTY,
+                duration: Duration::UntilEndOfTurn,
+            },
+        );
+
+        assert!(state.effects.is_empty());
     }
 
     #[test]

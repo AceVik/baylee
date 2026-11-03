@@ -827,7 +827,9 @@ pub(crate) mod tests {
         if let Line::Input { hash, .. } = &mut written[at] {
             *hash = hex(0);
         }
-        for replayed in [replay(&encode(&written)), replay_exact(&encode(&written))] {
+        for replayed in
+            vec![replay(&encode(&written)), replay_exact(&encode(&written))].into_boxed_slice()
+        {
             assert!(
                 matches!(replayed, Err(ReplayError::Diverged { .. })),
                 "a record of this build is held to its engine hashes"

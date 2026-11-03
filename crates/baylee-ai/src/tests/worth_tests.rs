@@ -1815,3 +1815,90 @@ fn resumed_target_and_damage_rows_explain_the_activation_reader_census() {
         );
     }
 }
+
+/// Barbarian Guides' chosen landwalk is worth the attack it opens, only against
+/// a snow land of that type. Desert is a legal choice, not silently discarded.
+#[test]
+fn chosen_snow_landwalk_values_matching_basic_and_nonbasic_lands() {
+    use baylee_cards_dsl::{Effect, Filter, KeywordSet, TargetSpec};
+    let definition = baylee_cards::decks::by_name("Barbarian Guides").unwrap();
+    let AbilityDef::Activated { effects, .. } =
+        baylee_cards::by_index(definition).unwrap().abilities[0]
+    else {
+        panic!("Barbarian Guides has an activated ability")
+    };
+    let effect = effects[0];
+    let mut snow_mountain = land(4, THEM);
+    snow_mountain.subtypes.insert(land_type::MOUNTAIN);
+    snow_mountain.supertypes = SupertypeSet::SNOW;
+    let mut v = view(
+        0,
+        &[20, 20],
+        vec![
+            card(1, ME, "Barbarian Guides", TypeSet::CREATURE),
+            keyworded(obj(2), ME, 2, "Gray Ogre", KeywordSet::EMPTY),
+            permanent(obj(3), THEM, 5),
+            snow_mountain,
+        ],
+    );
+    main_phase(&mut v);
+    let worth = |v: &PlayerView, effect: &Effect| {
+        agent().effects_worth(
+            v,
+            Origin::of(v, obj(1)),
+            std::slice::from_ref(effect),
+            Aim::Object(obj(2)),
+            0,
+        )
+    };
+    assert_eq!(worth(&v, &effect), Some(60));
+
+    v.battlefield[3].supertypes = SupertypeSet::EMPTY;
+    assert_eq!(worth(&v, &effect), Some(0), "a normal Mountain is not snow");
+    v.battlefield[3].supertypes = SupertypeSet::SNOW;
+    v.battlefield[3].subtypes = baylee_core::types::SubtypeSet::from_slice(&[land_type::DESERT]);
+    assert_eq!(worth(&v, &effect), Some(60), "snow Desertwalk is offered");
+
+    let unread = Effect::ChooseLandwalk {
+        lands: &Filter::MatchesChosenTypeOfSource,
+        target: TargetSpec::EventObject,
+        basic_only: false,
+        duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
+    };
+    assert_eq!(
+        worth(&v, &unread),
+        None,
+        "an unreadable land filter must not become a guessed value"
+    );
+}
+
+/// The source-only form shares the same per-defender evaluation.
+#[test]
+fn chosen_source_landwalk_values_a_real_printed_activation() {
+    use baylee_cards_dsl::{Effect, KeywordSet};
+    let definition = baylee_cards::decks::by_name("Giant Slug").unwrap();
+    let AbilityDef::Activated { effects, .. } =
+        baylee_cards::by_index(definition).unwrap().abilities[0]
+    else {
+        panic!("Giant Slug has an activated ability")
+    };
+    let effect = effects[0];
+    assert!(matches!(effect, Effect::AtNextUpkeep { .. }));
+    let mut mountain = land(3, THEM);
+    mountain.subtypes.insert(land_type::MOUNTAIN);
+    let mut v = view(
+        0,
+        &[20, 20],
+        vec![
+            keyworded(obj(1), ME, 2, "Giant Slug", KeywordSet::EMPTY),
+            permanent(obj(2), THEM, 5),
+            mountain,
+        ],
+    );
+    main_phase(&mut v);
+    assert_eq!(
+        agent().effects_worth(&v, Origin::of(&v, obj(1)), &[effect], Aim::Source, 0,),
+        // The generic delayed-effect valuation discounts the future attack by half.
+        Some(30)
+    );
+}

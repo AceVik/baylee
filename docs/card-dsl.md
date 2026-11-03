@@ -1775,8 +1775,10 @@ Continuous: `CreateContinuousEffect` (any layer+filter+modifier+duration),
 `controlled_by: Option<PlayerRel>` for a sentence that names a player rather
 than the board — "creatures **target player** controls get -2/-2", where the
 seat is a choice no `Filter` can be told about), `PumpTarget`
-(the spell's or ability's targets, all of them — Giant Growth), both of which
-carry a `KeywordSet` so "+2/+2 and gains trample" is one effect,
+(the spell's or ability's targets, all of them — Giant Growth), and
+`PumpEventObject` (the exact triggering incarnation, without targeting —
+Battle Cry's "it gets +0/+1"), all of which carry a `KeywordSet` so
+"+2/+2 and gains trample" is one effect,
 `SetPTFilter`, `ChangeController`, `AllCreaturesToOwner`,
 `ExchangeControlOrSacrifice` (Gilded Drake), `ExchangeControl` (the first
 target's controller and the second's swap them, CR 701.12a–b: all or
@@ -4885,6 +4887,11 @@ creature that was blocking it. `Modifier::AttackTaxMana { mana }` [Archangel
 of Tithes]: creatures can't attack the effect's controller or planeswalkers
 they control unless their controller pays `mana` generic for each of those
 creatures (CR 508.1h); attacks on anyone else are free.
+`Modifier::CantAttackUnlessYouSacrifice { count, filter }` [Flooded Woodlands,
+Leviathan]: each affected creature costs its controller `count` matching
+permanents of their choice when declared as an attacker. Separate costs use
+separate `CostSacrifice` choices; no permanent can pay two of them, and no
+cost or attacker is committed before the complete declaration is paid.
 `Modifier::CantBlockUnlessPayMana(n)` [Archangel of Tithes]: each affected
 creature can't block unless its controller pays `n` (CR 509.1d).
 `Effect::SkipNextCombatPhase { player }` [Blinding Angel]: each player of

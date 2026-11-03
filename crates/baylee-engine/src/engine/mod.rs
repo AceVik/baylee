@@ -187,6 +187,10 @@ enum PaymentContinuation {
     AttackTax {
         /// The declaration, as the seat made it.
         attackers: Vec<(ObjectId, baylee_core::ids::Defender)>,
+        /// The permanents already chosen for the declaration's other costs.
+        sacrifices: Vec<attack_sacrifice::AttackSacrificePayment>,
+        /// The life half of the determined declaration cost.
+        life: i32,
         /// The total tax, which is what the window shows as owed.
         cost: baylee_core::mana::ManaCost,
         /// What closing without the declaration gives back (CR 733.1).
@@ -268,9 +272,15 @@ impl PaymentContinuation {
                 .wrapping_add(crate::state::mana_cost_fingerprint(cost)),
             Self::AttackTax {
                 attackers,
+                sacrifices,
+                life,
                 cost,
                 opened,
             } => crate::state::structural_fingerprint(attackers)
+                .wrapping_mul(31)
+                .wrapping_add(attack_sacrifice::payments_fingerprint(sacrifices))
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(life))
                 .wrapping_mul(31)
                 .wrapping_add(crate::state::mana_cost_fingerprint(cost))
                 .wrapping_mul(31)
@@ -402,6 +412,8 @@ pub struct Engine<L: CardLookup> {
     player_control: player_control::PlayerControl,
     /// A combat damage step suspended before any damage results or SBAs.
     combat_damage: Option<crate::damage::DamageWork>,
+    /// An attack declaration choosing which permanents pay its sacrifice costs.
+    attack_sacrifice: Option<attack_sacrifice::AttackSacrificeWork>,
     /// A player making mana to meet a payment an effect has asked of them
     /// (CR 605.3a), while the resolution that asked is suspended above.
     ///
@@ -980,6 +992,7 @@ impl<L: CardLookup> Engine<L> {
             effect_plays: Vec::new(),
             player_control: player_control::PlayerControl::default(),
             combat_damage: None,
+            attack_sacrifice: None,
             mana_window: None,
             trigger_scan_seq,
             pending_plan: None,
@@ -1359,6 +1372,9 @@ impl<L: CardLookup> Engine<L> {
         }
         extra = extra
             .wrapping_mul(31)
+            .wrapping_add(self.attack_sacrifice_fingerprint());
+        extra = extra
+            .wrapping_mul(31)
             .wrapping_add(crate::state::structural_fingerprint(&self.player_control));
         for parent in &self.effect_plays {
             extra = extra.wrapping_mul(31).wrapping_add(parent.fingerprint());
@@ -1534,6 +1550,7 @@ impl<L: CardLookup> Engine<L> {
             effect_plays,
             player_control,
             combat_damage,
+            attack_sacrifice,
             mana_window,
             trigger_scan_seq,
             pending_plan,
@@ -1591,6 +1608,7 @@ impl<L: CardLookup> Engine<L> {
             ("effect_plays", format!("{effect_plays:?}")),
             ("player_control", format!("{player_control:?}")),
             ("combat_damage", format!("{combat_damage:?}")),
+            ("attack_sacrifice", format!("{attack_sacrifice:?}")),
             ("mana_window", format!("{mana_window:?}")),
             ("trigger_scan_seq", format!("{trigger_scan_seq:?}")),
             ("pending_plan", format!("{pending_plan:?}")),
@@ -1904,6 +1922,7 @@ impl<L: CardLookup> Engine<L> {
 
 mod abilities;
 mod ascend;
+mod attack_sacrifice;
 mod banding;
 mod camouflage;
 mod decision;
@@ -1970,6 +1989,8 @@ mod arrange_tests;
 mod arrival_tests;
 #[cfg(test)]
 mod attach_flow_tests;
+#[cfg(test)]
+mod attack_sacrifice_tests;
 #[cfg(test)]
 mod automation_tests;
 #[cfg(test)]

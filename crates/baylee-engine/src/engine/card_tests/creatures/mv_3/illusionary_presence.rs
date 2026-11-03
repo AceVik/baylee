@@ -22,6 +22,15 @@ fn answer_upkeep(
     pass_until(engine, |e| {
         matches!(e.pending(), Pending::ChooseSubtype { .. })
     });
+    let Pending::ChooseSubtype { player, options } = engine.pending().clone() else {
+        unreachable!("the upkeep landwalk choice was just reached")
+    };
+    assert_eq!(player, P0);
+    assert_eq!(
+        options,
+        subtypes::ALL_LAND_TYPES.iter().collect::<Vec<_>>(),
+        "the card offers every land type, not only the five basic types"
+    );
     engine
         .apply(P0, PlayerAction::ChooseSubtype(land_type))
         .expect("choose land type for landwalk");
@@ -113,5 +122,45 @@ fn illusionary_presence_gains_chosen_landwalk_until_eot_and_has_cumulative_upkee
     assert!(
         in_graveyard(&engine, P0, illusionary_presence()).is_some(),
         "declining cumulative upkeep sacrifices Illusionary Presence"
+    );
+}
+
+/// A nonbasic land type is a real choice, and the resulting Desertwalk is
+/// enforced both in the legal-block offer and when an illegal block is submitted.
+#[test]
+fn illusionary_presence_gains_desertwalk_and_rejects_an_actual_block() {
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[illusionary_presence(), island()])
+        .battlefield(1, &[desert(), index::GRIZZLY_BEARS])
+        .start();
+    keep_mulligans(&mut engine);
+
+    let presence = on_battlefield(&engine, P0, illusionary_presence()).expect("Presence seated");
+    let bears = on_battlefield(&engine, P1, index::GRIZZLY_BEARS).expect("Bears seated");
+    answer_upkeep(&mut engine, presence, subtypes::land::DESERT, 1, Some(1));
+
+    let offer = lk::attack(&mut engine, &[presence]);
+    assert!(
+        !lk::may_block(&offer, bears, presence),
+        "Desertwalk excludes the Bears from the legal-block offer"
+    );
+    assert!(
+        engine
+            .apply(
+                P1,
+                PlayerAction::DeclareBlockers {
+                    blockers: vec![(bears, presence)],
+                },
+            )
+            .is_err(),
+        "the engine also rejects the illegal block when it is submitted"
+    );
+
+    lk::block(&mut engine, &[]);
+    lk::through_combat(&mut engine);
+    assert_eq!(
+        engine.state().players[1].life,
+        18,
+        "the unblocked Presence deals its combat damage"
     );
 }

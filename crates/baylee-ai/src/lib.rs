@@ -707,9 +707,10 @@ impl HeuristicAgent {
                 }
                 PlayerAction::ChooseTargets { objects, players }
             }
-            Pending::ChooseSubtype { options, .. } => {
-                PlayerAction::ChooseSubtype(self.subtype(view, &options))
-            }
+            Pending::ChooseSubtype { options, .. } => PlayerAction::ChooseSubtype(
+                worth::subtype_choice(self, view, &options, context)
+                    .unwrap_or_else(|| self.subtype(view, &options)),
+            ),
             Pending::ChooseCardType { options, .. } => {
                 let preferred = [
                     baylee_core::types::TypeSet::CREATURE,

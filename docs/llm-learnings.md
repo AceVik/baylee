@@ -6127,3 +6127,131 @@ got wrong was in the tests, not in the cards:
   a printed "sacrifice a land". The sacrifice question that follows offers only
   lands, so no wrong play is possible, but the price is misnamed. Not changed
   here: it widens a wire struct and `VIEW_VERSION`.
+
+## 2026-11-02 — Barbarian Guides and context-safe landwalk choices
+
+- "Choose a land type" is not "choose a basic land type". Barbarian Guides
+  offers every entry in `ALL_LAND_TYPES`; its snow Desertwalk test proves both
+  the nonbasic choice and the additional snow filter in an actual block.
+- During resolution, `DecisionContext::effects` starts at the current program
+  counter. Its first effect identifies the exact landwalk clause asking for a
+  subtype, so the house can improve that choice without changing creature-type
+  or other subtype decisions.
+- Landwalk is evaluated per defending player. Model the granted evasion as
+  unblockable only against a defender controlling a visible land with both the
+  chosen subtype and the effect's additional properties; a global unblockable
+  pump overvalues it at multiplayer tables. Unknown land filters stay unread.
+- The shared reader also covers delayed source-only landwalk. The activation
+  census moves from 2978 to 2979 of 3781: Barbarian Guides remains readable and
+  Giant Slug becomes readable, with the existing delayed-effect discount.
+- Illusionary Presence reuses the unrestricted choice with
+  `TargetSpec::ThisObject`; no card-specific resolver or seat action is needed.
+  Its played test checks the complete subtype offer, rejects a submitted illegal
+  Desert block, and retains the ordinary landwalk and cumulative-upkeep cases.
+
+## 2026-11-02 — Battle Cry and untargeted event-object pumps
+
+- `PumpTarget` reads only `res.targets`; an untargeted "whenever a creature
+  blocks ... it gets" trigger must not invent a target requirement to feed it.
+  `PumpEventObject` binds the exact triggering incarnation through the shared
+  subject reader and does nothing if that object left and returned. Both cases
+  have direct resolver tests, alongside real combat and turn-expiry card tests.
+- A creature blocking two attackers is one blocking event for that creature,
+  not one event per pair. Exercise this with Two-Headed Giant of Foriys or
+  another card that can legally make both blocks; ordinary Grizzly Bears fail
+  during the declaration before the rule under test can run.
+- The event-object Debug census cannot assume `target` is the first printed
+  field. `ChooseLandwalk` prints `lands` first; count its event-object target by
+  examining the effect rather than changing the card or field order for a test.
+
+## 2026-11-03 — General Jarkeld's attacker-blocker exchange
+
+- `ExchangeBlockersOfTargetAttackers` is General Jarkeld's exchange of the
+  blockers of two attackers. `SwapBlockers` is Sorrow's Path's different exchange
+  of two blocking creatures; using it for Jarkeld made the paid ability a no-op.
+- Play both outcomes through the real activated ability: a legal exchange changes
+  the combat casualties, while one illegal resulting block prevents the whole
+  exchange. The combat unit tests also cover a creature blocking both attackers.
+- Client and LLM targeting reuse the existing exact-two object choice. The house's
+  single-target worth model leaves this pair-dependent activation unread rather
+  than inventing independent values for two targets whose effect only exists as
+  a pair; it does not make an unsupported activation or an illegal target answer.
+
+## 2026-11-03 — Fylgja's untargeted attached-object shield
+
+- `PreventNextDamageToAttached` already expresses an Aura's untargeted shield on
+  its exact enchanted permanent. Replacing `PreventNextDamage` removes Fylgja's
+  invented target without adding another engine or decision mechanism.
+- A Shroud creature cannot be enchanted by a newly cast targeted Aura spell. The
+  regression therefore enchants Serra Angel first, grants Shroud with Mage's
+  Guile, and then activates Fylgja. Untargeted Pyroclasm damage proves that one
+  damage is prevented and one remains; asserting only activation legality would
+  not test the finite shield.
+- Client and LLM activation reuse the ordinary no-target path. The house's
+  contextual prevention valuation remains honestly unread, so the activation
+  census is unchanged rather than gaining a speculative damage prediction.
+
+## 2026-11-03 — Kjeldoran Guard's defender condition and linked departure
+
+- `SomeDefendingPlayerControlsNone` already evaluates the defender for the
+  current combat, including multiplayer. Only that player's snow lands restrict
+  Kjeldoran Guard; a snow land controlled by its own controller does not.
+- `ModifyTargets` and `WhenTargetLeavesBattlefieldThisTurn` express the pump and
+  delayed sacrifice without a new mechanism. Play a non-death departure and a
+  later-turn departure so both the trigger and its expiry are actually tested.
+- Client and LLM activation reuse the ordinary single-creature target choice.
+  The house leaves the linked pump/future-sacrifice exchange contextually unread
+  rather than valuing the pump while ignoring its eventual cost; the exact
+  activation census therefore adds one unread row.
+
+## 2026-11-03 — Leshrac's Sigil and private hand discard
+
+- `PlayerMayPayManaThen` nests the hand-discard effect, so the event reader must
+  find `ControllerOfEvent` through the whole effect tree. Five played tests cover
+  both abilities, accepting and declining the payment, the opponent/green filter,
+  and the source returning to hand before its trigger resolves.
+- `ChoicePrompt::LookAtHand` distinguishes by its limits: zero is inspection only;
+  a positive maximum selects cards for their owner to discard. The desktop client
+  uses its ordinary bounded object selection and names the discard in both
+  languages, while the LLM menu states that distinction explicitly.
+- The house answers a required private discard by ranking the offered cards rather
+  than taking the first one. Its test reverses the menu order and respects the
+  existing castability-aware valuation; no card-specific policy was added. The
+  activation census stays at 2979 of 3782 because this card adds a trigger, not
+  another activation.
+
+## 2026-11-03 — Chaos Lord's parity trigger and narrow attack permission
+
+- `Condition::AmountIsEven(Amount::CountOf { zone: Battlefield, .. })` expresses
+  the permanent-count intervening-if without new engine state. Play both the odd
+  non-trigger and a real response that changes an even count to odd before
+  resolution; checking only the initial condition would miss CR 603.4.
+- `AttacksAsThoughHaste` on `This && !EnteredThisTurn` is not the Haste keyword:
+  it relaxes only the attack restriction after a same-turn control change and
+  never enables a fresh creature's activated {T} abilities.
+- Six played tests cover first-strike combat, the targeted opponent and unchanged
+  owner, both parity checks, refusal of a newly entered attacker, and an actual
+  unblocked attack after Dominate changes control. The latter uses no effect that
+  independently grants haste.
+- Client and LLM targeting reuse the existing player-target prompt; no new choice
+  or seat action is needed. AI, LLM-seat and desktop decision/interaction suites
+  pass unchanged, and the activation census stays at 2979 of 3782 because Chaos
+  Lord has no activated ability.
+
+## 2026-11-03 — Flooded Woodlands and chosen attack sacrifices
+
+- Attack declarations determine every mana, life and sacrifice cost before paying
+  any of them. Each `CantAttackUnlessYouSacrifice` cost now reuses the ordinary
+  `CostSacrifice` card choice, with exactly the controller's matching permanents
+  offered and earlier choices excluded from later costs. No attacker taps and no
+  permanent moves before the final answer.
+- The suspended declaration carries its chosen payments through a mana window
+  and validates them again before payment. Checkpoint, snapshot hash, simulation
+  fork refusal and player departure all include that continuation; a short
+  `PayWindow` and an invalid choice are atomic. A deliberate omission of chosen
+  payments from the continuation hash made the snapshot regression fail.
+- Played tests cover a non-first Forest, an opponent's land refused atomically,
+  two distinct lands for two green attackers, no-land illegality, Leviathan's two
+  chosen Islands and Exalted Dragon's existing generic choice. Engine tests also
+  combine Brainwash's mana window with the sacrifice choice. House AI, LLM seats
+  and desktop use the existing choice without card-specific policy.

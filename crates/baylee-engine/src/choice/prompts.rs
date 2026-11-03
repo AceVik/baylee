@@ -161,7 +161,8 @@ pub enum ChoicePrompt {
     },
     /// Choose a land from which this ability removes all linked counters.
     RemoveLandCounters,
-    /// Privately inspect the offered hand, then acknowledge without selecting.
+    /// Privately inspect the offered hand. `min == max == 0` is inspection
+    /// only; a positive limit selects cards for their owner to discard.
     LookAtHand,
     /// Privately inspect library cards, then confirm without selecting any.
     LookAtLibrary,

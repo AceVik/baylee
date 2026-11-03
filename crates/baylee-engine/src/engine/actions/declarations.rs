@@ -1,5 +1,6 @@
 //! Declaring attackers and blockers: the attack tax and its payment window, the blocks made, and what a declaration records (CR 508.1, 509.1).
 
+use super::super::attack_sacrifice::{AttackSacrificeCost, AttackSacrificePayment};
 use super::{
     AttackerInfo, CardLookup, Cause, CombatDeclared, Engine, EngineError, GameEvent, ObjectId,
     ObjectKind, Pending, PlayerId, combat,
@@ -127,29 +128,12 @@ impl<L: CardLookup> Engine<L> {
                 "cannot pay life required to declare those attackers",
             ));
         }
-        let mut sacrifice_costs = Vec::new();
-        for &(creature, _) in &attackers {
-            for (count, filter, you, source) in rules.sacrifice_tax(creature) {
-                let candidates: Vec<ObjectId> = self
-                    .state
-                    .battlefield_seen()
-                    .filter(|&id| {
-                        !sacrifice_costs.contains(&id)
-                            && self.state.object(id).is_some_and(|p| {
-                                p.controller == player
-                                    && crate::eval::matches(filter, &self.state, p, you, source)
-                            })
-                    })
-                    .take(usize::from(count))
-                    .collect();
-                if candidates.len() < usize::from(count) {
-                    return Err(EngineError::IllegalAction(
-                        "cannot pay sacrifice cost required to declare those attackers",
-                    ));
-                }
-                sacrifice_costs.extend(candidates);
-            }
-        }
+        let sacrifice_costs: Vec<AttackSacrificeCost> = attackers
+            .iter()
+            .flat_map(|&(creature, _)| rules.sacrifice_tax(creature))
+            .map(AttackSacrificeCost::from)
+            .filter(|cost| cost.count > 0)
+            .collect();
         // CR 508.1h–i: every cost is now known and none is paid yet. A mana
         // tax the pool does not cover is made in a payment window, and the
         // declaration waits in it with nothing paid.
@@ -158,6 +142,42 @@ impl<L: CardLookup> Engine<L> {
             .map(|&(creature, defending)| rules.mana_tax_for(creature, defending))
             .fold(0_u32, u32::saturating_add);
         drop(rules);
+        if !sacrifice_costs.is_empty() {
+            return self.ask_attack_sacrifices(
+                player,
+                attackers,
+                sacrifice_costs,
+                total_mana_tax,
+                total_life_tax,
+                reach,
+            );
+        }
+        self.finish_attack_declaration(
+            player,
+            attackers,
+            Vec::new(),
+            total_mana_tax,
+            total_life_tax,
+            reach,
+        )
+    }
+
+    /// Pays the already determined costs with the permanents their controller
+    /// chose, then makes the declaration (CR 508.1h–k).
+    pub(in crate::engine) fn finish_attack_declaration(
+        &mut self,
+        player: PlayerId,
+        attackers: Vec<(ObjectId, baylee_core::ids::Defender)>,
+        sacrifices: Vec<AttackSacrificePayment>,
+        total_mana_tax: u32,
+        total_life_tax: i32,
+        reach: u64,
+    ) -> Result<(), EngineError> {
+        if !super::super::attack_sacrifice::valid_payments(&self.state, player, &sacrifices) {
+            return Err(EngineError::IllegalAction(
+                "chosen permanents no longer pay the attack sacrifice cost",
+            ));
+        }
         let tax = baylee_core::mana::ManaCost::ZERO.with_more_generic(total_mana_tax);
         let pool = &self.state.players[usize::from(player.get())].mana_pool;
         if total_mana_tax > 0 && !crate::mana_pay::can_pay(pool, &tax) {
@@ -166,7 +186,7 @@ impl<L: CardLookup> Engine<L> {
                     "cannot pay mana required to declare those attackers",
                 ));
             }
-            self.open_attack_tax_window(player, attackers, tax);
+            self.open_attack_tax_window(player, attackers, sacrifices, total_life_tax, tax);
             return Ok(());
         }
         if total_life_tax > 0 {
@@ -180,11 +200,13 @@ impl<L: CardLookup> Engine<L> {
             );
             debug_assert!(paid, "mana tax was validated");
         }
-        for sac_id in sacrifice_costs {
-            if let Some(obj) = self.state.object_mut(sac_id) {
-                obj.kind = ObjectKind::Card;
+        for payment in sacrifices {
+            for sac_id in payment.objects {
+                if let Some(obj) = self.state.object_mut(sac_id) {
+                    obj.kind = ObjectKind::Card;
+                }
+                let _ = self.state.sacrifice_object(sac_id, Cause::TurnBased);
             }
-            let _ = self.state.sacrifice_object(sac_id, Cause::TurnBased);
         }
         for &(creature, defending) in &attackers {
             if combat::attack_taps(&self.state, creature) {
@@ -247,6 +269,8 @@ impl<L: CardLookup> Engine<L> {
         &mut self,
         player: PlayerId,
         attackers: Vec<(ObjectId, baylee_core::ids::Defender)>,
+        sacrifices: Vec<AttackSacrificePayment>,
+        life: i32,
         cost: baylee_core::mana::ManaCost,
     ) {
         let mut legal = self.compute_legal(player);
@@ -255,6 +279,8 @@ impl<L: CardLookup> Engine<L> {
             player,
             suspended: super::PaymentContinuation::AttackTax {
                 attackers,
+                sacrifices,
+                life,
                 cost,
                 opened: Box::new(self.window_start(player)),
             },
@@ -274,11 +300,14 @@ impl<L: CardLookup> Engine<L> {
         &mut self,
         player: PlayerId,
         attackers: Vec<(ObjectId, baylee_core::ids::Defender)>,
+        sacrifices: Vec<AttackSacrificePayment>,
+        life: i32,
+        cost: baylee_core::mana::ManaCost,
         opened: &super::WindowStart,
     ) -> bool {
         self.awaiting_answer = false;
         if self
-            .declare_attackers_paying(player, attackers, false)
+            .finish_attack_declaration(player, attackers, sacrifices, cost.generic_total(), life, 0)
             .is_ok()
         {
             return true;

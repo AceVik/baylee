@@ -487,6 +487,7 @@ pub(super) fn exec_immediate(
         | Effect::PumpFilter { .. }
         | Effect::PumpFilterPerKeyword { .. }
         | Effect::PumpTarget { .. }
+        | Effect::PumpEventObject { .. }
         | Effect::PumpTargetSlot { .. } => counters::exec(state, res, op),
         Effect::MarkLandWithCounter { .. }
         | Effect::ScheduleLinkedCounterCleanup { .. }

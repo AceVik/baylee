@@ -380,6 +380,39 @@ fn inspecting_a_hand_needs_only_confirmation_and_never_selects_cards() {
 }
 
 #[test]
+fn inspecting_a_hand_to_discard_selects_exactly_one_offered_card() {
+    let mut i = interaction(Pending::ChooseCards {
+        player: me(),
+        options: vec![obj(1), obj(2)],
+        min: 1,
+        max: 1,
+        prompt: ChoicePrompt::LookAtHand,
+        total: None,
+    });
+    assert!(!i.can_confirm());
+    assert_eq!(i.confirm(), None);
+    assert!(!i.is_selectable(obj(3)));
+    assert_eq!(i.toggle(obj(3)), SelectionOutcome::Rejected);
+    assert!(i.is_selectable(obj(2)));
+    assert_eq!(i.toggle(obj(2)), SelectionOutcome::Added);
+    assert!(i.can_confirm());
+    assert_eq!(
+        i.confirm(),
+        Some(PlayerAction::ChooseObjects {
+            objects: vec![obj(2)]
+        })
+    );
+    assert_eq!(
+        i.prompt().headline(Lang::En, Turn::Mine, None, false),
+        "Choose 1 card to discard"
+    );
+    assert_eq!(
+        i.prompt().headline(Lang::De, Turn::Mine, None, false),
+        "Wähle 1 Karte, die abgeworfen wird"
+    );
+}
+
+#[test]
 fn choosing_colors_is_described_as_a_resolution_choice_and_submits_the_offered_index() {
     use baylee_core::{
         color::{Color, ColorSet},

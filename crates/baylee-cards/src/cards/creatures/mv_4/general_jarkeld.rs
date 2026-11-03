@@ -10,22 +10,13 @@ static BLOCKED_ATTACKING_CREATURE: Filter = Filter::And(&[
     Filter::Not(&Filter::Unblocked),
 ]);
 
-// NOT SUPPORTED: "If each of those creatures could be blocked by all creatures that the other is
-// blocked by, each creature that's blocking exactly one of those attacking creatures stops
-// blocking it and is blocking the other attacking creature." No effect moves blockers between
-// two attackers. `Effect::SwapBlockers` is Sorrow's Path's exchange of two *blocking*
-// creatures: given two attackers as its targets it finds nothing either of them blocks and
-// changes nothing. So the ability is offered and paid as printed (tap, two target blocked
-// attacking creatures, declare blockers step only) and resolves to no change at all.
 card!(
     index = index::GENERAL_JARKELD,
     oracle_id = "64df77f6-4f7e-442a-971c-8ad3f7d1c979",
     scryfall_id = "6a4f5a28-0bd2-4cc4-b67f-324e89193caa",
     color_identity = ColorSet::from_slice(&[Color::White]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Partial(
-        "the reblock is not played: the ability taps and targets two blocked attackers, and no blocker moves"
-    ),
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "General Jarkeld",
         mana_cost = mana!("{3}{W}"),
@@ -37,7 +28,7 @@ card!(
     ),],
     abilities = &[activated!(
         Cost::TAP,
-        &[Effect::SwapBlockers],
+        &[Effect::ExchangeBlockersOfTargetAttackers],
         targets = Some(TargetReq::exactly(
             TargetSpec::Object(&BLOCKED_ATTACKING_CREATURE),
             2
