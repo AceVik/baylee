@@ -2231,6 +2231,8 @@ pub(crate) mod synthetic;
 #[cfg(test)]
 mod target_tests;
 #[cfg(test)]
+mod targeting_flow_tests;
+#[cfg(test)]
 mod tax_window_tests;
 #[cfg(test)]
 mod team_tests;
