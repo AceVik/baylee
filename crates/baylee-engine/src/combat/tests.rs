@@ -1,6 +1,7 @@
 //! Combat's tests: declarations, restrictions, damage assignment and banding.
 
 mod assignment_restrictions;
+mod basics;
 mod battle;
 mod exchange;
 mod history;
