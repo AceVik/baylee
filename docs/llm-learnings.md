@@ -6412,3 +6412,21 @@ got wrong was in the tests, not in the cards:
   was red before the reader change, and the full 314-test AI suite is green.
   The reviewed activation census is 2995 of 3783: eighteen rows become readable
   and Kjeldoran Elite Guard loses one formerly context-free reading.
+
+## 2026-11-03 — Forgotten Lore's opponent-directed repeated choice
+
+- Reuse `RechooseGraveyardCard { owner: You, chooser: Chosen, cost: {G} }`
+  rather than targeting a graveyard card. The spell targets only an opponent;
+  that opponent makes every public graveyard choice. Exact selected
+  incarnations are excluded on later passes, nothing moves during repetition,
+  and only the last selection goes to hand after the optional payment ends.
+- Four played card tests cover the target restriction, two paid repetitions,
+  exclusion of earlier picks, refusal, insufficient repeat mana and an empty
+  graveyard. Four direct engine tests also cover payment after choices are
+  exhausted and reject returning an incarnation that left and re-entered the
+  graveyard. The existing commander-replacement continuation remains shared.
+- Desktop and LLM seats use the existing target, public-card and mana-payment
+  decisions. The house AI now evaluates `FromGraveyard` choices relative to the
+  public card owner: it takes the best card for itself but offers the worst to
+  an opponent. The regression was red before that policy change; no
+  card-specific policy or hidden information is involved.

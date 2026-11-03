@@ -68,7 +68,7 @@ fn ask(state: &GameState, res: &mut Resolution, selection: Selection) -> Option<
         options,
         min: 1,
         max: 1,
-        prompt: ChoicePrompt::PutIntoHand,
+        prompt: ChoicePrompt::FromGraveyard,
         total: None,
     })
 }
