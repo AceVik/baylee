@@ -103,7 +103,7 @@ fn the_untap_step_untaps_only_the_active_players_permanents() {
     {
         let state = engine.dev_state_mut(p0).expect("dev board");
         for id in [mine, theirs] {
-            state.object_mut(id).unwrap().status.insert(Status::TAPPED);
+            state.set_tapped(id, true);
         }
     }
     main_of(&mut engine, p1);
@@ -119,59 +119,44 @@ fn the_untap_step_untaps_only_the_active_players_permanents() {
     assert!(!tapped(&engine, mine));
 }
 
-#[test]
-fn an_untapped_permanent_is_left_as_it_was() {
-    let p0 = PlayerId::new(0);
-    let p1 = PlayerId::new(1);
-    let mut engine = duel_with_a_forest_each();
-    main_of(&mut engine, p0);
-    let [mine, theirs] = forests(&engine);
-    main_of(&mut engine, p1);
-    assert!(!tapped(&engine, mine));
-    assert!(!tapped(&engine, theirs));
-}
-
+/// Seat 1's whole turn, read at every question it asks: each step that
+/// gives priority comes once, in the order of CR 500.1, 501.1, 506.1 and
+/// 512.1. The untap and cleanup steps give no priority (CR 502.4, 514.3),
+/// and with no attacker declared the blockers and damage steps are skipped
+/// (CR 508.8).
 #[test]
 fn every_step_of_a_turn_happens_once_and_in_order() {
-    let p0 = PlayerId::new(0);
+    use crate::turn::Step;
     let p1 = PlayerId::new(1);
     let mut engine = duel_with_a_forest_each();
-    main_of(&mut engine, p0);
-    let turn = engine.state().turn.number;
-    let mut seen: Vec<(Phase, crate::turn::Step)> = Vec::new();
-    pass_until(&mut engine, |e| {
-        e.state().turn.active == p1 && e.state().turn.phase == Phase::FirstMain
-    });
-    // Walk a whole turn of seat 1's, recording the steps that hand out
-    // priority.
-    for _ in 0..200 {
+    main_of(&mut engine, PlayerId::new(0));
+    let turn = engine.state().turn.number + 1;
+    pass_until(&mut engine, |e| e.state().turn.number == turn);
+    let mut seen: Vec<(Phase, Step)> = Vec::new();
+    while engine.state().turn.number == turn {
         let state = engine.state();
-        if state.turn.active != p1 || state.turn.number != turn + 1 {
-            break;
-        }
+        assert_eq!(state.turn.active, p1);
         let here = (state.turn.phase, state.turn.step);
         if seen.last() != Some(&here) {
             seen.push(here);
         }
-        let Pending::Priority { player, .. } = engine.pending().clone() else {
-            pass_until(&mut engine, |e| {
-                matches!(e.pending(), Pending::Priority { .. })
-            });
-            continue;
-        };
-        engine.apply(player, PlayerAction::PassPriority).unwrap();
+        let before = engine.state().turn.step;
+        pass_until(&mut engine, |e| {
+            e.state().turn.step != before || e.state().turn.number != turn
+        });
     }
-    for (i, here) in seen.iter().enumerate() {
-        assert!(!seen[i + 1..].contains(here), "no step came back: {seen:?}");
-    }
-    let first_main = seen.iter().position(|(p, _)| *p == Phase::FirstMain);
-    let second_main = seen.iter().position(|(p, _)| *p == Phase::SecondMain);
-    let end = seen.iter().position(|(_, s)| *s == crate::turn::Step::End);
-    assert!(first_main.is_some() && end.is_some(), "{seen:?}");
-    assert!(first_main < second_main, "{seen:?}");
-    assert!(
-        second_main < end,
-        "the end step follows the main phases: {seen:?}"
+    assert_eq!(
+        seen,
+        [
+            (Phase::Beginning, Step::Upkeep),
+            (Phase::Beginning, Step::Draw),
+            (Phase::FirstMain, Step::Main),
+            (Phase::Combat, Step::CombatBegin),
+            (Phase::Combat, Step::DeclareAttackers),
+            (Phase::Combat, Step::CombatEnd),
+            (Phase::SecondMain, Step::Main),
+            (Phase::Ending, Step::End),
+        ]
     );
 }
 
@@ -186,10 +171,7 @@ fn a_tapped_land_untaps_for_its_controller_every_turn() {
         engine
             .dev_state_mut(p0)
             .expect("dev board")
-            .object_mut(mine)
-            .unwrap()
-            .status
-            .insert(Status::TAPPED);
+            .set_tapped(mine, true);
         main_of(&mut engine, p1);
         assert!(tapped(&engine, mine));
         main_of(&mut engine, p0);

@@ -4,7 +4,7 @@
 //! "yes" to everything would pass every half that only checks a match.
 
 use super::*;
-use crate::object::{CounterKind, Status};
+use crate::object::CounterKind;
 use baylee_core::color::{Color, ColorSet};
 
 fn is(state: &GameState, filter: &Filter, id: ObjectId, you: PlayerId, this: ObjectId) -> bool {
@@ -144,7 +144,7 @@ fn tapped_and_untapped_follow_the_status() {
     let id = creature(&mut state, P0, KeywordSet::EMPTY);
     assert!(is(&state, &Filter::Untapped, id, P0, id));
     assert!(!is(&state, &Filter::Tapped, id, P0, id));
-    state.object_mut(id).unwrap().status.insert(Status::TAPPED);
+    state.set_tapped(id, true);
     assert!(is(&state, &Filter::Tapped, id, P0, id));
     assert!(!is(&state, &Filter::Untapped, id, P0, id));
 }

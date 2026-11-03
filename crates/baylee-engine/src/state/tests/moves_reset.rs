@@ -68,7 +68,7 @@ fn counters_do_not_follow_a_permanent_into_the_graveyard() {
 fn a_tapped_permanent_comes_back_untapped() {
     let mut state = state(204);
     let id = permanent(&mut state);
-    state.object_mut(id).unwrap().status.insert(Status::TAPPED);
+    state.set_tapped(id, true);
     let id = go(&mut state, id, ZoneLocation::Exile(P0));
     let id = go(&mut state, id, ZoneLocation::Battlefield);
     assert!(!state.object(id).unwrap().status.contains(Status::TAPPED));

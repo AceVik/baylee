@@ -10,7 +10,7 @@ use crate::combat::menace_satisfiable;
 use crate::object::Status;
 
 fn tap(state: &mut GameState, id: ObjectId) {
-    state.object_mut(id).unwrap().status.insert(Status::TAPPED);
+    state.set_tapped(id, true);
 }
 
 #[test]

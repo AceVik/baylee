@@ -1137,21 +1137,22 @@ fn nothing_writes_the_tapped_bit_except_the_one_door() {
 /// It counts plain assignment as well as `+=` and `-=`. The first rule that
 /// sets a life total (CR 119.5) is the likeliest site to spell it that way.
 /// Test code is left out: tests set a total up directly, and that is not a
-/// loss in any game. That covers the `_tests.rs` files, every `_tests/`
-/// directory, the harness files, and the inline `#[cfg(test)] mod` that
-/// closes a file.
+/// loss in any game. That covers the `_tests.rs` files, every `_tests/` and
+/// `tests/` directory, the harness files, and the inline `#[cfg(test)] mod`
+/// that closes a file.
 #[test]
 fn nothing_changes_a_life_total_except_the_one_door() {
     fn is_test_source(rel: &str) -> bool {
-        // Any directory named `*_tests`, not the two there were: a list of
-        // them read `mechanics_tests/` as engine source when it arrived.
+        // Any directory named `*_tests` or `tests`, not the two there were:
+        // a list of them read `mechanics_tests/` as engine source when it
+        // arrived. A `tests/` directory holds the modules of a `tests.rs`.
         rel.ends_with("_tests.rs")
             || rel.rsplit('/').next() == Some("tests.rs")
             || rel
                 .split('/')
                 .rev()
                 .skip(1)
-                .any(|dir| dir.ends_with("_tests"))
+                .any(|dir| dir == "tests" || dir.ends_with("_tests"))
             || matches!(
                 rel,
                 "engine/testkit.rs" | "engine/synthetic.rs" | "engine/tests.rs"
