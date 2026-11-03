@@ -41,9 +41,10 @@
 //!   the next priority round with mana in the pool (passing would throw the
 //!   mana away) and whatever the activation asks on the way (which colour a
 //!   land makes) are [`Verdict::Continue`], the next step of what the mind
-//!   began. A mind that planned the payment answers those from its plan
-//!   (§4.3: a mana plan in flight wakes nobody), so they are counted apart
-//!   from wakes.
+//!   began, and so is every round of the same step after a pass that let a
+//!   trigger of the taps resolve (Manabarbs: [`WakeFilter::heard`]). A mind
+//!   that planned the payment answers those from its plan (§4.3: a mana
+//!   plan in flight wakes nobody), so they are counted apart from wakes.
 //!
 //! # What "nothing to do" means here
 //!
@@ -461,11 +462,23 @@ impl WakeFilter {
     /// way. Only an answer that ends one ends it: a pass, a cast, a land, a
     /// declaration. Listed that way round so that an answer this filter has
     /// not heard of keeps asking rather than passing a full pool away.
+    ///
+    /// A pass over abilities alone does not end it either. A land's own
+    /// trigger (Manabarbs, City of Brass, Psychic Venom) goes on the stack
+    /// as the land is tapped (CR 603.3), and a sorcery-speed spell cannot be
+    /// cast until it has resolved, so the seat's taps pass to let it
+    /// ([`only_abilities_on_stack`]). Priority comes back in the same step
+    /// with the mana still in the pool (CR 117.3b, 500.5), and that window
+    /// is the payment's next step, the cast it was for: ending the payment
+    /// at the pass handed those windows to the orders, which passed them
+    /// as nothing to do, and the mana emptied with the step.
     pub fn heard(&mut self, view: &PlayerView, action: &PlayerAction) {
         match action {
             PlayerAction::ActivateManaAbility { .. } | PlayerAction::ActivateAbility { .. } => {
                 self.paying = Some((view.turn, view.phase, view.step));
             }
+            PlayerAction::PassPriority
+                if self.paying.is_some() && only_abilities_on_stack(view) => {}
             PlayerAction::PassPriority
             | PlayerAction::CastSpell { .. }
             | PlayerAction::PlayLand { .. }
@@ -543,6 +556,19 @@ fn targets_me(view: &PlayerView, teams: &[Option<u8>]) -> bool {
                         .is_some_and(|object| object.controller == me)
             }
         })
+}
+
+/// Whether the stack holds something, and nothing but abilities: what the
+/// seat's taps pass over toward the spell they pay for, a land's trigger
+/// set off by the taps themselves. A spell on the stack is a decision, and
+/// never passed for a payment.
+#[must_use]
+pub fn only_abilities_on_stack(view: &PlayerView) -> bool {
+    !view.stack.is_empty()
+        && view
+            .stack
+            .iter()
+            .all(|o| matches!(o.stack_item, Some(baylee_view::StackItem::Ability { .. })))
 }
 
 /// Whether the table is holding a payment window open (CR 605.3a,

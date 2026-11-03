@@ -1567,6 +1567,7 @@ fn untap_replacement_refusal_does_not_offer_a_free_untap() {
 }
 
 mod foretell;
+mod land_triggers;
 mod owed;
 mod triage;
 
