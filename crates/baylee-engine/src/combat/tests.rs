@@ -6,6 +6,7 @@ mod battle;
 mod exchange;
 mod history;
 mod ice_landwalk;
+mod legality;
 use super::block::LANDWALKS;
 use super::damage::deal_combat_damage;
 use super::*;
