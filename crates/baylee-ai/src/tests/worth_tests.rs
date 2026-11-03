@@ -1059,6 +1059,75 @@ fn source_changes_and_untaps_keep_their_controller_and_object() {
     );
 }
 
+/// Follow-up modifiers belong to the returned target, and their future tax or
+/// destination must not make the immediate reanimation unreadable.
+#[test]
+fn target_modifiers_keep_reanimation_readable_without_valuing_the_source() {
+    use baylee_cards_dsl::{Duration, Effect, Modifier};
+    let source = card(1, ME, "Dreams of the Dead", TypeSet::ENCHANTMENT);
+    let returned = card(3, ME, "Black Knight", TypeSet::CREATURE);
+    let mut v = view(0, &[20, 20], vec![source, permanent(obj(2), THEM, 3)]);
+    v.graveyards[0].push(returned);
+    let origin = Origin::of(&v, obj(1));
+    let dreams = baylee_cards::decks::by_name("Dreams of the Dead").unwrap();
+    let Some(AbilityDef::Activated { effects, .. }) = baylee_cards::by_index(dreams)
+        .unwrap()
+        .abilities_for_face(0)
+        .first()
+    else {
+        panic!("Dreams has an activated ability");
+    };
+    let reanimation = agent().effects_worth(&v, origin, &effects[..1], Aim::Object(obj(3)), 0);
+    assert!(reanimation.is_some_and(|worth| worth > 0));
+    assert_eq!(
+        agent().effects_worth(&v, origin, effects, Aim::Object(obj(3)), 0),
+        reanimation
+    );
+
+    let pump = [Effect::ModifyTargets {
+        modifier: Modifier::ModifyPT(2, 1),
+        duration: Duration::Indefinitely,
+    }];
+    assert_eq!(
+        agent().effects_worth(&v, origin, &pump, Aim::Object(obj(2)), 0),
+        Some(-250),
+        "the opposing target is pumped, not the friendly source"
+    );
+
+    // Goblin Sappers' first activation also destroys its source at end of
+    // combat. That source loss is distinct from destroying the remembered
+    // target, even though both effects share the delayed trigger.
+    let sappers_v = view(
+        0,
+        &[20, 20],
+        vec![
+            card(10, ME, "Goblin Sappers", TypeSet::CREATURE),
+            permanent(obj(11), ME, 4),
+        ],
+    );
+    let sappers_origin = Origin::of(&sappers_v, obj(10));
+    let sappers = baylee_cards::decks::by_name("Goblin Sappers").unwrap();
+    let sappers = baylee_cards::by_index(sappers).unwrap();
+    let activation_worth = |index| {
+        let Some(AbilityDef::Activated { effects, .. }) = sappers.abilities_for_face(0).get(index)
+        else {
+            panic!("Goblin Sappers has two activated abilities");
+        };
+        agent()
+            .effects_worth(&sappers_v, sappers_origin, effects, Aim::Object(obj(11)), 0)
+            .unwrap()
+    };
+    let source_loss = -HeuristicAgent::permanent_worth(
+        &sappers_v,
+        sappers_origin.object.expect("the source is visible"),
+    );
+    assert_eq!(
+        activation_worth(0),
+        activation_worth(1) + i64::midpoint(source_loss, 0),
+        "the delayed trigger loses the source, not a second copy of the target"
+    );
+}
+
 /// A regeneration shield is worth a threatened body, not an idle-board upgrade.
 #[test]
 fn regeneration_is_valued_only_when_combat_threatens_its_recipient() {

@@ -1440,6 +1440,8 @@ impl HeuristicAgent {
             effect,
             Effect::MayDoFor { .. }
                 | Effect::WhenNextSpellCastThisTurn { .. }
+                | Effect::WhenTargetLeavesBattlefieldThisTurn { .. }
+                | Effect::WhenSourceLeavesBattlefieldThisTurn { .. }
                 | Effect::CreateDelayedObserver { .. }
                 | Effect::DestroyAllThenForEachDestroyed { .. }
                 | Effect::ForEachCreatureDamagedBySourceThatDiedThisTurn { .. }
@@ -1566,13 +1568,20 @@ impl HeuristicAgent {
                 }
             }
             Effect::CreateEmblem { .. } => 1_000,
-            Effect::Destroy { .. } => subject.map_or(0, |o| {
-                if has(o, KeywordSet::INDESTRUCTIBLE) {
-                    0
+            Effect::Destroy { target, .. } => {
+                let object = if matches!(target, TargetSpec::ThisObject) {
+                    origin.object
                 } else {
-                    self.removal(view, o)
-                }
-            }),
+                    subject
+                };
+                object.map_or(0, |o| {
+                    if has(o, KeywordSet::INDESTRUCTIBLE) {
+                        0
+                    } else {
+                        self.removal(view, o)
+                    }
+                })
+            }
             Effect::DestroyOthersNamedLike { .. } => subject.map_or(0, |target| {
                 view.battlefield
                     .iter()
@@ -1670,6 +1679,10 @@ impl HeuristicAgent {
             }
             Effect::ModifySource { modifier, duration } => {
                 let objects: Vec<_> = origin.object.into_iter().collect();
+                self.modifier_worth(view, origin, &objects, modifier, *duration)?
+            }
+            Effect::ModifyTargets { modifier, duration } => {
+                let objects: Vec<_> = subject.into_iter().collect();
                 self.modifier_worth(view, origin, &objects, modifier, *duration)?
             }
             Effect::PumpTargetSlot {
@@ -1908,9 +1921,15 @@ impl HeuristicAgent {
             Modifier::PreventDamageFrom(_) => {
                 objects.iter().map(|o| self.prevent(view, o, false)).sum()
             }
-            // A type, a colour or a subtype changes what other
-            // cards say about the object and nothing by itself.
-            Modifier::AddType(_)
+            // Cumulative upkeep asks later payment questions, which `pays_tax`
+            // values when they are offered. Its grant adds no immediate value
+            // of its own and must not hide the effect that returned the body.
+            Modifier::GrantTriggered { effects, .. } if Effect::is_cumulative_upkeep(effects) => 0,
+            // A later destination changes no resource now. A type, a colour or
+            // a subtype changes what other cards say about the object and
+            // nothing by itself.
+            Modifier::ExileInsteadOfLeavingBattlefield
+            | Modifier::AddType(_)
             | Modifier::RemoveType(_)
             | Modifier::AddSubtype(_)
             | Modifier::AllCreatureTypes
