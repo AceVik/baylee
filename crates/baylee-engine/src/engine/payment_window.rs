@@ -147,6 +147,18 @@ impl<L: CardLookup> Engine<L> {
         self.can_pay_mana(player, casting::SpendFor::Other, cost)
     }
 
+    /// The priority a CR 605.3a payment window for `player` would open
+    /// with, when it holds anything to press that makes mana; `None` when
+    /// nothing would, and a window would only repeat the question.
+    pub(super) fn mana_window_legal(
+        &self,
+        player: PlayerId,
+    ) -> Option<crate::choice::LegalActions> {
+        let mut legal = self.compute_legal(player);
+        self.narrow_to_mana(&mut legal);
+        legal.has_mana_source().then_some(legal)
+    }
+
     /// Ends a payment window and settles the payment it was opened for, and
     /// says how it settled ([`WindowClose`]).
     ///
@@ -208,6 +220,14 @@ impl<L: CardLookup> Engine<L> {
                 if !paid {
                     let _ = sba::lose_by_effect(&mut self.state, window.player);
                 }
+                return Ok(WindowClose::settled(paid));
+            }
+            PaymentContinuation::Echo {
+                cost,
+                card,
+                version,
+            } => {
+                let paid = self.settle_echo(window.player, &cost, card, version);
                 return Ok(WindowClose::settled(paid));
             }
             PaymentContinuation::AttackTax {

@@ -518,14 +518,12 @@ impl<L: CardLookup> Engine<L> {
             }),
             &cost,
         );
-        if !can_pay {
-            // Echo with an empty pool: sacrifice immediately.
-            if let Some(obj) = self.state.object_mut(card) {
-                obj.kind = ObjectKind::Card;
-            }
-            let _ = self
-                .state
-                .sacrifice_object(card, crate::event::Cause::Effect);
+        // A player asked to pay may make the mana first (CR 605.3a), so the
+        // question is put while the pool pays it or anything could make
+        // mana for it. Only a player with neither is past asking: before,
+        // an empty pool sacrificed the permanent beside untapped lands.
+        if !can_pay && self.mana_window_legal(active).is_none() {
+            self.sacrifice_for_echo(card);
             return false;
         }
         let source = self
@@ -545,6 +543,48 @@ impl<L: CardLookup> Engine<L> {
         };
         self.awaiting_answer = true;
         true
+    }
+
+    /// Echo unpaid: the permanent is sacrificed, if it is still there to be
+    /// (CR 701.21a).
+    pub(in crate::engine) fn sacrifice_for_echo(&mut self, card: ObjectId) {
+        if !self
+            .state
+            .object(card)
+            .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
+        {
+            return;
+        }
+        if let Some(obj) = self.state.object_mut(card) {
+            obj.kind = ObjectKind::Card;
+        }
+        let _ = self
+            .state
+            .sacrifice_object(card, crate::event::Cause::Effect);
+    }
+
+    /// Echo paid out of `player`'s pool, or the permanent sacrificed when
+    /// the pool falls short. Returns whether it was paid.
+    pub(in crate::engine) fn settle_echo(
+        &mut self,
+        player: PlayerId,
+        cost: &baylee_core::mana::ManaCost,
+        card: ObjectId,
+        version: u32,
+    ) -> bool {
+        let paid = super::super::casting::pay_mana_from(
+            &mut self.state,
+            player,
+            baylee_core::ids::DamageSourceRef {
+                object: card,
+                version,
+            },
+            cost,
+        );
+        if !paid {
+            self.sacrifice_for_echo(card);
+        }
+        paid
     }
 
     /// A pact's "pay [cost]; if you don't, you lose the game", demanded like

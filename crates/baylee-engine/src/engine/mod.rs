@@ -161,6 +161,16 @@ enum PaymentContinuation {
         cost: baylee_core::mana::ManaCost,
         source: Option<baylee_core::ids::DamageSourceRef>,
     },
+    /// Echo said yes to with the pool short (CR 702.30a, 605.3a): the
+    /// player makes the mana here, and passing pays the echo out of the
+    /// pool, or sacrifices the permanent if the pool still falls short.
+    Echo {
+        cost: baylee_core::mana::ManaCost,
+        /// The permanent echo is paid for.
+        card: ObjectId,
+        /// Its identity when the echo came due (CR 400.7).
+        version: u32,
+    },
     /// Miracle's choices are complete; mana abilities may now pay them.
     Miracle {
         wizard: Box<cast_wizard::CastWizard>,
@@ -269,6 +279,15 @@ impl PaymentContinuation {
             Self::Pact { cost, source } => crate::state::mana_cost_fingerprint(cost)
                 .wrapping_mul(31)
                 .wrapping_add(crate::state::structural_fingerprint(source)),
+            Self::Echo {
+                cost,
+                card,
+                version,
+            } => crate::state::mana_cost_fingerprint(cost)
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&(
+                    "echo", card, version,
+                ))),
             Self::GrantedAction { id, cost } => id
                 .get()
                 .wrapping_mul(31)
@@ -1158,6 +1177,7 @@ impl<L: CardLookup> Engine<L> {
         match &window.suspended {
             PaymentContinuation::LandMana(_) => None,
             PaymentContinuation::Pact { cost, .. }
+            | PaymentContinuation::Echo { cost, .. }
             | PaymentContinuation::GrantedAction { cost, .. }
             | PaymentContinuation::Cast { cost, .. }
             | PaymentContinuation::Miracle { cost, .. }
@@ -2055,6 +2075,8 @@ mod discard_top_tests;
 mod draw_skip_tests;
 #[cfg(test)]
 mod draw_tests;
+#[cfg(test)]
+mod echo_payment_tests;
 #[cfg(test)]
 mod enter_tests;
 #[cfg(test)]

@@ -312,6 +312,19 @@ pub fn pass_until(
                     .apply(actor.unwrap_or(player), PlayerAction::YesNo(true))
                     .unwrap();
             }
+            // Echo come due (CR 702.30a) on the way past: no. A walk makes
+            // no mana, and declining is what an empty pool used to answer
+            // unasked, before the question was put beside untapped lands.
+            // A test whose subject is paying the echo answers it itself.
+            Pending::YesNo {
+                player,
+                prompt: crate::choice::YesNoPrompt::Generic,
+                source: Some(source),
+            } if source.index == baylee_core::ids::AbilityRef::UPKEEP_COST => {
+                engine
+                    .apply(actor.unwrap_or(player), PlayerAction::YesNo(false))
+                    .unwrap();
+            }
             // The untap step's determination, and a surveil, answered by
             // taking the option that moves nothing — the same reading as
             // `answer_one`, and for the same reason. A test whose subject is

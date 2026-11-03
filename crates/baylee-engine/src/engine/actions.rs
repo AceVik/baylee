@@ -1662,22 +1662,36 @@ impl<L: CardLookup> Engine<L> {
                     else {
                         unreachable!()
                     };
-                    let paid = answer
-                        && casting::pay_mana_from(
-                            &mut self.state,
+                    let echo = baylee_core::ids::DamageSourceRef {
+                        object: card,
+                        version,
+                    };
+                    // A yes the pool does not cover yet: the player makes
+                    // the mana in a window (CR 605.3a), as for a pact, and
+                    // passing it settles the echo (`close_mana_window`).
+                    if answer
+                        && !self.can_pay_mana(player, casting::SpendFor::OtherFrom(echo), &cost)
+                        && let Some(legal) = self.mana_window_legal(player)
+                    {
+                        self.mana_window = Some(PaymentWindow {
                             player,
-                            baylee_core::ids::DamageSourceRef {
-                                object: card,
+                            suspended: PaymentContinuation::Echo {
+                                cost,
+                                card,
                                 version,
                             },
-                            &cost,
-                        );
-                    debug_assert!(!answer || paid, "echo cost was offered as payable");
-                    if !paid {
-                        if let Some(obj) = self.state.object_mut(card) {
-                            obj.kind = ObjectKind::Card;
-                        }
-                        let _ = self.state.sacrifice_object(card, Cause::Effect);
+                        });
+                        self.pending = Pending::Priority {
+                            player,
+                            legal: Box::new(legal),
+                        };
+                        self.awaiting_answer = true;
+                        return Ok(());
+                    }
+                    if answer {
+                        self.settle_echo(player, &cost, card, version);
+                    } else {
+                        self.sacrifice_for_echo(card);
                     }
                     return Ok(());
                 }
