@@ -142,6 +142,15 @@ house's (`house_answers` in `stats.json`, never `llm`), and the house against
 the house is refused. Such a game is a measurement: the LLM freeze and the
 converter hold both seats to an agent-CLI model and refuse it as BC input.
 
+`collect --starting-life N` starts every player at `N` life (1–999, the room
+setup's bound) instead of the format's, for long games that put most of each
+deck into play: a bug hunt for the models' rules reports (`reports.jsonl`),
+not ordinary teacher data. The value is frozen in each attempt's request
+(`starting_life_override`, `null` without it), the table builds the room from
+it, and the audit holds every seat's starting life to the requested room. Such
+games want `--game-timeout-seconds` and the profiles' `game_usd`/`game_calls`
+caps raised to match.
+
 New `convert4` datasets carry `idle_pass_weighting_revision = 2`. For live and
 LLM behavior-cloning labels, a priority pass during visible casting, announced
 casting or an outstanding payment keeps its normal policy weight. It can finish

@@ -44,9 +44,10 @@ use baylee_cards_dsl::{AbilityDef, Cost, CostPart, Effect};
 pub fn sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
     let mut sources = Vec::new();
 
-    // The CR 305.6 shortcut. The engine offers it only for a land with
-    // exactly one basic type, and the colour follows from the *projected*
-    // subtypes — an animated Dryad Arbor still taps for green.
+    // The CR 305.6 shortcut. The colours follow from the *projected* subtypes
+    // — an animated Dryad Arbor still taps for green — and a land with two
+    // basic types and no printed tap of its own (Blooming Marsh made a Swamp
+    // by Evil Presence, then a Forest by Yavimaya) makes either.
     for &id in &legal.mana_abilities {
         if legal.activation_increase(id) > 0 {
             continue;
@@ -54,8 +55,8 @@ pub fn sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
         let Some(object) = view.battlefield.iter().find(|o| o.id == id) else {
             continue;
         };
-        if let Some(color) = basic_land_color(&object.subtypes) {
-            sources.push(Source::fixed(id, Tap::Intrinsic, color));
+        if let Some(source) = baylee_client_core::manaplan::intrinsic_source(id, &object.subtypes) {
+            sources.push(source);
         }
     }
 
@@ -149,11 +150,11 @@ pub fn sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
     sources
 }
 
-/// Restricted taps with the filter their mana may pay for (CR 106.6).
+/// Restricted taps with the restriction their mana is spent under (CR 106.6).
 fn restricted_sources(
     view: &PlayerView,
     legal: &LegalActions,
-) -> Vec<(Source, &'static baylee_cards_dsl::Filter)> {
+) -> Vec<(Source, baylee_cards_dsl::ManaRestriction)> {
     let mut out = Vec::new();
     for &(id, index) in &legal.abilities {
         if legal.activation_increase(id) > 0 {
@@ -225,11 +226,11 @@ fn with_one_restricted(
     let agent = baylee_ai::HeuristicAgent::new(baylee_ai::AIProfile::default());
     let best = restricted_sources(view, legal)
         .into_iter()
-        .filter(|(source, filter)| {
+        .filter(|(source, restriction)| {
             if activation {
-                agent.admits_activation(view, filter, Some(source.id), subject)
+                agent.admits_activation(view, restriction, Some(source.id), subject)
             } else {
-                agent.admits(view, filter, Some(source.id), subject)
+                agent.admits(view, restriction, Some(source.id), subject)
             }
         })
         .map(|(source, _)| source)
@@ -285,8 +286,9 @@ pub fn plan_with_life_for_spell(
 }
 
 /// The mana for `source`'s own activation. The source itself stays reserved,
-/// and a restricted tap is admitted only if this permanent's characteristics
-/// satisfy its filter (an Ally source, for example).
+/// and a restricted tap is admitted only if its mana may pay for an ability
+/// (never mana "only to cast" a spell, CR 106.6) and this permanent's
+/// characteristics satisfy its filter (an Ally source, for example).
 #[must_use]
 pub fn plan_for_activation(
     cost: &ManaCost,
@@ -694,13 +696,14 @@ pub fn offers(
     let mut out = Vec::new();
     if legal.mana_abilities.contains(&object)
         && let Some(permanent) = view.battlefield.iter().find(|o| o.id == object)
-        && let Some(color) = basic_land_color(&permanent.subtypes)
+        && let Some(source) =
+            baylee_client_core::manaplan::intrinsic_source(object, &permanent.subtypes)
     {
         out.push(Offer {
             tap: Tap::Intrinsic,
-            colors: vec![color],
-            // One mana of the land's own colour, by CR 305.6 and by nothing
-            // else: there is no card text to read and no amount to doubt.
+            colors: source.colors,
+            // One mana of a colour its land types give it, by CR 305.6 and by
+            // nothing else: there is no card text to read and no amount to doubt.
             fixed: true,
         });
     }
@@ -1978,21 +1981,27 @@ mod tests {
         );
     }
 
+    /// The Tea Shop's choice mana is written spell-only (`restricted`, so
+    /// `ManaUse::Spells`): its card says the "or activate an ability of an Ally
+    /// source" half is not built, and the engine spends it on no ability
+    /// (`mana_provenance::admits`, CR 106.6). This test used to expect a plan
+    /// for Ondu Cleric's ability off it, one the payment then refused; the
+    /// planner follows the engine (NEW-05). When the card gains the ability
+    /// half (`ManaUse::SpellsOrAbilities`), this is where the plan returns.
     #[test]
-    fn restricted_ally_mana_also_activates_an_ally_source() {
+    fn restricted_ally_mana_pays_no_ability_while_its_card_says_spells_only() {
         let (view, legal) = jasmine_mana_board();
         let pool = baylee_view::ManaPoolView::default();
-        let plan = plan_for_activation(
-            &mana_cost("{W}"),
-            &pool,
-            &view,
-            &legal,
-            ObjectId::new(20, 0),
-        )
-        .expect("Ondu Cleric is an Ally source");
-        assert_eq!(
-            plan.steps.last().map(|step| step.tap),
-            Some(Tap::Ability(1))
+        assert!(
+            plan_for_activation(
+                &mana_cost("{W}"),
+                &pool,
+                &view,
+                &legal,
+                ObjectId::new(20, 0),
+            )
+            .is_none(),
+            "spell-only Ally mana does not pay an Ally source's ability"
         );
         assert!(
             plan_for_activation(&mana_cost("{W}"), &pool, &view, &legal, ObjectId::new(2, 0))

@@ -1046,27 +1046,65 @@ fn steps(
 /// The same rule the engine applies in `casting::intrinsic_mana`, read off the
 /// *projected* subtypes — which is the only correct source, because an
 /// animated or type-changed land taps for what it is now, not for what it was
-/// printed as. A land with two basic types has two mana abilities and the
-/// engine does not offer the shortcut for it, so neither does this.
+/// printed as. `None` for a land with two basic types, which taps for a colour
+/// chosen among them ([`basic_land_colors`]); a planner reads that list.
 #[must_use]
 pub fn basic_land_color(subtypes: &baylee_core::types::SubtypeSet) -> Option<ManaColor> {
+    let mut colors = basic_land_colors(subtypes);
+    let only = colors.next()?;
+    colors.next().is_none().then_some(only)
+}
+
+/// Every colour a land's basic land types give it (CR 305.6), one per type,
+/// in the order the engine offers them (`casting::intrinsic_mana_colors`).
+///
+/// A land can gain a type it was not printed with: a Swamp under Yavimaya,
+/// Cradle of Growth is a Swamp Forest, and so is a land Evil Presence made a
+/// Swamp once Yavimaya came down. Its CR 305.6 shortcut is one mana of
+/// either colour, chosen as it is tapped.
+pub fn basic_land_colors(
+    subtypes: &baylee_core::types::SubtypeSet,
+) -> impl Iterator<Item = ManaColor> + '_ {
     use baylee_core::generated::subtypes::land;
-    let mut only = None;
-    for (subtype, color) in [
+    [
         (land::PLAINS, ManaColor::White),
         (land::ISLAND, ManaColor::Blue),
         (land::SWAMP, ManaColor::Black),
         (land::MOUNTAIN, ManaColor::Red),
         (land::FOREST, ManaColor::Green),
-    ] {
-        if subtypes.contains(subtype) {
-            if only.is_some() {
-                return None;
-            }
-            only = Some(color);
-        }
-    }
-    only
+    ]
+    .into_iter()
+    .filter(|(subtype, _)| subtypes.contains(*subtype))
+    .map(|(_, color)| color)
+}
+
+/// The source the CR 305.6 shortcut is (`LegalActions::mana_abilities`,
+/// pressed as `ActivateManaAbility`): one mana of the land's one colour, or of
+/// a colour chosen among its basic types' when it has several. `None` for a
+/// permanent with no basic land type.
+///
+/// Both planners read the shortcut through here. They used to read it through
+/// [`basic_land_color`], which answers `None` for two types, and so dropped the
+/// land altogether: Blooming Marsh made a Swamp by Evil Presence and a Forest
+/// by Yavimaya was no source at all, and a `{G}` spell beside it was never
+/// offered (NEW-09, 3.11.2026).
+#[must_use]
+pub fn intrinsic_source(
+    id: baylee_core::ids::ObjectId,
+    subtypes: &baylee_core::types::SubtypeSet,
+) -> Option<Source> {
+    let colors: Vec<ManaColor> = basic_land_colors(subtypes).collect();
+    (!colors.is_empty()).then_some(Source {
+        id,
+        tap: Tap::Intrinsic,
+        colors,
+        amount: 1,
+        // One mana of a colour chosen as it is tapped: a choice, not a bundle.
+        bundle: false,
+        priced: false,
+        preserve: 0,
+        dear: None,
+    })
 }
 
 /// Every colour in a [`ColorSet`], as mana colours.
@@ -1670,11 +1708,21 @@ mod tests {
         let forest = SubtypeSet::from_slice(&[land::FOREST]);
         assert_eq!(basic_land_color(&forest), Some(ManaColor::Green));
 
-        // A dual has two mana abilities and the engine offers neither as the
-        // CR 305.6 shortcut, so this does not answer for it either.
+        // Two types are a choice, not one colour: `basic_land_color` declines,
+        // and the shortcut's source offers both (NEW-09).
         let shrine = SubtypeSet::from_slice(&[land::PLAINS, land::SWAMP]);
         assert_eq!(basic_land_color(&shrine), None);
         assert_eq!(basic_land_color(&SubtypeSet::EMPTY), None);
+        let id = baylee_core::ids::ObjectId::new(1, 0);
+        let swamp_forest = SubtypeSet::from_slice(&[land::FOREST, land::SWAMP]);
+        let source = intrinsic_source(id, &swamp_forest).expect("two basic types");
+        assert_eq!(source.colors, vec![ManaColor::Black, ManaColor::Green]);
+        assert!(!source.bundle, "one mana of either, not both");
+        assert_eq!(
+            intrinsic_source(id, &forest),
+            Some(Source::fixed(id, Tap::Intrinsic, ManaColor::Green))
+        );
+        assert_eq!(intrinsic_source(id, &SubtypeSet::EMPTY), None);
     }
 
     /// A Forest under a Chromatic Lantern: five pips, and the green one is

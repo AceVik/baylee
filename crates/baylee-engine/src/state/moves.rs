@@ -1274,19 +1274,18 @@ impl GameState {
     /// the loss is a state-based action (CR 704.5b).
     pub(crate) fn draw_now(&mut self, player: PlayerId, n: usize) -> Vec<ObjectId> {
         let mut drawn = Vec::with_capacity(n);
-        let first_of_turn = self
-            .per_turn
-            .draws
-            .get(player.get() as usize)
-            .copied()
-            .unwrap_or(0)
-            == 0;
         let already = self
             .per_turn
             .draws
             .get(player.get() as usize)
             .copied()
             .unwrap_or(0);
+        // The opening hands are drawn before the first turn begins
+        // (CR 103.5), so no card of theirs is the first drawn "this turn"
+        // (CR 702.94a): a miracle card in an opening hand was offered at the
+        // first upkeep.
+        let in_a_turn = self.players.iter().any(|p| p.turns_started > 0);
+        let first_of_turn = in_a_turn && already == 0;
         let limit = self.draw_limit(player);
         for _ in 0..n {
             // CR 121.2b, and the loop is where it belongs: the effect

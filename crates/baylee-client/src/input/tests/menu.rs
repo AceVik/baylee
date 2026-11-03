@@ -36,6 +36,7 @@ fn a_draw_is_only_offered_from_this_seats_own_priority() {
                     unpaid_abilities: vec![],
                     payable: vec![],
                     spell_increases: vec![],
+                    spell_reductions: vec![],
                     activation_increases: vec![],
                     can_pass: true,
                     lands: vec![],

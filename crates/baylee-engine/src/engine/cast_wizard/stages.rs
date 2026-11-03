@@ -530,12 +530,13 @@ impl<L: CardLookup> Engine<L> {
                 // what they tap and in how much of the cost the taps may pay
                 // (#229). A waterbend's taps exist only once its cost is paid
                 // and pay that cost's generic mana alone (CR 701.67b). Convoke
-                // may pay the spell's whole total cost (CR 702.51a), but
-                // `finish_cast` takes the taps off its generic mana only, so
-                // the bound is the generic delve has left; #230 teaches the
-                // payment a creature's colour and moves this bound with it.
-                // A bound the payment cannot honour is a tap spent for
-                // nothing, as in the delve stage above.
+                // may pay the spell's whole total cost (CR 702.51a): each
+                // creature a coloured symbol of its colour or one generic
+                // mana, so the bound is the coloured symbols the sources can
+                // pay between them (`ManaCost::convoked_colored`) and the
+                // generic delve has left. Improvise's artifacts pay generic
+                // only (CR 702.126a). A bound the payment cannot honour is a
+                // tap spent for nothing, as in the delve stage above.
                 let generic =
                     |cost: &ManaCost| usize::try_from(cost.generic_total()).unwrap_or(usize::MAX);
                 let (sources, room) = if face.waterbend && wizard.kicked {
@@ -552,11 +553,20 @@ impl<L: CardLookup> Engine<L> {
                 {
                     // Convoke's creatures and improvise's artifacts
                     // (CR 702.126a), each permanent once.
-                    (
-                        crate::casting::tap_to_pay_sources(&self.state, face, wizard.player),
-                        generic(&wizard_total_cost(face, &wizard))
-                            .saturating_sub(wizard.delve_exiles.len()),
-                    )
+                    let sources =
+                        crate::casting::tap_to_pay_sources(&self.state, face, wizard.player);
+                    let left = wizard_total_cost(face, &wizard).with_less_generic(
+                        u32::try_from(wizard.delve_exiles.len()).unwrap_or(u32::MAX),
+                    );
+                    let (rest, colored) = left.convoked_colored(&crate::casting::tap_colors(
+                        &self.state,
+                        face,
+                        &sources,
+                    ));
+                    let room = usize::try_from(colored)
+                        .unwrap_or(usize::MAX)
+                        .saturating_add(generic(&rest));
+                    (sources, room)
                 } else {
                     (Vec::new(), 0)
                 };

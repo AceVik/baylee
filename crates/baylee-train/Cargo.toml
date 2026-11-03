@@ -181,6 +181,11 @@ path = "src/bin/deck_catalog4.rs"
 required-features = ["play"]
 
 [[bin]]
+name = "bughunt_decks"
+path = "src/bin/bughunt_decks.rs"
+required-features = ["play"]
+
+[[bin]]
 name = "card_structure4"
 path = "src/bin/card_structure4.rs"
 required-features = ["play"]

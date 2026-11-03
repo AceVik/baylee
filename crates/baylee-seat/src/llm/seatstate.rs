@@ -744,12 +744,16 @@ impl Seat {
                     let then = plan.then.clone();
                     self.plan = None;
                     return Some(then);
-                } else if !view.stack.is_empty()
+                } else if crate::wake::only_abilities_on_stack(view)
+                    // A pass in a payment window settles it (CR 605.3a):
+                    // only a plan that pays may pass there, as its `then`.
+                    && view.owed.is_none()
                     && legal.can_pass
-                    && view.stack.iter().all(|o| {
-                        matches!(o.stack_item, Some(baylee_view::StackItem::Ability { .. }))
-                    })
                 {
+                    // A trigger the taps set off (Manabarbs) resolves
+                    // first; the standing orders keep the payment under way
+                    // through this pass (`WakeFilter::heard`), so the
+                    // windows after it come back here and the cast follows.
                     return Some(PlayerAction::PassPriority);
                 }
             }

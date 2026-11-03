@@ -88,13 +88,13 @@ impl<L: CardLookup> Engine<L> {
                 // The draw step's turn-based action, which comes first and
                 // before the active player has priority (CR 504.1, then
                 // CR 504.2) — the upkeep step itself has none at all
-                // (CR 503.1). The first player skips it on turn 1 of a
-                // two-player game (CR 103.8).
+                // (CR 503.1). The player who plays first skips it on turn 1
+                // of a two-player game (CR 103.8a), whichever seat that is.
                 let skip = self.state.per_turn.skip_draw_step
                     || self.state.skips_draw_step(self.state.turn.active)
                     || (self.state.turn.number == 1
                         && self.state.players.len() == 2
-                        && self.state.turn.active.get() == 0);
+                        && self.state.turn.active == self.state.starting_player);
                 if skip {
                     // CR 103.8a skips the *step*, not only its draw: there is
                     // no beginning of it for "at the beginning of your draw

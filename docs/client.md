@@ -5323,6 +5323,18 @@ refused *alternative* cost costs nothing at all — the card falls back to the
 price printed on it. What decides the direction each time is the consequence
 of being wrong, not a house style.
 
+**Before either, the engine has already answered** (NEW-04, 3.11.2026). A card
+is lit indigo only if `LegalActions::castable_once_paid` holds: it is in
+`castable`, or in `payable`, which lists the cards every rule but the mana
+lets this seat cast — its targets among them, with protection, hexproof and
+every filter the view cannot read. That is not a guess the client may be
+wrong about, so it is no exception to the defaults above: a card outside both
+lists is a proof. It catches what `targeting` cannot see, which reads a
+filter and not what else stops a target: Terror lit beside a White Knight
+(protection from black, CR 702.16b) and Righteousness ("target blocking
+creature") in a main phase. It is the same gate the house and the LLM seat
+read (`baylee_ai::spell_can_be_cast_now`).
+
 `targeting::matches` is a mirror of `baylee_engine::eval::matches_projected`
 held to the stricter rule every mirror here is held to: the engine may answer
 from the `GameState`, and what the **view** cannot answer returns `None` and

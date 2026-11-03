@@ -1,0 +1,40 @@
+{
+  "turn": 2,
+  "active": 1,
+  "step": 10,
+  "seats": [
+    {
+      "in_game": 1,
+      "life": 40,
+      "poison": 0,
+      "hand": 6,
+      "library": 92,
+      "exile": 0,
+      "graveyard": []
+    },
+    {
+      "in_game": 1,
+      "life": 40,
+      "poison": 0,
+      "hand": 7,
+      "library": 91,
+      "exile": 0,
+      "graveyard": []
+    }
+  ],
+  "battlefield": [
+    [
+      11805,
+      0,
+      1,
+      0
+    ],
+    [
+      31166,
+      1,
+      1,
+      0
+    ]
+  ],
+  "stack": 0
+}

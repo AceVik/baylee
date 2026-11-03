@@ -815,3 +815,76 @@ fn miracle_payment_answers_are_part_of_the_replay_snapshot() {
     wizard.chosen_player = Some(PlayerId::new(1));
     assert_ne!(before, engine.snapshot_hash());
 }
+
+/// The opening hand is drawn before the first turn (CR 103.5), so none of
+/// its cards is the first card drawn "this turn" (CR 702.94a): an opening
+/// hand of Temporal Mastery was offered a miracle cast in the first upkeep.
+/// The first draw of a turn still is (the draw step's, past turn 1).
+#[test]
+fn an_opening_hand_card_is_not_a_miracle() {
+    let mut preset = preset(5, vec![], vec![island()]);
+    preset.seats[0].starting_hand = None;
+    preset.house_rules.starting_player = Some(0);
+    let mut engine = Engine::new(&preset, RegistryLookup).unwrap();
+    assert!(engine.state().pending_miracle.is_empty());
+    keep_mulligans(&mut engine);
+    let p0 = PlayerId::new(0);
+    assert_eq!(
+        engine
+            .state()
+            .zones
+            .list(crate::zone::ZoneLocation::Hand(p0))
+            .len(),
+        7,
+        "the opening hand was drawn"
+    );
+    let mut offered_on = Vec::new();
+    for _ in 0..400 {
+        if engine.state().turn.number > 3 {
+            break;
+        }
+        match engine.pending().clone() {
+            Pending::YesNo {
+                player,
+                prompt: crate::choice::YesNoPrompt::Miracle { .. },
+                ..
+            } => {
+                offered_on.push(engine.state().turn.number);
+                engine.apply(player, PlayerAction::YesNo(false)).unwrap();
+            }
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            Pending::ChooseAttackers { player, .. } => {
+                engine
+                    .apply(
+                        player,
+                        PlayerAction::DeclareAttackers {
+                            attackers: Vec::new(),
+                        },
+                    )
+                    .unwrap();
+            }
+            Pending::DiscardChoice { player, count } => {
+                let hand = engine
+                    .state()
+                    .zones
+                    .list(crate::zone::ZoneLocation::Hand(player))
+                    .clone();
+                let objects = hand[..usize::from(count)].to_vec();
+                engine
+                    .apply(player, PlayerAction::ChooseObjects { objects })
+                    .unwrap();
+            }
+            other => panic!("unexpected question {other:?}"),
+        }
+    }
+    assert!(
+        !offered_on.contains(&1),
+        "an opening-hand card was offered as a miracle on turn 1: {offered_on:?}"
+    );
+    assert!(
+        offered_on.contains(&2) && offered_on.contains(&3),
+        "each later turn's first draw is still a miracle: {offered_on:?}"
+    );
+}

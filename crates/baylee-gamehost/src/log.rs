@@ -396,6 +396,14 @@ impl GameLog {
         let synthetic = obj
             .ability
             .is_some_and(|loc| loc.index == AbilityRef::SYNTHETIC);
+        // So does a printed trigger about the object its event was about
+        // ("that creature": exalted, Spirit Shackle's enchanted creature),
+        // `TargetSpec::EventObject`: the engine binds it as the first
+        // targets, the card does not target it (CR 115.1, 603.2). A second
+        // instance after it is a real one.
+        let about_its_event = obj
+            .target_req
+            .is_some_and(|req| matches!(req.spec, baylee_cards_dsl::TargetSpec::EventObject));
         Some(Aim {
             controller,
             source,
@@ -403,6 +411,8 @@ impl GameLog {
             modes,
             objects: if synthetic {
                 Vec::new()
+            } else if about_its_event {
+                obj.second_targets().to_vec()
             } else {
                 obj.targets
                     .iter()

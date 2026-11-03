@@ -24,8 +24,14 @@ impl<L: CardLookup> Engine<L> {
         // exiled and the creatures already tapped: the spell went back to
         // hand and the costs stayed spent. CR 601.2h reverses the whole
         // casting when a cost cannot be paid, and there is no half of it to
-        // keep.
-        let reduction = (wizard.delve_exiles.len() + wizard.convoke_taps.len()) as u32;
+        // keep. A convoke tap pays a coloured symbol of its colour where it
+        // can (CR 702.51a) and generic mana otherwise, the same reading the
+        // offer and the payment window make (`wizard_paid_total`).
+        let (convoked, colored) = total.convoked_colored(&self.convoke_tap_colors(wizard));
+        total = convoked;
+        let reduction = u32::try_from(wizard.delve_exiles.len() + wizard.convoke_taps.len())
+            .unwrap_or(u32::MAX)
+            .saturating_sub(colored);
         if reduction > 0 {
             total = reduce_generic(&total, reduction);
         }

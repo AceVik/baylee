@@ -20,9 +20,9 @@ mod mana_effects;
 mod x_exact;
 mod x_targets;
 
-pub(crate) use mana_effects::{
-    apply_triggered_mana_bonus, spell_mana_increase, taps_set_off_a_trigger,
-};
+#[cfg(test)]
+use mana_effects::spell_mana_increase;
+pub(crate) use mana_effects::{apply_triggered_mana_bonus, spell_price, taps_set_off_a_trigger};
 use mana_effects::{tap_destroys_or_locks, tap_trigger_harm};
 
 fn own_main_phase(view: &PlayerView) -> bool {
@@ -648,7 +648,7 @@ impl HeuristicAgent {
             return color;
         }
         let may_pay = |id: ObjectId| {
-            only_for.is_none_or(|filter| self.admits(view, filter, context.source, id))
+            only_for.is_none_or(|restriction| self.admits(view, &restriction, context.source, id))
         };
         if self.profile.mulligan_skill >= 2
             && let Some(color) = self.planned_color(view, options, &may_pay)
@@ -745,8 +745,9 @@ impl HeuristicAgent {
         let best = restricted
             .iter()
             .filter(|o| {
-                o.only_for
-                    .is_some_and(|filter| self.admits(view, filter, Some(o.source.id), spell))
+                o.only_for.as_ref().is_some_and(|restriction| {
+                    self.admits(view, restriction, Some(o.source.id), spell)
+                })
             })
             .min_by_key(|o| {
                 (
@@ -800,6 +801,11 @@ impl HeuristicAgent {
             if !legal.castable.contains(&id) && (!main && !instant || !f.castable_from_hand) {
                 continue;
             }
+            // Nothing is tapped for a card the engine would not cast once it
+            // is paid for: a spell with no legal target, say (CR 601.2c).
+            if !legal.castable_once_paid(id) {
+                continue;
+            }
             if view.sorcery_lock.is_some() && !main {
                 continue;
             }
@@ -813,13 +819,14 @@ impl HeuristicAgent {
             } else {
                 available
             };
-            let printed = spell_cost(view, id, f).combine(&spell_mana_increase(
+            let printed = spell_price(
                 view,
                 id,
-                card,
+                Some(card),
                 legal,
                 baylee_engine::choice::CastModeKind::Normal,
-            ));
+                spell_cost(view, id, f),
+            );
             let (cost, floats_first) = aim(
                 view,
                 card,
@@ -1929,7 +1936,7 @@ fn split_restricted(mut offers: Vec<Offer>) -> (Vec<Offer>, Vec<Offer>) {
 struct Offer {
     source: Source,
     /// What its mana may be spent on, when it is restricted (CR 106.6).
-    only_for: Option<&'static Filter>,
+    only_for: Option<baylee_cards_dsl::ManaRestriction>,
 }
 
 /// Every offered simple mana tap, restricted ones with their filter.
@@ -1963,11 +1970,11 @@ fn offers(view: &PlayerView, legal: &LegalActions) -> Vec<Offer> {
             continue;
         }
         if let Some(object) = view.object(id)
-            && let Some(color) = manaplan::basic_land_color(&object.subtypes)
+            && let Some(mut source) = manaplan::intrinsic_source(id, &object.subtypes)
         {
             // CR 305.6: the intrinsic tap of a basic land type costs the tap
-            // and nothing else.
-            let mut source = Source::fixed(id, Tap::Intrinsic, color);
+            // and nothing else, and a land with two types (a Swamp under
+            // Yavimaya) makes either colour.
             if harm > 0 || taps_set_off_a_trigger(view, object) {
                 source.priced = true;
             }
@@ -2075,7 +2082,12 @@ fn printed_mana_offer(
     id: ObjectId,
     index: u32,
     object: &baylee_view::PublicObject,
-) -> Option<(Vec<ManaColor>, u8, bool, Option<&'static Filter>)> {
+) -> Option<(
+    Vec<ManaColor>,
+    u8,
+    bool,
+    Option<baylee_cards_dsl::ManaRestriction>,
+)> {
     let a = crate::activate::printed(view, id, index)?;
     let (AbilityDef::Activated {
         cost,
@@ -2203,8 +2215,8 @@ pub(crate) fn plan_for_activation(
         .iter()
         .filter(|o| !taps_self || o.source.id != source)
         .filter(|o| {
-            o.only_for.is_some_and(|filter| {
-                agent.admits_activation(view, filter, Some(o.source.id), source)
+            o.only_for.as_ref().is_some_and(|restriction| {
+                agent.admits_activation(view, restriction, Some(o.source.id), source)
             })
         })
         .min_by_key(|o| {
@@ -2224,8 +2236,26 @@ pub(crate) fn plan_for_activation(
     manaplan::plan(cost, &pool, &all)
 }
 
-#[allow(clippy::too_many_lines)]
-pub(crate) fn spell_can_be_cast_now(view: &PlayerView, id: ObjectId, card: CardIdentity) -> bool {
+/// Whether `id` may be tapped for: the engine lists it as castable once paid
+/// ([`LegalActions::castable_once_paid`]), which is where whether it has a
+/// legal target for every target it must have is answered (CR 601.2c), and
+/// the timing and mandatory costs the view can read agree.
+///
+/// The targets were read here off the view, and only for graveyard and stack
+/// specs: every battlefield and player spec answered yes, so Terror over a
+/// board of black creatures, Fear with no creature to enchant and Disenchant
+/// with nothing to destroy had their lands tapped and the cast refused
+/// (NEW-04, 3.11.2026). The engine's answer counts protection, hexproof and
+/// every filter, and is about this seat's own cards only.
+pub(crate) fn spell_can_be_cast_now(
+    view: &PlayerView,
+    legal: &LegalActions,
+    id: ObjectId,
+    card: CardIdentity,
+) -> bool {
+    if !legal.castable_once_paid(id) {
+        return false;
+    }
     let Some(def) = baylee_cards::by_index(card.index) else {
         return true;
     };
@@ -2302,88 +2332,7 @@ pub(crate) fn spell_can_be_cast_now(view: &PlayerView, id: ObjectId, card: CardI
             _ => {}
         }
     }
-    for ability in spells {
-        match ability {
-            AbilityDef::Spell { targets, .. } => {
-                if let Some(req) = targets
-                    && !has_possible_targets(&agent, view, id, req)
-                {
-                    return false;
-                }
-            }
-            AbilityDef::ModalSpell { modes, choose } if choose.min >= 1 => {
-                let any_mode_open = modes.iter().any(|mode| {
-                    mode.targets
-                        .as_ref()
-                        .is_none_or(|req| has_possible_targets(&agent, view, id, req))
-                        && mode
-                            .second_targets
-                            .as_ref()
-                            .is_none_or(|req| has_possible_targets(&agent, view, id, req))
-                });
-                if !any_mode_open {
-                    return false;
-                }
-            }
-            _ => {}
-        }
-    }
     true
-}
-
-fn has_possible_targets(
-    agent: &HeuristicAgent,
-    view: &PlayerView,
-    id: ObjectId,
-    req: &baylee_cards_dsl::TargetReq,
-) -> bool {
-    use baylee_cards_dsl::{TargetSpec, ZoneRef};
-    if req.min == 0 {
-        return true;
-    }
-    let need = usize::from(req.min);
-    let me = resource_player(view);
-    let count = match req.spec {
-        TargetSpec::CardInGraveyard(filter, rel) => view
-            .graveyards
-            .iter()
-            .flatten()
-            .filter(|o| match rel {
-                baylee_cards_dsl::PlayerRel::You => o.owner == me,
-                baylee_cards_dsl::PlayerRel::Opponent
-                | baylee_cards_dsl::PlayerRel::EachOpponent => agent.hostile(o.owner, me),
-                _ => true,
-            })
-            .filter(|o| {
-                agent.filter_matches(filter, view, o, ZoneRef::Graveyard, Some(id)) != Some(false)
-            })
-            .count(),
-        TargetSpec::Spell(filter) => view
-            .stack
-            .iter()
-            .filter(|o| !matches!(o.stack_item, Some(baylee_view::StackItem::Ability { .. })))
-            .filter(|o| {
-                agent.filter_matches(filter, view, o, ZoneRef::Stack, Some(id)) != Some(false)
-            })
-            .count(),
-        TargetSpec::AbilityOnStack(filter) => view
-            .stack
-            .iter()
-            .filter(|o| matches!(o.stack_item, Some(baylee_view::StackItem::Ability { .. })))
-            .filter(|o| {
-                agent.filter_matches(filter, view, o, ZoneRef::Stack, Some(id)) != Some(false)
-            })
-            .count(),
-        TargetSpec::SpellOrAbility(filter) => view
-            .stack
-            .iter()
-            .filter(|o| {
-                agent.filter_matches(filter, view, o, ZoneRef::Stack, Some(id)) != Some(false)
-            })
-            .count(),
-        _ => return true,
-    };
-    count >= need
 }
 
 /// Costs visible from the card and public commander/graveyard bookkeeping.
@@ -2597,11 +2546,13 @@ pub(crate) fn kicks(
 ///
 /// #224: the answer was every permanent offered, whatever was floating, so a
 /// convoke cast tapped the whole team and nothing was left to attack or
-/// block. The engine takes each tap off the cost's generic mana, so the count
-/// is the smallest one for which the pool pays the rest, asked of the planner
-/// [`kicks`] trusts. Without a price to measure against (no context, or a
-/// pool no count can cover), it taps as many as it may: an underpaid cast is
-/// rolled back whole (CR 601.2h), and an overpaid one costs only the taps.
+/// block. The engine takes each tap off a coloured symbol of the creature's
+/// colour where it can and off the generic mana otherwise (CR 702.51a), so
+/// the count is the smallest one for which the pool pays the rest, asked of
+/// the planner [`kicks`] trusts. Without a price to measure against (no
+/// context, or a pool no count can cover), it taps as many as it may: an
+/// underpaid cast is rolled back whole (CR 601.2h), and an overpaid one costs
+/// only the taps.
 ///
 /// Which ones: an artifact before a creature, since it neither attacks nor
 /// blocks; on this seat's own turn, a creature that cannot attack yet before
@@ -2615,7 +2566,6 @@ pub(crate) fn convoke_taps(
     let max = usize::try_from(max)
         .unwrap_or(usize::MAX)
         .min(options.len());
-    let needed = taps_needed(view, context, max).unwrap_or(max);
     options.sort_by_key(|id| {
         view.object(*id)
             .map_or((true, true, i16::MAX, i16::MAX), |o| {
@@ -2628,31 +2578,47 @@ pub(crate) fn convoke_taps(
                 )
             })
     });
+    let needed = taps_needed(view, context, &options[..max]).unwrap_or(max);
     options.truncate(needed);
     options
 }
 
-/// The fewest taps that leave the floating pool able to pay the rest.
+/// The fewest of `taps`, in order, that leave the floating pool able to pay
+/// the rest: each pays a coloured symbol of its colour where it can when the
+/// spell has convoke (a creature, CR 702.51a), and generic mana otherwise.
 ///
 /// A waterbend face's question comes only once the waterbend was paid
 /// (#229), so its cost is part of the total here.
-fn taps_needed(view: &PlayerView, context: &DecisionContext<'_>, max: usize) -> Option<usize> {
+fn taps_needed(
+    view: &PlayerView,
+    context: &DecisionContext<'_>,
+    taps: &[ObjectId],
+) -> Option<usize> {
     let pool = &view.seat(resource_player(view))?.mana_pool;
     let mut total = context.cost?.with_x(context.x);
-    if let Some(face) = context
+    let spell_face = context
         .source
         .and_then(|id| identity(view, id))
-        .and_then(face)
-        .filter(|f| f.waterbend)
-    {
+        .and_then(face);
+    if let Some(face) = spell_face.filter(|f| f.waterbend) {
         total = face
             .additional_costs
             .iter()
             .fold(total, |total, c| total.combine(&c.mana));
     }
-    (0..=max).find(|&n| {
-        let taps = u32::try_from(n).unwrap_or(u32::MAX);
-        manaplan::plan(&total.with_less_generic(taps), pool, &[]).is_some()
+    let convoke = spell_face.is_some_and(|f| f.convoke);
+    let colors: Vec<baylee_core::color::ColorSet> = taps
+        .iter()
+        .map(|id| {
+            view.object(*id)
+                .filter(|o| convoke && o.types.contains(TypeSet::CREATURE))
+                .map_or(baylee_core::color::ColorSet::EMPTY, |o| o.colors)
+        })
+        .collect();
+    (0..=taps.len()).find(|&n| {
+        let (rest, colored) = total.convoked_colored(&colors[..n]);
+        let generic = u32::try_from(n).unwrap_or(u32::MAX).saturating_sub(colored);
+        manaplan::plan(&rest.with_less_generic(generic), pool, &[]).is_some()
     })
 }
 
@@ -2734,25 +2700,7 @@ pub(crate) fn pays_tax(
     }
     let refusal_costs_a_card = context.effects.iter().any(|effect| match effect {
         Effect::PlayerMayPayOr { effect, .. } | Effect::PlayerMayPayManaOr { effect, .. } => {
-            matches!(
-                effect,
-                Effect::CounterTargetSpell
-                    | Effect::CounterTargetSpellToExile
-                    | Effect::CounterTargetAbility
-                    | Effect::CounterTargetSpellOrAbility
-                    // Cumulative upkeep (CR 702.24a) and an upkeep like
-                    // Phantasmal Forces': unpaid, the permanent that asks is
-                    // sacrificed, which is a card of the seat's own.
-                    | Effect::SacrificeSelf
-                    // Force of Nature's "8 damage to you": a fifth of the
-                    // seat's life, which the mana is not worth keeping for.
-                    | Effect::DealDamage {
-                        target: baylee_cards_dsl::TargetSpec::Player(
-                            baylee_cards_dsl::PlayerRel::You
-                        ),
-                        ..
-                    }
-            )
+            refusing_costs_a_card(effect)
         }
         _ => false,
     });
@@ -2802,6 +2750,36 @@ pub(crate) fn pays_tax(
     can_pay(view, &price)
 }
 
+/// Whether what an "unless" does when its price goes unpaid (CR 118.12a)
+/// costs the paying seat a card, or as much as one: its spell or ability
+/// countered, its own permanent sacrificed, a fifth of its life.
+///
+/// Read through a sequence, because a counter can come first in one. Power
+/// Sink's is "counter it, then tap that player's lands and empty their
+/// pool", a `Sequence` starting with `CounterTargetSpell`, and the bare match
+/// this replaced saw no counter in it: the house refused even a `{0}` and
+/// lost the spell (NEW-15, 3.11.2026).
+fn refusing_costs_a_card(effect: &Effect) -> bool {
+    match effect {
+        Effect::Sequence(effects) => effects.iter().any(refusing_costs_a_card),
+        Effect::CounterTargetSpell
+        | Effect::CounterTargetSpellToExile
+        | Effect::CounterTargetAbility
+        | Effect::CounterTargetSpellOrAbility
+        // Cumulative upkeep (CR 702.24a) and an upkeep like Phantasmal
+        // Forces': unpaid, the permanent that asks is sacrificed, which is a
+        // card of the seat's own.
+        | Effect::SacrificeSelf
+        // Force of Nature's "8 damage to you": a fifth of the seat's life,
+        // which the mana is not worth keeping for.
+        | Effect::DealDamage {
+            target: baylee_cards_dsl::TargetSpec::Player(baylee_cards_dsl::PlayerRel::You),
+            ..
+        } => true,
+        _ => false,
+    }
+}
+
 /// Whether the seat could produce `cost` right now, floating mana plus what
 /// is still untapped.
 ///
@@ -2849,7 +2827,10 @@ fn own_sources(view: &PlayerView, now: bool) -> Vec<Source> {
         {
             continue;
         }
-        if manaplan::basic_land_color(&object.subtypes).is_some() {
+        if manaplan::basic_land_colors(&object.subtypes)
+            .next()
+            .is_some()
+        {
             estimate.mana_abilities.push(object.id);
         }
         // Stable identities are not vector positions. Feed inherited public

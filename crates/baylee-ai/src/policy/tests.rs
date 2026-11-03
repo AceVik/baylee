@@ -541,33 +541,74 @@ fn pays_tax_declines_untap_self_payment_when_source_is_already_untapped() {
     assert!(super::pays_tax(&view, ManaCost::parse("{4}"), &ctx));
 }
 
+/// Power Sink's "unless" carries a sequence that starts with the counter, and
+/// refusing it loses the spell: paid when it can be, `{0}` included (NEW-15).
+/// The effects are the card's own, read from the registry.
 #[test]
-fn spell_can_be_cast_now_checks_conditions_mandatory_costs_and_stack_targets() {
+fn pays_tax_pays_power_sinks_x_to_keep_the_spell() {
+    use baylee_cards_dsl::AbilityDef;
+    use baylee_core::mana::ManaCost;
+
+    let sink = baylee_cards::by_index(test_identity("Power Sink").index).expect("Power Sink");
+    let Some(AbilityDef::Spell { effects, .. }) = sink.abilities.first() else {
+        panic!("Power Sink is one spell ability");
+    };
+    let ctx = baylee_engine::engine::DecisionContext {
+        effects,
+        ..Default::default()
+    };
+    let mut view = base_view();
+    assert!(
+        super::pays_tax(&view, ManaCost::ZERO, &ctx),
+        "X = 0 is free"
+    );
+    assert!(
+        !super::pays_tax(&view, ManaCost::parse("{2}"), &ctx),
+        "nothing to pay {{2}} with"
+    );
+    view.battlefield = vec![
+        test_public_object(1, "Forest", 0, None),
+        test_public_object(2, "Forest", 0, None),
+    ];
+    assert!(
+        super::pays_tax(&view, ManaCost::parse("{2}"), &ctx),
+        "two Forests pay X = 2"
+    );
+}
+
+#[test]
+fn spell_can_be_cast_now_checks_the_engines_word_then_conditions_and_mandatory_costs() {
     let spell_id = super::ObjectId::new(99, 0);
     let sirens_call = test_identity("Siren's Call");
     let blizzard = test_identity("Blizzard");
     let tidal_influence = test_identity("Tidal Influence");
-    let artifact_blast = test_identity("Artifact Blast");
+    let terror = test_identity("Terror");
     let sacrifice = test_identity("Sacrifice");
 
     let mut view = base_view();
+    // The engine would cast the card once it is paid for, so what the rest
+    // of this asks is only what the view can read.
+    let legal = baylee_engine::choice::LegalActions {
+        payable: vec![spell_id],
+        ..Default::default()
+    };
 
     // 1. Siren's Call: only during opponent's turn before DeclareAttackers.
     assert!(
-        !super::spell_can_be_cast_now(&view, spell_id, sirens_call),
+        !super::spell_can_be_cast_now(&view, &legal, spell_id, sirens_call),
         "cannot cast Siren's Call on own turn"
     );
     view.active = baylee_core::ids::PlayerId::new(1);
     view.phase = baylee_view::Phase::FirstMain;
     view.step = baylee_view::Step::Main;
     assert!(
-        super::spell_can_be_cast_now(&view, spell_id, sirens_call),
+        super::spell_can_be_cast_now(&view, &legal, spell_id, sirens_call),
         "can cast Siren's Call on opponent's FirstMain before DeclareAttackers"
     );
     view.phase = baylee_view::Phase::Combat;
     view.step = baylee_view::Step::DeclareAttackers;
     assert!(
-        !super::spell_can_be_cast_now(&view, spell_id, sirens_call),
+        !super::spell_can_be_cast_now(&view, &legal, spell_id, sirens_call),
         "cannot cast Siren's Call once DeclareAttackers has begun"
     );
 
@@ -577,48 +618,56 @@ fn spell_can_be_cast_now_checks_conditions_mandatory_costs_and_stack_targets() {
     view.step = baylee_view::Step::Main;
     view.battlefield = vec![test_public_object(1, "Forest", 0, None)];
     assert!(
-        !super::spell_can_be_cast_now(&view, spell_id, blizzard),
+        !super::spell_can_be_cast_now(&view, &legal, spell_id, blizzard),
         "cannot cast Blizzard with only a non-snow Forest"
     );
     view.battlefield
         .push(test_public_object(2, "Snow-Covered Forest", 0, None));
     assert!(
-        super::spell_can_be_cast_now(&view, spell_id, blizzard),
+        super::spell_can_be_cast_now(&view, &legal, spell_id, blizzard),
         "can cast Blizzard when controlling a Snow-Covered Forest"
     );
 
     // 3. Tidal Influence: only if no permanent named Tidal Influence is on the battlefield.
     assert!(super::spell_can_be_cast_now(
         &view,
+        &legal,
         spell_id,
         tidal_influence
     ));
     view.battlefield
         .push(test_public_object(3, "Tidal Influence", 1, None));
     assert!(
-        !super::spell_can_be_cast_now(&view, spell_id, tidal_influence),
+        !super::spell_can_be_cast_now(&view, &legal, spell_id, tidal_influence),
         "cannot cast Tidal Influence when one is already on the battlefield"
     );
 
-    // 4. Artifact Blast: requires an artifact spell on the stack.
-    view.stack = vec![test_public_object(20, "Lightning Bolt", 1, None)];
+    // 4. Terror over empty battlefields (NEW-04): whether it has a legal
+    // target is the engine's to say, and a card it lists in neither
+    // `castable` nor `payable` is not tapped for, whatever the view holds.
+    view.battlefield.clear();
     assert!(
-        !super::spell_can_be_cast_now(&view, spell_id, artifact_blast),
-        "Artifact Blast cannot target Lightning Bolt on the stack"
+        !super::spell_can_be_cast_now(
+            &view,
+            &baylee_engine::choice::LegalActions::default(),
+            spell_id,
+            terror
+        ),
+        "Terror with nothing to destroy is not castable now"
     );
-    view.stack = vec![test_public_object(21, "Sol Ring", 1, None)];
-    assert!(
-        super::spell_can_be_cast_now(&view, spell_id, artifact_blast),
-        "Artifact Blast can target Sol Ring on the stack"
-    );
+    assert!(super::spell_can_be_cast_now(
+        &view, &legal, spell_id, terror
+    ));
 
     // 5. Sacrifice: mandatory sacrifice of a creature you control.
     view.battlefield = vec![test_public_object(30, "Grizzly Bears", 1, None)];
     assert!(
-        !super::spell_can_be_cast_now(&view, spell_id, sacrifice),
+        !super::spell_can_be_cast_now(&view, &legal, spell_id, sacrifice),
         "opponent's creature cannot pay your mandatory sacrifice cost"
     );
     view.battlefield
         .push(test_public_object(31, "Grizzly Bears", 0, None));
-    assert!(super::spell_can_be_cast_now(&view, spell_id, sacrifice));
+    assert!(super::spell_can_be_cast_now(
+        &view, &legal, spell_id, sacrifice
+    ));
 }

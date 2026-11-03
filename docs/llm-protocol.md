@@ -220,6 +220,52 @@ against 351 told whole. On a cached API path a wake is in the uncached
 tail: about 300 tokens saved at Sonnet 5.5's $2/M is $0.0006 a call. The
 win there is §"Plans".
 
+## Stops
+
+A priority round with nothing of the other side's on the stack reaches the
+model only in a step it stops at, and there only when it could do
+something (`wake::offering`: a land, a spell or an activation its untapped
+sources reach, not mana alone). Every other question, a declaration with
+something to declare, a payment owed, a cleanup window and an opposing
+spell or ability reach it wherever it stops (`wake::WakeFilter`, whose
+module docs are the rules in full).
+
+The default rail (`wake::MIND_STOPS`) is the seat's `main1`, `blockers` and
+`main2`, and the other side's `attackers`, `blockers` and `end_step`. An
+answer's `stops` replace it, side by side, until another answer sets them:
+
+```json
+{"ask": "q12", "pick": ["p"],
+ "stops": {"mine": ["main1", "blockers", "main2"],
+           "theirs": ["attackers", "blockers", "end_step"]}}
+```
+
+- The names are the header's (`narrator::step_id`): `upkeep`, `draw`,
+  `main1`, `combat_begin`, `attackers`, `blockers`, `damage`,
+  `combat_end`, `main2`, `end_step`; the system prompt lists them and the
+  default. The rules' names are read too (`declare_blockers`, `combat
+  damage step`, `end`), in any case, with spaces or hyphens for the
+  underscores (`wake::stop_row`). A name that is no step is left out, so
+  the header's `stops:` line is what the seat stops at. Before 3 Nov 2026
+  only the short names were read: a model that wrote `declare_blockers`
+  was never woken there.
+- `blockers` is held to a combat the seat fights in, whoever chose it: the
+  window after blocks (CR 509.4) wakes the seat only while a creature of
+  its side attacks or blocks. It is where a pump, a regeneration or a
+  removal on a blocker is cast. Until 3 Nov 2026 the rail had no such row
+  and the prompt never named it, so the seat passed every one of those
+  windows and the games models played had no combat trick in them (51
+  reports in the two runs of 2–3 Nov). Unheld, the row would cost a call
+  every combat; held, it costs at most one a combat the seat fights in
+  with something to cast or activate.
+- `damage` is not held: after first-strike damage and after regular
+  damage, for a model that names it.
+- An activation the card allows in one step alone ("activate only during
+  your upkeep": Ashen Ghoul's return from the graveyard) wakes the seat in
+  that step whatever its stops say, when its sources can pay it: the
+  window is the ability's only one. Before 3 Nov 2026 the default rail,
+  which has no `upkeep` row, passed every such upkeep.
+
 ## Plans
 
 An answer may carry three optional fields beside `pick` (`decide`'s

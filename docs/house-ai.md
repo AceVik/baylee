@@ -13,11 +13,21 @@ network lobby. Existing `novice`, `steady`, and `sharp` keys still work.
 
 All levels plan coloured payments through the same renderer-free mana matcher
 as the human client. Simple printed and granted mana abilities count, with one
-source per permanent. The agent does not tap toward an unaffordable spell.
+source per permanent. A land's CR 305.6 shortcut counts with every colour its
+basic land types give it, so one with two (Urborg and Yavimaya together, a
+land Evil Presence made a Swamp under Yavimaya) makes either (NEW-09). The
+agent does not tap toward an unaffordable spell, nor toward one the engine
+would not cast once paid
+(`LegalActions::castable_once_paid`: in neither `castable` nor `payable`, such
+as Terror with no nonblack creature to point at, CR 601.2c).
 Printed mana bonuses, tap penalties and coloured taxes count only while their
 abilities are active; phased-out permanents contribute nothing. Coloured taxes
 use the chosen spell face or prototype characteristics. Phased-out permanents
 also cannot satisfy a casting condition or contribute a convoke payment.
+A cast is priced as the engine will charge it, through `spell_price`: the
+offer's `spell_increases`, then its `spell_reductions` (Goblin Warchief, a
+card's affinity) off the generic part (CR 601.2f, 118.7a). The LLM seat's
+reach and the client price through the same function.
 
 Before announcing a mana-X activation, the house checks that its fixed price
 and any printed minimum X can be reached through the ordinary view-only mana
@@ -121,11 +131,13 @@ Rhystic tax refuses into one card for an opponent. Same price, opposite
 decisions, and a policy reading the price could never tell them apart. So a
 ward tax is paid whenever the mana can be found and the other stays declined,
 because spare mana and mana the curve needs look alike to a stateless policy
-while a card is the cheaper thing to give up. The same ward is read a second
-time at target choice, since CR 601.2 picks targets before mana is paid: a
-warded creature is priced against the material scale when the seat can cover
-the spell and the tax together, and sinks below every other candidate when it
-cannot — going around a ward costs nothing, walking into one it cannot pay
+while a card is the cheaper thing to give up. What refusing does is read
+through a sequence: Power Sink's "unless" counters the spell and then taps
+the lands, and it is paid, `{0}` included, as a counter is (NEW-15). Ward
+is read a second time at target choice, since CR 601.2 picks targets before
+mana is paid: a warded creature is priced against the material scale when
+the seat can cover the spell and the tax together, and sinks below every
+other candidate when it cannot — going around a ward costs nothing, walking into one it cannot pay
 costs the card. **The window that follows a yes is answered too**: the engine
 hands the seat priority to make the mana (CR 605.3a), and because a window is
 an ordinary priority round with nothing castable in it, every path in the
@@ -213,7 +225,11 @@ restricted source per spell, and that tap comes last: once the mana floats, no
 plan counts it, and only the engine's merge makes the spell castable. Its mana
 is spent first, so it never counts as held up. Its colour is named for a spell
 it may pay for. A price floated before the cast (an X, a kicker) is paid from
-unrestricted sources only.
+unrestricted sources only. The restriction's kind of payment (`ManaUse`) is
+asked before its filter, as the engine asks it: mana that may be spent only to
+cast spells pays for no activated ability, so Delighted Halfling's coloured
+mana is never planned for Yawgmoth's proliferate, nor Mishra's Workshop's for
+an artifact's ability (NEW-05).
 
 Searches, bottoming,
 and surveils at the skilled levels evaluate only identities actually visible

@@ -216,7 +216,7 @@ impl<L: CardLookup> Engine<L> {
             return false;
         };
         let face = self.wizard_face(wizard);
-        let total = super::cast_wizard::wizard_paid_total(face, wizard);
+        let total = self.wizard_paid(wizard);
         let (cost, restriction) = self.restricted_x_payment(wizard, total);
         let cost = self.north_star_payment(wizard, cost);
         crate::casting::plan_mana_scoped(

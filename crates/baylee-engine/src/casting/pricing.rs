@@ -217,6 +217,50 @@ pub fn keyword_reduction(
     convoke.saturating_add(delve)
 }
 
+/// The colours each of `taps` pays with for a spell cast from `face`: a
+/// creature's colours when the face has convoke, each tap one coloured mana
+/// of one of them (CR 702.51a); nothing coloured for an artifact tapped
+/// for improvise, which pays generic mana alone (CR 702.126a).
+#[must_use]
+pub fn tap_colors(
+    state: &GameState,
+    face: &baylee_cards_dsl::FaceDef,
+    taps: &[ObjectId],
+) -> Vec<baylee_core::color::ColorSet> {
+    taps.iter()
+        .map(|id| {
+            state
+                .object(*id)
+                .map(crate::object::GameObject::characteristics)
+                .filter(|c| face.convoke && c.types.contains(TypeSet::CREATURE))
+                .map_or(baylee_core::color::ColorSet::EMPTY, |c| c.colors)
+        })
+        .collect()
+}
+
+/// `cost` as the probes that ask whether a cast can be paid price it: the
+/// permanents convoke may tap pay the coloured symbols their colours can
+/// (`ManaCost::convoked_colored`, CR 702.51a), and `generic` — the
+/// [`keyword_reduction`] count with whatever other generic reduction the
+/// caller folds into it — comes off the generic part, less the taps that
+/// paid a colour, since the count had them paying generic.
+///
+/// Until #230 the taps were counted as generic mana only, so Chord of
+/// Calling (`{X}{G}{G}{G}`) was never castable by its green creatures and
+/// was offered only when the lands alone paid its colour.
+#[must_use]
+pub fn keyword_priced(
+    state: &GameState,
+    face: &baylee_cards_dsl::FaceDef,
+    player: PlayerId,
+    cost: &ManaCost,
+    generic: u32,
+) -> ManaCost {
+    let taps = tap_colors(state, face, &tap_to_pay_sources(state, face, player));
+    let (cost, colored) = cost.convoked_colored(&taps);
+    cost.with_less_generic(generic.saturating_sub(colored))
+}
+
 /// The cards delve (CR 702.66a) may exile to pay for `card`: its caster's
 /// graveyard, less the card itself.
 ///
@@ -473,17 +517,6 @@ pub(crate) fn spell_increase(
     object: &crate::object::GameObject,
 ) -> u32 {
     let adj = spell_adjustment(state, player, object);
-    adj.increase.saturating_add(adj.mana_increase.cmc())
-}
-pub(crate) fn face_increase(
-    state: &GameState,
-    player: PlayerId,
-    card: ObjectId,
-    def: &baylee_cards_dsl::CardDef,
-    face: usize,
-    form: Option<SpellForm>,
-) -> u32 {
-    let adj = face_adjustment(state, player, card, def, face, form);
     adj.increase.saturating_add(adj.mana_increase.cmc())
 }
 

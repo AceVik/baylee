@@ -1379,7 +1379,7 @@ impl<L: CardLookup> Engine<L> {
     /// it is paid as a cast from `payable` is, so a window closed short
     /// hands the caster their priority back (CR 732.1).
     fn cast_or_make_miracle_mana(&mut self, wizard: CastWizard) -> Result<(), EngineError> {
-        let cost = wizard_paid_total(self.wizard_face(&wizard), &wizard);
+        let cost = self.wizard_paid(&wizard);
         if self.commanded_card(wizard.card) || !self.wizard_pool_can_pay(&wizard, cost) {
             let mut legal = self.compute_legal(wizard.player);
             self.narrow_to_mana(&mut legal);
@@ -1454,11 +1454,7 @@ impl<L: CardLookup> Engine<L> {
         if !current || self.finish_cast(wizard).is_err() {
             // Read before anything is put back: the pool as the window
             // closed is what was short, if anything was.
-            let reason = if current
-                && !self.wizard_pool_can_pay(
-                    wizard,
-                    wizard_paid_total(self.wizard_face(wizard), wizard),
-                ) {
+            let reason = if current && !self.wizard_pool_can_pay(wizard, self.wizard_paid(wizard)) {
                 crate::event::CastCancelReason::Unpaid
             } else {
                 crate::event::CastCancelReason::Illegal
@@ -1542,6 +1538,24 @@ impl<L: CardLookup> Engine<L> {
                 self.wizard_second_target_req(wizard),
             ),
             reference,
+        )
+    }
+
+    /// The colours each permanent the cast taps for convoke pays with
+    /// (CR 702.51a): `casting::tap_colors` of its chosen taps.
+    pub(super) fn convoke_tap_colors(
+        &self,
+        wizard: &CastWizard,
+    ) -> Vec<baylee_core::color::ColorSet> {
+        casting::tap_colors(&self.state, self.wizard_face(wizard), &wizard.convoke_taps)
+    }
+
+    /// What the pool pays for the cast at its payment ([`wizard_paid_total`]).
+    pub(super) fn wizard_paid(&self, wizard: &CastWizard) -> ManaCost {
+        wizard_paid_total(
+            self.wizard_face(wizard),
+            wizard,
+            &self.convoke_tap_colors(wizard),
         )
     }
 
@@ -1655,7 +1669,7 @@ impl<L: CardLookup> Engine<L> {
     /// the game is kept before the first of them and put back on a refusal,
     /// with the spell-rider abilities the mana put on the stack.
     fn finish_cast(&mut self, wizard: &CastWizard) -> Result<(), EngineError> {
-        let cost = wizard_paid_total(self.wizard_face(wizard), wizard);
+        let cost = self.wizard_paid(wizard);
         if self.wizard_pool_can_pay(wizard, cost) && self.ask_escape_payment(wizard)? {
             return Ok(());
         }
@@ -1889,11 +1903,21 @@ fn wizard_total_cost(face: &baylee_cards_dsl::FaceDef, wizard: &CastWizard) -> M
         .with_less_generic(wizard.reduction.map_or(0, |reduction| reduction.remainder))
 }
 
-/// What the pool pays for the cast at its payment: the total less the
-/// generic that delve and convoke already paid.
-pub(super) fn wizard_paid_total(face: &baylee_cards_dsl::FaceDef, wizard: &CastWizard) -> ManaCost {
-    wizard_total_cost(face, wizard)
-        .with_less_generic((wizard.delve_exiles.len() + wizard.convoke_taps.len()) as u32)
+/// What the pool pays for the cast at its payment: the total less what
+/// delve and convoke already paid. A convoke tap pays a coloured symbol of
+/// its colour where it can (CR 702.51a; `tap_colors` from
+/// [`Engine::convoke_tap_colors`]), and generic mana otherwise; delve's
+/// exiles pay generic mana (CR 702.66a).
+pub(super) fn wizard_paid_total(
+    face: &baylee_cards_dsl::FaceDef,
+    wizard: &CastWizard,
+    tap_colors: &[baylee_core::color::ColorSet],
+) -> ManaCost {
+    let (cost, colored) = wizard_total_cost(face, wizard).convoked_colored(tap_colors);
+    let generic = u32::try_from(wizard.delve_exiles.len() + wizard.convoke_taps.len())
+        .unwrap_or(u32::MAX)
+        .saturating_sub(colored);
+    cost.with_less_generic(generic)
 }
 
 fn wizard_total_before_reduction(

@@ -9,8 +9,11 @@ use baylee_core::mana::{ManaColor, ManaCost};
 use baylee_engine::choice::{BlockOption, TargetPrompt};
 use baylee_view::{CardIdentity, HandObject, PublicObject, RulesFace};
 
+mod combat;
 mod foretell;
 mod phasing;
+mod played;
+mod upkeep;
 
 const ME: PlayerId = PlayerId::new(0);
 const THEM: PlayerId = PlayerId::new(1);
@@ -67,6 +70,11 @@ fn in_hand(slot: u32, name: &str) -> HandObject {
 /// `mana_abilities`, with no index; a mana ability a card prints (the
 /// first ability of every other card used here) is an ordinary entry in
 /// `abilities`.
+///
+/// Every spell in the hand is `payable`: the engine would cast it once its
+/// mana is made, as it does a card whose only lack is mana. A test about a
+/// card the engine would not cast (no legal target, CR 601.2c) takes it out,
+/// or plays a real table (`played`).
 fn table(permanents: &[&str], hand: &[&str]) -> (PlayerView, LegalActions) {
     let mut view = ViewBuilder::new(2)
         .with_battlefield(
@@ -85,6 +93,12 @@ fn table(permanents: &[&str], hand: &[&str]) -> (PlayerView, LegalActions) {
     let basic = |name: &&str| ["Forest", "Island", "Mountain", "Plains", "Swamp"].contains(name);
     let mut legal = LegalActions {
         can_pass: true,
+        payable: view
+            .hand
+            .iter()
+            .filter(|card| !card.types.contains(TypeSet::LAND))
+            .map(|card| card.id)
+            .collect(),
         ..LegalActions::default()
     };
     for (name, slot) in permanents.iter().zip(1..) {
@@ -786,7 +800,8 @@ fn mdfc_spell_pitch_spell_and_graveyard_exile_permissions_are_reachable() {
     view.graveyards[0].push(gy_card);
     let ex_card = permanent(71, "Grizzly Bears");
     view.exile[0].push(ex_card);
-    legal.payable.push(o(71));
+    // The engine lists both as cast once paid: the flashback and the permission.
+    legal.payable.extend([o(70), o(71)]);
     let reach = reachable(&view, &legal);
     assert_eq!(reach.len(), 2);
     assert!(
