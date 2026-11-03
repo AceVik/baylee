@@ -2123,6 +2123,8 @@ mod m2_tests;
 #[cfg(test)]
 mod mana_criteria_tests;
 #[cfg(test)]
+mod mana_flow_tests;
+#[cfg(test)]
 mod mana_tests;
 #[cfg(test)]
 mod mdfc_tests;
