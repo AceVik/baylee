@@ -24,8 +24,19 @@ manifests, even before publication.
 | --- | --- | --- |
 | `--bind` | `127.0.0.1:8787` | Explicit local/LAN socket address |
 | `--allow-host` | none | Another exact `HOST:PORT` browsers may use (repeatable) |
+| `--pipeline` | none | A `train_ops` pipeline directory for the training panel (repeatable, absolute, at most 8) |
 | `--interval-ms` | `1000` | Sampling interval, 500–10000 ms |
 | `--history-minutes` | `60` | RAM history, 1–120 minutes; UI shows up to one hour |
+
+No service-specific environment variables. The optional user unit is
+`scripts/systemd/baylee-monitor.service`. Install the binary in
+`~/.local/lib/baylee-monitor/` and the unit in `~/.config/systemd/user/`, adjust its
+explicit LAN address if desired, then run `systemctl --user daemon-reload` and
+`systemctl --user enable --now baylee-monitor`. Nice 10, low CPU/IO scheduling
+weight, 192 MiB memory limit, restart on failure. It requires a running user
+manager; installation does not enable lingering or change root permissions.
+After updates, reinstall the binary and restart the unit. Stop with
+`systemctl --user stop baylee-monitor`.
 
 ### Opening it from a phone
 
@@ -51,16 +62,6 @@ the browser used and lists every accepted URL, with the reminder to use
 `http://`, not `https://`. The first 16 distinct refused `Host` values are also
 logged, so `journalctl --user -u baylee-monitor` shows what a phone sent.
 
-No service-specific environment variables. The optional user unit is
-`scripts/systemd/baylee-monitor.service`. Install the binary in
-`~/.local/lib/baylee-monitor/` and the unit in `~/.config/systemd/user/`, adjust its
-explicit LAN address if desired, then run `systemctl --user daemon-reload` and
-`systemctl --user enable --now baylee-monitor`. Nice 10, low CPU/IO scheduling
-weight, 192 MiB memory limit, restart on failure. It requires a running user
-manager; installation does not enable lingering or change root permissions.
-After updates, reinstall the binary and restart the unit. Stop with
-`systemctl --user stop baylee-monitor`.
-
 ### Starting before the network
 
 A user unit cannot wait for the system's `network-online.target`, and at login
@@ -77,6 +78,65 @@ boot. The boot's monotonic timestamps tell otherwise: DHCP assigned
 192.168.0.103 at 11.9 s, the link dropped and came back, the lease returned at
 22.6 s, chronyd stepped the wall clock by +3600.9 s at 25.8 s, and Pulse
 listened at 28.6 s, on its fourth start. The hour was the clock step.
+
+## Training panel
+
+The panel under the four stat cards answers "how is BayleeAI training going"
+without a terminal. It is read-only like the rest of Pulse: no button in it
+starts, stops or changes anything. A separate `training` thread refreshes it
+every five seconds, so a slow bus or disk never delays the 1 Hz sampler, and
+the latest view (about 3 KB) rides along in every sample message.
+
+**System units.** Pulse asks systemd over the system D-Bus
+(`/run/dbus/system_bus_socket`, as its own user) for the loaded system units
+matching `baylee-*`, typically transient `systemd-run` units such as
+`baylee-v6x-exit1.service`, at most 24. It reads `ActiveState`, `SubState`,
+`ActiveEnterTimestamp`, `InactiveEnterTimestamp` and, for services, `Result`
+and `MainPID`. Unit descriptions are dropped unread: for a `systemd-run` unit
+they are its command line. The client is a small, fixed D-Bus implementation in
+`training/dbus.rs`: it authenticates with SASL `EXTERNAL`, calls only
+`ListUnitsByPatterns` and `Properties.Get`, subscribes to no signals, caps a
+message at 1 MiB and times out socket operations after two seconds. systemd
+forgets a transient unit as soon as it exits successfully, so Pulse remembers,
+in memory, the last eight units that disappeared within 24 hours, marked
+"beendet" with the time it noticed. A failed unit stays loaded in systemd and
+shows as "fehlgeschlagen" with its `Result`. User units (such as Pulse itself)
+are not shown. When the bus cannot be reached, the panel says so and keeps the
+previous list.
+
+**Pipelines.** Each `--pipeline` directory is a `train_ops` execution
+directory (`status.json`, `jobs/<stage>/job.json`, `jobs/<stage>/stdout.log`,
+`stderr.log`). Directories are explicit configuration: Pulse reads nothing
+outside them, follows no symlink below them and does not search for new ones,
+so a new pipeline needs its own `--pipeline` and a restart. Per refresh and
+pipeline it reads:
+
+- `status.json` (at most 64 KiB): `phase`, `updated_unix`, `promoted`, `error`
+  and the recorded controller. The controller counts as running when this
+  boot's `/proc/sys/kernel/random/boot_id` matches the recorded one and
+  `/proc/<pid>/stat` has the recorded start time, so a recycled pid is not
+  mistaken for it. A phase that is neither `complete` nor `failed` with a
+  stopped controller is shown as a warning. The pipeline is linked to the
+  system unit whose `MainPID` is its controller.
+- every stage directory under `jobs/` (at most 256 entries read, the newest 48
+  kept): `status`, `started_at_unix`, `finished_at_unix`, `returncode` and
+  `reason` from `job.json` (at most 64 KiB). Its command line and environment
+  are parsed past and never kept.
+- for the running stage (else the stage named by `phase`, else the newest):
+  the last 8 KiB of `stdout.log` and of `stderr.log`, whichever was written
+  last, and in it the newest line of the form `[tool] …`, such as
+  `[train4] step=2150 epoch=1 loss=0.9757 batches_per_s=1.48`. Its
+  `key=value` pairs (at most eight) become chips; the line is shown below them
+  with the log's age.
+
+Text from these files reaches the browser only after control characters are
+removed, every absolute or home-relative path is reduced to `…/last-component`
+and the result is cut at 240 characters. A missing directory or an unreadable
+`status.json` is reported on the pipeline's card instead of failing the panel.
+
+On a phone the panel is a single column: pipeline cards (phase, controller,
+progress chips, the newest five stages with "Alle N Stufen" for the rest),
+then the units with "seit", duration and PID.
 
 ## Local power-button setting (24 October 2026)
 
@@ -136,12 +196,19 @@ display; collecting aggregate rates does not allocate an extra interface list.
 ## Transport and cost
 
 One blocking sampler supplies all clients at 1 Hz. No per-thread process scan or
-parallel scan workers. HTTP uses one async thread. Full current process lists are
-serialized once per tick; only compact aggregate points enter the bounded history.
-History is in RAM and resets on restart. No telemetry files are written.
+parallel scan workers. HTTP uses one async thread; the training panel has its own
+thread that wakes every five seconds. Full current process lists are serialized
+once per tick, straight from the snapshot without an intermediate JSON tree;
+only compact aggregate points enter the bounded history. History is in RAM and
+resets on restart. No telemetry files are written.
 
-`GET /api/snapshot` returns `{"type":"sample","snapshot":…}`, or 503 at startup.
-`GET /ws` sends `{"type":"hello","facts":…,"history":…}`, then sample messages.
+`GET /api/snapshot` returns `{"type":"sample","snapshot":…,"training":…}`, or 503
+at startup. `training` holds `checked_ms`, `units` (name, `active_state`,
+`sub_state`, `result`, `main_pid`, `active_since_ms`, `inactive_since_ms`,
+`gone_ms`), `units_problem` and `pipelines` (name, `problem`, `phase`,
+`updated_ms`, `promoted`, `error`, `controller_pid`, `controller_alive`,
+`stages`, `progress`). `GET /ws` sends `{"type":"hello","facts":…,"history":…}`,
+then sample messages.
 The UI deduplicates timestamps overlapping between hello and the first sample.
 Timestamps are Unix milliseconds; rate calculations use monotonic time.
 
@@ -157,9 +224,14 @@ Checks: `cargo test -p baylee-monitor`,
 `node --check crates/baylee-monitor/web/app.js`. Tests cover history/live updates,
 connection limits, command rejection, permit release, cross-origin/rebinding
 rejection, `--allow-host` parsing and admission, the plain-text refusal over HTTP
-and WebSocket, waiting for an unassigned bind address and energy-counter wrap.
-Browser checks cover desktop/mobile layout,
-filter/sort, reconnection and missing sensors; close test browsers afterward.
+and WebSocket, waiting for an unassigned bind address, D-Bus marshalling (both
+byte orders, oversized and broken messages), remembered finished units,
+pipeline reading (stages, progress line, bounded log tail, no symlinks followed,
+no command line or environment in the output, path reduction) and energy-counter
+wrap. Two ignored tests talk to the real system bus:
+`cargo test -p baylee-monitor -- --ignored`. Browser checks cover desktop/mobile
+layout, filter/sort, reconnection and missing sensors; close test browsers
+afterward.
 
 ## Initial workstation verification (23 October 2026)
 
