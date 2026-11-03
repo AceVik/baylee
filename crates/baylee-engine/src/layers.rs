@@ -1276,6 +1276,7 @@ fn apply(
         // Damage results and counter placements consume these replacements;
         // they do not alter a projected characteristic.
         | Modifier::ReplacePlayerDamage { .. }
+        | Modifier::DamageFromColoredSourcesIsColorless(_)
         | Modifier::DamageLifeLossFloor { .. }
         | Modifier::AdditionalCounterPlacement { .. }
         | Modifier::AdditionalCounterOnEntryByCount { .. }

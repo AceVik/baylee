@@ -373,6 +373,24 @@ queued captures participate in the engine snapshot; the stack rider participates
 in both state snapshot and loop signature. Existing serialized journal entries
 without a departure remain readable via the field's serde default.
 
+### Damage-source color projection
+
+`Modifier::DamageFromColoredSourcesIsColorless` changes how a source answers a
+filter during a damage event; it is not a layer-five color change and does not
+mutate the object's cached characteristics. Protection, prevention, redirection
+and damage-trigger source filters call
+`eval::matches_damage_source_with_context`, which clones the projected
+characteristics only when an applicable effect matches one of the source's
+colors, then clears only the clone's color set. The effect table's monotone hint
+skips that scan when no such rule is registered.
+
+Targeting, blocking, source choices made before a damage event, recipient
+filters and all non-damage filter evaluation continue to use the source's actual
+characteristics. Thus protection from a color loses its damage-prevention clause
+under this effect but retains its enchant/equip, blocking and targeting clauses
+(CR 702.16b). LKI and object-version selection still happen before this temporary
+projection, so it neither enlarges nor replaces the source's identity.
+
 ### Damage history and later deaths
 
 `damage_history` records actual positive permanent damage after prevention and

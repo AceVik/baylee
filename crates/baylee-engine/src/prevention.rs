@@ -149,11 +149,10 @@ impl ChosenSource {
                             version: source.version,
                         },
                     )))
-            && crate::eval::matches_projected_with_context(
+            && crate::eval::matches_damage_source_with_context(
                 self.filter,
                 state,
                 source,
-                source.characteristics(),
                 self.you,
                 RuleContext {
                     source: self.this,

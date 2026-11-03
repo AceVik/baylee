@@ -166,6 +166,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         // them — it is about its controller's spells, and a set of objects
         // fixed at resolution would mean the cards in hand at that moment.
         Modifier::ReplacePlayerDamage { .. }
+        | Modifier::DamageFromColoredSourcesIsColorless(_)
         | Modifier::BandsWithOther(_)
         | Modifier::DamageLifeLossFloor { .. }
         | Modifier::AdditionalCounterPlacement { .. }
@@ -425,6 +426,7 @@ impl RuleHints {
     const PLAYER_OR_SBA_RULE: u32 = 1 << 19;
     const GRANT_TRIGGERED: u32 = 1 << 20;
     const REGENERATION_PROHIBITION: u32 = 1 << 21;
+    const DAMAGE_SOURCE_COLOR: u32 = 1 << 22;
 
     const fn contains(&self, bit: u32) -> bool {
         self.0 & bit != 0
@@ -531,6 +533,10 @@ impl EffectTable {
 
     pub(crate) const fn may_prevent_regeneration(&self) -> bool {
         self.hints.contains(RuleHints::REGENERATION_PROHIBITION)
+    }
+
+    pub(crate) const fn may_change_damage_source_color(&self) -> bool {
+        self.hints.contains(RuleHints::DAMAGE_SOURCE_COLOR)
     }
 
     pub(crate) fn has_parked(&self) -> bool {
@@ -736,6 +742,13 @@ impl EffectTable {
         self.hints.insert_if(
             RuleHints::REGENERATION_PROHIBITION,
             matches!(fx.modifier, Modifier::CantBeRegenerated),
+        );
+        self.hints.insert_if(
+            RuleHints::DAMAGE_SOURCE_COLOR,
+            matches!(
+                fx.modifier,
+                Modifier::DamageFromColoredSourcesIsColorless(_)
+            ),
         );
         self.effects.push(fx);
         self.generation += 1;

@@ -80,7 +80,9 @@ pub(super) fn first_matching_damage(
             recipient == *target
                 && amount > 0
                 && state.object(source).is_some_and(|object| {
-                    crate::eval::matches_with_context(filter, state, object, you, context)
+                    crate::eval::matches_damage_source_with_context(
+                        filter, state, object, you, context,
+                    )
                 })
         })
         .is_some_and(|first| std::ptr::eq(&raw const first.event, event))

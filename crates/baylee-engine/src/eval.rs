@@ -101,6 +101,39 @@ pub fn matches_with_context(
     matches_projected_with_context(filter, state, obj, obj.characteristics(), you, context)
 }
 
+/// Evaluate a source filter specifically for a damage event. Effects such as
+/// Ghostly Flame change only the source's color for this question; targeting,
+/// blocking and every non-damage use still see its actual characteristics
+/// (only damage is affected in protection's DEBT, CR 702.16b).
+#[must_use]
+pub(crate) fn matches_damage_source_with_context(
+    filter: &Filter,
+    state: &GameState,
+    obj: &GameObject,
+    you: PlayerId,
+    context: RuleContext,
+) -> bool {
+    let characteristics = obj.characteristics();
+    if characteristics.colors.is_empty() || !state.effects.may_change_damage_source_color() {
+        return matches_with_context(filter, state, obj, you, context);
+    }
+    let colorless = state.effects.iter().any(|fx| {
+        crate::effects::applies_to(state, fx, obj)
+            && match fx.modifier {
+                baylee_cards_dsl::Modifier::DamageFromColoredSourcesIsColorless(colors) => {
+                    characteristics.colors.intersects(colors)
+                }
+                _ => false,
+            }
+    });
+    if !colorless {
+        return matches_with_context(filter, state, obj, you, context);
+    }
+    let mut chars = characteristics.clone();
+    chars.colors = baylee_core::color::ColorSet::EMPTY;
+    matches_projected_with_context(filter, state, obj, &chars, you, context)
+}
+
 /// Evaluates a [`Filter`] against an object whose characteristics are
 /// supplied separately.
 ///
