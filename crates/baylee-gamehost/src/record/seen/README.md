@@ -1,11 +1,21 @@
-# Fixed synthetic acceptance record for the seen golden tests
+# Fixtures for the `seen` tests
 
-`acceptance-seed3.jsonl` was captured from `record::tests::played(3)` on origin/main commit `49c9a4d8f941be56958c779e4d23c4daa95f9b78`. The original finished-table golden assertion passed before the public-table export. Its 40th input also carries the original `30b17ab8dd2e7087` seen value; the final table carries `deb49d0b74b15d90`.
+## The golden tables: `table-40.json`, `table-end.json`
 
-Original capture SHA256: `27bebb34b190759683b4823f52db6ba16f3de018e2e2bb0c398f4def7142be70`.
+`seen`'s encoding is pinned on two public tables (`seen::PublicTable`, plain numbers): the table after the 40th input of the original acceptance game at seed 3, and the table at its end. Their digests are the original golden values, `30b17ab8dd2e7087` and `deb49d0b74b15d90`.
 
-Current SHA256: `5d812f46e01ebc6511e5e2fd1d7fd62d34d6db903dae37b62c986233c3f70b2b` (previous `391a089a1b11a4d9e99da1a54f80b73821fcd70a96cef1c865b6a1a9011ca67a`). During the PR #399 review, the internal `hash` fields were refreshed after the engine state encoding changed (previous SHA256 `4205ef611c9b4308ca66e063581922f95fe95c6d88bec499c43e7a916615e9f5`). On 31.10.2026 they were refreshed again, for the 22 inputs from 358 on while the game's Everybody Lives! is in effect: `Modifier::PlayerHexproof` gained a `who` field, which the effect's hash writes. They were refreshed a third time in the review of Mirrodin batch 2, whose state gained `turn_controls` and `hand_size_at_start`. A fourth time in the review of PR #410 (01.11.2026), whose players gained `combats_to_skip` in the state hash; this time by `refresh_fixture_hashes` in `seen.rs`, an ignored test that replays the record, checks every `seen` and the finish, and rewrites only the `hash` values. The landing review (02.11.2026), after integration with current main, refreshed 861 internal hashes from input 49 onward with the same helper; every recorded public digest and the finish still matched, and masking only the hash fields made the files byte-identical. Each time all lines kept identical actions, metadata and `seen` values; replay checked every public digest and the finished game before the fixture was replaced, and only the 16-hex `hash` values changed.
+They were captured on 3.11.2026 by replaying the original `acceptance-seed3.jsonl` exactly on origin/main `5819631ae`, the last engine that played it. That record was captured from `record::tests::played(3)` on origin/main `49c9a4d8f941be56958c779e4d23c4daa95f9b78` (original SHA256 `27bebb34b190759683b4823f52db6ba16f3de018e2e2bb0c398f4def7142be70`). Its hashes were refreshed five times before; the last SHA256 is `5d812f46e01ebc6511e5e2fd1d7fd62d34d6db903dae37b62c986233c3f70b2b`. Each refresh changed only the 16-hex `hash` values, with every `seen` and the finish checked.
 
-Its header names the build `test`. A build-aware `record::replay` holds a record of another build to `seen` where an engine hash moved, so the tests here replay it with `replay_exact`: an engine hash that no longer matches is a failure, not a fallback.
+The capture was needed because that game became obsolete. Seat 1 started it, and the engine let seat 1 draw on turn 1. CR 103.8a skips the starting player's first draw whichever seat starts, and fixing that changed the game from its third input on (and the opening miracle check its header hashed). As the earlier version of this file asked, the public-table encoding fixture was isolated rather than a new golden made from the current house AI. The tables are what `PublicTable::of` read.
 
-The game and names are synthetic repository test data, not a player record. The fixture holds the original preset and executed inputs so future House policy decisions cannot redefine either golden table. Encoding and both golden literals remain unchanged. Gameplay replay still checks every exact engine hash and real completion. If an intentional engine change makes those historical inputs obsolete, isolate the captured public-table encoding fixture; do not regenerate a new golden from the current House AI.
+**Never edit these files or the golden literals.** A change to the encoding is a new field (`seen2`) beside `seen`.
+
+## The acceptance record: `acceptance-seed3.jsonl`
+
+This is a game played by the house from seed 3 on the current engine, for the tests that change a table and watch the digest move or stay (`what_the_table_shows_moves_seen`, the library swap, the battlefield order, the clone). It pins no value. The tests replay it with `replay_exact`, so every engine hash is checked; its header names the build `test`.
+
+When a state-hash change moves only its `hash` values, `refresh_fixture_hashes` (an ignored test in `seen.rs`) rewrites them and checks every `seen` and the finish on the way. When a rule fix makes the game diverge, `capture_acceptance_record` (ignored too) writes it again from `played(3)`. Either way, update the SHA256 below.
+
+Current SHA256: `581471d8065301f7628b1f5dde9210bd864d9611c5e11f490e9748c89bbcb3d0`, captured 3.11.2026 on branch `c42/llm-report-fixes-20261103`.
+
+The games and names are synthetic repository test data, not a player record.

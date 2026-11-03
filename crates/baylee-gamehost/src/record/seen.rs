@@ -97,55 +97,132 @@ fn card_of(obj: &GameObject) -> u32 {
     obj.card.map_or(NO_CARD, |card| card.index.get())
 }
 
-/// The public table's digest (see the module docs).
-#[must_use]
-pub fn seen(state: &GameState) -> u64 {
-    let mut h = Fnv(FNV_OFFSET);
-    h.u32(state.turn.number);
-    h.u8(state.turn.active.get());
-    h.u8(step_number(&state.turn));
+/// The count a zone is written as, saturated: no zone holds four billion
+/// objects.
+fn count(n: usize) -> u32 {
+    u32::try_from(n).unwrap_or(u32::MAX)
+}
 
-    for player in &state.players {
-        let seat = player.id;
-        h.u8(u8::from(!state.has_left(seat)));
-        h.i32(player.life);
-        h.u32(u32::from(player.poison));
-        h.count(state.zones.list(ZoneLocation::Hand(seat)).len());
-        h.count(state.zones.list(ZoneLocation::Library(seat)).len());
-        h.count(state.zones.list(ZoneLocation::Exile(seat)).len());
-        let graveyard = state.zones.list(ZoneLocation::Graveyard(seat));
-        h.count(graveyard.len());
-        for &id in graveyard {
-            h.u32(state.object(id).map_or(NO_CARD, card_of));
+/// What one seat shows, in the order [`seen`] writes it.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct PublicSeat {
+    /// `1` while the seat is in the game.
+    pub in_game: u8,
+    pub life: i32,
+    pub poison: u32,
+    pub hand: u32,
+    pub library: u32,
+    pub exile: u32,
+    /// The graveyard's cards in zone order.
+    pub graveyard: Vec<u32>,
+}
+
+/// The public table [`seen`] digests, as the numbers the module docs name,
+/// read off a state ([`Self::of`]) and digested ([`Self::digest`]) apart.
+///
+/// Apart so the encoding can be pinned on a fixed table: the golden tests
+/// digest tables captured once (`seen/table-*.json`), which no change to
+/// the rules or to the house's play can move, where they used to replay a
+/// recorded game on the current engine and lost their table the day a rule
+/// was fixed (`seen/README.md`).
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct PublicTable {
+    pub turn: u32,
+    pub active: u8,
+    /// The step in CR 500.1's order ([`step_number`]).
+    pub step: u8,
+    pub seats: Vec<PublicSeat>,
+    /// `(card, controller, tapped, face down)` of every permanent, sorted.
+    pub battlefield: Vec<(u32, u8, u8, u8)>,
+    pub stack: u32,
+}
+
+impl PublicTable {
+    /// The public table of `state`.
+    #[must_use]
+    pub fn of(state: &GameState) -> Self {
+        let seats = state
+            .players
+            .iter()
+            .map(|player| {
+                let seat = player.id;
+                PublicSeat {
+                    in_game: u8::from(!state.has_left(seat)),
+                    life: player.life,
+                    poison: u32::from(player.poison),
+                    hand: count(state.zones.list(ZoneLocation::Hand(seat)).len()),
+                    library: count(state.zones.list(ZoneLocation::Library(seat)).len()),
+                    exile: count(state.zones.list(ZoneLocation::Exile(seat)).len()),
+                    graveyard: state
+                        .zones
+                        .list(ZoneLocation::Graveyard(seat))
+                        .iter()
+                        .map(|&id| state.object(id).map_or(NO_CARD, card_of))
+                        .collect(),
+                }
+            })
+            .collect();
+        let mut battlefield: Vec<(u32, u8, u8, u8)> = state
+            .zones
+            .list(ZoneLocation::Battlefield)
+            .iter()
+            .filter_map(|&id| state.object(id))
+            .map(|obj| {
+                let face_down = obj.status.contains(Status::FACE_DOWN);
+                (
+                    if face_down { FACE_DOWN } else { card_of(obj) },
+                    obj.controller.get(),
+                    u8::from(obj.status.contains(Status::TAPPED)),
+                    u8::from(face_down),
+                )
+            })
+            .collect();
+        battlefield.sort_unstable();
+        Self {
+            turn: state.turn.number,
+            active: state.turn.active.get(),
+            step: step_number(&state.turn),
+            seats,
+            battlefield,
+            stack: count(state.zones.list(ZoneLocation::Stack).len()),
         }
     }
 
-    let mut battlefield: Vec<(u32, u8, u8, u8)> = state
-        .zones
-        .list(ZoneLocation::Battlefield)
-        .iter()
-        .filter_map(|&id| state.object(id))
-        .map(|obj| {
-            let face_down = obj.status.contains(Status::FACE_DOWN);
-            (
-                if face_down { FACE_DOWN } else { card_of(obj) },
-                obj.controller.get(),
-                u8::from(obj.status.contains(Status::TAPPED)),
-                u8::from(face_down),
-            )
-        })
-        .collect();
-    battlefield.sort_unstable();
-    h.count(battlefield.len());
-    for (card, controller, tapped, face_down) in battlefield {
-        h.u32(card);
-        h.u8(controller);
-        h.u8(tapped);
-        h.u8(face_down);
+    /// Its digest, in the encoding the module docs fix.
+    #[must_use]
+    pub fn digest(&self) -> u64 {
+        let mut h = Fnv(FNV_OFFSET);
+        h.u32(self.turn);
+        h.u8(self.active);
+        h.u8(self.step);
+        for seat in &self.seats {
+            h.u8(seat.in_game);
+            h.i32(seat.life);
+            h.u32(seat.poison);
+            h.u32(seat.hand);
+            h.u32(seat.library);
+            h.u32(seat.exile);
+            h.count(seat.graveyard.len());
+            for &card in &seat.graveyard {
+                h.u32(card);
+            }
+        }
+        h.count(self.battlefield.len());
+        for &(card, controller, tapped, face_down) in &self.battlefield {
+            h.u32(card);
+            h.u8(controller);
+            h.u8(tapped);
+            h.u8(face_down);
+        }
+        h.u32(self.stack);
+        h.0
     }
+}
 
-    h.count(state.zones.list(ZoneLocation::Stack).len());
-    h.0
+/// The public table's digest (see the module docs).
+#[must_use]
+pub fn seen(state: &GameState) -> u64 {
+    PublicTable::of(state).digest()
 }
 
 #[cfg(test)]
@@ -170,13 +247,25 @@ mod tests {
     use super::super::{Line, Replayed, hex, replay_exact};
     use baylee_core::ids::PlayerId;
 
-    // Captured on origin/main 49c9a4d8f with both original golden values intact.
-    // House policy is intentionally not rerun: changing a strategy must not
-    // change the table whose public encoding this module pins. Replayed
-    // exactly, every engine hash checked: its header names the build `test`,
-    // which a build-aware replay would hold to `seen` alone, and `seen` is
-    // what these tests pin rather than what may check them
-    // (`seen/README.md`).
+    // The golden tables: what `seen` read after the 40th input of the
+    // acceptance game at seed 3 and at its end, as plain numbers
+    // (`PublicTable`), captured on the engine that played the original record
+    // (origin/main 49c9a4d8f wrote it; captured on 5819631ae, which replayed
+    // it exactly). Neither a fixed rule nor a change to the house's play can
+    // move them, so the encoding they pin stands on its own
+    // (`seen/README.md`). Both digests are the originals.
+    const TABLE_40: &str = include_str!("seen/table-40.json");
+    const TABLE_END: &str = include_str!("seen/table-end.json");
+
+    fn table(json: &str) -> PublicTable {
+        serde_json::from_str(json).expect("a captured table")
+    }
+
+    // A game for the tests that change a table and watch the digest move or
+    // stay: the house playing seed 3 (`record::tests::played`), replayed
+    // exactly, every engine hash checked (its header names the build `test`).
+    // It pins no value, and is captured again
+    // (`capture_acceptance_record`) when a fixed rule makes it diverge.
     const ACCEPTANCE_RECORD: &[u8] = include_bytes!("seen/acceptance-seed3.jsonl");
 
     /// The acceptance table at seed 3, played, and cut after its first 40
@@ -213,21 +302,33 @@ mod tests {
 
     #[test]
     fn the_digest_of_a_fixed_table_never_changes() {
-        let (cut, replayed) = forty_inputs();
-        let seen_now = seen(replayed.engine.state());
+        let fixed = table(TABLE_40);
+        assert!(
+            fixed.battlefield.len() >= 2,
+            "a golden table without permanents pins nothing of the battlefield's encoding"
+        );
+        let seen_now = fixed.digest();
         assert_eq!(
             seen_now, GOLDEN,
             "seen moved to {seen_now:#018x}: see the note on GOLDEN, do not edit the literal"
         );
-        let Some(Line::Input {
-            seen: Some(recorded),
-            ..
-        }) = cut.iter().rev().find(|l| matches!(l, Line::Input { .. }))
-        else {
-            panic!("the 40th input carries no seen");
-        };
-        assert_eq!(recorded, &hex(GOLDEN));
-        assert_eq!(recorded, &format!("{GOLDEN:016x}"));
+        // As the original record wrote it beside its 40th input.
+        assert_eq!(hex(GOLDEN), "30b17ab8dd2e7087");
+        assert_eq!(hex(GOLDEN), format!("{GOLDEN:016x}"));
+    }
+
+    /// `seen` of a state is the digest of the table read off it, and a
+    /// table read back from JSON is the table written: what the golden
+    /// tables stand for.
+    #[test]
+    fn a_state_s_digest_is_its_table_s() {
+        for replayed in [forty_inputs().1, finished()] {
+            let state = replayed.engine.state();
+            let read = PublicTable::of(state);
+            assert_eq!(read.digest(), seen(state));
+            let json = serde_json::to_string(&read).expect("a table writes");
+            assert_eq!(table(&json), read);
+        }
     }
 
     /// A seat's library has two different cards: their positions, to swap.
@@ -267,7 +368,6 @@ mod tests {
             "the swap changed nothing the engine hashes, so it proves nothing"
         );
         assert_eq!(seen(&shuffled), seen(state));
-        assert_eq!(seen(&shuffled), GOLDEN);
     }
 
     /// A cloned table is the same digest: the baseline every change below
@@ -282,29 +382,50 @@ mod tests {
     /// The acceptance game at seed 3 played to its end: graveyards full,
     /// a card in a graveyard.
     fn finished() -> Replayed {
-        replay_exact(ACCEPTANCE_RECORD).expect("the fixed historical record replays")
+        replay_exact(ACCEPTANCE_RECORD).expect("the acceptance record replays")
     }
 
-    /// `seen` of the finished game, pinned as [`GOLDEN`] is, for a table
-    /// with cards in the graveyards, which the 40th input's has not.
+    /// `seen` of the finished game's table, pinned as [`GOLDEN`] is, for a
+    /// table with cards in the graveyards, which the 40th input's has not.
     const GOLDEN_END: u64 = 0xdeb4_9d0b_74b1_5d90;
 
     #[test]
     fn the_digest_of_a_finished_table_never_changes() {
-        let replayed = finished();
-        let state = replayed.engine.state();
+        let fixed = table(TABLE_END);
         assert!(
-            state
-                .players
-                .iter()
-                .any(|p| !state.zones.list(ZoneLocation::Graveyard(p.id)).is_empty()),
+            fixed.seats.iter().any(|seat| !seat.graveyard.is_empty()),
             "a golden table with an empty graveyard pins nothing of the graveyard's encoding"
         );
-        let seen_now = seen(state);
+        let seen_now = fixed.digest();
         assert_eq!(
             seen_now, GOLDEN_END,
             "seen moved to {seen_now:#018x}: see the note on GOLDEN, do not edit the literal"
         );
+    }
+
+    /// Writes the acceptance record again from the house playing seed 3 on
+    /// this engine, for when a fixed rule makes the old one diverge; the
+    /// golden tables do not depend on it. By hand:
+    /// `cargo test -p baylee-gamehost --lib capture_acceptance_record -- --ignored`,
+    /// then the README's SHA256.
+    #[test]
+    #[ignore = "rewrites the fixture; run by hand when a rule fix makes it diverge"]
+    fn capture_acceptance_record() {
+        // Named the build `test`, as the fixture always was: no commit of
+        // the build that happened to capture it is written into it.
+        let mut written = lines(&super::super::tests::played(3).take_record());
+        if let Some(Line::Header { build, .. }) = written.first_mut() {
+            *build = "test".to_owned();
+        }
+        let record = encode(&written);
+        std::fs::write(
+            concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/src/record/seen/acceptance-seed3.jsonl"
+            ),
+            record,
+        )
+        .expect("the fixture is written");
     }
 
     /// Everything a player can see moves it, on a table early in the game
