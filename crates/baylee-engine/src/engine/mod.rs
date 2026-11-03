@@ -2082,6 +2082,8 @@ mod state_trigger_tests;
 #[cfg(test)]
 mod timing_window_tests;
 #[cfg(test)]
+mod upkeep_flow_tests;
+#[cfg(test)]
 mod upkeep_permission_tests;
 
 #[cfg(test)]
