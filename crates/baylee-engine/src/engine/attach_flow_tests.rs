@@ -333,3 +333,44 @@ fn equip_cannot_target_an_opponents_creature() {
     let equipped = equip(&mut engine, blade, theirs);
     assert!(!equipped || engine.state().object(blade).unwrap().attached_to != Some(theirs));
 }
+
+/// Holy Strength (+1/+2) and Unholy Strength (+2/+1) on one creature add
+/// up, and losing one leaves the other's bonus.
+#[test]
+fn two_auras_on_one_creature_add_up() {
+    let unholy = card_index("090d88a9-7f2d-4bd1-a30a-7c48d05068be");
+    let swamp = card_index("56719f6a-1a6c-4c0a-8d21-18f7d7350b68");
+    let mut engine = duel(
+        &[holy_strength(), unholy],
+        &[plains(), swamp, quiet_creature()],
+    );
+    let elf = on_battlefield(&engine, P0, quiet_creature()).unwrap();
+    // Tap the two lands only: the elf is the target, not a mana source.
+    let lands: Vec<ObjectId> = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .filter(|id| {
+            *id != elf
+                && engine
+                    .state()
+                    .object(*id)
+                    .is_some_and(|o| o.controller == P0)
+        })
+        .collect();
+    super::testkit::tap_mana_where(&mut engine, P0, |id| lands.contains(&id));
+    for aura in [holy_strength(), unholy] {
+        let card = in_hand(&engine, P0, aura).unwrap();
+        engine.apply(P0, PlayerAction::CastSpell { card }).unwrap();
+        engine
+            .apply(P0, PlayerAction::ChooseObjects { objects: vec![elf] })
+            .unwrap();
+        pass_until(&mut engine, stack_is_empty);
+    }
+    assert_eq!(body(&mut engine, elf), (4, 4));
+    let holy = on_battlefield(&engine, P0, holy_strength()).unwrap();
+    kill(&mut engine, holy);
+    assert_eq!(body(&mut engine, elf), (3, 2));
+}
