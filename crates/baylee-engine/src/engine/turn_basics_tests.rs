@@ -4,12 +4,28 @@
 //! counter. Each rule is read on both sides: the player it applies to and
 //! the one it does not.
 
-use super::testkit::{Duel, basic_forest, keep_mulligans, on_battlefield, pass_until, reach_main_phase};
+use super::testkit::{Duel, basic_forest, keep_mulligans, on_battlefield, pass_until};
 use super::*;
 use crate::object::Status;
 use crate::zone::ZoneLocation;
 
 const SEED: u64 = 0x7a2b_0001;
+
+/// Lets the game run to `seat`'s next first main phase: the one it is in
+/// does not count, so calling it twice for the same seat walks a full
+/// round.
+fn main_of(engine: &mut Engine<super::testkit::RegistryLookup>, seat: PlayerId) {
+    let start = engine.state().turn.number;
+    let here = |e: &Engine<super::testkit::RegistryLookup>| {
+        e.state().turn.active == seat
+            && e.state().turn.phase == Phase::FirstMain
+            && matches!(e.pending(), Pending::Priority { .. })
+    };
+    let already = here(engine);
+    pass_until(engine, |e| {
+        here(e) && (!already || e.state().turn.number > start)
+    });
+}
 
 fn hand_size(engine: &Engine<super::testkit::RegistryLookup>, seat: PlayerId) -> usize {
     engine.state().zones.list(ZoneLocation::Hand(seat)).len()
@@ -53,12 +69,12 @@ fn the_starting_player_takes_the_first_turn_and_the_other_seat_the_second() {
     let p0 = PlayerId::new(0);
     let p1 = PlayerId::new(1);
     let mut engine = duel_with_a_forest_each();
-    reach_main_phase(&mut engine, p0);
+    main_of(&mut engine, p0);
     let first = engine.state().turn.number;
     assert_eq!(engine.state().turn.active, p0);
-    reach_main_phase(&mut engine, p1);
+    main_of(&mut engine, p1);
     assert_eq!(engine.state().turn.number, first + 1);
-    reach_main_phase(&mut engine, p0);
+    main_of(&mut engine, p0);
     assert_eq!(engine.state().turn.number, first + 2);
 }
 
@@ -67,10 +83,10 @@ fn the_draw_step_gives_the_active_player_one_card_and_the_other_none() {
     let p0 = PlayerId::new(0);
     let p1 = PlayerId::new(1);
     let mut engine = duel_with_a_forest_each();
-    reach_main_phase(&mut engine, p0);
+    main_of(&mut engine, p0);
     let (hand0, hand1) = (hand_size(&engine, p0), hand_size(&engine, p1));
     let (lib0, lib1) = (library_size(&engine, p0), library_size(&engine, p1));
-    reach_main_phase(&mut engine, p1);
+    main_of(&mut engine, p1);
     assert_eq!(hand_size(&engine, p1), hand1 + 1, "the active player drew");
     assert_eq!(library_size(&engine, p1), lib1 - 1);
     assert_eq!(hand_size(&engine, p0), hand0, "the other seat drew nothing");
@@ -82,7 +98,7 @@ fn the_untap_step_untaps_only_the_active_players_permanents() {
     let p0 = PlayerId::new(0);
     let p1 = PlayerId::new(1);
     let mut engine = duel_with_a_forest_each();
-    reach_main_phase(&mut engine, p0);
+    main_of(&mut engine, p0);
     let [mine, theirs] = forests(&engine);
     {
         let state = engine.dev_state_mut(p0).expect("dev board");
@@ -90,10 +106,16 @@ fn the_untap_step_untaps_only_the_active_players_permanents() {
             state.object_mut(id).unwrap().status.insert(Status::TAPPED);
         }
     }
-    reach_main_phase(&mut engine, p1);
-    assert!(!tapped(&engine, theirs), "seat 1 untapped in its own untap step");
-    assert!(tapped(&engine, mine), "seat 0's forest waits for seat 0's turn");
-    reach_main_phase(&mut engine, p0);
+    main_of(&mut engine, p1);
+    assert!(
+        !tapped(&engine, theirs),
+        "seat 1 untapped in its own untap step"
+    );
+    assert!(
+        tapped(&engine, mine),
+        "seat 0's forest waits for seat 0's turn"
+    );
+    main_of(&mut engine, p0);
     assert!(!tapped(&engine, mine));
 }
 
@@ -102,9 +124,9 @@ fn an_untapped_permanent_is_left_as_it_was() {
     let p0 = PlayerId::new(0);
     let p1 = PlayerId::new(1);
     let mut engine = duel_with_a_forest_each();
-    reach_main_phase(&mut engine, p0);
+    main_of(&mut engine, p0);
     let [mine, theirs] = forests(&engine);
-    reach_main_phase(&mut engine, p1);
+    main_of(&mut engine, p1);
     assert!(!tapped(&engine, mine));
     assert!(!tapped(&engine, theirs));
 }
@@ -114,7 +136,7 @@ fn every_step_of_a_turn_happens_once_and_in_order() {
     let p0 = PlayerId::new(0);
     let p1 = PlayerId::new(1);
     let mut engine = duel_with_a_forest_each();
-    reach_main_phase(&mut engine, p0);
+    main_of(&mut engine, p0);
     let turn = engine.state().turn.number;
     let mut seen: Vec<(Phase, crate::turn::Step)> = Vec::new();
     pass_until(&mut engine, |e| {
@@ -132,23 +154,25 @@ fn every_step_of_a_turn_happens_once_and_in_order() {
             seen.push(here);
         }
         let Pending::Priority { player, .. } = engine.pending().clone() else {
-            pass_until(&mut engine, |e| matches!(e.pending(), Pending::Priority { .. }));
+            pass_until(&mut engine, |e| {
+                matches!(e.pending(), Pending::Priority { .. })
+            });
             continue;
         };
         engine.apply(player, PlayerAction::PassPriority).unwrap();
     }
     for (i, here) in seen.iter().enumerate() {
-        assert!(
-            !seen[i + 1..].contains(here),
-            "no step came back: {seen:?}"
-        );
+        assert!(!seen[i + 1..].contains(here), "no step came back: {seen:?}");
     }
     let first_main = seen.iter().position(|(p, _)| *p == Phase::FirstMain);
     let second_main = seen.iter().position(|(p, _)| *p == Phase::SecondMain);
     let end = seen.iter().position(|(_, s)| *s == crate::turn::Step::End);
     assert!(first_main.is_some() && end.is_some(), "{seen:?}");
     assert!(first_main < second_main, "{seen:?}");
-    assert!(second_main < end, "the end step follows the main phases: {seen:?}");
+    assert!(
+        second_main < end,
+        "the end step follows the main phases: {seen:?}"
+    );
 }
 
 #[test]
@@ -156,7 +180,7 @@ fn a_tapped_land_untaps_for_its_controller_every_turn() {
     let p0 = PlayerId::new(0);
     let p1 = PlayerId::new(1);
     let mut engine = duel_with_a_forest_each();
-    reach_main_phase(&mut engine, p0);
+    main_of(&mut engine, p0);
     let [mine, _] = forests(&engine);
     for _ in 0..3 {
         engine
@@ -166,9 +190,9 @@ fn a_tapped_land_untaps_for_its_controller_every_turn() {
             .unwrap()
             .status
             .insert(Status::TAPPED);
-        reach_main_phase(&mut engine, p1);
+        main_of(&mut engine, p1);
         assert!(tapped(&engine, mine));
-        reach_main_phase(&mut engine, p0);
+        main_of(&mut engine, p0);
         assert!(!tapped(&engine, mine));
     }
 }

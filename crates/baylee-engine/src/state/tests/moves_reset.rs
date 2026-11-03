@@ -109,7 +109,12 @@ fn a_card_put_on_top_of_the_library_is_drawn_next() {
     let mut state = state(207);
     let card = state.draw_cards(P0, 1)[0];
     state
-        .move_object(card, ZoneLocation::Library(P0), ZonePosition::Top, Cause::Effect)
+        .move_object(
+            card,
+            ZoneLocation::Library(P0),
+            ZonePosition::Top,
+            Cause::Effect,
+        )
         .unwrap();
     assert_eq!(state.draw_cards(P0, 1), vec![card]);
 }
@@ -127,7 +132,11 @@ fn a_card_put_on_the_bottom_is_not_drawn_next() {
         )
         .unwrap();
     let library = state.zones.list(ZoneLocation::Library(P0));
-    assert_eq!(library.first(), Some(&card), "the bottom is the list's start");
+    assert_eq!(
+        library.first(),
+        Some(&card),
+        "the bottom is the list's start"
+    );
     assert_ne!(state.draw_cards(P0, 1), vec![card]);
 }
 

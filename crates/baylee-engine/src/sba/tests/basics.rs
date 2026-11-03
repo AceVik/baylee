@@ -261,10 +261,7 @@ fn plus_counters_alone_are_left_alone() {
         .set(CounterKind::P1P1, 3);
     state.invalidate_projections();
     assert!(!run(&mut state, &RegistryLookup).changed);
-    assert_eq!(
-        state.object(id).unwrap().counters.get(CounterKind::P1P1),
-        3
-    );
+    assert_eq!(state.object(id).unwrap().counters.get(CounterKind::P1P1), 3);
 }
 
 /// A settled board is a fixpoint: a second pass straight after a pass that
