@@ -210,3 +210,39 @@ fn pyroclasm_does_not_touch_players() {
     assert_eq!(engine.state().players[0].life, 20);
     assert_eq!(engine.state().players[1].life, 20);
 }
+
+/// Tokens made this turn are summoning sick like any creature (CR 302.6)
+/// and attack on their controller's next turn.
+#[test]
+fn new_tokens_wait_a_turn_to_attack() {
+    let mut engine = duel(&[raise_the_alarm()], &[plains(), plains()], &[]);
+    resolve(&mut engine, raise_the_alarm());
+    let soldiers = tokens(&engine, P0);
+    for token in &soldiers {
+        assert!(!crate::combat::can_attack(engine.state(), P0, *token));
+    }
+    let turn = engine.state().turn.number;
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == P0
+            && e.state().turn.number > turn
+            && e.state().turn.phase == Phase::FirstMain
+    });
+    for token in &soldiers {
+        assert!(crate::combat::can_attack(engine.state(), P0, *token));
+    }
+}
+
+/// Glorious Anthem reaches tokens like any creature its controller has.
+#[test]
+fn an_anthem_pumps_tokens_too() {
+    let anthem = card_index("e3886fe8-9b76-4613-8891-4ec74657c087");
+    let mut engine = duel(&[raise_the_alarm()], &[plains(), plains(), anthem], &[]);
+    resolve(&mut engine, raise_the_alarm());
+    engine
+        .dev_state_mut(P0)
+        .expect("dev board")
+        .refresh_characteristics();
+    for token in tokens(&engine, P0) {
+        assert_eq!(super::testkit::pt(&engine, token), (2, 2));
+    }
+}
