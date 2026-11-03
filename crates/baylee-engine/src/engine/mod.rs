@@ -2312,6 +2312,8 @@ mod ward_tests;
 mod waterbend_tests;
 #[cfg(test)]
 mod werewolf_tests;
+#[cfg(test)]
+mod x_flow_tests;
 
 #[cfg(test)]
 mod scrap_trawler_tests;
