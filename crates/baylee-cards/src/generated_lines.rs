@@ -7569,8 +7569,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Call to Arms
     &[FaceLines {
         sentences: 3,
-        stackable: 0,
-        lines: &[None],
+        stackable: 1,
+        lines: &[None, None],
         modes: &[],
         alternatives: &[],
     }],

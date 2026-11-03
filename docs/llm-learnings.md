@@ -6350,3 +6350,16 @@ got wrong was in the tests, not in the cards:
   genuinely new suffix. Append variants to enums whose derived `Hash` feeds a
   snapshot; inserting one renumbers every later variant. The finished-table
   replay and the zero-imposed-cost hash regression test pin both rules.
+
+## 2026-11-03 — Call to Arms' unique color plurality
+
+- Reuse `ChosenColorIsUniqueMostCommon` for both the conditional anthem and the
+  negated state trigger. Its filter scopes the entire counted population, not
+  only the chosen color: multicolored nontoken permanents contribute once to
+  each of their colors, and the chosen color must lead every other strictly.
+- Six played tests cover entry choices, a positive plurality, an initial tie,
+  multicolor contributions, the chosen opponent rather than another player,
+  the bonus ending before the state trigger resolves, and a real Saproling
+  token not breaking the nontoken plurality. Existing color/player choices,
+  state-trigger presentation and automatic pass policy serve desktop, house AI
+  and LLM seats without a new decision or card-specific policy.
