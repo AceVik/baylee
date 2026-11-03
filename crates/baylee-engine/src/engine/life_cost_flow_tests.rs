@@ -160,3 +160,34 @@ fn once_each_turn_comes_back_next_turn() {
     });
     assert!(activate(&mut engine, rogue, 0));
 }
+
+/// Sewer Rats: "{B}, Pay 1 life: +1/+0 until end of turn. Activate no more
+/// than three times each turn." The fourth is refused even with the mana
+/// and the life for it.
+#[test]
+fn no_more_than_three_times_is_three() {
+    let rats = card_index("bf526a0d-65cc-445f-b2b8-19a2cfdd836b");
+    let swamp = card_index("56719f6a-1a6c-4c0a-8d21-18f7d7350b68");
+    let mut engine = Duel::new(SEED, basic_forest())
+        .battlefield(0, &[rats, swamp, swamp, swamp, swamp])
+        .start();
+    keep_mulligans(&mut engine);
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == P0
+            && e.state().turn.phase == Phase::FirstMain
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == P0)
+    });
+    let rat = on_battlefield(&engine, P0, rats).unwrap();
+    super::testkit::tap_mana_where(&mut engine, P0, |id| id != rat);
+    for _ in 0..3 {
+        assert!(activate(&mut engine, rat, 0));
+    }
+    assert!(!activate(&mut engine, rat, 0), "the fourth");
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(life(&engine), 17);
+    engine
+        .dev_state_mut(P0)
+        .expect("dev board")
+        .refresh_characteristics();
+    assert_eq!(pt(&engine, rat).0, 4);
+}
