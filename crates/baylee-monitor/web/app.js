@@ -290,7 +290,9 @@ function renderTraining() {
 class Chart {
   constructor(id, keys, unit, fixedMax) {
     this.canvas=$(id+"-chart");this.tooltip=$(id+"-tooltip");this.keys=keys;this.unit=unit;this.fixedMax=fixedMax;this.pointer=null;
-    this.canvas.addEventListener("pointermove", e=>{this.pointer=e.clientX-this.canvas.getBoundingClientRect().left;this.draw();});
+    const inspect=e=>{this.pointer=e.clientX-this.canvas.getBoundingClientRect().left;this.draw();};
+    // A tap shows the values too; touch devices send no hover moves.
+    this.canvas.addEventListener("pointermove",inspect);this.canvas.addEventListener("pointerdown",inspect);
     this.canvas.addEventListener("pointerleave",()=>{this.pointer=null;this.tooltip.hidden=true;this.draw();});
     new ResizeObserver(()=>this.draw()).observe(this.canvas);
     charts.push(this);
@@ -307,7 +309,7 @@ class Chart {
     let maximum=this.fixedMax||1;
     if(!this.fixedMax)for(const p of points)for(const key of this.keys)if(p[key]!=null)maximum=Math.max(maximum,p[key]*1.15);
     const x=t=>left+(t-start)/(end-start)*(right-left), y=v=>bottom-Math.max(0,Math.min(maximum,v))/maximum*(bottom-top);
-    ctx.font="9px system-ui";ctx.lineWidth=1;
+    ctx.font=`${w<500?11:10}px system-ui`;ctx.lineWidth=1;
     for(let i=0;i<=2;i++) {
       const value=maximum*i/2, yy=y(value);ctx.strokeStyle="#283442";ctx.beginPath();ctx.moveTo(left,yy);ctx.lineTo(right,yy);ctx.stroke();ctx.fillStyle="#8394a7";ctx.textAlign="right";
       ctx.fillText(this.unit==="rate"?bytes(value):`${Math.round(value)}${this.unit==="%"?"%":""}`,left-8,yy+3);

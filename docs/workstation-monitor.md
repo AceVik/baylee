@@ -62,6 +62,17 @@ the browser used and lists every accepted URL, with the reminder to use
 `http://`, not `https://`. The first 16 distinct refused `Host` values are also
 logged, so `journalctl --user -u baylee-monitor` shows what a phone sent.
 
+### On a small screen
+
+No text is smaller than 11 px at any width; up to 600 px wide, body text is
+12 px or more. On touch screens (`pointer: coarse`) of any width, buttons, sort
+headers, the search field and links are at least 44 px tall, and segment
+buttons and sort headers 44 px wide. The search field uses 16 px, so iOS does
+not zoom on focus. A tap on a chart shows its values, as hovering does with a
+mouse, and chart labels are 11 px below 500 px width. Below 380 px the stat
+cards drop their icons. The process table scrolls inside its panel; the page
+itself never scrolls sideways.
+
 ### Starting before the network
 
 A user unit cannot wait for the system's `network-online.target`, and at login
