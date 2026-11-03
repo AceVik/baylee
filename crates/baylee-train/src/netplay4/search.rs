@@ -14,6 +14,8 @@
 //! side. The policy's answer is played unless the [`Selection4`] finds
 //! another one better: by a paired margin over the same worlds, by the
 //! policy's prior weighed against the worlds, or (v1) by the best mean.
+//! With [`SearchConfig4::with_targets`] (v3) a cast is also tried at each
+//! of its targets, which the engine asks for where it cannot fork.
 //!
 //! Budgets are counts, never time; every seed is derived from the deal's
 //! policy seed, the decision and the world; so a search is a function of
@@ -37,6 +39,9 @@ use crate::features4::{PendingKind4, SourceKind4, StepProvenance4, TeacherTarget
 
 /// The search's contract name, for run metadata and reports.
 pub const SEARCH_CONTRACT: &str = "belief_lookahead_v2";
+/// The contract of a search whose casts are tried at each of their targets
+/// ([`SearchConfig4::with_targets`]); otherwise [`SEARCH_CONTRACT`]'s.
+pub const SEARCH_CONTRACT_TARGETS: &str = "belief_lookahead_v3";
 
 /// How a search chooses among its candidates once their worlds are played.
 #[derive(Clone, Copy, Debug, PartialEq, serde::Serialize)]
@@ -106,6 +111,7 @@ pub struct SearchConfig4 {
     horizon: usize,
     selection: Selection4,
     threads: usize,
+    targets: usize,
 }
 
 impl SearchConfig4 {
@@ -119,6 +125,8 @@ impl SearchConfig4 {
     pub const MAX_THREADS: usize = 256;
     /// Rollouts one searched decision runs at once unless told otherwise.
     pub const DEFAULT_THREADS: usize = 16;
+    /// The most targets one cast is tried at.
+    pub const MAX_TARGETS: usize = 8;
 
     /// `candidates` answers (K, the policy's own first), each tried in
     /// `particles` worlds (P), each rolled out at most `horizon` decisions
@@ -149,7 +157,43 @@ impl SearchConfig4 {
             horizon,
             selection: Selection4::default(),
             threads: Self::DEFAULT_THREADS,
+            targets: 0,
         })
+    }
+
+    /// The same search, trying a candidate that casts a spell or activates
+    /// an ability at each of up to `targets` of its targets: when the
+    /// seat's next question after it is a single target, the candidate
+    /// becomes one per target the policy ranks there, its own first
+    /// (`docs/trained-ai.md` §"Lookahead search"). `0` (the default) leaves
+    /// targets to the policy, as v2 does.
+    ///
+    /// # Errors
+    /// When `targets` is past [`Self::MAX_TARGETS`].
+    pub fn with_targets(self, targets: usize) -> anyhow::Result<Self> {
+        anyhow::ensure!(
+            targets <= Self::MAX_TARGETS,
+            "search targets must be at most {}",
+            Self::MAX_TARGETS
+        );
+        Ok(Self { targets, ..self })
+    }
+
+    /// The most targets one cast is tried at; `0` when targets are left to
+    /// the policy.
+    #[must_use]
+    pub const fn targets(&self) -> usize {
+        self.targets
+    }
+
+    /// The contract this search keeps.
+    #[must_use]
+    pub const fn contract(&self) -> &'static str {
+        if self.targets > 0 {
+            SEARCH_CONTRACT_TARGETS
+        } else {
+            SEARCH_CONTRACT
+        }
     }
 
     /// The same search, with at most `threads` rollouts at once. They run at
@@ -214,8 +258,8 @@ impl SearchConfig4 {
     /// produced every searched answer.
     #[must_use]
     pub fn metadata(&self) -> Value {
-        json!({
-            "contract": SEARCH_CONTRACT,
+        let mut metadata = json!({
+            "contract": self.contract(),
             "candidates": self.candidates,
             "particles": self.particles,
             "horizon": self.horizon,
@@ -234,7 +278,18 @@ impl SearchConfig4 {
             "threads": self.threads,
             "parallel": "rollouts_at_once_on_twin_players_of_a_shared_batched_net_tallied_in_serial_order",
             "provenance": "search_without_behavior_logprob",
-        })
+        });
+        if self.targets > 0 {
+            metadata["targets"] = json!(self.targets);
+            metadata["target_candidates"] = json!(
+                "a_cast_or_activation_whose_next_question_in_world_0_is_a_single_target_\
+                 tried_at_the_policys_own_target_then_its_next_by_raw_logit"
+            );
+            metadata["target_prior"] = json!("root_prior_times_softmax_at_the_target_question");
+            metadata["target_follow"] =
+                json!("the_chosen_target_answers_the_seats_next_target_question_at_the_table");
+        }
+        metadata
     }
 }
 
@@ -465,6 +520,10 @@ pub struct SearchReport4 {
     pub candidates: usize,
     /// The candidates in candidate order, the policy's own answer first.
     pub actions: Vec<PlayerAction>,
+    /// Each candidate's answer to the target question after it, when the
+    /// search tries its targets ([`SearchConfig4::with_targets`]); `None`
+    /// where the policy answers it.
+    pub targets: Vec<Option<PlayerAction>>,
     /// Complete rounds: worlds in which every candidate was rolled out.
     pub rounds: usize,
     /// The chosen candidate's place in candidate order (`0`: the policy's).
@@ -552,6 +611,36 @@ pub struct SearchedAnswer4 {
     pub answer: Answer4,
     /// How it was found.
     pub outcome: SearchOutcome4,
+    /// The target the chosen candidate was tried at, for the seat's next
+    /// question at the table to be answered with ([`follow_decision`]);
+    /// `None` when the policy answers it.
+    pub follow: Option<PlayerAction>,
+}
+
+/// A candidate: an answer at the root and, when the search tries it at a
+/// target, the answer to the single-target question that follows it.
+#[derive(Clone, Debug, PartialEq)]
+pub(super) struct Candidate4 {
+    /// The answer at the root, as the policy ranked it.
+    pub(super) root: Ranked4,
+    /// The target it is tried at; `None` for the policy to choose.
+    pub(super) target: Option<TargetFollow4>,
+}
+
+/// A target a candidate is tried at.
+#[derive(Clone, Debug, PartialEq)]
+pub(super) struct TargetFollow4 {
+    /// The answer to the target question.
+    pub(super) action: PlayerAction,
+    /// The policy's probability of it at that question.
+    pub(super) prior: f64,
+}
+
+impl Candidate4 {
+    /// The candidate the policy finishes itself.
+    const fn plain(root: Ranked4) -> Self {
+        Self { root, target: None }
+    }
 }
 
 /// Purpose tags of the seeds a search derives.
@@ -639,6 +728,7 @@ fn unsearched<P: SearchPlayer4>(
     SearchedAnswer4 {
         answer: decision.answer,
         outcome,
+        follow: None,
     }
 }
 
@@ -652,7 +742,11 @@ fn unsearched<P: SearchPlayer4>(
 /// `search_seed`, the decision and the world, each candidate rolled out at
 /// most H decisions of the seat; the [`Selection4`] picks the answer. Every
 /// world is the same for every candidate (one seed per world), so
-/// candidates are compared on the same deals. Up to `config.threads()`
+/// candidates are compared on the same deals. With `config.targets() > 0`
+/// a candidate that casts or activates is tried at each of its targets
+/// (`search/targets.rs`), and the chosen one comes back as
+/// [`SearchedAnswer4::follow`] for the target question that follows it at
+/// the table ([`follow_decision`]). Up to `config.threads()`
 /// rollouts run at once when `player` lends rollout players
 /// ([`SearchPlayer4::rollout_player`]); the report is the one the rollouts
 /// would give one by one. `player` ends exactly as if it had answered the
@@ -681,8 +775,29 @@ pub fn search_decision<P: SearchPlayer4 + Send, T: ForkSource4>(
             SearchOutcome4::Skipped(reason),
         ));
     }
-    let candidates = candidates(&decision, config.candidates);
     let root = player.snapshot();
+    let expanded = targets::Probe {
+        view,
+        teams,
+        decision: &decision,
+        root: &root,
+        targets: config.targets,
+        seed: world_seed(search_seed, table.decision_seq(), 0),
+    }
+    .expand(player, table, candidates(&decision, config.candidates));
+    let candidates = match expanded {
+        Ok(candidates) => candidates,
+        Err(Stop::Refused(refusal)) => {
+            player.restore(&root);
+            return Ok(unsearched(
+                player,
+                view,
+                decision,
+                SearchOutcome4::Refused(refusal),
+            ));
+        }
+        Err(Stop::Failed(error)) => return Err(error),
+    };
     let rounds = Rounds {
         view,
         teams,
@@ -720,7 +835,8 @@ pub fn search_decision<P: SearchPlayer4 + Send, T: ForkSource4>(
     report.ses = choice.ses;
     report.scores = choice.scores;
     report.changed = report.chosen != 0;
-    let pick = &candidates[report.chosen];
+    let chosen = &candidates[report.chosen];
+    let pick = &chosen.root;
     player.conclude(view, &decision, &pick.action);
     player.attribute_to_search(pending, decision.answer.provenance.source);
     let own = decision.answer;
@@ -746,12 +862,69 @@ pub fn search_decision<P: SearchPlayer4 + Send, T: ForkSource4>(
             target,
         },
         outcome: SearchOutcome4::Searched(Box::new(report)),
+        follow: chosen.target.as_ref().map(|target| target.action.clone()),
     })
+}
+
+/// Answers `seat`'s target question `pending` (`view` is its view of it)
+/// with `follow`, the target a search chose with the cast or activation
+/// just made ([`SearchedAnswer4::follow`]), and `true`; when `follow` is not
+/// an answer the policy ranks there, with the policy's own answer and
+/// `false`.
+///
+/// `player` must have observed `view`'s table. A followed answer is
+/// recorded with `SourceKind4::Search` and the policy's menu index of the
+/// target, so a search-distilled net learns it; the player ends as if it
+/// had chosen the target itself (only its coverage counts the question as
+/// searched).
+pub fn follow_decision<P: SearchPlayer4>(
+    player: &mut P,
+    view: &PlayerView,
+    pending: &Pending,
+    teams: &[Option<u8>],
+    follow: &PlayerAction,
+) -> (Answer4, bool) {
+    let decision = player.decide(view, pending, teams);
+    let ranked = matches!(pending, Pending::ChooseTargets { .. })
+        .then(|| {
+            decision
+                .ranking
+                .as_deref()
+                .unwrap_or_default()
+                .iter()
+                .find(|ranked| ranked.action == *follow)
+                .map(|ranked| ranked.index)
+        })
+        .flatten();
+    let Some(index) = ranked else {
+        player.conclude(view, &decision, &decision.answer.action);
+        return (decision.answer, false);
+    };
+    player.conclude(view, &decision, follow);
+    player.attribute_to_search(pending, decision.answer.provenance.source);
+    let own = decision.answer;
+    let answer = Answer4 {
+        action: follow.clone(),
+        value: own.value,
+        provenance: StepProvenance4 {
+            source: SourceKind4::Search,
+            temperature: own.provenance.temperature,
+            thinking_steps: own.provenance.thinking_steps,
+            behavior_logprob: 0.0,
+            has_logprob: false,
+        },
+        target: TeacherTarget4 {
+            single_idx: u16::try_from(index).unwrap_or(u16::MAX),
+            ..TeacherTarget4::default()
+        },
+    };
+    (answer, true)
 }
 
 mod rollout;
 use rollout::{Played, Rounds, Stop};
 mod select;
+mod targets;
 
 #[cfg(test)]
 mod tests;

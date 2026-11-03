@@ -23,7 +23,7 @@ use anyhow::{Context as _, bail};
 use baylee_cards::formats::Shape;
 use baylee_core::ids::PlayerId;
 use baylee_core::preset::AIProfile;
-use baylee_engine::choice::Pending;
+use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_gamehost::Session;
 use baylee_train::convert4::RolloutStepSidecar4;
 use baylee_train::deckgen::{self, Archetype};
@@ -32,7 +32,8 @@ use baylee_train::features4::{
 };
 use baylee_train::housedeck::HouseDeck;
 use baylee_train::netplay4::search::{
-    KnownDecks, SearchConfig4, SearchedAnswer4, Selection4, search_decision, terminal_utility,
+    KnownDecks, SearchConfig4, SearchedAnswer4, Selection4, follow_decision, search_decision,
+    terminal_utility,
 };
 use baylee_train::netplay4::{
     BatchLimits4, BatchedNet4, CatalogPolicy4, CriticSemantics4, ModelIdentity, NetPlayer4,

@@ -1,6 +1,6 @@
 //! Choosing among the candidates once their worlds are played
 //! ([`Selection4`]).
-use super::{Ranked4, RootDecision4, Selection4};
+use super::{Candidate4, Ranked4, RootDecision4, Selection4};
 
 /// What a selection made of the played worlds.
 #[derive(Clone, Debug, PartialEq)]
@@ -90,10 +90,22 @@ pub(super) fn choose(selection: Selection4, worlds: &[Vec<f32>], priors: &[f64])
     }
 }
 
-/// Each candidate's prior: the policy's probability of it, the softmax of
-/// the raw logits over every legal answer it ranked. An answer it did not
-/// rank has prior `0`.
-pub(super) fn priors(decision: &RootDecision4, candidates: &[Ranked4]) -> Vec<f64> {
+/// Each candidate's prior: the policy's probability of its answer at the
+/// root, times that of its target at the target question when it is tried
+/// at one ([`probabilities`]).
+pub(super) fn priors(decision: &RootDecision4, candidates: &[Candidate4]) -> Vec<f64> {
+    let roots: Vec<Ranked4> = candidates.iter().map(|c| c.root.clone()).collect();
+    probabilities(decision, &roots)
+        .into_iter()
+        .zip(candidates)
+        .map(|(root, c)| root * c.target.as_ref().map_or(1.0, |target| target.prior))
+        .collect()
+}
+
+/// The policy's probability of each of `candidates`: the softmax of the raw
+/// logits over every legal answer `decision` ranked. An answer it did not
+/// rank has probability `0`.
+pub(super) fn probabilities(decision: &RootDecision4, candidates: &[Ranked4]) -> Vec<f64> {
     let ranking = decision.ranking.as_deref().unwrap_or_default();
     let max = ranking
         .iter()
@@ -203,10 +215,30 @@ mod tests {
             ranking: Some(vec![ranked(0, 2.0), ranked(1, 0.0), ranked(2, 0.0)]),
             notes_answer: true,
         };
-        let p = priors(&decision, &[ranked(0, 2.0), ranked(2, 0.0)]);
+        let p = probabilities(&decision, &[ranked(0, 2.0), ranked(2, 0.0)]);
         let total = 2.0_f64.exp() + 2.0;
         assert!((p[0] - 2.0_f64.exp() / total).abs() < 1e-9);
         assert!((p[1] - 1.0 / total).abs() < 1e-9);
-        assert_eq!(priors(&decision, &[ranked(9, f32::NEG_INFINITY)]), [0.0]);
+        assert_eq!(
+            probabilities(&decision, &[ranked(9, f32::NEG_INFINITY)]),
+            [0.0]
+        );
+
+        // A candidate tried at a target: the root's probability times the
+        // target's.
+        let at = |prior| Candidate4 {
+            root: ranked(2, 0.0),
+            target: Some(super::super::TargetFollow4 {
+                action: PlayerAction::PassPriority,
+                prior,
+            }),
+        };
+        let p = priors(
+            &decision,
+            &[Candidate4::plain(ranked(0, 2.0)), at(0.25), at(0.75)],
+        );
+        assert!((p[0] - 2.0_f64.exp() / total).abs() < 1e-9);
+        assert!((p[1] - 0.25 / total).abs() < 1e-9);
+        assert!((p[2] - 0.75 / total).abs() < 1e-9);
     }
 }

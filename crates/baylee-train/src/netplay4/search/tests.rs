@@ -903,6 +903,212 @@ fn budgets_parse_as_counts_within_bounds() {
     }
     let paired = parsed.with_selection(Selection4::Mean).unwrap();
     assert_eq!(paired.metadata()["selection"]["rule"], "mean");
+
+    assert_eq!(parsed.targets(), 0);
+    assert!(parsed.metadata().get("targets").is_none());
+    let targeted = parsed.with_targets(SearchConfig4::MAX_TARGETS).unwrap();
+    assert_eq!(targeted.metadata()["contract"], SEARCH_CONTRACT_TARGETS);
+    assert_eq!(targeted.metadata()["targets"], SearchConfig4::MAX_TARGETS);
+    assert!(parsed.with_targets(SearchConfig4::MAX_TARGETS + 1).is_err());
+}
+
+/// A card of the catalog by name, as a deck entry.
+fn entry(name: &str) -> baylee_core::preset::DeckEntry {
+    baylee_core::preset::DeckEntry {
+        card: baylee_cards::all()
+            .find(|card| card.name() == name)
+            .unwrap_or_else(|| panic!("no card {name}"))
+            .index,
+        print: baylee_core::ids::PrintRef::new(0),
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
+    }
+}
+
+const SWORDS: &str = "Swords to Plowshares";
+
+/// A table where I start, with Swords to Plowshares in hand and a Plains
+/// and Grizzly Bears in play, and they have Savannah Lions; driven to my
+/// first priority with Swords castable.
+fn swords_table() -> (Session, Pending, PlayerView) {
+    let mut preset = preset(31);
+    preset.format = baylee_core::preset::FormatId::Freeform;
+    preset.modifiers.clear();
+    preset.house_rules.starting_player = Some(0);
+    let hands: [&[&str]; 2] = [&[SWORDS], &[]];
+    let boards: [&[&str]; 2] = [&["Plains", "Grizzly Bears"], &["Savannah Lions"]];
+    for (index, seat) in preset.seats.iter_mut().enumerate() {
+        seat.deck = vec![entry("Plains"); 32];
+        seat.commanders.clear();
+        seat.sideboard.clear();
+        seat.starting_hand = Some(hands[index].iter().map(|name| entry(name)).collect());
+        seat.starting_battlefield = boards[index].iter().map(|name| entry(name)).collect();
+        seat.starting_life = Some(20);
+    }
+    let mut session = seated(&preset);
+    let (pending, view) = root(&mut session, |view, pending| {
+        let Pending::Priority { legal, .. } = pending else {
+            return false;
+        };
+        view.hand.iter().any(|card| {
+            card.name == SWORDS
+                && (legal.castable.contains(&card.id) || legal.payable.contains(&card.id))
+        })
+    });
+    (session, pending, view)
+}
+
+/// Casts Swords to Plowshares, at my own creature.
+fn swords_at_my_own(view: &PlayerView, pending: &Pending) -> Option<PlayerAction> {
+    match pending {
+        Pending::Priority { .. } => view
+            .hand
+            .iter()
+            .find(|card| card.name == SWORDS)
+            .map(|card| PlayerAction::CastSpell { card: card.id }),
+        Pending::ChooseTargets { options, .. } => options
+            .iter()
+            .find(|id| view.object(**id).is_some_and(|o| o.controller == view.seat))
+            .map(|id| PlayerAction::ChooseTargets {
+                objects: vec![*id],
+                players: Vec::new(),
+            }),
+        _ => None,
+    }
+}
+
+/// A critic that likes my creatures and dislikes theirs.
+fn creature_balance(view: &PlayerView) -> f32 {
+    let count = |mine: bool| {
+        view.battlefield
+            .iter()
+            .filter(|o| (o.controller == view.seat) == mine && o.types.contains(TypeSet::CREATURE))
+            .count()
+    };
+    let difference = i16::try_from(count(true)).unwrap() - i16::try_from(count(false)).unwrap();
+    0.5 + 0.1 * f32::from(difference)
+}
+
+/// The object of `view` named `name`.
+fn named(view: &PlayerView, name: &str) -> baylee_core::ids::ObjectId {
+    view.battlefield
+        .iter()
+        .find(|o| o.name == name)
+        .unwrap_or_else(|| panic!("no {name}"))
+        .id
+}
+
+/// With targets searched, a policy that would exile its own creature is
+/// tried at each target, and the search chooses theirs: the cast is
+/// played, and the chosen target answers the target question at the table
+/// as a searched answer.
+#[test]
+fn a_cast_is_tried_at_each_target_and_the_search_chooses_theirs() {
+    let (mut table, pending, view) = swords_table();
+    let mine = named(&view, "Grizzly Bears");
+    let theirs = named(&view, "Savannah Lions");
+    let hash = table.snapshot_hash();
+    let mut player = Mock::new(swords_at_my_own, creature_balance);
+    player.observe(&view).unwrap();
+    let result = search_decision(
+        &mut player,
+        &KnownDecks(&table),
+        &view,
+        &pending,
+        &[],
+        config(1, 2, 4).with_targets(4).unwrap(),
+        SEED,
+    )
+    .unwrap();
+    let SearchOutcome4::Searched(report) = &result.outcome else {
+        panic!("the root is searched: {:?}", result.outcome);
+    };
+    let at = |id| {
+        Some(PlayerAction::ChooseTargets {
+            objects: vec![id],
+            players: Vec::new(),
+        })
+    };
+    let cast = swords_at_my_own(&view, &pending).unwrap();
+    assert_eq!(report.actions, [cast.clone(), cast.clone()]);
+    assert_eq!(
+        report.targets,
+        [at(mine), at(theirs)],
+        "the policy's own first"
+    );
+    assert_eq!((report.rounds, report.chosen), (2, 1), "{report:?}");
+    assert!(report.changed);
+    assert!(report.means[1] > report.means[0], "{:?}", report.means);
+    assert_eq!(result.answer.action, cast);
+    assert_eq!(result.answer.provenance.source, SourceKind4::Search);
+    assert_eq!(result.follow, at(theirs));
+    assert_eq!(table.snapshot_hash(), hash, "no world touched the table");
+
+    // At the table: the cast, then its target question, answered with the
+    // chosen target as a searched answer.
+    table.act_slice(ME, cast, 0).unwrap();
+    while table.needs_pump() {
+        table.pump_at_most(1);
+    }
+    let (question, asked) = table.view_for_with_context(ME).unwrap();
+    assert!(
+        matches!(question, Pending::ChooseTargets { .. }),
+        "{question:?}"
+    );
+    player
+        .observe(&table.observe_view_with_context(ME))
+        .unwrap();
+    let follow = result.follow.unwrap();
+    let (answer, followed) = follow_decision(&mut player, &asked, &question, &[], &follow);
+    assert!(followed);
+    assert_eq!(answer.action, follow);
+    assert_eq!(answer.provenance.source, SourceKind4::Search);
+    let kind = PendingKind4::of(&question) as usize;
+    assert_eq!(player.state.coverage[kind][SourceKind4::Search as usize], 1);
+    table.act_slice(ME, answer.action, 0).unwrap();
+
+    // A target the question does not offer is the policy's to choose.
+    let (mut again, pending, view) = swords_table();
+    let cast = swords_at_my_own(&view, &pending).unwrap();
+    again.act_slice(ME, cast, 0).unwrap();
+    while again.needs_pump() {
+        again.pump_at_most(1);
+    }
+    let (question, asked) = again.view_for_with_context(ME).unwrap();
+    let mut plain = Mock::new(swords_at_my_own, creature_balance);
+    plain.observe(&again.observe_view_with_context(ME)).unwrap();
+    let elsewhere = PlayerAction::ChooseTargets {
+        objects: Vec::new(),
+        players: vec![ME],
+    };
+    let (answer, followed) = follow_decision(&mut plain, &asked, &question, &[], &elsewhere);
+    assert!(!followed);
+    assert_eq!(Some(answer.action), at(mine));
+}
+
+/// Without targets searched (v2), the cast is one candidate and its target
+/// stays the policy's.
+#[test]
+fn without_targets_a_cast_is_one_candidate() {
+    let (table, pending, view) = swords_table();
+    let mut player = Mock::new(swords_at_my_own, creature_balance);
+    player.observe(&view).unwrap();
+    let result = search_decision(
+        &mut player,
+        &KnownDecks(&table),
+        &view,
+        &pending,
+        &[],
+        config(1, 2, 4),
+        SEED,
+    )
+    .unwrap();
+    let SearchOutcome4::Searched(report) = &result.outcome else {
+        panic!("the root is searched: {:?}", result.outcome);
+    };
+    assert_eq!(report.candidates, 1);
+    assert_eq!(report.targets, [None]);
+    assert_eq!(result.follow, None);
 }
 
 #[test]

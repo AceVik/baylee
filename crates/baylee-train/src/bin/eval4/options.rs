@@ -159,6 +159,14 @@ struct Args {
     /// not bitwise reproducible.
     #[arg(long, default_value_t = SearchConfig4::DEFAULT_THREADS)]
     search_threads: usize,
+    /// Tries a candidate that casts a spell or activates an ability at each
+    /// of up to this many of its targets, when the seat's next question
+    /// after it is a single target: the policy's own target first, then by
+    /// its raw logits (contract `belief_lookahead_v3`). The chosen target
+    /// answers that question at the table. `0` (the default) leaves targets
+    /// to the policy.
+    #[arg(long, default_value_t = 0, requires = "search")]
+    search_targets: usize,
 }
 
 /// `--search-select`: which [`Selection4`] a search uses.
@@ -193,7 +201,8 @@ fn search_config(args: &Args) -> anyhow::Result<Option<SearchConfig4>> {
     };
     let config = config
         .with_selection(selection)?
-        .with_threads(args.search_threads)?;
+        .with_threads(args.search_threads)?
+        .with_targets(args.search_targets)?;
     // Only a net on shared batches lends rollout players; without them the
     // rollouts run one by one, and the run's metadata says so.
     if args.inference_batch > 0 {

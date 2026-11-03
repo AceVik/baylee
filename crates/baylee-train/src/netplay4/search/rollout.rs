@@ -9,8 +9,8 @@ use baylee_view::Phase;
 use crate::netplay4::tactics::is_mana_ability_entry;
 
 use super::{
-    Answer4, ForkRefusal, ForkSource4, LeafCounts4, Pending, PlayerAction, PlayerId, PlayerView,
-    ROLLOUT, Ranked4, RootDecision4, SearchConfig4, SearchPlayer4, SearchReport4,
+    Answer4, Candidate4, ForkRefusal, ForkSource4, LeafCounts4, Pending, PlayerAction, PlayerId,
+    PlayerView, ROLLOUT, RootDecision4, SearchConfig4, SearchPlayer4, SearchReport4,
     SimulationSession, SourceKind4, derive, terminal_utility, world_seed,
 };
 
@@ -186,6 +186,74 @@ fn rollout<P: SearchPlayer4>(
     }
 }
 
+/// The searching seat's next question in `fork`, a target question, and
+/// its view of it, observed by `player` as the host has it observe before
+/// every answer; `None` when the seat's next question is another one, or
+/// somebody else's comes first.
+///
+/// # Errors
+/// When the player cannot observe (its model failed).
+pub(super) fn target_question<P: SearchPlayer4>(
+    player: &mut P,
+    fork: &mut SimulationSession,
+    seat: PlayerId,
+) -> anyhow::Result<Option<(Pending, PlayerView)>> {
+    let context = player.view_context();
+    for _ in 0..MAX_ROLLOUT_ACTIONS {
+        if !fork.needs_pump() {
+            break;
+        }
+        fork.pump_at_most(1);
+    }
+    if fork.needs_pump() {
+        return Ok(None);
+    }
+    player.observe(&context.observe(fork, seat))?;
+    Ok(context.view_for(fork, seat).filter(
+        |(pending, _)| matches!(pending, Pending::ChooseTargets { player, .. } if *player == seat),
+    ))
+}
+
+/// Answers the searching seat's next question in `fork`, a target
+/// question, with `action` as `player`'s own choice, as play answers it
+/// (decide, then finish with the answer); `false` when the next question is
+/// another one or the table refuses `action`.
+fn answer_target<P: SearchPlayer4>(
+    player: &mut P,
+    fork: &mut SimulationSession,
+    teams: &[Option<u8>],
+    seat: PlayerId,
+    action: &PlayerAction,
+) -> anyhow::Result<bool> {
+    let Some((pending, view)) = target_question(player, fork, seat)? else {
+        return Ok(false);
+    };
+    if pending.answer_fault(action).is_some() {
+        return Ok(false);
+    }
+    let decision = player.decide(&view, &pending, teams);
+    player.conclude(&view, &decision, action);
+    Ok(fork.act_slice(seat, action.clone(), 0).is_ok())
+}
+
+/// World `seed`, forked from `table` for `seat`, every other chair handed
+/// to the house.
+pub(super) fn world<T: ForkSource4>(
+    table: &T,
+    seat: PlayerId,
+    seed: u64,
+) -> Result<SimulationSession, ForkRefusal> {
+    let mut world = table.fork(seat, seed)?;
+    for other in 0..world.state().players.len() {
+        if let Ok(other) = u8::try_from(other).map(PlayerId::new)
+            && other != seat
+        {
+            world.release(other);
+        }
+    }
+    Ok(world)
+}
+
 /// Why the rounds of a search stopped short of a report.
 pub(super) enum Stop {
     /// The table refused to fork.
@@ -199,7 +267,7 @@ pub(super) struct Rounds<'a, S> {
     pub(super) view: &'a PlayerView,
     pub(super) teams: &'a [Option<u8>],
     pub(super) decision: &'a RootDecision4,
-    pub(super) candidates: &'a [Ranked4],
+    pub(super) candidates: &'a [Candidate4],
     pub(super) root: &'a S,
 }
 
@@ -224,19 +292,28 @@ struct Start<'a> {
 }
 
 impl Start<'_> {
-    /// `action` applied for the seat in `world`, forked for it from the
-    /// policy seed `seed`, then played on by `player`, which stands in the
-    /// root's state.
+    /// `candidate`'s answer applied for the seat in `world`, forked for it
+    /// from the policy seed `seed`, and its target question answered with
+    /// its target where it has one; then played on by `player`, which
+    /// stands in the root's state. A world where the target question does
+    /// not follow, or refuses the target, refuses the candidate.
     fn roll_out<P: SearchPlayer4>(
         self,
         player: &mut P,
         mut world: SimulationSession,
-        action: &PlayerAction,
+        candidate: &Candidate4,
         seed: u64,
     ) -> Outcome {
+        let seat = self.view.seat;
+        let action = &candidate.root.action;
         player.conclude(self.view, self.decision, action);
         player.reseed_sampling(derive(seed, ROLLOUT, 0, 0));
-        if world.act_slice(self.view.seat, action.clone(), 0).is_err() {
+        if world.act_slice(seat, action.clone(), 0).is_err() {
+            return Ok(None);
+        }
+        if let Some(target) = &candidate.target
+            && !answer_target(player, &mut world, self.teams, seat, &target.action)?
+        {
             return Ok(None);
         }
         rollout(player, &mut world, self.view, self.teams, self.horizon).map(Some)
@@ -247,7 +324,7 @@ impl Start<'_> {
 #[derive(Clone, Copy)]
 struct Job<'a> {
     seed: u64,
-    candidate: &'a Ranked4,
+    candidate: &'a Candidate4,
 }
 
 /// The rollouts' leaves, taken in the serial order (world by world, and
@@ -260,12 +337,16 @@ struct Tally {
 }
 
 impl Tally {
-    fn new(candidates: &[Ranked4], particles: usize, parallel: bool) -> Self {
+    fn new(candidates: &[Candidate4], particles: usize, parallel: bool) -> Self {
         Self {
             candidates: candidates.len(),
             report: SearchReport4 {
                 candidates: candidates.len(),
-                actions: candidates.iter().map(|c| c.action.clone()).collect(),
+                actions: candidates.iter().map(|c| c.root.action.clone()).collect(),
+                targets: candidates
+                    .iter()
+                    .map(|c| c.target.as_ref().map(|t| t.action.clone()))
+                    .collect(),
                 rounds: 0,
                 chosen: 0,
                 changed: false,
@@ -375,16 +456,7 @@ impl<S> Rounds<'_, S> {
         table: &T,
         seed: u64,
     ) -> Result<SimulationSession, ForkRefusal> {
-        let seat = self.view.seat;
-        let mut world = table.fork(seat, seed)?;
-        for other in 0..world.state().players.len() {
-            if let Ok(other) = u8::try_from(other).map(PlayerId::new)
-                && other != seat
-            {
-                world.release(other);
-            }
-        }
-        Ok(world)
+        world(table, self.view.seat, seed)
     }
 
     /// Runs `jobs` one by one on `player`, restored to the root before each.
@@ -404,7 +476,7 @@ impl<S> Rounds<'_, S> {
             let world = self.world(table, job.seed).map_err(Stop::Refused)?;
             player.restore(self.root);
             let leaf = start
-                .roll_out(player, world, &job.candidate.action, job.seed)
+                .roll_out(player, world, job.candidate, job.seed)
                 .map_err(Stop::Failed)?;
             if !tally.add(leaf) {
                 break;
@@ -460,7 +532,7 @@ impl<S> Rounds<'_, S> {
                         // Caught so that every job reports once; the panic
                         // is resumed on the searching thread.
                         let outcome = panic::catch_unwind(AssertUnwindSafe(|| {
-                            start.roll_out(&mut twin, world, &job.candidate.action, job.seed)
+                            start.roll_out(&mut twin, world, job.candidate, job.seed)
                         }));
                         // Fails only once the search has stopped counting.
                         let _ = done.send((index, outcome));

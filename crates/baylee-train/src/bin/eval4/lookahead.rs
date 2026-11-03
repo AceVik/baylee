@@ -3,6 +3,7 @@
 use std::collections::BTreeMap;
 use std::time::Instant;
 
+use baylee_core::ids::PlayerId;
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_gamehost::Session;
 use baylee_train::netplay4::Answer4;
@@ -60,6 +61,15 @@ pub(super) struct SearchTally {
     pub leaves: LeafCounts4,
     /// Searched decisions whose rollouts ran at once, on twins of the net.
     pub parallel: u64,
+    /// Searched casts whose chosen target was played at the target question
+    /// that followed (`--search-targets`).
+    pub followed: u64,
+    /// Chosen targets the target question that followed did not offer as
+    /// an answer the policy ranks: the net chose itself.
+    pub follow_declined: u64,
+    /// Chosen targets whose cast was followed by another question, or by
+    /// one of another seat's: dropped unplayed.
+    pub follow_lost: u64,
     /// Wall time of every searched decision, for the report only: no
     /// decision reads it.
     pub ms: Vec<f64>,
@@ -81,6 +91,9 @@ impl SearchTally {
         self.seat_decisions += other.seat_decisions;
         self.leaves.add(&other.leaves);
         self.parallel += other.parallel;
+        self.followed += other.followed;
+        self.follow_declined += other.follow_declined;
+        self.follow_lost += other.follow_lost;
         self.ms.extend_from_slice(&other.ms);
     }
 
@@ -114,6 +127,9 @@ impl SearchTally {
             "terminal_leaves": self.leaves.terminal,
             "value_leaves": self.leaves.value(),
             "parallel": self.parallel,
+            "followed": self.followed,
+            "follow_declined": self.follow_declined,
+            "follow_lost": self.follow_lost,
             "searched_ms": {
                 "total": total,
                 "mean": if ms.is_empty() { 0.0 } else { total / ms.len() as f64 },
@@ -132,6 +148,9 @@ pub(super) struct GameSearch {
     /// Searched decisions a game may have (`0`: no limit).
     max_searched: u64,
     seed: u64,
+    /// The target the last searched cast was chosen with, and its seat,
+    /// until the target question that follows it answers it.
+    follow: Option<(PlayerId, PlayerAction)>,
     pub tally: SearchTally,
     /// Per searched decision: where its answer is in the record, the
     /// candidates in order (the policy's first), their means, paired
@@ -147,6 +166,7 @@ impl GameSearch {
             config,
             max_searched,
             seed: 0,
+            follow: None,
             tally: SearchTally::default(),
             events: Vec::new(),
         }
@@ -157,16 +177,50 @@ impl GameSearch {
     /// from it.
     pub fn begin(&mut self, policy_seed: u64) {
         self.seed = search_seed(policy_seed);
+        self.follow = None;
         self.tally = SearchTally::default();
         self.events.clear();
     }
 
     /// The table refused the last searched answer: its event names no
-    /// recorded input.
+    /// recorded input, and a target chosen with it has no question to
+    /// answer.
     pub fn refused(&mut self) {
+        if self.follow.take().is_some() {
+            self.tally.follow_lost += 1;
+        }
         if let Some(event) = self.events.last_mut() {
             event["accepted"] = json!(false);
         }
+    }
+
+    /// The seat's target question answered with the target its last
+    /// searched cast was chosen with, when one waits for it and `pending`
+    /// is that seat's target question; `None` otherwise (a waiting target
+    /// is then dropped, as its cast was followed by something else).
+    fn follow(
+        &mut self,
+        net: &mut dyn EvaluationPlayer,
+        view: &PlayerView,
+        pending: &Pending,
+        teams: &[Option<u8>],
+    ) -> anyhow::Result<Option<Answer4>> {
+        let Some((seat, target)) = self.follow.take() else {
+            return Ok(None);
+        };
+        if seat != view.seat || !matches!(pending, Pending::ChooseTargets { .. }) {
+            self.tally.follow_lost += 1;
+            return Ok(None);
+        }
+        let (answer, followed) = net
+            .follow(view, pending, teams, &target)
+            .ok_or_else(|| anyhow::anyhow!("this player cannot search"))?;
+        if followed {
+            self.tally.followed += 1;
+        } else {
+            self.tally.follow_declined += 1;
+        }
+        Ok(Some(answer))
     }
 
     /// The net's answer to `view`/`pending` at `table`, searched where the
@@ -183,6 +237,9 @@ impl GameSearch {
         pending: &Pending,
         teams: &[Option<u8>],
     ) -> anyhow::Result<Option<Answer4>> {
+        if let Some(answer) = self.follow(net, view, pending, teams)? {
+            return Ok(Some(answer));
+        }
         self.tally.decisions += 1;
         if self.max_searched > 0 && self.tally.searched >= self.max_searched {
             bump(&mut self.tally.skipped, "budget".into());
@@ -202,6 +259,7 @@ impl GameSearch {
                     "action": searched.answer.action,
                     "accepted": true,
                     "candidates": report.actions,
+                    "targets": report.targets,
                     "means": report.means,
                     "diffs": report.diffs,
                     "ses": report.ses,
@@ -213,9 +271,15 @@ impl GameSearch {
                 }));
                 let own = report.actions.first().map(action_kind).unwrap_or_default();
                 if report.changed {
-                    let played = action_kind(&searched.answer.action);
+                    // The policy's own answer at another target.
+                    let played = if report.actions.first() == Some(&searched.answer.action) {
+                        String::from("retarget")
+                    } else {
+                        action_kind(&searched.answer.action)
+                    };
                     bump(&mut self.tally.changes, format!("{own}->{played}"));
                 }
+                self.follow = searched.follow.clone().map(|target| (view.seat, target));
                 bump(&mut self.tally.searched_by_kind, own);
                 self.tally.searched += 1;
                 self.tally.changed += u64::from(report.changed);

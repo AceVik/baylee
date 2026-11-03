@@ -47,6 +47,18 @@ trait EvaluationPlayer {
     ) -> Option<anyhow::Result<SearchedAnswer4>> {
         None
     }
+    /// Answers a target question with the target a search chose with the
+    /// cast just made (`follow_decision`), and whether it could; `None`
+    /// when this player cannot search.
+    fn follow(
+        &mut self,
+        _view: &baylee_view::PlayerView,
+        _pending: &Pending,
+        _teams: &[Option<u8>],
+        _target: &PlayerAction,
+    ) -> Option<(baylee_train::netplay4::Answer4, bool)> {
+        None
+    }
     fn policy_encoding(
         &self,
         _view: &baylee_view::PlayerView,
@@ -127,6 +139,15 @@ impl EvaluationPlayer for NetPlayer4 {
             config,
             seed,
         ))
+    }
+    fn follow(
+        &mut self,
+        view: &baylee_view::PlayerView,
+        pending: &Pending,
+        teams: &[Option<u8>],
+        target: &PlayerAction,
+    ) -> Option<(baylee_train::netplay4::Answer4, bool)> {
+        Some(follow_decision(self, view, pending, teams, target))
     }
 }
 
@@ -228,7 +249,11 @@ impl SharedNets {
         };
         let limits = learner.limits();
         let (mut calls, mut rows) = learner.stats();
-        if let Some(opponent) = self.opponent.as_ref().filter(|net| !Arc::ptr_eq(net, learner)) {
+        if let Some(opponent) = self
+            .opponent
+            .as_ref()
+            .filter(|net| !Arc::ptr_eq(net, learner))
+        {
             let (c, r) = opponent.stats();
             calls += c;
             rows += r;

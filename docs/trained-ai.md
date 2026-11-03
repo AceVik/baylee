@@ -731,6 +731,41 @@ an illegal or already ranked action is dropped). In tactical mode the
 policy's own answer is the tactical choice; the others are still ranked by
 raw logits.
 
+**Targets as candidates (v3, `--search-targets T`).** A target is chosen at
+the question after the cast, mid-announcement, where the engine does not
+fork (`ForkRefusal::Continuation`), so a v2 search never compares targets:
+on s1r's dev1024 games the target head alone aimed Swords to Plowshares at
+the net's own creatures 29 times though another target was legal, and the
+search left that alone (`gamelog4 patterns`). With T > 0 each candidate
+that casts a spell or activates a non-mana ability is applied in world 0;
+when the seat's next question there is a single target (the policy's
+`SingleChoice` target menu) with two or more answers, the candidate becomes
+one per answer, up to T: the policy's own target first, then its next by
+raw logit (the same rule as the root's candidates). Each is tried at its
+target in every world: the cast is applied, the seat's target question
+answered with that target as the net's own choice (it decides, then
+finishes with the target), and the rollout goes on as before. Targets on
+the battlefield, on the stack and players are public and keep their ids in
+a fork, so every world and the table offer the same ones; a world that
+asks something else after the cast, or refuses the target, refuses the
+candidate like any other. A candidate's prior is the root's probability
+times the target's (the softmax of the raw logits at the target question).
+When a candidate with a target is chosen, the answer at the root is its
+cast and `SearchedAnswer4::follow` carries the target. The harness answers
+the seat's next question with it if that question is the seat's target
+question and offers it as a ranked answer (`follow_decision`); the answer is
+then recorded as `Search`, with the target's menu index as its teacher
+target, so `convert4 --search-targets` distills target choices too.
+Otherwise the policy answers and the target is dropped. The policy's own
+target, chosen, is followed the same way, so every searched cast's target
+is a searched answer. T = 0 (the default) is v2 exactly; T > 0 names the
+contract `belief_lookahead_v3` and adds `targets`, `target_candidates`,
+`target_prior` and `target_follow` to the metadata. A cast with a mode, an
+X or a cost choice before its target, a triggered ability's target (an
+enters trigger such as Flametongue Kavu's), and menus of more than one
+target (`SubsetPick`) are not expanded yet; "up to one" is a single target
+whose answers include none.
+
 **Worlds.** For each world p of P, the table is forked for the deciding seat
 with the policy seed `derive(search_seed, "world", decision_seq, p)`, where
 `search_seed = derive(deal policy seed, "search")` (SplitMix64, each purpose
@@ -819,9 +854,13 @@ parameters, the stop rules, the per-game cap, the critic and the contract
 `search.counts`: decisions offered, searched (by the kind of the policy's
 answer), changed (by `policy kind->played kind`), skipped and refused by
 reason, rounds, rollouts, rollout steps, the seat's counted decisions,
-leaves by kind, and the wall time of searched decisions (`latency_ms`
+leaves by kind, the targets followed (`followed`), not offered as a ranked
+answer (`follow_declined`) or left without their target question
+(`follow_lost`), a change that kept the cast at another target counted as
+`<kind>->retarget`, and the wall time of searched decisions (`latency_ms`
 leaves them out). Each game's line in `games.jsonl` adds `search_events`:
-per searched decision its candidates in order (the policy's first), their
+per searched decision its candidates in order (the policy's first) and
+their targets (`null` where the policy chooses), their
 means, paired improvements and standard errors, priors, selection scores,
 the choice, rounds and leaves, bound to the recorded input like a fallback
 event (`record_input_n`). `convert4` replays searched records: a `Search` step's target is
@@ -860,8 +899,9 @@ H 0..=10000), `--search-select prior|paired|mean` (default `prior`) with
 `--search-prior-c` (default 1), `--search-margin` and `--search-z` (finite,
 non-negative; run metadata names the selection used and the default),
 `--search-max-decisions-per-game N` (0 = no cap; later decisions answer
-without searching, counted as `budget`), and `--search-threads N` (1..=256,
-default 16; only with `--inference-batch`). Refused with
+without searching, counted as `budget`), `--search-threads N` (1..=256,
+default 16; only with `--inference-batch`), and `--search-targets T`
+(0..=8, default 0; targets as candidates, above). Refused with
 `--legacy-v3`, a frozen or self-play opponent or any collection purpose but
 `evaluation`, and `--shadow-teacher`.
 
