@@ -2040,6 +2040,8 @@ mod card_tests;
 #[cfg(test)]
 mod cast_face_tests;
 #[cfg(test)]
+mod cast_trigger_flow_tests;
+#[cfg(test)]
 mod chosen_tests;
 #[cfg(test)]
 mod claim_tests;
