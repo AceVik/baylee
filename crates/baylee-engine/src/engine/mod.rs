@@ -2201,6 +2201,8 @@ mod simulation_tests;
 #[cfg(test)]
 mod speed_tests;
 #[cfg(test)]
+mod stack_flow_tests;
+#[cfg(test)]
 mod static_controller_tests;
 #[cfg(test)]
 pub(crate) mod synthetic;
