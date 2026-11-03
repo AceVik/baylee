@@ -1,5 +1,6 @@
 //! Read-only workstation monitor. See docs/workstation-monitor.md.
 
+mod admission;
 mod gpu;
 mod listen;
 mod power;
@@ -28,6 +29,10 @@ struct Options {
     /// In-memory history in minutes (1–120).
     #[arg(long, default_value_t = 60, value_parser = clap::value_parser!(u64).range(1..=120))]
     history_minutes: u64,
+    /// Another exact name browsers may use for this service, as HOST:PORT
+    /// (repeatable), e.g. `bigace.local:8787`. No wildcards.
+    #[arg(long = "allow-host", value_name = "HOST:PORT", value_parser = admission::parse_allowed_host)]
+    allow_hosts: Vec<String>,
 }
 
 #[tokio::main(flavor = "current_thread")]
@@ -50,7 +55,7 @@ async fn main() -> anyhow::Result<()> {
         history: Arc::new(Mutex::new(VecDeque::with_capacity(keep))),
         receiver,
         clients: Arc::new(Semaphore::new(12)),
-        authority: options.bind.to_string(),
+        admission: admission::Admission::new(options.bind, &options.allow_hosts),
     };
     let history = state.history.clone();
     // Dedicated thread, no timer burst catch-up and no blocking work on the HTTP executor.
@@ -81,8 +86,9 @@ async fn main() -> anyhow::Result<()> {
             }
         })?;
     eprintln!(
-        "Baylee Pulse: http://{} · {} ms · read only",
-        options.bind, options.interval_ms
+        "Baylee Pulse: {} · {} ms · read only",
+        state.admission.urls().join(" · "),
+        options.interval_ms
     );
     axum::serve(listener, server::router(state))
         .with_graceful_shutdown(shutdown())

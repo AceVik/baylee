@@ -17,15 +17,39 @@ can reach the address can read telemetry; there is no login. Do not publish this
 port to the Internet. The service changes no firewall/router configuration.
 
 It cannot kill, pause or change processes. It reads names and PIDs, never argv,
-environments or usernames. Requests require the configured numeric Host and a
-matching Origin when present. Use the numeric IP, not a hostname alias. The footer
-offers the exact embedded source and build manifests, even before publication.
+environments or usernames. The footer offers the exact embedded source and build
+manifests, even before publication.
 
 | CLI option | Default | Meaning |
 | --- | --- | --- |
 | `--bind` | `127.0.0.1:8787` | Explicit local/LAN socket address |
+| `--allow-host` | none | Another exact `HOST:PORT` browsers may use (repeatable) |
 | `--interval-ms` | `1000` | Sampling interval, 500–10000 ms |
 | `--history-minutes` | `60` | RAM history, 1–120 minutes; UI shows up to one hour |
+
+### Opening it from a phone
+
+On the phone, type the address exactly as Pulse prints it at startup, including
+`http://`: on this workstation `http://192.168.0.103:8787`. Pulse speaks plain
+HTTP on a trusted LAN; `https://192.168.0.103:8787` fails with a browser
+connection or SSL error, because there is no TLS on the port. If the browser
+offers an "always use secure connections" upgrade, the explicit `http://` URL
+is the one to keep as a bookmark.
+
+Every request must name an accepted authority in its `Host` header (which stops
+DNS rebinding), and a browser's `Origin`, when sent, must be that same authority
+over `http` (which stops other sites reading telemetry). `Sec-Fetch-Site:
+cross-site` is refused. Accepted are the bind address and each `--allow-host`
+value, for a phone that opens Pulse by a name such as `bigace.local:8787` or
+`bigace.fritz.box:8787`. Names are exact and case-insensitive, with a port and
+without wildcards; an IPv6 literal is written `[addr]:port`. A page loaded under
+one accepted name cannot read through another. At startup Pulse prints every
+accepted URL to the journal.
+
+A refused request gets a short plain-text 403 in German that names the address
+the browser used and lists every accepted URL, with the reminder to use
+`http://`, not `https://`. The first 16 distinct refused `Host` values are also
+logged, so `journalctl --user -u baylee-monitor` shows what a phone sent.
 
 No service-specific environment variables. The optional user unit is
 `scripts/systemd/baylee-monitor.service`. Install the binary in
@@ -132,7 +156,9 @@ Checks: `cargo test -p baylee-monitor`,
 `cargo clippy -p baylee-monitor --all-targets -- -D warnings`,
 `node --check crates/baylee-monitor/web/app.js`. Tests cover history/live updates,
 connection limits, command rejection, permit release, cross-origin/rebinding
-rejection and energy-counter wrap. Browser checks cover desktop/mobile layout,
+rejection, `--allow-host` parsing and admission, the plain-text refusal over HTTP
+and WebSocket, waiting for an unassigned bind address and energy-counter wrap.
+Browser checks cover desktop/mobile layout,
 filter/sort, reconnection and missing sensors; close test browsers afterward.
 
 ## Initial workstation verification (23 October 2026)
