@@ -126,6 +126,11 @@ path = "src/bin/inspect.rs"
 required-features = ["play"]
 
 [[bin]]
+name = "gamelog4"
+path = "src/bin/gamelog4/main.rs"
+required-features = ["llm"]
+
+[[bin]]
 name = "convert"
 path = "src/bin/convert.rs"
 required-features = ["play"]

@@ -1397,6 +1397,30 @@ losing a game does not establish that it was unwinnable. Fixed-start comparisons
 control luck better than unrelated win rates, but actions can change later
 draws. Keep final seed/deck holdouts separate from repeatedly consulted tuning
 suites and complement match results with view-only tactical regression cases.
+
+**Reading the games (`gamelog4`, feature `llm`).** Win rates say how often,
+not why. `gamelog4 deals --summary S` lists the deals of an eval4 summary
+with a house baseline where the net lost and the house, playing the same
+seat of the same deal, won (`--which won|all` for the others).
+`gamelog4 show --run R --game N` replays one game of the `--record-out`
+directory: both boards and hands at each turn's start, the game's log
+lines as the net's seat was told them, and every answer of that seat
+marked `Net`, `Search`, `House` or `Forced` from the rollout sidecar, with
+names and controllers (`White Knight/P2`); a passed priority lists what
+else was legal (`cast?` for a card castable only while paid for, whose
+mana is not checked). `gamelog4 patterns --run R --summary S` replays the
+selected games on several threads and counts what each spell or ability
+was aimed at, the net's own objects or itself against anything else, and
+the net's own second main phases passed with a castable card or a land in
+hand. A record is omniscient, so this is for studying the net, never for a
+seat. Measured on `s1r` (`dev1024`, 3 November 2026): 221 deals lost where
+the house won, 76 the other way round; the net aims removal at its own
+permanents about as often as at the opponent's (Swords to Plowshares 39
+own / 20 other, Disenchant 14 / 1, Weight of the Underworld 13 / 4, Hero's
+Downfall 8 / 5) while Lightning Bolt goes almost always elsewhere (7 / 111);
+a Disenchant with no other target destroyed the net's own Fellwar Stone.
+The search cannot correct this: it searches priority roots only, and
+targets stay the policy's.
 The optimized validator uses the same metric definitions with device-side
 reductions and float64 accumulators. Grouped BF16 execution has normal rounding
 differences; verify gradients, full validation and actual game results.
