@@ -248,3 +248,50 @@ fn an_ability_resolves_after_its_source_is_gone() {
     pass_until(&mut engine, stack_is_empty);
     assert_eq!(life(&engine, P1), 19);
 }
+
+/// Firebreathing after blocks are declared: two activations make the
+/// unblocked Shivan Dragon deal seven, and the bonus is gone next turn.
+#[test]
+fn a_pump_during_combat_adds_to_the_damage_and_ends_with_the_turn() {
+    let mut engine = Duel::new(SEED, basic_forest())
+        .battlefield(0, &[dragon(), mountain(), mountain()])
+        .start();
+    keep_mulligans(&mut engine);
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == P0),
+    );
+    let shivan = on_battlefield(&engine, P0, dragon()).unwrap();
+    engine
+        .apply(
+            P0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(shivan, baylee_core::ids::Defender::Player(P1))],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == crate::turn::Step::DeclareBlockers
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == P0)
+    });
+    tap_all_mana(&mut engine, P0);
+    for _ in 0..2 {
+        engine
+            .apply(
+                P0,
+                PlayerAction::ActivateAbility {
+                    source: shivan,
+                    ability_index: 0,
+                },
+            )
+            .unwrap();
+    }
+    pass_until(&mut engine, |e| e.state().turn.phase == Phase::SecondMain);
+    assert_eq!(life(&engine, P1), 13);
+    pass_until(&mut engine, |e| e.state().turn.active == P1);
+    engine
+        .dev_state_mut(P0)
+        .expect("dev board")
+        .refresh_characteristics();
+    assert_eq!(pt(&engine, shivan), (5, 5));
+}
