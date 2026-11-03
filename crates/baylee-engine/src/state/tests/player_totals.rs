@@ -80,7 +80,10 @@ fn damage_to_a_player_is_a_loss_of_that_much_life() {
     state.damage_player(source, P1, 6, true, Cause::Effect);
     assert_eq!(state.players[1].life, before - 6);
     assert_eq!(state.per_turn.life_lost_amount[1], 6);
-    assert_eq!(state.players[0].life, before, "the source's owner is untouched");
+    assert_eq!(
+        state.players[0].life, before,
+        "the source's owner is untouched"
+    );
 }
 
 #[test]
@@ -89,7 +92,10 @@ fn a_player_can_pay_up_to_their_life_total_and_not_more() {
     state.players[0].life = 5;
     assert!(state.can_pay_life(P0, 5));
     assert!(!state.can_pay_life(P0, 6));
-    assert!(state.can_pay_life(P0, 0), "paying nothing is always possible");
+    assert!(
+        state.can_pay_life(P0, 0),
+        "paying nothing is always possible"
+    );
     assert_eq!(state.life_payable(P0), 5);
 }
 
@@ -121,7 +127,10 @@ fn energy_is_paid_exactly_or_not_at_all() {
     let mut state = state(310);
     state.change_player_counters(P0, CounterKind::Energy, 3);
     assert!(!state.pay_energy(P0, 4), "three energy do not pay four");
-    assert_eq!(state.players[0].energy, 3, "a refused payment takes nothing");
+    assert_eq!(
+        state.players[0].energy, 3,
+        "a refused payment takes nothing"
+    );
     assert!(state.pay_energy(P0, 2));
     assert_eq!(state.players[0].energy, 1);
     assert!(state.pay_energy(P0, 1));
