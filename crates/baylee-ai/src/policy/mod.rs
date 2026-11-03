@@ -2683,25 +2683,7 @@ pub(crate) fn pays_tax(
     }
     let refusal_costs_a_card = context.effects.iter().any(|effect| match effect {
         Effect::PlayerMayPayOr { effect, .. } | Effect::PlayerMayPayManaOr { effect, .. } => {
-            matches!(
-                effect,
-                Effect::CounterTargetSpell
-                    | Effect::CounterTargetSpellToExile
-                    | Effect::CounterTargetAbility
-                    | Effect::CounterTargetSpellOrAbility
-                    // Cumulative upkeep (CR 702.24a) and an upkeep like
-                    // Phantasmal Forces': unpaid, the permanent that asks is
-                    // sacrificed, which is a card of the seat's own.
-                    | Effect::SacrificeSelf
-                    // Force of Nature's "8 damage to you": a fifth of the
-                    // seat's life, which the mana is not worth keeping for.
-                    | Effect::DealDamage {
-                        target: baylee_cards_dsl::TargetSpec::Player(
-                            baylee_cards_dsl::PlayerRel::You
-                        ),
-                        ..
-                    }
-            )
+            refusing_costs_a_card(effect)
         }
         _ => false,
     });
@@ -2749,6 +2731,36 @@ pub(crate) fn pays_tax(
         }
     }
     can_pay(view, &price)
+}
+
+/// Whether what an "unless" does when its price goes unpaid (CR 118.12a)
+/// costs the paying seat a card, or as much as one: its spell or ability
+/// countered, its own permanent sacrificed, a fifth of its life.
+///
+/// Read through a sequence, because a counter can come first in one. Power
+/// Sink's is "counter it, then tap that player's lands and empty their
+/// pool", a `Sequence` starting with `CounterTargetSpell`, and the bare match
+/// this replaced saw no counter in it: the house refused even a `{0}` and
+/// lost the spell (NEW-15, 3.11.2026).
+fn refusing_costs_a_card(effect: &Effect) -> bool {
+    match effect {
+        Effect::Sequence(effects) => effects.iter().any(refusing_costs_a_card),
+        Effect::CounterTargetSpell
+        | Effect::CounterTargetSpellToExile
+        | Effect::CounterTargetAbility
+        | Effect::CounterTargetSpellOrAbility
+        // Cumulative upkeep (CR 702.24a) and an upkeep like Phantasmal
+        // Forces': unpaid, the permanent that asks is sacrificed, which is a
+        // card of the seat's own.
+        | Effect::SacrificeSelf
+        // Force of Nature's "8 damage to you": a fifth of the seat's life,
+        // which the mana is not worth keeping for.
+        | Effect::DealDamage {
+            target: baylee_cards_dsl::TargetSpec::Player(baylee_cards_dsl::PlayerRel::You),
+            ..
+        } => true,
+        _ => false,
+    }
 }
 
 /// Whether the seat could produce `cost` right now, floating mana plus what

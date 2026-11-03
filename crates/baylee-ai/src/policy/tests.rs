@@ -541,6 +541,41 @@ fn pays_tax_declines_untap_self_payment_when_source_is_already_untapped() {
     assert!(super::pays_tax(&view, ManaCost::parse("{4}"), &ctx));
 }
 
+/// Power Sink's "unless" carries a sequence that starts with the counter, and
+/// refusing it loses the spell: paid when it can be, `{0}` included (NEW-15).
+/// The effects are the card's own, read from the registry.
+#[test]
+fn pays_tax_pays_power_sinks_x_to_keep_the_spell() {
+    use baylee_cards_dsl::AbilityDef;
+    use baylee_core::mana::ManaCost;
+
+    let sink = baylee_cards::by_index(test_identity("Power Sink").index).expect("Power Sink");
+    let Some(AbilityDef::Spell { effects, .. }) = sink.abilities.first() else {
+        panic!("Power Sink is one spell ability");
+    };
+    let ctx = baylee_engine::engine::DecisionContext {
+        effects,
+        ..Default::default()
+    };
+    let mut view = base_view();
+    assert!(
+        super::pays_tax(&view, ManaCost::ZERO, &ctx),
+        "X = 0 is free"
+    );
+    assert!(
+        !super::pays_tax(&view, ManaCost::parse("{2}"), &ctx),
+        "nothing to pay {{2}} with"
+    );
+    view.battlefield = vec![
+        test_public_object(1, "Forest", 0, None),
+        test_public_object(2, "Forest", 0, None),
+    ];
+    assert!(
+        super::pays_tax(&view, ManaCost::parse("{2}"), &ctx),
+        "two Forests pay X = 2"
+    );
+}
+
 #[test]
 fn spell_can_be_cast_now_checks_the_engines_word_then_conditions_and_mandatory_costs() {
     let spell_id = super::ObjectId::new(99, 0);

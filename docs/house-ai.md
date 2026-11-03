@@ -131,11 +131,13 @@ Rhystic tax refuses into one card for an opponent. Same price, opposite
 decisions, and a policy reading the price could never tell them apart. So a
 ward tax is paid whenever the mana can be found and the other stays declined,
 because spare mana and mana the curve needs look alike to a stateless policy
-while a card is the cheaper thing to give up. The same ward is read a second
-time at target choice, since CR 601.2 picks targets before mana is paid: a
-warded creature is priced against the material scale when the seat can cover
-the spell and the tax together, and sinks below every other candidate when it
-cannot — going around a ward costs nothing, walking into one it cannot pay
+while a card is the cheaper thing to give up. What refusing does is read
+through a sequence: Power Sink's "unless" counters the spell and then taps
+the lands, and it is paid, `{0}` included, as a counter is (NEW-15). Ward
+is read a second time at target choice, since CR 601.2 picks targets before
+mana is paid: a warded creature is priced against the material scale when
+the seat can cover the spell and the tax together, and sinks below every
+other candidate when it cannot — going around a ward costs nothing, walking into one it cannot pay
 costs the card. **The window that follows a yes is answered too**: the engine
 hands the seat priority to make the mana (CR 605.3a), and because a window is
 an ordinary priority round with nothing castable in it, every path in the
