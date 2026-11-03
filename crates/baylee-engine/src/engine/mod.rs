@@ -2157,6 +2157,8 @@ mod refusal_tests;
 #[cfg(test)]
 mod regenerate_tests;
 #[cfg(test)]
+mod replay_basics_tests;
+#[cfg(test)]
 mod resolution_tests;
 #[cfg(test)]
 mod reveal_tests;
