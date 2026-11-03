@@ -1031,6 +1031,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "baylee-client-e2e"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "anyhow",
+ "serde_json",
+]
+
+[[package]]
 name = "baylee-core"
 version = "0.1.0-beta.9c"
 dependencies = [
@@ -1082,6 +1090,7 @@ name = "baylee-dev"
 version = "0.1.0-beta.9c"
 dependencies = [
  "anyhow",
+ "baylee-client-e2e",
  "clap",
  "getrandom 0.4.3",
  "serde_json",

@@ -10360,7 +10360,13 @@ keystroke one, a moving caret or a ticked report box zero (§10 of the shell
 design). `shell_nodes` is every node under the lobby's root in tree order —
 depth, rect in logical pixels, its text, `"i"` where it carries a `Press` —
 and nothing a behaviour-free refactor may change (no entity index, no `Press`
-spelling): two dumps of the same screen compare byte for byte.
+spelling): two dumps of the same screen compare byte for byte. A row says
+`"cx"`/`"cy"` (`"scroll"` or `"cut"`) where the node clips its children
+across or down, so a check can tell a row scrolled out of its list from a
+control cut off at the window's edge. `ui_nodes` is every other UI tree in
+the same rows — the table's HUD, the chat, tours, the updater's card — each
+root `"r":"ui"`, roots top to bottom then left to right; the end-to-end
+tests read both (`docs/dev/e2e.md`).
 `desk_controls` lists the report form's buttons as `lobby_controls` lists the
 lobby's. `BAYLEE_DEV_SCALE=1` beside `BAYLEE_DEV_WINDOW` sets the window's
 scale factor, so a 2560 × 1440 logical window fits a Retina display and the

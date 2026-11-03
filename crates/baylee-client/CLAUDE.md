@@ -40,6 +40,7 @@ The narrative version this replaced is `docs/history/baylee-client-CLAUDE-2026-0
 - `camera_tests` project pod corners forwards; never reuse the inverse under test.
 - Keep card-quad mesh tests; transform tests miss bad meshes. Brightness bounds are two-sided.
 - `tests/duel_flow.rs::a_whole_game_can_be_won_through_the_clients_combat_path` reaches `GameOver`, every decision built by `Interaction`.
+- What a player sees or presses, at window sizes and text steps: an end-to-end test in `crates/baylee-client-e2e` (`cargo dev e2e`, `docs/dev/e2e.md`), a real dev-control client read through `/state` (`shell_nodes`, `ui_nodes`).
 
 ## Lobby and rooms
 

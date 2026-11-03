@@ -1,0 +1,1169 @@
+{
+  "state": {
+    "ability_menu": null,
+    "ability_tap": null,
+    "account": {
+      "asking": null,
+      "central_pending": false,
+      "central_ready": false,
+      "front_moving": false,
+      "gateway_authenticated": false,
+      "offline": false,
+      "saved_gateway_count": 1
+    },
+    "activatable": 0,
+    "armed": null,
+    "arrangement": {
+      "by_seats": {},
+      "cards_moving": 0,
+      "chosen": "ring",
+      "current": "ring",
+      "default": "ring",
+      "flash": 0.0,
+      "follow": true,
+      "frame": "wide",
+      "game": null,
+      "interest": null,
+      "mats": [],
+      "menu": null,
+      "moves_cards": false,
+      "moving": false,
+      "offered": [
+        "ring"
+      ],
+      "panel": null,
+      "parked": null,
+      "pill": null,
+      "reason": {
+        "arc_rail": "A duel has only one arrangement",
+        "focus_ring": "A duel has only one arrangement",
+        "pods": "A duel has only one arrangement",
+        "spotlight": "A duel has only one arrangement",
+        "turntable": "A duel has only one arrangement",
+        "turntable_rows": "A duel has only one arrangement",
+        "upright_ring": "A duel has only one arrangement"
+      },
+      "remember": false,
+      "seats": 0,
+      "settled_frames": 0,
+      "tear": null
+    },
+    "autopilot": null,
+    "browser": {
+      "dismissible": true,
+      "filter": "",
+      "for_choice": false,
+      "open": false,
+      "typing": false
+    },
+    "buttons": [],
+    "camera": {
+      "binds": "deep",
+      "dial_in_frame": false,
+      "eye": null,
+      "frame": "ring",
+      "moving": false,
+      "pose": "home",
+      "rig": {
+        "distance": 20.0,
+        "lean": 0.36,
+        "target": [
+          0.0,
+          0.0
+        ],
+        "yaw": 0.0
+      },
+      "shown": null,
+      "shown_eye": null,
+      "visiting": null
+    },
+    "cards": null,
+    "cast_answer": null,
+    "cast_menu": null,
+    "chat": {
+      "active": false,
+      "controls": [],
+      "info": "Unknown",
+      "links": {
+        "cards": [],
+        "previews": 0
+      }
+    },
+    "chips": [],
+    "cues_suppressed": 0,
+    "departing": 0,
+    "desk_controls": [],
+    "dial": {
+      "centre": null,
+      "deciding": [],
+      "dial_px": 0.0,
+      "effects": false,
+      "hub_pulse": 0.0,
+      "number_px": 0.0,
+      "number_w": 0.0,
+      "priority_deg": null,
+      "priority_hand": null,
+      "radius": 0.0,
+      "scale": 0.0,
+      "turn_deg": null,
+      "turn_hand": null,
+      "uploads": 0
+    },
+    "exits": null,
+    "face_builds": 0,
+    "hovered": null,
+    "interaction": null,
+    "lang": "en",
+    "last_count": 0,
+    "last_cue": null,
+    "last_error": null,
+    "loading": {
+      "departure": 8.825490917,
+      "destination": "hidden",
+      "error": null,
+      "milestone": 3,
+      "progress": 1.0,
+      "ready": 0,
+      "total": 0
+    },
+    "lobby_controls": [
+      {
+        "at_x": 380.5,
+        "at_y": 241.0,
+        "duel_exit": false,
+        "entity": 871,
+        "h": 24.0,
+        "press": "Shared(Focus(Gateway))",
+        "w": 279.0
+      },
+      {
+        "at_x": 297.5,
+        "at_y": 291.5,
+        "duel_exit": false,
+        "entity": 882,
+        "h": 23.0,
+        "press": "Shared(PickLang(En))",
+        "w": 39.0
+      },
+      {
+        "at_x": 340.0,
+        "at_y": 291.5,
+        "duel_exit": false,
+        "entity": 885,
+        "h": 23.0,
+        "press": "Shared(PickLang(De))",
+        "w": 42.0
+      },
+      {
+        "at_x": 111.5,
+        "at_y": 214.0,
+        "duel_exit": false,
+        "entity": 919,
+        "h": 140.0,
+        "press": "Memorial(Open)",
+        "w": 209.0
+      },
+      {
+        "at_x": 564.5,
+        "at_y": 241.0,
+        "duel_exit": false,
+        "entity": 876,
+        "h": 24.0,
+        "press": "Front(AddGateway)",
+        "w": 77.0
+      },
+      {
+        "at_x": 393.0,
+        "at_y": 291.5,
+        "duel_exit": false,
+        "entity": 889,
+        "h": 23.0,
+        "press": "Shared(ToggleMusic)",
+        "w": 54.0
+      },
+      {
+        "at_x": 447.0,
+        "at_y": 291.5,
+        "duel_exit": false,
+        "entity": 893,
+        "h": 23.0,
+        "press": "Settings(OpenSettings)",
+        "w": 42.0
+      },
+      {
+        "at_x": 499.5,
+        "at_y": 291.5,
+        "duel_exit": false,
+        "entity": 897,
+        "h": 23.0,
+        "press": "Front(PlayOffline)",
+        "w": 53.0
+      },
+      {
+        "at_x": 548.5,
+        "at_y": 291.5,
+        "duel_exit": false,
+        "entity": 901,
+        "h": 23.0,
+        "press": "Front(About(true))",
+        "w": 35.0
+      },
+      {
+        "at_x": 321.5,
+        "at_y": 375.0,
+        "duel_exit": false,
+        "entity": 911,
+        "h": 24.0,
+        "press": "Front(About(true))",
+        "w": 91.0
+      },
+      {
+        "at_x": 529.0,
+        "at_y": 375.0,
+        "duel_exit": false,
+        "entity": 915,
+        "h": 24.0,
+        "press": "Front(OpenSource)",
+        "w": 76.0
+      },
+      {
+        "at_x": 422.0,
+        "at_y": 190.5,
+        "duel_exit": false,
+        "entity": 855,
+        "h": 41.0,
+        "press": "Front(SelectGateway(0))",
+        "w": 362.0
+      }
+    ],
+    "mana_run": false,
+    "outbox": 0,
+    "phase": "Closed",
+    "plates": [],
+    "presentation": {
+      "legal": [],
+      "music_controls": [],
+      "muted": false,
+      "preview_hints": [],
+      "score": {
+        "about_to_lose": false,
+        "arrivals": 0,
+        "big_spell": false,
+        "combat": false,
+        "hunt_mine": false,
+        "hunts": 0,
+        "lethal": false,
+        "low_life": false,
+        "monarchs": 0,
+        "own_turn": false,
+        "samples": "studio48",
+        "scene": "FrontDoor",
+        "spells": 0,
+        "tension": 0.0,
+        "theme": "ember"
+      },
+      "ui_scale": 0.5416666865348816,
+      "volume": 0.5
+    },
+    "reachable": 0,
+    "replay": null,
+    "report": {
+      "anchors": [],
+      "at_table": false,
+      "candidates": 0,
+      "chosen": null,
+      "confirming": false,
+      "hover": null,
+      "open": false,
+      "players": [],
+      "preview": null,
+      "refs": null,
+      "suggestions": [],
+      "text": ""
+    },
+    "reveal": {
+      "hovered_log": null,
+      "number": null,
+      "sheets": [],
+      "waiting": 0
+    },
+    "shell": {
+      "field": false,
+      "fired": [],
+      "focus": {
+        "id": "address",
+        "item": 0,
+        "table": "front-gateway"
+      },
+      "focus_visible": false,
+      "live": true,
+      "menu": false,
+      "modal": false,
+      "modal_by": [],
+      "overlay": false,
+      "resolved": 0,
+      "screen": "Front",
+      "table": "front-gateway",
+      "text_size": 3,
+      "typing": true
+    },
+    "shell_nodes": [
+      {
+        "cx": "cut",
+        "cy": "cut",
+        "d": 0,
+        "h": 390.0,
+        "w": 844.0,
+        "x": 0.0,
+        "y": 0.0
+      },
+      {
+        "d": 1,
+        "h": 360.0,
+        "w": 844.0,
+        "x": 0.0,
+        "y": 0.0
+      },
+      {
+        "cy": "scroll",
+        "d": 2,
+        "h": 360.0,
+        "k": "scroll",
+        "w": 844.0,
+        "x": 0.0,
+        "y": 0.0
+      },
+      {
+        "d": 3,
+        "h": 309.0,
+        "w": 822.0,
+        "x": 11.0,
+        "y": 25.0
+      },
+      {
+        "d": 4,
+        "h": 59.0,
+        "w": 162.0,
+        "x": 341.0,
+        "y": 25.0
+      },
+      {
+        "d": 4,
+        "h": 16.0,
+        "k": "mist",
+        "w": 160.0,
+        "x": 342.0,
+        "y": 90.0
+      },
+      {
+        "d": 5,
+        "h": 11.0,
+        "ln": 1,
+        "t": "Build a deck. Find your table. Make it yours.",
+        "th": 11.0,
+        "tw": 150.0,
+        "w": 150.0,
+        "x": 347.0,
+        "y": 92.0
+      },
+      {
+        "d": 4,
+        "h": 161.0,
+        "w": 390.0,
+        "x": 227.0,
+        "y": 112.0
+      },
+      {
+        "d": 5,
+        "h": 161.0,
+        "w": 390.0,
+        "x": 227.0,
+        "y": 112.0
+      },
+      {
+        "d": 6,
+        "h": 161.0,
+        "k": "panel",
+        "w": 390.0,
+        "x": 227.0,
+        "y": 112.0
+      },
+      {
+        "d": 7,
+        "h": 159.0,
+        "w": 388.0,
+        "x": 228.0,
+        "y": 113.0
+      },
+      {
+        "d": 7,
+        "h": 19.0,
+        "ln": 1,
+        "t": "Choose your gateway",
+        "th": 19.0,
+        "tw": 129.0,
+        "w": 362.0,
+        "x": 241.0,
+        "y": 123.0
+      },
+      {
+        "d": 7,
+        "h": 12.0,
+        "ln": 1,
+        "t": "Where your account, decks and tables live.",
+        "th": 12.0,
+        "tw": 152.0,
+        "w": 362.0,
+        "x": 241.0,
+        "y": 150.0
+      },
+      {
+        "cy": "scroll",
+        "d": 7,
+        "h": 41.0,
+        "w": 362.0,
+        "x": 241.0,
+        "y": 170.0
+      },
+      {
+        "d": 8,
+        "h": 41.0,
+        "w": 362.0,
+        "x": 241.0,
+        "y": 170.0
+      },
+      {
+        "d": 9,
+        "h": 41.0,
+        "i": true,
+        "w": 362.0,
+        "x": 241.0,
+        "y": 170.0
+      },
+      {
+        "d": 10,
+        "h": 38.0,
+        "w": 358.0,
+        "x": 243.0,
+        "y": 172.0
+      },
+      {
+        "d": 10,
+        "h": 1.0,
+        "w": 356.0,
+        "x": 244.0,
+        "y": 172.0
+      },
+      {
+        "d": 10,
+        "h": 0.0,
+        "w": 356.0,
+        "x": 244.0,
+        "y": 209.0
+      },
+      {
+        "d": 10,
+        "h": 0.0,
+        "ln": 0,
+        "t": "",
+        "th": 0.0,
+        "tw": 0.0,
+        "w": 0.0,
+        "x": 249.0,
+        "y": 191.0
+      },
+      {
+        "d": 10,
+        "h": 19.0,
+        "w": 11.0,
+        "x": 249.0,
+        "y": 181.0
+      },
+      {
+        "d": 11,
+        "h": 4.0,
+        "w": 5.0,
+        "x": 253.0,
+        "y": 181.0
+      },
+      {
+        "d": 11,
+        "h": 11.0,
+        "w": 11.0,
+        "x": 250.0,
+        "y": 190.0
+      },
+      {
+        "d": 12,
+        "h": 11.0,
+        "ln": 1,
+        "t": "",
+        "th": 11.0,
+        "tw": 9.0,
+        "w": 9.0,
+        "x": 251.0,
+        "y": 190.0
+      },
+      {
+        "d": 10,
+        "h": 26.0,
+        "w": 278.0,
+        "x": 267.0,
+        "y": 178.0
+      },
+      {
+        "d": 11,
+        "h": 14.0,
+        "ln": 1,
+        "t": "Baylee Sanctuary",
+        "th": 14.0,
+        "tw": 79.0,
+        "w": 278.0,
+        "x": 267.0,
+        "y": 178.0
+      },
+      {
+        "d": 11,
+        "h": 11.0,
+        "ln": 1,
+        "t": "https://baylee.acevik.de",
+        "th": 11.0,
+        "tw": 84.0,
+        "w": 278.0,
+        "x": 267.0,
+        "y": 193.0
+      },
+      {
+        "d": 10,
+        "h": 26.0,
+        "w": 44.0,
+        "x": 552.0,
+        "y": 178.0
+      },
+      {
+        "d": 11,
+        "h": 11.0,
+        "ln": 1,
+        "t": "v0.1.1-beta…",
+        "th": 11.0,
+        "tw": 44.0,
+        "w": 44.0,
+        "x": 552.0,
+        "y": 193.0
+      },
+      {
+        "d": 7,
+        "h": 35.0,
+        "w": 362.0,
+        "x": 241.0,
+        "y": 218.0
+      },
+      {
+        "d": 8,
+        "h": 35.0,
+        "w": 279.0,
+        "x": 241.0,
+        "y": 218.0
+      },
+      {
+        "d": 9,
+        "h": 9.0,
+        "ln": 1,
+        "t": "GATEWAY ADDRESS",
+        "th": 9.0,
+        "tw": 59.0,
+        "w": 279.0,
+        "x": 241.0,
+        "y": 218.0
+      },
+      {
+        "cx": "cut",
+        "d": 9,
+        "h": 24.0,
+        "i": true,
+        "k": "field",
+        "w": 279.0,
+        "x": 241.0,
+        "y": 229.0
+      },
+      {
+        "d": 10,
+        "h": 14.0,
+        "ln": 1,
+        "t": "http://127.0.0.1:9",
+        "th": 14.0,
+        "tw": 75.0,
+        "w": 75.0,
+        "x": 250.0,
+        "y": 234.0
+      },
+      {
+        "d": 10,
+        "h": 11.0,
+        "w": 1.0,
+        "x": 324.0,
+        "y": 236.0
+      },
+      {
+        "d": 8,
+        "h": 24.0,
+        "i": true,
+        "k": "hit",
+        "w": 77.0,
+        "x": 526.0,
+        "y": 229.0
+      },
+      {
+        "d": 9,
+        "h": 24.0,
+        "k": "button",
+        "w": 77.0,
+        "x": 526.0,
+        "y": 229.0
+      },
+      {
+        "d": 10,
+        "h": 22.0,
+        "w": 75.0,
+        "x": 527.0,
+        "y": 230.0
+      },
+      {
+        "d": 10,
+        "h": 14.0,
+        "ln": 1,
+        "t": "Save gateway",
+        "th": 14.0,
+        "tw": 62.0,
+        "w": 62.0,
+        "x": 534.0,
+        "y": 234.0
+      },
+      {
+        "d": 7,
+        "h": 159.0,
+        "w": 388.0,
+        "x": 228.0,
+        "y": 113.0
+      },
+      {
+        "d": 4,
+        "h": 26.0,
+        "k": "mist",
+        "w": 298.0,
+        "x": 273.0,
+        "y": 279.0
+      },
+      {
+        "d": 5,
+        "h": 23.0,
+        "i": true,
+        "k": "hit",
+        "w": 39.0,
+        "x": 278.0,
+        "y": 280.0
+      },
+      {
+        "d": 6,
+        "h": 19.0,
+        "w": 39.0,
+        "x": 278.0,
+        "y": 282.0
+      },
+      {
+        "d": 7,
+        "h": 11.0,
+        "ln": 1,
+        "t": "English",
+        "th": 11.0,
+        "tw": 26.0,
+        "w": 26.0,
+        "x": 285.0,
+        "y": 286.0
+      },
+      {
+        "d": 5,
+        "h": 23.0,
+        "i": true,
+        "k": "hit",
+        "w": 42.0,
+        "x": 319.0,
+        "y": 280.0
+      },
+      {
+        "d": 6,
+        "h": 19.0,
+        "w": 42.0,
+        "x": 319.0,
+        "y": 282.0
+      },
+      {
+        "d": 7,
+        "h": 11.0,
+        "ln": 1,
+        "t": "Deutsch",
+        "th": 11.0,
+        "tw": 29.0,
+        "w": 29.0,
+        "x": 326.0,
+        "y": 286.0
+      },
+      {
+        "d": 5,
+        "h": 11.0,
+        "ln": 1,
+        "t": "·",
+        "th": 11.0,
+        "tw": 3.0,
+        "w": 3.0,
+        "x": 362.0,
+        "y": 287.0
+      },
+      {
+        "d": 5,
+        "h": 23.0,
+        "i": true,
+        "k": "hit",
+        "w": 54.0,
+        "x": 366.0,
+        "y": 280.0
+      },
+      {
+        "d": 6,
+        "h": 19.0,
+        "w": 54.0,
+        "x": 366.0,
+        "y": 282.0
+      },
+      {
+        "d": 7,
+        "h": 11.0,
+        "ln": 1,
+        "t": "Music",
+        "th": 11.0,
+        "tw": 21.0,
+        "w": 21.0,
+        "x": 383.0,
+        "y": 286.0
+      },
+      {
+        "d": 5,
+        "h": 11.0,
+        "ln": 1,
+        "t": "·",
+        "th": 11.0,
+        "tw": 3.0,
+        "w": 3.0,
+        "x": 421.0,
+        "y": 287.0
+      },
+      {
+        "d": 5,
+        "h": 23.0,
+        "i": true,
+        "k": "hit",
+        "w": 42.0,
+        "x": 426.0,
+        "y": 280.0
+      },
+      {
+        "d": 6,
+        "h": 19.0,
+        "w": 42.0,
+        "x": 426.0,
+        "y": 282.0
+      },
+      {
+        "d": 7,
+        "h": 11.0,
+        "ln": 1,
+        "t": "Settings",
+        "th": 11.0,
+        "tw": 29.0,
+        "w": 29.0,
+        "x": 433.0,
+        "y": 286.0
+      },
+      {
+        "d": 5,
+        "h": 11.0,
+        "ln": 1,
+        "t": "·",
+        "th": 11.0,
+        "tw": 3.0,
+        "w": 3.0,
+        "x": 469.0,
+        "y": 287.0
+      },
+      {
+        "d": 5,
+        "h": 23.0,
+        "i": true,
+        "k": "hit",
+        "w": 53.0,
+        "x": 473.0,
+        "y": 280.0
+      },
+      {
+        "d": 6,
+        "h": 19.0,
+        "w": 53.0,
+        "x": 473.0,
+        "y": 282.0
+      },
+      {
+        "d": 7,
+        "h": 11.0,
+        "ln": 1,
+        "t": "Play offline",
+        "th": 11.0,
+        "tw": 40.0,
+        "w": 40.0,
+        "x": 480.0,
+        "y": 286.0
+      },
+      {
+        "d": 5,
+        "h": 11.0,
+        "ln": 1,
+        "t": "·",
+        "th": 11.0,
+        "tw": 3.0,
+        "w": 3.0,
+        "x": 527.0,
+        "y": 287.0
+      },
+      {
+        "d": 5,
+        "h": 23.0,
+        "i": true,
+        "k": "hit",
+        "w": 35.0,
+        "x": 531.0,
+        "y": 280.0
+      },
+      {
+        "d": 6,
+        "h": 19.0,
+        "w": 35.0,
+        "x": 531.0,
+        "y": 282.0
+      },
+      {
+        "d": 7,
+        "h": 11.0,
+        "ln": 1,
+        "t": "About",
+        "th": 11.0,
+        "tw": 22.0,
+        "w": 22.0,
+        "x": 538.0,
+        "y": 286.0
+      },
+      {
+        "d": 4,
+        "h": 13.0,
+        "k": "mist",
+        "w": 180.0,
+        "x": 332.0,
+        "y": 312.0
+      },
+      {
+        "d": 5,
+        "h": 11.0,
+        "ln": 1,
+        "t": "this client 0.1.0-beta.9c+build.5363 (9102feaeab)",
+        "th": 11.0,
+        "tw": 169.0,
+        "w": 169.0,
+        "x": 337.0,
+        "y": 313.0
+      },
+      {
+        "d": 2,
+        "h": 0.0,
+        "w": 0.0,
+        "x": 0.0,
+        "y": 0.0
+      },
+      {
+        "d": 3,
+        "h": 0.0,
+        "w": 0.0,
+        "x": 0.0,
+        "y": 0.0
+      },
+      {
+        "d": 1,
+        "h": 30.0,
+        "w": 844.0,
+        "x": 0.0,
+        "y": 360.0
+      },
+      {
+        "d": 2,
+        "h": 26.0,
+        "k": "mist",
+        "w": 302.0,
+        "x": 271.0,
+        "y": 362.0
+      },
+      {
+        "d": 3,
+        "h": 24.0,
+        "i": true,
+        "k": "hit",
+        "w": 91.0,
+        "x": 276.0,
+        "y": 363.0
+      },
+      {
+        "d": 4,
+        "h": 19.0,
+        "w": 91.0,
+        "x": 276.0,
+        "y": 365.0
+      },
+      {
+        "d": 5,
+        "h": 11.0,
+        "ln": 1,
+        "t": "Unofficial Fan Content",
+        "th": 11.0,
+        "tw": 78.0,
+        "w": 78.0,
+        "x": 283.0,
+        "y": 369.0
+      },
+      {
+        "d": 3,
+        "h": 11.0,
+        "ln": 1,
+        "t": "·",
+        "th": 11.0,
+        "tw": 3.0,
+        "w": 3.0,
+        "x": 369.0,
+        "y": 370.0
+      },
+      {
+        "d": 3,
+        "h": 11.0,
+        "ln": 1,
+        "t": "Card data and images by Scryfall",
+        "th": 11.0,
+        "tw": 113.0,
+        "w": 113.0,
+        "x": 373.0,
+        "y": 370.0
+      },
+      {
+        "d": 3,
+        "h": 11.0,
+        "ln": 1,
+        "t": "·",
+        "th": 11.0,
+        "tw": 3.0,
+        "w": 3.0,
+        "x": 487.0,
+        "y": 370.0
+      },
+      {
+        "d": 3,
+        "h": 24.0,
+        "i": true,
+        "k": "hit",
+        "w": 76.0,
+        "x": 491.0,
+        "y": 363.0
+      },
+      {
+        "d": 4,
+        "h": 19.0,
+        "w": 76.0,
+        "x": 491.0,
+        "y": 365.0
+      },
+      {
+        "d": 5,
+        "h": 11.0,
+        "ln": 1,
+        "t": "Source (AGPL-3.0)",
+        "th": 11.0,
+        "tw": 63.0,
+        "w": 63.0,
+        "x": 498.0,
+        "y": 369.0
+      },
+      {
+        "d": 1,
+        "h": 140.0,
+        "i": true,
+        "k": "hit",
+        "w": 209.0,
+        "x": 7.0,
+        "y": 144.0
+      },
+      {
+        "d": 2,
+        "h": 18.0,
+        "ln": 1,
+        "t": "Baylee · Forever loved",
+        "th": 11.0,
+        "tw": 76.0,
+        "w": 91.0,
+        "x": 66.0,
+        "y": 284.0
+      }
+    ],
+    "shelves": [],
+    "sources": null,
+    "tour": {
+      "bubbles": [],
+      "disabled": true,
+      "mode": "idle",
+      "scrims": 0,
+      "seen": [],
+      "tour": null
+    },
+    "ui_nodes": [
+      {
+        "d": 0,
+        "h": 390.0,
+        "hid": true,
+        "r": "ui",
+        "w": 844.0,
+        "x": 0.0,
+        "y": 0.0
+      },
+      {
+        "d": 1,
+        "h": 390.0,
+        "hid": true,
+        "w": 844.0,
+        "x": 0.0,
+        "y": 0.0
+      },
+      {
+        "d": 1,
+        "h": 16.0,
+        "hid": true,
+        "ln": 1,
+        "t": "B A Y L E E",
+        "th": 16.0,
+        "tw": 51.0,
+        "w": 51.0,
+        "x": 397.0,
+        "y": 23.0
+      },
+      {
+        "d": 1,
+        "h": 54.0,
+        "hid": true,
+        "w": 760.0,
+        "x": 42.0,
+        "y": 277.0
+      },
+      {
+        "d": 2,
+        "h": 20.0,
+        "hid": true,
+        "ln": 1,
+        "t": "At the threshold",
+        "th": 20.0,
+        "tw": 110.0,
+        "w": 110.0,
+        "x": 367.0,
+        "y": 277.0
+      },
+      {
+        "d": 2,
+        "h": 12.0,
+        "hid": true,
+        "ln": 1,
+        "t": "The portal opens",
+        "th": 12.0,
+        "tw": 64.0,
+        "w": 64.0,
+        "x": 390.0,
+        "y": 304.0
+      },
+      {
+        "d": 2,
+        "h": 9.0,
+        "hid": true,
+        "ln": 1,
+        "t": "WORLD    ·    CONNECTION    ·    ARRIVAL",
+        "th": 9.0,
+        "tw": 108.0,
+        "w": 108.0,
+        "x": 368.0,
+        "y": 322.0
+      },
+      {
+        "d": 1,
+        "h": 25.0,
+        "hid": true,
+        "w": 92.0,
+        "x": 376.0,
+        "y": 342.0
+      },
+      {
+        "d": 2,
+        "h": 10.0,
+        "hid": true,
+        "ln": 1,
+        "t": "Return to lobby  ·  Esc",
+        "th": 10.0,
+        "tw": 66.0,
+        "w": 66.0,
+        "x": 389.0,
+        "y": 350.0
+      },
+      {
+        "d": 0,
+        "h": 390.0,
+        "r": "ui",
+        "w": 844.0,
+        "x": 0.0,
+        "y": 0.0
+      },
+      {
+        "d": 0,
+        "h": 390.0,
+        "hid": true,
+        "r": "ui",
+        "w": 844.0,
+        "x": 0.0,
+        "y": 0.0
+      },
+      {
+        "d": 0,
+        "h": 0.0,
+        "r": "ui",
+        "w": 157.0,
+        "x": 7.0,
+        "y": 34.0
+      }
+    ],
+    "ui_rebuilds": {
+      "cast": 1,
+      "frame": 3,
+      "mounted": 0,
+      "nav": "Field",
+      "patches": 0,
+      "placeholders": 0,
+      "prefs": 1,
+      "report": 0,
+      "sections": 0,
+      "state": 1,
+      "total": 3
+    },
+    "update_buttons": [],
+    "view": null
+  },
+  "window": [
+    844.0,
+    390.0
+  ]
+}

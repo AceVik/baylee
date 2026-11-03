@@ -15,21 +15,39 @@ pub struct Devctl {
 }
 
 impl Devctl {
+    /// The harness of a client listening on loopback `port`.
     pub fn new(port: u16) -> Self {
         Self {
             address: SocketAddr::from(([127, 0, 0, 1], port)),
         }
     }
 
+    /// The port it listens on.
+    pub fn port(&self) -> u16 {
+        self.address.port()
+    }
+
+    /// GETs a route and reads its JSON, within `timeout`.
     pub fn get(&self, route: &str, timeout: Duration) -> Result<Value> {
         self.request("GET", route, None, timeout)
     }
 
-    /// POSTs a JSON body; a reply carrying `error` is the harness refusing.
+    /// POSTs a JSON body; a reply carrying `error` is the harness refusing,
+    /// and the refusal says why in the harness's own words (it never echoes
+    /// a body back, so a typed password cannot reach the message).
     pub fn post(&self, route: &str, body: &Value) -> Result<Value> {
-        let reply = self.request("POST", route, Some(body), Duration::from_secs(15))?;
-        if reply.get("error").is_some() {
-            bail!("the harness refused {route}");
+        self.post_within(route, body, Duration::from_secs(15))
+    }
+
+    /// [`Devctl::post`] with its own deadline: a screenshot waits for a
+    /// frame to be drawn and read back, which a busy machine makes slow.
+    pub fn post_within(&self, route: &str, body: &Value, timeout: Duration) -> Result<Value> {
+        let reply = self.request("POST", route, Some(body), timeout)?;
+        if let Some(error) = reply.get("error") {
+            let why = error
+                .as_str()
+                .map_or_else(|| error.to_string(), str::to_owned);
+            bail!("the harness refused {route}: {why}");
         }
         Ok(reply)
     }
