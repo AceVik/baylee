@@ -1970,11 +1970,11 @@ fn offers(view: &PlayerView, legal: &LegalActions) -> Vec<Offer> {
             continue;
         }
         if let Some(object) = view.object(id)
-            && let Some(color) = manaplan::basic_land_color(&object.subtypes)
+            && let Some(mut source) = manaplan::intrinsic_source(id, &object.subtypes)
         {
             // CR 305.6: the intrinsic tap of a basic land type costs the tap
-            // and nothing else.
-            let mut source = Source::fixed(id, Tap::Intrinsic, color);
+            // and nothing else, and a land with two types (a Swamp under
+            // Yavimaya) makes either colour.
             if harm > 0 || taps_set_off_a_trigger(view, object) {
                 source.priced = true;
             }
@@ -2798,7 +2798,10 @@ fn own_sources(view: &PlayerView, now: bool) -> Vec<Source> {
         {
             continue;
         }
-        if manaplan::basic_land_color(&object.subtypes).is_some() {
+        if manaplan::basic_land_colors(&object.subtypes)
+            .next()
+            .is_some()
+        {
             estimate.mana_abilities.push(object.id);
         }
         // Stable identities are not vector positions. Feed inherited public

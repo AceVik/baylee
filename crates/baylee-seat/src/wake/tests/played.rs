@@ -211,3 +211,27 @@ fn mana_only_for_spells_is_never_planned_for_an_ability() {
         }
     }
 }
+
+/// Urborg, Tomb of Yawgmoth makes each land a Swamp and Yavimaya, Cradle of
+/// Growth each a Forest, so together each is a Swamp Forest that prints no
+/// mana ability and taps for `{B}` or `{G}` (CR 305.6). The engine offers the
+/// shortcut with a colour to choose; the planner read the shortcut only for a
+/// land of one basic type and dropped both, so a Grizzly Bears beside them was
+/// never offered (NEW-09, 3.11.2026). The report's Blooming Marsh, made a Swamp
+/// by Evil Presence and a Forest by Yavimaya, is the same shape.
+#[test]
+fn a_land_with_two_basic_types_is_a_source_of_either_colour() {
+    let (_, view, legal) = position(
+        &["Urborg, Tomb of Yawgmoth", "Yavimaya, Cradle of Growth"],
+        &["Grizzly Bears"],
+        &[],
+    );
+    assert_eq!(
+        legal.mana_abilities.len(),
+        2,
+        "the premise: the engine offers both lands' CR 305.6 shortcut"
+    );
+    let reach = reachable(&view, &legal);
+    let bears = reach_of(&reach, "Grizzly Bears").expect("two Swamp Forests pay {1}{G}");
+    assert_eq!(bears.plan.steps.len(), 2);
+}

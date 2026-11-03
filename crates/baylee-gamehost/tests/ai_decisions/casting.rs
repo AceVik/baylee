@@ -410,3 +410,41 @@ fn the_ai_taps_nothing_for_a_spell_with_no_legal_target() {
         }
     }
 }
+
+/// Under Urborg, Tomb of Yawgmoth and Yavimaya, Cradle of Growth each of the
+/// two is a Swamp Forest with no printed mana ability: it taps for `{B}` or
+/// `{G}` through CR 305.6 alone. The house read that shortcut only for a land
+/// of one basic type, so it saw no source and held a Grizzly Bears it could
+/// cast (NEW-09, 3.11.2026).
+#[test]
+fn the_ai_taps_a_land_with_two_basic_types_for_the_colour_it_needs() {
+    let me = PlayerId::new(0);
+    let preset = position(
+        &["Grizzly Bears"],
+        &["Urborg, Tomb of Yawgmoth", "Yavimaya, Cradle of Growth"],
+    );
+    let mut engine = Engine::new(&preset, RegistryLookup).unwrap();
+    let agent = HeuristicAgent::new(AIProfile::EXPERT);
+    for seq in 0..100 {
+        let pending = engine.pending();
+        let seat = pending_player(pending).expect("fixture remains live");
+        let view = asked_view(engine.state(), seat, seq, pending);
+        if view.battlefield_of(me).any(|o| {
+            o.card
+                .is_some_and(|c| c.index == entry("Grizzly Bears").card)
+        }) {
+            assert_eq!(view.turn, 1);
+            return;
+        }
+        assert_eq!(view.turn, 1, "the house passed its turn holding the Bears");
+        let action = match pending {
+            Pending::Mulligan { .. } => PlayerAction::MulliganKeep,
+            Pending::Priority { .. } if seat != me => PlayerAction::PassPriority,
+            _ => agent.act_with_context(&view, pending, &engine.decision_context()),
+        };
+        engine
+            .apply(seat, action)
+            .expect("the house answers from its offer");
+    }
+    panic!("the table never moved past the first turn");
+}

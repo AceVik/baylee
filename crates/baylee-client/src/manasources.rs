@@ -44,9 +44,10 @@ use baylee_cards_dsl::{AbilityDef, Cost, CostPart, Effect};
 pub fn sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
     let mut sources = Vec::new();
 
-    // The CR 305.6 shortcut. The engine offers it only for a land with
-    // exactly one basic type, and the colour follows from the *projected*
-    // subtypes — an animated Dryad Arbor still taps for green.
+    // The CR 305.6 shortcut. The colours follow from the *projected* subtypes
+    // — an animated Dryad Arbor still taps for green — and a land with two
+    // basic types and no printed tap of its own (Blooming Marsh made a Swamp
+    // by Evil Presence, then a Forest by Yavimaya) makes either.
     for &id in &legal.mana_abilities {
         if legal.activation_increase(id) > 0 {
             continue;
@@ -54,8 +55,8 @@ pub fn sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
         let Some(object) = view.battlefield.iter().find(|o| o.id == id) else {
             continue;
         };
-        if let Some(color) = basic_land_color(&object.subtypes) {
-            sources.push(Source::fixed(id, Tap::Intrinsic, color));
+        if let Some(source) = baylee_client_core::manaplan::intrinsic_source(id, &object.subtypes) {
+            sources.push(source);
         }
     }
 
@@ -695,13 +696,14 @@ pub fn offers(
     let mut out = Vec::new();
     if legal.mana_abilities.contains(&object)
         && let Some(permanent) = view.battlefield.iter().find(|o| o.id == object)
-        && let Some(color) = basic_land_color(&permanent.subtypes)
+        && let Some(source) =
+            baylee_client_core::manaplan::intrinsic_source(object, &permanent.subtypes)
     {
         out.push(Offer {
             tap: Tap::Intrinsic,
-            colors: vec![color],
-            // One mana of the land's own colour, by CR 305.6 and by nothing
-            // else: there is no card text to read and no amount to doubt.
+            colors: source.colors,
+            // One mana of a colour its land types give it, by CR 305.6 and by
+            // nothing else: there is no card text to read and no amount to doubt.
             fixed: true,
         });
     }

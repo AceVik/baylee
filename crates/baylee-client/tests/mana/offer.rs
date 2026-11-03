@@ -134,3 +134,28 @@ fn a_workshop_never_pays_for_an_artifacts_ability() {
         }
     }
 }
+
+/// Under Urborg, Tomb of Yawgmoth and Yavimaya, Cradle of Growth each of the
+/// two is a Swamp Forest with no printed mana ability, and taps for `{B}` or
+/// `{G}` through CR 305.6. The client read the shortcut only for a land of one
+/// basic type, so neither was a source and the Bears beside them answered no
+/// click (NEW-09, 3.11.2026).
+#[test]
+fn a_land_with_two_basic_types_pays_either_colour() {
+    let mut table = Table::open_with(&red_preset(
+        &["Grizzly Bears"],
+        &["Urborg, Tomb of Yawgmoth", "Yavimaya, Cradle of Growth"],
+    ));
+    table.walk_to_main();
+    let bears = id_in_hand(&table, "Grizzly Bears");
+    let mut duel = baylee_client::Duel::default();
+    refresh(&mut duel, &table);
+    assert!(
+        duel.reachable.contains(&bears),
+        "two Swamp Forests pay {{1}}{{G}}"
+    );
+    assert_eq!(
+        baylee_client::mana_for(&duel, bears).map(|plan| plan.taps()),
+        Some(2)
+    );
+}
