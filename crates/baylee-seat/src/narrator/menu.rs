@@ -1349,11 +1349,9 @@ fn targeting_sentence(targeting: &baylee_view::TargetingContext) -> Option<Strin
 /// mode for both (CR 702.37c, 702.168a), and a morph card is not told
 /// "disguise".
 fn face_down_label(card: Option<baylee_view::CardIdentity>, cost: &str) -> String {
-    let morph = card
-        .and_then(|c| Some((baylee_cards::by_index(c.index)?, usize::from(c.face))))
-        .and_then(|(def, face)| def.faces.get(face))
-        .is_some_and(|f| f.morph.is_some() && f.disguise.is_none());
-    let keyword = if morph { "morph" } else { "disguise" };
+    let keyword = card
+        .and_then(crate::wake::face_down_keyword)
+        .unwrap_or("disguise");
     format!("Cast it face down with {keyword} for {cost}")
 }
 

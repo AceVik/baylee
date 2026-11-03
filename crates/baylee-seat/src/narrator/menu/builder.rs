@@ -662,6 +662,12 @@ impl Builder<'_, '_> {
             .and_then(|def| def.faces.get(usize::from(reach.card.face)))
             .is_some_and(|face| face.mana_cost.to_string().contains("{X}"));
         let mut label = match reach.from {
+            ReachFrom::Hand if reach.face_down => format!(
+                "Cast {} face down with {} for {}",
+                table.named(reach.object),
+                crate::wake::face_down_keyword(reach.card).unwrap_or("disguise"),
+                reach.plan.cost
+            ),
             ReachFrom::Hand => format!("Cast {} {}", table.named(reach.object), reach.plan.cost),
             ReachFrom::CommandZone => format!(
                 "Cast your commander {} from the command zone for {} (tax included)",

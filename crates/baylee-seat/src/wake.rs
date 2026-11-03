@@ -627,6 +627,9 @@ pub struct Reach {
     pub card: baylee_view::CardIdentity,
     /// Where it would be cast from.
     pub from: ReachFrom,
+    /// Cast face down for {3} with its morph or disguise (CR 702.37c,
+    /// 702.168a) rather than for its printed cost.
+    pub face_down: bool,
     /// The taps, in order, and the cost they pay: the printed cost with
     /// `{X}` at 0, a commander's tax (CR 903.8) added, and priced as the
     /// engine charges it, its increases and reductions applied
@@ -742,6 +745,7 @@ pub fn reachable(view: &PlayerView, legal: &LegalActions) -> Vec<Reach> {
                 object: card.id,
                 card: card.card,
                 from: ReachFrom::Hand,
+                face_down: false,
                 plan: payable(
                     card.id,
                     card.card,
@@ -751,6 +755,34 @@ pub fn reachable(view: &PlayerView, legal: &LegalActions) -> Vec<Reach> {
             })
         })
         .collect();
+    // Face down for {3} (CR 702.37c, 702.168a): a morph or disguise card is
+    // a 2/2 creature spell that way, whatever it costs face up, so it is
+    // reached with a creature's timing and the {3}, priced as the engine
+    // prices that mode. Bug hunt of 3.11.2026, q44: Exalted Angel was never
+    // offered with three lands, its printed {4}{W}{W} out of reach.
+    reach.extend(
+        view.hand
+            .iter()
+            .filter(|card| {
+                !legal.castable.contains(&card.id) && face_down_keyword(card.card).is_some()
+            })
+            .filter(|_| baylee_client_core::timing::allows(view, TypeSet::CREATURE, false))
+            .filter(|card| baylee_ai::spell_can_be_cast_now(view, legal, card.id, card.card))
+            .filter_map(|card| {
+                Some(Reach {
+                    object: card.id,
+                    card: card.card,
+                    from: ReachFrom::Hand,
+                    face_down: true,
+                    plan: payable(
+                        card.id,
+                        card.card,
+                        ManaCost::parse("{3}"),
+                        CastModeKind::Disguise,
+                    )?,
+                })
+            }),
+    );
     reach.extend(commanders(view, legal, &payable));
     reach.extend(graveyard_and_exile(view, legal, &payable));
     reach
@@ -942,6 +974,7 @@ fn commanders(
                 object: c.object,
                 card,
                 from: ReachFrom::CommandZone,
+                face_down: false,
                 plan: payable(c.object, card, cost, CastModeKind::Normal)?,
             })
         })
@@ -983,6 +1016,7 @@ fn graveyard_and_exile(
                 object: object.id,
                 card,
                 from: ReachFrom::Graveyard,
+                face_down: false,
                 plan,
             });
         }
@@ -1009,6 +1043,7 @@ fn graveyard_and_exile(
                 object: object.id,
                 card,
                 from: ReachFrom::Exile,
+                face_down: false,
                 plan,
             });
         }
@@ -1050,6 +1085,23 @@ pub fn targets_the_stack(card: baylee_view::CardIdentity) -> bool {
                 )
             })
     })
+}
+
+/// The keyword a card face is cast face down with for {3}: "morph" or
+/// "disguise" (CR 702.37c, 702.168a), `None` for a card with neither. The
+/// engine has one mode for both; a card with both is told "disguise".
+#[must_use]
+pub fn face_down_keyword(card: baylee_view::CardIdentity) -> Option<&'static str> {
+    let face = baylee_cards::by_index(card.index)?
+        .faces
+        .get(usize::from(card.face))?;
+    if face.disguise.is_some() {
+        Some("disguise")
+    } else if face.morph.is_some() {
+        Some("morph")
+    } else {
+        None
+    }
 }
 
 /// Whether a card face has flash.

@@ -815,3 +815,24 @@ fn mdfc_spell_pitch_spell_and_graveyard_exile_permissions_are_reachable() {
             .any(|r| r.object == o(71) && r.from == ReachFrom::Exile)
     );
 }
+
+/// Bug hunt of 3.11.2026, game 1, q44: Exalted Angel ({4}{W}{W}, morph)
+/// over three Plains was never offered: only its printed cost was tried.
+/// Face down it is a 2/2 creature spell for {3} (CR 702.37c), which three
+/// lands pay; two do not.
+#[test]
+fn a_morph_card_is_reached_face_down_for_three() {
+    let (view, legal) = table(&["Plains", "Plains", "Plains"], &["Exalted Angel"]);
+    let reach = reachable(&view, &legal);
+    assert_eq!(reach.len(), 1, "{reach:?}");
+    assert!(reach[0].face_down, "{reach:?}");
+    assert_eq!(reach[0].plan.steps.len(), 3);
+    assert_eq!(judge(&view, legal), Verdict::Wake(Why::RailStop));
+    let (view, legal) = table(&["Plains", "Plains"], &["Exalted Angel"]);
+    assert!(reachable(&view, &legal).is_empty());
+    // Over six Plains both ways are offered.
+    let (view, legal) = table(&["Plains"; 6], &["Exalted Angel"]);
+    let reach = reachable(&view, &legal);
+    assert_eq!(reach.len(), 2, "{reach:?}");
+    assert_eq!(reach.iter().filter(|r| r.face_down).count(), 1);
+}
