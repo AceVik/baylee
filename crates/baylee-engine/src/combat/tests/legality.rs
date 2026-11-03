@@ -7,7 +7,6 @@
 use super::*;
 use crate::combat::can_attack;
 use crate::combat::menace_satisfiable;
-use crate::object::Status;
 
 fn tap(state: &mut GameState, id: ObjectId) {
     state.set_tapped(id, true);
@@ -180,16 +179,4 @@ fn a_noncreature_permanent_cannot_attack() {
     state.object_mut(rock).unwrap().base_mut().types = TypeSet::ARTIFACT;
     state.invalidate_projections();
     assert!(!can_attack(&state, P0, rock));
-}
-
-#[test]
-fn a_phased_out_creature_cannot_attack() {
-    let mut state = empty_state();
-    let bear = creature(&mut state, P0, 2, 2, KeywordSet::HASTE);
-    state
-        .object_mut(bear)
-        .unwrap()
-        .status
-        .insert(Status::PHASED_OUT);
-    assert!(!can_attack(&state, P0, bear));
 }

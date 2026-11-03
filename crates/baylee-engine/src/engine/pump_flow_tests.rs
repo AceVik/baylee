@@ -70,7 +70,7 @@ fn the_pump_applies_as_the_spell_resolves() {
     let elf = on_battlefield(&engine, P0, quiet_creature()).unwrap();
     assert_eq!(pt(&engine, elf), (1, 1));
     grow(&mut engine, elf);
-    assert_eq!(refreshed_pt(&mut engine, elf), (4, 4));
+    assert_eq!(pt(&engine, elf), (4, 4), "read without forcing a refresh");
 }
 
 #[test]
@@ -116,7 +116,12 @@ fn reading_a_pumped_body_twice_gives_one_answer() {
     let mut engine = duel();
     let elf = on_battlefield(&engine, P0, quiet_creature()).unwrap();
     grow(&mut engine, elf);
-    let first = refreshed_pt(&mut engine, elf);
+    let first = pt(&engine, elf);
+    assert_eq!(
+        first,
+        (4, 4),
+        "the engine's own projection already shows the pump"
+    );
     let again = refreshed_pt(&mut engine, elf);
-    assert_eq!(first, again, "reading the projection twice changes nothing");
+    assert_eq!(first, again, "a forced refresh changes nothing");
 }

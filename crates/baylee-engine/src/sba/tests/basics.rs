@@ -37,13 +37,13 @@ fn a_negative_life_total_loses_like_zero() {
 }
 
 #[test]
-fn nine_poison_counters_are_not_ten() {
+fn nine_poison_counters_are_not_ten_and_ten_are() {
     let mut state = board(103);
     state.players[0].poison = 9;
     let outcome = run(&mut state, &RegistryLookup);
     assert!(!outcome.changed);
     assert!(!state.players[0].has_lost());
-    state.players[0].poison = 11;
+    state.players[0].poison = 10;
     let _ = run(&mut state, &RegistryLookup);
     assert_eq!(state.players[0].loss, Some(LossReason::Poison));
 }
@@ -57,8 +57,9 @@ fn a_draw_from_an_empty_library_loses_at_the_next_check() {
     assert!(!state.players[0].has_lost());
 }
 
-/// The life total is checked first, so a player who meets two losing
-/// conditions at once keeps the first reason, and keeps it on a later pass.
+/// The engine checks the life total first (CR 704.3 makes the
+/// losses simultaneous and fixes no order among reasons), so a player who meets two losing conditions at once
+/// keeps the life reason, and keeps it on a later pass.
 #[test]
 fn zero_life_and_ten_poison_together_name_the_life_total() {
     let mut state = board(105);

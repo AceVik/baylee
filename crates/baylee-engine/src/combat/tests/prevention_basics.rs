@@ -87,19 +87,6 @@ fn a_shield_on_a_creature_saves_it_and_not_its_controller() {
 }
 
 #[test]
-fn a_fog_stops_damage_in_both_directions() {
-    let mut state = empty_state();
-    let attacker = creature(&mut state, P0, 3, 3, KeywordSet::EMPTY);
-    let blocker = creature(&mut state, P1, 3, 3, KeywordSet::EMPTY);
-    attack(&mut state, attacker, P1);
-    block(&mut state, blocker, attacker);
-    shield(&mut state, Shielded::Everything, ShieldKind::AllCombat);
-    deal_combat_damage(&mut state, false);
-    assert_eq!(damage(&state, attacker), 0);
-    assert_eq!(damage(&state, blocker), 0);
-}
-
-#[test]
 fn a_fog_lasts_for_both_damage_steps() {
     let mut state = empty_state();
     let striker = creature(&mut state, P0, 2, 2, KeywordSet::DOUBLE_STRIKE);

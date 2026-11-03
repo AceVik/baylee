@@ -127,6 +127,11 @@ fn a_deathtouch_blocker_trades_with_a_troll() {
         "one point of deathtouch is lethal"
     );
     assert!(!alive(&engine, P1, biter()));
+    assert_eq!(
+        engine.state().players[1].life,
+        20,
+        "the blocked troll deals nothing to the player"
+    );
 }
 
 #[test]
@@ -137,12 +142,6 @@ fn first_strike_beats_deathtouch() {
         "killed in the first-strike step"
     );
     assert!(alive(&engine, P1, zealot()), "the biter dealt no damage");
-}
-
-#[test]
-fn a_blocked_attacker_deals_no_damage_to_the_player() {
-    let (engine, _, _) = fight(troll(), biter());
-    assert_eq!(engine.state().players[1].life, 20);
 }
 
 /// Child of Night, a 2/1 with lifelink: unblocked, its two damage to the

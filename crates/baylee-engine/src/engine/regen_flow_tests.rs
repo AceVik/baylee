@@ -191,6 +191,7 @@ fn an_unused_shield_ends_with_the_turn() {
     let regen_left = engine
         .state()
         .object(troll)
-        .map_or(0, |o| o.regeneration_shields);
+        .expect("the troll is still there")
+        .regeneration_shields;
     assert_eq!(regen_left, 0);
 }

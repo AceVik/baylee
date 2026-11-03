@@ -52,7 +52,21 @@ fn the_same_legend_under_two_players_is_no_conflict() {
     let mut state = board(404);
     let _ = legend(&mut state, "Shared Hero");
     let theirs = legend(&mut state, "Shared Hero");
-    state.object_mut(theirs).unwrap().controller = PlayerId::new(1);
+    let timestamp = state.next_timestamp();
+    let filter = crate::effects::EffectFilter::object(&state, theirs);
+    state.effects.register(crate::effects::ContinuousEffect {
+        id: baylee_core::ids::EffectId::new(0),
+        source: None,
+        controller: PlayerId::new(1),
+        origin: crate::effects::EffectOrigin::Resolution,
+        layer: baylee_cards_dsl::Layer::Control,
+        timestamp,
+        duration: baylee_cards_dsl::Duration::Indefinitely,
+        filter,
+        modifier: baylee_cards_dsl::Modifier::GainControl,
+    });
+    state.refresh_characteristics();
+    assert_eq!(state.object(theirs).unwrap().controller, PlayerId::new(1));
     assert!(run(&mut state, &RegistryLookup).legend_choice.is_none());
 }
 

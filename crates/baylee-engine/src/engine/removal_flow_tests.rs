@@ -151,6 +151,7 @@ fn a_bounced_creature_loses_its_damage_and_counters() {
         let state = engine.dev_state_mut(P0).expect("dev board");
         let obj = state.object_mut(target).unwrap();
         obj.counters.set(crate::object::CounterKind::P1P1, 2);
+        obj.damage = 1;
     }
     assert!(cast_at(&mut engine, unsummon(), target));
     let card = in_hand(&engine, P1, quiet_creature()).unwrap();

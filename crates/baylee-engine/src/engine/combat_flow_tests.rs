@@ -276,10 +276,16 @@ fn a_flier_cannot_be_blocked_by_a_ground_creature() {
             },
         )
         .unwrap();
+    assert!(
+        !crate::combat::can_block(engine.state(), P1, elf, shivan),
+        "no block on the flier is legal"
+    );
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::ChooseBlockers { .. })
             || e.state().turn.phase == Phase::SecondMain
     });
+    // The engine may skip the question when no block is legal; when it asks,
+    // a block on the flier is refused.
     if matches!(engine.pending(), Pending::ChooseBlockers { .. }) {
         assert!(
             engine
@@ -341,14 +347,11 @@ fn two_blockers_on_one_attacker() {
         if engine.state().turn.phase == Phase::SecondMain {
             break;
         }
-        match engine.pending().clone() {
-            Pending::Priority { player, .. } => {
-                engine.apply(player, PlayerAction::PassPriority).unwrap();
-            }
-            _ => {
-                let (player, action) = super::testkit::answer_one(&engine).expect("answerable");
-                engine.apply(player, action).unwrap();
-            }
+        if let Pending::Priority { player, .. } = engine.pending().clone() {
+            engine.apply(player, PlayerAction::PassPriority).unwrap();
+        } else {
+            let (player, action) = super::testkit::answer_one(&engine).expect("answerable");
+            engine.apply(player, action).unwrap();
         }
     }
     assert!(on_battlefield(&engine, P0, quiet_creature()).is_none());

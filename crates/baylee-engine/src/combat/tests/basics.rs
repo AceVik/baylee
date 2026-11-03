@@ -155,15 +155,24 @@ fn trample_into_a_bigger_blocker_reaches_nobody_else() {
     assert_eq!(life(&state, P1), 20);
 }
 
-/// CR 510.4: a creature without first strike or double strike deals no
-/// damage in the first-strike damage step.
+/// CR 510.4: with a first striker in combat, only creatures with first strike
+/// or double strike assign damage in the first-strike damage step; the
+/// ordinary attacker waits for the regular one.
 #[test]
 fn an_ordinary_attacker_deals_nothing_in_the_first_strike_step() {
     let mut state = empty_state();
     let bear = creature(&mut state, P0, 2, 2, KeywordSet::EMPTY);
+    let knight = creature(&mut state, P0, 3, 3, KeywordSet::FIRST_STRIKE);
     attack(&mut state, bear, P1);
+    attack(&mut state, knight, P1);
     deal_combat_damage(&mut state, true);
-    assert_eq!(life(&state, P1), 20);
+    assert_eq!(life(&state, P1), 17, "only the knight's three");
+    deal_combat_damage(&mut state, false);
+    assert_eq!(
+        life(&state, P1),
+        15,
+        "the bear's two come in the regular step"
+    );
 }
 
 #[test]

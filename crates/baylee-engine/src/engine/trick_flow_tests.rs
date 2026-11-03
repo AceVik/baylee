@@ -1,7 +1,8 @@
 //! A combat trick with real cards: Giant Growth cast in the declare
 //! blockers step, after blocks are fixed. The pumped creature deals and
-//! takes damage as it now is, and the block itself is not undone by the
-//! change (CR 509.1h).
+//! takes damage as it now is, and it stays blocked: a blocked creature
+//! stays blocked until it is removed from combat (CR 509.1h), and a pump
+//! is no such event.
 
 use super::testkit::{
     Duel, basic_forest, card_index, in_hand, keep_mulligans, on_battlefield, pass_until,
