@@ -172,3 +172,66 @@ fn reading_the_state_does_not_move_the_hash() {
     assert_eq!(engine.state().snapshot_hash(), first);
     assert_eq!(engine.state().clone().snapshot_hash(), first);
 }
+
+/// The same game twice with a spell, a target and an attack in it: one
+/// hash at every answer. Determinism is not only for passing.
+#[test]
+fn a_game_with_spells_and_combat_replays_hash_for_hash() {
+    use super::testkit::{card_index, in_hand, on_battlefield, quiet_creature, tap_mana_where};
+    let shock = card_index("a9d288b8-cdc1-4e55-a0c9-d6edfc95e65d");
+    let mountain = card_index("a3fb7228-e76b-4e96-a40e-20b5fed75685");
+    let play = || -> Vec<u64> {
+        let mut engine = Duel::new(SEED, basic_forest())
+            .hand(0, &[shock])
+            .battlefield(0, &[mountain, quiet_creature()])
+            .battlefield(1, &[quiet_creature()])
+            .start();
+        keep_mulligans(&mut engine);
+        let mut hashes = vec![engine.state().snapshot_hash()];
+        let p0 = PlayerId::new(0);
+        let p1 = PlayerId::new(1);
+        pass_until(&mut engine, |e| {
+            e.state().turn.phase == Phase::FirstMain
+                && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+        });
+        hashes.push(engine.state().snapshot_hash());
+        let land = on_battlefield(&engine, p0, mountain).unwrap();
+        tap_mana_where(&mut engine, p0, |id| id == land);
+        let card = in_hand(&engine, p0, shock).unwrap();
+        engine.apply(p0, PlayerAction::CastSpell { card }).unwrap();
+        let theirs = on_battlefield(&engine, p1, quiet_creature()).unwrap();
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseTargets {
+                    objects: vec![theirs],
+                    players: vec![],
+                },
+            )
+            .unwrap();
+        hashes.push(engine.state().snapshot_hash());
+        pass_until(
+            &mut engine,
+            |e| matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == p0),
+        );
+        hashes.push(engine.state().snapshot_hash());
+        let mine = on_battlefield(&engine, p0, quiet_creature()).unwrap();
+        engine
+            .apply(
+                p0,
+                PlayerAction::DeclareAttackers {
+                    attackers: vec![(mine, baylee_core::ids::Defender::Player(p1))],
+                },
+            )
+            .unwrap();
+        pass_until(&mut engine, |e| e.state().turn.phase == Phase::SecondMain);
+        hashes.push(engine.state().snapshot_hash());
+        assert_eq!(engine.state().players[1].life, 19);
+        hashes
+    };
+    let first = play();
+    assert_eq!(first, play());
+    let mut unique = first.clone();
+    unique.dedup();
+    assert_eq!(unique.len(), first.len(), "every step moved the hash");
+}
