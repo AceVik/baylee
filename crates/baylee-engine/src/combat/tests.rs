@@ -7,6 +7,7 @@ mod exchange;
 mod history;
 mod ice_landwalk;
 mod legality;
+mod prevention_basics;
 use super::block::LANDWALKS;
 use super::damage::deal_combat_damage;
 use super::*;
