@@ -64,7 +64,8 @@ use baylee_view::{
 use std::collections::BTreeSet;
 use std::fmt::Write as _;
 
-/// The most log lines one wake carries; older ones are counted, not told.
+/// The most log lines one wake carries, counted as written (after identical
+/// lines are folded); older ones are counted, not told.
 pub const LOG_LINES: usize = 40;
 
 /// A rough token count for English text: one token per three characters,
@@ -296,7 +297,6 @@ impl Narrator {
             return Vec::new();
         }
         let mut book = LogBook::new();
-        let whole = entries.len();
         book.append(&LogTail { from: 0, entries }, table.view);
         let statics = table.statics();
         let wording = Wording {
@@ -340,8 +340,10 @@ impl Narrator {
         if gap {
             out.push("(some earlier lines were lost on the way)".to_string());
         }
-        if whole > LOG_LINES {
-            let dropped = whole - LOG_LINES;
+        // The cap counts lines as written: entries the book merged or that
+        // were folded above are fewer lines than were heard.
+        if lines.len() > LOG_LINES {
+            let dropped = lines.len() - LOG_LINES;
             lines.drain(..dropped);
             out.push(format!("({dropped} earlier lines not shown)"));
         }
