@@ -122,3 +122,41 @@ fn a_pump_does_not_undo_the_block() {
         "a blocked creature without trample"
     );
 }
+
+/// Seat 0 casts Pyroclasm; seat 1 answers with Giant Growth on its elf.
+/// The pump resolves first (CR 405.5), so the elf is a 4/4 when the two
+/// damage arrive and survives; seat 0's unpumped elf does not.
+#[test]
+fn a_pump_in_response_saves_a_creature_from_a_sweeper() {
+    let pyroclasm = card_index("e4bcd4ea-e7cd-4471-8f3b-18bb51d3d70c");
+    let mountain = card_index("a3fb7228-e76b-4e96-a40e-20b5fed75685");
+    let mut engine = Duel::new(SEED, basic_forest())
+        .hand(0, &[pyroclasm])
+        .hand(1, &[giant_growth()])
+        .battlefield(0, &[mountain, mountain, quiet_creature()])
+        .battlefield(1, &[basic_forest(), quiet_creature()])
+        .start();
+    keep_mulligans(&mut engine);
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == P0
+            && e.state().turn.phase == Phase::FirstMain
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == P0)
+    });
+    super::testkit::cast_from_hand(&mut engine, P0, pyroclasm);
+    engine.apply(P0, PlayerAction::PassPriority).unwrap();
+    let theirs = on_battlefield(&engine, P1, quiet_creature()).unwrap();
+    tap_all_mana(&mut engine, P1);
+    let card = in_hand(&engine, P1, giant_growth()).unwrap();
+    engine.apply(P1, PlayerAction::CastSpell { card }).unwrap();
+    engine
+        .apply(
+            P1,
+            PlayerAction::ChooseObjects {
+                objects: vec![theirs],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, super::testkit::stack_is_empty);
+    assert!(on_battlefield(&engine, P1, quiet_creature()).is_some());
+    assert!(on_battlefield(&engine, P0, quiet_creature()).is_none());
+}
