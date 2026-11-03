@@ -71,7 +71,7 @@ fn cast_x(engine: &mut Game, spell: CardIndex, x: u32, at: PlayerId) -> bool {
 
 #[test]
 fn stream_of_life_gains_x_life() {
-    let mut engine = duel(stream(), &vec![basic_forest(); 4]);
+    let mut engine = duel(stream(), &[basic_forest(); 4]);
     assert!(cast_x(&mut engine, stream(), 3, P0));
     pass_until(&mut engine, stack_is_empty);
     assert_eq!(engine.state().players[0].life, 23);
@@ -79,7 +79,7 @@ fn stream_of_life_gains_x_life() {
 
 #[test]
 fn stream_of_life_may_target_the_opponent() {
-    let mut engine = duel(stream(), &vec![basic_forest(); 3]);
+    let mut engine = duel(stream(), &[basic_forest(); 3]);
     assert!(cast_x(&mut engine, stream(), 2, P1));
     pass_until(&mut engine, stack_is_empty);
     assert_eq!(engine.state().players[1].life, 22);
@@ -96,7 +96,7 @@ fn x_of_zero_is_legal_and_does_nothing() {
 
 #[test]
 fn an_x_beyond_the_mana_is_refused() {
-    let mut engine = duel(stream(), &vec![basic_forest(); 3]);
+    let mut engine = duel(stream(), &[basic_forest(); 3]);
     assert!(!cast_x(&mut engine, stream(), 5, P0));
     assert_eq!(engine.state().players[0].life, 20);
 }
@@ -126,7 +126,7 @@ fn mountain() -> CardIndex {
 
 #[test]
 fn blaze_deals_x_damage_to_a_player() {
-    let mut engine = duel(blaze(), &vec![mountain(); 5]);
+    let mut engine = duel(blaze(), &[mountain(); 5]);
     assert!(cast_x(&mut engine, blaze(), 4, P1));
     pass_until(&mut engine, stack_is_empty);
     assert_eq!(engine.state().players[1].life, 16);
@@ -135,7 +135,7 @@ fn blaze_deals_x_damage_to_a_player() {
 #[test]
 fn the_x_announced_is_the_x_paid() {
     // Five Mountains: X = 4 uses them all, so nothing is left floating.
-    let mut engine = duel(blaze(), &vec![mountain(); 5]);
+    let mut engine = duel(blaze(), &[mountain(); 5]);
     assert!(cast_x(&mut engine, blaze(), 4, P1));
     assert!(engine.state().players[0].mana_pool.is_empty());
 }
