@@ -110,9 +110,11 @@ impl<L: CardLookup> Engine<L> {
             }
         }
         mana = mana.with_less_generic(off);
+        let imposed = parts.len() - cost.parts.len();
         ActivationPrice {
             mana,
             parts,
+            imposed,
             allowance: casting::base_allowance(&self.state, casting::SpendFor::Ability(source))
                 .adjusted(
                     eligible,

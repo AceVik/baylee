@@ -259,6 +259,60 @@ fn granted_replay_and_continuation_hash_include_nested_payment() {
 }
 
 #[test]
+fn activation_payment_hash_only_extends_for_imposed_cost_parts() {
+    let (mut engine, body) = fixture();
+    grant(&mut engine, body, 0);
+    activate(&mut engine, body, 2);
+    let before = engine.snapshot_hash();
+    {
+        let Some(PaymentWindow {
+            suspended: PaymentContinuation::Activation(payment),
+            ..
+        }) = engine.mana_window.as_mut()
+        else {
+            panic!("activation must open a payment window")
+        };
+        assert_eq!(payment.cost.imposed, 0);
+        assert_eq!(
+            crate::state::structural_fingerprint(&payment.cost),
+            crate::state::structural_fingerprint(&(
+                payment.cost.mana,
+                &payment.cost.parts[..],
+                payment.cost.allowance,
+            )),
+            "counter continuations must retain the old Cost and allowance encoding"
+        );
+        payment.cost.parts.push(CostPart::PayLife(1));
+    }
+    assert_eq!(
+        engine.snapshot_hash(),
+        before,
+        "the legacy encoding must ignore every printed cost part"
+    );
+    {
+        let Some(PaymentWindow {
+            suspended: PaymentContinuation::Activation(payment),
+            ..
+        }) = engine.mana_window.as_mut()
+        else {
+            unreachable!()
+        };
+        let price_before = crate::state::structural_fingerprint(&payment.cost);
+        payment.cost.imposed = payment.cost.parts.len();
+        assert_ne!(
+            crate::state::structural_fingerprint(&payment.cost),
+            price_before,
+            "counter continuations must distinguish imposed costs"
+        );
+    }
+    assert_ne!(
+        engine.snapshot_hash(),
+        before,
+        "an imposed cost part must join the replay digest"
+    );
+}
+
+#[test]
 fn granted_permission_retains_history_without_making_it_a_damage_source() {
     let (mut engine, body) = fixture();
     let old = engine.state.source_identity(body).unwrap();

@@ -6345,3 +6345,8 @@ got wrong was in the tests, not in the cards:
   insufficient Swamps, two Droughts, Disenchant and a real mana window. Desktop,
   house AI and LLM seats reuse the ordinary cast, activation and `CostSacrifice`
   decisions; no card-specific choice or policy is needed.
+- Replay compatibility is a wire contract, not merely a determinism property:
+  retain legacy field order when enriching continuation data and hash only a
+  genuinely new suffix. Append variants to enums whose derived `Hash` feeds a
+  snapshot; inserting one renumbers every later variant. The finished-table
+  replay and the zero-imposed-cost hash regression test pin both rules.

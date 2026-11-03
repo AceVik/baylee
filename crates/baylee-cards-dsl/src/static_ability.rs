@@ -84,10 +84,6 @@ pub enum Modifier {
         /// The amount transformation.
         replacement: DamageAmountReplacement,
     },
-    /// Treat damage from sources sharing any of these colors as coming from a
-    /// colorless source, without changing the source's actual characteristics.
-    /// Protection still sees the real colors except when damage is dealt (CR 702.16b).
-    DamageFromColoredSourcesIsColorless(ColorSet),
     /// Damage cannot reduce the indicated players below this life total.
     DamageLifeLossFloor {
         /// Players protected by the floor.
@@ -122,25 +118,8 @@ pub enum Modifier {
     /// Matching spells cost {1} less for each counter of this kind on the
     /// continuous effect's source (Herald of War).
     SpellsCostLessPerCounter(crate::CounterKind),
-    /// Matching spells cost one additional sacrifice of a permanent matching
-    /// `sacrifice` for each symbol of `color` in the announced face's mana cost.
-    SpellsCostSacrificePerManaSymbol {
-        /// The mana-symbol color counted once per symbol, including hybrids.
-        color: Color,
-        /// The permanent each additional sacrifice must match.
-        sacrifice: &'static Filter,
-    },
     /// Generic cost increase for activated abilities of matching objects.
     AbilitiesCostMore(u32),
-    /// Activated abilities of matching objects cost one additional sacrifice
-    /// of a permanent matching `sacrifice` for each symbol of `color` in their
-    /// activation costs.
-    AbilitiesCostSacrificePerManaSymbol {
-        /// The mana-symbol color counted once per symbol, including hybrids.
-        color: Color,
-        /// The permanent each additional sacrifice must match.
-        sacrifice: &'static Filter,
-    },
     /// Additional life paid when activating a mana ability of the affected object.
     ManaAbilitiesCostLife(u32),
     /// Replace a type of mana produced by tapping the affected object for mana.
@@ -1053,6 +1032,29 @@ pub enum Modifier {
     /// permanent matching the filter (Orgg: "can't attack if defending player
     /// controls an untapped creature with power 3 or greater").
     CantAttackIfDefenderControls(&'static Filter),
+    // Hash-compatible extensions stay at the end: derived Hash assigns enum
+    // discriminants by declaration order, and replay records pin the old ones.
+    /// Treat damage from sources sharing any of these colors as coming from a
+    /// colorless source, without changing the source's actual characteristics.
+    /// Protection still sees the real colors except when damage is dealt (CR 702.16b).
+    DamageFromColoredSourcesIsColorless(ColorSet),
+    /// Matching spells cost one additional sacrifice of a permanent matching
+    /// `sacrifice` for each symbol of `color` in the announced face's mana cost.
+    SpellsCostSacrificePerManaSymbol {
+        /// The mana-symbol color counted once per symbol, including hybrids.
+        color: Color,
+        /// The permanent each additional sacrifice must match.
+        sacrifice: &'static Filter,
+    },
+    /// Activated abilities of matching objects cost one additional sacrifice
+    /// of a permanent matching `sacrifice` for each symbol of `color` in their
+    /// activation costs.
+    AbilitiesCostSacrificePerManaSymbol {
+        /// The mana-symbol color counted once per symbol, including hybrids.
+        color: Color,
+        /// The permanent each additional sacrifice must match.
+        sacrifice: &'static Filter,
+    },
     /// The buyback cost of a matching spell costs this much less generic
     /// mana. Only the buyback cost's own generic part (CR 118.7a), so it does
     /// nothing for a spell whose buyback was not announced and nothing for

@@ -25,10 +25,13 @@ mod x_value;
 /// A determined activation price keeps every printed and imposed cost part
 /// beside its mana and source permissions. Owning the parts lets payment
 /// windows and counter continuations retain the exact announced price.
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug)]
 pub(crate) struct ActivationPrice {
     pub mana: baylee_core::mana::ManaCost,
     pub parts: SmallVec<[CostPart; 4]>,
+    /// Number of trailing parts imposed by continuous effects rather than
+    /// printed on the ability. Only this suffix extends legacy replay hashes.
+    pub imposed: usize,
     pub allowance: casting::SourceAllowance,
 }
 impl ActivationPrice {
@@ -37,14 +40,36 @@ impl ActivationPrice {
         Self {
             mana: cost.mana,
             parts: cost.parts.iter().copied().collect(),
+            imposed: 0,
             allowance,
         }
+    }
+
+    pub(super) fn imposed_parts(&self) -> &[CostPart] {
+        let start = self.parts.len().saturating_sub(self.imposed);
+        &self.parts[start..]
     }
 
     pub(super) fn with_mana(&self, mana: baylee_core::mana::ManaCost) -> Self {
         Self {
             mana,
             ..self.clone()
+        }
+    }
+}
+
+/// Preserve the old `Cost` followed by `SourceAllowance` encoding used by
+/// counter-order continuations. An externally imposed suffix joins the hash
+/// only when present, leaving every historical activation bit-identical.
+impl std::hash::Hash for ActivationPrice {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        std::hash::Hash::hash(&self.mana, state);
+        let printed = self.parts.len().saturating_sub(self.imposed);
+        std::hash::Hash::hash(&self.parts[..printed], state);
+        std::hash::Hash::hash(&self.allowance, state);
+        let imposed = self.imposed_parts();
+        if !imposed.is_empty() {
+            std::hash::Hash::hash(imposed, state);
         }
     }
 }
