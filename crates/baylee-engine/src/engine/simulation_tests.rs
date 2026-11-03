@@ -714,11 +714,12 @@ fn face_down_and_hidden_exile_are_refused() {
 }
 
 /// The opening hands are decided on streams of the real seed: no fork. Kept,
-/// the first upkeep still has their opening draw's miracle check queued,
-/// naming the card they drew first (CR 702.94): no fork either, until the
-/// engine has offered it.
+/// nothing of the opening is left waiting: the opening hands are drawn
+/// before the first turn (CR 103.5), so no card of theirs opened a miracle
+/// check (CR 702.94a), which a fork would refuse (`pending_miracle`, see the
+/// draw tested further down).
 #[test]
-fn the_opening_and_its_miracle_check_are_refused() {
+fn the_opening_is_refused_and_leaves_no_miracle_check() {
     let mut engine = Engine::new(&preset(3, their_deck()), RegistryLookup).unwrap();
     assert_eq!(
         engine.fork_for(ME, DeckKnowledge::Known, 1).err(),
@@ -731,11 +732,7 @@ fn the_opening_and_its_miracle_check_are_refused() {
         Some(ForkRefusal::NoSuchSeat(PlayerId::new(5)))
     );
     keep_mulligans(&mut engine);
-    assert!(!engine.state().pending_miracle.is_empty());
-    assert_eq!(
-        engine.fork_for(ME, DeckKnowledge::Known, 1).err(),
-        Some(ForkRefusal::Continuation("pending_miracle"))
-    );
+    assert!(engine.state().pending_miracle.is_empty());
     reach_main_phase(&mut engine, ME);
     assert!(engine.fork_for(ME, DeckKnowledge::Known, 1).is_ok());
 }
