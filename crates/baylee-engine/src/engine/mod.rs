@@ -2109,6 +2109,8 @@ mod hand_effects_flow_tests;
 #[cfg(test)]
 mod hand_size_tests;
 #[cfg(test)]
+mod helix_flow_tests;
+#[cfg(test)]
 mod house_rules_tests;
 #[cfg(test)]
 mod if_you_do_tests;
