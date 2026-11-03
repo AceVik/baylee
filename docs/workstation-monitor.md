@@ -269,3 +269,41 @@ reconstructed and compiled separately, offline. Screenshots and browser reports
 are local artifacts in `/home/ace/baylee-data/monitor-checks/`.
 
 No full workspace landing gates or push were performed during training.
+
+## Phone access, startup and training panel (3 November 2026)
+
+The owner could not open Pulse on a phone in the LAN. A packet capture showed
+the path itself works (a LAN device at 192.168.0.64 held a live WebSocket), and
+`ufw`/nftables block nothing on 8787. What remained: the bind racing DHCP at
+login (fixed in-process, above), a phone using a host name and getting an
+empty 403, and a browser trying `https://`. The FritzBox also answers `bigace`
+and `bigace.fritz.box` with four addresses (192.168.0.80, .29, .28 and .103,
+stale leases), so a phone that opens Pulse by name may reach no Pulse at all;
+the numeric URL is the one to use.
+
+Installed unit, after a backup of the previous binary
+(`~/.local/lib/baylee-monitor/baylee-monitor.bak`) and unit
+(`baylee-monitor.service.bak` beside it):
+
+```ini
+ExecStart=%h/.local/lib/baylee-monitor/baylee-monitor --bind 192.168.0.103:8787 --allow-host bigace.local:8787 --allow-host bigace.fritz.box:8787 --allow-host bigace:8787 --pipeline /home/ace/baylee-data/v6/train/v6x-exit/execution-x1
+```
+
+Verified after `systemctl --user restart baylee-monitor`: `GET /` on
+`http://192.168.0.103:8787` is 200, `bigace.local:8787` is 200, an unknown
+Host gets the plain-text 403 and one journal line, and `/api/snapshot`
+carries the training view (unit `baylee-v6x-exit1.service` active, pipeline
+`v6x-exit/execution-x1` in `train-X1a` with its controller alive, four stages
+and the newest `[train4] step=…` line). The service used about 20 MB and four
+tasks; with one browser connected it took 2.4% of one logical CPU over ten
+seconds, during GPU training.
+
+Headless Chromium (Playwright) at 1440, 768 (touch), 390 and 320 px: no
+sideways scroll, no JS errors, no external requests, no text under 11 px, no
+touch target under 44 px at 768/390/320 px. Before the change, 390 px had 39
+text elements at 8–10 px and 15 controls under 44 px. This machine lacks the
+system libraries Playwright's Chromium needs (`libatk1.0-0t64`,
+`libatk-bridge2.0-0t64`, `libatspi2.0-0t64`, `libxdamage1`, `libxres1`); for
+this check they were fetched with `apt-get download` and unpacked into a
+scratch directory for `LD_LIBRARY_PATH`, changing nothing on the system. Test
+browsers and test servers were closed and checked gone.
