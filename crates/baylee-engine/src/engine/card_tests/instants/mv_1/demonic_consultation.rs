@@ -2,39 +2,53 @@
 //!
 //! Oracle:
 //! - "Choose a card name. Exile the top six cards of your library, then reveal cards from the top of your library until you reveal a card with the chosen name. Put that card into your hand and exile all other cards revealed this way."
-//!
-//! The card is Partial: it reveals only the top card, which goes to the hand
-//! when it has the chosen name and to the graveyard when it does not. These
-//! tests play that, both ways.
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit as lk;
+use crate::engine::card_tests::{legends_kit as lk, partials_w1b_kit as kit};
 use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
 
-// oracle_id = "9a1412db-45ad-46ea-8f12-a85d203113d8"
 fn demonic_consultation() -> CardIndex {
     card_index("9a1412db-45ad-46ea-8f12-a85d203113d8")
 }
 
-fn zone_size(engine: &Engine<RegistryLookup>, zone: ZoneLocation) -> usize {
-    engine.state().zones.list(zone).len()
+struct Outcome {
+    engine: Engine<RegistryLookup>,
+    stacked: Vec<ObjectId>,
+    consultation: ObjectId,
+    library_before: Vec<ObjectId>,
 }
 
-/// A library of Swamps; casts Consultation naming `named` and resolves it.
-fn consult(named: CardIndex) -> (Engine<RegistryLookup>, usize, usize) {
-    let mut engine = Duel::new(SEED, index::SWAMP)
-        .hand(0, &[demonic_consultation()])
-        .start();
+/// Casts Consultation naming `named`, with a library containing exactly
+/// `top_first` in that order, and resolves it through the name choice.
+fn consult(top_first: &[CardIndex], named: CardIndex) -> Outcome {
+    let consultation_card = demonic_consultation();
+    let mut hand = vec![consultation_card];
+    hand.extend_from_slice(top_first);
+    let mut engine = Duel::new(SEED, index::SWAMP).hand(0, &hand).start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, P0);
 
-    let hand = zone_size(&engine, ZoneLocation::Hand(P0));
-    let library = zone_size(&engine, ZoneLocation::Library(P0));
+    for card in kit::library_of(&engine, P0) {
+        engine
+            .dev_state_mut(P0)
+            .expect("the harness may prepare an exact library")
+            .move_object(
+                card,
+                ZoneLocation::OutsideGame(P0),
+                ZonePosition::Top,
+                Cause::Effect,
+            )
+            .expect("the backing deck leaves the library");
+    }
+    let consultation =
+        in_hand(&engine, P0, consultation_card).expect("Consultation starts in hand");
+    let stacked = kit::stack_library(&mut engine, P0, top_first);
+    let library_before = kit::library_of(&engine, P0);
     lk::float(&mut engine, P0, &[(ManaColor::Black, 1)]);
-    cast_with_floating(&mut engine, P0, demonic_consultation());
+    cast_with_floating(&mut engine, P0, consultation_card);
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::ChooseCardName { .. })
     });
@@ -48,37 +62,148 @@ fn consult(named: CardIndex) -> (Engine<RegistryLookup>, usize, usize) {
         )
         .expect("any card name may be chosen");
     pass_until(&mut engine, stack_is_empty);
-    (engine, hand, library)
+    Outcome {
+        engine,
+        stacked,
+        consultation,
+        library_before,
+    }
+}
+
+fn zone(engine: &Engine<RegistryLookup>, zone: ZoneLocation) -> Vec<ObjectId> {
+    engine.state().zones.list(zone).clone()
+}
+
+fn revealed(engine: &Engine<RegistryLookup>) -> Vec<ObjectId> {
+    engine
+        .state()
+        .journal
+        .entries()
+        .iter()
+        .filter_map(|entry| match &entry.event {
+            GameEvent::Revealed { cards, .. } => Some(cards.clone()),
+            _ => None,
+        })
+        .flatten()
+        .collect()
+}
+
+#[track_caller]
+fn assert_only_consultation_went_to_the_graveyard(outcome: &Outcome) {
+    assert_eq!(
+        kit::graveyard_of(&outcome.engine, P0),
+        vec![outcome.consultation],
+        "the spell resolves to the graveyard; none of the library cards may join it"
+    );
 }
 
 #[test]
-fn demonic_consultation_names_a_card_and_puts_matching_top_card_into_hand() {
-    let (engine, hand, library) = consult(index::SWAMP);
+fn demonic_consultation_exiles_six_before_finding_the_next_named_card() {
+    let outcome = consult(
+        &[
+            index::LIGHTNING_BOLT,
+            index::SWAMP,
+            index::SWAMP,
+            index::SWAMP,
+            index::SWAMP,
+            index::SWAMP,
+            index::LIGHTNING_BOLT,
+            index::FOREST,
+        ],
+        index::LIGHTNING_BOLT,
+    );
 
-    assert!(
-        in_hand(&engine, P0, index::SWAMP).is_some(),
-        "the top card had the chosen name: it is put into your hand"
+    assert_eq!(
+        zone(&outcome.engine, ZoneLocation::Exile(P0)),
+        outcome.stacked[..6],
+        "a named card among the initial six stays exiled and does not stop the reveal"
     );
     assert_eq!(
-        zone_size(&engine, ZoneLocation::Hand(P0)),
-        hand,
-        "Consultation left the hand and the Swamp came in"
+        zone(&outcome.engine, ZoneLocation::Hand(P0)),
+        vec![outcome.stacked[6]],
+        "the first named card below those six is put into hand, not drawn"
     );
-    assert_eq!(zone_size(&engine, ZoneLocation::Library(P0)), library - 1);
+    assert_eq!(
+        revealed(&outcome.engine),
+        vec![outcome.stacked[6]],
+        "the initial six are exiled without being revealed"
+    );
+    let library = kit::library_of(&outcome.engine, P0);
+    assert_eq!(library.len(), outcome.library_before.len() - 7);
+    assert_eq!(library.last(), outcome.stacked.get(7));
+    assert_only_consultation_went_to_the_graveyard(&outcome);
 }
 
 #[test]
-fn demonic_consultation_puts_a_top_card_without_the_name_into_the_graveyard() {
-    let (engine, hand, library) = consult(index::LIGHTNING_BOLT);
+fn demonic_consultation_exiles_every_revealed_miss_and_preserves_the_suffix() {
+    let outcome = consult(
+        &[
+            index::SWAMP,
+            index::SWAMP,
+            index::SWAMP,
+            index::SWAMP,
+            index::SWAMP,
+            index::SWAMP,
+            index::FOREST,
+            index::MOUNTAIN,
+            index::LIGHTNING_BOLT,
+            index::PLAINS,
+        ],
+        index::LIGHTNING_BOLT,
+    );
 
-    assert!(
-        in_hand(&engine, P0, index::SWAMP).is_none(),
-        "a card without the chosen name is not put into your hand"
+    assert_eq!(
+        zone(&outcome.engine, ZoneLocation::Exile(P0)),
+        outcome.stacked[..8],
+        "the initial six and both revealed misses are exiled"
     );
-    assert_eq!(zone_size(&engine, ZoneLocation::Hand(P0)), hand - 1);
-    assert!(
-        in_graveyard(&engine, P0, index::SWAMP).is_some(),
-        "the revealed Swamp goes to the graveyard (the Partial's stand-in for exile)"
+    assert_eq!(
+        zone(&outcome.engine, ZoneLocation::Hand(P0)),
+        vec![outcome.stacked[8]]
     );
-    assert_eq!(zone_size(&engine, ZoneLocation::Library(P0)), library - 1);
+    assert_eq!(revealed(&outcome.engine), outcome.stacked[6..9]);
+    let library = kit::library_of(&outcome.engine, P0);
+    assert_eq!(library.len(), outcome.library_before.len() - 9);
+    assert_eq!(
+        library.last(),
+        outcome.stacked.get(9),
+        "the card below the match is never revealed or moved"
+    );
+    assert_only_consultation_went_to_the_graveyard(&outcome);
+}
+
+#[test]
+fn demonic_consultation_without_a_match_exiles_the_whole_remaining_library() {
+    let outcome = consult(&[index::SWAMP; 8], index::LIGHTNING_BOLT);
+
+    assert!(kit::library_of(&outcome.engine, P0).is_empty());
+    assert!(zone(&outcome.engine, ZoneLocation::Hand(P0)).is_empty());
+    let top_first: Vec<_> = outcome.library_before.iter().rev().copied().collect();
+    assert_eq!(zone(&outcome.engine, ZoneLocation::Exile(P0)), top_first);
+    assert_eq!(
+        revealed(&outcome.engine),
+        top_first[6..],
+        "with no match, every card after the initial six is revealed before exile"
+    );
+    assert_only_consultation_went_to_the_graveyard(&outcome);
+}
+
+#[test]
+fn demonic_consultation_handles_libraries_with_at_most_six_cards() {
+    for size in [0, 5, 6] {
+        let outcome = consult(&vec![index::SWAMP; size], index::LIGHTNING_BOLT);
+
+        assert!(kit::library_of(&outcome.engine, P0).is_empty());
+        assert!(zone(&outcome.engine, ZoneLocation::Hand(P0)).is_empty());
+        assert_eq!(
+            zone(&outcome.engine, ZoneLocation::Exile(P0)).len(),
+            outcome.library_before.len(),
+            "only the cards actually available are exiled"
+        );
+        assert!(
+            revealed(&outcome.engine).is_empty(),
+            "a library consumed by the initial exile has nothing to reveal"
+        );
+        assert_only_consultation_went_to_the_graveyard(&outcome);
+    }
 }
