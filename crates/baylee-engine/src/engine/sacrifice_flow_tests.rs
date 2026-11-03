@@ -145,3 +145,75 @@ fn a_zero_cost_spell_is_cast_with_no_mana() {
     pass_until(&mut engine, stack_is_empty);
     assert!(on_battlefield(&engine, P0, ornithopter()).is_some());
 }
+
+fn elder() -> CardIndex {
+    card_index("e3afc704-220f-498f-9eaa-0821b17dc24c")
+}
+
+fn forests_on_battlefield(engine: &Game) -> Vec<ObjectId> {
+    engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .filter(|id| {
+            engine.state().object(*id).is_some_and(|o| {
+                o.controller == P0 && o.card.is_some_and(|c| c.index == basic_forest())
+            })
+        })
+        .collect()
+}
+
+/// Sakura-Tribe Elder: sacrifice it to search the library for a basic
+/// land and put it onto the battlefield tapped, then shuffle.
+#[test]
+fn the_elder_trades_itself_for_a_tapped_basic_land() {
+    let mut engine = duel(basic_forest(), &[], &[elder()]);
+    let snake = on_battlefield(&engine, P0, elder()).unwrap();
+    let library = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Library(P0))
+        .len();
+    engine
+        .apply(
+            P0,
+            PlayerAction::ActivateAbility {
+                source: snake,
+                ability_index: 0,
+            },
+        )
+        .unwrap();
+    assert!(in_graveyard(&engine, P0, elder()).is_some());
+    for _ in 0..20 {
+        if stack_is_empty(&engine) && matches!(engine.pending(), Pending::Priority { .. }) {
+            break;
+        }
+        if let Pending::Priority { player, .. } = engine.pending().clone() {
+            engine.apply(player, PlayerAction::PassPriority).unwrap();
+        } else {
+            let (player, action) = super::testkit::answer_one(&engine).expect("answerable");
+            engine.apply(player, action).unwrap();
+        }
+    }
+    let lands = forests_on_battlefield(&engine);
+    assert_eq!(lands.len(), 1);
+    assert!(
+        engine
+            .state()
+            .object(lands[0])
+            .unwrap()
+            .status
+            .contains(crate::object::Status::TAPPED),
+        "it enters tapped"
+    );
+    assert_eq!(
+        engine
+            .state()
+            .zones
+            .list(crate::zone::ZoneLocation::Library(P0))
+            .len(),
+        library - 1
+    );
+}
