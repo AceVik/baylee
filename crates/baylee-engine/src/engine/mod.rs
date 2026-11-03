@@ -2243,6 +2243,8 @@ mod strike_flow_tests;
 #[cfg(test)]
 pub(crate) mod synthetic;
 #[cfg(test)]
+mod table_flow_tests;
+#[cfg(test)]
 mod target_tests;
 #[cfg(test)]
 mod targeting_flow_tests;
