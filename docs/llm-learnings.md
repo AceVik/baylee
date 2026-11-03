@@ -6300,3 +6300,16 @@ got wrong was in the tests, not in the cards:
   from red. Engine tests cover black, red, red-green and unaffected green sources
   plus damage-trigger filters. This static effect exposes no new client, house-AI
   or LLM choice and needs no card-specific seat policy.
+
+## 2026-11-03 — Brand of Ill Omen's attached-controller cast lock
+
+- `PlayersCantCast { who: ControllerOfAttached, filter: CREATURE }` already
+  expresses Brand of Ill Omen's final clause. Reuse that relation rather than an
+  opponent-only lock: the Aura's controller and the enchanted creature's
+  controller can differ, and branding one's own creature restricts oneself.
+- Play both the offer and the direct cast action, with enough mana to make the
+  prohibition the only obstacle. A real Disenchant proves noncreature spells
+  remain legal and that the lock ends when its source leaves the battlefield;
+  the engine's player-lock test separately covers a change of host control.
+- The static effect adds no decision type. Existing cast offers serve desktop,
+  house AI and LLM seats without card-specific policy.
