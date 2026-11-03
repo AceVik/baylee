@@ -7,6 +7,8 @@ const nf = new Intl.NumberFormat("de-DE", {maximumFractionDigits:1});
 let facts, snapshot, history = [], windowSecs = 300, filter = "all", sortKey = "cpu", descending = true, limit = 12;
 let socket, reconnectTimer, lastArrival = 0, retry = 1000;
 let allSensors = false;
+let training = null, trainingChecked = -1;
+const expandedStages = new Set();
 const charts = [];
 const text = (id, value) => { $(id).textContent = value; };
 const number = value => value == null ? "—" : nf.format(value);
@@ -51,6 +53,7 @@ function connect() {
     } else if (message.type === "sample") {
       if (!snapshot || message.snapshot.point.at_ms !== snapshot.point.at_ms) lastArrival = Date.now();
       snapshot = message.snapshot;
+      training = message.training ?? null;
       retry = 1000;
       const point = snapshot.point;
       // The hello history and latest snapshot can contain the same sample.
@@ -89,6 +92,7 @@ function render() {
   text("network-caption", `Physische Anschlüsse im Diagramm · Interfaces: ${s.networks.map(n => n.name).join(", ") || "keine"}`);
   text("sample-time", `${time(p.at_ms)} · Messung ${number(s.sample_ms)} ms`);
   text("history-caption", `${number(Math.min(windowSecs, (p.at_ms - (history[0]?.at_ms ?? p.at_ms)) / 1000) / 60)} Min. Verlauf vorhanden`);
+  if (training && training.checked_ms !== trainingChecked) renderTraining();
   renderProcesses(); renderHardware(); charts.forEach(c => c.draw());
 }
 
@@ -163,10 +167,132 @@ function renderHardware() {
   }));
 }
 
+// Training panel: baylee-* system units and train_ops pipelines (read only).
+const unitWords = {active:"aktiv",activating:"startet",deactivating:"stoppt",inactive:"inaktiv",failed:"fehlgeschlagen",reloading:"lädt neu",maintenance:"Wartung"};
+const stageWords = {complete:"fertig",running:"läuft",quarantined:"isoliert",failed:"fehlgeschlagen"};
+const fieldLabels = {batches_per_s:"Batches/s",gpu_peak_gb:"GPU-Spitze GB",optimizer_updates:"Updates",gpu_alloc_retries:"Alloc-Retries"};
+function span(ms) {
+  if (ms == null || ms < 0) return "—";
+  const minutes = Math.floor(ms / 60000);
+  if (minutes < 1) return `${Math.round(ms / 1000)} s`;
+  if (minutes < 60) return `${minutes} Min.`;
+  const hours = Math.floor(minutes / 60);
+  return hours < 48 ? `${hours} Std. ${minutes % 60} Min.` : `${Math.floor(hours / 24)} T. ${hours % 24} Std.`;
+}
+function clock(ms, now) {
+  const sameDay = new Date(ms).toDateString() === new Date(now).toDateString();
+  return new Date(ms).toLocaleString("de-DE", sameDay ? {hour:"2-digit",minute:"2-digit"} : {day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});
+}
+function phaseClass(p) {
+  if (p.problem) return "warn";
+  if (p.phase === "complete") return "ok";
+  if (p.phase === "failed" || p.error) return "bad";
+  return p.controller_alive === false ? "warn" : "running";
+}
+function stageClass(s) {
+  if (s.status === "running") return "running";
+  if (s.status === "complete" && (s.returncode ?? 0) === 0) return "complete";
+  return s.status == null ? "" : "bad";
+}
+function stageText(s, now) {
+  const word = stageWords[s.status] ?? s.status ?? "unbekannt";
+  if (s.status === "running" && s.started_ms) return `${word} seit ${span(now - s.started_ms)}`;
+  const parts = [word];
+  if (s.started_ms && s.finished_ms) parts.push(span(s.finished_ms - s.started_ms));
+  if (s.returncode != null && s.returncode !== 0) parts.push(`Code ${s.returncode}`);
+  if (s.reason) parts.push(s.reason);
+  return parts.join(" · ");
+}
+function pipelineCard(p, t, now) {
+  const card = node("article", "pipeline"), head = node("div", "pipeline-head");
+  head.append(node("strong", "", p.name), node("span", `phase ${phaseClass(p)}`, p.problem ? "nicht lesbar" : p.phase ?? "—"));
+  card.append(head);
+  const meta = [];
+  if (p.controller_pid != null) {
+    meta.push(p.controller_alive === true ? "Controller läuft" : p.controller_alive === false ? "Controller beendet" : "Controller unbekannt");
+    const unit = t.units.find(u => u.gone_ms == null && u.main_pid === p.controller_pid);
+    if (unit) meta.push(unit.name);
+  }
+  if (p.updated_ms) meta.push(`Status von ${clock(p.updated_ms, now)}`);
+  if (p.promoted) meta.push("übernommen");
+  if (meta.length) card.append(node("p", "pipeline-meta", meta.join(" · ")));
+  for (const problem of [p.problem, p.error]) if (problem) card.append(node("p", "pipeline-error", problem));
+  if (p.progress) {
+    const box = node("div", "progress-box"), age = p.progress.updated_ms ? `vor ${span(now - p.progress.updated_ms)}` : "—";
+    const [, tag = "", rest = ""] = /^\[([^\]]+)\]\s*(.*)$/.exec(p.progress.line) ?? [];
+    // Show the raw line only when it says more than its chips.
+    const words = rest.split(/\s+/).filter(w => w && !p.progress.fields.some(([k, v]) => w === `${k}=${v}`));
+    box.append(node("div", "progress-title", `${p.progress.stage}${tag ? ` · ${tag}` : ""} · letzte Ausgabe ${age}`));
+    if (p.progress.fields.length) {
+      const chips = node("div", "chips");
+      for (const [key, value] of p.progress.fields) {
+        const chip = node("span");
+        chip.append(node("small", "", fieldLabels[key] ?? key), document.createTextNode(value));
+        chips.append(chip);
+      }
+      box.append(chips);
+    }
+    if (words.length || !p.progress.fields.length) box.append(node("code", "progress-line", p.progress.line));
+    card.append(box);
+  }
+  if (p.stages.length) {
+    const expanded = expandedStages.has(p.name), list = node("ol", "stages");
+    list.append(...(expanded ? p.stages : p.stages.slice(-5)).map(s => {
+      const item = node("li", `stage ${stageClass(s)}`);
+      item.append(node("span", "stage-name", s.name), node("span", "stage-state", stageText(s, now)));
+      return item;
+    }));
+    card.append(list);
+    if (p.stages.length > 5) {
+      const more = node("button", "text-button", expanded ? "Weniger Stufen" : `Alle ${p.stages.length} Stufen`);
+      more.dataset.pipeline = p.name;
+      card.append(more);
+    }
+  }
+  return card;
+}
+function unitItem(u, now) {
+  const gone = u.gone_ms != null;
+  const item = node("li", `unit ${gone ? "gone" : u.active_state === "failed" ? "failed" : u.active_state === "active" ? "active" : ""}`);
+  const left = node("div"), when = node("div", "when");
+  const details = [gone ? "beendet" : `${unitWords[u.active_state] ?? u.active_state} · ${u.sub_state}`];
+  if (u.result && u.result !== "success") details.push(`Ergebnis ${u.result}`);
+  if (!gone && u.active_state === "active" && u.main_pid) details.push(`PID ${u.main_pid}`);
+  left.append(node("strong", "", u.name), node("small", "", details.join(" · ")));
+  if (gone) {
+    const ended = u.inactive_since_ms != null && u.inactive_since_ms >= (u.active_since_ms ?? 0) ? u.inactive_since_ms : u.gone_ms;
+    when.append(node("span", "", `bis ${clock(ended, now)}`));
+    if (u.active_since_ms) when.append(node("small", "", span(ended - u.active_since_ms)));
+  } else if (u.active_state === "active" && u.active_since_ms) {
+    when.append(node("span", "", `seit ${clock(u.active_since_ms, now)}`), node("small", "", span(now - u.active_since_ms)));
+  } else if (u.inactive_since_ms) {
+    when.append(node("span", "", `seit ${clock(u.inactive_since_ms, now)}`));
+  }
+  item.append(left, when);
+  return item;
+}
+function renderTraining() {
+  const t = training;
+  if (!t) return;
+  trainingChecked = t.checked_ms;
+  const now = t.checked_ms || snapshot?.point.at_ms || Date.now();
+  text("training-checked", t.checked_ms ? `STAND ${time(t.checked_ms)}` : "NUR ANZEIGE");
+  const cards = t.pipelines.map(p => pipelineCard(p, t, now));
+  if (!cards.length) cards.push(node("p", "muted-note", "Keine Pipeline konfiguriert. Mit --pipeline <Verzeichnis> zeigt Pulse eine train_ops-Pipeline an."));
+  $("pipelines").replaceChildren(...cards);
+  $("units-problem").hidden = !t.units_problem;
+  text("units-problem", t.units_problem ?? "");
+  const units = t.units.map(u => unitItem(u, now));
+  if (!units.length) units.push(node("li", "unit empty", t.checked_ms ? "Keine baylee-* Systemdienste bekannt." : "Warte auf systemd …"));
+  $("units").replaceChildren(...units);
+}
+
 class Chart {
   constructor(id, keys, unit, fixedMax) {
     this.canvas=$(id+"-chart");this.tooltip=$(id+"-tooltip");this.keys=keys;this.unit=unit;this.fixedMax=fixedMax;this.pointer=null;
-    this.canvas.addEventListener("pointermove", e=>{this.pointer=e.clientX-this.canvas.getBoundingClientRect().left;this.draw();});
+    const inspect=e=>{this.pointer=e.clientX-this.canvas.getBoundingClientRect().left;this.draw();};
+    // A tap shows the values too; touch devices send no hover moves.
+    this.canvas.addEventListener("pointermove",inspect);this.canvas.addEventListener("pointerdown",inspect);
     this.canvas.addEventListener("pointerleave",()=>{this.pointer=null;this.tooltip.hidden=true;this.draw();});
     new ResizeObserver(()=>this.draw()).observe(this.canvas);
     charts.push(this);
@@ -183,7 +309,7 @@ class Chart {
     let maximum=this.fixedMax||1;
     if(!this.fixedMax)for(const p of points)for(const key of this.keys)if(p[key]!=null)maximum=Math.max(maximum,p[key]*1.15);
     const x=t=>left+(t-start)/(end-start)*(right-left), y=v=>bottom-Math.max(0,Math.min(maximum,v))/maximum*(bottom-top);
-    ctx.font="9px system-ui";ctx.lineWidth=1;
+    ctx.font=`${w<500?11:10}px system-ui`;ctx.lineWidth=1;
     for(let i=0;i<=2;i++) {
       const value=maximum*i/2, yy=y(value);ctx.strokeStyle="#283442";ctx.beginPath();ctx.moveTo(left,yy);ctx.lineTo(right,yy);ctx.stroke();ctx.fillStyle="#8394a7";ctx.textAlign="right";
       ctx.fillText(this.unit==="rate"?bytes(value):`${Math.round(value)}${this.unit==="%"?"%":""}`,left-8,yy+3);
@@ -226,6 +352,13 @@ document.querySelectorAll("[data-sort]").forEach(button=>button.addEventListener
 $("search").addEventListener("input",()=>{limit=12;renderProcesses();});
 $("show-more").addEventListener("click",()=>{limit+=50;renderProcesses();});
 $("show-sensors").addEventListener("click",()=>{allSensors=!allSensors;renderHardware();});
+$("pipelines").addEventListener("click",event=>{
+  const button=event.target.closest("button[data-pipeline]");
+  if(!button)return;
+  const name=button.dataset.pipeline;
+  if(expandedStages.has(name))expandedStages.delete(name);else expandedStages.add(name);
+  renderTraining();
+});
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)render();});
 setInterval(()=>{
   if(snapshot&&Date.now()-lastArrival>Math.max(5000,(facts?.interval_ms??1000)*3)){

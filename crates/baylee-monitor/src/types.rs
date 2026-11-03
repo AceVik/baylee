@@ -1,5 +1,6 @@
 //! Wire values deliberately exclude command lines, environment and usernames.
 
+use crate::training::Training;
 use serde::Serialize;
 
 #[derive(Clone, Serialize)]
@@ -100,4 +101,23 @@ pub(crate) struct Network {
     pub name: String,
     pub rx_bps: f64,
     pub tx_bps: f64,
+}
+
+/// One live message: the latest snapshot and the training panel's view.
+#[derive(Serialize)]
+pub(crate) struct Sample<'a> {
+    #[serde(rename = "type")]
+    kind: &'static str,
+    snapshot: &'a Snapshot,
+    training: &'a Training,
+}
+
+impl<'a> Sample<'a> {
+    pub fn new(snapshot: &'a Snapshot, training: &'a Training) -> Self {
+        Self {
+            kind: "sample",
+            snapshot,
+            training,
+        }
+    }
 }

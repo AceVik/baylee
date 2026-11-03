@@ -1,6 +1,9 @@
 //! Local assets and bounded WebSocket fanout, with same-origin admission.
 
-use crate::types::{Facts, Point};
+use crate::{
+    admission::Admission,
+    types::{Facts, Point},
+};
 use axum::{
     Router,
     body::Body,
@@ -8,7 +11,7 @@ use axum::{
         State as Extract, WebSocketUpgrade,
         ws::{Message, WebSocket},
     },
-    http::{HeaderMap, HeaderValue, Request, StatusCode},
+    http::{HeaderValue, Request, StatusCode},
     middleware::{self, Next},
     response::{Html, IntoResponse, Response},
     routing::get,
@@ -26,7 +29,7 @@ pub(crate) struct State {
     pub history: Arc<Mutex<VecDeque<Point>>>,
     pub receiver: watch::Receiver<Arc<String>>,
     pub clients: Arc<Semaphore>,
-    pub authority: String,
+    pub admission: Admission,
 }
 
 pub(crate) fn router(state: State) -> Router {
@@ -68,27 +71,12 @@ async fn snapshot(Extract(state): Extract<State>) -> Response {
     ([("content-type", "application/json")], json).into_response()
 }
 
-fn allowed(headers: &HeaderMap, authority: &str) -> bool {
-    let host = headers.get("host").and_then(|v| v.to_str().ok());
-    if host != Some(authority) {
-        return false;
-    }
-    if headers
-        .get("sec-fetch-site")
-        .is_some_and(|v| v == "cross-site")
-    {
-        return false;
-    }
-    headers
-        .get("origin")
-        .is_none_or(|v| v == format!("http://{authority}").as_str())
-}
-
 async fn protect(Extract(state): Extract<State>, request: Request<Body>, next: Next) -> Response {
-    if !allowed(request.headers(), &state.authority) {
-        return StatusCode::FORBIDDEN.into_response();
-    }
-    let mut response = next.run(request).await;
+    // Refusals carry the same headers: the 403 page is shown to people too.
+    let mut response = match state.admission.check(request.headers()) {
+        Ok(()) => next.run(request).await,
+        Err(rejection) => state.admission.refuse(&rejection),
+    };
     for (name, value) in [
         (
             "content-security-policy",
@@ -105,15 +93,9 @@ async fn protect(Extract(state): Extract<State>, request: Request<Body>, next: N
     response
 }
 
-async fn upgrade(
-    Extract(state): Extract<State>,
-    headers: HeaderMap,
-    ws: WebSocketUpgrade,
-) -> Response {
-    // Browsers always send Origin on websocket handshakes; native clients can omit it.
-    if !allowed(&headers, &state.authority) {
-        return StatusCode::FORBIDDEN.into_response();
-    }
+async fn upgrade(Extract(state): Extract<State>, ws: WebSocketUpgrade) -> Response {
+    // `protect` has admitted the handshake: browsers always send Origin on
+    // websocket handshakes; native clients can omit it.
     let Ok(permit) = state.clients.clone().try_acquire_owned() else {
         return StatusCode::TOO_MANY_REQUESTS.into_response();
     };
@@ -184,6 +166,9 @@ async fn source() -> Response {
         "src/main.rs": include_str!("main.rs"), "src/server.rs": include_str!("server.rs"),
         "src/sampler.rs": include_str!("sampler.rs"), "src/types.rs": include_str!("types.rs"),
         "src/gpu.rs": include_str!("gpu.rs"), "src/power.rs": include_str!("power.rs"),
+        "src/listen.rs": include_str!("listen.rs"), "src/admission.rs": include_str!("admission.rs"),
+        "src/training/mod.rs": include_str!("training/mod.rs"), "src/training/dbus.rs": include_str!("training/dbus.rs"),
+        "src/training/units.rs": include_str!("training/units.rs"), "src/training/pipeline.rs": include_str!("training/pipeline.rs"),
         "web/index.html": include_str!("../web/index.html"), "web/style.css": include_str!("../web/style.css"), "web/app.js": include_str!("../web/app.js")
     });
     (
@@ -204,25 +189,6 @@ mod tests {
     use super::*;
     use futures_util::{SinkExt, StreamExt};
 
-    #[test]
-    fn prevents_cross_origin_reads_and_dns_rebinding() {
-        let mut h = HeaderMap::new();
-        h.insert("host", HeaderValue::from_static("192.168.0.103:8787"));
-        assert!(allowed(&h, "192.168.0.103:8787"));
-        h.insert(
-            "origin",
-            HeaderValue::from_static("http://attacker.invalid"),
-        );
-        assert!(!allowed(&h, "192.168.0.103:8787"));
-        h.insert(
-            "origin",
-            HeaderValue::from_static("http://192.168.0.103:8787"),
-        );
-        assert!(allowed(&h, "192.168.0.103:8787"));
-        h.insert("host", HeaderValue::from_static("rebound.invalid:8787"));
-        assert!(!allowed(&h, "192.168.0.103:8787"));
-    }
-
     #[tokio::test]
     async fn websocket_delivers_history_updates_and_releases_connection_slots() {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -230,20 +196,7 @@ mod tests {
         let (sender, receiver) =
             watch::channel(Arc::new(r#"{"type":"sample","sequence":1}"#.to_string()));
         let clients = Arc::new(Semaphore::new(1));
-        let state = State {
-            facts: Facts {
-                hostname: "test".into(),
-                os: "test".into(),
-                cpu: "test".into(),
-                physical_cores: Some(1),
-                threads: 2,
-                interval_ms: 1000,
-            },
-            history: Arc::new(Mutex::new(VecDeque::from([Point::default()]))),
-            receiver,
-            clients: clients.clone(),
-            authority: address.to_string(),
-        };
+        let state = test_state(address, receiver, clients.clone());
         let server = tokio::spawn(async move {
             axum::serve(listener, router(state)).await.unwrap();
         });
@@ -266,5 +219,64 @@ mod tests {
         server.abort();
         assert!(server.await.unwrap_err().is_cancelled());
         assert!(result.is_ok(), "websocket exchange timed out");
+    }
+
+    #[tokio::test]
+    async fn unknown_hosts_get_a_readable_refusal_and_no_websocket() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        use tokio_tungstenite::tungstenite::client::IntoClientRequest;
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let (_sender, receiver) = watch::channel(Arc::new(String::new()));
+        let state = test_state(address, receiver, Arc::new(Semaphore::new(1)));
+        let server = tokio::spawn(async move {
+            axum::serve(listener, router(state)).await.unwrap();
+        });
+        let get = |host: String| async move {
+            let mut stream = tokio::net::TcpStream::connect(address).await.unwrap();
+            let request = format!("GET / HTTP/1.1\r\nHost: {host}\r\nConnection: close\r\n\r\n");
+            stream.write_all(request.as_bytes()).await.unwrap();
+            let mut response = String::new();
+            stream.read_to_string(&mut response).await.unwrap();
+            response
+        };
+        let result = tokio::time::timeout(Duration::from_secs(5), async {
+            let refused = get("rebound.invalid:8787".into()).await;
+            assert!(refused.starts_with("HTTP/1.1 403"), "{refused}");
+            assert!(refused.contains("content-type: text/plain; charset=utf-8"), "{refused}");
+            assert!(refused.contains("x-content-type-options: nosniff"), "{refused}");
+            assert!(refused.contains(&format!("  http://{address}\n")), "{refused}");
+            assert!(get(address.to_string()).await.starts_with("HTTP/1.1 200"));
+
+            let mut request = format!("ws://{address}/ws").into_client_request().unwrap();
+            request.headers_mut().insert("host", HeaderValue::from_static("rebound.invalid:8787"));
+            let error = tokio_tungstenite::connect_async(request).await.unwrap_err();
+            assert!(matches!(error, tokio_tungstenite::tungstenite::Error::Http(r) if r.status() == StatusCode::FORBIDDEN));
+        })
+        .await;
+        server.abort();
+        assert!(result.is_ok(), "refusal exchange timed out");
+    }
+
+    fn test_state(
+        address: std::net::SocketAddr,
+        receiver: watch::Receiver<Arc<String>>,
+        clients: Arc<Semaphore>,
+    ) -> State {
+        State {
+            facts: Facts {
+                hostname: "test".into(),
+                os: "test".into(),
+                cpu: "test".into(),
+                physical_cores: Some(1),
+                threads: 2,
+                interval_ms: 1000,
+            },
+            history: Arc::new(Mutex::new(VecDeque::from([Point::default()]))),
+            receiver,
+            clients,
+            admission: Admission::new(address, &[]),
+        }
     }
 }

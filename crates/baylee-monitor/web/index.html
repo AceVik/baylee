@@ -15,6 +15,7 @@
   <aside class="rail" aria-label="Navigation">
     <a class="brand" href="#" aria-label="Pulse Startseite"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M3 19h8l4-10 6 19 4-9h8"/></svg></a>
     <a class="rail-link selected" href="#overview" title="Übersicht" aria-label="Übersicht">◫</a>
+    <a class="rail-link" href="#training" title="Training" aria-label="Training">◎</a>
     <a class="rail-link" href="#processes" title="Prozesse" aria-label="Prozesse">☷</a>
     <a class="rail-link" href="#hardware" title="Hardware" aria-label="Hardware">▦</a>
     <span class="rail-word">BAYLEE</span>
@@ -34,6 +35,13 @@
       <article class="stat gpu"><div class="stat-top"><span>GPU</span><span class="mini-icon">◈</span></div><div class="big" id="gpu-value">—</div><div class="meter"><i id="gpu-meter"></i></div><p id="gpu-caption">Grafikkarte</p></article>
       <article class="stat ram"><div class="stat-top"><span>ARBEITSSPEICHER</span><span class="mini-icon">▤</span></div><div class="big" id="ram-value">—</div><div class="meter"><i id="ram-meter"></i></div><p id="ram-caption">RAM</p></article>
       <article class="stat vram"><div class="stat-top"><span>GPU-SPEICHER</span><span class="mini-icon">▥</span></div><div class="big" id="vram-value">—</div><div class="meter"><i id="vram-meter"></i></div><p id="vram-caption">VRAM</p></article>
+    </section>
+    <section class="panel training" id="training" aria-labelledby="training-title">
+      <div class="panel-heading"><h2 id="training-title">Training</h2><span class="tag" id="training-checked">NUR ANZEIGE</span></div>
+      <div class="training-grid">
+        <div id="pipelines" class="pipeline-list"><p class="muted-note">Warte auf Messwerte …</p></div>
+        <div class="units-block"><h3>Systemdienste <span class="count">baylee-*</span></h3><p id="units-problem" class="muted-note" hidden></p><ul id="units" class="unit-list"></ul></div>
+      </div>
     </section>
     <section class="charts-grid">
       <article class="panel activity-panel">
