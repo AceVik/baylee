@@ -6430,3 +6430,20 @@ got wrong was in the tests, not in the cards:
   public card owner: it takes the best card for itself but offers the worst to
   an opponent. The regression was red before that policy change; no
   card-specific policy or hidden information is involved.
+
+## 2026-11-04 — Freyalise's Winds and turn-based untap replacement
+
+- Compose `Filter::HasCounter(WIND)` with the existing
+  `RemoveCountersInsteadOfUntapping(WIND)` static rather than adding a card-specific
+  replacement. Only a permanent already determined to untap enters the replacement
+  batch, so ordinary untap effects and restrictions that keep it tapped preserve
+  its counters. A sole applicable replacement is automatic; competing replacements
+  retain the existing affected-player choice.
+- Three played tests cover both players' tapped permanents, an ordinary untap that
+  preserves wind counters, accumulation of multiple wind counters, removal of all
+  of them instead of the first turn-based untap, preservation of charge counters,
+  normal untapping on the following turn, and the tapped permanent's controller.
+  The general untap-rule suite independently covers replacement composition.
+- The card adds no new pending shape or view data. Desktop, house AI and LLM seats
+  already render and answer the shared replacement choice when more than one
+  replacement applies, so no card-specific interface or seat policy is needed.
