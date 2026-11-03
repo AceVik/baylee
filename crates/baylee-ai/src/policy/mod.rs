@@ -526,18 +526,7 @@ impl HeuristicAgent {
                 | ChoicePrompt::KeepCreatures
                 | ChoicePrompt::KeepPermanents
         ) {
-            let card_value = Self::card_value(view);
-            let mut ranked = options.to_vec();
-            ranked.sort_by_key(|id| {
-                let value = view
-                    .battlefield
-                    .iter()
-                    .find(|o| o.id == *id)
-                    .map_or_else(|| card_value(id), |o| self.given_up(view, o));
-                (std::cmp::Reverse(value), *id)
-            });
-            ranked.truncate(usize::from(max));
-            return Some(ranked);
+            return Some(self.keep_permanents(view, options, max));
         }
         if self.profile.mulligan_skill < 2 {
             return None;
@@ -550,9 +539,12 @@ impl HeuristicAgent {
             | ChoicePrompt::PutIntoHand
             | ChoicePrompt::PlayFromExile
             | ChoicePrompt::PutOntoBattlefield
-            | ChoicePrompt::PutIntoGraveyard
-            | ChoicePrompt::FromGraveyard => {
+            | ChoicePrompt::PutIntoGraveyard => {
                 ranked.sort_by_key(|id| (std::cmp::Reverse(value(id)), *id));
+                usize::from(max)
+            }
+            ChoicePrompt::FromGraveyard => {
+                self.sort_graveyard_choices(view, &mut ranked, &value);
                 usize::from(max)
             }
             // A price, paid with the least valuable card on the menu — and
@@ -589,6 +581,37 @@ impl HeuristicAgent {
         };
         ranked.truncate(count);
         Some(ranked)
+    }
+
+    fn keep_permanents(&self, view: &PlayerView, options: &[ObjectId], max: u8) -> Vec<ObjectId> {
+        let card_value = Self::card_value(view);
+        let mut ranked = options.to_vec();
+        ranked.sort_by_key(|id| {
+            let value = view
+                .battlefield
+                .iter()
+                .find(|o| o.id == *id)
+                .map_or_else(|| card_value(id), |o| self.given_up(view, o));
+            (std::cmp::Reverse(value), *id)
+        });
+        ranked.truncate(usize::from(max));
+        ranked
+    }
+
+    /// Orders a public graveyard choice for the player who benefits from it.
+    fn sort_graveyard_choices(
+        &self,
+        view: &PlayerView,
+        ranked: &mut [ObjectId],
+        value: &impl Fn(&ObjectId) -> i64,
+    ) {
+        ranked.sort_by_key(|id| {
+            let worth = value(id);
+            let for_opponent = view
+                .object(*id)
+                .is_some_and(|object| self.hostile(object.owner, view.seat));
+            (if for_opponent { worth } else { -worth }, *id)
+        });
     }
 
     /// The pile to take into the hand (Fact or Fiction); the others go to

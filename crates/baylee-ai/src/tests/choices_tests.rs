@@ -825,3 +825,41 @@ fn landwalk_subtype_choice_uses_matching_snow_lands_and_allows_desert() {
         "the card's unrestricted land-type choice includes Desert"
     );
 }
+
+#[test]
+fn a_graveyard_choice_values_the_card_for_its_recipient() {
+    let owner = PlayerId::new(0);
+    let cheap = carded(
+        permanent(obj(1), owner, 2),
+        "Grizzly Bears",
+        TypeSet::CREATURE,
+    );
+    let valuable = carded(permanent(obj(2), owner, 0), "Forest", TypeSet::LAND);
+    let mut mine = view(0, &[20, 20], vec![]);
+    mine.graveyards[0] = vec![cheap.clone(), valuable.clone()];
+    let mut theirs = view(1, &[20, 20], vec![]);
+    theirs.graveyards[0] = vec![cheap, valuable];
+    let ask = |player| Pending::ChooseCards {
+        player,
+        options: vec![obj(1), obj(2)],
+        min: 1,
+        max: 1,
+        prompt: ChoicePrompt::FromGraveyard,
+        total: None,
+    };
+
+    assert_eq!(
+        HeuristicAgent::new(AIProfile::EXPERT).act(&mine, &ask(owner)),
+        PlayerAction::ChooseObjects {
+            objects: vec![obj(2)]
+        },
+        "retrieving your own card takes the most valuable one"
+    );
+    assert_eq!(
+        HeuristicAgent::new(AIProfile::EXPERT).act(&theirs, &ask(PlayerId::new(1))),
+        PlayerAction::ChooseObjects {
+            objects: vec![obj(1)]
+        },
+        "choosing a card for an opponent gives them the least valuable one"
+    );
+}

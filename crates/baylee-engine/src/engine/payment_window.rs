@@ -251,25 +251,38 @@ impl<L: CardLookup> Engine<L> {
                 any_mana,
                 opened,
             } => {
-                let start = (*opened).clone();
-                let paid = self
-                    .start_paid_cast(
-                        window.player,
-                        card,
-                        version,
-                        then_no_more_spells,
-                        any_mana,
-                        opened,
-                    )
-                    .is_ok();
-                if !paid {
-                    self.give_back_window(window.player, &start);
-                }
+                let paid = self.finish_cast_window(
+                    window.player,
+                    card,
+                    version,
+                    then_no_more_spells,
+                    any_mana,
+                    opened,
+                );
                 return Ok(WindowClose::settled(paid));
             }
         };
         let paid = self.can_settle_tax(&res);
         Ok(self.settle_tax_resolution(res, paid))
+    }
+
+    fn finish_cast_window(
+        &mut self,
+        player: PlayerId,
+        card: ObjectId,
+        version: u32,
+        then_no_more_spells: bool,
+        any_mana: bool,
+        opened: Box<WindowStart>,
+    ) -> bool {
+        let start = (*opened).clone();
+        let paid = self
+            .start_paid_cast(player, card, version, then_no_more_spells, any_mana, opened)
+            .is_ok();
+        if !paid {
+            self.give_back_window(player, &start);
+        }
+        paid
     }
 
     fn settle_tax_resolution(&mut self, mut res: resolve::Resolution, paid: bool) -> WindowClose {
