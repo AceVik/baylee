@@ -256,3 +256,80 @@ fn the_bonus_leaves_with_the_aura() {
     kill(&mut engine, aura);
     assert_eq!(body(&mut engine, elf), (1, 1));
 }
+
+fn equip(engine: &mut Game, blade: ObjectId, onto: ObjectId) -> bool {
+    tap_all_mana(engine, P0);
+    if engine
+        .apply(
+            P0,
+            PlayerAction::ActivateAbility {
+                source: blade,
+                ability_index: 0,
+            },
+        )
+        .is_err()
+    {
+        return false;
+    }
+    if matches!(engine.pending(), Pending::ChooseTargets { .. })
+        && engine
+            .apply(
+                P0,
+                PlayerAction::ChooseObjects {
+                    objects: vec![onto],
+                },
+            )
+            .is_err()
+    {
+        return false;
+    }
+    pass_until(engine, stack_is_empty);
+    true
+}
+
+/// Equipping a second creature moves the Equipment, and the first one
+/// loses the bonus (CR 701.3b: an attach to a new object unattaches it).
+#[test]
+fn re_equipping_moves_the_bonus() {
+    let mut engine = duel(
+        &[],
+        &[
+            plains(),
+            plains(),
+            quiet_creature(),
+            quiet_creature(),
+            scimitar(),
+        ],
+    );
+    let elves: Vec<ObjectId> = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .filter(|id| {
+            engine.state().object(*id).is_some_and(|o| {
+                o.controller == P0 && o.card.is_some_and(|c| c.index == quiet_creature())
+            })
+        })
+        .collect();
+    let blade = on_battlefield(&engine, P0, scimitar()).unwrap();
+    assert!(equip(&mut engine, blade, elves[0]));
+    assert!(equip(&mut engine, blade, elves[1]));
+    assert_eq!(
+        engine.state().object(blade).unwrap().attached_to,
+        Some(elves[1])
+    );
+    assert_eq!(body(&mut engine, elves[0]), (1, 1));
+    assert_eq!(body(&mut engine, elves[1]), (2, 2));
+}
+
+/// Equip targets "a creature you control" only (CR 702.6a).
+#[test]
+fn equip_cannot_target_an_opponents_creature() {
+    let mut engine = duel(&[], &[plains(), scimitar()]);
+    let blade = on_battlefield(&engine, P0, scimitar()).unwrap();
+    let theirs = on_battlefield(&engine, P1, quiet_creature()).unwrap();
+    let equipped = equip(&mut engine, blade, theirs);
+    assert!(!equipped || engine.state().object(blade).unwrap().attached_to != Some(theirs));
+}
