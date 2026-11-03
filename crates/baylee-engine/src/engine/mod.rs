@@ -2298,6 +2298,8 @@ mod counter_flow_tests;
 mod courser_tests;
 #[cfg(test)]
 mod tear_asunder_tests;
+#[cfg(test)]
+mod trick_flow_tests;
 
 #[cfg(test)]
 mod dauthi_tests;
