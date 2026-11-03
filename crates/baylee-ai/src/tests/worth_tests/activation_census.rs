@@ -470,7 +470,9 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // same per-defender reader: one net additional readable activation.
     // Kjeldoran Guard's pump is tied to a future sacrifice of its source when
     // the target leaves. That linked, turn-dependent exchange stays unread.
-    assert_eq!((read, of), (2979, 3782), "activated/loyalty reader census");
+    // Chromatic Armor adds a defined-X counter and color-choice activation;
+    // the value of its future damage prevention is contextual and stays unread.
+    assert_eq!((read, of), (2979, 3783), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

@@ -6313,3 +6313,19 @@ got wrong was in the tests, not in the cards:
   the engine's player-lock test separately covers a change of host control.
 - The static effect adds no decision type. Existing cast offers serve desktop,
   house AI and LLM seats without card-specific policy.
+
+## 2026-11-03 — Chromatic Armor's defined-X recoloring
+
+- `ActivationX::Defined(Amount::CountersOnSource(SLEIGHT))` locks the current
+  counter count before activation costs; it is not a free `ChooseNumber`
+  question. `AddCounter` followed by `ChooseSourceColor` then replaces the
+  source's last chosen color during resolution, without a new engine mechanism.
+- Play the first and second activations for exactly one and two mana, inspect
+  the added counter while the color question is pending, and refuse an empty-
+  pool third activation both in the offer and by direct action. A blue ping
+  followed by a red Lightning Bolt proves that prevention follows the last
+  chosen color rather than the enters-the-battlefield choice.
+- Desktop and LLM seats reuse the existing activated-ability and color-choice
+  flows. The house may activate without guessing a defined-X price; the worth
+  table deliberately leaves the future prevention value contextual, so the
+  exact activation census adds one unread row, to 2979 of 3783.
