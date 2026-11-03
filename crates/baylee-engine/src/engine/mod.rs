@@ -1998,6 +1998,8 @@ mod arrange_tests;
 #[cfg(test)]
 mod arrival_tests;
 #[cfg(test)]
+mod attach_flow_tests;
+#[cfg(test)]
 mod automation_tests;
 #[cfg(test)]
 mod banding_tests;
