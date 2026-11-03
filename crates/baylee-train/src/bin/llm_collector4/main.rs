@@ -99,6 +99,10 @@ enum Commands {
         call_timeout_seconds: u64,
         #[arg(long, default_value_t = 3600)]
         game_timeout_seconds: u64,
+        /// Every player's starting life instead of the format's (1–999), for
+        /// long games that put most of each deck into play: a bug hunt.
+        #[arg(long)]
+        starting_life: Option<i32>,
         #[arg(long, default_value_t = 2200)]
         launch_interval_ms: u64,
         /// Only the first this many games of the root file their seats'
@@ -157,6 +161,7 @@ async fn main() -> anyhow::Result<()> {
             max_attempts,
             call_timeout_seconds,
             game_timeout_seconds,
+            starting_life,
             launch_interval_ms,
             report_games,
         } => {
@@ -174,6 +179,7 @@ async fn main() -> anyhow::Result<()> {
                 max_attempts,
                 call_timeout_seconds,
                 game_timeout_seconds,
+                starting_life,
                 launch_interval_ms,
                 report_games,
             )
@@ -576,6 +582,7 @@ async fn run_collect(
     max_attempts: Option<usize>,
     call_timeout_seconds: u64,
     game_timeout_seconds: u64,
+    starting_life: Option<i32>,
     launch_interval_ms: u64,
     report_games: usize,
 ) -> anyhow::Result<()> {
@@ -607,7 +614,8 @@ async fn run_collect(
         call_timeout_seconds,
         game_timeout_seconds,
     )?
-    .with_report_games(report_games);
+    .with_report_games(report_games)
+    .with_starting_life(starting_life)?;
     let initial_summary = sched.summarize()?;
     let seats_the_house = sched.seats_the_house();
     let sched = Arc::new(Mutex::new(sched));
