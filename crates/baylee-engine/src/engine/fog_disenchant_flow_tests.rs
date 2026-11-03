@@ -163,3 +163,60 @@ fn naturalize_does_not_offer_a_creature_or_a_land() {
     assert!(!options.contains(&elf));
     assert!(!options.contains(&land));
 }
+
+/// Seat 0 pacifies seat 1's elf; in its own turn seat 1 naturalizes the
+/// Pacifism, and the elf may attack again.
+#[test]
+fn destroying_pacifism_frees_the_creature() {
+    let pacifism = card_index("5f5e0b10-c8cf-450c-bfd3-bcb0528ec330");
+    let plains = card_index("bc71ebf6-2056-41f7-be35-b2e5c34afa99");
+    let mut engine = Duel::new(SEED, basic_forest())
+        .hand(0, &[pacifism])
+        .hand(1, &[naturalize()])
+        .battlefield(0, &[plains, plains])
+        .battlefield(1, &[quiet_creature(), basic_forest(), basic_forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == P0
+            && e.state().turn.phase == Phase::FirstMain
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == P0)
+    });
+    let elf = on_battlefield(&engine, P1, quiet_creature()).unwrap();
+    super::testkit::tap_all_mana(&mut engine, P0);
+    let card = in_hand(&engine, P0, pacifism).unwrap();
+    engine.apply(P0, PlayerAction::CastSpell { card }).unwrap();
+    engine
+        .apply(P0, PlayerAction::ChooseObjects { objects: vec![elf] })
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    let aura = on_battlefield(&engine, P0, pacifism).expect("Pacifism");
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == P1
+            && e.state().turn.phase == Phase::FirstMain
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == P1)
+    });
+    assert!(!crate::combat::can_attack(engine.state(), P1, elf));
+    let forests = lands_of(&engine, P1);
+    tap_mana_where(&mut engine, P1, |id| forests.contains(&id));
+    let card = in_hand(&engine, P1, naturalize()).unwrap();
+    engine.apply(P1, PlayerAction::CastSpell { card }).unwrap();
+    engine
+        .apply(
+            P1,
+            PlayerAction::ChooseObjects {
+                objects: vec![aura],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        in_graveyard(&engine, P0, pacifism).is_some(),
+        "an Aura goes to its owner's graveyard"
+    );
+    engine
+        .dev_state_mut(P1)
+        .expect("dev board")
+        .refresh_characteristics();
+    assert!(crate::combat::can_attack(engine.state(), P1, elf));
+}
