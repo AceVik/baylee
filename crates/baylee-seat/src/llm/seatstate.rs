@@ -745,6 +745,9 @@ impl Seat {
                     self.plan = None;
                     return Some(then);
                 } else if !view.stack.is_empty()
+                    // A pass in a payment window settles it (CR 605.3a):
+                    // only a plan that pays may pass there, as its `then`.
+                    && view.owed.is_none()
                     && legal.can_pass
                     && view.stack.iter().all(|o| {
                         matches!(o.stack_item, Some(baylee_view::StackItem::Ability { .. }))

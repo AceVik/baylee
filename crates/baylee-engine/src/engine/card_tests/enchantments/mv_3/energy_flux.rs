@@ -118,3 +118,64 @@ fn energy_flux_lets_an_artifact_pay_two_and_stay() {
         "three Islands made three blue and the trigger spent exactly two"
     );
 }
+
+/// The {2} window the tax opens offers mana and nothing else (CR 605.3a),
+/// and that holds for the planning hints too: Aeolipile's "{1}, {T},
+/// Sacrifice" ability is not an activation the window allows, so it is not
+/// in `unpaid_abilities` either. A seat that read it there tapped a Forest
+/// for it, passed, and lost the Aeolipile to an unpaid tax (LLM report,
+/// codex attempt 62, q191).
+#[test]
+fn energy_flux_tax_window_hints_no_activation_it_does_not_allow() {
+    let p0 = PlayerId::new(0);
+    let aeolipile = baylee_core::generated::index::AEOLIPILE;
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[island(), island(), island(), forest(), aeolipile])
+        .hand(0, &[energy_flux()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    cast_from_hand(&mut engine, p0, energy_flux());
+    pass_until(&mut engine, |e| {
+        on_battlefield(e, p0, energy_flux()).is_some() && stack_is_empty(e)
+    });
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::PayTax { mana: 2 },
+                player,
+                ..
+            } if *player == p0
+        )
+    });
+    let artifact = on_battlefield(&engine, p0, aeolipile).expect("Aeolipile is on the table");
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!(
+            "saying yes opens the payment window: {:?}",
+            engine.pending()
+        );
+    };
+    assert!(engine.payment_window().is_some(), "the window is the tax's");
+    assert!(
+        !legal.mana_abilities.is_empty(),
+        "the lands are offered to pay it"
+    );
+    assert!(
+        legal
+            .abilities
+            .iter()
+            .all(|&(source, _)| source != artifact),
+        "Aeolipile's ability is no mana ability: {:?}",
+        legal.abilities
+    );
+    assert!(
+        legal
+            .unpaid_abilities
+            .iter()
+            .all(|&(source, ..)| source != artifact),
+        "nor a hint of one: {:?}",
+        legal.unpaid_abilities
+    );
+}

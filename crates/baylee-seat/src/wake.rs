@@ -545,6 +545,16 @@ fn targets_me(view: &PlayerView, teams: &[Option<u8>]) -> bool {
         })
 }
 
+/// Whether the table is holding a payment window open (CR 605.3a,
+/// `PlayerView::owed`): inside one the engine offers mana abilities and
+/// the pass that settles it, and nothing else, so no spell or activation
+/// is within reach by tapping. Taking one there taps lands the payment
+/// needed, and the pass the taps end on leaves the payment unpaid.
+#[must_use]
+pub fn owes(view: &PlayerView) -> bool {
+    view.owed.is_some()
+}
+
 /// The mana in the seat's pool.
 fn pool(view: &PlayerView) -> u64 {
     view.seat(baylee_client_core::decision::resource_player(view))
@@ -609,9 +619,12 @@ pub struct AbilityReach {
 /// Cards the engine already lists as castable (the mana is floating) are
 /// not here: they need no taps. Nor is a card whose cost the pool already
 /// holds that the engine does not list: something other than mana stops
-/// it.
+/// it. Nor is anything while a payment is owed ([`owes`]).
 #[must_use]
 pub fn reachable(view: &PlayerView, legal: &LegalActions) -> Vec<Reach> {
+    if owes(view) {
+        return Vec::new();
+    }
     let sources = baylee_ai::mana_sources(view, legal);
     if sources.is_empty() {
         return Vec::new();
@@ -690,10 +703,14 @@ pub fn reachable(view: &PlayerView, legal: &LegalActions) -> Vec<Reach> {
 }
 
 /// Every activated ability in `legal.unpaid_abilities` whose mana cost the
-/// seat's untapped sources can pay now.
+/// seat's untapped sources can pay now; none while a payment is owed
+/// ([`owes`]).
 #[must_use]
 pub fn reachable_abilities(view: &PlayerView, legal: &LegalActions) -> Vec<AbilityReach> {
-    if legal.unpaid_abilities.is_empty() || baylee_ai::mana_sources(view, legal).is_empty() {
+    if owes(view)
+        || legal.unpaid_abilities.is_empty()
+        || baylee_ai::mana_sources(view, legal).is_empty()
+    {
         return Vec::new();
     }
     let Some(pool) = view
