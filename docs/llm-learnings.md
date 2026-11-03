@@ -6255,3 +6255,16 @@ got wrong was in the tests, not in the cards:
   chosen Islands and Exalted Dragon's existing generic choice. Engine tests also
   combine Brainwash's mana window with the sacrifice choice. House AI, LLM seats
   and desktop use the existing choice without card-specific policy.
+
+## 2026-11-03 — Chaos Moon's resolution-time parity
+
+- Chaos Moon always triggers at each upkeep; its odd/even choice belongs in
+  `Effect::IfCondition`, not an intervening-if on the trigger. A real Lightning
+  Bolt response changes the count before resolution and selects the other branch.
+- `Amount::NegXFixed(1)` is the signed `-1` input for `PumpFilter`; `Fixed` is
+  unsigned. The odd Mountain rider reuses High Tide's delayed mana trigger, while
+  the even branch applies the five existing `ReplaceTappedMana` colors until end
+  of turn. Neither branch needs card-specific engine or seat policy.
+- Played tests cover both pumps, both players' Mountains, an unaffected Forest,
+  end-of-turn expiry and the changed count on resolution. Client and LLM seats
+  reuse the ordinary no-choice trigger presentation; no new decision is exposed.
