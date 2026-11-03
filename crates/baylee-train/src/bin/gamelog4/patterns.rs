@@ -23,8 +23,19 @@ use crate::names::Names;
 /// Where a target answer pointed.
 #[derive(Debug, Default, Clone, Copy)]
 struct Aims {
-    own: usize,
+    /// At the seat's own objects or itself, though something else (or, for
+    /// "up to", nothing) could have been chosen.
+    own_by_choice: usize,
+    /// At the seat's own objects or itself, the only legal targets.
+    own_only: usize,
+    /// Elsewhere.
     other: usize,
+}
+
+impl Aims {
+    fn own(self) -> usize {
+        self.own_by_choice + self.own_only
+    }
 }
 
 /// What the games showed.
@@ -46,7 +57,8 @@ impl Patterns {
         self.own_turns += other.own_turns;
         for (source, aims) in other.aims {
             let entry = self.aims.entry(source).or_default();
-            entry.own += aims.own;
+            entry.own_by_choice += aims.own_by_choice;
+            entry.own_only += aims.own_only;
             entry.other += aims.other;
         }
         self.unspent_turns += other.unspent_turns;
@@ -70,11 +82,24 @@ impl Patterns {
                     .map_or_else(|| "?".to_owned(), |targeting| targeting.source.name.clone());
                 let own = players.contains(&seat)
                     || objects.iter().any(|id| controlled_by(table, *id, seat));
+                let elsewhere = match decision.pending {
+                    Pending::ChooseTargets {
+                        options,
+                        player_options,
+                        min,
+                        ..
+                    } => {
+                        *min == 0
+                            || player_options.iter().any(|player| *player != seat)
+                            || options.iter().any(|id| !controlled_by(table, *id, seat))
+                    }
+                    _ => true,
+                };
                 let aims = self.aims.entry(source).or_default();
-                if own {
-                    aims.own += 1;
-                } else {
-                    aims.other += 1;
+                match (own, elsewhere) {
+                    (true, true) => aims.own_by_choice += 1,
+                    (true, false) => aims.own_only += 1,
+                    (false, _) => aims.other += 1,
                 }
             }
             (Pending::Priority { legal, .. }, PlayerAction::PassPriority)
@@ -102,13 +127,20 @@ impl Patterns {
             "{} games, {} decisions not forced, {} own turns",
             self.games, self.decisions, self.own_turns
         );
-        println!("\nTargets (source: aimed at own objects or self / elsewhere), most own first:");
-        let mut aims: Vec<_> = self.aims.iter().filter(|(_, aims)| aims.own > 0).collect();
-        aims.sort_by_key(|(source, aims)| (std::cmp::Reverse(aims.own), (*source).clone()));
+        println!(
+            "\nTargets aimed at the seat's own objects or itself, though another \
+             choice was legal / as the only legal choice / elsewhere, most own first:"
+        );
+        let mut aims: Vec<_> = self
+            .aims
+            .iter()
+            .filter(|(_, aims)| aims.own() > 0)
+            .collect();
+        aims.sort_by_key(|(source, aims)| (std::cmp::Reverse(aims.own()), (*source).clone()));
         for (source, aims) in aims.iter().take(40) {
             println!(
-                "  {:>4} own / {:>4} elsewhere  {source}",
-                aims.own, aims.other
+                "  {:>4} by choice / {:>4} only / {:>4} elsewhere  {source}",
+                aims.own_by_choice, aims.own_only, aims.other
             );
         }
         println!(
