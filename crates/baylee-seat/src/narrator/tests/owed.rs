@@ -136,3 +136,104 @@ fn taps_in_flight_never_pass_an_owed_window() {
         "the pass would settle the window: the model is asked"
     );
 }
+
+/// Agy attempt 108, turn 8, q106: Prismatic Ending cast with X = 1 and
+/// {1}{W} owed, Scrubland #3 tapped for the {W} in the pool, Tundra #9 and
+/// Underground Sea #11 untapped.
+fn prismatic_ending_payment() -> Request {
+    use baylee_core::mana::ManaColor::{Black, Blue, White};
+    // A dual's mana is its land types' (CR 305.6), as the host projects it.
+    let dual = |slot: u32, name: &str, colors: Vec<baylee_core::mana::ManaColor>| {
+        let mut land = card(slot, name);
+        land.board_mana = Some(baylee_view::BoardMana { index: 0, colors });
+        land
+    };
+    let mut view = ViewBuilder::new(2)
+        .with_battlefield(
+            0,
+            [
+                dual(11, "Underground Sea", vec![Blue, Black]),
+                dual(9, "Tundra", vec![White, Blue]),
+                tapped(card(3, "Scrubland")),
+            ],
+        )
+        .with_battlefield(1, [card(108, "Goblin Piledriver")])
+        .build();
+    view.turn = 8;
+    view.seats[0].mana_pool.white = 1;
+    view.awaiting = Some(ME);
+    view.owed = Some(ManaPayment::Fixed("{1}{W}".parse().unwrap()));
+    let pending = Pending::Priority {
+        player: ME,
+        legal: Box::new(LegalActions {
+            can_pass: true,
+            abilities: vec![(id(11), 0), (id(9), 0)],
+            ..LegalActions::default()
+        }),
+    };
+    request(view, pending, LogTail::default())
+}
+
+/// NEW-08: the window offers ways to pay that spend a second colour, as
+/// one answer each. Before, its one option tapped Tundra for {W}: {W}{W}
+/// spent, converge 1, and the Piledriver (mana value 2) stayed.
+#[test]
+fn an_owed_payment_offers_its_other_colours() {
+    let request = prismatic_ending_payment();
+    let wake = Narrator::new(&request.context).wake(&request, &[], None);
+    let pays: Vec<&str> = wake
+        .text
+        .lines()
+        .filter(|line| line.contains("Pay {1}{W} ("))
+        .collect();
+    assert!(
+        pays.iter().any(|line| line.contains("Tundra #9 for {W}")),
+        "the planner's plan comes first:\n{}",
+        wake.text
+    );
+    for second in ["Tundra #9 for {U}", "Underground Sea #11 for {B}"] {
+        assert!(
+            pays.iter().any(|line| line.contains(second)),
+            "a way to pay with {second}:\n{}",
+            wake.text
+        );
+    }
+    // Each is one answer: the taps, then the pass that settles the payment.
+    let blue = pays
+        .iter()
+        .find(|line| line.contains("Tundra #9 for {U}"))
+        .and_then(|line| line.split_whitespace().next())
+        .expect("an option id")
+        .to_string();
+    let resolved = wake
+        .menu
+        .resolve(&Decision {
+            ask: Some("q12".into()),
+            pick: vec![blue],
+            ..Decision::default()
+        })
+        .expect("the payment resolves");
+    let Act::Taps { steps, then } = resolved.act else {
+        panic!("a payment taps: {:?}", resolved.act);
+    };
+    assert_eq!(then, PlayerAction::PassPriority);
+    assert_eq!(steps.len(), 1);
+    assert_eq!(steps[0].source, id(9));
+    assert_eq!(steps[0].color, Some(baylee_core::mana::ManaColor::Blue));
+}
+
+/// A payment the pool covers is one option, and no other plan is made up
+/// beside it: what the pool spends is not the seat's to split.
+#[test]
+fn a_payment_the_pool_covers_is_one_option() {
+    let mut request = prismatic_ending_payment();
+    request.view.seats[0].mana_pool.blue = 1;
+    let wake = Narrator::new(&request.context).wake(&request, &[], None);
+    let pays: Vec<&str> = wake
+        .text
+        .lines()
+        .filter(|line| line.contains("Pay {1}{W}"))
+        .collect();
+    assert_eq!(pays.len(), 1, "{}", wake.text);
+    assert!(pays[0].contains("from your pool"), "{}", wake.text);
+}

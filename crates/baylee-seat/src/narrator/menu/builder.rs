@@ -361,23 +361,37 @@ impl Builder<'_, '_> {
         self.options.last_mut().expect("just pushed").card = card;
     }
 
-    /// The payment the seat agreed to, as one option: the taps that pay it
-    /// and the pass that spends them (CR 605.3a).
+    /// The payment the seat agreed to, as options: the taps that pay it and
+    /// the pass that spends them (CR 605.3a), the planner's plan first and
+    /// then up to [`payment::OTHERS`] other ways (other colours, another
+    /// land), each one answer.
+    ///
+    /// A pool that pays it alone is the one option, asked of the pool with
+    /// no source beside it: the matcher, handed the lands as well, can end
+    /// on a tap where the pool was enough (`{1}{W}` over a floating {W}{U}
+    /// tapped a Tundra for {W}).
     pub(super) fn pay_owed(&mut self, owed: ManaCost, pool: &ManaPoolView, legal: &LegalActions) {
-        let sources = baylee_ai::mana_sources(self.table.view, legal);
-        match manaplan::plan(&owed, pool, &sources) {
-            Some(plan) if plan.steps.is_empty() => self.offer(
+        let view = self.table.view;
+        if manaplan::plan(&owed, pool, &[]).is_some() {
+            self.offer(
                 format!("Pay {owed} from your pool"),
                 Act::Now(PlayerAction::PassPriority),
                 None,
-            ),
+            );
+            return;
+        }
+        let sources = baylee_ai::mana_sources(view, legal);
+        match manaplan::plan(&owed, pool, &sources) {
             Some(plan) => {
-                let label = format!("Pay {owed} ({})", self.taps(&plan.steps));
-                let act = Act::Taps {
-                    steps: plan.steps,
-                    then: PlayerAction::PassPriority,
-                };
-                self.offer(label, act, None);
+                let others = payment::others(view, &owed, pool, &sources, &plan);
+                for plan in std::iter::once(plan).chain(others) {
+                    let label = format!("Pay {owed} ({})", self.taps(&plan.steps));
+                    let act = Act::Taps {
+                        steps: plan.steps,
+                        then: PlayerAction::PassPriority,
+                    };
+                    self.offer(label, act, None);
+                }
             }
             None => self.line("You cannot pay it from what you have untapped."),
         }

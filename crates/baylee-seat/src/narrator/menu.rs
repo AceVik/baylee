@@ -24,6 +24,7 @@ use serde_json::Value;
 use std::fmt::Write as _;
 
 mod builder;
+mod payment;
 mod plan;
 
 pub use plan::{GRAMMAR, React, Step, Stop, Until, asked};
