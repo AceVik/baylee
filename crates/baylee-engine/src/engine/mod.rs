@@ -2095,6 +2095,8 @@ mod extra_turn_tests;
 #[cfg(test)]
 mod foretell_tests;
 #[cfg(test)]
+mod game_end_tests;
+#[cfg(test)]
 mod granted_this_tests;
 #[cfg(test)]
 mod hand_size_tests;
