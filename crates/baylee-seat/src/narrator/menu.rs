@@ -1345,6 +1345,18 @@ fn targeting_sentence(targeting: &baylee_view::TargetingContext) -> Option<Strin
     None
 }
 
+/// A face-down cast, named for the keyword the card has. The engine has one
+/// mode for both (CR 702.37c, 702.168a), and a morph card is not told
+/// "disguise".
+fn face_down_label(card: Option<baylee_view::CardIdentity>, cost: &str) -> String {
+    let morph = card
+        .and_then(|c| Some((baylee_cards::by_index(c.index)?, usize::from(c.face))))
+        .and_then(|(def, face)| def.faces.get(face))
+        .is_some_and(|f| f.morph.is_some() && f.disguise.is_none());
+    let keyword = if morph { "morph" } else { "disguise" };
+    format!("Cast it face down with {keyword} for {cost}")
+}
+
 /// A cast mode in words, with its cost.
 fn cast_mode_label(card: Option<baylee_view::CardIdentity>, option: &CastModeDesc) -> String {
     let face = card.map_or(0, |c| usize::from(c.face));
@@ -1392,7 +1404,7 @@ fn cast_mode_label(card: Option<baylee_view::CardIdentity>, option: &CastModeDes
             }
         }
         CastModeKind::Prototype => format!("Cast it prototyped for {cost}"),
-        CastModeKind::Disguise => format!("Cast it face down with disguise for {cost}"),
+        CastModeKind::Disguise => face_down_label(card, &cost),
         CastModeKind::Miracle => format!("Cast it for its miracle cost {cost}"),
         CastModeKind::Foretell => format!("Cast it with foretell for {cost}"),
         CastModeKind::Flashback => format!("Cast it with flashback for {cost}"),
@@ -1514,3 +1526,6 @@ fn spoken_cost(cost: &baylee_core::mana::ManaCost) -> String {
         cost
     }
 }
+
+#[cfg(test)]
+mod label_tests;
