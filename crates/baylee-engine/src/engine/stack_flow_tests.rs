@@ -179,3 +179,37 @@ fn an_instant_may_be_cast_in_the_opponents_turn() {
     pass_until(&mut engine, stack_is_empty);
     assert_eq!(life(&engine, P1), 18);
 }
+
+/// After a spell resolves the active player receives priority (CR
+/// 117.3b), even when the other player cast it.
+#[test]
+fn after_resolution_priority_goes_to_the_active_player() {
+    let mut engine = duel();
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == P0
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == P1)
+    });
+    shock_at(&mut engine, P1, vec![], vec![P0]);
+    engine.apply(P1, PlayerAction::PassPriority).unwrap();
+    engine.apply(P0, PlayerAction::PassPriority).unwrap();
+    assert!(stack_is_empty(&engine));
+    assert_eq!(life(&engine, P0), 18);
+    assert!(
+        matches!(engine.pending(), Pending::Priority { player, .. } if *player == P0),
+        "{:?}",
+        engine.pending()
+    );
+}
+
+/// Both players passing in a row with an empty stack ends the step
+/// (CR 500.2); one pass does not.
+#[test]
+fn one_pass_with_an_empty_stack_does_not_end_the_step() {
+    let mut engine = duel();
+    let step = (engine.state().turn.phase, engine.state().turn.step);
+    engine.apply(P0, PlayerAction::PassPriority).unwrap();
+    assert_eq!((engine.state().turn.phase, engine.state().turn.step), step);
+    assert!(matches!(engine.pending(), Pending::Priority { player, .. } if *player == P1));
+    engine.apply(P1, PlayerAction::PassPriority).unwrap();
+    assert_ne!((engine.state().turn.phase, engine.state().turn.step), step);
+}
