@@ -1,6 +1,7 @@
 //! Read-only workstation monitor. See docs/workstation-monitor.md.
 
 mod gpu;
+mod listen;
 mod power;
 mod sampler;
 mod server;
@@ -36,7 +37,7 @@ async fn main() -> anyhow::Result<()> {
         !options.bind.ip().is_unspecified(),
         "Use an explicit loopback or LAN address, not a wildcard"
     );
-    let listener = tokio::net::TcpListener::bind(options.bind).await?;
+    let listener = listen::bind(options.bind, listen::ADDRESS_WAIT).await?;
     let interval = Duration::from_millis(options.interval_ms);
     let keep = (options.history_minutes * 60_000 / options.interval_ms) as usize;
     let mut sampler = tokio::task::spawn_blocking(sampler::Sampler::new).await??;

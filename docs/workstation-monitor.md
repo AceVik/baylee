@@ -37,6 +37,23 @@ manager; installation does not enable lingering or change root permissions.
 After updates, reinstall the binary and restart the unit. Stop with
 `systemctl --user stop baylee-monitor`.
 
+### Starting before the network
+
+A user unit cannot wait for the system's `network-online.target`, and at login
+the LAN address may not be assigned yet: until DHCP has finished, binding it
+fails with `EADDRNOTAVAIL` ("Cannot assign requested address"). Pulse then logs
+one line and retries the bind with a backoff from 250 ms up to 2 s, so it
+listens within about two seconds of the address appearing. After ten minutes
+without the address it exits with an error and the unit's `Restart=on-failure`
+starts it again five seconds later. Every other bind error (port in use, an
+address of another machine) fails at once.
+
+On 2 November 2026 the journal seemed to show an hour without Pulse after
+boot. The boot's monotonic timestamps tell otherwise: DHCP assigned
+192.168.0.103 at 11.9 s, the link dropped and came back, the lease returned at
+22.6 s, chronyd stepped the wall clock by +3600.9 s at 25.8 s, and Pulse
+listened at 28.6 s, on its fourth start. The hour was the clock step.
+
 ## Local power-button setting (24 October 2026)
 
 At the owner's request, the training workstation ignores power-button events.

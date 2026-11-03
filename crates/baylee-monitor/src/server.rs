@@ -184,6 +184,7 @@ async fn source() -> Response {
         "src/main.rs": include_str!("main.rs"), "src/server.rs": include_str!("server.rs"),
         "src/sampler.rs": include_str!("sampler.rs"), "src/types.rs": include_str!("types.rs"),
         "src/gpu.rs": include_str!("gpu.rs"), "src/power.rs": include_str!("power.rs"),
+        "src/listen.rs": include_str!("listen.rs"),
         "web/index.html": include_str!("../web/index.html"), "web/style.css": include_str!("../web/style.css"), "web/app.js": include_str!("../web/app.js")
     });
     (
