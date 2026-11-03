@@ -1984,6 +1984,8 @@ mod spend_riders;
 mod invariants;
 
 #[cfg(test)]
+mod activation_flow_tests;
+#[cfg(test)]
 mod activation_target_tests;
 #[cfg(test)]
 mod active_left_tests;
