@@ -2079,6 +2079,8 @@ mod cast_basics_tests;
 #[cfg(test)]
 mod coin_replacement_tests;
 #[cfg(test)]
+mod combat_flow_tests;
+#[cfg(test)]
 mod combat_skip_tests;
 #[cfg(test)]
 mod end_step_tests;
