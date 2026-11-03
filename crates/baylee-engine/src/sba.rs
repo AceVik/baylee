@@ -1679,6 +1679,7 @@ mod tests {
 
     mod basics;
     mod cow_reset;
+    mod legends;
 
     fn attach(
         state: &mut GameState,
