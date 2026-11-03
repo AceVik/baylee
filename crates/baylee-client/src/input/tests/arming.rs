@@ -12,6 +12,7 @@ fn confirming_a_priority_choice_passes() {
                 unpaid_abilities: vec![],
                 payable: vec![],
                 spell_increases: vec![],
+                spell_reductions: vec![],
                 activation_increases: vec![],
                 can_pass: true,
                 lands: vec![obj(1)],

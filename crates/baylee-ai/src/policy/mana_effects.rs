@@ -310,3 +310,33 @@ pub(crate) fn spell_mana_increase(
     let rest = total.saturating_sub(colored.cmc());
     colored.with_more_generic(rest)
 }
+
+/// What casting `id` under `mode` costs: `cost` — the printed, flashback or
+/// alternative cost the caller read, a commander's tax included, `{X}` as the
+/// caller left it — with the engine's published increases added (coloured
+/// ones kept as pips, [`spell_mana_increase`]) and then its published
+/// reductions taken off: CR 601.2f determines the total cost increases first,
+/// reductions after, and a generic reduction touches the generic part only
+/// and stops at `{0}` (CR 118.7a).
+///
+/// The one place a planner applies `LegalActions`' price adjustments. Every
+/// planner used to add the increases itself and none subtracted anything, so
+/// under Goblin Warchief a Goblin two Mountains pay for was not offered and
+/// the one offered tapped three (NEW-03, 3.11.2026). `card` is `None` where
+/// the caller cannot name the card, which loses only the colour of a
+/// coloured increase.
+pub(crate) fn spell_price(
+    view: &PlayerView,
+    id: ObjectId,
+    card: Option<CardIdentity>,
+    legal: &LegalActions,
+    mode: baylee_engine::choice::CastModeKind,
+    cost: ManaCost,
+) -> ManaCost {
+    let increase = card.map_or_else(
+        || ManaCost::from_symbol_generic(legal.spell_increase(id, mode)),
+        |card| spell_mana_increase(view, id, card, legal, mode),
+    );
+    cost.combine(&increase)
+        .with_less_generic(legal.spell_reduction(id, mode))
+}

@@ -5008,6 +5008,29 @@ The same version adds default-empty `activation_increases` entries
 These keep mana planners from treating taxed activations as free mana sources;
 manual activations remain governed by the authoritative legal-action lists.
 
+### Spell cost reductions (compatible addition)
+
+`LegalActions.spell_reductions` is the other half of `spell_increases`: the
+same `(ObjectId, CastModeKind, u32)` shape, the same identities (the acting
+seat's own candidate zones and play permissions) and the same override rule
+(`Normal` applies to alternative costs and flashback; face, prototype and
+disguise entries override it and may be zero). The amount is the generic mana
+the cast's total cost is reduced by: rules effects (Goblin Warchief's "Goblin
+spells you cast cost {1} less", `SpellsCostLessPerCounter`) and the card's own
+printed reduction (affinity, Surgical Metamorph), which the view cannot
+evaluate. A disguise cast has no printed reduction. It defaults to empty and is
+omitted when empty, and it never changes what `spell_increases` says: an entry
+in the increases still means only the increases.
+
+A planner prices a cast as CR 601.2f determines its total cost: increases
+first, then reductions, which take off generic mana only and never go below
+`{0}` (CR 118.7a). In the workspace that is one function,
+`baylee_ai::spell_price`, which the house, the LLM seat's reach and the
+client's planner all call. An older planner that ignores the field prices
+the printed cost, which is what every planner did before it existed: it
+offers a reduced spell late and taps one land too many, and the engine
+still charges the right price. No protocol or view version moves.
+
 Protocol 12 adds `ChoicePrompt::RemoveLandCounters`, identifying the land whose
 linked counters will be removed. The German/English client and seat narrator
 explain the consequence before confirmation. No view schema change is needed.

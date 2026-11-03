@@ -11,6 +11,7 @@ use baylee_view::{CardIdentity, HandObject, PublicObject, RulesFace};
 
 mod foretell;
 mod phasing;
+mod played;
 
 const ME: PlayerId = PlayerId::new(0);
 const THEM: PlayerId = PlayerId::new(1);

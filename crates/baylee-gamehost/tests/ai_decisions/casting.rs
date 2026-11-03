@@ -321,3 +321,42 @@ fn a_convoke_cast_the_pool_already_pays_taps_no_creature() {
     }
     panic!("Chord of Calling never resolved");
 }
+
+/// Goblin Warchief: "Goblin spells you cast cost {1} less to cast." The
+/// engine charges the Sky Raider `{1}{R}` under it, and the house priced the
+/// printed `{2}{R}`: with two Mountains it held the Goblin for a land it did
+/// not have (NEW-03, 3.11.2026; CR 601.2f). The cast has to come on the first
+/// turn, before a drawn land would pay the printed price.
+#[test]
+fn the_ai_casts_a_goblin_for_the_price_the_warchief_leaves() {
+    let me = PlayerId::new(0);
+    let preset = position(
+        &["Goblin Sky Raider"],
+        &["Goblin Warchief", "Mountain", "Mountain"],
+    );
+    let mut engine = Engine::new(&preset, RegistryLookup).unwrap();
+    let agent = HeuristicAgent::new(AIProfile::EXPERT);
+    for seq in 0..100 {
+        let pending = engine.pending();
+        let seat = pending_player(pending).expect("fixture remains live");
+        let view = asked_view(engine.state(), seat, seq, pending);
+        if view.battlefield_of(me).any(|o| {
+            o.card
+                .is_some_and(|c| c.index == entry("Goblin Sky Raider").card)
+        }) {
+            assert_eq!(view.turn, 1, "cast off the two Mountains, not a later land");
+            assert!(untapped(&view, "Mountain").is_empty());
+            return;
+        }
+        assert_eq!(view.turn, 1, "the house passed its turn holding the Goblin");
+        let action = match pending {
+            Pending::Mulligan { .. } => PlayerAction::MulliganKeep,
+            Pending::Priority { .. } if seat != me => PlayerAction::PassPriority,
+            _ => agent.act_with_context(&view, pending, &engine.decision_context()),
+        };
+        engine
+            .apply(seat, action)
+            .expect("the house answers from its offer");
+    }
+    panic!("the table never moved past the first turn");
+}

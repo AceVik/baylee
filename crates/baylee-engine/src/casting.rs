@@ -42,15 +42,15 @@ pub use intrinsic::*;
 pub use lands::*;
 pub(crate) use payment::*;
 pub(crate) use permissions::*;
+pub(crate) use pricing::{
+    SpellAdjustment, activation_increase, component_affordable, face_adjustment,
+    normal_spell_affordable, north_star_effect, north_star_face_allowed, spell_adjustment,
+    spell_mana_spending,
+};
 pub use pricing::{
     ability_mana_spending, commander_tax, convoke_sources, delve_sources, has_improvise,
     keyword_reduction, mana_is_wild, mana_spending, printed_reduction, reduction_amount,
     tap_to_pay_sources, waterbend_sources,
-};
-pub(crate) use pricing::{
-    activation_increase, component_affordable, face_adjustment, face_increase,
-    normal_spell_affordable, north_star_effect, north_star_face_allowed, spell_adjustment,
-    spell_mana_spending,
 };
 
 /// Why a card cannot be cast right now (validated before the action).

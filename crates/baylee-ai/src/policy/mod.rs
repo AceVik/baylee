@@ -20,9 +20,9 @@ mod mana_effects;
 mod x_exact;
 mod x_targets;
 
-pub(crate) use mana_effects::{
-    apply_triggered_mana_bonus, spell_mana_increase, taps_set_off_a_trigger,
-};
+#[cfg(test)]
+use mana_effects::spell_mana_increase;
+pub(crate) use mana_effects::{apply_triggered_mana_bonus, spell_price, taps_set_off_a_trigger};
 use mana_effects::{tap_destroys_or_locks, tap_trigger_harm};
 
 fn own_main_phase(view: &PlayerView) -> bool {
@@ -813,13 +813,14 @@ impl HeuristicAgent {
             } else {
                 available
             };
-            let printed = spell_cost(view, id, f).combine(&spell_mana_increase(
+            let printed = spell_price(
                 view,
                 id,
-                card,
+                Some(card),
                 legal,
                 baylee_engine::choice::CastModeKind::Normal,
-            ));
+                spell_cost(view, id, f),
+            );
             let (cost, floats_first) = aim(
                 view,
                 card,

@@ -568,7 +568,9 @@ pub struct Reach {
     /// Where it would be cast from.
     pub from: ReachFrom,
     /// The taps, in order, and the cost they pay: the printed cost with
-    /// `{X}` at 0, and a commander's tax (CR 903.8) added.
+    /// `{X}` at 0, a commander's tax (CR 903.8) added, and priced as the
+    /// engine charges it, its increases and reductions applied
+    /// (`baylee_ai::spell_price`, CR 601.2f).
     pub plan: Plan,
 }
 
@@ -641,8 +643,9 @@ pub fn reachable(view: &PlayerView, legal: &LegalActions) -> Vec<Reach> {
     let payable =
         |id: ObjectId, card: baylee_view::CardIdentity, cost: ManaCost, mode: CastModeKind| {
             cost.symbols().next()?;
-            let increase = baylee_ai::spell_mana_increase(view, id, card, legal, mode);
-            let mut total = cost.with_x(0).combine(&increase);
+            // The price the engine charges, its reductions included (CR 601.2f).
+            let mut total =
+                baylee_ai::spell_price(view, id, Some(card), legal, mode, cost.with_x(0));
             if has_convoke(card) && !convoke_creatures.is_empty() {
                 total = reduce_for_convoke(total, &convoke_creatures);
             }
@@ -655,15 +658,15 @@ pub fn reachable(view: &PlayerView, legal: &LegalActions) -> Vec<Reach> {
         .filter(|card| {
             !legal.castable.contains(&card.id)
                 || printed_cost(card.card).is_some_and(|c| {
-                    let inc = baylee_ai::spell_mana_increase(
+                    let price = baylee_ai::spell_price(
                         view,
                         card.id,
-                        card.card,
+                        Some(card.card),
                         legal,
                         CastModeKind::Normal,
+                        c.with_x(0),
                     );
-                    baylee_client_core::manaplan::plan(&c.with_x(0).combine(&inc), &pool, &[])
-                        .is_none()
+                    baylee_client_core::manaplan::plan(&price, &pool, &[]).is_none()
                 })
         })
         .filter(|card| !card.types.contains(TypeSet::LAND))

@@ -18,6 +18,10 @@ Printed mana bonuses, tap penalties and coloured taxes count only while their
 abilities are active; phased-out permanents contribute nothing. Coloured taxes
 use the chosen spell face or prototype characteristics. Phased-out permanents
 also cannot satisfy a casting condition or contribute a convoke payment.
+A cast is priced as the engine will charge it, through `spell_price`: the
+offer's `spell_increases`, then its `spell_reductions` (Goblin Warchief, a
+card's affinity) off the generic part (CR 601.2f, 118.7a). The LLM seat's
+reach and the client price through the same function.
 
 Before announcing a mana-X activation, the house checks that its fixed price
 and any printed minimum X can be reached through the ordinary view-only mana

@@ -134,23 +134,16 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
             // the rest of its cost is. Refusing every X cost left Prismatic
             // Ending (`{X}{W}`) answering no click while the engine offered it
             // (#17); the X question is then capped by what the mana pays.
-            let increase = card.map_or_else(
-                || {
-                    baylee_core::mana::ManaCost::from_symbol_generic(
-                        legal.spell_increase(id, baylee_engine::choice::CastModeKind::Normal),
-                    )
-                },
-                |card| {
-                    baylee_ai::spell_mana_increase(
-                        view,
-                        id,
-                        card,
-                        legal,
-                        baylee_engine::choice::CastModeKind::Normal,
-                    )
-                },
+            // Priced as the engine charges it, increases and reductions both
+            // (CR 601.2f): under Goblin Warchief a Goblin costs {1} less.
+            let cost = baylee_ai::spell_price(
+                view,
+                id,
+                card,
+                legal,
+                baylee_engine::choice::CastModeKind::Normal,
+                least_x(cost),
             );
-            let cost = least_x(cost).combine(&increase);
             // A card already in `legal.castable` is in this sweep only when
             // `phyrexian_life_only` kept it here so untapped lands can offer to
             // pay the Phyrexian mana instead of life. Settling those symbols with
