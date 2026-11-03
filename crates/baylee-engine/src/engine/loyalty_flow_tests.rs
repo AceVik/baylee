@@ -142,3 +142,34 @@ fn a_loyalty_ability_is_refused_while_the_stack_holds_something() {
     assert!(!engine.state().zones.stack_is_empty());
     assert!(!activate(&mut engine, walker, PLUS_ONE));
 }
+
+/// Seat 0's Cudgel Troll attacks seat 1's Jace: combat damage to a
+/// planeswalker removes that much loyalty (CR 306.8), and at zero it goes
+/// to the graveyard (CR 704.5i). The player is not touched.
+#[test]
+fn damage_to_an_attacked_planeswalker_removes_its_loyalty() {
+    let troll = card_index("c2f86723-4765-4dac-a9f6-9cfa543613b2");
+    let mut engine = Duel::new(SEED, basic_forest())
+        .battlefield(0, &[troll])
+        .battlefield(1, &[jace()])
+        .start();
+    keep_mulligans(&mut engine);
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == P0),
+    );
+    let attacker = on_battlefield(&engine, P0, troll).unwrap();
+    let walker = on_battlefield(&engine, P1, jace()).unwrap();
+    engine
+        .apply(
+            P0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(attacker, baylee_core::ids::Defender::Planeswalker(walker))],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| e.state().turn.phase == Phase::SecondMain);
+    assert!(on_battlefield(&engine, P1, jace()).is_none());
+    assert!(super::testkit::in_graveyard(&engine, P1, jace()).is_some());
+    assert_eq!(engine.state().players[1].life, 20);
+}
