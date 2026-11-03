@@ -2179,6 +2179,8 @@ mod reflexive_tests;
 #[cfg(test)]
 mod refusal_tests;
 #[cfg(test)]
+mod regen_flow_tests;
+#[cfg(test)]
 mod regenerate_tests;
 #[cfg(test)]
 mod removal_flow_tests;
