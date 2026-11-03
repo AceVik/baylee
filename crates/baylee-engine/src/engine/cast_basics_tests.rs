@@ -2,7 +2,7 @@
 //! (Llanowar Elves, {G}): it goes on the stack (CR 601.2a), its caster
 //! gets priority back (CR 117.3c), it resolves onto the battlefield once
 //! both players pass (CR 608.3), it cannot be cast without the mana or at
-//! the wrong time (CR 307.1 for sorcery timing of a creature), and it is
+//! the wrong time (CR 117.1a for the timing of a creature), and it is
 //! summoning sick until its controller's next turn (CR 302.6).
 
 use super::testkit::{
@@ -91,19 +91,30 @@ fn a_creature_is_not_cast_on_the_opponents_turn() {
     assert!(engine.apply(P0, PlayerAction::CastSpell { card }).is_err());
 }
 
+/// The active player with priority and mana still floating cannot cast a
+/// second creature while the first waits on the stack (CR 117.1a), and can
+/// once the stack is empty again.
 #[test]
 fn a_creature_is_not_cast_while_the_stack_holds_something() {
-    let mut engine = duel(2);
+    let forest = basic_forest();
+    let mut engine = Duel::new(SEED, forest)
+        .hand(0, &[quiet_creature(), quiet_creature()])
+        .battlefield(0, &[forest, forest])
+        .start();
+    keep_mulligans(&mut engine);
+    main_of(&mut engine, P0);
     cast_from_hand(&mut engine, P0, quiet_creature());
-    // A second copy for seat 0 is not in hand, so ask seat 1, who has one,
-    // when it receives priority with the elf still on the stack.
-    engine.apply(P0, PlayerAction::PassPriority).unwrap();
-    assert!(matches!(engine.pending(), Pending::Priority { player, .. } if *player == P1));
-    let card = in_hand(&engine, P1, quiet_creature()).expect("in hand");
+    assert!(matches!(engine.pending(), Pending::Priority { player, .. } if *player == P0));
+    assert!(!stack_is_empty(&engine));
+    let card = in_hand(&engine, P0, quiet_creature()).expect("a second one in hand");
     assert!(
-        engine.apply(P1, PlayerAction::CastSpell { card }).is_err(),
-        "sorcery timing needs an empty stack and the active player"
+        engine.apply(P0, PlayerAction::CastSpell { card }).is_err(),
+        "a noninstant needs an empty stack"
     );
+    pass_until(&mut engine, stack_is_empty);
+    engine
+        .apply(P0, PlayerAction::CastSpell { card })
+        .expect("with the stack empty the same cast is legal");
 }
 
 #[test]

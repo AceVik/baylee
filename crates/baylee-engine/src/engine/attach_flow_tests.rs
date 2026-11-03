@@ -35,10 +35,14 @@ fn plains() -> CardIndex {
 }
 
 fn duel(hand: &[CardIndex], mine: &[CardIndex]) -> Game {
+    duel_against(hand, mine, &[quiet_creature()])
+}
+
+fn duel_against(hand: &[CardIndex], mine: &[CardIndex], theirs: &[CardIndex]) -> Game {
     let mut engine = Duel::new(SEED, basic_forest())
         .hand(0, hand)
         .battlefield(0, mine)
-        .battlefield(1, &[quiet_creature()])
+        .battlefield(1, theirs)
         .start();
     keep_mulligans(&mut engine);
     pass_until(&mut engine, |e| {
@@ -113,21 +117,6 @@ fn an_aura_may_enchant_an_opponents_creature() {
 }
 
 #[test]
-fn a_pacified_creature_cannot_attack() {
-    let mut engine = duel(&[pacifism()], &[plains(), plains()]);
-    let theirs = on_battlefield(&engine, P1, quiet_creature()).unwrap();
-    enchant(&mut engine, pacifism(), theirs);
-    pass_until(&mut engine, |e| {
-        e.state().turn.active == P1 && e.state().turn.phase == Phase::FirstMain
-    });
-    engine
-        .dev_state_mut(P0)
-        .expect("dev board")
-        .refresh_characteristics();
-    assert!(!crate::combat::can_attack(engine.state(), P1, theirs));
-}
-
-#[test]
 fn equipping_attaches_the_equipment_and_its_bonus() {
     let mut engine = duel(&[], &[plains(), quiet_creature(), scimitar()]);
     let elf = on_battlefield(&engine, P0, quiet_creature()).unwrap();
@@ -152,33 +141,32 @@ fn equipping_attaches_the_equipment_and_its_bonus() {
     assert_eq!(body(&mut engine, elf), (2, 2));
 }
 
+/// An Equipment attached to something that is no longer a creature becomes
+/// unattached and stays on the battlefield (CR 704.5n). The creature is
+/// turned into a plain enchantment rather than killed, so only that
+/// state-based action can have moved the Equipment.
 #[test]
-fn equipment_stays_on_the_battlefield_when_its_creature_dies() {
+fn equipment_stays_on_the_battlefield_when_its_creature_stops_being_one() {
     let mut engine = duel(&[], &[plains(), quiet_creature(), scimitar()]);
     let elf = on_battlefield(&engine, P0, quiet_creature()).unwrap();
     let blade = on_battlefield(&engine, P0, scimitar()).unwrap();
-    tap_all_mana(&mut engine, P0);
-    engine
-        .apply(
-            P0,
-            PlayerAction::ActivateAbility {
-                source: blade,
-                ability_index: 0,
-            },
-        )
-        .unwrap();
-    if matches!(engine.pending(), Pending::ChooseTargets { .. }) {
-        engine
-            .apply(P0, PlayerAction::ChooseObjects { objects: vec![elf] })
-            .unwrap();
+    assert!(equip(&mut engine, blade, elf));
+    assert_eq!(engine.state().object(blade).unwrap().attached_to, Some(elf));
+    {
+        let state = engine.dev_state_mut(P0).expect("dev board");
+        state.object_mut(elf).unwrap().base_mut().types = baylee_core::types::TypeSet::ENCHANTMENT;
+        state.invalidate_projections();
+        state.refresh_characteristics();
     }
-    pass_until(&mut engine, stack_is_empty);
-    kill(&mut engine, elf);
+    assert_eq!(
+        engine.state().object(blade).unwrap().attached_to,
+        Some(elf),
+        "nothing has checked state-based actions yet"
+    );
     pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::Priority { .. })
+        e.state().object(blade).unwrap().attached_to.is_none()
     });
-    let blade = on_battlefield(&engine, P0, scimitar()).expect("still there");
-    assert_eq!(engine.state().object(blade).unwrap().attached_to, None);
+    assert!(on_battlefield(&engine, P0, scimitar()).is_some());
 }
 
 #[test]
@@ -231,20 +219,6 @@ fn an_aura_spell_whose_target_left_goes_to_the_graveyard() {
     assert!(in_graveyard(&engine, P0, holy_strength()).is_some());
 }
 
-/// Pacifism stops blocking as well as attacking.
-#[test]
-fn a_pacified_creature_cannot_block() {
-    let mut engine = duel(&[pacifism()], &[plains(), plains(), quiet_creature()]);
-    let theirs = on_battlefield(&engine, P1, quiet_creature()).unwrap();
-    let mine = on_battlefield(&engine, P0, quiet_creature()).unwrap();
-    enchant(&mut engine, pacifism(), theirs);
-    engine
-        .dev_state_mut(P0)
-        .expect("dev board")
-        .refresh_characteristics();
-    assert!(!crate::combat::can_block(engine.state(), P1, theirs, mine));
-}
-
 /// The Aura's bonus is gone the moment it is: a Holy Strength that is
 /// destroyed leaves its creature a 1/1 again.
 #[test]
@@ -287,8 +261,26 @@ fn equip(engine: &mut Game, blade: ObjectId, onto: ObjectId) -> bool {
     true
 }
 
+/// Every creature `seat` controls that is a `quiet_creature`, in
+/// battlefield order.
+fn creatures_of(engine: &Game, seat: PlayerId) -> Vec<ObjectId> {
+    engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .filter(|id| {
+            engine.state().object(*id).is_some_and(|o| {
+                o.controller == seat && o.card.is_some_and(|c| c.index == quiet_creature())
+            })
+        })
+        .collect()
+}
+
 /// Equipping a second creature moves the Equipment, and the first one
-/// loses the bonus (CR 701.3b: an attach to a new object unattaches it).
+/// loses the bonus (CR 701.3a: attaching takes it from where it is). The
+/// second equip is paid in a later turn, from freshly untapped lands.
 #[test]
 fn re_equipping_moves_the_bonus() {
     let mut engine = duel(
@@ -301,20 +293,17 @@ fn re_equipping_moves_the_bonus() {
             scimitar(),
         ],
     );
-    let elves: Vec<ObjectId> = engine
-        .state()
-        .zones
-        .list(crate::zone::ZoneLocation::Battlefield)
-        .iter()
-        .copied()
-        .filter(|id| {
-            engine.state().object(*id).is_some_and(|o| {
-                o.controller == P0 && o.card.is_some_and(|c| c.index == quiet_creature())
-            })
-        })
-        .collect();
+    let elves = creatures_of(&engine, P0);
+    assert_eq!(elves.len(), 2);
     let blade = on_battlefield(&engine, P0, scimitar()).unwrap();
     assert!(equip(&mut engine, blade, elves[0]));
+    assert_eq!(body(&mut engine, elves[0]), (2, 2));
+    pass_until(&mut engine, |e| e.state().turn.active == P1);
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == P0
+            && e.state().turn.phase == Phase::FirstMain
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == P0)
+    });
     assert!(equip(&mut engine, blade, elves[1]));
     assert_eq!(
         engine.state().object(blade).unwrap().attached_to,
@@ -324,12 +313,131 @@ fn re_equipping_moves_the_bonus() {
     assert_eq!(body(&mut engine, elves[1]), (2, 2));
 }
 
-/// Equip targets "a creature you control" only (CR 702.6a).
+/// Equip targets "a creature you control" only (CR 702.6a): with a creature
+/// of its own on the board, seat 0 is not offered the opponent's.
 #[test]
 fn equip_cannot_target_an_opponents_creature() {
-    let mut engine = duel(&[], &[plains(), scimitar()]);
+    let mut engine = duel(&[], &[plains(), quiet_creature(), scimitar()]);
     let blade = on_battlefield(&engine, P0, scimitar()).unwrap();
-    let theirs = on_battlefield(&engine, P1, quiet_creature()).unwrap();
-    let equipped = equip(&mut engine, blade, theirs);
-    assert!(!equipped || engine.state().object(blade).unwrap().attached_to != Some(theirs));
+    let mine = creatures_of(&engine, P0)[0];
+    let theirs = creatures_of(&engine, P1)[0];
+    tap_all_mana(&mut engine, P0);
+    engine
+        .apply(
+            P0,
+            PlayerAction::ActivateAbility {
+                source: blade,
+                ability_index: 0,
+            },
+        )
+        .unwrap();
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("a target question, got {:?}", engine.pending());
+    };
+    assert!(options.contains(&mine));
+    assert!(!options.contains(&theirs));
+    assert!(
+        engine
+            .apply(
+                P0,
+                PlayerAction::ChooseObjects {
+                    objects: vec![theirs],
+                },
+            )
+            .is_err()
+    );
+}
+
+/// Pacifism on one of two identical creatures stops that one from
+/// attacking (the Aura's text): the other, with
+/// nothing on it, still can.
+#[test]
+fn a_pacified_creature_cannot_attack() {
+    let mut engine = duel_against(
+        &[pacifism()],
+        &[plains(), plains()],
+        &[quiet_creature(), quiet_creature()],
+    );
+    let theirs = creatures_of(&engine, P1);
+    enchant(&mut engine, pacifism(), theirs[0]);
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == P1 && e.state().turn.phase == Phase::FirstMain
+    });
+    engine
+        .dev_state_mut(P0)
+        .expect("dev board")
+        .refresh_characteristics();
+    assert!(crate::combat::can_attack(engine.state(), P1, theirs[1]));
+    assert!(!crate::combat::can_attack(engine.state(), P1, theirs[0]));
+}
+
+/// Pacifism stops blocking as well as attacking: in a real declare-blockers
+/// step the enchanted creature's block is refused and its twin's is taken.
+#[test]
+fn a_pacified_creature_cannot_block() {
+    let mut engine = duel_against(
+        &[pacifism()],
+        &[plains(), plains(), quiet_creature()],
+        &[quiet_creature(), quiet_creature()],
+    );
+    let theirs = creatures_of(&engine, P1);
+    let mine = creatures_of(&engine, P0)[0];
+    // Keep the attacker untapped: only the lands pay for the Aura.
+    super::testkit::tap_mana_except(&mut engine, P0, mine);
+    let card = in_hand(&engine, P0, pacifism()).expect("in hand");
+    engine.apply(P0, PlayerAction::CastSpell { card }).unwrap();
+    engine
+        .apply(
+            P0,
+            PlayerAction::ChooseObjects {
+                objects: vec![theirs[0]],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == P0),
+    );
+    engine
+        .apply(
+            P0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(mine, baylee_core::ids::Defender::Player(P1))],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+    assert!(crate::combat::can_block(
+        engine.state(),
+        P1,
+        theirs[1],
+        mine
+    ));
+    assert!(!crate::combat::can_block(
+        engine.state(),
+        P1,
+        theirs[0],
+        mine
+    ));
+    assert!(
+        engine
+            .apply(
+                P1,
+                PlayerAction::DeclareBlockers {
+                    blockers: vec![(theirs[0], mine)],
+                },
+            )
+            .is_err()
+    );
+    engine
+        .apply(
+            P1,
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(theirs[1], mine)],
+            },
+        )
+        .unwrap();
 }

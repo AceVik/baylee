@@ -2,7 +2,7 @@
 //! target spell) and Essence Scatter ({1}{U}, counter target creature
 //! spell). A countered spell goes to its owner's graveyard and does none of
 //! what it would have done (CR 701.6a); a counter's target is a spell on
-//! the stack and only the kind of spell it names (CR 115.1a).
+//! the stack and only the kind of spell it names (CR 115.2; 115.1a for "target").
 
 use super::testkit::{
     Duel, basic_forest, card_index, cast_from_hand, in_graveyard, in_hand, keep_mulligans,
@@ -127,12 +127,15 @@ fn a_creature_counter_offers_a_creature_spell() {
     assert!(offer(&mut engine, essence_scatter()).contains(&spell));
 }
 
+/// With a creature spell and a Shock both on the stack, the creature
+/// counter is offered the creature spell and not the instant.
 #[test]
 fn a_creature_counter_does_not_offer_an_instant() {
     let mut engine = duel(essence_scatter());
     tap_all_mana(&mut engine, P0);
-    let card = in_hand(&engine, P0, shock()).unwrap();
-    engine.apply(P0, PlayerAction::CastSpell { card }).unwrap();
+    super::testkit::cast_with_floating(&mut engine, P0, quiet_creature());
+    let creature = on_stack(&engine, quiet_creature()).expect("on the stack");
+    super::testkit::cast_with_floating(&mut engine, P0, shock());
     engine
         .apply(
             P0,
@@ -142,15 +145,10 @@ fn a_creature_counter_does_not_offer_an_instant() {
             },
         )
         .unwrap();
-    let spell = on_stack(&engine, shock()).expect("on the stack");
-    engine.apply(P0, PlayerAction::PassPriority).unwrap();
-    tap_all_mana(&mut engine, P1);
-    let card = in_hand(&engine, P1, essence_scatter()).unwrap();
-    let cast = engine.apply(P1, PlayerAction::CastSpell { card });
-    match engine.pending() {
-        Pending::ChooseTargets { options, .. } => assert!(!options.contains(&spell)),
-        _ => assert!(cast.is_err(), "no legal target, so no cast at all"),
-    }
+    let burn = on_stack(&engine, shock()).expect("on the stack");
+    let options = offer(&mut engine, essence_scatter());
+    assert!(options.contains(&creature));
+    assert!(!options.contains(&burn));
 }
 
 #[test]

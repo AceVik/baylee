@@ -1,10 +1,11 @@
 //! Mana through the engine with basic lands: a Forest's ability adds one
 //! green and taps it (CR 106.4, 305.6), the mana waits in the pool while
-//! the step lasts and empties as it ends (CR 500.4), a tapped land adds
+//! the step lasts and empties as it ends (CR 500.5), a tapped land adds
 //! nothing more, and the other player's pool is never touched.
 
 use super::testkit::{
-    Duel, basic_forest, keep_mulligans, on_battlefield, pass_until, tap_all_mana,
+    Duel, basic_forest, cast_with_floating, keep_mulligans, on_battlefield, pass_until,
+    quiet_creature, stack_is_empty, tap_all_mana,
 };
 use super::*;
 use baylee_core::mana::ManaColor;
@@ -85,14 +86,32 @@ fn unspent_mana_empties_when_the_step_ends() {
     );
 }
 
+/// Unspent mana survives priority passing and a resolution inside one step
+/// (CR 106.4, 500.5): it empties only when the step ends.
 #[test]
 fn mana_stays_while_priority_goes_back_and_forth_in_one_step() {
-    let mut engine = duel(1);
-    tap_all_mana(&mut engine, P0);
-    // An activated mana ability does not use the stack and passes no
-    // priority; the pool is still there while seat 0 holds priority.
-    assert!(matches!(engine.pending(), Pending::Priority { player, .. } if *player == P0));
-    assert_eq!(green(&engine, P0), 1);
+    let forest = basic_forest();
+    let mut engine = Duel::new(SEED, forest)
+        .hand(0, &[quiet_creature()])
+        .battlefield(0, &[forest, forest])
+        .start();
+    keep_mulligans(&mut engine);
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == P0
+            && e.state().turn.phase == Phase::FirstMain
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == P0)
+    });
+    assert_eq!(tap_all_mana(&mut engine, P0), 2);
+    cast_with_floating(&mut engine, P0, quiet_creature());
+    assert_eq!(green(&engine, P0), 1, "one of two is left after the cast");
+    engine.apply(P0, PlayerAction::PassPriority).unwrap();
+    assert!(matches!(engine.pending(), Pending::Priority { player, .. } if *player == P1));
+    assert!(!stack_is_empty(&engine), "the spell still waits");
+    assert_eq!(green(&engine, P0), 1, "priority moved, the step did not");
+    engine.apply(P1, PlayerAction::PassPriority).unwrap();
+    assert!(stack_is_empty(&engine), "the spell resolved");
+    assert_eq!(engine.state().turn.phase, Phase::FirstMain);
+    assert_eq!(green(&engine, P0), 1, "still the same step");
 }
 
 #[test]

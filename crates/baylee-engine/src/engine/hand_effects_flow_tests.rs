@@ -56,7 +56,8 @@ fn size(engine: &Game, at: ZoneLocation) -> usize {
 
 /// Casts Mind Rot at seat 1 and lets the game answer every question on
 /// the way, seat 1's discard included.
-fn rot(engine: &mut Game) {
+fn rot(engine: &mut Game) -> Option<PlayerId> {
+    let mut asked = None;
     tap_all_mana(engine, P0);
     let card = in_hand(engine, P0, mind_rot()).expect("in hand");
     engine.apply(P0, PlayerAction::CastSpell { card }).unwrap();
@@ -71,11 +72,12 @@ fn rot(engine: &mut Game) {
     // Seat 1's own discard question is answered like any other.
     for _ in 0..20 {
         if stack_is_empty(engine) && matches!(engine.pending(), Pending::Priority { .. }) {
-            return;
+            return asked;
         }
         if let Pending::Priority { player, .. } = engine.pending().clone() {
             engine.apply(player, PlayerAction::PassPriority).unwrap();
         } else {
+            asked = asked.or(engine.decision_actor());
             let (player, action) = super::testkit::answer_one(engine).expect("answerable");
             engine.apply(player, action).unwrap();
         }
@@ -119,7 +121,8 @@ fn mind_rot_discards_two_of_a_bigger_hand() {
     let mut engine = duel(mind_rot(), swamp(), 4);
     let hand = size(&engine, ZoneLocation::Hand(P1));
     let yard = size(&engine, ZoneLocation::Graveyard(P1));
-    rot(&mut engine);
+    let asked = rot(&mut engine);
+    assert_eq!(asked, Some(P1), "the discarding player is asked to choose");
     assert_eq!(size(&engine, ZoneLocation::Hand(P1)), hand - 2);
     assert_eq!(size(&engine, ZoneLocation::Graveyard(P1)), yard + 2);
 }
@@ -127,7 +130,7 @@ fn mind_rot_discards_two_of_a_bigger_hand() {
 #[test]
 fn mind_rot_against_one_card_discards_that_card() {
     let mut engine = duel(mind_rot(), swamp(), 1);
-    rot(&mut engine);
+    let _ = rot(&mut engine);
     assert_eq!(size(&engine, ZoneLocation::Hand(P1)), 0);
     assert_eq!(size(&engine, ZoneLocation::Graveyard(P1)), 1);
 }
@@ -135,7 +138,7 @@ fn mind_rot_against_one_card_discards_that_card() {
 #[test]
 fn mind_rot_against_an_empty_hand_does_nothing_else() {
     let mut engine = duel(mind_rot(), swamp(), 0);
-    rot(&mut engine);
+    let _ = rot(&mut engine);
     assert_eq!(size(&engine, ZoneLocation::Hand(P1)), 0);
     assert_eq!(size(&engine, ZoneLocation::Graveyard(P1)), 0);
     assert!(in_graveyard(&engine, P0, mind_rot()).is_some());
@@ -145,7 +148,7 @@ fn mind_rot_against_an_empty_hand_does_nothing_else() {
 fn mind_rot_leaves_its_casters_hand_alone() {
     let mut engine = duel(mind_rot(), swamp(), 3);
     let mine = size(&engine, ZoneLocation::Hand(P0));
-    rot(&mut engine);
+    let _ = rot(&mut engine);
     assert_eq!(
         size(&engine, ZoneLocation::Hand(P0)),
         mine - 1,
