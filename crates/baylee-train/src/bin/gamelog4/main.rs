@@ -75,6 +75,10 @@ enum Command {
         /// Games replayed at once.
         #[arg(long, default_value_t = 8)]
         threads: usize,
+        /// List each answer of this spell or ability (its name) aimed at
+        /// the net's own side, with life totals, stack and boards.
+        #[arg(long)]
+        focus: Option<String>,
     },
 }
 
@@ -101,6 +105,7 @@ fn main() -> anyhow::Result<()> {
             summary,
             which,
             threads,
-        } => patterns::count(&run, &summary, which, threads),
+            focus,
+        } => patterns::count(&run, &summary, which, threads, focus.as_deref()),
     }
 }

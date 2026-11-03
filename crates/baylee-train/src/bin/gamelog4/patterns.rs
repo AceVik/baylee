@@ -12,13 +12,14 @@ use std::path::Path;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use baylee_core::ids::PlayerId;
+use baylee_core::ids::{ObjectId, PlayerId};
+use baylee_core::types::TypeSet;
 use baylee_engine::choice::{Pending, PlayerAction};
-use baylee_view::{Phase, PlayerView};
+use baylee_view::{Phase, PlayerView, PublicObject};
 
 use crate::game::{Decision, Event, Game};
 use crate::losses::{self, Which};
-use crate::names::Names;
+use crate::names::{self, Names};
 
 /// Where a target answer pointed.
 #[derive(Debug, Default, Clone, Copy)]
@@ -48,10 +49,17 @@ struct Patterns {
     unspent_turns: usize,
     unspent_cards: BTreeMap<String, usize>,
     unplayed_lands: usize,
+    /// The deal being counted.
+    deal: u64,
+    /// A spell or ability whose answers at the seat's own side to list.
+    focus: Option<String>,
+    /// Those answers, one line each.
+    cases: Vec<String>,
 }
 
 impl Patterns {
     fn merge(&mut self, other: Self) {
+        self.cases.extend(other.cases);
         self.games += other.games;
         self.decisions += other.decisions;
         self.own_turns += other.own_turns;
@@ -95,6 +103,10 @@ impl Patterns {
                     }
                     _ => true,
                 };
+                if own && self.focus.as_deref() == Some(source.as_str()) {
+                    self.cases
+                        .push(case(self.deal, seat, table, objects, players, elsewhere));
+                }
                 let aims = self.aims.entry(source).or_default();
                 match (own, elsewhere) {
                     (true, true) => aims.own_by_choice += 1,
@@ -154,7 +166,83 @@ impl Patterns {
         for (card, count) in cards.iter().take(30) {
             println!("  {count:>4}  {card}");
         }
+        if let Some(focus) = &self.focus {
+            println!(
+                "\n{focus} aimed at the seat's own side ({}):",
+                self.cases.len()
+            );
+            let mut cases = self.cases.clone();
+            cases.sort();
+            for case in &cases {
+                println!("  {case}");
+            }
+        }
     }
+}
+
+/// One target answer at the seat's own side, with what a player would
+/// weigh: both life totals, the stack, the seat's lands, the targets and
+/// what the opponents had on the battlefield.
+fn case(
+    deal: u64,
+    seat: PlayerId,
+    table: &PlayerView,
+    objects: &[ObjectId],
+    players: &[PlayerId],
+    elsewhere: bool,
+) -> String {
+    let creature = |object: &PublicObject| match (object.power, object.toughness) {
+        (Some(power), Some(toughness)) => format!("{} {power}/{toughness}", object.name),
+        _ => object.name.clone(),
+    };
+    let lives: Vec<String> = table
+        .seats
+        .iter()
+        .map(|info| {
+            let net = if info.player == seat { " (net)" } else { "" };
+            format!("{}{net} {}", names::seat(info.player), info.life)
+        })
+        .collect();
+    let stack: Vec<&str> = table
+        .stack
+        .iter()
+        .map(|object| object.name.as_str())
+        .collect();
+    let lands = table
+        .battlefield
+        .iter()
+        .filter(|object| object.controller == seat && object.types.contains(TypeSet::LAND))
+        .count();
+    let targets: Vec<String> = table
+        .battlefield
+        .iter()
+        .chain(&table.stack)
+        .filter(|object| objects.contains(&object.id))
+        .map(creature)
+        .chain(players.iter().map(|player| names::seat(*player)))
+        .collect();
+    let theirs: Vec<String> = table
+        .battlefield
+        .iter()
+        .filter(|object| object.controller != seat && object.power.is_some())
+        .map(creature)
+        .collect();
+    format!(
+        "deal {deal} turn {} {:?}/{:?} · life {} · {lands} lands · stack [{}] · aimed at {} · \
+         {} · their creatures [{}]",
+        table.turn,
+        table.phase,
+        table.step,
+        lives.join(", "),
+        stack.join(", "),
+        targets.join(", "),
+        if elsewhere {
+            "by choice"
+        } else {
+            "the only target"
+        },
+        theirs.join(", ")
+    )
 }
 
 /// Whether `id` is on `seat`'s side of the table (battlefield or stack).
@@ -166,11 +254,13 @@ fn controlled_by(view: &PlayerView, id: baylee_core::ids::ObjectId, seat: Player
 }
 
 /// The patterns of one game.
-fn game(run: &Path, deal: u64) -> anyhow::Result<Patterns> {
+fn game(run: &Path, deal: u64, focus: Option<&str>) -> anyhow::Result<Patterns> {
     let record = Game::load(run, deal)?;
     let seat = record.seat;
     let mut patterns = Patterns {
         games: 1,
+        deal,
+        focus: focus.map(str::to_owned),
         ..Patterns::default()
     };
     record.replay(false, |event| {
@@ -187,22 +277,27 @@ fn game(run: &Path, deal: u64) -> anyhow::Result<Patterns> {
 }
 
 /// Counts the patterns over the deals of `summary` that `which` selects,
-/// replaying their games from `run` on `threads` threads.
+/// replaying their games from `run` on `threads` threads; with `focus`,
+/// lists every answer of that spell or ability aimed at the seat's own side.
 pub(super) fn count(
     run: &Path,
     summary: &Path,
     which: Which,
     threads: usize,
+    focus: Option<&str>,
 ) -> anyhow::Result<()> {
     let deals = losses::deals(summary, which)?;
     let next = AtomicUsize::new(0);
-    let total = Mutex::new(Patterns::default());
+    let total = Mutex::new(Patterns {
+        focus: focus.map(str::to_owned),
+        ..Patterns::default()
+    });
     let failures = Mutex::new(Vec::new());
     std::thread::scope(|scope| {
         for _ in 0..threads.max(1) {
             scope.spawn(|| {
                 while let Some(deal) = deals.get(next.fetch_add(1, Ordering::Relaxed)) {
-                    match game(run, deal.number) {
+                    match game(run, deal.number, focus) {
                         Ok(patterns) => total.lock().expect("patterns lock").merge(patterns),
                         Err(error) => failures
                             .lock()
