@@ -264,6 +264,48 @@ fn a_convoke_answer_taps_only_what_the_pool_leaves_unpaid() {
     );
 }
 
+/// A green creature tapped for convoke pays a `{G}` (CR 702.51a): one green
+/// floating and three green creatures cast Chord of Calling for X = 0 with
+/// two of them, not all three. The taps once paid generic mana only, so no
+/// count was enough and every creature was tapped.
+#[test]
+fn a_convoke_answer_counts_a_creature_s_colour() {
+    use baylee_engine::engine::DecisionContext;
+    let seat = PlayerId::new(0);
+    let green = |id| {
+        let mut creature = permanent(obj(id), seat, 1);
+        creature.colors = baylee_core::color::ColorSet::of(baylee_core::color::Color::Green);
+        creature
+    };
+    let mut v = view(0, &[20, 20], vec![green(10), green(11), green(12)]);
+    v.hand = vec![hand_card(1, "Chord of Calling")];
+    v.seats[0].mana_pool.green = 1;
+    let context = DecisionContext {
+        source: Some(obj(1)),
+        cost: Some("{X}{G}{G}{G}".parse().unwrap()),
+        x: 0,
+        ..Default::default()
+    };
+    let pending = Pending::ChooseTargets {
+        player: seat,
+        options: v.battlefield.iter().map(|o| o.id).collect(),
+        player_options: vec![],
+        min: 0,
+        max: 3,
+        reason: baylee_engine::choice::TargetPrompt::Convoke,
+    };
+    let PlayerAction::ChooseTargets { objects, .. } =
+        agent().act_with_context(&v, &pending, &context)
+    else {
+        panic!("the tap question is answered with taps");
+    };
+    assert_eq!(
+        objects.len(),
+        2,
+        "two green taps and the floating green pay {{G}}{{G}}{{G}}"
+    );
+}
+
 #[test]
 fn a_historical_target_does_not_threaten_a_returned_permanent() {
     let mut v = view(0, &[20, 20], vec![permanent(obj(9), PlayerId::new(0), 4)]);

@@ -67,8 +67,12 @@ impl<L: CardLookup> Engine<L> {
         // `casting::can_cast` uses, or the spell is offered in
         // `LegalActions` and then refused here as "no way to cast this
         // spell" — which is what happened, and it is why the count lives in
-        // one function rather than in each of them.
+        // one function rather than in each of them. A creature also pays a
+        // coloured symbol of its colour (CR 702.51a), which `less` applies
+        // the same way `can_cast` does (`casting::keyword_priced`).
         let reduction = casting::keyword_reduction(&self.state, face, player, card);
+        let less =
+            |cost: ManaCost| casting::keyword_priced(&self.state, face, player, &cost, reduction);
         let allowance = adjustment.allowance(
             &self.state,
             casting::SpendFor::Spell(card),
@@ -90,7 +94,7 @@ impl<L: CardLookup> Engine<L> {
                     player,
                     casting::SpendFor::Spell(card),
                     pool,
-                    &price(*cost).with_less_generic(reduction),
+                    &less(price(*cost)),
                     &[],
                     Some(allowance),
                 )
@@ -103,7 +107,7 @@ impl<L: CardLookup> Engine<L> {
                         player,
                         casting::SpendFor::Spell(card),
                         pool,
-                        &price(*cost).with_less_generic(reduction),
+                        &less(price(*cost)),
                         &face.mana_cost,
                         allowance,
                     )
@@ -309,7 +313,7 @@ impl<L: CardLookup> Engine<L> {
                     player,
                     casting::SpendFor::KickedSpell(card, 0, None),
                     kicked_pool,
-                    &price(cost).with_x(0).with_less_generic(reduction),
+                    &less(price(cost).with_x(0)),
                     &[],
                     Some(allowance),
                 )
@@ -319,7 +323,7 @@ impl<L: CardLookup> Engine<L> {
                         player,
                         casting::SpendFor::KickedSpell(card, 0, None),
                         kicked_pool,
-                        &price(cost).with_x(0).with_less_generic(reduction),
+                        &less(price(cost).with_x(0)),
                         &face.mana_cost,
                         allowance,
                     ))
@@ -674,11 +678,8 @@ impl<L: CardLookup> Engine<L> {
         if commanded {
             options.retain(|o| {
                 matches!(o.kind, CastModeKind::PlayLandFace(_))
-                    || self.commanded_cost_feasible(
-                        player,
-                        card,
-                        &o.cost.with_x(0).with_less_generic(reduction),
-                    ) != Some(false)
+                    || self.commanded_cost_feasible(player, card, &less(o.cost.with_x(0)))
+                        != Some(false)
             });
         }
         for (i, option) in options.iter_mut().enumerate() {

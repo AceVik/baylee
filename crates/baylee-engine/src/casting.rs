@@ -44,8 +44,8 @@ pub(crate) use payment::*;
 pub(crate) use permissions::*;
 pub use pricing::{
     ability_mana_spending, commander_tax, convoke_sources, delve_sources, has_improvise,
-    keyword_reduction, mana_is_wild, mana_spending, printed_reduction, reduction_amount,
-    tap_to_pay_sources, waterbend_sources,
+    keyword_priced, keyword_reduction, mana_is_wild, mana_spending, printed_reduction,
+    reduction_amount, tap_colors, tap_to_pay_sources, waterbend_sources,
 };
 pub(crate) use pricing::{
     activation_increase, component_affordable, face_adjustment, face_increase,
@@ -1122,15 +1122,23 @@ pub(crate) fn can_cast_form_paying(
         SpendFor::Spell(card),
         reduction.saturating_sub(adjustment.reduction),
     );
+    // Convoke's creatures pay coloured symbols too (CR 702.51a), so the
+    // reduction is applied through `keyword_priced` and not as generic alone.
+    let priced = |cost: &ManaCost| {
+        let cost = cost
+            .combine(&adjustment.mana_increase)
+            .with_more_generic(tax);
+        printed_face.map_or_else(
+            || cost.with_less_generic(reduction),
+            |face| keyword_priced(state, face, player, &cost, reduction),
+        )
+    };
     let probe = |cost: &ManaCost| {
         affordable(
             state,
             player,
             pool,
-            &cost
-                .combine(&adjustment.mana_increase)
-                .with_more_generic(tax)
-                .with_less_generic(reduction),
+            &priced(cost),
             SpendFor::Spell(card),
             allowance,
         )
@@ -1143,10 +1151,7 @@ pub(crate) fn can_cast_form_paying(
                     player,
                     SpendFor::Spell(card),
                     pool,
-                    &cost
-                        .combine(&adjustment.mana_increase)
-                        .with_more_generic(tax)
-                        .with_less_generic(reduction),
+                    &priced(cost),
                     &c.mana_cost,
                     allowance,
                 )
@@ -1207,12 +1212,17 @@ pub(crate) fn can_cast_form_paying(
             SpendFor::SpellOnFace(card, i),
             reduction.saturating_sub(adjustment.reduction),
         );
-        let cost = face
-            .mana_cost
-            .with_x(0)
-            .combine(&adjustment.mana_increase)
-            .with_more_generic(tax)
-            .with_less_generic(reduction);
+        let cost = keyword_priced(
+            state,
+            face,
+            player,
+            &face
+                .mana_cost
+                .with_x(0)
+                .combine(&adjustment.mana_increase)
+                .with_more_generic(tax),
+            reduction,
+        );
         affordable(
             state,
             player,

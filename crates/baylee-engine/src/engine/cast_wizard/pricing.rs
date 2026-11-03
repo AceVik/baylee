@@ -17,8 +17,14 @@ impl<L: CardLookup> Engine<L> {
         let frozen = wizard
             .reduction
             .unwrap_or_else(|| self.frozen_spell_reduction(wizard));
+        // What the taps and exiles pay of the generic part: a convoke tap
+        // that pays a coloured symbol (CR 702.51a) takes nothing off it.
+        let colored = wizard_total_cost(self.wizard_face(wizard), wizard)
+            .convoked_colored(&self.convoke_tap_colors(wizard))
+            .1;
         let selected = u32::try_from(wizard.delve_exiles.len() + wizard.convoke_taps.len())
-            .unwrap_or(u32::MAX);
+            .unwrap_or(u32::MAX)
+            .saturating_sub(colored);
         frozen.allowance.reduced(selected)
     }
 

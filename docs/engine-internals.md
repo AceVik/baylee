@@ -1611,6 +1611,27 @@ convoke face, artifacts for a face with improvise or while
 Innovation), each permanent once. The grant is spent in
 `cast_wizard/commit.rs` by the player's next cast, whatever it tapped.
 
+### Convoke pays coloured mana
+
+A creature tapped for convoke pays one generic mana **or one coloured mana
+of one of its colours** (CR 702.51a); an artifact tapped for improvise pays
+generic mana only (CR 702.126a). `ManaCost::convoked_colored` takes the
+colours each tap pays with (`casting::tap_colors`) and removes the coloured
+symbols they can pay, as many as can be (a maximum matching, so a white-and-
+blue creature is kept for the `{U}` a white one cannot pay); a tap that paid
+no colour pays generic mana, which comes off the count the caller has left.
+`{W}`, hybrid, Phyrexian and `{2/W}` symbols take their colour's tap; `{C}`,
+snow and X take none. One function for the four readers that must agree:
+the offer's probes (`casting::keyword_priced`, used by `can_cast` and
+`cast_options`), the tap question's bound (the coloured symbols the sources
+can pay plus the generic delve has left), the payment (`pay_and_cast`) and
+the payment window's owed cost (`Engine::wizard_paid`). Until #230 the taps
+paid generic mana alone: Chord of Calling (`{X}{G}{G}{G}`) was castable only
+when the lands made all its green. The free-cast and escape probes
+(`free_face_affordable`, `free_cost_affordable`, escape) still count the taps
+as generic, which can only leave a legal cast unoffered, never offer one the
+payment refuses.
+
 ## Two instances of "target", and a board that moves mid-resolution
 
 CR 115.3 counts targets per **instance of the word**: Khalni Ambush's "target

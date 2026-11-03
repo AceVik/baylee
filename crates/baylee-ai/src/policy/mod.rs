@@ -2597,11 +2597,13 @@ pub(crate) fn kicks(
 ///
 /// #224: the answer was every permanent offered, whatever was floating, so a
 /// convoke cast tapped the whole team and nothing was left to attack or
-/// block. The engine takes each tap off the cost's generic mana, so the count
-/// is the smallest one for which the pool pays the rest, asked of the planner
-/// [`kicks`] trusts. Without a price to measure against (no context, or a
-/// pool no count can cover), it taps as many as it may: an underpaid cast is
-/// rolled back whole (CR 601.2h), and an overpaid one costs only the taps.
+/// block. The engine takes each tap off a coloured symbol of the creature's
+/// colour where it can and off the generic mana otherwise (CR 702.51a), so
+/// the count is the smallest one for which the pool pays the rest, asked of
+/// the planner [`kicks`] trusts. Without a price to measure against (no
+/// context, or a pool no count can cover), it taps as many as it may: an
+/// underpaid cast is rolled back whole (CR 601.2h), and an overpaid one costs
+/// only the taps.
 ///
 /// Which ones: an artifact before a creature, since it neither attacks nor
 /// blocks; on this seat's own turn, a creature that cannot attack yet before
@@ -2615,7 +2617,6 @@ pub(crate) fn convoke_taps(
     let max = usize::try_from(max)
         .unwrap_or(usize::MAX)
         .min(options.len());
-    let needed = taps_needed(view, context, max).unwrap_or(max);
     options.sort_by_key(|id| {
         view.object(*id)
             .map_or((true, true, i16::MAX, i16::MAX), |o| {
@@ -2628,31 +2629,47 @@ pub(crate) fn convoke_taps(
                 )
             })
     });
+    let needed = taps_needed(view, context, &options[..max]).unwrap_or(max);
     options.truncate(needed);
     options
 }
 
-/// The fewest taps that leave the floating pool able to pay the rest.
+/// The fewest of `taps`, in order, that leave the floating pool able to pay
+/// the rest: each pays a coloured symbol of its colour where it can when the
+/// spell has convoke (a creature, CR 702.51a), and generic mana otherwise.
 ///
 /// A waterbend face's question comes only once the waterbend was paid
 /// (#229), so its cost is part of the total here.
-fn taps_needed(view: &PlayerView, context: &DecisionContext<'_>, max: usize) -> Option<usize> {
+fn taps_needed(
+    view: &PlayerView,
+    context: &DecisionContext<'_>,
+    taps: &[ObjectId],
+) -> Option<usize> {
     let pool = &view.seat(resource_player(view))?.mana_pool;
     let mut total = context.cost?.with_x(context.x);
-    if let Some(face) = context
+    let spell_face = context
         .source
         .and_then(|id| identity(view, id))
-        .and_then(face)
-        .filter(|f| f.waterbend)
-    {
+        .and_then(face);
+    if let Some(face) = spell_face.filter(|f| f.waterbend) {
         total = face
             .additional_costs
             .iter()
             .fold(total, |total, c| total.combine(&c.mana));
     }
-    (0..=max).find(|&n| {
-        let taps = u32::try_from(n).unwrap_or(u32::MAX);
-        manaplan::plan(&total.with_less_generic(taps), pool, &[]).is_some()
+    let convoke = spell_face.is_some_and(|f| f.convoke);
+    let colors: Vec<baylee_core::color::ColorSet> = taps
+        .iter()
+        .map(|id| {
+            view.object(*id)
+                .filter(|o| convoke && o.types.contains(TypeSet::CREATURE))
+                .map_or(baylee_core::color::ColorSet::EMPTY, |o| o.colors)
+        })
+        .collect();
+    (0..=taps.len()).find(|&n| {
+        let (rest, colored) = total.convoked_colored(&colors[..n]);
+        let generic = u32::try_from(n).unwrap_or(u32::MAX).saturating_sub(colored);
+        manaplan::plan(&rest.with_less_generic(generic), pool, &[]).is_some()
     })
 }
 
