@@ -186,4 +186,12 @@ fn a_mana_creature_that_just_arrived_cannot_tap_for_mana() {
     });
     assert_eq!(engine.state().turn.active, P0);
     assert_eq!(tap_all_mana(&mut engine, P0), 0);
+    // The control: on its controller's next turn the same elf does tap.
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == P0
+            && e.state().turn.number > 1
+            && e.state().turn.phase == Phase::FirstMain
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == P0)
+    });
+    assert_eq!(tap_all_mana(&mut engine, P0), 1);
 }

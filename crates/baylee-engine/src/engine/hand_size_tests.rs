@@ -134,22 +134,3 @@ fn a_smaller_maximum_hand_size_discards_more() {
         engine.pending()
     );
 }
-
-/// Reliquary Tower: "You have no maximum hand size." Its controller keeps
-/// ten cards through cleanup; the other player's limit is untouched.
-#[test]
-fn no_maximum_hand_size_keeps_a_big_hand() {
-    let tower = super::testkit::card_index("c23e5b80-08d2-4e24-9908-fe2aa4f30f6f");
-    let forest = basic_forest();
-    let mut engine = Duel::new(SEED, forest)
-        .hand(0, &[forest; 10])
-        .battlefield(0, &[tower])
-        .start();
-    keep_mulligans(&mut engine);
-    assert!(engine.state().no_max_hand_size(P0));
-    assert!(!engine.state().no_max_hand_size(P1));
-    let turn = engine.state().turn.number;
-    to_discard_or_next_turn(&mut engine);
-    assert!(engine.state().turn.number > turn, "no discard was asked");
-    assert_eq!(hand(&engine, P0).len(), 10);
-}

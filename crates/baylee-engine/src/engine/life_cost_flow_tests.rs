@@ -2,9 +2,8 @@
 //! indestructible until end of turn"; +2/+0 while attacking) and
 //! Cutthroat Contender ("Pay 1 life: +1/+0 until end of turn; activate
 //! only once each turn"). Life is paid as the cost, before the ability
-//! resolves (CR 119.4); it can be paid only out of what the player has
-//! (CR 119.4); and "only once each turn"
-//! is held to.
+//! resolves (CR 602.2b, 119.4); it can be paid only out of what the player
+//! has (CR 119.4); and "only once each turn" is held to.
 
 use super::testkit::{
     Duel, basic_forest, card_index, keep_mulligans, on_battlefield, pass_until, pt, stack_is_empty,
@@ -86,6 +85,10 @@ fn exactly_enough_life_can_be_paid() {
     let (mut engine, knight) = duel(vanguard(), 4);
     assert!(activate(&mut engine, knight, 1));
     assert_eq!(life(&engine), 0);
+    assert!(
+        engine.state().players[0].has_lost(),
+        "paying the last life is legal, and 0 life loses (CR 704.5a)"
+    );
 }
 
 #[test]
@@ -93,6 +96,7 @@ fn less_life_than_the_cost_cannot_pay_it() {
     let (mut engine, knight) = duel(vanguard(), 3);
     assert!(!activate(&mut engine, knight, 1));
     assert_eq!(life(&engine), 3);
+    assert!(stack_is_empty(&engine), "nothing was put on the stack");
 }
 
 #[test]
@@ -143,7 +147,11 @@ fn once_each_turn_is_once() {
     assert!(activate(&mut engine, rogue, 0));
     pass_until(&mut engine, stack_is_empty);
     assert!(!activate(&mut engine, rogue, 0));
-    assert_eq!(life(&engine), 19);
+    assert!(
+        stack_is_empty(&engine),
+        "the second attempt put nothing on the stack"
+    );
+    assert_eq!(life(&engine), 19, "the second payment was not taken");
 }
 
 #[test]

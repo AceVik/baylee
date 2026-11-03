@@ -1,7 +1,7 @@
 //! A sacrifice cost and a free spell, with real cards: Mogg Fanatic
 //! ("Sacrifice this creature: it deals 1 damage to any target") and
 //! Ornithopter ({0}). A sacrifice is paid at once, before the ability
-//! resolves (CR 601.2h, 701.21a); it needs no untapped or unsick creature,
+//! resolves (CR 602.2b, 701.21a); it needs no untapped or unsick creature,
 //! because only {T} cares about summoning sickness (CR 302.6); and a
 //! spell costing {0} is cast with no mana at all.
 
@@ -118,14 +118,16 @@ fn a_sacrifice_needs_no_creature_that_has_been_there_all_turn() {
 fn a_tapped_creature_can_still_be_sacrificed() {
     let mut engine = duel(basic_forest(), &[], &[fanatic()]);
     let goblin = on_battlefield(&engine, P0, fanatic()).unwrap();
-    engine
-        .dev_state_mut(P0)
-        .expect("dev board")
-        .object_mut(goblin)
-        .unwrap()
-        .status
-        .insert(crate::object::Status::TAPPED);
+    assert!(
+        engine
+            .dev_state_mut(P0)
+            .expect("dev board")
+            .set_tapped(goblin, true)
+    );
     assert!(sacrifice_at(&mut engine, goblin, P1));
+    assert!(in_graveyard(&engine, P0, fanatic()).is_some());
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(engine.state().players[1].life, 19);
 }
 
 #[test]
@@ -134,6 +136,12 @@ fn a_creature_can_be_sacrificed_only_once() {
     let goblin = on_battlefield(&engine, P0, fanatic()).unwrap();
     assert!(sacrifice_at(&mut engine, goblin, P1));
     assert!(!sacrifice_at(&mut engine, goblin, P1));
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().players[1].life,
+        19,
+        "one Fanatic, one point of damage"
+    );
 }
 
 #[test]

@@ -1,7 +1,7 @@
 //! Spells that move cards off the top of a library, with real cards: Tome
 //! Scour ({U}, target player mills five), Ancestral Recall ({U}, target
 //! player draws three) and Brainstorm ({U}, draw three, put two back). A
-//! mill moves the top cards to the graveyard (CR 701.13a), milling more
+//! mill moves the top cards to the graveyard (CR 701.17a), milling more
 //! than there is mills what there is and loses nobody the game, and a draw
 //! for another player is that player's draw.
 

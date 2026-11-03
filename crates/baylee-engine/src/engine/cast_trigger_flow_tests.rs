@@ -1,8 +1,8 @@
 //! A cast trigger with a "may", with a real card: Kor Firewalker
 //! ("Whenever a player casts a red spell, you may gain 1 life"). It
-//! triggers on casting, whoever casts (CR 603.2), resolves before the spell
-//! that caused it (CR 603.3), asks its controller (CR 603.5), and does not
-//! trigger for a spell of another colour.
+//! triggers on casting, whoever casts (CR 603.2), goes on the stack above the
+//! spell that caused it (CR 603.3), asks its controller as it resolves
+//! (CR 603.5), and does not trigger for a spell of another colour.
 
 use super::testkit::{
     Duel, basic_forest, card_index, in_hand, keep_mulligans, pass_until, quiet_creature,
@@ -116,14 +116,19 @@ fn the_trigger_waits_above_the_spell_that_caused_it() {
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::Priority { .. })
     });
+    let stack = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Stack)
+        .clone();
+    assert_eq!(stack.len(), 2, "the Shock and the trigger above it");
+    let kind = |id| engine.state().object(id).unwrap().kind;
+    assert_eq!(kind(stack[0]), crate::object::ObjectKind::Spell);
+    assert_eq!(kind(stack[1]), crate::object::ObjectKind::AbilityOnStack);
     assert_eq!(
-        engine
-            .state()
-            .zones
-            .list(crate::zone::ZoneLocation::Stack)
-            .len(),
-        2,
-        "the Shock and the trigger above it"
+        engine.state().players[1].life,
+        20,
+        "nothing has resolved yet"
     );
 }
 

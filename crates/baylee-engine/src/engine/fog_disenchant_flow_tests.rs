@@ -1,7 +1,7 @@
 //! Two answers with real cards: Fog ({G}, prevent all combat damage this
 //! turn) cast during combat, and Naturalize ({1}{G}, destroy target
 //! artifact or enchantment) against an Equipment. Fog stops
-//! damage in both directions and only this turn (CR 615.1a); Naturalize
+//! damage in both directions and only this turn (CR 615.1a, 611.2a); Naturalize
 //! may target only what it names (CR 115.1a).
 
 use super::testkit::{
@@ -51,6 +51,11 @@ fn lands_of(engine: &Game, seat: PlayerId) -> Vec<ObjectId> {
 /// Seat 0 attacks with a troll; seat 1 blocks with an elf and casts Fog
 /// in the declare blockers step.
 fn fogged_combat(block: bool) -> Game {
+    combat_with(block, true)
+}
+
+/// The same combat, with Fog cast or (as the control) kept in hand.
+fn combat_with(block: bool, cast_fog: bool) -> Game {
     let mut engine = Duel::new(SEED, basic_forest())
         .hand(1, &[fog()])
         .battlefield(0, &[troll()])
@@ -82,12 +87,27 @@ fn fogged_combat(block: bool) -> Game {
         e.state().turn.step == crate::turn::Step::DeclareBlockers
             && matches!(e.pending(), Pending::Priority { player, .. } if *player == P1)
     });
-    let forests = lands_of(&engine, P1);
-    tap_mana_where(&mut engine, P1, |id| forests.contains(&id));
-    let card = in_hand(&engine, P1, fog()).unwrap();
-    engine.apply(P1, PlayerAction::CastSpell { card }).unwrap();
+    if cast_fog {
+        let forests = lands_of(&engine, P1);
+        tap_mana_where(&mut engine, P1, |id| forests.contains(&id));
+        let card = in_hand(&engine, P1, fog()).unwrap();
+        engine.apply(P1, PlayerAction::CastSpell { card }).unwrap();
+        pass_until(&mut engine, stack_is_empty);
+        assert!(in_graveyard(&engine, P1, fog()).is_some(), "Fog resolved");
+    }
     pass_until(&mut engine, |e| e.state().turn.phase == Phase::SecondMain);
     engine
+}
+
+/// The control: without Fog the same Cudgel Troll connects for 4, and
+/// kills the blocker when blocked.
+#[test]
+fn without_fog_the_troll_connects_and_kills_the_blocker() {
+    let engine = combat_with(false, false);
+    assert_eq!(engine.state().players[1].life, 16);
+    let engine = combat_with(true, false);
+    assert!(on_battlefield(&engine, P1, quiet_creature()).is_none());
+    assert_eq!(engine.state().players[1].life, 20);
 }
 
 #[test]
@@ -100,12 +120,19 @@ fn fog_keeps_an_unblocked_attacker_off_the_player() {
 fn fog_saves_both_sides_of_a_block() {
     let engine = fogged_combat(true);
     assert!(on_battlefield(&engine, P1, quiet_creature()).is_some());
-    assert!(on_battlefield(&engine, P0, troll()).is_some());
+    let elf = on_battlefield(&engine, P1, quiet_creature()).unwrap();
+    let troll = on_battlefield(&engine, P0, troll()).unwrap();
+    let damage = |id| engine.state().object(id).unwrap().damage;
+    assert_eq!((damage(elf), damage(troll)), (0, 0), "no damage either way");
 }
 
 #[test]
 fn fog_lasts_only_this_turn() {
     let mut engine = fogged_combat(false);
+    assert!(
+        !engine.state().shields.is_empty(),
+        "Fog is still in force in the second main phase"
+    );
     let turn = engine.state().turn.number;
     pass_until(&mut engine, |e| e.state().turn.number > turn);
     assert!(engine.state().shields.is_empty());
@@ -159,7 +186,9 @@ fn naturalize_does_not_offer_a_creature_or_a_land() {
     let mut engine = naturalize_duel(&[quiet_creature(), basic_forest(), scimitar()]);
     let elf = on_battlefield(&engine, P1, quiet_creature()).unwrap();
     let land = on_battlefield(&engine, P1, basic_forest()).unwrap();
+    let blade = on_battlefield(&engine, P1, scimitar()).unwrap();
     let options = naturalize_options(&mut engine);
+    assert!(options.contains(&blade), "the Equipment is offered");
     assert!(!options.contains(&elf));
     assert!(!options.contains(&land));
 }

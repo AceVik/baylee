@@ -51,6 +51,11 @@ fn cast_x(engine: &mut Game, spell: CardIndex, x: u32, at: PlayerId) -> bool {
     if engine.apply(P0, PlayerAction::CastSpell { card }).is_err() {
         return false;
     }
+    finish_cast(engine, x, at)
+}
+
+/// Answers a started cast: X = `x`, any player question aimed at `at`.
+fn finish_cast(engine: &mut Game, x: u32, at: PlayerId) -> bool {
     for _ in 0..10 {
         let action = match engine.pending() {
             Pending::Priority { .. } => return true,
@@ -92,13 +97,26 @@ fn x_of_zero_is_legal_and_does_nothing() {
     assert!(cast_x(&mut engine, stream(), 0, P0));
     pass_until(&mut engine, stack_is_empty);
     assert_eq!(engine.state().players[0].life, 20);
+    assert!(super::testkit::in_graveyard(&engine, P0, stream()).is_some());
 }
 
+/// Three Forests pay {X}{G} for X up to 2: the game offers that range,
+/// refuses a 5, and then casts with a 2 from the very same question.
 #[test]
 fn an_x_beyond_the_mana_is_refused() {
     let mut engine = duel(stream(), &[basic_forest(); 3]);
-    assert!(!cast_x(&mut engine, stream(), 5, P0));
-    assert_eq!(engine.state().players[0].life, 20);
+    tap_all_mana(&mut engine, P0);
+    let card = in_hand(&engine, P0, stream()).unwrap();
+    engine.apply(P0, PlayerAction::CastSpell { card }).unwrap();
+    let Pending::ChooseNumber { max, .. } = engine.pending().clone() else {
+        panic!("X is asked about: {:?}", engine.pending());
+    };
+    assert_eq!(max, 2, "three mana: one for {{G}}, two for X");
+    assert!(engine.apply(P0, PlayerAction::ChooseNumber(5)).is_err());
+    assert!(matches!(engine.pending(), Pending::ChooseNumber { .. }));
+    assert!(finish_cast(&mut engine, 2, P0));
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(engine.state().players[0].life, 22);
 }
 
 #[test]
@@ -108,11 +126,17 @@ fn mind_spring_draws_x_cards() {
         &[island(), island(), basic_forest(), basic_forest()],
     );
     let library = engine.state().zones.list(ZoneLocation::Library(P0)).len();
+    let hand = engine.state().zones.list(ZoneLocation::Hand(P0)).len();
     assert!(cast_x(&mut engine, mind_spring(), 2, P0));
     pass_until(&mut engine, stack_is_empty);
     assert_eq!(
         engine.state().zones.list(ZoneLocation::Library(P0)).len(),
         library - 2
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(P0)).len(),
+        hand - 1 + 2,
+        "the spell left the hand, two cards came in"
     );
 }
 
