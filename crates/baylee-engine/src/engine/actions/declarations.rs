@@ -231,7 +231,11 @@ impl<L: CardLookup> Engine<L> {
         self.priority_holder = None;
         // The bands, which the declaration announces (CR 508.1e): asked
         // here, before the machine runs, so they stand before anything
-        // triggers on the attack.
+        // triggers on the attack. The machine is also what refreshes the
+        // projection, so it is refreshed first: the attack's taps
+        // (CR 508.1f) already took Giant Tortoise's untapped-only +0/+3, and
+        // the band question showed it at 1/4 (CR 611.3a).
+        self.state.refresh_characteristics();
         self.ask_band(player, None);
         Ok(())
     }
