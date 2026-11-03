@@ -6268,3 +6268,17 @@ got wrong was in the tests, not in the cards:
 - Played tests cover both pumps, both players' Mountains, an unaffected Forest,
   end-of-turn expiry and the changed count on resolution. Client and LLM seats
   reuse the ordinary no-choice trigger presentation; no new decision is exposed.
+
+## 2026-11-03 — Gaze of Pain's global unblocked-attacker watch
+
+- `WheneverCombatEventThisTurn` with `AttacksAndIsntBlocked` is the resolution-
+  created observer for Gaze of Pain. Granting the trigger only to creatures on
+  resolution misses later arrivals; the global filter reads `ControlledByYou`
+  when each attack becomes unblocked and remains independent of the sorcery card.
+- A global observer's source is Gaze of Pain, not its attacker. Use `ModifyEvent`
+  rather than `ModifySource` for "it assigns no combat damage"; the accepted-damage
+  test distinguishes these because the sorcery is already in the graveyard.
+- Play a Raging Goblin cast after Gaze to cover both later arrival and immediate
+  attack. The target offer must include the attacker itself because Oracle says
+  "a target creature", not "another". Existing target, yes/no and combat choices
+  serve desktop, house AI and LLM seats without a new decision type.
