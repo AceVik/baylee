@@ -2141,6 +2141,8 @@ mod mana_flow_tests;
 #[cfg(test)]
 mod mana_tests;
 #[cfg(test)]
+mod mass_flow_tests;
+#[cfg(test)]
 mod mdfc_tests;
 #[cfg(test)]
 mod mechanics_tests;
