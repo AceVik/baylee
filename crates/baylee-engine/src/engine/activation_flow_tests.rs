@@ -218,3 +218,16 @@ fn an_opponent_cannot_activate_my_creatures_ability() {
             .is_err()
     );
 }
+
+/// An ability on the stack is independent of its source (CR 113.7a): the
+/// Sorcerer dying before its ping resolves does not stop the ping.
+#[test]
+fn an_ability_resolves_after_its_source_is_gone() {
+    let mut engine = duel(&[sorcerer()]);
+    let wizard = on_battlefield(&engine, P0, sorcerer()).unwrap();
+    assert!(ping(&mut engine, wizard, P1));
+    crate::sba::destroy(engine.dev_state_mut(P0).expect("dev board"), wizard);
+    assert!(on_battlefield(&engine, P0, sorcerer()).is_none());
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(life(&engine, P1), 19);
+}
