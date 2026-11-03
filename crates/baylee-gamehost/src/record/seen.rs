@@ -322,7 +322,7 @@ mod tests {
     /// tables stand for.
     #[test]
     fn a_state_s_digest_is_its_table_s() {
-        for replayed in [forty_inputs().1, finished()] {
+        for replayed in vec![forty_inputs().1, finished()].into_boxed_slice() {
             let state = replayed.engine.state();
             let read = PublicTable::of(state);
             assert_eq!(read.digest(), seen(state));
