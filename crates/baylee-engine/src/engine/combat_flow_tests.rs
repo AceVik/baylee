@@ -254,3 +254,45 @@ fn a_vigilant_attacker_stays_untapped() {
     after_combat(&mut engine);
     assert_eq!(life(&engine, P1), 19);
 }
+
+/// Shivan Dragon flies: a ground creature's block on it is refused
+/// (CR 702.9b), and its five damage reach the defending player.
+#[test]
+fn a_flier_cannot_be_blocked_by_a_ground_creature() {
+    let dragon = super::testkit::card_index("711eea87-0fa3-46e0-a42b-fa5a86455f04");
+    let mut engine = Duel::new(SEED, basic_forest())
+        .battlefield(0, &[dragon])
+        .battlefield(1, &[quiet_creature()])
+        .start();
+    keep_mulligans(&mut engine);
+    to_attackers(&mut engine);
+    let shivan = on_battlefield(&engine, P0, dragon).expect("the dragon");
+    let elf = on_battlefield(&engine, P1, quiet_creature()).expect("their elf");
+    engine
+        .apply(
+            P0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(shivan, Defender::Player(P1))],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+            || e.state().turn.phase == Phase::SecondMain
+    });
+    if matches!(engine.pending(), Pending::ChooseBlockers { .. }) {
+        assert!(
+            engine
+                .apply(
+                    P1,
+                    PlayerAction::DeclareBlockers {
+                        blockers: vec![(elf, shivan)],
+                    },
+                )
+                .is_err()
+        );
+    }
+    after_combat(&mut engine);
+    assert_eq!(life(&engine, P1), 15);
+    assert!(on_battlefield(&engine, P1, quiet_creature()).is_some());
+}
