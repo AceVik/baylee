@@ -134,23 +134,16 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
             // the rest of its cost is. Refusing every X cost left Prismatic
             // Ending (`{X}{W}`) answering no click while the engine offered it
             // (#17); the X question is then capped by what the mana pays.
-            let increase = card.map_or_else(
-                || {
-                    baylee_core::mana::ManaCost::from_symbol_generic(
-                        legal.spell_increase(id, baylee_engine::choice::CastModeKind::Normal),
-                    )
-                },
-                |card| {
-                    baylee_ai::spell_mana_increase(
-                        view,
-                        id,
-                        card,
-                        legal,
-                        baylee_engine::choice::CastModeKind::Normal,
-                    )
-                },
+            // Priced as the engine charges it, increases and reductions both
+            // (CR 601.2f): under Goblin Warchief a Goblin costs {1} less.
+            let cost = baylee_ai::spell_price(
+                view,
+                id,
+                card,
+                legal,
+                baylee_engine::choice::CastModeKind::Normal,
+                least_x(cost),
             );
-            let cost = least_x(cost).combine(&increase);
             // A card already in `legal.castable` is in this sweep only when
             // `phyrexian_life_only` kept it here so untapped lands can offer to
             // pay the Phyrexian mana instead of life. Settling those symbols with
@@ -166,6 +159,13 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
         .iter()
         .filter(|card| !legal.lands.contains(&card.id))
         .filter(|card| !legal.castable.contains(&card.id) || phyrexian_life_only(card, &pool))
+        // The engine's own word on everything but the mana, and so on its
+        // targets (CR 601.2c): a card it would not cast once paid is never
+        // tapped for. Terror beside a White Knight (protection, CR 702.16b) got
+        // past `targeting`, which reads a filter and nothing else that stops a
+        // target, and past the AI's check, which a payable mode skipped
+        // (NEW-04).
+        .filter(|card| legal.castable_once_paid(card.id))
         // Types off the view, because those are the *projected* ones; flash
         // off the printed card, because a `HandObject` carries no keywords.
         .filter(|card| baylee_client_core::timing::allows(view, card.types, has_flash(card.card)))
@@ -203,7 +203,7 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
         .filter(|card| !targeting::provably_targetless(view, card.card))
         .filter(|card| {
             !castmodes::reachable_modes(view, legal, card.id).is_empty()
-                || baylee_ai::spell_can_be_cast_now(view, card.id, card.card)
+                || baylee_ai::spell_can_be_cast_now(view, legal, card.id, card.card)
         })
         .map(|card| card.id)
         // The command zone is castable from too (CR 903.8), and leaving it
@@ -224,6 +224,7 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
                 .into_iter()
                 .flat_map(|seat| seat.commanders.iter())
                 .filter(|c| !legal.castable.contains(&c.object))
+                .filter(|c| legal.castable_once_paid(c.object))
                 // Still *in* the zone. A commander on the battlefield or in a
                 // graveyard is named by the same `CommanderView` — the handle
                 // follows the card through every move (CR 400.7) — and only
@@ -272,7 +273,7 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
                 .get(view.seat.get() as usize)
                 .into_iter()
                 .flatten()
-                .filter(|o| !legal.castable.contains(&o.id))
+                .filter(|o| !legal.castable.contains(&o.id) && legal.castable_once_paid(o.id))
                 .filter(|o| {
                     o.card.is_some_and(|card| {
                         baylee_client_core::timing::allows(view, o.types, has_flash(card))
@@ -320,7 +321,7 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
                 .filter(|o| {
                     o.card.is_some_and(|card| {
                         !targeting::provably_targetless(view, card)
-                            && baylee_ai::spell_can_be_cast_now(view, o.id, card)
+                            && baylee_ai::spell_can_be_cast_now(view, legal, o.id, card)
                     })
                 })
                 .map(|o| o.id),
@@ -863,6 +864,7 @@ mod tests {
 
         let mut legal = LegalActions {
             mana_abilities: vec![obj(1), obj(2), obj(3)],
+            payable: vec![obj(60), obj(61)],
             spell_increases: vec![(obj(60), CastModeKind::Normal, 1)],
             ..LegalActions::default()
         };

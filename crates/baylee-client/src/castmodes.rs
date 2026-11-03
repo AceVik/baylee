@@ -130,9 +130,7 @@ pub fn reachable_modes(
     };
     let mut out = Vec::new();
     let mut offer = |kind, cost: ManaCost| {
-        let cost = cost.combine(&baylee_ai::spell_mana_increase(
-            view, card, hand.card, legal, kind,
-        ));
+        let cost = baylee_ai::spell_price(view, card, Some(hand.card), legal, kind, cost);
         if let Some(plan) =
             crate::manasources::plan_with_life_for_spell(&cost, &pool, view, legal, card, life)
         {

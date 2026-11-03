@@ -69,6 +69,7 @@ fn gloom_mana_planning_continues_past_the_printed_cost() {
             can_pass: true,
             mana_abilities: (10..13).map(obj).collect(),
             spell_increases: vec![(obj(1), baylee_engine::choice::CastModeKind::Normal, 3)],
+            payable: vec![obj(1)],
             ..Default::default()
         }),
     };

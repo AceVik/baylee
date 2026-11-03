@@ -78,6 +78,13 @@ pub(crate) fn table_with(
 ) -> Duel {
     let lands = lands(lands_up);
     let ids: Vec<_> = lands.iter().map(|o| o.id).collect();
+    // The engine lists a graveyard card it may cast from there, and whose
+    // only lack is mana, as payable.
+    let payable = mine
+        .iter()
+        .filter(|o| o.flashback.is_some() && !castable.contains(&o.id))
+        .map(|o| o.id)
+        .collect();
     let view = ViewBuilder::new(2)
         .with_battlefield(0, lands)
         .with_graveyard(0, mine)
@@ -86,6 +93,7 @@ pub(crate) fn table_with(
     let legal = LegalActions {
         can_pass: true,
         castable,
+        payable,
         abilities: ids.iter().map(|id| (*id, GRANTED_ABILITY)).collect(),
         mana_abilities: ids,
         ..LegalActions::default()

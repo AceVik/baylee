@@ -519,17 +519,6 @@ pub(crate) fn spell_increase(
     let adj = spell_adjustment(state, player, object);
     adj.increase.saturating_add(adj.mana_increase.cmc())
 }
-pub(crate) fn face_increase(
-    state: &GameState,
-    player: PlayerId,
-    card: ObjectId,
-    def: &baylee_cards_dsl::CardDef,
-    face: usize,
-    form: Option<SpellForm>,
-) -> u32 {
-    let adj = face_adjustment(state, player, card, def, face, form);
-    adj.increase.saturating_add(adj.mana_increase.cmc())
-}
 
 /// Additional generic mana for activating an ability of this object. The
 /// filter's normal zone boundary deliberately excludes white enchantment

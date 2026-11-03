@@ -18,8 +18,15 @@ fn offer(lands: &[u32], castable: &[u32], abilities: &[(u32, u32)], mana: &[u32]
         player: ME,
         legal: Box::new(LegalActions {
             unpaid_abilities: vec![],
-            payable: vec![],
+            // The boards' spells the pool does not pay for yet, which the
+            // engine would cast once paid.
+            payable: [50, 51, 53]
+                .iter()
+                .filter(|s| !castable.contains(s))
+                .map(|&s| id(s))
+                .collect(),
             spell_increases: vec![],
+            spell_reductions: vec![],
             activation_increases: vec![],
             can_pass: true,
             lands: lands.iter().map(|&s| id(s)).collect(),

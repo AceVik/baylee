@@ -281,8 +281,11 @@ pub(crate) fn priority(view: &PlayerView) -> Pending {
         player: ME,
         legal: Box::new(LegalActions {
             unpaid_abilities: vec![],
-            payable: vec![],
+            // The engine would cast each spell in hand once paid: the Bolt and
+            // the Growth have targets, Rampant Growth needs none.
+            payable: vec![id(50), id(51), id(53)],
             spell_increases: vec![],
+            spell_reductions: vec![],
             activation_increases: vec![],
             can_pass: true,
             lands: vec![id(52)],

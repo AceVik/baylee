@@ -403,8 +403,9 @@ pub fn mana_for(duel: &Duel, card: ObjectId) -> Option<baylee_client_core::manap
 
 /// What casting `card` the ordinary way costs this seat: a hand card's
 /// printed cost, a graveyard card's flashback cost, an exiled card's printed
-/// cost, or a commander's cost plus its tax, each with what effects add to
-/// the spell.
+/// cost, or a commander's cost plus its tax, each priced as the engine
+/// charges it: what effects add, less what they take off
+/// (`baylee_ai::spell_price`, CR 601.2f).
 pub(super) fn spell_cost(
     view: &PlayerView,
     legal: &baylee_engine::choice::LegalActions,
@@ -446,23 +447,14 @@ pub(super) fn spell_cost(
             commander.card,
         )
     };
-    let increase = identity.map_or_else(
-        || {
-            baylee_core::mana::ManaCost::from_symbol_generic(
-                legal.spell_increase(card, baylee_engine::choice::CastModeKind::Normal),
-            )
-        },
-        |id| {
-            baylee_ai::spell_mana_increase(
-                view,
-                card,
-                id,
-                legal,
-                baylee_engine::choice::CastModeKind::Normal,
-            )
-        },
-    );
-    Some(cost.combine(&increase))
+    Some(baylee_ai::spell_price(
+        view,
+        card,
+        identity,
+        legal,
+        baylee_engine::choice::CastModeKind::Normal,
+        cost,
+    ))
 }
 
 /// The taps that would make `card` suspendable, if any.

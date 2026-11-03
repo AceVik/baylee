@@ -694,6 +694,16 @@ pub struct LegalActions {
     /// Form-specific entries override Normal; alternatives use Normal's color.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub spell_increases: Vec<(ObjectId, CastModeKind, u32)>,
+    /// Generic reductions for mana planning, the other half of
+    /// [`Self::spell_increases`] (CR 601.2f: increases first, then
+    /// reductions, which take off generic mana only and stop at `{0}`):
+    /// rules effects (Goblin Warchief) and the card's own printed reduction
+    /// (affinity), which the view cannot evaluate. Same identities and the
+    /// same override rule as the increases. Read it through
+    /// [`Self::spell_reduction`]; it never changes what `spell_increases`
+    /// says, so a reader of that field alone keeps its meaning (protocol 11).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub spell_reductions: Vec<(ObjectId, CastModeKind, u32)>,
     /// Generic activation increases on controlled permanents. Simple mana
     /// planners must not count a taxed mana ability as free production.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -744,18 +754,30 @@ impl LegalActions {
     /// Additional generic mana for a prospective cast, before reductions.
     #[must_use]
     pub fn spell_increase(&self, card: ObjectId, kind: CastModeKind) -> u32 {
-        if matches!(kind, CastModeKind::PlayLandFace(_)) {
-            return 0;
-        }
-        self.spell_increases
-            .iter()
-            .find(|(id, mode, _)| *id == card && *mode == kind)
-            .or_else(|| {
-                self.spell_increases
-                    .iter()
-                    .find(|(id, mode, _)| *id == card && *mode == CastModeKind::Normal)
-            })
-            .map_or(0, |(_, _, n)| *n)
+        by_cast_mode(&self.spell_increases, card, kind)
+    }
+
+    /// Generic mana a prospective cast is reduced by, after its increases
+    /// (CR 601.2f).
+    #[must_use]
+    pub fn spell_reduction(&self, card: ObjectId, kind: CastModeKind) -> u32 {
+        by_cast_mode(&self.spell_reductions, card, kind)
+    }
+
+    /// Whether this seat may cast `card` once its mana is made: it is in
+    /// [`Self::castable`], or in [`Self::payable`], where every rule but the
+    /// mana has been asked — timing, additional costs, and a legal target
+    /// for each target the spell must have (CR 601.2c).
+    ///
+    /// The question a planner asks before it taps a land for a cast, and the
+    /// engine's answer to it rather than the planner's reading of the board.
+    /// A card outside both lists is one the engine refuses after the lands
+    /// are tapped, which spends the mana on nothing: Terror with no
+    /// nonblack creature to point at, an Aura with nothing to enchant
+    /// (CR 303.4a), Disenchant over a board of creatures (NEW-04).
+    #[must_use]
+    pub fn castable_once_paid(&self, card: ObjectId) -> bool {
+        self.castable.contains(&card) || self.payable.contains(&card)
     }
 
     /// Whether passing is the only thing this seat could do.
@@ -791,6 +813,22 @@ impl LegalActions {
                 .iter()
                 .any(|offer| matches!(offer.effect, GrantedActionKind::AddMana { .. }))
     }
+}
+
+/// One `(card, mode, amount)` list read for one way of casting: the mode's
+/// own entry, else `Normal`'s, which every alternative cost shares. Playing a
+/// land face is no cast and costs nothing (CR 305.1).
+fn by_cast_mode(list: &[(ObjectId, CastModeKind, u32)], card: ObjectId, kind: CastModeKind) -> u32 {
+    if matches!(kind, CastModeKind::PlayLandFace(_)) {
+        return 0;
+    }
+    list.iter()
+        .find(|(id, mode, _)| *id == card && *mode == kind)
+        .or_else(|| {
+            list.iter()
+                .find(|(id, mode, _)| *id == card && *mode == CastModeKind::Normal)
+        })
+        .map_or(0, |(_, _, n)| *n)
 }
 
 /// A player's answer to a [`Pending`] request.

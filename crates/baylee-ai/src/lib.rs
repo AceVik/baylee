@@ -1046,7 +1046,9 @@ pub fn plan_for_spell(
 
 /// Plans mana taps for activating an ability on `source` at `cost`, reserving
 /// `source` when `taps_self` is true and including a restricted mana source
-/// whose filter admits `source` when unrestricted sources alone are short.
+/// whose restriction admits an ability of `source` when unrestricted sources
+/// alone are short: mana that pays for abilities (CR 106.6), and never mana
+/// that may be spent only to cast a spell.
 #[must_use]
 pub fn plan_for_activation(
     cost: &baylee_core::mana::ManaCost,
@@ -1059,30 +1061,42 @@ pub fn plan_for_activation(
     policy::plan_for_activation(cost, pool, view, legal, source, taps_self)
 }
 
-/// The additional mana cost `id` (`card`) must pay under `mode`, preserving
-/// colored increases (`Modifier::SpellsCostMoreMana`, e.g. Derelor's `{B}`)
-/// alongside generic ones.
+/// What casting `id` (`card`) under `mode` costs, from the `cost` the caller
+/// read — printed, flashback or alternative, a commander's tax included: the
+/// engine's published increases added, coloured ones as pips
+/// (`Modifier::SpellsCostMoreMana`, Derelor's `{B}`), and then its published
+/// reductions (Goblin Warchief, affinity) taken off the generic part
+/// (CR 601.2f, 118.7a).
+///
+/// Every planner prices a cast through here — the house, the seat's reach
+/// and the client's — so the price they tap for is the price the engine
+/// charges. `card` is `None` where the caller cannot name the card, which
+/// loses only the colour of a coloured increase.
 #[must_use]
-pub fn spell_mana_increase(
+pub fn spell_price(
     view: &PlayerView,
     id: ObjectId,
-    card: baylee_view::CardIdentity,
+    card: Option<baylee_view::CardIdentity>,
     legal: &baylee_engine::choice::LegalActions,
     mode: baylee_engine::choice::CastModeKind,
+    cost: baylee_core::mana::ManaCost,
 ) -> baylee_core::mana::ManaCost {
-    policy::spell_mana_increase(view, id, card, legal, mode)
+    policy::spell_price(view, id, card, legal, mode, cost)
 }
 
-/// Whether `id` (`card`) can be cast right now as far as timing conditions
-/// (`Siren's Call`), mandatory additional costs (`Bone Splinters`) and
-/// mandatory targets (`Terror`, `Counterspell`) can be checked from `view`.
+/// Whether `id` (`card`) is worth tapping lands for right now: the engine
+/// would cast it once paid (`LegalActions::castable_once_paid`, which is
+/// where its mandatory targets are answered: Terror, Fear, Counterspell,
+/// CR 601.2c), and the timing conditions (`Siren's Call`) and mandatory
+/// additional costs (`Bone Splinters`) the view can read allow it.
 #[must_use]
 pub fn spell_can_be_cast_now(
     view: &PlayerView,
+    legal: &baylee_engine::choice::LegalActions,
     id: ObjectId,
     card: baylee_view::CardIdentity,
 ) -> bool {
-    policy::spell_can_be_cast_now(view, id, card)
+    policy::spell_can_be_cast_now(view, legal, id, card)
 }
 
 /// Whether an offered activation can do nothing but make mana: a mana

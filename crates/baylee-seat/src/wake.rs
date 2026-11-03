@@ -627,7 +627,9 @@ pub struct Reach {
     /// Where it would be cast from.
     pub from: ReachFrom,
     /// The taps, in order, and the cost they pay: the printed cost with
-    /// `{X}` at 0, and a commander's tax (CR 903.8) added.
+    /// `{X}` at 0, a commander's tax (CR 903.8) added, and priced as the
+    /// engine charges it, its increases and reductions applied
+    /// (`baylee_ai::spell_price`, CR 601.2f).
     pub plan: Plan,
 }
 
@@ -660,10 +662,11 @@ pub struct AbilityReach {
 
 /// Every card the seat could cast by tapping what it has untapped: a card
 /// in hand the engine does not list yet (its mana is still in the lands)
-/// whose timing allows it now, whose printed cost the seat's sources pay
-/// and which is not a counterspell with nothing on the stack
-/// ([`targets_the_stack`]), and a commander in the command zone with its
-/// tax.
+/// whose timing allows it now, whose price the seat's sources pay, which
+/// the engine would cast once paid (`LegalActions::castable_once_paid`:
+/// a legal target for each it must have, CR 601.2c) and which is not a
+/// counterspell with nothing on the stack ([`targets_the_stack`]), and a
+/// commander in the command zone with its tax.
 ///
 /// Cards the engine already lists as castable (the mana is floating) are
 /// not here: they need no taps. Nor is a card whose cost the pool already
@@ -703,8 +706,9 @@ pub fn reachable(view: &PlayerView, legal: &LegalActions) -> Vec<Reach> {
     let payable =
         |id: ObjectId, card: baylee_view::CardIdentity, cost: ManaCost, mode: CastModeKind| {
             cost.symbols().next()?;
-            let increase = baylee_ai::spell_mana_increase(view, id, card, legal, mode);
-            let mut total = cost.with_x(0).combine(&increase);
+            // The price the engine charges, its reductions included (CR 601.2f).
+            let mut total =
+                baylee_ai::spell_price(view, id, Some(card), legal, mode, cost.with_x(0));
             if has_convoke(card) && !convoke_creatures.is_empty() {
                 total = reduce_for_convoke(total, &convoke_creatures);
             }
@@ -717,21 +721,21 @@ pub fn reachable(view: &PlayerView, legal: &LegalActions) -> Vec<Reach> {
         .filter(|card| {
             !legal.castable.contains(&card.id)
                 || printed_cost(card.card).is_some_and(|c| {
-                    let inc = baylee_ai::spell_mana_increase(
+                    let price = baylee_ai::spell_price(
                         view,
                         card.id,
-                        card.card,
+                        Some(card.card),
                         legal,
                         CastModeKind::Normal,
+                        c.with_x(0),
                     );
-                    baylee_client_core::manaplan::plan(&c.with_x(0).combine(&inc), &pool, &[])
-                        .is_none()
+                    baylee_client_core::manaplan::plan(&price, &pool, &[]).is_none()
                 })
         })
         .filter(|card| !card.types.contains(TypeSet::LAND))
         .filter(|card| baylee_client_core::timing::allows(view, card.types, flash(card.card)))
         .filter(|card| !view.stack.is_empty() || !targets_the_stack(card.card))
-        .filter(|card| baylee_ai::spell_can_be_cast_now(view, card.id, card.card))
+        .filter(|card| baylee_ai::spell_can_be_cast_now(view, legal, card.id, card.card))
         .filter_map(|card| {
             Some(Reach {
                 object: card.id,
@@ -894,7 +898,7 @@ fn commanders(
             let types = view.object(c.object).map_or(TypeSet::CREATURE, |o| o.types);
             if !baylee_client_core::timing::allows(view, types, flash(card))
                 || view.stack.is_empty() && targets_the_stack(card)
-                || !baylee_ai::spell_can_be_cast_now(view, c.object, card)
+                || !baylee_ai::spell_can_be_cast_now(view, legal, c.object, card)
             {
                 return None;
             }
@@ -926,7 +930,7 @@ fn graveyard_and_exile(
         };
         if !baylee_client_core::timing::allows(view, object.types, flash(card))
             || view.stack.is_empty() && targets_the_stack(card)
-            || !baylee_ai::spell_can_be_cast_now(view, object.id, card)
+            || !baylee_ai::spell_can_be_cast_now(view, legal, object.id, card)
         {
             continue;
         }
@@ -958,7 +962,7 @@ fn graveyard_and_exile(
         };
         if !baylee_client_core::timing::allows(view, object.types, flash(card))
             || view.stack.is_empty() && targets_the_stack(card)
-            || !baylee_ai::spell_can_be_cast_now(view, object.id, card)
+            || !baylee_ai::spell_can_be_cast_now(view, legal, object.id, card)
         {
             continue;
         }
