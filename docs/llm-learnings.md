@@ -6329,3 +6329,19 @@ got wrong was in the tests, not in the cards:
   flows. The house may activate without guessing a defined-X price; the worth
   table deliberately leaves the future prevention value contextual, so the
   exact activation census adds one unread row, to 2979 of 3783.
+
+## 2026-11-03 — Drought's symbol-counted sacrifice costs
+
+- Keep externally imposed non-mana costs in an owned ordered part list. A spell
+  appends them after its selected face's costs; an `ActivationPrice` carries
+  them with its mana and allowance through object choices, mana windows and
+  continuations. Do not manufacture a temporary `Cost` from a static slice.
+- Count matching symbols through `ManaCost::symbols`, so hybrid, two-or-color,
+  Phyrexian and hybrid-Phyrexian symbols each contribute one sacrifice. Freeze
+  the external spell parts before payment, and use one matching/answer stream
+  so a permanent cannot satisfy two costs.
+- Ten played tests cover the upkeep payment, Dark Ritual, Carrion's printed
+  plus imposed sacrifices, Mire Shade, Order of the Ebon Hand, both players,
+  insufficient Swamps, two Droughts, Disenchant and a real mana window. Desktop,
+  house AI and LLM seats reuse the ordinary cast, activation and `CostSacrifice`
+  decisions; no card-specific choice or policy is needed.
