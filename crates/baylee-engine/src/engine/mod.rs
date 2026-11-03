@@ -2145,6 +2145,8 @@ mod mind_twist_tests;
 #[cfg(test)]
 mod miracle_tests;
 #[cfg(test)]
+mod modal_flow_tests;
+#[cfg(test)]
 mod monarch_table_tests;
 #[cfg(test)]
 mod monarch_tests;
