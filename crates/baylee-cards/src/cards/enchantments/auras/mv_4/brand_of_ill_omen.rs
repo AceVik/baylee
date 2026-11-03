@@ -7,15 +7,12 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-// NOT SUPPORTED: "Enchanted creature's controller can't cast creature spells." —
-// the DSL has no static cast restriction scoped to the enchanted permanent's controller.
 card!(
     index = index::BRAND_OF_ILL_OMEN,
     oracle_id = "947bd180-ee95-4db4-b5d9-432428018eb8",
     scryfall_id = "ceeb7bbc-2d41-4709-95be-1ceb952ed1fb",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage =
-        Coverage::Partial("missing static cast restriction on enchanted creature's controller"),
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Brand of Ill Omen",
         mana_cost = mana!("{3}{R}"),
@@ -28,6 +25,13 @@ card!(
                 target: TargetSpec::Object(&Filter::CREATURE)
             }],
             targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE)))
+        ),
+        static_ability!(
+            Filter::Any,
+            Modifier::PlayersCantCast {
+                who: PlayerRel::ControllerOfAttached,
+                filter: &Filter::CREATURE,
+            }
         ),
         triggered!(
             Trigger::StepBegin {
