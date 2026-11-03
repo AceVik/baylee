@@ -472,7 +472,12 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // the target leaves. That linked, turn-dependent exchange stays unread.
     // Chromatic Armor adds a defined-X counter and color-choice activation;
     // the value of its future damage prevention is contextual and stays unread.
-    assert_eq!((read, of), (2979, 3783), "activated/loyalty reader census");
+    // Dreams of the Dead reads target modifiers on the returned creature.
+    // Seventeen other activation rows gain the same reader; Kjeldoran Guard,
+    // Heart Wolf and War Barge stay unread because their delayed exchanges
+    // depend on a future zone change. Kjeldoran Elite Guard loses its former
+    // readable row for that reason too: a net sixteen-row increase to 2995.
+    assert_eq!((read, of), (2995, 3783), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,
@@ -490,6 +495,33 @@ fn the_table_reads_most_of_what_the_pool_activates() {
         agent().effects_worth(&v, origin, effects, Aim::Source, 0),
         None
     );
+
+    // A modifier now reads on its target, but it must not make a linked,
+    // conditional delayed effect look immediate and certain.
+    for name in [
+        "Kjeldoran Guard",
+        "Kjeldoran Elite Guard",
+        "Heart Wolf",
+        "War Barge",
+    ] {
+        let index = baylee_cards::decks::by_name(name).unwrap();
+        let definition = baylee_cards::by_index(index).unwrap();
+        let mut checked = 0;
+        for ability in definition.abilities_for_face(0) {
+            let (AbilityDef::Activated { effects, .. }
+            | AbilityDef::ActivatedConditional { effects, .. }) = ability
+            else {
+                continue;
+            };
+            checked += 1;
+            assert_eq!(
+                agent().effects_worth(&v, origin, effects, Aim::Source, 0),
+                None,
+                "{name}: the future zone-change exchange stays unread"
+            );
+        }
+        assert_eq!(checked, 1, "{name}: one activation checked");
+    }
 }
 
 /// Reconcile the census delta against every card in the first Partial batch.

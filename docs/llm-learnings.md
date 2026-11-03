@@ -6391,3 +6391,24 @@ got wrong was in the tests, not in the cards:
   top-pick valuation now includes the reorder variant: its regression was red
   with zero instead of the picked card's value before the fix and passes with
   the full 313-test AI suite afterwards. No card-specific policy was added.
+
+## 2026-11-03 — Dreams of the Dead's bound reanimation modifiers
+
+- Reuse `GraveyardToBattlefield` followed by two target-bound continuous
+  effects. `GrantTriggered` supplies cumulative upkeep {2} through one age
+  counter and `Amount::Times`; `ExileInsteadOfLeavingBattlefield` replaces every
+  later departure. Both last indefinitely and remain attached to the returned
+  creature rather than to Dreams of the Dead.
+- Three played tests cover white and black targets, green and opposing-cards'
+  exclusion, the first {2} and second {4} upkeep questions, payment, refusal,
+  and exile instead of either that sacrifice or an Unsummon bounce. Desktop and
+  LLM seats reuse the ordinary target, activation and payment decisions; no new
+  decision type or card-specific policy is needed.
+- The house AI now prices `ModifyTargets` on its actual subject. Cumulative
+  upkeep and a later destination add no immediate value, while conditional
+  delayed zone-change exchanges remain unread. `Destroy ThisObject` also binds
+  the origin rather than a delayed trigger's remembered target; the Goblin
+  Sappers regression distinguishes those objects. The reanimation regression
+  was red before the reader change, and the full 314-test AI suite is green.
+  The reviewed activation census is 2995 of 3783: eighteen rows become readable
+  and Kjeldoran Elite Guard loses one formerly context-free reading.
