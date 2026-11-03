@@ -115,3 +115,27 @@ fn mind_spring_draws_x_cards() {
         library - 2
     );
 }
+
+fn blaze() -> CardIndex {
+    card_index("0596920f-9946-42f4-a03b-24aab67f9f1b")
+}
+
+fn mountain() -> CardIndex {
+    card_index("a3fb7228-e76b-4e96-a40e-20b5fed75685")
+}
+
+#[test]
+fn blaze_deals_x_damage_to_a_player() {
+    let mut engine = duel(blaze(), &vec![mountain(); 5]);
+    assert!(cast_x(&mut engine, blaze(), 4, P1));
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(engine.state().players[1].life, 16);
+}
+
+#[test]
+fn the_x_announced_is_the_x_paid() {
+    // Five Mountains: X = 4 uses them all, so nothing is left floating.
+    let mut engine = duel(blaze(), &vec![mountain(); 5]);
+    assert!(cast_x(&mut engine, blaze(), 4, P1));
+    assert!(engine.state().players[0].mana_pool.is_empty());
+}
