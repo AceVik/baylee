@@ -2097,6 +2097,8 @@ mod foretell_tests;
 #[cfg(test)]
 mod granted_this_tests;
 #[cfg(test)]
+mod hand_size_tests;
+#[cfg(test)]
 mod house_rules_tests;
 #[cfg(test)]
 mod if_you_do_tests;
