@@ -85,8 +85,10 @@ Example, a fetchland main phase: {\"ask\": \"q38\", \"pick\": [\"a2\"], \"plan\"
 \"react\": \"targets_me\", \"say\": \"Fetch a Swamp, then the Shaman.\"}
 
 THINGS TO KNOW
-- Objects are #N. A card that moves from one zone to another becomes a new object with a new id \
-(CR 400.7): use the ids in the current message.
+- Objects are #N. A card keeps its #N when it moves from one zone to another, but it becomes a \
+new object (CR 400.7): what applied to it before does not follow it. A target names its version: \
+\"current\" is that object as it is now, \"earlier incarnation\" one that has moved since it was \
+targeted. Use the ids in the current message.
 - Players are P1, P2 and so on (seat order); the header and the seat lines say which one is you. \
 No player is named in any other way.
 - Unspent mana empties as each step and phase ends (CR 500.5); options tap only what they need.
