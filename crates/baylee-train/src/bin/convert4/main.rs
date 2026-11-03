@@ -90,6 +90,14 @@ struct Args {
     /// not list are skipped.
     #[arg(long, conflicts_with_all = ["shadow_bc", "llm_bc", "live_bc"])]
     game_weights: Option<PathBuf>,
+    /// BC-only search distillation: the answers searched decisions played
+    /// are the policy targets; every run must have been searched.
+    #[arg(long, conflicts_with_all = ["shadow_bc", "llm_bc", "live_bc", "game_weights"])]
+    search_targets: bool,
+    /// With `--search-targets`: the policy weight of the net's own
+    /// unsearched decisions (0 leaves them out).
+    #[arg(long, requires = "search_targets", default_value_t = 0.0)]
+    search_unsearched_weight: f32,
 }
 
 #[derive(Clone, Debug)]
@@ -136,6 +144,7 @@ mod on_policy;
 mod output;
 mod policy_provenance;
 mod research;
+mod search_distill;
 mod self_imitation;
 mod shadow;
 mod unreplayable;
@@ -165,6 +174,9 @@ fn main() -> anyhow::Result<()> {
     if args.game_weights.is_some() && (!args.include_passive_obs || !args.val_runs.is_empty()) {
         bail!("--game-weights requires --include-passive-obs and weighs --runs only");
     }
+    if args.search_targets && (!args.include_passive_obs || !args.val_runs.is_empty()) {
+        bail!("--search-targets requires --include-passive-obs and distills --runs only");
+    }
     if args.out.exists() {
         bail!("{} already exists", args.out.display());
     }
@@ -177,6 +189,10 @@ fn main() -> anyhow::Result<()> {
         .llm_bc_skip_unreplayable
         .as_deref()
         .map(unreplayable::Skip::load)
+        .transpose()?;
+    let mut search_targets = args
+        .search_targets
+        .then(|| search_distill::Targets::new(args.search_unsearched_weight))
         .transpose()?;
     fs::create_dir_all(&args.out)?;
 
@@ -210,6 +226,11 @@ fn main() -> anyhow::Result<()> {
                     == Some(u64::from(args.encoder_version)),
                 "Neural producer/converter encoder mismatch; probabilities cannot migrate across encoders"
             );
+        }
+        if let Some(targets) = &mut search_targets {
+            targets
+                .admit(&run_json)
+                .with_context(|| format!("{}", run_dir.display()))?;
         }
         policy_sources.push(run_json.clone());
         if let Some(decks) = run_json["decks"].as_array() {
@@ -251,6 +272,10 @@ fn main() -> anyhow::Result<()> {
                 }
                 None => None,
             };
+            anyhow::ensure!(
+                search_targets.is_none() || v.get("rollout_sidecar").is_some(),
+                "search distillation needs the rollout sidecar naming searched answers"
+            );
             let shard_name = v["shard"]
                 .as_str()
                 .context("missing shard name in games.jsonl")?;
@@ -474,6 +499,10 @@ fn main() -> anyhow::Result<()> {
         meta["self_imitation"] = weights.metadata(games_arc.len());
         meta["ppo_eligible"] = json!(false);
     }
+    if let Some(targets) = &search_targets {
+        meta["search_distillation"] = targets.metadata(games_arc.len());
+        meta["ppo_eligible"] = json!(false);
+    }
     fs::write(
         args.out.join("dataset_header.json"),
         serde_json::to_vec_pretty(&meta)?,
@@ -498,6 +527,9 @@ fn main() -> anyhow::Result<()> {
         let include_passive = args.include_passive_obs;
         let live_bc = args.live_bc;
         let encoder_version = args.encoder_version;
+        let search_weighting = search_targets
+            .as_ref()
+            .map(search_distill::Targets::weighting);
 
         handles.push(std::thread::spawn(move || -> anyhow::Result<()> {
             loop {
@@ -516,6 +548,7 @@ fn main() -> anyhow::Result<()> {
                 let mut llm_labels=gref.llm.as_ref().map(|source|llm::FrameLabels::new_with_encoder(&root,gref.game_id,source,encoder_version)).transpose()?;
                 let emit = |mut step: Step4| {
                     if let Some(seats) = &gref.seat_weights { self_imitation::apply(&mut step, seats); }
+                    if let Some(weighting) = search_weighting { weighting.apply(&mut step); }
                     if let Some(labels) = &mut frame_labels { labels.push(&step)?; }
                     if let Some(labels)=&mut llm_labels {labels.push(&step)?;}
                     writer.push(&step).map_err(|e|e.to_string())

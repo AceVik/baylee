@@ -980,6 +980,28 @@ each twin encodes its next row while the lane runs the others'. The gain
 this is built for is on the GPU, where a call's cost grows little with its
 rows (§"Batched GPU inference and FP16 graphs"); not measured yet.
 
+**v3 measured on the GPU (2 November 2026).** `f9f2dd4bd`, `v6s-selfimit/s1`
+with `--catalog-drift`, `dev1024` against sharp, 8 workers,
+`--inference-batch 136`, `--search-threads 16`, `--search 4,4,6` (prior):
+430 of 1024 won (42.0 %) against 372 (36.3 %) without search, +5.6 points;
+deal by deal 103 better, 45 worse, 876 equal (sign test z ≈ 4.8). 67,399 of
+314,178 decisions were searched (21 %) and 4,277 answers changed (6.3 % of
+them; most often a mana ability for a pass and back, and one land drop for
+another). A searched decision took 0.80 s (p95 1.61 s); the 1024 games
+9,280 s against 626 s.
+
+**Search distillation (`convert4 --search-targets`).** A searched run's
+games become a BC-only dataset in which the answers the search played are
+the policy targets: a decision answered as `Search` keeps its weight, the
+net's own unsearched decisions keep `--search-unsearched-weight` (default 0)
+of theirs, and the house's, forced answers and passive frames keep their
+frames for memory and value but no policy weight. Every run must name a
+search in its `run.json` and carry its rollout sidecar; separate
+`--val-runs` are refused. The dataset header records the weighting and each
+run's search under `search_distillation` and is not PPO-eligible. Its
+games are played by the search, so the value targets are the searched
+player's outcomes.
+
 ### BayleeAI v5 relational pilot
 
 `model5.Config5` / `PlayerNet5` identify the new major family with
