@@ -139,3 +139,75 @@ fn a_spell_with_no_legal_target_is_not_reached_for() {
     let terror = reach_of(&reach, "Terror").expect("the Bears are a target");
     assert_eq!(terror.plan.steps.len(), 2);
 }
+
+/// Mana that may be spent only to cast a spell pays for no ability, whatever
+/// the ability's source is (CR 106.6). The engine refuses it
+/// (`mana_provenance::admits`), and the seat planned it: Delighted
+/// Halfling's coloured mana ("only to cast a legendary spell") for the
+/// legendary Yawgmoth's `{B}{B}` proliferate, and Mishra's Workshop's ("only
+/// to cast artifact spells") for Rod of Ruin's `{3}`. The filter named the
+/// source, so the plan tapped it, and the payment refused the mana
+/// (NEW-05, 3.11.2026).
+#[test]
+fn mana_only_for_spells_is_never_planned_for_an_ability() {
+    let ability_of = |reach: &[super::super::AbilityReach], view: &PlayerView, name: &str| {
+        let source = view
+            .battlefield
+            .iter()
+            .find(|o| o.name == name)
+            .unwrap_or_else(|| panic!("{name} is on the battlefield"))
+            .id;
+        reach.iter().any(|r| r.source == source)
+    };
+    for (mine, source, reached) in [
+        (
+            &["Yawgmoth, Thran Physician", "Delighted Halfling", "Swamp"][..],
+            "Yawgmoth, Thran Physician",
+            false,
+        ),
+        (
+            &["Yawgmoth, Thran Physician", "Swamp", "Swamp"][..],
+            "Yawgmoth, Thran Physician",
+            true,
+        ),
+        (
+            &["Rod of Ruin", "Mishra's Workshop"][..],
+            "Rod of Ruin",
+            false,
+        ),
+        (
+            &[
+                "Rod of Ruin",
+                "Mishra's Workshop",
+                "Mountain",
+                "Mountain",
+                "Mountain",
+            ][..],
+            "Rod of Ruin",
+            true,
+        ),
+    ] {
+        // A card in hand, for the proliferate's discard.
+        let (_, view, legal) = position(mine, &["Mountain"], &[]);
+        let reach = super::super::reachable_abilities(&view, &legal);
+        assert_eq!(
+            ability_of(&reach, &view, source),
+            reached,
+            "{source} over {mine:?}"
+        );
+        if reached {
+            let plan = &reach
+                .iter()
+                .find(|r| view.object(r.source).is_some_and(|o| o.name == source))
+                .unwrap()
+                .plan;
+            for step in &plan.steps {
+                let tapped = view.object(step.source).map(|o| o.name.as_str());
+                assert!(
+                    !matches!(tapped, Some("Mishra's Workshop" | "Delighted Halfling")),
+                    "{source}'s plan tapped {tapped:?}"
+                );
+            }
+        }
+    }
+}

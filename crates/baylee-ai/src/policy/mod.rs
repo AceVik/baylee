@@ -648,7 +648,7 @@ impl HeuristicAgent {
             return color;
         }
         let may_pay = |id: ObjectId| {
-            only_for.is_none_or(|filter| self.admits(view, filter, context.source, id))
+            only_for.is_none_or(|restriction| self.admits(view, &restriction, context.source, id))
         };
         if self.profile.mulligan_skill >= 2
             && let Some(color) = self.planned_color(view, options, &may_pay)
@@ -745,8 +745,9 @@ impl HeuristicAgent {
         let best = restricted
             .iter()
             .filter(|o| {
-                o.only_for
-                    .is_some_and(|filter| self.admits(view, filter, Some(o.source.id), spell))
+                o.only_for.as_ref().is_some_and(|restriction| {
+                    self.admits(view, restriction, Some(o.source.id), spell)
+                })
             })
             .min_by_key(|o| {
                 (
@@ -1935,7 +1936,7 @@ fn split_restricted(mut offers: Vec<Offer>) -> (Vec<Offer>, Vec<Offer>) {
 struct Offer {
     source: Source,
     /// What its mana may be spent on, when it is restricted (CR 106.6).
-    only_for: Option<&'static Filter>,
+    only_for: Option<baylee_cards_dsl::ManaRestriction>,
 }
 
 /// Every offered simple mana tap, restricted ones with their filter.
@@ -2081,7 +2082,12 @@ fn printed_mana_offer(
     id: ObjectId,
     index: u32,
     object: &baylee_view::PublicObject,
-) -> Option<(Vec<ManaColor>, u8, bool, Option<&'static Filter>)> {
+) -> Option<(
+    Vec<ManaColor>,
+    u8,
+    bool,
+    Option<baylee_cards_dsl::ManaRestriction>,
+)> {
     let a = crate::activate::printed(view, id, index)?;
     let (AbilityDef::Activated {
         cost,
@@ -2209,8 +2215,8 @@ pub(crate) fn plan_for_activation(
         .iter()
         .filter(|o| !taps_self || o.source.id != source)
         .filter(|o| {
-            o.only_for.is_some_and(|filter| {
-                agent.admits_activation(view, filter, Some(o.source.id), source)
+            o.only_for.as_ref().is_some_and(|restriction| {
+                agent.admits_activation(view, restriction, Some(o.source.id), source)
             })
         })
         .min_by_key(|o| {

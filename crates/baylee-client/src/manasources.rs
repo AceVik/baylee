@@ -149,11 +149,11 @@ pub fn sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
     sources
 }
 
-/// Restricted taps with the filter their mana may pay for (CR 106.6).
+/// Restricted taps with the restriction their mana is spent under (CR 106.6).
 fn restricted_sources(
     view: &PlayerView,
     legal: &LegalActions,
-) -> Vec<(Source, &'static baylee_cards_dsl::Filter)> {
+) -> Vec<(Source, baylee_cards_dsl::ManaRestriction)> {
     let mut out = Vec::new();
     for &(id, index) in &legal.abilities {
         if legal.activation_increase(id) > 0 {
@@ -225,11 +225,11 @@ fn with_one_restricted(
     let agent = baylee_ai::HeuristicAgent::new(baylee_ai::AIProfile::default());
     let best = restricted_sources(view, legal)
         .into_iter()
-        .filter(|(source, filter)| {
+        .filter(|(source, restriction)| {
             if activation {
-                agent.admits_activation(view, filter, Some(source.id), subject)
+                agent.admits_activation(view, restriction, Some(source.id), subject)
             } else {
-                agent.admits(view, filter, Some(source.id), subject)
+                agent.admits(view, restriction, Some(source.id), subject)
             }
         })
         .map(|(source, _)| source)
@@ -285,8 +285,9 @@ pub fn plan_with_life_for_spell(
 }
 
 /// The mana for `source`'s own activation. The source itself stays reserved,
-/// and a restricted tap is admitted only if this permanent's characteristics
-/// satisfy its filter (an Ally source, for example).
+/// and a restricted tap is admitted only if its mana may pay for an ability
+/// (never mana "only to cast" a spell, CR 106.6) and this permanent's
+/// characteristics satisfy its filter (an Ally source, for example).
 #[must_use]
 pub fn plan_for_activation(
     cost: &ManaCost,
@@ -1978,21 +1979,27 @@ mod tests {
         );
     }
 
+    /// The Tea Shop's choice mana is written spell-only (`restricted`, so
+    /// `ManaUse::Spells`): its card says the "or activate an ability of an Ally
+    /// source" half is not built, and the engine spends it on no ability
+    /// (`mana_provenance::admits`, CR 106.6). This test used to expect a plan
+    /// for Ondu Cleric's ability off it, one the payment then refused; the
+    /// planner follows the engine (NEW-05). When the card gains the ability
+    /// half (`ManaUse::SpellsOrAbilities`), this is where the plan returns.
     #[test]
-    fn restricted_ally_mana_also_activates_an_ally_source() {
+    fn restricted_ally_mana_pays_no_ability_while_its_card_says_spells_only() {
         let (view, legal) = jasmine_mana_board();
         let pool = baylee_view::ManaPoolView::default();
-        let plan = plan_for_activation(
-            &mana_cost("{W}"),
-            &pool,
-            &view,
-            &legal,
-            ObjectId::new(20, 0),
-        )
-        .expect("Ondu Cleric is an Ally source");
-        assert_eq!(
-            plan.steps.last().map(|step| step.tap),
-            Some(Tap::Ability(1))
+        assert!(
+            plan_for_activation(
+                &mana_cost("{W}"),
+                &pool,
+                &view,
+                &legal,
+                ObjectId::new(20, 0),
+            )
+            .is_none(),
+            "spell-only Ally mana does not pay an Ally source's ability"
         );
         assert!(
             plan_for_activation(&mana_cost("{W}"), &pool, &view, &legal, ObjectId::new(2, 0))

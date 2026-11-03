@@ -220,7 +220,11 @@ restricted source per spell, and that tap comes last: once the mana floats, no
 plan counts it, and only the engine's merge makes the spell castable. Its mana
 is spent first, so it never counts as held up. Its colour is named for a spell
 it may pay for. A price floated before the cast (an X, a kicker) is paid from
-unrestricted sources only.
+unrestricted sources only. The restriction's kind of payment (`ManaUse`) is
+asked before its filter, as the engine asks it: mana that may be spent only to
+cast spells pays for no activated ability, so Delighted Halfling's coloured
+mana is never planned for Yawgmoth's proliferate, nor Mishra's Workshop's for
+an artifact's ability (NEW-05).
 
 Searches, bottoming,
 and surveils at the skilled levels evaluate only identities actually visible

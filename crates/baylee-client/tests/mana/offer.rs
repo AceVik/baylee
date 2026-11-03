@@ -94,3 +94,43 @@ fn a_spell_with_no_legal_target_is_not_in_reach() {
         }
     }
 }
+
+/// Mishra's Workshop: "Spend this mana only to cast artifact spells." The
+/// engine never lets it pay an ability (`mana_provenance::admits`, CR 106.6),
+/// and the client planned it for Rod of Ruin's `{3}` because the filter named
+/// an artifact: the run tapped the Workshop and the payment refused its mana
+/// (NEW-05, 3.11.2026). With Mountains beside it, the Mountains pay.
+#[test]
+fn a_workshop_never_pays_for_an_artifacts_ability() {
+    for mountains in [0, 3] {
+        let mut battlefield = vec!["Rod of Ruin", "Mishra's Workshop"];
+        battlefield.extend(std::iter::repeat_n("Mountain", mountains));
+        let mut table = Table::open_with(&red_preset(&[], &battlefield));
+        table.walk_to_main();
+        let view = table.view();
+        let named_id = |name: &str| {
+            view.battlefield
+                .iter()
+                .find(|o| o.name == name)
+                .unwrap_or_else(|| panic!("{name} is on the table"))
+                .id
+        };
+        let (rod, workshop) = (named_id("Rod of Ruin"), named_id("Mishra's Workshop"));
+        let &(_, index, _) = table
+            .legal()
+            .unpaid_abilities
+            .iter()
+            .find(|(source, _, _)| *source == rod)
+            .expect("the premise: the engine offers the Rod's ability, short only of mana");
+        let plan = baylee_client::abilities::mana_for(view, table.legal(), rod, index);
+        if mountains == 0 {
+            assert_eq!(plan, None, "the Workshop's mana pays no ability");
+        } else {
+            let plan = plan.expect("three Mountains pay {3}");
+            assert!(
+                plan.steps.iter().all(|step| step.source != workshop),
+                "the Workshop is never tapped for the Rod: {plan:?}"
+            );
+        }
+    }
+}

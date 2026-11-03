@@ -7,9 +7,10 @@
 //! (its rule 2). So the restriction is read off the ability that makes the
 //! mana, **before** the tap, and a restricted source is tapped only
 //!
-//! - for a spell its filter admits, as far as the view can tell — an
-//!   unreadable filter (a chosen type, a commander's types) is a no, because
-//!   mana the payment then refuses is a tap thrown away;
+//! - for a payment its restriction admits, as far as the view can tell: the
+//!   kind of payment first (`ManaUse`: a spell, an ability, either), then the
+//!   filter. An unreadable filter (a chosen type, a commander's types) is a
+//!   no, because mana the payment then refuses is a tap thrown away;
 //! - once per spell;
 //! - as the last tap of the plan. After it the engine's own merge
 //!   (`casting::spendable_pool`) makes the spell castable, so the planner
@@ -23,7 +24,7 @@
 
 use std::borrow::Cow;
 
-use baylee_cards_dsl::{Effect, Filter, ZoneRef};
+use baylee_cards_dsl::{Effect, ManaRestriction, ManaUse, ZoneRef};
 use baylee_core::ids::ObjectId;
 use baylee_core::types::SubtypeSet;
 use baylee_view::{ObjectStatus, PlayerView, PublicObject};
@@ -32,40 +33,63 @@ use crate::HeuristicAgent;
 
 /// What the mana `effects` add may be spent on, when it is restricted. A
 /// rider alone restricts nothing (#232): that source is an ordinary one.
-pub fn only_for(effects: &[Effect]) -> Option<&'static Filter> {
+pub fn only_for(effects: &[Effect]) -> Option<ManaRestriction> {
     effects.iter().find_map(|effect| match effect {
         Effect::AddMana {
             restriction: Some(restriction),
             ..
-        } if restriction.restricts => Some(restriction.filter),
+        } if restriction.restricts => Some(*restriction),
         _ => None,
     })
 }
 
 impl HeuristicAgent {
-    /// Whether mana `source` makes under `filter` may pay for the spell
-    /// `spell`, as far as the view can tell.
+    /// Whether mana `source` makes under `restriction` may pay for casting
+    /// `spell`, as far as the view can tell: a restriction that pays only
+    /// for abilities pays for no spell (CR 106.6), and the rest must name it.
     pub fn admits(
         &self,
         view: &PlayerView,
-        filter: &Filter,
+        restriction: &ManaRestriction,
         source: Option<ObjectId>,
         spell: ObjectId,
     ) -> bool {
-        spell_object(view, spell).is_some_and(|object| {
-            self.filter_matches(filter, view, &object, ZoneRef::Stack, source) == Some(true)
+        !matches!(
+            restriction.uses,
+            ManaUse::Abilities | ManaUse::CumulativeUpkeep
+        ) && spell_object(view, spell).is_some_and(|object| {
+            self.filter_matches(restriction.filter, view, &object, ZoneRef::Stack, source)
+                == Some(true)
         })
     }
 
-    /// Whether the same restricted mana may activate `activated`, an Ally
-    /// source or another permanent whose current characteristics match.
+    /// Whether the same restricted mana may pay for activating an ability of
+    /// `activated`, an Ally source or another permanent whose current
+    /// characteristics match.
+    ///
+    /// The kind of payment is asked before the filter, as the engine asks it
+    /// (`mana_provenance::admits`). Mana that may be spent "only to cast" a
+    /// spell pays for no ability whatever the ability's source is: Delighted
+    /// Halfling's coloured mana ("only to cast a legendary spell") does not
+    /// pay Yawgmoth's proliferate, nor Mishra's Workshop's ("only to cast
+    /// artifact spells") an Armageddon Clock's `{4}`. The filter alone said
+    /// yes to both, so the plan tapped the source and the payment refused
+    /// its mana (NEW-05, 3.11.2026).
     pub fn admits_activation(
         &self,
         view: &PlayerView,
-        filter: &Filter,
+        restriction: &ManaRestriction,
         source: Option<ObjectId>,
         activated: ObjectId,
     ) -> bool {
+        let filter = match restriction.uses {
+            // Powerstone's: any payment but a nonartifact spell's.
+            ManaUse::NonSpellPaymentsOrMatchingSpells => return true,
+            ManaUse::Spells | ManaUse::CumulativeUpkeep => return false,
+            ManaUse::Abilities | ManaUse::SpellsOrAbilities | ManaUse::CostsFromMatchingSource => {
+                restriction.ability_filter.unwrap_or(restriction.filter)
+            }
+        };
         let zone = if view.battlefield.iter().any(|o| o.id == activated) {
             ZoneRef::Battlefield
         } else if view.graveyards.iter().flatten().any(|o| o.id == activated) {
