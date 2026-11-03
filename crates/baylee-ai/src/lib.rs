@@ -500,6 +500,11 @@ impl HeuristicAgent {
                             .collect(),
                     };
                 }
+                // "Return a land you control" off a Karoo, forced and so ahead
+                // of the skill gate inside `select_cards`.
+                if let Some(objects) = land::returned(view, &options, min, max, prompt) {
+                    return PlayerAction::ChooseObjects { objects };
+                }
                 if let Some(objects) = self.select_cards(view, &options, min, max, prompt) {
                     return PlayerAction::ChooseObjects { objects };
                 }
