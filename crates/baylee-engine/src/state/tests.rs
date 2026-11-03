@@ -1773,5 +1773,6 @@ fn the_turn_reset_forgets_what_was_tapped_to_pay_for_an_ability() {
     );
 }
 
+mod doors;
 mod moves_reset;
 mod player_totals;
