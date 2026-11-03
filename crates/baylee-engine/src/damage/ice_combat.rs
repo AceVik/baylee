@@ -36,11 +36,10 @@ pub(super) fn shield_kind(
     if !damageable_recipient(state, to) || part.view.recipient == to {
         return None;
     }
-    if !crate::eval::matches_projected_with_context(
+    if !crate::eval::matches_damage_source_with_context(
         sources,
         state,
         actual,
-        actual.characteristics(),
         shield.controller,
         context,
     ) {

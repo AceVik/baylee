@@ -135,11 +135,10 @@ impl DamageWork {
             if combat.is_some_and(|combat| combat != part.view.is_combat)
                 || !crate::eval::players(recipients, state, effect.controller)
                     .is_some_and(|players| players.contains(&player))
-                || !crate::eval::matches_projected_with_context(
+                || !crate::eval::matches_damage_source_with_context(
                     sources,
                     state,
                     source,
-                    source.characteristics(),
                     effect.controller,
                     crate::text_changes::RuleContext {
                         source: effect.source.unwrap_or(source.id),

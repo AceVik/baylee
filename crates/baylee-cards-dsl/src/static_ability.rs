@@ -84,6 +84,10 @@ pub enum Modifier {
         /// The amount transformation.
         replacement: DamageAmountReplacement,
     },
+    /// Treat damage from sources sharing any of these colors as coming from a
+    /// colorless source, without changing the source's actual characteristics.
+    /// Protection still sees the real colors except when damage is dealt (CR 702.16b).
+    DamageFromColoredSourcesIsColorless(ColorSet),
     /// Damage cannot reduce the indicated players below this life total.
     DamageLifeLossFloor {
         /// Players protected by the floor.
@@ -1279,6 +1283,7 @@ impl Modifier {
             | Self::LifeGainDrawsInstead { .. }
             | Self::CantBeAttackedExceptBy { .. }
             | Self::ReplacePlayerDamage { .. }
+            | Self::DamageFromColoredSourcesIsColorless(_)
             | Self::DamageLifeLossFloor { .. }
             | Self::AdditionalCounterPlacement { .. }
             | Self::AdditionalCounterOnEntryByCount { .. }
@@ -1887,6 +1892,10 @@ mod tests {
                 combat: None,
                 replacement: DamageAmountReplacement::Cap(1),
             },
+            Modifier::DamageFromColoredSourcesIsColorless(ColorSet::from_slice(&[
+                Color::Black,
+                Color::Red,
+            ])),
             Modifier::DamageLifeLossFloor {
                 players: crate::effect::PlayerRel::You,
                 minimum: 1,

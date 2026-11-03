@@ -147,7 +147,7 @@ impl DamageWork {
                     else {
                         continue;
                     };
-                    if !crate::eval::matches_with_context(
+                    if !crate::eval::matches_damage_source_with_context(
                         from,
                         state,
                         source,
@@ -195,11 +195,10 @@ impl DamageWork {
                     else {
                         continue;
                     };
-                    if !crate::eval::matches_projected_with_context(
+                    if !crate::eval::matches_damage_source_with_context(
                         filter,
                         state,
                         source,
-                        source.characteristics(),
                         fx.controller,
                         crate::text_changes::RuleContext {
                             source: fx.source.unwrap_or(object.id),
@@ -248,11 +247,10 @@ impl DamageWork {
                     else {
                         continue;
                     };
-                    if !crate::eval::matches_projected_with_context(
+                    if !crate::eval::matches_damage_source_with_context(
                         filter,
                         state,
                         source,
-                        source.characteristics(),
                         fx.controller,
                         crate::text_changes::RuleContext {
                             source: fx.source.unwrap_or(object.id),
@@ -280,11 +278,10 @@ impl DamageWork {
                     else {
                         continue;
                     };
-                    if !crate::eval::matches_projected_with_context(
+                    if !crate::eval::matches_damage_source_with_context(
                         filter,
                         state,
                         source,
-                        source.characteristics(),
                         fx.controller,
                         crate::text_changes::RuleContext {
                             source: fx.source.unwrap_or(source.id),
@@ -365,11 +362,10 @@ impl DamageWork {
                         continue;
                     };
                     let this = fx.source.unwrap_or(part.view.source);
-                    let fits = crate::eval::matches_projected_with_context(
+                    let fits = crate::eval::matches_damage_source_with_context(
                         filter,
                         state,
                         source,
-                        source.characteristics(),
                         player,
                         crate::text_changes::RuleContext {
                             source: this,

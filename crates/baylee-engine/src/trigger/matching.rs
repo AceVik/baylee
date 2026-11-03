@@ -456,9 +456,9 @@ fn matches(
                 is_combat: true,
                 ..
             },
-        ) => state
-            .object(*damage_source)
-            .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context)),
+        ) => state.object(*damage_source).is_some_and(|o| {
+            eval::matches_damage_source_with_context(filter, state, o, you, context)
+        }),
         // Contested War Zone: each source's own combat damage to the
         // ability's controller; the source is the event object.
         (
@@ -472,9 +472,9 @@ fn matches(
         ) => {
             *player == you
                 && *amount > 0
-                && state
-                    .object(*damage_source)
-                    .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context))
+                && state.object(*damage_source).is_some_and(|o| {
+                    eval::matches_damage_source_with_context(filter, state, o, you, context)
+                })
         }
         (
             Trigger::DealsCombatDamageToOpponent(filter),
@@ -486,9 +486,9 @@ fn matches(
             },
         ) => {
             state.is_opponent(*player, you)
-                && state
-                    .object(*damage_source)
-                    .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context))
+                && state.object(*damage_source).is_some_and(|o| {
+                    eval::matches_damage_source_with_context(filter, state, o, you, context)
+                })
         }
         (
             Trigger::DealsDamageToPlayer {
@@ -505,7 +505,7 @@ fn matches(
             *amount > 0
                 && eval::players(*who, state, you).is_some_and(|players| players.contains(player))
                 && state.object(*damage_source).is_some_and(|object| {
-                    eval::matches_with_context(filter, state, object, you, context)
+                    eval::matches_damage_source_with_context(filter, state, object, you, context)
                 })
         }
         (
@@ -519,9 +519,9 @@ fn matches(
         ) => {
             *amount > 0
                 && state.is_opponent(*player, you)
-                && state
-                    .object(*damage_source)
-                    .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context))
+                && state.object(*damage_source).is_some_and(|o| {
+                    eval::matches_damage_source_with_context(filter, state, o, you, context)
+                })
         }
         // "Whenever [this] deals damage" (El-Hajjâj): every damage event
         // the source deals, to anything, and a step's combat damage once
@@ -537,9 +537,9 @@ fn matches(
         ) => {
             *amount > 0
                 && (!*is_combat || first_combat_damage_by(event, batch, *damage_source))
-                && state
-                    .object(*damage_source)
-                    .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context))
+                && state.object(*damage_source).is_some_and(|o| {
+                    eval::matches_damage_source_with_context(filter, state, o, you, context)
+                })
         }
         (
             Trigger::DealtDamage(filter),
@@ -1080,9 +1080,9 @@ fn matches(
             },
         ) => {
             first_combat_damage_by(event, batch, *damage_source)
-                && state
-                    .object(*damage_source)
-                    .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context))
+                && state.object(*damage_source).is_some_and(|o| {
+                    eval::matches_damage_source_with_context(filter, state, o, you, context)
+                })
         }
         (
             Trigger::DealsCombatDamageToPlayerOrPlaneswalker(filter),
@@ -1104,9 +1104,9 @@ fn matches(
                 }
             };
             valid_target
-                && state
-                    .object(*damage_source)
-                    .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context))
+                && state.object(*damage_source).is_some_and(|o| {
+                    eval::matches_damage_source_with_context(filter, state, o, you, context)
+                })
         }
         _ => false,
     }

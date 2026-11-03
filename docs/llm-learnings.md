@@ -6282,3 +6282,21 @@ got wrong was in the tests, not in the cards:
   attack. The target offer must include the attacker itself because Oracle says
   "a target creature", not "another". Existing target, yes/no and combat choices
   serve desktop, house AI and LLM seats without a new decision type.
+
+## 2026-11-03 — Ghostly Flame's damage-only source projection
+
+- `DamageFromColoredSourcesIsColorless` is a rules effect, not a layer-five color
+  change. Only filters evaluating a source for a damage event use the temporary
+  colorless projection; targeting, blocking, recipient filters and every ordinary
+  characteristic read retain the source's actual colors. Protection therefore
+  loses only the damage-prevention part of DEBT (CR 702.16b).
+- Protection, prevention, redirection and damage-trigger source filters share
+  `matches_damage_source_with_context`. Its effect-table hint skips the scan in
+  ordinary games, and the matching effect's own filter still scopes the rule.
+  Play both a red spell and Skirk Fire Marshal's real activation with and without
+  Ghostly Flame; do not assert a damage marker after lethal damage moved the
+  recipient to the graveyard, because the zone change clears that marker.
+- Played tests also prove Shock still cannot target a creature with protection
+  from red. Engine tests cover black, red, red-green and unaffected green sources
+  plus damage-trigger filters. This static effect exposes no new client, house-AI
+  or LLM choice and needs no card-specific seat policy.

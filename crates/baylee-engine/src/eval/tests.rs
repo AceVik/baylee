@@ -1203,6 +1203,80 @@ fn losing_all_abilities_removes_intrinsic_land_mana_as_well_as_printed_mana() {
     ));
 }
 
+#[test]
+fn damage_source_colorlessness_is_scoped_to_damage_filters() {
+    use baylee_cards_dsl::{Duration, Modifier};
+    use baylee_core::color::{Color, ColorSet};
+
+    let mut state = empty_state();
+    let red = creature(&mut state, P0, KeywordSet::EMPTY);
+    let black = creature(&mut state, P0, KeywordSet::EMPTY);
+    let green = creature(&mut state, P0, KeywordSet::EMPTY);
+    let red_green = creature(&mut state, P0, KeywordSet::EMPTY);
+    for (id, colors) in [
+        (red, ColorSet::from_slice(&[Color::Red])),
+        (black, ColorSet::from_slice(&[Color::Black])),
+        (green, ColorSet::from_slice(&[Color::Green])),
+        (red_green, ColorSet::from_slice(&[Color::Red, Color::Green])),
+    ] {
+        state.object_mut(id).expect("fixture").base_mut().colors = colors;
+    }
+    let modifier = Modifier::DamageFromColoredSourcesIsColorless(ColorSet::from_slice(&[
+        Color::Black,
+        Color::Red,
+    ]));
+    state.effects.register(crate::effects::ContinuousEffect {
+        id: baylee_core::ids::EffectId::new(0),
+        source: Some(red),
+        controller: P0,
+        origin: crate::effects::EffectOrigin::Resolution,
+        layer: modifier.layer(),
+        timestamp: 1,
+        duration: Duration::Indefinitely,
+        filter: crate::effects::EffectFilter::Dsl(&Filter::Any),
+        modifier,
+    });
+
+    for id in [red, black, red_green] {
+        let object = state.object(id).expect("fixture");
+        let context = live_context(&state, id);
+        assert!(matches_damage_source_with_context(
+            &Filter::IsColorless,
+            &state,
+            object,
+            P0,
+            context,
+        ));
+        assert!(!matches_damage_source_with_context(
+            &Filter::HasColor(ColorSet::from_slice(&[Color::Red, Color::Green])),
+            &state,
+            object,
+            P0,
+            context,
+        ));
+        assert!(
+            !matches_with_context(&Filter::IsColorless, &state, object, P0, context),
+            "the object's ordinary characteristics keep their color"
+        );
+    }
+    let object = state.object(green).expect("green fixture");
+    let context = live_context(&state, green);
+    assert!(!matches_damage_source_with_context(
+        &Filter::IsColorless,
+        &state,
+        object,
+        P0,
+        context,
+    ));
+    assert!(matches_damage_source_with_context(
+        &Filter::HasColor(ColorSet::from_slice(&[Color::Green])),
+        &state,
+        object,
+        P0,
+        context,
+    ));
+}
+
 /// "If your life total is less than your starting life total": below the
 /// starting total the format gave this player (CR 103.4), read per player,
 /// whatever that total was. Twenty-five of a forty-life start is below it.

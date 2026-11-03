@@ -12,6 +12,10 @@ use baylee_core::preset::{
     SeatController, SeatSpec,
 };
 
+static RED_DAMAGE_SOURCE: Filter = Filter::HasColor(baylee_core::color::ColorSet::from_slice(&[
+    baylee_core::color::Color::Red,
+]));
+
 struct RegistryLookup;
 impl CardLookup for RegistryLookup {
     fn card(&self, index: CardIndex) -> Option<&'static baylee_cards_dsl::CardDef> {
@@ -105,6 +109,44 @@ fn graveyard_trigger_zone_uses_the_cards_owner_and_only_its_graveyard() {
             }
         }
     }
+}
+
+#[test]
+fn damage_trigger_source_filters_use_the_colorless_damage_projection() {
+    let mut state = state();
+    let source = permanent(&mut state, me(), "red damage source");
+    state.object_mut(source).expect("fixture").base_mut().colors =
+        baylee_core::color::ColorSet::from_slice(&[baylee_core::color::Color::Red]);
+    let modifier = baylee_cards_dsl::Modifier::DamageFromColoredSourcesIsColorless(
+        baylee_core::color::ColorSet::from_slice(&[baylee_core::color::Color::Red]),
+    );
+    state.effects.register(crate::effects::ContinuousEffect {
+        id: baylee_core::ids::EffectId::new(0),
+        source: Some(source),
+        controller: me(),
+        origin: crate::effects::EffectOrigin::Resolution,
+        layer: modifier.layer(),
+        timestamp: 1,
+        duration: baylee_cards_dsl::Duration::Indefinitely,
+        filter: crate::effects::EffectFilter::Dsl(&Filter::Any),
+        modifier,
+    });
+    let event = GameEvent::DamageDealt {
+        source: Some(source),
+        target: crate::event::DamageTarget::Player(them()),
+        amount: 1,
+        is_combat: false,
+    };
+    let colorless = Trigger::DealsDamageToPlayer {
+        source: &Filter::IsColorless,
+        player: PlayerRel::EachPlayer,
+    };
+    let red = Trigger::DealsDamageToPlayer {
+        source: &RED_DAMAGE_SOURCE,
+        player: PlayerRel::EachPlayer,
+    };
+    assert_eq!(hits(&colorless, &event, &[], &state, source, me()), 1);
+    assert_eq!(hits(&red, &event, &[], &state, source, me()), 0);
 }
 
 fn state() -> GameState {
