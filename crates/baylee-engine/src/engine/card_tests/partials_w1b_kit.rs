@@ -290,6 +290,29 @@ pub(super) fn stack_library(
     objects
 }
 
+/// Replaces `seat`'s library with exactly `top_first`, moved there from hand.
+/// Returns the new objects, top card first.
+#[track_caller]
+pub(super) fn replace_library(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    top_first: &[CardIndex],
+) -> Vec<ObjectId> {
+    for card in library_of(engine, seat) {
+        engine
+            .dev_state_mut(seat)
+            .expect("the harness may prepare an exact library")
+            .move_object(
+                card,
+                ZoneLocation::OutsideGame(seat),
+                ZonePosition::Top,
+                Cause::Effect,
+            )
+            .expect("the backing deck leaves the library");
+    }
+    stack_library(engine, seat, top_first)
+}
+
 /// `seat`'s life total.
 pub(super) fn life(engine: &Engine<RegistryLookup>, seat: PlayerId) -> i32 {
     engine.state().players[usize::from(seat.get())].life
