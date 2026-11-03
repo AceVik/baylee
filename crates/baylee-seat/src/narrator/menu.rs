@@ -24,6 +24,7 @@ use serde_json::Value;
 use std::fmt::Write as _;
 
 mod builder;
+mod payment;
 mod plan;
 
 pub use plan::{GRAMMAR, React, Step, Stop, Until, asked};
@@ -230,6 +231,26 @@ pub struct Stops {
     pub theirs: Vec<String>,
 }
 
+impl Stops {
+    /// The steps `written` names, by the names the header uses
+    /// ([`crate::wake::stop_row`] reads the rules' names too), each once,
+    /// in the order written. A name that is no step is left out, so the
+    /// header's `stops:` line says what the seat will stop at.
+    fn named(written: &[String]) -> Vec<String> {
+        let mut named: Vec<String> = Vec::new();
+        for id in written
+            .iter()
+            .filter_map(|name| crate::wake::stop_row(name))
+            .map(crate::wake::stop_id)
+        {
+            if !named.iter().any(|kept| kept == id) {
+                named.push(id.to_string());
+            }
+        }
+        named
+    }
+}
+
 impl Decision {
     /// Reads the input of a `decide` call.
     ///
@@ -276,8 +297,16 @@ impl Decision {
                 .unwrap_or_default(),
             say: text("say"),
             stops: map.get("stops").and_then(Value::as_object).map(|s| Stops {
-                mine: s.get("mine").map(list).unwrap_or_default(),
-                theirs: s.get("theirs").map(list).unwrap_or_default(),
+                mine: s
+                    .get("mine")
+                    .map(list)
+                    .map(|names| Stops::named(&names))
+                    .unwrap_or_default(),
+                theirs: s
+                    .get("theirs")
+                    .map(list)
+                    .map(|names| Stops::named(&names))
+                    .unwrap_or_default(),
             }),
             plan: map.get("plan").map(list).unwrap_or_default(),
             until: text("until").or_else(|| text("hold")),

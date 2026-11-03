@@ -1566,7 +1566,11 @@ fn untap_replacement_refusal_does_not_offer_a_free_untap() {
     );
 }
 
+mod event_object;
 mod foretell;
+mod land_triggers;
+mod owed;
+mod power_surge;
 mod triage;
 
 /// A vote is told as one, and the ballot cast before it reaches the model

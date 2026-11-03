@@ -8,10 +8,20 @@
 //!
 //! # The rail
 //!
-//! [`MIND_STOPS`], the rail of the design (`llm-seat.md` §4.3): on its own
-//! turn the seat is woken in both main phases; on the other side's turn once
-//! their attackers are declared and at their end step. Every other window
-//! passes, unless the other side has something on the stack.
+//! [`MIND_STOPS`], the rail of the design (`docs/llm-protocol.md`
+//! §"Stops"): on its own turn the seat is woken in both main phases; on the
+//! other side's turn once their attackers are declared and at their end
+//! step; and on either side once blockers are declared, in a combat it has
+//! a creature in. Every other window passes, unless the other side has
+//! something on the stack. A mind's `stops` replace the rows; the names it
+//! may write are [`stop_row`]'s.
+//!
+//! The blockers row is held to a combat the seat fights in, whoever chose
+//! it ([`fights`]): after blocks is the window for a pump, a regeneration
+//! or a removal on a blocker (CR 509.4), and that is a decision only for a
+//! seat with a creature in the combat. Without the row the seat passed
+//! every such window, and games played by models had no combat tricks in
+//! them; with it unheld, every combat would cost a call.
 //!
 //! The rail answers priority and nothing else. The client's rail also
 //! answers a declaration on a red row with "nobody attacks" or "nobody
@@ -29,6 +39,9 @@
 //! - no round is passed while a payment is owed, while the other side has
 //!   something on the stack, or in a cleanup window, unless the seat has
 //!   nothing at all it could do;
+//! - the rail never passes a round in which the seat could activate
+//!   something its card allows in this step alone (Ashen Ghoul's "activate
+//!   only during your upkeep"): there is no other window for it;
 //! - while a plan of the mind's runs, every question of the seat's is the
 //!   plan's ([`Verdict::Planned`]): the plan's executor sees them all, and
 //!   stops the plan at the first it cannot answer exactly;
@@ -41,9 +54,10 @@
 //!   the next priority round with mana in the pool (passing would throw the
 //!   mana away) and whatever the activation asks on the way (which colour a
 //!   land makes) are [`Verdict::Continue`], the next step of what the mind
-//!   began. A mind that planned the payment answers those from its plan
-//!   (§4.3: a mana plan in flight wakes nobody), so they are counted apart
-//!   from wakes.
+//!   began, and so is every round of the same step after a pass that let a
+//!   trigger of the taps resolve (Manabarbs: [`WakeFilter::heard`]). A mind
+//!   that planned the payment answers those from its plan (§4.3: a mana
+//!   plan in flight wakes nobody), so they are counted apart from wakes.
 //!
 //! # What "nothing to do" means here
 //!
@@ -80,11 +94,14 @@ mod convoke;
 use convoke::{has_convoke, reduce_for_convoke};
 
 /// The windows a mind is woken in when it could do something there: its
-/// own two main phases, and the other side's attack and end step.
-pub const MIND_STOPS: [(RailSide, RailRow); 4] = [
+/// own two main phases, the other side's attack and end step, and on both
+/// sides the window after blocks of a combat it fights in ([`fights`]).
+pub const MIND_STOPS: [(RailSide, RailRow); 6] = [
     (RailSide::Mine, RailRow::Main1),
+    (RailSide::Mine, RailRow::Blockers),
     (RailSide::Mine, RailRow::Main2),
     (RailSide::Theirs, RailRow::Attackers),
+    (RailSide::Theirs, RailRow::Blockers),
     (RailSide::Theirs, RailRow::EndStep),
 ];
 
@@ -277,9 +294,10 @@ impl WakeFilter {
                     if !row.grants_priority() {
                         continue;
                     }
+                    let named = |names: &[String]| names.iter().any(|s| stop_row(s) == Some(row));
                     let keep = match side {
-                        RailSide::Mine => stops.mine.iter().any(|s| row_matches(s, row)),
-                        RailSide::Theirs => stops.theirs.iter().any(|s| row_matches(s, row)),
+                        RailSide::Mine => named(&stops.mine),
+                        RailSide::Theirs => named(&stops.theirs),
                     };
                     if !keep {
                         orders.toggle(side, row);
@@ -427,6 +445,11 @@ impl WakeFilter {
         if view.step == Step::Cleanup {
             return Verdict::Wake(Why::Cleanup);
         }
+        // After blocks, a trick is a decision only in a combat the seat
+        // fights in (module docs, "The rail").
+        if view.step == Step::DeclareBlockers && !fights(view, teams) {
+            return standing(PlayerAction::PassPriority, Standing::QuietWindow);
+        }
         let at = Situation {
             mine: true,
             active_is_mine: same_side(teams, view.active, view.seat),
@@ -437,6 +460,7 @@ impl WakeFilter {
             owing: view.owed.is_some(),
         };
         if automation::auto_answer(pending, at, &self.orders, &self.rules, None) == AutoAnswer::Pass
+            && !bound_to_this_step(view, legal)
         {
             return standing(PlayerAction::PassPriority, Standing::QuietWindow);
         }
@@ -461,11 +485,23 @@ impl WakeFilter {
     /// way. Only an answer that ends one ends it: a pass, a cast, a land, a
     /// declaration. Listed that way round so that an answer this filter has
     /// not heard of keeps asking rather than passing a full pool away.
+    ///
+    /// A pass over abilities alone does not end it either. A land's own
+    /// trigger (Manabarbs, City of Brass, Psychic Venom) goes on the stack
+    /// as the land is tapped (CR 603.3), and a sorcery-speed spell cannot be
+    /// cast until it has resolved, so the seat's taps pass to let it
+    /// ([`only_abilities_on_stack`]). Priority comes back in the same step
+    /// with the mana still in the pool (CR 117.3b, 500.5), and that window
+    /// is the payment's next step, the cast it was for: ending the payment
+    /// at the pass handed those windows to the orders, which passed them
+    /// as nothing to do, and the mana emptied with the step.
     pub fn heard(&mut self, view: &PlayerView, action: &PlayerAction) {
         match action {
             PlayerAction::ActivateManaAbility { .. } | PlayerAction::ActivateAbility { .. } => {
                 self.paying = Some((view.turn, view.phase, view.step));
             }
+            PlayerAction::PassPriority
+                if self.paying.is_some() && only_abilities_on_stack(view) => {}
             PlayerAction::PassPriority
             | PlayerAction::CastSpell { .. }
             | PlayerAction::PlayLand { .. }
@@ -545,6 +581,29 @@ fn targets_me(view: &PlayerView, teams: &[Option<u8>]) -> bool {
         })
 }
 
+/// Whether the stack holds something, and nothing but abilities: what the
+/// seat's taps pass over toward the spell they pay for, a land's trigger
+/// set off by the taps themselves. A spell on the stack is a decision, and
+/// never passed for a payment.
+#[must_use]
+pub fn only_abilities_on_stack(view: &PlayerView) -> bool {
+    !view.stack.is_empty()
+        && view
+            .stack
+            .iter()
+            .all(|o| matches!(o.stack_item, Some(baylee_view::StackItem::Ability { .. })))
+}
+
+/// Whether the table is holding a payment window open (CR 605.3a,
+/// `PlayerView::owed`): inside one the engine offers mana abilities and
+/// the pass that settles it, and nothing else, so no spell or activation
+/// is within reach by tapping. Taking one there taps lands the payment
+/// needed, and the pass the taps end on leaves the payment unpaid.
+#[must_use]
+pub fn owes(view: &PlayerView) -> bool {
+    view.owed.is_some()
+}
+
 /// The mana in the seat's pool.
 fn pool(view: &PlayerView) -> u64 {
     view.seat(baylee_client_core::decision::resource_player(view))
@@ -609,9 +668,12 @@ pub struct AbilityReach {
 /// Cards the engine already lists as castable (the mana is floating) are
 /// not here: they need no taps. Nor is a card whose cost the pool already
 /// holds that the engine does not list: something other than mana stops
-/// it.
+/// it. Nor is anything while a payment is owed ([`owes`]).
 #[must_use]
 pub fn reachable(view: &PlayerView, legal: &LegalActions) -> Vec<Reach> {
+    if owes(view) {
+        return Vec::new();
+    }
     let sources = baylee_ai::mana_sources(view, legal);
     if sources.is_empty() {
         return Vec::new();
@@ -690,10 +752,14 @@ pub fn reachable(view: &PlayerView, legal: &LegalActions) -> Vec<Reach> {
 }
 
 /// Every activated ability in `legal.unpaid_abilities` whose mana cost the
-/// seat's untapped sources can pay now.
+/// seat's untapped sources can pay now; none while a payment is owed
+/// ([`owes`]).
 #[must_use]
 pub fn reachable_abilities(view: &PlayerView, legal: &LegalActions) -> Vec<AbilityReach> {
-    if legal.unpaid_abilities.is_empty() || baylee_ai::mana_sources(view, legal).is_empty() {
+    if owes(view)
+        || legal.unpaid_abilities.is_empty()
+        || baylee_ai::mana_sources(view, legal).is_empty()
+    {
         return Vec::new();
     }
     let Some(pool) = view
@@ -732,12 +798,19 @@ pub fn reachable_abilities(view: &PlayerView, legal: &LegalActions) -> Vec<Abili
         .collect()
 }
 
-fn ability_taps_self(view: &PlayerView, source: ObjectId, index: u32) -> bool {
-    use baylee_cards_dsl::AbilityDef;
+/// The printed ability `index` of `source`, on the battlefield, in a
+/// graveyard or in the hand, as the face it shows now prints it; `None`
+/// for a special action, a granted ability or an object the view cannot
+/// name.
+fn printed_ability(
+    view: &PlayerView,
+    source: ObjectId,
+    index: u32,
+) -> Option<&'static baylee_cards_dsl::AbilityDef> {
     if baylee_engine::choice::is_special_action(index) {
-        return false;
+        return None;
     }
-    let Some(rules) = view
+    let rules = view
         .object(source)
         .and_then(|o| o.rules.or_else(|| o.card.map(Into::into)))
         .or_else(|| {
@@ -745,25 +818,53 @@ fn ability_taps_self(view: &PlayerView, source: ObjectId, index: u32) -> bool {
                 .iter()
                 .find(|c| c.id == source)
                 .map(|c| baylee_view::RulesFace::from(c.card))
-        })
-    else {
-        return false;
-    };
-    let Some(def) = baylee_cards::by_index(rules.card) else {
-        return false;
-    };
-    let Some(ability) = def
+        })?;
+    baylee_cards::by_index(rules.card)?
         .abilities_for_face(usize::from(rules.face))
-        .get(usize::try_from(index).unwrap_or(usize::MAX))
-    else {
-        return false;
-    };
-    match ability {
-        AbilityDef::Activated { cost, .. } | AbilityDef::ActivatedConditional { cost, .. } => {
-            cost.parts.contains(&baylee_cards_dsl::CostPart::TapSelf)
-        }
+        .get(usize::try_from(index).ok()?)
+}
+
+fn ability_taps_self(view: &PlayerView, source: ObjectId, index: u32) -> bool {
+    use baylee_cards_dsl::AbilityDef;
+    match printed_ability(view, source, index) {
+        Some(
+            AbilityDef::Activated { cost, .. } | AbilityDef::ActivatedConditional { cost, .. },
+        ) => cost.parts.contains(&baylee_cards_dsl::CostPart::TapSelf),
         _ => false,
     }
+}
+
+/// Whether the seat could activate something now that its card allows in
+/// this step alone ("activate only during your upkeep": Ashen Ghoul's
+/// return from the graveyard). Such a window is the ability's only one, so
+/// the rail does not pass it whatever its rows say: on the default rail,
+/// which has no upkeep row, the seat passed every upkeep the Ghoul could
+/// have come back in (codex attempt 191, q215).
+fn bound_to_this_step(view: &PlayerView, legal: &LegalActions) -> bool {
+    use baylee_cards_dsl::{AbilityDef, Condition};
+    fn during_a_step(condition: &Condition) -> bool {
+        match condition {
+            Condition::DuringStep(_) => true,
+            Condition::All(all) => all.iter().any(during_a_step),
+            _ => false,
+        }
+    }
+    legal
+        .abilities
+        .iter()
+        .copied()
+        .filter(|&(source, index)| !baylee_ai::only_makes_mana(view, source, index))
+        .chain(
+            reachable_abilities(view, legal)
+                .into_iter()
+                .map(|reach| (reach.source, reach.ability_index)),
+        )
+        .any(|(source, index)| {
+            matches!(
+                printed_ability(view, source, index),
+                Some(AbilityDef::ActivatedConditional { condition, .. }) if during_a_step(condition)
+            )
+        })
 }
 
 /// Whether the seat could cast or activate something by tapping what it has
@@ -921,17 +1022,52 @@ pub fn flash(card: baylee_view::CardIdentity) -> bool {
     })
 }
 
-#[cfg(test)]
-mod tests;
-
-fn row_matches(s: &str, row: RailRow) -> bool {
-    s.eq_ignore_ascii_case(row_id(row))
-        || matches!(row, RailRow::CombatBegin)
-            && (s.eq_ignore_ascii_case("beginning_combat")
-                || s.eq_ignore_ascii_case("begin_combat"))
+/// Whether a creature of the seat's side attacks or blocks in this combat
+/// (CR 506.4): the combat the blockers row stops for.
+fn fights(view: &PlayerView, teams: &[Option<u8>]) -> bool {
+    let ours = |id: ObjectId| {
+        view.object(id)
+            .is_some_and(|object| same_side(teams, object.controller, view.seat))
+    };
+    view.combat.attackers.iter().any(|a| ours(a.creature))
+        || view.combat.blockers.iter().any(|b| ours(b.blocker))
 }
 
-fn row_id(row: RailRow) -> &'static str {
+/// The rail row a step's name in `stops` means: the name the header gives
+/// it ([`crate::narrator::step_id`]: `main1`, `blockers`, `end_step`), or
+/// the step's name in the rules (`declare_blockers`, `combat_damage`), in
+/// any case, with spaces or hyphens for the underscores and with or
+/// without `_step`. `None` for a name that is no step.
+///
+/// Models wrote `declare_blockers` and were never woken there: the rows
+/// were matched by their short names alone (codex attempt 62).
+#[must_use]
+pub fn stop_row(name: &str) -> Option<RailRow> {
+    let name = name.trim().to_ascii_lowercase().replace([' ', '-'], "_");
+    let name = name.strip_suffix("_step").unwrap_or(&name);
+    Some(match name {
+        "untap" => RailRow::Untap,
+        "upkeep" => RailRow::Upkeep,
+        "draw" => RailRow::Draw,
+        "main1" | "main_1" | "first_main" | "precombat_main" => RailRow::Main1,
+        "combat_begin" | "begin_combat" | "beginning_combat" | "beginning_of_combat" => {
+            RailRow::CombatBegin
+        }
+        "attackers" | "declare_attackers" => RailRow::Attackers,
+        "blockers" | "declare_blockers" => RailRow::Blockers,
+        "damage" | "combat_damage" | "first_strike_damage" => RailRow::Damage,
+        "combat_end" | "end_combat" | "end_of_combat" => RailRow::CombatEnd,
+        "main2" | "main_2" | "second_main" | "postcombat_main" => RailRow::Main2,
+        "end" | "end_of_turn" => RailRow::EndStep,
+        "cleanup" => RailRow::Cleanup,
+        _ => return None,
+    })
+}
+
+/// The short name of each step a model may stop at, as the header writes
+/// it and the system prompt lists it.
+#[must_use]
+pub fn stop_id(row: RailRow) -> &'static str {
     match row {
         RailRow::Untap => "untap",
         RailRow::Upkeep => "upkeep",
@@ -947,3 +1083,6 @@ fn row_id(row: RailRow) -> &'static str {
         RailRow::Cleanup => "cleanup",
     }
 }
+
+#[cfg(test)]
+mod tests;

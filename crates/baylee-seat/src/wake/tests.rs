@@ -9,8 +9,10 @@ use baylee_core::mana::{ManaColor, ManaCost};
 use baylee_engine::choice::{BlockOption, TargetPrompt};
 use baylee_view::{CardIdentity, HandObject, PublicObject, RulesFace};
 
+mod combat;
 mod foretell;
 mod phasing;
+mod upkeep;
 
 const ME: PlayerId = PlayerId::new(0);
 const THEM: PlayerId = PlayerId::new(1);

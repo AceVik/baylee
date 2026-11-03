@@ -216,6 +216,15 @@ impl<L: CardLookup> Engine<L> {
     /// the Mirror's card prints a mana ability at that index. A granted
     /// ability is looked up among the grants by its slot, the same way the
     /// offer numbers it.
+    ///
+    /// The planning hints (`unpaid_abilities`) are narrowed by the same
+    /// test. `compute_legal` moves an activation whose mana is not floating
+    /// yet out of `abilities` and into the hints, so a window opened from a
+    /// fresh list (an upkeep tax, a miracle, an attack tax) kept every such
+    /// activation as a hint: a seat's planner read Energy Flux's {2} window
+    /// as one where Aeolipile could be activated, tapped a Forest for it,
+    /// and the pass that followed left the tax unpaid (LLM report, 3 Nov
+    /// 2026).
     pub(crate) fn narrow_to_mana(&self, legal: &mut LegalActions) {
         legal
             .granted_actions
@@ -228,6 +237,9 @@ impl<L: CardLookup> Engine<L> {
         legal
             .abilities
             .retain(|&(source, index)| self.is_payment_mana_offer(source, index));
+        legal
+            .unpaid_abilities
+            .retain(|&(source, index, _)| self.is_payment_mana_offer(source, index));
     }
 
     /// Target permissions of the actual activation, including runtime grants.

@@ -361,23 +361,37 @@ impl Builder<'_, '_> {
         self.options.last_mut().expect("just pushed").card = card;
     }
 
-    /// The payment the seat agreed to, as one option: the taps that pay it
-    /// and the pass that spends them (CR 605.3a).
+    /// The payment the seat agreed to, as options: the taps that pay it and
+    /// the pass that spends them (CR 605.3a), the planner's plan first and
+    /// then up to [`payment::OTHERS`] other ways (other colours, another
+    /// land), each one answer.
+    ///
+    /// A pool that pays it alone is the one option, asked of the pool with
+    /// no source beside it: the matcher, handed the lands as well, can end
+    /// on a tap where the pool was enough (`{1}{W}` over a floating {W}{U}
+    /// tapped a Tundra for {W}).
     pub(super) fn pay_owed(&mut self, owed: ManaCost, pool: &ManaPoolView, legal: &LegalActions) {
-        let sources = baylee_ai::mana_sources(self.table.view, legal);
-        match manaplan::plan(&owed, pool, &sources) {
-            Some(plan) if plan.steps.is_empty() => self.offer(
+        let view = self.table.view;
+        if manaplan::plan(&owed, pool, &[]).is_some() {
+            self.offer(
                 format!("Pay {owed} from your pool"),
                 Act::Now(PlayerAction::PassPriority),
                 None,
-            ),
+            );
+            return;
+        }
+        let sources = baylee_ai::mana_sources(view, legal);
+        match manaplan::plan(&owed, pool, &sources) {
             Some(plan) => {
-                let label = format!("Pay {owed} ({})", self.taps(&plan.steps));
-                let act = Act::Taps {
-                    steps: plan.steps,
-                    then: PlayerAction::PassPriority,
-                };
-                self.offer(label, act, None);
+                let others = payment::others(view, &owed, pool, &sources, &plan);
+                for plan in std::iter::once(plan).chain(others) {
+                    let label = format!("Pay {owed} ({})", self.taps(&plan.steps));
+                    let act = Act::Taps {
+                        steps: plan.steps,
+                        then: PlayerAction::PassPriority,
+                    };
+                    self.offer(label, act, None);
+                }
             }
             None => self.line("You cannot pay it from what you have untapped."),
         }
@@ -529,6 +543,9 @@ impl Builder<'_, '_> {
         }
         self.granted_actions(legal);
         self.plays(legal);
+        if owed.is_none() && legal.can_pass {
+            self.tap_against_untapped_counts(legal);
+        }
         if legal.can_pass {
             let label = if matches!(owed, Some(ManaPayment::AnyAmount { .. })) {
                 "Finish generating mana and choose the payment amount".into()
@@ -541,6 +558,51 @@ impl Builder<'_, '_> {
         self.line("Options:");
         self.list_options();
         self.answer_pick("pick=[one option id]");
+    }
+
+    /// Tapping the seat's untapped lands for mana it then loses, as one
+    /// option, while a permanent counts the lands a player has untapped as
+    /// a turn begins (Power Surge, `Amount::UntappedLandsAtTurnStart`). A
+    /// mana ability may be activated at any priority (CR 605.3a), and a land
+    /// tapped now is still tapped when the seat's next turn begins; the menu
+    /// otherwise offers a tap only as part of something it pays for, so the
+    /// play against Power Surge was missing (G001-C, codex attempt 184,
+    /// q286). A land whose tap hurts or sets off a trigger (`priced`) is
+    /// left out.
+    pub(super) fn tap_against_untapped_counts(&mut self, legal: &LegalActions) {
+        let view = self.table.view;
+        let Some(counter) = view.battlefield.iter().find(|o| counts_untapped_lands(o)) else {
+            return;
+        };
+        let me = baylee_client_core::decision::resource_player(view);
+        let steps: Vec<manaplan::Step> = baylee_ai::mana_sources(view, legal)
+            .iter()
+            .filter(|source| !source.priced)
+            .filter(|source| {
+                view.object(source.id).is_some_and(|o| {
+                    o.controller == me && o.types.contains(baylee_core::types::TypeSet::LAND)
+                })
+            })
+            .map(|source| manaplan::Step {
+                source: source.id,
+                tap: source.tap,
+                color: (!source.bundle && source.colors.len() > 1).then(|| source.colors[0]),
+            })
+            .collect();
+        if steps.is_empty() {
+            return;
+        }
+        let label = format!(
+            "Tap your untapped lands for mana and pass; the mana is lost, and {} counts the \
+             lands a player controls untapped as a turn begins ({})",
+            self.table.named(counter.id),
+            self.taps(&steps)
+        );
+        let act = Act::Taps {
+            steps,
+            then: PlayerAction::PassPriority,
+        };
+        self.offer(label, act, None);
     }
 
     /// A variable payment has no fixed plan: every legal mana ability is usable.
@@ -1369,4 +1431,33 @@ impl Builder<'_, '_> {
             &|target| self.damage_target(target),
         )
     }
+}
+
+/// Whether `object`'s card has a triggered ability that counts the lands a
+/// player controlled untapped as the turn began (Power Surge).
+fn counts_untapped_lands(object: &PublicObject) -> bool {
+    use baylee_cards_dsl::{Amount, Effect};
+    let Some(rules) = object.rules.or_else(|| object.card.map(Into::into)) else {
+        return false;
+    };
+    baylee_cards::by_index(rules.card).is_some_and(|def| {
+        def.abilities_for_face(usize::from(rules.face))
+            .iter()
+            .any(|ability| {
+                let AbilityDef::Triggered { effects, .. } = ability else {
+                    return false;
+                };
+                let mut counts = false;
+                Effect::walk(effects, &mut 0, &mut |effect| {
+                    counts |= matches!(
+                        effect,
+                        Effect::DealDamage {
+                            amount: Amount::UntappedLandsAtTurnStart,
+                            ..
+                        }
+                    );
+                });
+                counts
+            })
+    })
 }

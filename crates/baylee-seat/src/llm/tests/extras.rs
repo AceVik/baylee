@@ -9,7 +9,11 @@ use crate::reports;
 use prompt::Extras;
 
 /// The prompt and the schemas as they were before `report` and `lookup`
-/// (`tests/prompt_before.json`, written by the build before them).
+/// (`tests/prompt_before.json`, written by the build before them), with the
+/// edits to the common prompt made since (3 Nov 2026: what a zone change
+/// does to an id; the stops and their default): every edit of
+/// [`prompt::SYSTEM`] is made here too, by
+/// hand, so that nothing changes it by accident.
 fn before() -> Value {
     serde_json::from_str(include_str!("prompt_before.json")).expect("the frozen prompt")
 }

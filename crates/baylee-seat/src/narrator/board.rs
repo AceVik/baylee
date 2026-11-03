@@ -402,9 +402,70 @@ pub(super) fn stack_line(table: &Table<'_>, object: &PublicObject) -> String {
                 TargetRef::Player(p) => table.player(p),
             })
             .collect();
-        let _ = write!(line, " · targets {}", targets.join(", "));
+        if names_without_targeting(object) {
+            let _ = write!(line, " · about {} (not a target)", targets.join(", "));
+        } else {
+            let _ = write!(line, " · targets {}", targets.join(", "));
+        }
     }
     line
+}
+
+/// Whether the objects a stack ability carries as its targets are ones it
+/// is about without targeting them (CR 115.1): the object its trigger
+/// event was about, "that creature" or the enchanted creature, which a
+/// card's script writes as `TargetSpec::EventObject` (exalted, Spirit
+/// Shackle); a ward trigger's spell; or the card a rule's own trigger is
+/// about, the dying card for undying and persist, the creature for prowess
+/// (`AbilityRef::SYNTHETIC`). The engine binds those as the ability's
+/// targets and the view shows them so; nothing makes them illegal, and
+/// "targets" sent models to report the triggers as targeting (LLM reports,
+/// 2-3 Nov 2026). The game log says the same of them (an `Aimed` line,
+/// `baylee_gamehost::log`).
+fn names_without_targeting(object: &PublicObject) -> bool {
+    use baylee_cards_dsl::{AbilityDef, TargetReq, TargetSpec};
+    let Some(StackItem::Ability {
+        source,
+        ability: Some(ability),
+        rules,
+        ..
+    }) = object.stack_item
+    else {
+        return false;
+    };
+    let objects = || {
+        object.targets.iter().map(|target| match target {
+            TargetRef::Object(reference) => Some(reference.object),
+            TargetRef::Player(_) => None,
+        })
+    };
+    if ability.index == baylee_core::ids::AbilityRef::SYNTHETIC {
+        // A rule's trigger about its own source. Granted and reflexive
+        // abilities are synthetic too and may target, so nothing else is
+        // read as untargeted here.
+        return objects().all(|id| id == Some(source));
+    }
+    let face = rules
+        .filter(|rules| rules.card == ability.card)
+        .map_or(0, |rules| usize::from(rules.face));
+    let Some(def) = baylee_cards::by_index(ability.card).and_then(|def| {
+        def.abilities_for_face(face)
+            .get(usize::try_from(ability.index).ok()?)
+    }) else {
+        return false;
+    };
+    let untargeted =
+        |req: &Option<TargetReq>| req.is_none_or(|req| matches!(req.spec, TargetSpec::EventObject));
+    let objects_only = objects().all(|id| id.is_some());
+    match def {
+        AbilityDef::Ward { .. } => objects_only,
+        AbilityDef::Triggered {
+            targets,
+            second_targets,
+            ..
+        } => objects_only && untargeted(targets) && untargeted(second_targets),
+        _ => false,
+    }
 }
 
 fn hand(table: &Table<'_>, title: &str, cards: &[HandObject], out: &mut String) {
