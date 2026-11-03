@@ -46,7 +46,7 @@ fn play(engine: &mut Game, seat: PlayerId) -> Result<(), String> {
     let card = in_hand(engine, seat, basic_forest()).ok_or("no forest in hand")?;
     engine
         .apply(seat, PlayerAction::PlayLand { card })
-        .map(|_| ())
+        .map(|()| ())
         .map_err(|e| format!("{e:?}"))
 }
 

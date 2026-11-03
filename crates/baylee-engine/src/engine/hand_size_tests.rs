@@ -77,7 +77,7 @@ fn a_discard_of_the_wrong_size_is_refused() {
             .apply(P0, PlayerAction::ChooseObjects { objects: too_few })
             .is_err()
     );
-    let too_many = cards[..usize::from(count) + 1].to_vec();
+    let too_many = cards[..=usize::from(count)].to_vec();
     assert!(
         engine
             .apply(P0, PlayerAction::ChooseObjects { objects: too_many })

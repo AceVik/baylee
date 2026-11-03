@@ -177,7 +177,7 @@ fn drawing_zero_cards_changes_nothing() {
 #[test]
 fn a_draw_takes_the_cards_from_the_top_in_order() {
     let mut state = state(212);
-    let library = state.zones.list(ZoneLocation::Library(P0)).to_vec();
+    let library = state.zones.list(ZoneLocation::Library(P0)).clone();
     let drawn = state.draw_cards(P0, 3);
     let expected: Vec<_> = library.iter().rev().take(3).copied().collect();
     assert_eq!(drawn, expected);
