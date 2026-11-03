@@ -2075,6 +2075,8 @@ mod upkeep_permission_tests;
 #[cfg(test)]
 mod cancel_cast_tests;
 #[cfg(test)]
+mod cast_basics_tests;
+#[cfg(test)]
 mod coin_replacement_tests;
 #[cfg(test)]
 mod combat_skip_tests;
