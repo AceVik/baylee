@@ -2109,6 +2109,8 @@ mod investigate_tests;
 #[cfg(test)]
 mod keyword_tests;
 #[cfg(test)]
+mod land_drop_flow_tests;
+#[cfg(test)]
 mod land_mana_tests;
 #[cfg(test)]
 mod land_play_tests;
