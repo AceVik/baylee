@@ -6363,3 +6363,16 @@ got wrong was in the tests, not in the cards:
   token not breaking the nontoken plurality. Existing color/player choices,
   state-trigger presentation and automatic pass policy serve desktop, house AI
   and LLM seats without a new decision or card-specific policy.
+
+## 2026-11-03 — Demonic Consultation's ordered reveal and exile
+
+- Compose `ChooseCardName`, `ExileTop` and `RevealUntilNamed` rather than adding
+  a card-specific effect. The initial six move without reveal events; only the
+  subsequent misses and first match are revealed, with misses exiled and the
+  match put into hand. A name among the initial six cannot stop the later search.
+- Four played tests cover an immediate and a deeper match, an absent name and
+  libraries of exactly zero, five and six cards. For exact short-library tests,
+  remove the harness's backing deck before stacking the desired cards: stacking
+  zero cards does not itself make the library empty. The existing card-name
+  choice and automatic resolution serve desktop, house AI and LLM seats without
+  a new decision type or card-specific policy.
