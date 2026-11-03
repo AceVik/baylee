@@ -5,8 +5,8 @@
 //! count (CR 702.111b) and the attack-side rules of CR 508.1a.
 
 use super::*;
-use crate::combat::attack::can_attack;
-use crate::combat::block::menace_satisfiable;
+use crate::combat::can_attack;
+use crate::combat::menace_satisfiable;
 use crate::object::Status;
 
 fn tap(state: &mut GameState, id: ObjectId) {
