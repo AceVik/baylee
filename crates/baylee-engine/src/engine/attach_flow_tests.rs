@@ -202,3 +202,57 @@ fn equip_is_refused_in_the_opponents_turn() {
             .is_err()
     );
 }
+
+/// An Aura spell whose target is gone as it resolves does not resolve
+/// and goes to the graveyard, never onto the battlefield (CR 608.2b,
+/// 303.4a).
+#[test]
+fn an_aura_spell_whose_target_left_goes_to_the_graveyard() {
+    let mut engine = duel(&[holy_strength()], &[plains(), quiet_creature()]);
+    let elf = on_battlefield(&engine, P0, quiet_creature()).unwrap();
+    tap_all_mana(&mut engine, P0);
+    let card = in_hand(&engine, P0, holy_strength()).unwrap();
+    engine.apply(P0, PlayerAction::CastSpell { card }).unwrap();
+    engine
+        .apply(P0, PlayerAction::ChooseObjects { objects: vec![elf] })
+        .unwrap();
+    engine
+        .dev_state_mut(P0)
+        .expect("dev board")
+        .move_object(
+            elf,
+            crate::zone::ZoneLocation::Hand(P0),
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::Effect,
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(on_battlefield(&engine, P0, holy_strength()).is_none());
+    assert!(in_graveyard(&engine, P0, holy_strength()).is_some());
+}
+
+/// Pacifism stops blocking as well as attacking.
+#[test]
+fn a_pacified_creature_cannot_block() {
+    let mut engine = duel(&[pacifism()], &[plains(), plains(), quiet_creature()]);
+    let theirs = on_battlefield(&engine, P1, quiet_creature()).unwrap();
+    let mine = on_battlefield(&engine, P0, quiet_creature()).unwrap();
+    enchant(&mut engine, pacifism(), theirs);
+    engine
+        .dev_state_mut(P0)
+        .expect("dev board")
+        .refresh_characteristics();
+    assert!(!crate::combat::can_block(engine.state(), P1, theirs, mine));
+}
+
+/// The Aura's bonus is gone the moment it is: a Holy Strength that is
+/// destroyed leaves its creature a 1/1 again.
+#[test]
+fn the_bonus_leaves_with_the_aura() {
+    let mut engine = duel(&[holy_strength()], &[plains(), quiet_creature()]);
+    let elf = on_battlefield(&engine, P0, quiet_creature()).unwrap();
+    enchant(&mut engine, holy_strength(), elf);
+    let aura = on_battlefield(&engine, P0, holy_strength()).unwrap();
+    kill(&mut engine, aura);
+    assert_eq!(body(&mut engine, elf), (1, 1));
+}
