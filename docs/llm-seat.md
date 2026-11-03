@@ -890,6 +890,27 @@ mind's error. Each lookup, with the text the model was told, is a line of
 the mind's transcript (`lookup`: the name, the sources, the text, its
 count in the question and in the game).
 
+### Giving the reports a status
+
+`llm_report_status` (crate `baylee-train-ops`) signs in to the feedback
+service's UI as one of its admins (`--admin`, default `claude-bigace`,
+made on the server with `baylee-feedback admin add`) and works on its
+reports there (`docs/feedback.md` §"The web UI"):
+
+- `facets [--filter q]` prints the counts per status, kind and source
+  under the list's filters, as a query string (`status=new`, `source=llm-seat`).
+- `pull --filter q --out f.jsonl` writes every report the filter matches,
+  oldest first, one line each: id, status, revision, labels, game, text,
+  model, profile and the seat's claims (`client.reports`), never the log.
+- `apply --plan p.jsonl` counts a plan's changes, one
+  `{"id", "status", "labels", "revision"}` a line, and makes them only with
+  `--write`, each against the revision it was decided on (`409`
+  otherwise); `labels` is the whole set.
+
+The password is `BAYLEE_FEEDBACK_ADMIN_PASSWORD`, never an argument; a
+trailing newline is ignored. A seat's reports reach the service only from
+a collection run without `--report-games 0`.
+
 ## The spend book
 
 `llm-spend.json` beside the settings file, or where `--ledger` says (a

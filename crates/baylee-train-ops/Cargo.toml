@@ -83,3 +83,7 @@ path = "src/bin/import_mtgo4.rs"
 [[bin]]
 name = "import_17lands4"
 path = "src/bin/import_17lands4.rs"
+
+[[bin]]
+name = "llm_report_status"
+path = "src/bin/llm_report_status.rs"
