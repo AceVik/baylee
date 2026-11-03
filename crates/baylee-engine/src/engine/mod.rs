@@ -2092,6 +2092,8 @@ mod flash_haste_flow_tests;
 #[cfg(test)]
 mod flashback_tests;
 #[cfg(test)]
+mod fog_disenchant_flow_tests;
+#[cfg(test)]
 mod graveyard_order_tests;
 #[cfg(test)]
 mod pile_block_tests;
