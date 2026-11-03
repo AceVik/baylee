@@ -260,6 +260,11 @@ answer's `stops` replace it, side by side, until another answer sets them:
   with something to cast or activate.
 - `damage` is not held: after first-strike damage and after regular
   damage, for a model that names it.
+- An activation the card allows in one step alone ("activate only during
+  your upkeep": Ashen Ghoul's return from the graveyard) wakes the seat in
+  that step whatever its stops say, when its sources can pay it: the
+  window is the ability's only one. Before 3 Nov 2026 the default rail,
+  which has no `upkeep` row, passed every such upkeep.
 
 ## Plans
 

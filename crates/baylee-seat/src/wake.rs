@@ -39,6 +39,9 @@
 //! - no round is passed while a payment is owed, while the other side has
 //!   something on the stack, or in a cleanup window, unless the seat has
 //!   nothing at all it could do;
+//! - the rail never passes a round in which the seat could activate
+//!   something its card allows in this step alone (Ashen Ghoul's "activate
+//!   only during your upkeep"): there is no other window for it;
 //! - while a plan of the mind's runs, every question of the seat's is the
 //!   plan's ([`Verdict::Planned`]): the plan's executor sees them all, and
 //!   stops the plan at the first it cannot answer exactly;
@@ -457,6 +460,7 @@ impl WakeFilter {
             owing: view.owed.is_some(),
         };
         if automation::auto_answer(pending, at, &self.orders, &self.rules, None) == AutoAnswer::Pass
+            && !bound_to_this_step(view, legal)
         {
             return standing(PlayerAction::PassPriority, Standing::QuietWindow);
         }
@@ -794,12 +798,19 @@ pub fn reachable_abilities(view: &PlayerView, legal: &LegalActions) -> Vec<Abili
         .collect()
 }
 
-fn ability_taps_self(view: &PlayerView, source: ObjectId, index: u32) -> bool {
-    use baylee_cards_dsl::AbilityDef;
+/// The printed ability `index` of `source`, on the battlefield, in a
+/// graveyard or in the hand, as the face it shows now prints it; `None`
+/// for a special action, a granted ability or an object the view cannot
+/// name.
+fn printed_ability(
+    view: &PlayerView,
+    source: ObjectId,
+    index: u32,
+) -> Option<&'static baylee_cards_dsl::AbilityDef> {
     if baylee_engine::choice::is_special_action(index) {
-        return false;
+        return None;
     }
-    let Some(rules) = view
+    let rules = view
         .object(source)
         .and_then(|o| o.rules.or_else(|| o.card.map(Into::into)))
         .or_else(|| {
@@ -807,25 +818,53 @@ fn ability_taps_self(view: &PlayerView, source: ObjectId, index: u32) -> bool {
                 .iter()
                 .find(|c| c.id == source)
                 .map(|c| baylee_view::RulesFace::from(c.card))
-        })
-    else {
-        return false;
-    };
-    let Some(def) = baylee_cards::by_index(rules.card) else {
-        return false;
-    };
-    let Some(ability) = def
+        })?;
+    baylee_cards::by_index(rules.card)?
         .abilities_for_face(usize::from(rules.face))
-        .get(usize::try_from(index).unwrap_or(usize::MAX))
-    else {
-        return false;
-    };
-    match ability {
-        AbilityDef::Activated { cost, .. } | AbilityDef::ActivatedConditional { cost, .. } => {
-            cost.parts.contains(&baylee_cards_dsl::CostPart::TapSelf)
-        }
+        .get(usize::try_from(index).ok()?)
+}
+
+fn ability_taps_self(view: &PlayerView, source: ObjectId, index: u32) -> bool {
+    use baylee_cards_dsl::AbilityDef;
+    match printed_ability(view, source, index) {
+        Some(
+            AbilityDef::Activated { cost, .. } | AbilityDef::ActivatedConditional { cost, .. },
+        ) => cost.parts.contains(&baylee_cards_dsl::CostPart::TapSelf),
         _ => false,
     }
+}
+
+/// Whether the seat could activate something now that its card allows in
+/// this step alone ("activate only during your upkeep": Ashen Ghoul's
+/// return from the graveyard). Such a window is the ability's only one, so
+/// the rail does not pass it whatever its rows say: on the default rail,
+/// which has no upkeep row, the seat passed every upkeep the Ghoul could
+/// have come back in (codex attempt 191, q215).
+fn bound_to_this_step(view: &PlayerView, legal: &LegalActions) -> bool {
+    use baylee_cards_dsl::{AbilityDef, Condition};
+    fn during_a_step(condition: &Condition) -> bool {
+        match condition {
+            Condition::DuringStep(_) => true,
+            Condition::All(all) => all.iter().any(during_a_step),
+            _ => false,
+        }
+    }
+    legal
+        .abilities
+        .iter()
+        .copied()
+        .filter(|&(source, index)| !baylee_ai::only_makes_mana(view, source, index))
+        .chain(
+            reachable_abilities(view, legal)
+                .into_iter()
+                .map(|reach| (reach.source, reach.ability_index)),
+        )
+        .any(|(source, index)| {
+            matches!(
+                printed_ability(view, source, index),
+                Some(AbilityDef::ActivatedConditional { condition, .. }) if during_a_step(condition)
+            )
+        })
 }
 
 /// Whether the seat could cast or activate something by tapping what it has
