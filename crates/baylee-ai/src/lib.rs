@@ -308,20 +308,25 @@ impl HeuristicAgent {
         if let Some(action) = granted::protect(view, legal, |seat| self.hostile(seat, view.seat)) {
             return action;
         }
-        // 0b. Reserve mana in this seat's own upkeep on an empty stack.
+        // 0b. Reserve mana in this seat's own upkeep, on an empty stack or
+        //    under a payment of its own.
         //
         //    The step's payments — a pact's price, echo, cumulative upkeep
-        //    — are demanded when this round of passes closes (CR 605.3a
+        //    — wait on the stack and are demanded as they resolve (CR 605.3a
         //    lets them be paid with mana abilities then), from whatever is
         //    still untapped. A spell cast here could as well be cast a step
         //    later; a pact whose mana went on one is a game lost.
         //    An activation preventing a known loss cannot wait either: Ring
         //    of Ma'rûf must replace an empty-library draw before this upkeep
         //    ends. Only a game-saving valuation overrides the reservation.
-        //    With something on the stack the round is an ordinary one.
+        //    With nothing of its own to pay for, the round is an ordinary one.
         if view.active == view.seat
             && view.step == baylee_view::Step::Upkeep
-            && view.stack.is_empty()
+            && (view.stack.is_empty()
+                || view.stack.iter().any(|object| {
+                    object.controller == view.seat
+                        && tactics::asks_its_controller_for_mana(view, object)
+                }))
         {
             if let Some((source, ability_index)) = activate::urgent(view, legal, self) {
                 return PlayerAction::ActivateAbility {
