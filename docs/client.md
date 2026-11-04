@@ -4601,12 +4601,24 @@ purpose: it is matched against a printed type line. It matters most where it
 is least visible — `chips_shown` is `!phone || filters_open`, so on a phone a
 chip narrows the list while being drawn nowhere at all.
 
-**One row per card, in every language, and on both faces.** The pool sends
-the card, not its printings, and each row carries `alt_names` — every name
-that card is printed under, anywhere. So a German player types "Blitzschlag"
-and finds the row a deck stores as "Lightning Bolt", and finds it *once*: a
-list that repeated the card for each of the forty sets it appeared in would
-be answering a question nobody asked.
+**One row per card, in the client's language and English, and on both
+faces.** The pool sends the card, not its printings, and each row carries
+`alt_names`, the card's other names in those two languages. So a German
+player types "Blitzschlag" and finds the row a deck stores as "Lightning
+Bolt", and finds it *once*: a list that repeated the card for each of the
+forty sets it appeared in would be answering a question nobody asked.
+
+**A search matches the client's language and English, and no other** (owner,
+4.11.2026), on every surface: the deck builder, the zone dialog, the name
+chooser and `/catalog/search`. A Spanish client finds a card by its Spanish
+and its English name, never by its German one. It is written to that rule
+and not to "all the languages we have", so a language added later changes
+nothing here: `GET /pool` files a name in any other language in
+`foreign_names`, which only a pasted deck line is read against
+(`DeckBuilder::slot_of`) and no search is, and `Facts` holds nothing but the
+two (`cardsearch`). `/catalog/search` drops a card it reached only through a
+third language's name. Its rules-text tier is still one vector across
+languages, and asking it per language needs a projection per language.
 
 A two-faced card carries one more, its whole `A // B` spelling, and because
 the search is a substring match that answers three things a player might
@@ -4814,6 +4826,39 @@ deliberately outside `LobbyState`: the tree is rebuilt whenever *that* changes,
 so adding a card would otherwise throw the list back to the top, and keeping
 the offsets inside it would rebuild sixty rows on every notch of the wheel. A
 new search does start at the top, because it is a different list.
+
+## One search, three lists
+
+The deck builder, the zone dialog and the name chooser search the same way,
+on the same code (`client-core::cardsearch`, owner, 4.11.2026): a box holding
+a line of the query language, a gear that takes it apart into the builder's
+controls (`SearchBox`, `filterdialog`), and the keys both answer (`Gesture`,
+read through `filterui::{Chords, gesture}`). A criterion is a
+`cardquery::Key` with a `filterdialog::Control`, so adding a key adds it to
+all three, each according to what its `Surface` can answer. What each owner
+keeps is only its list: the deck builder's chips, the zone dialog's tabs.
+
+### Naming a card
+
+What may be named is every card the deck builder has, which is what the
+engine takes; a card with no script is in no deck here. The rows are every
+face of the pool in one fixed order (`choices::card_name_at`), so a row's
+index is its place there and a row answers through `choices::pick` what it
+says, however the list is narrowed, a controlled player's question included.
+
+The box and its gear stand above the rows (`hud/ledge/drawer.rs`,
+`name_search`), and Enter in the box still takes the highlighted row. The
+question's own restriction (`types`, `excluded_types`: "nonland") narrows the
+rows apart from the search and is said beneath the box as a fixed line, never
+as a row of the builder, so no filter can take it away. Hovering a row opens
+the card's preview, as a card named in the log does.
+
+The rows are read against the deck builder's pool in the client's language,
+asked for when a name is first asked and lent to the table
+(`lobby::lend_the_pool`), so a German client finds "Blitzschlag" and the row
+says both names. Until it arrives, and offline, the names are the registry's
+English. The walk over the pool is kept between frames
+(`choices::card_name_rows`), so it runs when the search changes.
 
 ## What the search box understands
 
@@ -5202,6 +5247,18 @@ tapped source whose pips fit on mana the plan already has: floating, or the
 unused half of a permanent it taps anyway. A priced source is tried first,
 then the roomiest. The same pass stopped a Forest listed before a Sol Ring
 from paying half of `{2}` beside it, which predates any price.
+
+A paid mana ability (a filter land's or a Signet's `{1}, {T}`) is a trade and
+not a source, and the matcher above never sees one. `manaplan/convert.rs` is
+asked only when it has said no, so a board that planned before plans the same
+taps: at most three converters, one matching a chain, a converter's mana paying
+only what stands after it, so nothing pays for itself. The steps run payers
+first, the conversion next and the plain taps last, because the engine spends
+a generic cost out of whatever floats, white first, and the seat does not
+choose: a Slough tapped ahead of Shimmering Grotto loses its `{R}` to the
+Grotto's `{1}`. Each plan is walked through with the pool spent that way before
+it is answered, and one the walk leaves short is no plan. A step can answer two
+colours, for Mystic Gate's two picks.
 
 Among clean sources of one breadth, `manaplan::prioritize` decides what is
 kept, in three tiers that are never traded against each other: a creature

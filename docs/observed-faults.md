@@ -3797,3 +3797,13 @@ triggered ability (CR 603.7) that is not a mana ability (CR 605.1b), so it
 should go on the stack and be answerable, but `DelayedAction::AddMana`
 (`engine/progress/delayed.rs`) puts the mana straight into the pool before
 anyone gets priority.
+
+### 68. The planners count no mana from Extraplanar Lens — KNOWN coverage gap
+
+Reported by a language-model seat, 4.11.2026: a spell the Lens's doubling pays
+for is not reached. `apply_triggered_mana_bonus` reads the Lens's
+`AddManaLikeEvent` already, and stops at its trigger's filter,
+`SameNameAsLinkedExile`: which card the Lens exiled is engine state
+(`linked_exile_cards`) no `PlayerView` carries, so the filter answers `None`.
+Under-counting is the safe side, and the land still makes its bonus when
+tapped. Closing it needs the view to name a permanent's linked exile.

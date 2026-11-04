@@ -266,6 +266,23 @@ answer's `stops` replace it, side by side, until another answer sets them:
   window is the ability's only one. Before 3 Nov 2026 the default rail,
   which has no `upkeep` row, passed every such upkeep.
 
+## Prices above the printed one
+
+A spell the seat taps for is cast off the pool, and the mode question counts
+the pool, so taps for the printed cost used to take every dearer way off the
+table: Journey of Discovery with fourteen lands up lost its entwine. Each price
+the lands can pay is now an option of its own, with its whole price and its
+taps (`wake/raised.rs`), and the question then asks what it always asks, with
+that way on it. The ways the mode question lists (entwine, overload and any
+mode with its own cost, a kicker with its own targets, an alternative cost with
+mana in it, dash, mutate, a prototype, a back face) are the engine's own list
+(`LegalActions::cast_ways`), legal targets asked, so no way is invented. A
+kicker and replicate are asked once the cast has begun and share the plain
+cast's legality, so they are read off the card: a kicker's price, and replicate
+once and as often as the lands pay. A price that does not fit the lands is not
+listed, and a printed price no way stands at is dropped (Cyclonic Rift with
+nothing to bounce). Multikicker and buyback have no engine support yet.
+
 ## Plans
 
 An answer may carry three optional fields beside `pick` (`decide`'s
@@ -315,6 +332,9 @@ never in a cleanup step. A plan is bound to the turn it was written in,
 and to the player it was written for: the seat's own, or the player
 whose turn it controls (§"A decision for a controlled player"); so are an
 option's taps and the targets named ahead.
+
+A `cast` step names a card and takes its printed price. A card may stand on
+several options at several prices (above), and the dearer ones are the menu's.
 
 It stops, and the question is the model's, at anything it does not answer
 exactly; nothing of a plan is ever guessed (`narrator::Stop`):

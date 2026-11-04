@@ -707,6 +707,15 @@ an additive JSON field defaulted when absent, and an old client never sends
 in either order. During the window the card is still in its zone; the
 engine moves it to the stack as the cost is paid, not first (CR 601.2a).
 
+`cast_ways` lists, for a card of either list that prints a price of its own
+(entwine, overload and any other mode with its own cost, a kicker with its own
+targets, an alternative cost with mana in it, dash, mutate, a prototype, a back
+face), every way it may be cast with every rule asked but the mana, each at its
+whole price. It is a planning hint, as `unpaid_abilities` is: the mode question
+lists what the *pool* pays, so a planner that taps first and wants a dearer way
+has to tap for it before it casts. The field is additive and defaulted when
+absent, and empty for every other card.
+
 A card in `castable` may cost more than what floats once its X is announced
 (CR 601.2b). While the seat still has a mana source to tap, its X question
 is open (`ChooseNumber.max` is `u32::MAX`, as for a `payable` card and an
@@ -3959,14 +3968,15 @@ whatever the ability costs or does beside the mana, and what only a game
 can answer (a Command Tower's commanders, a chosen colour) is left out
 rather than guessed. Absent for every other card.
 
-Each row also carries `oracle_id` and `alt_names` — every *other* name the
-card is printed under: the languages a configured catalog holds, and, for a
-card with two faces, its whole `A // B` spelling. That is what lets the
-builder show **one row per card** and still find it when a player types the
-name on the card in their hand: searching printings instead would list the
-same card once per set it appeared in, which is the wrong answer to "do I own
-this". `alt_names` is omitted when empty, because for two hundred cards in a
-dozen languages it is otherwise the largest field in the response.
+Each row also carries `oracle_id` and `alt_names`: the card's other names in
+the served language and English, and, for a card with two faces, its whole
+`A // B` spelling. That is what lets the builder show **one row per card** and
+still find it when a player types the name on the card in their hand:
+searching printings instead would list the same card once per set it appeared
+in, which is the wrong answer to "do I own this". A search matches the
+client's language and English and no other, so a name in any other language
+goes to `foreign_names`, which a pasted deck line is read against and no search
+is. Both are omitted when empty.
 
 The whole spelling is there **without a catalog**, because it comes off the
 registry rather than out of an ingest — the same reason `POST /decks` takes
