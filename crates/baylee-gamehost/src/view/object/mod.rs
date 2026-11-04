@@ -629,6 +629,7 @@ fn board_mana(state: &GameState, id: ObjectId) -> Option<baylee_view::BoardMana>
                     | baylee_cards_dsl::ManaSource::CircledColors
                     | baylee_cards_dsl::ManaSource::ExiledWithSource
                     | baylee_cards_dsl::ManaSource::LandColor { .. }
+                    | baylee_cards_dsl::ManaSource::NotedActivationMana
                     | baylee_cards_dsl::ManaSource::Chosen
                     | baylee_cards_dsl::ManaSource::ChosenOr(_)
             ) {
@@ -638,10 +639,20 @@ fn board_mana(state: &GameState, id: ObjectId) -> Option<baylee_view::BoardMana>
             // two do, and for one more: it is the only one a *client* could
             // not derive even with the whole board in front of it, because
             // the choice is on the object and is printed on no card.
-            let colors = baylee_engine::resolve::colors_of(state, obj.controller, source, id);
+            let (colors, restricted_to) =
+                if source == baylee_cards_dsl::ManaSource::NotedActivationMana {
+                    let (types, exile) = baylee_engine::resolve::noted_activation_mana(state, id)?;
+                    (baylee_engine::resolve::noted_colors(types), exile)
+                } else {
+                    (
+                        baylee_engine::resolve::colors_of(state, obj.controller, source, id),
+                        None,
+                    )
+                };
             (!colors.is_empty()).then(|| baylee_view::BoardMana {
                 index: u32::try_from(index).unwrap_or(u32::MAX),
                 colors,
+                restricted_to,
             })
         })
 }

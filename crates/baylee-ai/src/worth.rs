@@ -1865,7 +1865,13 @@ impl HeuristicAgent {
                     .map(|p| if self.hostile(p, me) { n * 10 } else { -n * 10 })
                     .sum()
             }
-            Effect::AddMana { .. } => 0,
+            // Recording an activation's payment is bookkeeping for its linked
+            // mana ability. Exiling a hand card with its own continuing cast
+            // permission moves that card without changing its material value.
+            // The surrounding effects carry the activation's worth in both cases.
+            Effect::AddMana { .. }
+            | Effect::NoteActivationMana
+            | Effect::ExileChosenFromHandWithSourceAndCast(_) => 0,
             _ => return None,
         })
     }

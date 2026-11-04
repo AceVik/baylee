@@ -430,6 +430,7 @@ fn mana_fits(effects: &[baylee_cards_dsl::Effect], line: &str) -> bool {
             | ManaSource::ColorsAmong { .. }
             | ManaSource::CircledColors
             | ManaSource::ExiledWithSource
+            | ManaSource::NotedActivationMana
             | ManaSource::LandColor { .. }
             | ManaSource::Chosen
             | ManaSource::ChosenOr(_) => return true,

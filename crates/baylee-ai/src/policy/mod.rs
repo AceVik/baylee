@@ -2087,11 +2087,11 @@ fn offers(view: &PlayerView, legal: &LegalActions) -> Vec<Offer> {
                 // carries colours and an amount and no cost at all, and the
                 // registry lookup below would be reaching for a printed
                 // ability that has nothing to do with the grant.
-                .map(|m| (m.colors.clone(), m.amount, false, None))
+                .map(|m| (m.colors.clone(), m.amount, false, false, None))
         } else {
             printed_mana_offer(view, id, index, object)
         };
-        if let Some((colors, amount, priced, only_for)) = source {
+        if let Some((colors, amount, bundle, priced, only_for)) = source {
             // A tap that sets off the permanent's own trigger (City of
             // Brass) or a board trigger (Psychic Venom, Manabarbs) puts
             // that trigger on the stack before the spell.
@@ -2102,12 +2102,9 @@ fn offers(view: &PlayerView, legal: &LegalActions) -> Vec<Offer> {
                     tap: Tap::Ability(index),
                     colors,
                     amount,
-                    // Correct only while `mana_shape`'s one-effect match hides
-                    // every multi-`AddMana` ability from this reader, so nothing
-                    // that reaches here is a bundle. #170 is where that stops
-                    // being true, and it has to decide this per ability rather
-                    // than restate the constant.
-                    bundle: false,
+                    // Whether the colours are a fixed package, rather than
+                    // alternatives, belongs to the ability's own reading.
+                    bundle,
                     priced,
                     preserve: 0,
                     dear: None,
@@ -2161,17 +2158,20 @@ fn offers(view: &PlayerView, legal: &LegalActions) -> Vec<Offer> {
     result
 }
 
+type ManaOfferParts = (
+    Vec<ManaColor>,
+    u8,
+    bool,
+    bool,
+    Option<baylee_cards_dsl::ManaRestriction>,
+);
+
 fn printed_mana_offer(
     view: &PlayerView,
     id: ObjectId,
     index: u32,
     object: &baylee_view::PublicObject,
-) -> Option<(
-    Vec<ManaColor>,
-    u8,
-    bool,
-    Option<baylee_cards_dsl::ManaRestriction>,
-)> {
+) -> Option<ManaOfferParts> {
     let a = crate::activate::printed(view, id, index)?;
     let (AbilityDef::Activated {
         cost,
@@ -2202,14 +2202,21 @@ fn printed_mana_offer(
             .colors
             .clone(),
     };
-    // A count of the board (Harabaz Druid's Allies) is read the
-    // way the client's planner reads it, so both plan one tap.
-    let amount = amount
-        .or_else(|| crate::mana_poured(view, id, effects))
-        .filter(|amount| *amount > 0)?;
+    // A noted activation produces every projected entry, including repeats;
+    // it never asks which of those colours to take. Other board counts keep
+    // the ordinary reading used by the client, so both planners agree.
+    let bundle = kind == ManaSource::NotedActivationMana;
+    let amount = if bundle {
+        u8::try_from(colors.len()).ok()?
+    } else {
+        amount
+            .or_else(|| crate::mana_poured(view, id, effects))
+            .filter(|amount| *amount > 0)?
+    };
     Some((
         colors,
         amount,
+        bundle,
         priced(cost) || effects.iter().any(|e| !matches!(e, Effect::AddMana { .. })),
         crate::restricted::only_for(effects),
     ))

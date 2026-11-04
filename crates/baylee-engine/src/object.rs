@@ -543,6 +543,7 @@ impl Characteristics {
                     | baylee_cards_dsl::ManaSource::ColorsAmong { .. }
                     | baylee_cards_dsl::ManaSource::ExiledWithSource
                     | baylee_cards_dsl::ManaSource::CircledColors
+                    | baylee_cards_dsl::ManaSource::NotedActivationMana
                     | baylee_cards_dsl::ManaSource::LandColor { .. } => {}
                     // The chosen colour is on the *object* and this is a
                     // reading of the card, so there is nothing to put here.
@@ -996,6 +997,16 @@ pub enum Rider {
         /// Hideaway also grants permission to the source's current controller.
         follow_source: bool,
     },
+    /// Mana types paid for one linked ability activation, and the last card
+    /// that activation exiled. The note belongs to this permanent incarnation.
+    ActivationManaNote {
+        /// Rules acquisition shared by the linked abilities (CR 607.5).
+        acquisition: u64,
+        /// Actual mana paid, indexed by `ManaColor::index`, not merely X.
+        mana_types: [u32; 6],
+        /// The exact last exile, retained even if that card later leaves exile.
+        last_exile: Option<baylee_core::ids::DamageSourceRef>,
+    },
     /// Copy entry replacement already considered before this incarnation arrived.
     EntryCopyApplied,
     /// Orientation replacements were already applied before this arrival.
@@ -1081,7 +1092,8 @@ impl Rider {
             | Self::Rebound
             | Self::Foretold { .. }
             | Self::Plotted
-            | Self::NotedCounter(_, _) => true,
+            | Self::NotedCounter(_, _)
+            | Self::ActivationManaNote { .. } => true,
             // About the stack or the battlefield, not exile.
             Self::DelayedReturnObject(_)
             | Self::PhasedOutUntilHostLeaves { .. }
@@ -1856,6 +1868,57 @@ impl GameObject {
                 _ => None,
             })
             .unwrap_or(0)
+    }
+
+    /// The mana note owned by one acquisition of this object's linked abilities.
+    #[must_use]
+    pub fn activation_mana_note(
+        &self,
+        acquisition: u64,
+    ) -> Option<([u32; 6], Option<baylee_core::ids::DamageSourceRef>)> {
+        self.riders.iter().find_map(|rider| match rider {
+            Rider::ActivationManaNote {
+                acquisition: linked,
+                mana_types,
+                last_exile,
+            } if *linked == acquisition => Some((*mana_types, *last_exile)),
+            _ => None,
+        })
+    }
+
+    /// Replace only this acquisition's mana mixture; declining a later exile
+    /// deliberately leaves its previous last-exile reference untouched.
+    pub(crate) fn note_activation_mana(&mut self, acquisition: u64, mana_types: [u32; 6]) {
+        let last_exile = self
+            .activation_mana_note(acquisition)
+            .and_then(|(_, exile)| exile);
+        self.riders.retain(|rider| {
+            !matches!(rider, Rider::ActivationManaNote { acquisition: linked, .. } if *linked == acquisition)
+        });
+        self.riders.push(Rider::ActivationManaNote {
+            acquisition,
+            mana_types,
+            last_exile,
+        });
+    }
+
+    /// Update the last-exile half of an existing activation note.
+    pub(crate) fn note_last_linked_exile(
+        &mut self,
+        acquisition: u64,
+        exile: baylee_core::ids::DamageSourceRef,
+    ) {
+        for rider in &mut self.riders {
+            if let Rider::ActivationManaNote {
+                acquisition: linked,
+                last_exile,
+                ..
+            } = rider
+                && *linked == acquisition
+            {
+                *last_exile = Some(exile);
+            }
+        }
     }
 
     /// Store a linked choice without overwriting one an older copy still owns.

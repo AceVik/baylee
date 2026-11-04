@@ -145,7 +145,11 @@ fn prismatic_ending_payment() -> Request {
     // A dual's mana is its land types' (CR 305.6), as the host projects it.
     let dual = |slot: u32, name: &str, colors: Vec<baylee_core::mana::ManaColor>| {
         let mut land = card(slot, name);
-        land.board_mana = Some(baylee_view::BoardMana { index: 0, colors });
+        land.board_mana = Some(baylee_view::BoardMana {
+            index: 0,
+            colors,
+            restricted_to: None,
+        });
         land
     };
     let mut view = ViewBuilder::new(2)

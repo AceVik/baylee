@@ -215,7 +215,7 @@ pub(crate) use life::{refresh_damage, resume_damage};
 /// This is the same function [`add_mana`](mana) calls on the way to handing
 /// the mana out, which is the whole point of exporting it rather than writing
 /// a projection beside it.
-pub use mana::colors_of;
+pub use mana::{colors_of, noted_activation_mana, noted_colors};
 
 /// A running effect resolution (continuation).
 #[derive(Clone, Debug)]

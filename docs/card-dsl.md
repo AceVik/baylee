@@ -2997,6 +2997,25 @@ and/or {U}", where X is what their own `RemoveCounterSelfX` announced, and
 `resolve::mana::add_mana` splits whatever the amount evaluates to into that
 many picks of one.
 
+`Effect::NoteActivationMana` notes the actual mana types paid for this
+activation on the source's current permanent incarnation, keyed by the linked
+abilities' rules acquisition. A later activation replaces only that acquisition's
+mana mixture. Declining its optional exile deliberately preserves the previous
+last-exile reference. `ManaSource::NotedActivationMana` then supplies the whole
+noted mixture, including repeated types and colorless mana, without a color
+choice; unlike ordinary sources, it supplies its own amount and distribution.
+
+For Ice Cauldron, `ExileChosenFromHandWithSourceAndCast(&Filter::NONLAND)`
+exiles the card with the source and grants `PlayLifetime::WhileExiled`: the
+permission belongs to that exact exiled incarnation and lasts independently of
+turn boundaries, but ends when it leaves exile. `ManaUse::LastLinkedExile`
+restricts the noted mana to casting the source's last exiled card incarnation.
+A same-named card, another exile incarnation, an activated ability, or any other
+payment does not qualify. The cast permission and the mana restriction are
+separate: leaving and re-entering exile does not revive either for the new
+incarnation, while a new source permanent forgets its own note but does not
+cancel the old exile's independent cast permission.
+
 An amount with a **constant in front of it** is `Amount::Plus`, wrapping the
 amount it offsets — Muscle Burst's "3 plus the number of cards named Muscle
 Burst in all graveyards":

@@ -251,6 +251,8 @@ pub enum PlayLifetime {
     Turns(baylee_cards_dsl::PlayWindow),
     /// The exact permanent must remain present and prepared (CR 722.3c).
     Prepared(baylee_core::ids::DamageSourceRef),
+    /// The exact card incarnation remains exiled, independently of turn boundaries.
+    WhileExiled,
 }
 
 impl From<baylee_cards_dsl::PlayWindow> for PlayLifetime {

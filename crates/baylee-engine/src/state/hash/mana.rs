@@ -17,6 +17,12 @@ fn unit_key(state: &GameState, unit: RestrictedMana, position: &impl Fn(ObjectId
         provenance.restriction.hash(&mut h);
         provenance.chosen_subtype.hash(&mut h);
         provenance.source_watermark.hash(&mut h);
+        h.boolean(provenance.last_linked_exile.is_some());
+        if let Some(exile) = provenance.last_linked_exile {
+            h.u32(position(exile.object));
+            h.u8(moves_since(state.object(exile.object), exile.version));
+            hash_damage_source(&mut h, state, exile.object, exile.version);
+        }
         if let Some(version) = provenance.source_version {
             h.u8(moves_since(
                 state.object(provenance.context.source),

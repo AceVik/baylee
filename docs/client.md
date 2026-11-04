@@ -6098,6 +6098,14 @@ provably admits this exact spell or activation, adds one restricted tap last.
 The engine still makes the final payment check, so no plan depends on reading
 restricted mana already floating in the pool.
 
+`BoardMana::colors` is a choice for an ordinary ability, but repeated entries in
+a host-projected fixed mixture are one bundle produced together, not independent
+color choices. Ice Cauldron uses this to offer its exact last noted mana. Its
+`BoardMana::restricted_to` names an object identity, not a card name: the client
+plans that mana only for the projected spell with that identity, never for a
+same-named spell or an activated ability. The optional field is omitted when
+there is no object restriction, so older payloads retain their previous shape.
+
 ## A choice you answer by picking, not by clicking the table
 
 Four of the engine's seventeen pending choices name something that is not on

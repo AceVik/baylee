@@ -5065,6 +5065,8 @@ fn mark_single_mana_source_with_view(
                 *col = true;
             }
         }
-        ManaSource::IntrinsicBasicLandTypes => {}
+        // A noted mixture belongs to one exiled object and cannot be inferred
+        // from this source alone. Claiming no colour is safer than claiming all.
+        ManaSource::IntrinsicBasicLandTypes | ManaSource::NotedActivationMana => {}
     }
 }
