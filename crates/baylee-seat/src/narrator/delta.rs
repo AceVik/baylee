@@ -168,7 +168,10 @@ pub(super) fn difference(told: &Told, state: &str) -> Option<String> {
             whole(section, &mut out);
             continue;
         }
-        let still: BTreeSet<&str> = appeared.iter().flat_map(|line| tags(line)).collect();
+        // Every object the section still names stays, not only those in a
+        // changed line: an Equipment moved off Captain Storm loses the line
+        // that named him as its host, and he is still on his own line.
+        let still: BTreeSet<&str> = section.lines.iter().flat_map(|line| tags(line)).collect();
         let left: Vec<String> = vanished
             .iter()
             .flat_map(|line| tags(line))
@@ -243,6 +246,32 @@ mod tests {
         );
         assert_eq!(four.lines().count(), 2 + 4, "{four}");
         assert_eq!(difference(&told, &board(5)), None);
+    }
+
+    /// An Equipment moved off a creature loses the line that named the
+    /// creature as its host; the creature, still on its own line, is not
+    /// told as gone (Argon v Astra: Mask of Memory off Captain Storm).
+    #[test]
+    fn a_host_still_on_its_own_line_is_not_told_as_gone() {
+        let at = |host: u32| {
+            let mut out = board(0);
+            out.push_str("  #50 Captain Storm · tapped\n  #51 Gildweaver\n");
+            let _ = writeln!(out, "  #60 Mask of Memory · attached to #{host}");
+            out
+        };
+        let told = Told {
+            question: 12,
+            turn: 7,
+            lines: lines(&at(50)),
+            names: Vec::new(),
+        };
+        let moved = difference(&told, &at(51)).expect("one line changed");
+        assert!(moved.contains("attached to #51"), "{moved}");
+        assert!(!moved.contains("no longer here"), "{moved}");
+        // A creature that did go is still told as gone.
+        let gone = at(51).replace("  #50 Captain Storm · tapped\n", "");
+        let gone = difference(&told, &gone).expect("two lines changed");
+        assert!(gone.contains("no longer here: #50"), "{gone}");
     }
 
     #[test]
