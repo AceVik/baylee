@@ -928,8 +928,9 @@ nothing else (`layout::tests::arrangements::arranged_reads_only_the_roster`).
   `Keymap::legacy()`.
 - **Settings › Graphics** (device): *Tischanordnung* (the default, one button
   per arrangement, those not built yet dead with the package that brings
-  them), *Tisch folgt dem Zug* (on, the owner's of 07.10.) and *Je Sitzzahl* (a stepper per
-  seat count through *Default* and the built arrangements).
+  them), *Tisch folgt dem Zug* (on, the owner's of 07.10.), *Dem gesteuerten
+  Spieler folgen* (on; §"Playing another player's turn") and *Je Sitzzahl* (a
+  stepper per seat count through *Default* and the built arrangements).
 - **A board squared to my chair** (the owner, 07.10.2026: *a non-teammate's
   board is rendered rotated 180° — exactly as the opponent's board is drawn
   in the 1v1 duel*): wherever an arrangement turns a board square to me
@@ -6870,6 +6871,111 @@ chip; arrows walk the chips, quick list first):
   (`type_names`), filtered by the shown or the English name. Only offered
   types appear anywhere, and every chip answers with the offer's own index
   (`a_creature_type_is_answered_from_the_decks_quick_list`).
+
+## Playing another player's turn (CR 723)
+
+A seat may control another player: for that player's whole next turn
+(Mindslaver, CR 723.1) or for one instruction (Word of Command, Opposition
+Agent, CR 723.2). The engine routes every decision of the controlled player
+to the controller (`Engine::decision_actor`); the question still names the
+controlled player (`Pending::asked`), the controller's view waits for it
+(`awaiting == seat`) with `decision_player` naming the controlled player,
+and `controlled_hands` carries that player's hand (CR 723.4). Every other
+seat's view says the same pair (`awaiting` the controller, `decision_player`
+the controlled player), because control of a player is public.
+
+**Every decision, with their resources.** The controller makes every
+decision the controlled player makes (CR 723.5), against that player's
+interest too, with only that player's cards, mana and permanents
+(CR 723.5a). `client-core::decision::resource_player` names the deciding
+player and `Duel::actor` is the client's door to it: the hand the client
+plays from (`decision::hand`), the pool and lands a run taps (`ManaRun`),
+the X cap, the reach (`reachable`, with its commander, flashback and
+foretell halves), the alternative costs, the sorcery window
+(`timing::sorcery_window`), the creatures a combat question lights, the
+"may" batch, the retarget and damage-division shortcuts, the targeting
+proofs' "you" (`targeting::you`) and the standing orders' "my turn" all read
+it. `Duel::seat` stays where the meaning is this client's own chair: the
+camera, cues, results. Nothing here filters an option the engine offers:
+their removal at their own creature, their Mind Rot at themselves, their
+attack at any defender offered are answered as the engine asks them
+(`controlled_turn_tests`, played against the engine). The controller's own
+decisions in that turn (CR 723.8: its blocks, its own priority) are its own
+again, and a "may" batch approved for the controlled player never passes
+the controller's own priority.
+
+**The perspective.** Which chair the bottom of the table shows is
+`client-core::perspective::Perspective` (`Duel::perspective`): this seat's
+own or one it controls (`perspective::seats`: its own, then every player
+the view carries a controlled hand for, in seat order), never any other,
+and a hand is read only from where the view put it (`decision::hand_of`),
+so a perspective shows nothing the view does not carry. The hand row is the
+shown chair's (`BoardModel::show_hand`, `Duel::shown_hand`).
+
+- **Auto-follow.** A decision *arrives* when a question is installed where
+  none stood (the last was answered) or one for another player replaced it;
+  the same question asked again is not one. With *Dem gesteuerten Spieler
+  folgen* / *Follow the player you decide for* on (Settings → Graphics,
+  `TableView::follow_control`, per device, default on), a decision arriving
+  for a controlled player shows that player's chair, and one of this seat's
+  own shows its own (`Perspective::decision`).
+- **By hand.** A press on a controlled player's chip, or on the seat's own,
+  shows that chair (`Duel::show_from`; the chip's camera press still
+  happens, and a target question takes the press first); `U`
+  (`Action::CyclePerspective`) walks the chairs round, the seat's own
+  included. A chair chosen by hand holds until the next decision arrives.
+- **Control ending** mid-perspective (the view no longer carries that hand)
+  shows the seat's own chair again (`Perspective::read`).
+- **The question is never hidden by the perspective.** It stands on the
+  shelf and the sheet whichever chair is shown, named for the player it is
+  asked for.
+- **The change is seen.** The hand of the new chair rises 22 px into place
+  over 0.24 s, an ease-out on a fixed clock so it takes as long at any frame
+  rate (`hud::hand::arrive_the_hand`, `HandArrival`, kept outside the
+  retained tree so a rebuild mid-rise does not restart it), and stands still
+  under `reduce_motion`. Nothing is written at rest.
+
+**What every seat is told.**
+
+- **The question names its player**: "For Mia: Your move" / "Für Mia: Du
+  bist dran" (`Phrase::ForPlayer`, `ledge::shelf_headline`; the target
+  sheet's first line likewise). It is Mia's move on Mia's turn: the turn a
+  headline reads is the deciding player's.
+- **The banner** (`hud::controlbanner`, under the lost-connection banner,
+  built once, written when the line changes): "You decide for Mia" at the
+  controller's table, "Ben controls your turn" at the controlled player's
+  own (outside its turn, "Ben decides for you"), "Ben decides for Mia" at
+  every other table (`perspective::ControlLine`). It stands while the
+  question in hand is one player's made by another; the controller's own
+  decisions take it down.
+- **The chips**: a badge over the chip of every player this seat controls,
+  "Under your control" ("Shown · under your control" on the chair shown),
+  whose hint says a press plays from that chair; over a player somebody else
+  decides for, "Controlled by Ben", for every seat, with "Mia's turn —
+  controlled by Ben" in its hint on Mia's turn (`players::control_badge`,
+  `show_the_control_badges`). The chip clips sideways only, so the badge
+  stands over it on the table's edge, never on a print.
+- **The controlled hand** wears a frame of its own: a rose edge and a faint
+  rose ground under the cards, and in the headroom over them the brain mark
+  and "Mia's hand · under your control" (`hud::hand::control_frame`).
+- **Colour is never the only cue**: the brain mark (`glyph::CONTROL`) and
+  the words stand beside the rose (`palette::CONTROL`) everywhere.
+- **The controlled player's own table** is sent no question while its
+  controller decides, so it has nothing to answer; the banner says why.
+- **Conceding** stays every player's own (CR 723.6): `PlayerAction::Concede`
+  is its sender's, and while this seat decides for another player the game
+  menu's row reads "Concede yourself" / "Selbst aufgeben".
+- `/state.control` reports the chairs, the one shown, whether by hand, the
+  setting and the banner's line.
+
+**What the view does not carry** (a gap, reported, not worked around): the
+source of the control (Mindslaver, Word of Command) is not projected, so the
+banner names the players and not the card; who controls a player is known
+to third seats only while one of that player's decisions is in hand, not
+between them; `view.casting` (the cast chooser's and the X cap's anchor) and
+`sorcery_lock`/`sorceries_have_flash` are projected for the viewing seat,
+not for the player it decides for; and the game log does not say who made a
+decision taken for a controlled player.
 
 ## The bar's hinge says which turn and what the game is
 
