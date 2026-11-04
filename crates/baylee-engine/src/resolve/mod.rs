@@ -1491,6 +1491,7 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::PlayerMayPayManaEachThenElse { .. }
         | Effect::UntapChosenPayingEach { .. }
         | Effect::PlayerMayPayManaOr { .. }
+        | Effect::PayManaOrLose { .. }
         | Effect::PlayerMayPayManaThen { .. }
         | Effect::MayPayEnergyOr { .. }
         | Effect::PlayerMayPayLifeOr { .. }

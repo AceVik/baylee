@@ -1074,7 +1074,8 @@ pub(crate) fn delayed_references(action: &DelayedAction, out: &mut BTreeSet<Dama
             out.insert(source);
             out.insert(affected);
         }
-        DelayedAction::DrawStepLifeLoss { source, .. } => {
+        DelayedAction::DrawStepLifeLoss { source, .. }
+        | DelayedAction::PrintedTrigger { source, .. } => {
             out.insert(source);
         }
         DelayedAction::ReturnExiledGroup {
@@ -1126,11 +1127,6 @@ pub(crate) fn delayed_references(action: &DelayedAction, out: &mut BTreeSet<Dama
             version,
             ..
         }
-        | DelayedAction::PayCostOrSacrifice {
-            card: object,
-            version,
-            ..
-        }
         | DelayedAction::Transform {
             card: object,
             version,
@@ -1153,9 +1149,6 @@ pub(crate) fn delayed_references(action: &DelayedAction, out: &mut BTreeSet<Dama
             version,
         } => {
             out.insert(DamageSourceRef { object, version });
-        }
-        DelayedAction::PayCostOrLose { source, .. } => {
-            out.extend(source);
         }
         DelayedAction::AddMana { .. } => {}
     }

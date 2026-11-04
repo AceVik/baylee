@@ -1186,7 +1186,8 @@ impl Effect {
             | Effect::MayCopyCastLinkedExile
             | Effect::ReturnLinkedExile { .. }
             | Effect::SacrificeObject { .. }
-            | Effect::PayCostOrLoseLater { .. }
+            | Effect::AtNextUpkeepPrinted { .. }
+            | Effect::PayManaOrLose { .. }
             | Effect::CreateEmblem { .. }
             | Effect::BecomeMonarch(_)
             | Effect::IncreaseSpeed

@@ -2053,16 +2053,20 @@ pub(super) fn exec_immediate(
                 ],
             })
         }
-        Effect::PayCostOrLoseLater { cost } => {
+        Effect::AtNextUpkeepPrinted { ability } => {
+            let object = state.object(res.source)?;
+            let printed = object.printed_face()?;
+            let version = source_version(state, res).unwrap_or(object.version);
             state.delayed.push(crate::state::DelayedTrigger {
                 controller: you,
                 when: crate::state::DelayedWhen::NextUpkeep,
-                action: crate::state::DelayedAction::PayCostOrLose {
-                    cost,
-                    source: match super::payment_for(state, res) {
-                        crate::casting::SpendFor::OtherFrom(source) => Some(source),
-                        _ => None,
+                action: crate::state::DelayedAction::PrintedTrigger {
+                    source: baylee_core::ids::DamageSourceRef {
+                        object: res.source,
+                        version,
                     },
+                    printed,
+                    ability,
                 },
             });
             None
@@ -3323,6 +3327,7 @@ pub(super) fn exec_immediate(
         | Effect::UntapChosenPayingEach { .. }
         | Effect::PlayerMayPayManaOr { .. }
         | Effect::PlayerMayPayManaThen { .. }
+        | Effect::PayManaOrLose { .. }
         | Effect::PlayerMayPayLifeOr { .. }
         | Effect::PlayerMayGetPoisonOr { .. }
         | Effect::MayExileFromYourGraveyardThen { .. }

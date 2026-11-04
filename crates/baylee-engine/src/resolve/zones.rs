@@ -22,7 +22,6 @@ mod sweep_filter;
 /// does not exist (CR 702.26b). `battlefield_view` leaves it out for the
 /// same reason.
 ///
-/// It is the sibling of the battlefield check in `Engine::demand_echo`.
 /// `resolve::exec_choice` reads it too, so "you may sacrifice this" is not
 /// offered when the answer "yes" is impossible (CR 608.2d).
 pub(super) fn can_sacrifice_self(state: &GameState, res: &Resolution) -> bool {

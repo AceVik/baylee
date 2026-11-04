@@ -1067,35 +1067,6 @@ impl<L: CardLookup> Engine<L> {
                 if self.offer_miracle() {
                     return true;
                 }
-                // An upkeep payment that triggered as this step began
-                // (`upkeep_payments`) is answered here, where it would
-                // resolve had it been put on the stack: after everyone has
-                // passed on an empty stack, and before `advance_step` ends
-                // the step and empties the pool the player has just made its
-                // mana into (CR 500.5). It goes through the delayed queue so
-                // that what it does — a sacrificed echo permanent — is owed
-                // its state-based actions and triggers before anybody holds
-                // priority again (CR 117.5), and returning `false` with the
-                // round reset above reopens it with the active player
-                // (CR 117.3b).
-                // The payments are the active player's own, and one who has
-                // left the game is asked for nothing (CR 800.4a).
-                if self.active_has_left() {
-                    self.upkeep_payments.clear();
-                }
-                if let Some(action) = self.upkeep_payments.pop_front() {
-                    // Filled only by `queue_upkeep_delayed`, and every upkeep
-                    // closes a round of its own, so nothing can be left in it
-                    // to be answered in a later step.
-                    debug_assert_eq!(
-                        self.state.turn.step,
-                        Step::Upkeep,
-                        "an upkeep payment outlived its upkeep"
-                    );
-                    self.delayed_queue
-                        .push_back((self.state.turn.active, action));
-                    return false;
-                }
                 // A division of combat damage banding hands to a player is
                 // asked before the damage step deals it (CR 702.22j–k);
                 // its last answer ends this step (`answer_share`).

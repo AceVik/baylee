@@ -1,4 +1,4 @@
-//! Carrying out delayed actions: free casts, discoveries, echo and pact payments.
+//! Carrying out delayed actions: free casts, discoveries, delayed triggers.
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary
 use super::*;
@@ -172,6 +172,7 @@ impl<L: CardLookup> Engine<L> {
             if matches!(
                 action,
                 crate::state::DelayedAction::Trigger { .. }
+                    | crate::state::DelayedAction::PrintedTrigger { .. }
                     | crate::state::DelayedAction::TriggerAbout { .. }
                     | crate::state::DelayedAction::LinkedCounterCleanup { .. }
                     | crate::state::DelayedAction::ReturnExiledGroup { .. }
@@ -346,24 +347,6 @@ impl<L: CardLookup> Engine<L> {
                 });
                 false
             }
-            crate::state::DelayedAction::PayCostOrSacrifice {
-                cost,
-                card,
-                version,
-            } => {
-                if self
-                    .state
-                    .object(card)
-                    .is_some_and(|o| o.version == version)
-                {
-                    self.demand_echo(cost, card, version)
-                } else {
-                    false
-                }
-            }
-            crate::state::DelayedAction::PayCostOrLose { cost, source } => {
-                self.demand_pact(cost, source)
-            }
             // A delayed triggered ability that uses the stack, come due at a
             // step: it joins the trigger queue and is put on the stack from
             // there, as any trigger is. Earthbend's watch is read off the
@@ -401,6 +384,14 @@ impl<L: CardLookup> Engine<L> {
                     Some(source_version),
                     text,
                 );
+                false
+            }
+            crate::state::DelayedAction::PrintedTrigger {
+                source,
+                printed,
+                ability,
+            } => {
+                self.queue_printed_trigger(controller, source, printed, ability);
                 false
             }
             // "That creature" while it is still that object (CR 603.7c):
@@ -489,132 +480,69 @@ impl<L: CardLookup> Engine<L> {
             });
     }
 
-    /// Echo come due (CR 702.30a): "sacrifice it unless you pay [cost]",
-    /// asked of the active player once the upkeep's priority window has
-    /// closed (see `upkeep_payments`). Returns `true` when a question was
-    /// put.
-    fn demand_echo(
+    /// The trigger a delayed ability its card prints goes on the stack as:
+    /// that ability of that list, with no synthetic body. Read off `printed`
+    /// and not the source, which a copy of a spell no longer has.
+    fn queue_printed_trigger(
         &mut self,
-        cost: baylee_core::mana::ManaCost,
-        card: ObjectId,
-        version: u32,
-    ) -> bool {
-        // It resolves after a priority window now, so the permanent
-        // may already be gone — and only a permanent on the
-        // battlefield can be sacrificed (CR 701.21a).
-        if !self
-            .state
-            .object(card)
-            .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
-        {
-            return false;
-        }
-        let active = self.state.turn.active;
-        let can_pay = self.can_pay_mana(
-            active,
-            super::super::casting::SpendFor::OtherFrom(baylee_core::ids::DamageSourceRef {
-                object: card,
-                version,
-            }),
-            &cost,
-        );
-        // A player asked to pay may make the mana first (CR 605.3a), so the
-        // question is put while the pool pays it or anything could make
-        // mana for it. Only a player with neither is past asking: before,
-        // an empty pool sacrificed the permanent beside untapped lands.
-        if !can_pay && self.mana_window_legal(active).is_none() {
-            self.sacrifice_for_echo(card);
-            return false;
-        }
-        let source = self
-            .state
-            .object(card)
-            .and_then(|o| o.card)
-            .map(|c| AbilityRef::new(c.index, AbilityRef::UPKEEP_COST));
-        self.pending_plan = Some(PlanKind::DelayedPaySacrifice {
-            cost,
-            card,
-            version,
-        });
-        self.pending = Pending::YesNo {
-            player: active,
-            prompt: YesNoPrompt::Generic,
-            source,
-        };
-        self.awaiting_answer = true;
-        true
-    }
-
-    /// Echo unpaid: the permanent is sacrificed, if it is still there to be
-    /// (CR 701.21a).
-    pub(in crate::engine) fn sacrifice_for_echo(&mut self, card: ObjectId) {
-        if !self
-            .state
-            .object(card)
-            .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
-        {
+        controller: PlayerId,
+        source: baylee_core::ids::DamageSourceRef,
+        printed: crate::object::PrintedFace,
+        ability: u32,
+    ) {
+        let Some(def) = self.lookup.card(printed.card()) else {
             return;
-        }
-        if let Some(obj) = self.state.object_mut(card) {
-            obj.kind = ObjectKind::Card;
-        }
-        let _ = self
-            .state
-            .sacrifice_object(card, crate::event::Cause::Effect);
-    }
-
-    /// Echo paid out of `player`'s pool, or the permanent sacrificed when
-    /// the pool falls short. Returns whether it was paid.
-    pub(in crate::engine) fn settle_echo(
-        &mut self,
-        player: PlayerId,
-        cost: &baylee_core::mana::ManaCost,
-        card: ObjectId,
-        version: u32,
-    ) -> bool {
-        let paid = super::super::casting::pay_mana_from(
-            &mut self.state,
-            player,
-            baylee_core::ids::DamageSourceRef {
-                object: card,
-                version,
-            },
-            cost,
+        };
+        let list = crate::object::AbilityList::from_static(
+            def.abilities_for_face(usize::from(printed.face())),
+            Some(printed),
+            None,
         );
-        if !paid {
-            self.sacrifice_for_echo(card);
+        self.queue_delayed_trigger(
+            controller,
+            source.object,
+            &[],
+            None,
+            Some(source.version),
+            crate::text_changes::TextChangeMap::IDENTITY,
+        );
+        if let Some(trigger) = self.trigger_queue.back_mut() {
+            trigger.synthetic_effects = None;
+            trigger.ability_index = ability;
+            trigger.abilities = Some(list);
         }
-        paid
     }
 
-    /// A pact's "pay [cost]; if you don't, you lose the game", demanded like
-    /// echo and at the same moment. Returns `true` when a question was put.
-    fn demand_pact(
-        &mut self,
+    /// Echo as it resolves (CR 702.30a): "sacrifice it unless you pay
+    /// [cost]", which is the tax `Effect::PlayerMayPayManaOr` asks, in the
+    /// window a yes opens (CR 605.3a), for its controller.
+    ///
+    /// A player asked to pay may make the mana first, so the question is put
+    /// while the pool pays it or anything could make mana for it. Only a
+    /// player with neither is past asking, and the ability sacrifices the
+    /// permanent outright. It used to do that to any pool that did not
+    /// already pay it, beside untapped lands.
+    pub(super) fn demand_echo(
+        &self,
+        controller: PlayerId,
+        card: ObjectId,
         cost: baylee_core::mana::ManaCost,
-        source: Option<baylee_core::ids::DamageSourceRef>,
-    ) -> bool {
-        let active = self.state.turn.active;
-        // This is "pay", not "you may pay": available mana must be spent.
-        // An empty pool is not a refusal. CR 605.3a allows mana abilities
-        // while an effect asks for payment, including this delayed debt.
-        let what = source.map_or(
+    ) -> baylee_cards_dsl::Effect {
+        use baylee_cards_dsl::{Effect, PlayerRel};
+        let what = self.state.source_identity(card).map_or(
             super::super::casting::SpendFor::Other,
             super::super::casting::SpendFor::OtherFrom,
         );
-        if super::super::casting::pay_mana_for(&mut self.state, active, what, &cost).is_some() {
-            return false;
+        if !self.can_pay_mana(controller, what, &cost)
+            && self.mana_window_legal(controller).is_none()
+        {
+            return Effect::SacrificeSelf;
         }
-        self.pending_plan = Some(PlanKind::DelayedPay { cost, source });
-        self.pending = Pending::YesNo {
-            player: active,
-            prompt: YesNoPrompt::PayPact { cost },
-            // A pact's "pay or lose" must never be automatable:
-            // a standing "no" here is a standing loss.
-            source: None,
-        };
-        self.awaiting_answer = true;
-        true
+        Effect::PlayerMayPayManaOr {
+            player: PlayerRel::You,
+            cost,
+            effect: &Effect::SacrificeSelf,
+        }
     }
 }
 #[cfg(test)]

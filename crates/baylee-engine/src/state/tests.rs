@@ -1223,6 +1223,84 @@ fn second_target_player_changes_the_snapshot_hash() {
     assert_ne!(first.snapshot_hash(), second.snapshot_hash());
 }
 
+/// `derive(Hash)` writes a variant's number before anything else, and a
+/// written record holds what that hashed to. Echo and a pact's price left the
+/// middle of `DelayedAction` when they went on the stack, and these are the
+/// numbers everything after them already had: the two that left stay unused,
+/// and the type stays `isize`, which is what `write_isize` is asked for.
+#[test]
+fn a_delayed_action_keeps_the_number_a_written_record_holds() {
+    use std::hash::{Hash, Hasher};
+    #[derive(Default)]
+    struct FirstNumber(Option<isize>);
+    impl Hasher for FirstNumber {
+        fn finish(&self) -> u64 {
+            0
+        }
+        fn write(&mut self, _: &[u8]) {}
+        fn write_isize(&mut self, value: isize) {
+            self.0.get_or_insert(value);
+        }
+    }
+    let card = ObjectId::new(1, 0);
+    let text = crate::text_changes::TextChangeMap::IDENTITY;
+    let actions = [
+        (
+            7,
+            DelayedAction::CastPaying {
+                card,
+                version: 0,
+                then_no_more_spells: false,
+                any_mana: false,
+            },
+        ),
+        (
+            10,
+            DelayedAction::AddMana {
+                color: ManaColor::Blue,
+                amount: 1,
+            },
+        ),
+        (
+            11,
+            DelayedAction::Transform {
+                card,
+                version: 0,
+                face: 0,
+            },
+        ),
+        (12, DelayedAction::Sacrifice { card, version: 0 }),
+        (13, DelayedAction::ReturnToBattlefield { card, version: 0 }),
+        (14, DelayedAction::CastDiscovered { card, version: 0 }),
+        (
+            15,
+            DelayedAction::Trigger {
+                source: card,
+                source_version: 0,
+                effects: &[],
+                text,
+            },
+        ),
+        (
+            16,
+            DelayedAction::TriggerAbout {
+                source: card,
+                source_version: 0,
+                effects: &[],
+                text,
+                object: card,
+                version: 0,
+                subject: None,
+            },
+        ),
+    ];
+    for (number, action) in actions {
+        let mut first = FirstNumber::default();
+        action.hash(&mut first);
+        assert_eq!(first.0, Some(number), "{action:?}");
+    }
+}
+
 /// A list of abilities no card prints (a token's, an emblem's) is
 /// hashed by what it says, because nothing else names it: the address
 /// of a `&'static` differs between builds and is shared between lists

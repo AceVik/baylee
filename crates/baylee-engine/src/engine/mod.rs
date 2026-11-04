@@ -157,20 +157,6 @@ enum PaymentContinuation {
         id: baylee_core::ids::GrantedActionId,
         cost: baylee_core::mana::ManaCost,
     },
-    Pact {
-        cost: baylee_core::mana::ManaCost,
-        source: Option<baylee_core::ids::DamageSourceRef>,
-    },
-    /// Echo said yes to with the pool short (CR 702.30a, 605.3a): the
-    /// player makes the mana here, and passing pays the echo out of the
-    /// pool, or sacrifices the permanent if the pool still falls short.
-    Echo {
-        cost: baylee_core::mana::ManaCost,
-        /// The permanent echo is paid for.
-        card: ObjectId,
-        /// Its identity when the echo came due (CR 400.7).
-        version: u32,
-    },
     /// Miracle's choices are complete; mana abilities may now pay them.
     Miracle {
         wizard: Box<cast_wizard::CastWizard>,
@@ -276,18 +262,6 @@ impl PaymentContinuation {
                 .wrapping_add(r.pc as u64)
                 .wrapping_add(u64::from(r.on_stack.slot()))
                 .wrapping_add(u64::from(r.controller.get())),
-            Self::Pact { cost, source } => crate::state::mana_cost_fingerprint(cost)
-                .wrapping_mul(31)
-                .wrapping_add(crate::state::structural_fingerprint(source)),
-            Self::Echo {
-                cost,
-                card,
-                version,
-            } => crate::state::mana_cost_fingerprint(cost)
-                .wrapping_mul(31)
-                .wrapping_add(crate::state::structural_fingerprint(&(
-                    "echo", card, version,
-                ))),
             Self::GrantedAction { id, cost } => id
                 .get()
                 .wrapping_mul(31)
@@ -577,20 +551,6 @@ pub struct Engine<L: CardLookup> {
     /// Delayed actions come due, each with the player who controls it
     /// (CR 603.7d), which [`Self::process_delayed`] reads as it performs it.
     delayed_queue: VecDeque<(PlayerId, crate::state::DelayedAction)>,
-    /// Upkeep payments that have triggered and not yet been answered: echo,
-    /// and a pact's "pay …; if you don't, you lose the game".
-    ///
-    /// Not [`Self::delayed_queue`], which runs as the upkeep begins, before
-    /// anybody holds priority. That is too early for an ability whose whole
-    /// text is a payment: an upkeep trigger is put on the stack before the
-    /// active player receives priority and resolves after it (CR 503.1a,
-    /// CR 117.3a), and this engine pays from the pool, which the untap step
-    /// has just emptied (CR 500.5) and in which nobody could have made mana
-    /// (CR 502.4). Asked there, Pact of Negation lost the game on eight
-    /// untapped Islands and echo sacrificed every permanent it is printed on.
-    /// `priority_round` asks these when the upkeep's round closes on an
-    /// empty stack — `offer_miracle`'s moment, for `offer_miracle`'s reason.
-    upkeep_payments: VecDeque<crate::state::DelayedAction>,
     /// Synthetic keyword-trigger effects by stack object (prowess).
     synthetic_fx: rustc_hash::FxHashMap<ObjectId, &'static [baylee_cards_dsl::Effect]>,
     /// A spell being cast step by step (modes/targets/X/kicker/pitch).
@@ -718,22 +678,6 @@ enum PlanKind {
         object: ObjectId,
         /// The control alternative already satisfies this replacement.
         untapped_without_reveal: bool,
-    },
-    /// A delayed pay-or-lose decision (Pact of Negation).
-    DelayedPay {
-        /// The mana cost to pay.
-        cost: baylee_core::mana::ManaCost,
-        /// Exact card imposing the debt.
-        source: Option<baylee_core::ids::DamageSourceRef>,
-    },
-    /// A delayed pay-or-sacrifice decision (echo).
-    DelayedPaySacrifice {
-        /// The mana cost to pay.
-        cost: baylee_core::mana::ManaCost,
-        /// The permanent sacrificed when not paid.
-        card: ObjectId,
-        /// Incarnation imposing the cost and sacrificed if declined.
-        version: u32,
     },
     /// A clone choosing what to copy as it enters.
     CopyOnEnter {
@@ -1053,7 +997,6 @@ impl<L: CardLookup> Engine<L> {
             entry_scan_seq: 0,
             entry_questions: VecDeque::new(),
             delayed_queue: VecDeque::new(),
-            upkeep_payments: VecDeque::new(),
             synthetic_fx: rustc_hash::FxHashMap::default(),
             cast_wizard: None,
             trigger_queue: VecDeque::new(),
@@ -1176,9 +1119,7 @@ impl<L: CardLookup> Engine<L> {
         let window = self.mana_window.as_ref()?;
         match &window.suspended {
             PaymentContinuation::LandMana(_) => None,
-            PaymentContinuation::Pact { cost, .. }
-            | PaymentContinuation::Echo { cost, .. }
-            | PaymentContinuation::GrantedAction { cost, .. }
+            PaymentContinuation::GrantedAction { cost, .. }
             | PaymentContinuation::Cast { cost, .. }
             | PaymentContinuation::Miracle { cost, .. }
             | PaymentContinuation::AttackTax { cost, .. }
@@ -1454,13 +1395,11 @@ impl<L: CardLookup> Engine<L> {
         for seat in self.mulligans.iter().flatten() {
             extra = extra.wrapping_mul(31).wrapping_add(seat.fingerprint());
         }
-        // An upkeep payment still owed turns the close of the upkeep's round
-        // into a question instead of the next step, and it survives answers
-        // (a second pact is still waiting while the first is asked), so two
-        // engines that differ in it diverge at that close.
-        extra = extra
-            .wrapping_mul(31)
-            .wrapping_add(self.upkeep_payments.len() as u64);
+        // Where the length of the upkeep's waiting payments went, always
+        // nothing since they went on the stack. A written record holds a
+        // hash with this step in it (`docs/engine-internals.md`, "The replay
+        // contract").
+        extra = extra.wrapping_mul(31);
         // A CR 605.3a payment window narrows the legal actions to mana and
         // makes passing close the window rather than count toward the round,
         // so two engines that differ in it answer the next question
@@ -1612,7 +1551,6 @@ impl<L: CardLookup> Engine<L> {
             entry_scan_seq,
             entry_questions,
             delayed_queue,
-            upkeep_payments,
             synthetic_fx,
             cast_wizard,
             trigger_queue,
@@ -1685,7 +1623,6 @@ impl<L: CardLookup> Engine<L> {
             ("entry_scan_seq", format!("{entry_scan_seq:?}")),
             ("entry_questions", format!("{entry_questions:?}")),
             ("delayed_queue", format!("{delayed_queue:?}")),
-            ("upkeep_payments", format!("{upkeep_payments:?}")),
             ("synthetic_fx", format!("{fx:?}")),
             ("cast_wizard", format!("{cast_wizard:?}")),
             ("trigger_queue", format!("{trigger_queue:?}")),
@@ -2083,6 +2020,8 @@ mod draw_skip_tests;
 mod draw_tests;
 #[cfg(test)]
 mod echo_payment_tests;
+#[cfg(test)]
+mod echo_trigger_tests;
 #[cfg(test)]
 mod enter_tests;
 #[cfg(test)]

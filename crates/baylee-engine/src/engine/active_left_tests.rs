@@ -152,22 +152,38 @@ fn the_turn_of_a_player_who_lost_goes_on_without_them() {
     }
 }
 
-/// A pact's "pay at your next upkeep, or lose the game" is the active
-/// player's to answer once the upkeep's priority round is over. Seat 0
-/// leaves before that, and nobody is asked on its behalf. The payment is put
-/// straight into the queue a pact's delayed trigger fills, with a cost of
-/// nothing, so that a seat still in the game would be asked it.
+/// A pact's "pay at your next upkeep, or lose the game" waits on the stack,
+/// its controller's to answer as it resolves. Seat 0 leaves with it there, so
+/// it leaves the stack with them (CR 800.4a), and nobody is asked on their
+/// behalf. The cost is one the seat could never have covered from an empty
+/// pool, so that a seat still in the game would be asked it.
 #[test]
 fn a_player_who_has_left_is_not_asked_for_their_upkeep_payment() {
+    static OWED: &[baylee_cards_dsl::Effect] = &[baylee_cards_dsl::Effect::PayManaOrLose {
+        cost: baylee_core::mana::ManaCost::parse("{5}"),
+    }];
     for seats in [3, 4] {
         let mut engine = table(seats);
-        engine
-            .upkeep_payments
-            .push_back(DelayedAction::PayCostOrLose {
-                source: None,
-                cost: baylee_core::mana::ManaCost::ZERO,
-            });
+        let source = engine.state.zones.list(ZoneLocation::Battlefield)[0];
+        engine.delayed_queue.push_back((
+            seat(0),
+            DelayedAction::Trigger {
+                source,
+                source_version: engine.state.object(source).map_or(0, |o| o.version),
+                effects: OWED,
+                text: crate::text_changes::TextChangeMap::IDENTITY,
+            },
+        ));
+        engine.apply(seat(0), PlayerAction::PassPriority).unwrap();
+        assert!(
+            !engine.state().zones.stack_is_empty(),
+            "{seats} seats: the payment is on the stack"
+        );
         engine.apply(seat(0), PlayerAction::Concede).unwrap();
+        assert!(
+            engine.state().zones.stack_is_empty(),
+            "{seats} seats: and it leaves with its controller"
+        );
         goes_on_without_seat_0(&mut engine, seats);
     }
 }

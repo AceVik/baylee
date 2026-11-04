@@ -343,7 +343,7 @@ impl<L: CardLookup> Engine<L> {
         self.awaiting_answer = true;
     }
 
-    /// Queues delayed actions (suspend finishes, pact payments) when the
+    /// Queues delayed actions (suspend finishes, a pact's price) when the
     /// upkeep step begins.
     pub(crate) fn queue_upkeep_delayed(&mut self) {
         let active = self.state.turn.active;
@@ -407,18 +407,8 @@ impl<L: CardLookup> Engine<L> {
                 } else {
                     self.state.delayed.remove(i)
                 };
-                // A payment waits for this upkeep's priority window; see
-                // `upkeep_payments`. Everything else does what it does now.
-                if matches!(
-                    trigger.action,
-                    crate::state::DelayedAction::PayCostOrLose { .. }
-                        | crate::state::DelayedAction::PayCostOrSacrifice { .. }
-                ) {
-                    self.upkeep_payments.push_back(trigger.action);
-                } else {
-                    self.delayed_queue
-                        .push_back((trigger.controller, trigger.action));
-                }
+                self.delayed_queue
+                    .push_back((trigger.controller, trigger.action));
             } else {
                 i += 1;
             }

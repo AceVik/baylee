@@ -437,7 +437,10 @@ fn a_pact_left_unpaid_under_everybody_lives_costs_nothing() {
                     if the_upkeep_it_is_due && !protected {
                         tap_all_mana(&mut engine, p0);
                         cast_with_floating(&mut engine, p0, everybody_lives());
-                        pass_until(&mut engine, stack_is_empty);
+                        // Cast over the price, which waits on the stack.
+                        pass_until(&mut engine, |e| {
+                            e.state().zones.list(ZoneLocation::Stack).len() == 1
+                        });
                         protected = true;
                         continue;
                     }

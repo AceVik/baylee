@@ -434,6 +434,30 @@ pub(super) fn exec_choice(
                 source: resolving_ability(state, res),
             })
         }
+        // "Pay", where the tax above says "may": a pool that covers it is
+        // spent without a word. An empty one is not a refusal, because the
+        // mana can still be made (CR 605.3a), so the player is warned first,
+        // whatever else they have: the answer that loses the game is theirs
+        // to give. `source: None`, so that no standing answer can give it.
+        Effect::PayManaOrLose { cost } => {
+            let what = super::payment_for(state, res);
+            if crate::casting::pay_mana_for(state, you, what, &cost).is_some() {
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::PlayerMayPay {
+                player: you,
+                cost,
+                outcome: ManaPaymentOutcome::Effects {
+                    effects: &[Effect::LoseGame],
+                    on_payment: false,
+                },
+            });
+            Some(Pending::YesNo {
+                player: you,
+                prompt: YesNoPrompt::PayPact { cost },
+                source: None,
+            })
+        }
         Effect::PlayerMayPayManaThen {
             player,
             cost,

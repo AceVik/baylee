@@ -1427,7 +1427,7 @@ impl HeuristicAgent {
             // are untapped again by then, and not paying it loses the game.
             // So it is a free spell exactly when every source this seat has
             // makes the price, and even then it is next turn's mana spent.
-            if let Effect::PayCostOrLoseLater { cost } = effect {
+            if let Some(cost) = deferred_price(spells, effect) {
                 if !pays_next_turn(view, cost) {
                     return -10_000;
                 }
@@ -2887,6 +2887,24 @@ pub(crate) fn remaining_sources(view: &PlayerView) -> Vec<Source> {
 
 /// Whether this seat's mana sources, all untapped again, make `cost`: what
 /// it can pay in its next upkeep (CR 502.3), with nothing floating.
+/// The price `effect` puts off to the next upkeep: what the delayed ability it
+/// creates asks for, read off the card's list, where that ability is printed.
+fn deferred_price(
+    spells: &'static [AbilityDef],
+    effect: &Effect,
+) -> Option<&'static baylee_core::mana::ManaCost> {
+    let Effect::AtNextUpkeepPrinted { ability } = effect else {
+        return None;
+    };
+    let AbilityDef::Triggered { effects, .. } = spells.get(usize::try_from(*ability).ok()?)? else {
+        return None;
+    };
+    effects.iter().find_map(|effect| match effect {
+        Effect::PayManaOrLose { cost } => Some(cost),
+        _ => None,
+    })
+}
+
 pub(crate) fn pays_next_turn(view: &PlayerView, cost: &baylee_core::mana::ManaCost) -> bool {
     manaplan::plan(
         cost,

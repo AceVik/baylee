@@ -4,7 +4,7 @@
 
 use super::{
     CardLookup, Cause, Engine, EngineError, GameEvent, ObjectId, PaymentContinuation,
-    PaymentWindow, Pending, PlayerId, SmallVec, WindowStart, Zone, casting, resolve, sba,
+    PaymentWindow, Pending, PlayerId, SmallVec, WindowStart, Zone, casting, resolve,
 };
 
 impl<L: CardLookup> Engine<L> {
@@ -211,23 +211,6 @@ impl<L: CardLookup> Engine<L> {
                 ..
             } => {
                 let paid = self.finish_miracle_payment(&wizard, version, &opened)?;
-                return Ok(WindowClose::settled(paid));
-            }
-            PaymentContinuation::Pact { cost, source } => {
-                let what = source.map_or(casting::SpendFor::Other, casting::SpendFor::OtherFrom);
-                let paid =
-                    casting::pay_mana_for(&mut self.state, window.player, what, &cost).is_some();
-                if !paid {
-                    let _ = sba::lose_by_effect(&mut self.state, window.player);
-                }
-                return Ok(WindowClose::settled(paid));
-            }
-            PaymentContinuation::Echo {
-                cost,
-                card,
-                version,
-            } => {
-                let paid = self.settle_echo(window.player, &cost, card, version);
                 return Ok(WindowClose::settled(paid));
             }
             PaymentContinuation::AttackTax {

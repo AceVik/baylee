@@ -989,14 +989,10 @@ impl<L: CardLookup> Engine<L> {
             },
             crate::copiable_abilities::AbilityDefs::from,
         );
-        let condition = match abilities.get(loc.index as usize) {
-            Some(
-                AbilityDef::Triggered { condition, .. }
-                | AbilityDef::ModalTriggered { condition, .. },
-            ) => *condition,
-            _ => None,
-        }
-        .filter(|c| !matches!(c, baylee_cards_dsl::Condition::Station(_)));
+        let condition = abilities
+            .get(loc.index as usize)
+            .and_then(crate::trigger::intervening_clause)
+            .filter(|c| !matches!(c, baylee_cards_dsl::Condition::Station(_)));
         let version = obj
             .riders
             .iter()

@@ -3253,11 +3253,19 @@ pub enum Effect {
         /// Which permanent.
         target: TargetSpec,
     },
-    /// Register a delayed "pay or lose" trigger at your next upkeep
-    /// (Pact of Negation).
-    PayCostOrLoseLater {
-        /// The mana cost to pay at your next upkeep.
-        cost: ManaCost,
+    /// Create the delayed triggered ability this card prints as a sentence of
+    /// its own, for your next upkeep (CR 603.7): Pact of Negation's "at the
+    /// beginning of your next upkeep, pay …".
+    ///
+    /// [`Self::AtNextUpkeep`] with the ability on the card's list and not
+    /// inside this effect, so that on the stack it is that ability of that
+    /// card and every reader finds its sentence and its effects where it
+    /// finds any printed ability's. Listed, it does not trigger on its own:
+    /// the card is an instant, and a printed trigger functions on the
+    /// battlefield.
+    AtNextUpkeepPrinted {
+        /// Where the ability stands in the card's list.
+        ability: u32,
     },
     /// The controller gets an emblem with the given abilities
     /// (planeswalker ultimates).
@@ -4109,6 +4117,14 @@ pub enum Effect {
     RevealUntilLandDealDamage {
         /// Who or what receives the damage.
         target: TargetSpec,
+    },
+    /// "Pay [cost]. If you don't, you lose the game." It is "pay" and not
+    /// "you may pay": a pool that covers it pays it. Otherwise its controller
+    /// is warned and may make the mana (CR 605.3a), and the question is never
+    /// automatable, because a standing "no" is a standing loss.
+    PayManaOrLose {
+        /// The mana cost to pay.
+        cost: ManaCost,
     },
 }
 

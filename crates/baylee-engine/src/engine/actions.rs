@@ -1206,9 +1206,6 @@ impl<L: CardLookup> Engine<L> {
                     PlanKind::EntryCounters { .. } | PlanKind::EntryTap { .. } => {
                         unreachable!("entry-tap plans are answered via YesNo")
                     }
-                    PlanKind::DelayedPay { .. } | PlanKind::DelayedPaySacrifice { .. } => {
-                        unreachable!("delayed-pay plans are answered via YesNo")
-                    }
                     PlanKind::LoyaltyPlayer { .. } => {
                         unreachable!("loyalty-player plans are answered via ChoosePlayer")
                     }
@@ -1624,75 +1621,6 @@ impl<L: CardLookup> Engine<L> {
                         source: None,
                     };
                     self.awaiting_answer = true;
-                    return Ok(());
-                }
-                // Delayed pay-or-lose (Pact of Negation).
-                if matches!(self.pending_plan, Some(PlanKind::DelayedPay { .. })) {
-                    let Some(PlanKind::DelayedPay { cost, source }) = self.pending_plan.take()
-                    else {
-                        unreachable!()
-                    };
-                    if answer {
-                        let mut legal = self.compute_legal(player);
-                        self.narrow_to_mana(&mut legal);
-                        self.mana_window = Some(PaymentWindow {
-                            player,
-                            suspended: PaymentContinuation::Pact { cost, source },
-                        });
-                        self.pending = Pending::Priority {
-                            player,
-                            legal: Box::new(legal),
-                        };
-                        self.awaiting_answer = true;
-                    } else {
-                        let _ = sba::lose_by_effect(&mut self.state, player);
-                    }
-                    return Ok(());
-                }
-                // Echo: pay the echo cost or sacrifice the permanent.
-                if matches!(
-                    self.pending_plan,
-                    Some(PlanKind::DelayedPaySacrifice { .. })
-                ) {
-                    let Some(PlanKind::DelayedPaySacrifice {
-                        cost,
-                        card,
-                        version,
-                    }) = self.pending_plan.take()
-                    else {
-                        unreachable!()
-                    };
-                    let echo = baylee_core::ids::DamageSourceRef {
-                        object: card,
-                        version,
-                    };
-                    // A yes the pool does not cover yet: the player makes
-                    // the mana in a window (CR 605.3a), as for a pact, and
-                    // passing it settles the echo (`close_mana_window`).
-                    if answer
-                        && !self.can_pay_mana(player, casting::SpendFor::OtherFrom(echo), &cost)
-                        && let Some(legal) = self.mana_window_legal(player)
-                    {
-                        self.mana_window = Some(PaymentWindow {
-                            player,
-                            suspended: PaymentContinuation::Echo {
-                                cost,
-                                card,
-                                version,
-                            },
-                        });
-                        self.pending = Pending::Priority {
-                            player,
-                            legal: Box::new(legal),
-                        };
-                        self.awaiting_answer = true;
-                        return Ok(());
-                    }
-                    if answer {
-                        self.settle_echo(player, &cost, card, version);
-                    } else {
-                        self.sacrifice_for_echo(card);
-                    }
                     return Ok(());
                 }
                 // An optional clause inside a resolving ability ("you may

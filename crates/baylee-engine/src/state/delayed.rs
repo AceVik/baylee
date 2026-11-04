@@ -6,7 +6,7 @@ use std::hash::Hash;
 mod observers;
 
 /// A delayed trigger registered for a future game point (suspend finishes,
-/// pact payments, rebound re-casts).
+/// a pact's price, rebound re-casts).
 #[derive(Clone, Hash, Debug)]
 pub struct DelayedTrigger {
     /// Controlling player.
@@ -257,7 +257,15 @@ impl DelayedWhen {
 }
 
 /// What a delayed trigger does.
+///
+/// `derive(Hash)` writes each variant's number, and a written record holds
+/// what that hashed to, so a variant keeps its number and a new one goes at
+/// the end. `isize` is the type those numbers have without any `repr`, and
+/// the `repr` is what allows [`Self::AddMana`] to say its own: echo and a
+/// pact's price stood at 8 and 9 until they went on the stack, and nothing
+/// after them moves up.
 #[derive(Clone, Hash, Debug)]
+#[repr(isize)]
 pub enum DelayedAction {
     /// A rule restricting attacks for the whole awaited turn, independent of ability removal.
     RestrictAttacksForTurn {
@@ -333,29 +341,13 @@ pub enum DelayedAction {
         /// "Mana of any type can be spent to cast that spell."
         any_mana: bool,
     },
-    /// Pay a cost or lose the game (Pact of Negation).
-    PayCostOrLose {
-        /// The mana cost to pay.
-        cost: baylee_core::mana::ManaCost,
-        /// Exact card imposing this debt; absent for synthetic rules-only test debts.
-        source: Option<baylee_core::ids::DamageSourceRef>,
-    },
-    /// Pay a cost or sacrifice the permanent (echo).
-    PayCostOrSacrifice {
-        /// The mana cost to pay.
-        cost: baylee_core::mana::ManaCost,
-        /// The permanent to sacrifice when not paid.
-        card: ObjectId,
-        /// Exact incarnation when this delayed ability was created.
-        version: u32,
-    },
     /// Add mana (Mana Drain's next-main-phase mana).
     AddMana {
         /// Color.
         color: baylee_core::mana::ManaColor,
         /// Amount.
         amount: u16,
-    },
+    } = 10,
     /// Transform a permanent (Archangel Avacyn), unless it has left the
     /// battlefield (`version`, CR 400.7) or no longer shows `face`, the face
     /// it showed when this was created — it has transformed since, and the
@@ -430,5 +422,17 @@ pub enum DelayedAction {
         /// trigger this one goes on the stack as
         /// (`PendingTrigger::event_subject`).
         subject: Option<baylee_core::ids::DamageSourceRef>,
+    },
+    /// A delayed triggered ability its card prints as a sentence of its own
+    /// (`Effect::AtNextUpkeepPrinted`, CR 603.7): it goes on the stack as
+    /// that ability of that card.
+    PrintedTrigger {
+        /// The spell or ability that made it (CR 603.7d, 603.7e).
+        source: baylee_core::ids::DamageSourceRef,
+        /// The face whose list `ability` indexes. Its own field because a
+        /// copy of a spell is gone by the time this comes due.
+        printed: crate::object::PrintedFace,
+        /// Where in that list.
+        ability: u32,
     },
 }

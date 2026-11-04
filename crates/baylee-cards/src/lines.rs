@@ -61,8 +61,8 @@ pub struct FaceLines {
     pub stackable: u8,
     /// Per ability of this face, in `abilities_for_face` order: which
     /// sentence it came from. `None` for an ability that is not a stack
-    /// entry, and for one no sentence fits — a keyword-printed echo or
-    /// evoke trigger has no sentence of its own to point at.
+    /// entry, and for one no sentence fits — a keyword-printed evoke trigger
+    /// has no sentence of its own to point at.
     pub lines: &'static [Option<u8>],
     /// Per mode this face offers, in `SpellMode` order: which printed
     /// sentence the mode is.
@@ -473,6 +473,74 @@ mod tests {
     /// `mapped` would make the ratio climb on its own, which is exactly the
     /// drift that hides a regression, so the walk asks the registry which
     /// abilities are mana and counts them separately.
+    /// Echo goes on the stack (CR 702.30a), and its keyword line is the only
+    /// thing that can say on the stack what it costs: every one of them has
+    /// to know that line, and that line has to print the cost.
+    #[test]
+    fn every_echo_knows_the_line_that_prints_its_cost() {
+        let mut echoes = 0usize;
+        for def in crate::generated::BY_INDEX.iter().flatten() {
+            for face in 0..def.faces.len() {
+                for (index, ability) in def.abilities_for_face(face).iter().enumerate() {
+                    let baylee_cards_dsl::AbilityDef::Echo { cost } = ability else {
+                        continue;
+                    };
+                    echoes += 1;
+                    let index = u32::try_from(index).expect("a short list");
+                    let line = ability_line(def.index, face, index)
+                        .unwrap_or_else(|| panic!("{} has no echo line", def.name()));
+                    let sentence = crate::oracle::sentence(def.index, face, line.line)
+                        .unwrap_or_else(|| panic!("{} points past its text", def.name()));
+                    assert!(
+                        sentence.starts_with(&format!("Echo {cost}")),
+                        "{}: {sentence}",
+                        def.name()
+                    );
+                }
+            }
+        }
+        assert!(echoes >= 34, "the pool prints {echoes} echoes; it had 34");
+    }
+
+    /// A delayed trigger a card lists has to be where its spell says, on the
+    /// card's own face and with a sentence of its own: that is all listing it
+    /// is for.
+    #[test]
+    fn every_printed_delayed_ability_is_a_trigger_with_a_sentence() {
+        use baylee_cards_dsl::{AbilityDef, Effect};
+        let mut seen = 0usize;
+        for def in crate::generated::BY_INDEX.iter().flatten() {
+            for face in 0..def.faces.len() {
+                let abilities = def.abilities_for_face(face);
+                for ability in abilities {
+                    let AbilityDef::Spell { effects, .. } = ability else {
+                        continue;
+                    };
+                    for effect in *effects {
+                        let Effect::AtNextUpkeepPrinted { ability } = effect else {
+                            continue;
+                        };
+                        seen += 1;
+                        assert!(
+                            matches!(
+                                abilities.get(*ability as usize),
+                                Some(AbilityDef::Triggered { .. })
+                            ),
+                            "{}: ability {ability} is no trigger",
+                            def.name()
+                        );
+                        assert!(
+                            ability_line(def.index, face, *ability).is_some(),
+                            "{}: ability {ability} has no sentence",
+                            def.name()
+                        );
+                    }
+                }
+            }
+        }
+        assert!(seen >= 1, "Pact of Negation prints one");
+    }
+
     #[test]
     fn nearly_every_stack_ability_knows_its_printed_sentence() {
         // A static or a copy clause that grants an ability is placed too

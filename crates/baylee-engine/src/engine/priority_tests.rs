@@ -235,6 +235,9 @@ fn island() -> CardIndex {
 /// `{1}` against one Island is the smallest debt a window can decide.
 #[test]
 fn a_delayed_upkeep_payment_is_demanded_after_the_upkeep_priority_window_not_before_it() {
+    static OWED: &[baylee_cards_dsl::Effect] = &[baylee_cards_dsl::Effect::PayManaOrLose {
+        cost: baylee_core::mana::ManaCost::parse("{1}"),
+    }];
     let me = PlayerId::new(0);
     let mut engine = Duel::new(9_133, forest())
         .battlefield(0, &[island()])
@@ -243,12 +246,15 @@ fn a_delayed_upkeep_payment_is_demanded_after_the_upkeep_priority_window_not_bef
         walk_to_own_main(&mut engine, me),
         "seat 0 reaches its own main"
     );
+    let source = engine.state.zones.list(ZoneLocation::Battlefield)[0];
     engine.state.delayed.push(crate::state::DelayedTrigger {
         controller: me,
         when: crate::state::DelayedWhen::NextUpkeep,
-        action: crate::state::DelayedAction::PayCostOrLose {
-            source: None,
-            cost: baylee_core::mana::ManaCost::parse("{1}"),
+        action: crate::state::DelayedAction::Trigger {
+            source,
+            source_version: engine.state.object(source).map_or(0, |o| o.version),
+            effects: OWED,
+            text: crate::text_changes::TextChangeMap::IDENTITY,
         },
     });
 

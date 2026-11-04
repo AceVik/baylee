@@ -1386,7 +1386,8 @@ fn activated(state: &GameState, obj: &GameObject) -> Option<bool> {
         | AbilityDef::Loyalty { .. } => Some(true),
         AbilityDef::Triggered { .. }
         | AbilityDef::ModalTriggered { .. }
-        | AbilityDef::SagaChapter { .. } => Some(false),
+        | AbilityDef::SagaChapter { .. }
+        | AbilityDef::Echo { .. } => Some(false),
         _ => None,
     }
 }

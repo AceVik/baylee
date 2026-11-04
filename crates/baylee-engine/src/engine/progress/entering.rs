@@ -171,24 +171,6 @@ impl<L: CardLookup> Engine<L> {
                 }
                 changed = true;
             }
-            // Echo (CR 702.30): register the pay-or-sacrifice choice at
-            // the controller's next upkeep.
-            if let Some(cost) = self.state.object(id).and_then(|o| {
-                o.abilities(&self.lookup).iter().find_map(|a| match a {
-                    baylee_cards_dsl::AbilityDef::Echo { cost } => Some(*cost),
-                    _ => None,
-                })
-            }) {
-                self.state.delayed.push(crate::state::DelayedTrigger {
-                    controller,
-                    when: crate::state::DelayedWhen::NextUpkeep,
-                    action: crate::state::DelayedAction::PayCostOrSacrifice {
-                        cost,
-                        card: id,
-                        version: self.state.object(id).map_or(0, |o| o.version),
-                    },
-                });
-            }
             if !orientation_applied {
                 changed |= self.apply_mana_entry_counters(id, from_zone);
             }

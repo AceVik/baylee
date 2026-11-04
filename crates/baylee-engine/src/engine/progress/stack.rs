@@ -622,10 +622,10 @@ impl<L: CardLookup> Engine<L> {
             );
             let runtime_body = loc.index == baylee_core::ids::AbilityRef::SYNTHETIC
                 || crate::choice::granted_slot(loc.index).is_some();
-            let effects = if runtime_body {
+            let body = if runtime_body {
                 // Synthetic keyword trigger (prowess, ward): effects live
                 // in the side map, resolved below.
-                &[][..]
+                Vec::new()
             } else {
                 match abilities.get(loc.index as usize) {
                     // `ActivatedConditional` belongs here beside `Activated`:
@@ -645,7 +645,12 @@ impl<L: CardLookup> Engine<L> {
                         | AbilityDef::Triggered { effects, .. }
                         | AbilityDef::Loyalty { effects, .. }
                         | AbilityDef::SagaChapter { effects, .. },
-                    ) => *effects,
+                    ) => resolve::flatten(effects),
+                    // A keyword with a printed cost and no effect list:
+                    // what it does is written out as it resolves.
+                    Some(AbilityDef::Echo { cost }) => {
+                        vec![self.demand_echo(obj.controller, loc.source, *cost)]
+                    }
                     Some(
                         AbilityDef::ModalTriggered { modes, .. }
                         | AbilityDef::ModalActivated { modes, .. },
@@ -661,10 +666,12 @@ impl<L: CardLookup> Engine<L> {
                             .mode_index
                             .expect("a modal trigger on the stack has its mode")
                             as usize;
-                        modes
-                            .get(idx)
-                            .map(|m| m.effects)
-                            .expect("modal trigger mode exists")
+                        resolve::flatten(
+                            modes
+                                .get(idx)
+                                .map(|m| m.effects)
+                                .expect("modal trigger mode exists"),
+                        )
                     }
                     _ => panic!(
                         "ability object references non-resolvable ability: source {:?} index {}",
@@ -740,7 +747,7 @@ impl<L: CardLookup> Engine<L> {
                 source: loc.source,
                 on_stack: top,
                 controller: obj.controller,
-                effects: resolve::flatten(effects),
+                effects: body,
                 pc: 0,
                 targets: obj.targets.clone(),
                 second_targets: SmallVec::from_slice(obj.second_targets()),

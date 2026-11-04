@@ -1,6 +1,6 @@
 //! Three effects that leave something behind for later: a flashback grant
 //! (`GrantFlashback`), the prepared marker (`BecomePrepared`) and a debt
-//! due at the next upkeep (`PayCostOrLoseLater`).
+//! due at the next upkeep (`AtNextUpkeep`, `PayManaOrLose`).
 //!
 //! Each is played from the resolution that creates it to the moment it is
 //! read, because the effect is only half of the sentence — "gains flashback
@@ -50,8 +50,10 @@ static STUDY_ABILITIES: &[AbilityDef] = &[
 /// Pact of Negation's second sentence on a free ability: "At the beginning
 /// of your next upkeep, pay {G}. If you don't, you lose the game."
 static PACT_ABILITIES: &[AbilityDef] = &[free(
-    &[Effect::PayCostOrLoseLater {
-        cost: ManaCost::parse("{G}"),
+    &[Effect::AtNextUpkeep {
+        effects: &[Effect::PayManaOrLose {
+            cost: ManaCost::parse("{G}"),
+        }],
     }],
     None,
 )];
@@ -293,7 +295,8 @@ fn demanded(seed: u64) -> Bench {
                 && d.when == crate::state::DelayedWhen::NextUpkeep
                 && matches!(
                     d.action,
-                    crate::state::DelayedAction::PayCostOrLose { cost, .. } if cost == owed
+                    crate::state::DelayedAction::Trigger { effects, .. }
+                        if matches!(effects, [Effect::PayManaOrLose { cost }] if *cost == owed)
                 )
         }),
         "the debt waits for its controller's next upkeep: {:?}",

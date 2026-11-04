@@ -3,6 +3,49 @@
 use super::*;
 
 impl<L: CardLookup> Engine<L> {
+    /// The card and the name an ability on the stack goes by: its source's.
+    ///
+    /// An emblem (CR 114.2), a token and a token copy have no card, and the
+    /// handle a client is given says so; what resolves is the list captured
+    /// beside it (CR 608.2), as for any ability. A spell's copy has ceased to
+    /// exist by the time a delayed ability it created comes due, and that list
+    /// is then what still says which card it was.
+    ///
+    /// Only a spell's list. A token gone with a look-back trigger in hand has
+    /// always gone by the first name interned and no card, and those are on
+    /// the stack object the hash reads, so a written record holds them.
+    fn ability_identity(
+        &mut self,
+        source: ObjectId,
+        captured: Option<&crate::object::AbilityList>,
+    ) -> (Option<baylee_core::ids::CardIndex>, NameRef) {
+        if let Some(object) = self.state.object(source) {
+            let card = object
+                .card
+                .filter(|_| !object.status.contains(crate::object::Status::FACE_DOWN))
+                .map(|c| c.index);
+            return (card, object.base.name);
+        }
+        let printed = captured
+            .filter(|list| {
+                list.abilities.iter().any(|ability| {
+                    matches!(
+                        ability,
+                        baylee_cards_dsl::AbilityDef::Spell { .. }
+                            | baylee_cards_dsl::AbilityDef::ModalSpell { .. }
+                    )
+                })
+            })
+            .and_then(|list| list.printed);
+        let name = printed
+            .and_then(|printed| {
+                let def = self.lookup.card(printed.card())?;
+                Some(def.faces.get(usize::from(printed.face()))?.name)
+            })
+            .map_or(NameRef::new(0), |name| self.state.names.intern(name));
+        (printed.map(crate::object::PrintedFace::card), name)
+    }
+
     /// Puts one of `source`'s abilities on the stack (CR 603.3 for a
     /// trigger, CR 602.2a for an activation).
     ///
@@ -28,19 +71,11 @@ impl<L: CardLookup> Engine<L> {
         ability_index: u32,
         targets: SmallVec<[ObjectId; 2]>,
     ) -> ObjectId {
-        // An emblem (CR 114.2), a token and a token copy have no card, and
-        // the handle a client is given says so. What resolves is the list
-        // captured below (CR 608.2), as for any ability.
-        let card = self
-            .state
-            .object(source)
-            .filter(|o| !o.status.contains(crate::object::Status::FACE_DOWN))
-            .and_then(|o| o.card)
-            .map(|c| c.index);
-        let name = self
-            .state
-            .object(source)
-            .map_or(NameRef::new(0), |o| o.base.name);
+        let captured = self
+            .activating_abilities
+            .take()
+            .and_then(|(id, abilities)| (id == source).then_some(abilities));
+        let (card, name) = self.ability_identity(source, captured.as_ref());
         let base = self.state.bare_base(name);
         // CR 113.7a: the ability on the stack exists independently of the
         // permanent it came from, so it takes the list `index` points into
@@ -60,10 +95,6 @@ impl<L: CardLookup> Engine<L> {
         // here was the printed Metamorph's and has no dies trigger in it.
         // Everything else still reads the source, which is right by
         // definition while it is still standing there.
-        let captured = self
-            .activating_abilities
-            .take()
-            .and_then(|(id, abilities)| (id == source).then_some(abilities));
         let list = captured.unwrap_or_else(|| {
             self.state
                 .object(source)

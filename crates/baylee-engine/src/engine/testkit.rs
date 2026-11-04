@@ -312,15 +312,20 @@ pub fn pass_until(
                     .apply(actor.unwrap_or(player), PlayerAction::YesNo(true))
                     .unwrap();
             }
-            // Echo come due (CR 702.30a) on the way past: no. A walk makes
+            // Echo resolving (CR 702.30a) on the way past: no. A walk makes
             // no mana, and declining is what an empty pool used to answer
             // unasked, before the question was put beside untapped lands.
             // A test whose subject is paying the echo answers it itself.
             Pending::YesNo {
                 player,
-                prompt: crate::choice::YesNoPrompt::Generic,
+                prompt: crate::choice::YesNoPrompt::PayMana { .. },
                 source: Some(source),
-            } if source.index == baylee_core::ids::AbilityRef::UPKEEP_COST => {
+            } if matches!(
+                baylee_cards::by_index(source.card)
+                    .and_then(|card| card.abilities.get(source.index as usize)),
+                Some(baylee_cards_dsl::AbilityDef::Echo { .. })
+            ) =>
+            {
                 engine
                     .apply(actor.unwrap_or(player), PlayerAction::YesNo(false))
                     .unwrap();

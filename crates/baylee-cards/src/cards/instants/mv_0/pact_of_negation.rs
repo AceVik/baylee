@@ -2,7 +2,9 @@
 //! Oracle: Counter target spell.
 //! Oracle: At the beginning of your next upkeep, pay {3}{U}{U}. If you don't, you lose the game.
 //! Set: TSR #77 — Time Spiral Remastered | Scryfall ID: 1ed4c0bb-b710-44a1-b8bc-6bd11c27b8b8 | Oracle ID: f3e213a4-ba5a-468a-93b3-c0a34e1bd725
-// IMPLEMENTED — zero-cost counter + delayed pay-or-lose upkeep.
+// IMPLEMENTED — zero-cost counter + delayed pay-or-lose upkeep. The second
+// ability is that delayed one (CR 603.7): the spell creates it, and being
+// listed is what gives it a sentence on the stack.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -20,13 +22,22 @@ card!(
     )],
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     coverage = Coverage::Implemented,
-    abilities = &[spell!(
-        &[
-            Effect::CounterTargetSpell,
-            Effect::PayCostOrLoseLater {
-                cost: mana!("{3}{U}{U}"),
+    abilities = &[
+        spell!(
+            &[
+                Effect::CounterTargetSpell,
+                Effect::AtNextUpkeepPrinted { ability: 1 },
+            ],
+            targets = Some(TargetReq::one(TargetSpec::Spell(&Filter::Any)))
+        ),
+        triggered!(
+            Trigger::StepBegin {
+                step: StepKind::Upkeep,
+                whose: PlayerRel::You,
             },
-        ],
-        targets = Some(TargetReq::one(TargetSpec::Spell(&Filter::Any)))
-    )],
+            &[Effect::PayManaOrLose {
+                cost: mana!("{3}{U}{U}"),
+            }],
+        ),
+    ],
 );

@@ -91,7 +91,8 @@ impl Kind {
             | AbilityDef::Loyalty { .. } => Self::Activated,
             AbilityDef::Triggered { .. }
             | AbilityDef::ModalTriggered { .. }
-            | AbilityDef::SagaChapter { .. } => Self::Triggered,
+            | AbilityDef::SagaChapter { .. }
+            | AbilityDef::Echo { .. } => Self::Triggered,
             AbilityDef::Static(_) => Self::Static,
             AbilityDef::Replacement(_)
             | AbilityDef::CopyOnEnter { .. }
@@ -100,7 +101,6 @@ impl Kind {
             | AbilityDef::Ward { .. }
             | AbilityDef::Toxic { .. }
             | AbilityDef::Prepared { .. }
-            | AbilityDef::Echo { .. }
             | AbilityDef::Suspend { .. }
             | AbilityDef::StartYourEngines => return None,
         })
