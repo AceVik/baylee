@@ -1,6 +1,9 @@
 //! Wire values deliberately exclude command lines, environment and usernames.
 
-use crate::training::Training;
+use crate::{
+    procfs::{pressure::Pressure, stat::CpuShares, swaps::SwapDevice},
+    training::Training,
+};
 use serde::Serialize;
 
 #[derive(Clone, Serialize)]
@@ -24,6 +27,63 @@ pub(crate) struct Point {
     pub cpu_watts: Option<f64>,
     pub net_rx: f64,
     pub net_tx: f64,
+    pub swap: f64,
+    pub swap_in: u64,
+    pub swap_out: u64,
+    pub iowait: f32,
+    pub psi_cpu: Option<f32>,
+    pub psi_mem: Option<f32>,
+    pub psi_io: Option<f32>,
+}
+
+/// Where the CPU's time went and what the scheduler is doing.
+#[derive(Clone, Serialize)]
+pub(crate) struct CpuDetail {
+    pub shares: CpuShares,
+    pub context_switches_per_s: f64,
+    pub interrupts_per_s: f64,
+    pub forks_per_s: f64,
+    pub running: u32,
+    /// Tasks waiting uninterruptibly, usually for a disk.
+    pub blocked: u32,
+    pub boot_ms: u64,
+}
+
+#[derive(Clone, Serialize)]
+pub(crate) struct Memory {
+    pub total: u64,
+    /// Not available for new work, by the OS's own accounting.
+    pub used: u64,
+    pub available: u64,
+    pub free: u64,
+    pub buffers: u64,
+    pub cached: u64,
+    pub shared: u64,
+    pub slab: u64,
+    pub dirty: u64,
+    pub writeback: u64,
+    pub major_faults_per_s: f64,
+    /// Processes the kernel's OOM killer has ended since boot.
+    pub oom_kills: u64,
+}
+
+#[derive(Clone, Serialize)]
+pub(crate) struct Swap {
+    pub total: u64,
+    pub used: u64,
+    pub free: u64,
+    pub cached: u64,
+    pub in_bps: f64,
+    pub out_bps: f64,
+    pub devices: Vec<SwapDevice>,
+}
+
+/// Time lost waiting for each resource; `None` where the kernel does not say.
+#[derive(Clone, Copy, Serialize)]
+pub(crate) struct PressureView {
+    pub cpu: Option<Pressure>,
+    pub memory: Option<Pressure>,
+    pub io: Option<Pressure>,
 }
 
 #[derive(Clone, Serialize)]
@@ -36,6 +96,10 @@ pub(crate) struct Snapshot {
     pub ram_total: u64,
     pub swap_used: u64,
     pub swap_total: u64,
+    pub cpu: CpuDetail,
+    pub memory: Memory,
+    pub swap: Swap,
+    pub pressure: PressureView,
     pub gpus: Vec<Gpu>,
     pub gpu_status: String,
     pub gpu_driver: Option<String>,

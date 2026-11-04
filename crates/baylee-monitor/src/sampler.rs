@@ -5,10 +5,22 @@ use crate::{
     background::{self, Latest},
     gpu::Gpus,
     power::Power,
-    types::{Disk, Facts, GpuView, Network, Point, Process, Snapshot, Temperature},
+    procfs::{
+        meminfo, per_second, pressure,
+        stat::{self, Stat},
+        swaps,
+        vmstat::{self, Vmstat},
+    },
+    types::{
+        CpuDetail, Disk, Facts, GpuView, Memory, Network, Point, PressureView, Process, Snapshot,
+        Swap, Temperature,
+    },
 };
 use anyhow::Context;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::{
+    fs,
+    time::{Duration, Instant},
+};
 use sysinfo::{Components, Disks, Networks, ProcessRefreshKind, ProcessesToUpdate, System};
 
 pub(crate) struct Sampler {
@@ -20,6 +32,9 @@ pub(crate) struct Sampler {
     gpu_stale_ms: u64,
     power: Power,
     previous: Instant,
+    stat: Stat,
+    vmstat: Vmstat,
+    page_size: u64,
     disk_at: Instant,
 }
 
@@ -27,7 +42,6 @@ impl Sampler {
     pub fn new(interval: Duration) -> anyhow::Result<Self> {
         let mut system = System::new().context("System telemetry unavailable")?;
         system.refresh_cpu_all();
-        system.refresh_memory();
         refresh_processes(&mut system);
         let gpu = Latest::new(GpuView::default());
         let mut gpus = Gpus::new();
@@ -43,6 +57,9 @@ impl Sampler {
             gpu_stale_ms: (5 * interval.as_millis() as u64).max(5000),
             power: Power::new(),
             previous: Instant::now(),
+            stat: stat::parse(&read_text("/proc/stat")),
+            vmstat: vmstat::parse(&read_text("/proc/vmstat")),
+            page_size: rustix::param::page_size() as u64,
             disk_at: Instant::now(),
         })
     }
@@ -77,6 +94,55 @@ impl Sampler {
         }
     }
 
+    fn read_memory(&mut self, elapsed: f64) -> (Memory, Swap) {
+        let info = meminfo::parse(&read_text("/proc/meminfo"));
+        let now = vmstat::parse(&read_text("/proc/vmstat"));
+        let before = std::mem::replace(&mut self.vmstat, now);
+        let memory = Memory {
+            total: info.total,
+            used: info.used(),
+            available: info.available,
+            free: info.free,
+            buffers: info.buffers,
+            cached: info.cached,
+            shared: info.shared,
+            slab: info.slab,
+            dirty: info.dirty,
+            writeback: info.writeback,
+            major_faults_per_s: per_second(before.major_faults, now.major_faults, elapsed),
+            oom_kills: now.oom_kills,
+        };
+        let page = self.page_size as f64;
+        let swap = Swap {
+            total: info.swap_total,
+            used: info.swap_used(),
+            free: info.swap_free,
+            cached: info.swap_cached,
+            in_bps: per_second(before.swap_in, now.swap_in, elapsed) * page,
+            out_bps: per_second(before.swap_out, now.swap_out, elapsed) * page,
+            devices: swaps::parse(&read_text("/proc/swaps")),
+        };
+        (memory, swap)
+    }
+
+    fn read_cpu(&mut self, elapsed: f64) -> CpuDetail {
+        let now = stat::parse(&read_text("/proc/stat"));
+        let before = std::mem::replace(&mut self.stat, now);
+        CpuDetail {
+            shares: stat::shares(&before.cpu, &now.cpu),
+            context_switches_per_s: per_second(
+                before.context_switches,
+                now.context_switches,
+                elapsed,
+            ),
+            interrupts_per_s: per_second(before.interrupts, now.interrupts, elapsed),
+            forks_per_s: per_second(before.forks, now.forks, elapsed),
+            running: now.running,
+            blocked: now.blocked,
+            boot_ms: now.boot_secs.saturating_mul(1000),
+        }
+    }
+
     pub fn sample(&mut self) -> Snapshot {
         let started = Instant::now();
         let elapsed = started
@@ -85,7 +151,6 @@ impl Sampler {
             .max(0.001);
         self.previous = started;
         self.system.refresh_cpu_usage();
-        self.system.refresh_memory();
         refresh_processes(&mut self.system);
         self.networks.refresh(true);
         self.components.refresh(true);
@@ -112,14 +177,26 @@ impl Sampler {
         let load = System::load_average()
             .ok()
             .map(|load| [load.one, load.five, load.fifteen]);
+        let (memory, swap) = self.read_memory(elapsed);
+        let cpu = self.read_cpu(elapsed);
+        let pressure = PressureView {
+            cpu: pressure::parse(&read_text("/proc/pressure/cpu")),
+            memory: pressure::parse(&read_text("/proc/pressure/memory")),
+            io: pressure::parse(&read_text("/proc/pressure/io")),
+        };
+        let some10 = |view: Option<pressure::Pressure>| view.map(|p| p.some[0]);
         Snapshot {
             point: Point {
-                at_ms: SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .unwrap_or_default()
-                    .as_millis() as u64,
+                at_ms: background::now_ms(),
                 cpu: self.system.global_cpu_usage(),
-                ram: percent(self.system.used_memory(), self.system.total_memory()),
+                ram: percent(memory.used, memory.total),
+                swap: percent(swap.used, swap.total),
+                swap_in: swap.in_bps as u64,
+                swap_out: swap.out_bps as u64,
+                iowait: cpu.shares.iowait,
+                psi_cpu: some10(pressure.cpu),
+                psi_mem: some10(pressure.memory),
+                psi_io: some10(pressure.io),
                 gpu: primary.and_then(|g| g.utilization).map(f64::from),
                 vram: primary.and_then(|g| Some(percent(g.memory_used?, g.memory_total?))),
                 gpu_watts: gpu
@@ -136,10 +213,14 @@ impl Sampler {
             uptime_secs: System::uptime().ok(),
             load,
             cores: self.system.cpus().iter().map(sysinfo::Cpu::usage).collect(),
-            ram_used: self.system.used_memory(),
-            ram_total: self.system.total_memory(),
-            swap_used: self.system.used_swap(),
-            swap_total: self.system.total_swap(),
+            ram_used: memory.used,
+            ram_total: memory.total,
+            swap_used: swap.used,
+            swap_total: swap.total,
+            cpu,
+            memory,
+            swap,
+            pressure,
             gpu_driver: gpu.driver,
             gpu_cuda: gpu.cuda,
             gpus: gpu.gpus,
@@ -172,6 +253,11 @@ impl Sampler {
             sample_ms: started.elapsed().as_secs_f64() * 1000.0,
         }
     }
+}
+
+/// `/proc` files never block on hardware. A missing one parses as empty.
+fn read_text(path: &str) -> String {
+    fs::read_to_string(path).unwrap_or_default()
 }
 
 fn refresh_processes(system: &mut System) {

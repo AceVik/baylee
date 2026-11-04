@@ -5,6 +5,7 @@ mod background;
 mod gpu;
 mod listen;
 mod power;
+mod procfs;
 mod sampler;
 mod server;
 mod training;

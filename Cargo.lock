@@ -1265,6 +1265,7 @@ dependencies = [
  "clap",
  "futures-util",
  "nvml-wrapper",
+ "rustix 1.1.6",
  "serde",
  "serde_json",
  "sysinfo",
