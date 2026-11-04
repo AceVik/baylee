@@ -89,6 +89,36 @@ fn a_may_that_costs_the_seat_is_declined_and_a_free_gain_is_taken() {
 }
 
 #[test]
+fn an_unbounded_coin_contest_is_declined_without_refusing_an_ordinary_may() {
+    static CONTEST: [Effect; 1] = [Effect::FlipCoinLifeExchangeRepeat {
+        opponent: PlayerRel::Chosen,
+        initial: Amount::Fixed(1),
+        multiplier: 2,
+    }];
+    static GAIN: [Effect; 1] = [Effect::GainLife {
+        amount: Amount::Fixed(1),
+    }];
+    let v = view(0, &[20, 20], vec![creature(7, ME, 1, 1)]);
+    let ask = |effects: &'static [Effect]| {
+        agent().act_with_context(
+            &v,
+            &may(None),
+            &DecisionContext {
+                source: Some(obj(7)),
+                effects,
+                ..Default::default()
+            },
+        )
+    };
+    assert_eq!(
+        ask(&CONTEST),
+        PlayerAction::YesNo(false),
+        "doubling forever eventually exceeds the engine's numeric bounds"
+    );
+    assert_eq!(ask(&GAIN), PlayerAction::YesNo(true));
+}
+
+#[test]
 fn camouflage_is_worth_casting_only_once_attacking_into_a_blocker() {
     let hostile = |p: PlayerId| p != ME;
     let mut v = view(
