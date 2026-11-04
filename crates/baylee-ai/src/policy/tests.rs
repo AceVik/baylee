@@ -335,6 +335,7 @@ fn base_view() -> super::PlayerView {
         sorcery_lock: None,
         sorceries_have_flash: false,
         flash_types: baylee_core::types::TypeSet::EMPTY,
+        controls: Vec::new(),
     }
 }
 

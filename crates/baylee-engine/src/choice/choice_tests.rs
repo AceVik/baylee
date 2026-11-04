@@ -446,6 +446,7 @@ fn kind_of(pending: &Pending) -> usize {
                 YesNoPrompt::PayMana { .. } => 15,
                 YesNoPrompt::PayManaAndLife { .. } => 31,
                 YesNoPrompt::SkipTurn { .. } => 16,
+                YesNoPrompt::GuessNamedCardInHand { .. } => 33,
             }
         }
         Pending::ChoosePile { .. } => 17 + 17,
@@ -680,6 +681,7 @@ fn only_the_questions_whose_answer_cannot_go_stale_are_automatable() {
             | YesNoPrompt::TopOfLibrary { .. }
             | YesNoPrompt::Discover { .. }
             | YesNoPrompt::SkipTurn { .. }
+            | YesNoPrompt::GuessNamedCardInHand { .. }
             | YesNoPrompt::Generic => false,
         }
     }
@@ -706,6 +708,11 @@ fn only_the_questions_whose_answer_cannot_go_stale_are_automatable() {
         YesNoPrompt::MayDo,
         YesNoPrompt::Generic,
         YesNoPrompt::SkipTurn { source: object() },
+        YesNoPrompt::GuessNamedCardInHand {
+            holder: PlayerId::new(1),
+            card: baylee_core::ids::CardIndex::new(3),
+            face: 0,
+        },
         YesNoPrompt::Kicker,
         YesNoPrompt::PayLifeOrEnterTapped { amount: 1 },
         YesNoPrompt::PayTax { mana: 2 },

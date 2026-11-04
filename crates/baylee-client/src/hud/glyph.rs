@@ -166,3 +166,7 @@ pub const SEND: char = '\u{f1d8}';
 pub const SHIELD: char = COMMANDER_DAMAGE;
 /// Ellipsis: a row's menu.
 pub const MORE: char = '\u{f141}';
+/// Brain: a player whose decisions another makes (CR 723.5), on the
+/// control banner, a controlled chip's badge and the controlled hand's
+/// label, always beside its words (a mark alone would be colour's job).
+pub const CONTROL: char = '\u{f5dc}';

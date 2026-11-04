@@ -599,3 +599,65 @@ fn the_menu_s_settings_row_asks_the_lobby_and_is_dead_without_one() {
         "the press asked nothing"
     );
 }
+
+/// CR 723.6: a player who controls another player's turn cannot make that
+/// player concede. While this seat decides for the controlled player, the
+/// menu's concession is labelled as this seat's own ("Concede yourself"),
+/// never as a bare "Concede" beside "You decide for …", and the two presses
+/// send the one concession there is: `PlayerAction::Concede`, which the
+/// engine hears as its sender's.
+#[test]
+fn a_controlled_turn_offers_only_this_seats_own_concession() {
+    let mut duel = duel_with(false);
+    duel.view = Some(
+        baylee_client_core::test_support::ViewBuilder::new(2)
+            .controlling(1, vec![("Their card", 1, 20)])
+            .build(),
+    );
+    duel.interaction = Some(baylee_client_core::Interaction::new(
+        baylee_engine::choice::Pending::Priority {
+            player: PlayerId::new(1),
+            legal: Box::default(),
+        },
+        PlayerId::new(1),
+    ));
+    crate::rebuild_board(&mut duel);
+    assert_eq!(duel.deciding_for(), Some(PlayerId::new(1)));
+    let mut app = bar_of(duel);
+    open_the_menu(&mut app);
+    let lines = said(&mut app);
+    let own = Phrase::ConcedeYourself.text(Lang::En).to_string();
+    let bare = Phrase::Concede.text(Lang::En).to_string();
+    assert!(lines.contains(&own), "the row says whose: {lines:?}");
+    assert!(
+        !lines.contains(&bare),
+        "no bare concession that reads as the controlled player's: {lines:?}"
+    );
+    crate::input::menu_click(
+        &mut app.world_mut().resource_mut::<Duel>(),
+        MenuAction::Concede,
+        false,
+    );
+    app.update();
+    let lines = said(&mut app);
+    let armed = Phrase::ConcedeYourselfConfirm.text(Lang::En).to_string();
+    assert!(
+        lines.contains(&armed),
+        "armed, it still says whose: {lines:?}"
+    );
+    let bare_armed = Phrase::ConcedeConfirm.text(Lang::En).to_string();
+    assert!(!lines.contains(&bare_armed), "{lines:?}");
+    let mut duel = app.world_mut().resource_mut::<Duel>();
+    crate::input::menu_click(&mut duel, MenuAction::Concede, true);
+    assert_eq!(
+        duel.outbox(),
+        [baylee_engine::choice::PlayerAction::Concede],
+        "one concession, this seat's own: nothing else is sent for anyone"
+    );
+
+    // Its own question again (CR 723.8): the ordinary wording.
+    let mut app = bar_of(duel_with(false));
+    open_the_menu(&mut app);
+    let lines = said(&mut app);
+    assert!(lines.contains(&bare) && !lines.contains(&own), "{lines:?}");
+}

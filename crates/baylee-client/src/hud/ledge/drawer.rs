@@ -927,18 +927,8 @@ fn resolving_lines(
                 ink: palette::DOCK_INK,
             });
         }
-        if duel
-            .view
-            .as_ref()
-            .is_some_and(|v| baylee_client_core::decision::resource_player(v) != v.seat)
-            && let Some(text) = super::base_shelf_headline(duel, lang, texts)
-        {
-            lines.push(Line {
-                text,
-                size: LINE_PT,
-                ink: palette::DOCK_INK,
-            });
-        }
+        // A controlled player's question says whose it is in its headline
+        // ("For Mia: …", `shelf_headline`), so nothing here says it twice.
     }
 }
 

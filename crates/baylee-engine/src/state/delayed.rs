@@ -39,6 +39,9 @@ pub struct PlayerTurnControl {
     /// The number of the controlled turn, once it has begun; `None` while the
     /// control waits for it.
     pub began: Option<u32>,
+    /// The card whose effect gave the control (Mindslaver), for telling the
+    /// table; `None` where the effect has no card behind it.
+    pub source: Option<baylee_core::ids::CardIndex>,
 }
 
 /// When a delayed trigger fires.

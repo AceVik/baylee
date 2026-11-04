@@ -61,6 +61,10 @@ pub struct SpectatorView {
     /// every seat ([`PlayerView::ballots`]).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub ballots: Vec<crate::Ballot>,
+    /// Who decides for whom (Mindslaver), public to a spectator as to every
+    /// seat ([`PlayerView::controls`]).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub controls: Vec<crate::PlayerControl>,
 }
 
 impl SpectatorView {
@@ -115,6 +119,7 @@ impl SpectatorView {
             sorcery_lock: None,
             sorceries_have_flash: false,
             flash_types: baylee_core::types::TypeSet::EMPTY,
+            controls: self.controls,
         }
     }
 

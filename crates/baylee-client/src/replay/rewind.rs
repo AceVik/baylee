@@ -108,6 +108,11 @@ impl Duel {
             follow_since: old.follow_since,
             follow_now: old.follow_now,
             follow_settling: old.follow_settling,
+            // A jump lands on another moment, whose control the next view
+            // says; the chair shown is read again from it.
+            perspective: Default::default(),
+            perspective_epoch: old.perspective_epoch.wrapping_add(1),
+            control_follow_off: old.control_follow_off,
             arrangement_menu_asked: old.arrangement_menu_asked,
             arrangement_latch: old.arrangement_latch,
             interest_laid: old.interest_laid,

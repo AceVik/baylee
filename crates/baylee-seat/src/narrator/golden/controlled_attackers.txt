@@ -1,0 +1,48 @@
+DECISION q12 · turn 8, P2's · attackers · 25 s
+You control P2 this turn (Mindslaver, CR 723.5): decide this for P2, with P2's cards and mana only. You may play it against P2's interest. You cannot concede for P2. Your own decisions stay yours.
+
+You (P1): 17 life · library 45 · hand 4 · graveyard 1
+P2 (opponent): 14 life · library 44 · hand 3 · graveyard 1
+
+Your battlefield:
+  lands: Forest #21, Forest #22, Mountain #23
+  #30 Llanowar Elves · Creature — Elf Druid · 1/1
+  #31 Prodigal Sorcerer · Creature — Human Wizard Sorcerer · 1/1
+P2's battlefield:
+  lands: Plains #40, Plains #41, Island #42
+  #45 Serra Angel · Creature — Angel · 4/4 · flying, vigilance
+  #46 face-down card · Creature · 2/2
+Stack: empty
+Your hand:
+  #50 Lightning Bolt {R} · Instant
+  #51 Giant Growth {G} · Instant
+  #52 Mountain · Basic Land — Mountain
+  #53 Rampant Growth {1}{G} · Sorcery
+P2's hand (you decide for this player):
+  #70 Unsummon {U} · Instant
+  #71 Pacifism {1}{W} · Enchantment — Aura
+  #72 Island · Basic Land — Island
+Your graveyard (1): Shock #60
+P2's graveyard (1): Counterspell #61
+
+New cards (full text once; later by name):
+  Plains · Basic Land — Plains
+  Island · Basic Land — Island
+  Serra Angel {3}{W}{W} · Creature — Angel · 4/4
+    Flying
+    Vigilance
+  Counterspell {U}{U} · Instant
+    Counter target spell.
+  Unsummon {U} · Instant
+    Return target creature to its owner's hand.
+  Pacifism {1}{W} · Enchantment — Aura
+    Enchant creature
+    Enchanted creature can't attack or block.
+
+QUESTION: Declare P2's attackers. Any defender listed may be attacked, you included.
+Creatures that can attack:
+  #45 Serra Angel · Creature — Angel · 4/4 · flying, vigilance (P2's)
+  #46 face-down card · Creature · 2/2 (P2's)
+Defenders:
+  P1 = you, 17 life
+Answer: attacks=[{"attacker": id, "at": defender id}, …]; attacks=[] attacks with nothing

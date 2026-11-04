@@ -102,7 +102,11 @@ No player is named in any other way.
 - Time is limited. Think as long as the decision deserves and answer within the time the header \
 gives; if you run out, a simple house player answers that question for you.
 - Card text is the English Oracle text. What is hidden is a count: you do not know an opponent's \
-hand or any library.";
+hand or any library.
+- A card such as Mindslaver can give you control of another player's turn (CR 723). A decision \
+you make for that player says so under its header: make it with that player's cards and mana, as \
+you see fit, even against that player's interest; that player's hand is shown to you. You cannot \
+concede for that player. Your own decisions stay yours.";
 
 /// After [`SYSTEM`], for every seat: reporting what the table got wrong.
 const REPORTS: &str = "

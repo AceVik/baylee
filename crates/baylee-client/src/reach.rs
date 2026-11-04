@@ -44,10 +44,12 @@ pub(crate) fn activatable_into(duel: &Duel, lit: &mut std::collections::HashSet<
         duel.interaction.as_ref().filter(|i| i.is_combat()),
         duel.view.as_ref(),
     ) {
+        // The declaring player's creatures: this seat's, or the controlled
+        // player's whose attackers or blockers it declares (CR 723.5).
         lit.extend(
             view.battlefield
                 .iter()
-                .filter(|o| o.controller == view.seat && choice.is_selectable(o.id))
+                .filter(|o| o.controller == choice.subject() && choice.is_selectable(o.id))
                 .map(|o| o.id),
         );
     }
@@ -109,11 +111,13 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
     let Some(view) = duel.view.as_ref() else {
         return std::collections::HashSet::new();
     };
-    // A controlled resolving instruction exposes its exact legal actions;
-    // ordinary timing/affordability must not invent additional plays.
-    if baylee_client_core::decision::resource_player(view) != view.seat {
-        return std::collections::HashSet::new();
-    }
+    // The caster's cards, pool and lands: this seat's, or those of the
+    // player it controls (CR 723.5a). That player's spells are reached for
+    // as this seat's own are: every card here is one the engine says it
+    // casts once paid (`castable_once_paid`, asked of that player's legal
+    // actions), so the planner withholds and never invents a play, also
+    // under a control effect that restricts the plays (CR 723.7).
+    let caster = baylee_client_core::decision::resource_player(view);
     let Some(legal) = duel
         .interaction
         .as_ref()
@@ -121,10 +125,7 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
     else {
         return std::collections::HashSet::new();
     };
-    let Some((pool, life)) = view
-        .seat(baylee_client_core::decision::resource_player(view))
-        .map(|s| (s.mana_pool, s.life))
-    else {
+    let Some((pool, life)) = view.seat(caster).map(|s| (s.mana_pool, s.life)) else {
         return std::collections::HashSet::new();
     };
     let affordable =
@@ -220,7 +221,7 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
         // cast *of that commander*, which is why `CommanderView::casts` is
         // per commander and not per seat.
         .chain(
-            view.seat(baylee_client_core::decision::resource_player(view))
+            view.seat(caster)
                 .into_iter()
                 .flat_map(|seat| seat.commanders.iter())
                 .filter(|c| !legal.castable.contains(&c.object))
@@ -231,7 +232,7 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
                 // the one standing in the command zone is castable from it.
                 .filter(|c| {
                     view.command
-                        .get(view.seat.get() as usize)
+                        .get(caster.get() as usize)
                         .is_some_and(|zone| zone.iter().any(|o| o.id == c.object))
                 })
                 // And it is cast at the timing it would have from a hand
@@ -270,7 +271,7 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
         // owner are asked here only because no other graveyard can answer.
         .chain(
             view.graveyards
-                .get(view.seat.get() as usize)
+                .get(caster.get() as usize)
                 .into_iter()
                 .flatten()
                 .filter(|o| !legal.castable.contains(&o.id) && legal.castable_once_paid(o.id))
@@ -356,7 +357,7 @@ pub(super) fn foretell_reach(duel: &Duel) -> std::collections::HashSet<ObjectId>
                 .is_some()
                 .then(|| baylee_core::mana::ManaCost::parse("{2}"))
         },
-        |view| view.active == view.seat,
+        |view| view.active == baylee_client_core::decision::resource_player(view),
     )
 }
 

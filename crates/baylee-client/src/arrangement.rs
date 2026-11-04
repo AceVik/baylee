@@ -126,6 +126,9 @@ pub fn choose(
             duel.follow_pending = None;
         }
     }
+    if duel.control_follow_off == table.follow_control {
+        duel.control_follow_off = !table.follow_control;
+    }
     let (effective, latch) = in_effect(&duel, &table, seats, measured.class());
     if duel.arrangement_latch != latch {
         duel.arrangement_latch = latch;

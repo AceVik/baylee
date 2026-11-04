@@ -120,59 +120,32 @@ fn masked_card_selection_uses_the_entitled_controlled_hand() {
         }
     );
 }
-
-/// Mindslaver (CR 723.5): the house decides for the opponent whose turn it
-/// controls. That player's creatures stay home unless they must attack,
-/// and its priority passes rather than spend its cards; uncontrolled, the
-/// same attack is made.
+/// Liar's Pendulum: the house guesses "in hand" only for a card it has
+/// seen in that hand, and "not in hand" otherwise.
 #[test]
-fn a_controlled_turn_attacks_with_nothing_and_passes() {
-    let subject = PlayerId::new(1);
-    let mut view = view(
-        0,
-        &[20, 20],
-        vec![permanent(obj(1), subject, 6), permanent(obj(2), subject, 3)],
-    );
-    let attack = |required: Vec<ObjectId>| Pending::ChooseAttackers {
-        alone: Vec::new(),
-        minimum_required: None,
-        player: subject,
-        attackers: vec![obj(1), obj(2)],
-        defenders: vec![Defender::Player(PlayerId::new(0))],
-        required,
-        limits: Vec::new(),
+fn the_house_guesses_on_what_it_has_seen_of_that_hand() {
+    let holder = PlayerId::new(1);
+    let bolt = hand_card(1, "Lightning Bolt");
+    let guess = |view: &PlayerView| {
+        agent().act(
+            view,
+            &Pending::YesNo {
+                player: view.seat,
+                prompt: YesNoPrompt::GuessNamedCardInHand {
+                    holder,
+                    card: bolt.card.index,
+                    face: 0,
+                },
+                source: None,
+            },
+        )
     };
-    // As that player's own seat, the house attacks into an empty board.
-    let mut own = view.clone();
-    own.seat = subject;
-    own.awaiting = Some(subject);
-    let PlayerAction::DeclareAttackers { attackers } = agent().act(&own, &attack(vec![])) else {
-        panic!("attackers");
-    };
-    assert!(!attackers.is_empty(), "its own turn attacks");
-
-    view.awaiting = Some(view.seat);
-    view.decision_player = Some(subject);
-    assert_eq!(
-        agent().act(&view, &attack(vec![])),
-        PlayerAction::DeclareAttackers { attackers: vec![] }
-    );
-    let PlayerAction::DeclareAttackers { attackers } = agent().act(&view, &attack(vec![obj(2)]))
-    else {
-        panic!("attackers");
-    };
-    assert_eq!(
-        attackers.iter().map(|(id, _)| *id).collect::<Vec<_>>(),
-        vec![obj(2)],
-        "what must attack does"
-    );
-    let priority = Pending::Priority {
-        player: subject,
-        legal: Box::new(LegalActions {
-            can_pass: true,
-            castable: vec![obj(7)],
-            ..Default::default()
-        }),
-    };
-    assert_eq!(agent().act(&view, &priority), PlayerAction::PassPriority);
+    let mut view = view(0, &[20, 20], vec![]);
+    assert_eq!(guess(&view), PlayerAction::YesNo(false), "nothing seen");
+    view.shared_hands.push(baylee_view::SharedHand {
+        public: true,
+        player: holder,
+        cards: vec![bolt.clone()],
+    });
+    assert_eq!(guess(&view), PlayerAction::YesNo(true), "seen in it");
 }

@@ -56,6 +56,7 @@ impl Table<'_> {
             Some(pending),
             &crate::view::SeatContext {
                 awaiting: crate::view::awaiting_for(engine, player),
+                controls: &crate::view::player_controls(engine),
                 decision_player: pending.asked(),
                 controlled_players: engine.controlled_players(player),
                 deciding: crate::view::deciding(engine),
@@ -92,6 +93,7 @@ impl Table<'_> {
             engine.information_pending_for(seat),
             &crate::view::SeatContext {
                 awaiting: crate::view::awaiting_for(engine, seat),
+                controls: &crate::view::player_controls(engine),
                 decision_player: crate::view::decision_player_for(engine, seat),
                 controlled_players: engine.controlled_players(seat),
                 deciding: crate::view::deciding(engine),
@@ -110,7 +112,14 @@ impl Table<'_> {
     /// `view` with the owner's current cast and targets.
     pub(super) fn with_choice_context(&self, seat: PlayerId, mut view: PlayerView) -> PlayerView {
         view.targeting = crate::view::targeting_context(self.engine, seat);
-        view.casting = self.engine.cancellable_cast(seat);
+        // The cast this seat may cancel: its own, or the one it is making
+        // for the player whose turn it controls (CR 723.5).
+        let caster = if self.engine.decision_actor() == Some(seat) {
+            self.engine.pending().asked().unwrap_or(seat)
+        } else {
+            seat
+        };
+        view.casting = self.engine.cancellable_cast(caster);
         view
     }
 

@@ -358,6 +358,24 @@ pub struct PlayerView {
     /// not written. Teferi's +1 stays [`Self::sorceries_have_flash`].
     #[serde(default, skip_serializing_if = "no_types")]
     pub flash_types: baylee_core::types::TypeSet,
+    /// Every player whose decisions another player makes now (Mindslaver,
+    /// CR 723), as the table sees it: public, so every seat and spectator
+    /// is told for the whole controlled turn. Empty in the ordinary case,
+    /// and then not written.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub controls: Vec<PlayerControl>,
+}
+
+/// One player whose decisions another makes (CR 723.5).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PlayerControl {
+    /// The controlled player.
+    pub player: PlayerId,
+    /// Who decides for them.
+    pub controller: PlayerId,
+    /// The card whose effect gave the control, where one did (Mindslaver).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<CardIndex>,
 }
 
 /// `skip_serializing_if` for a [`baylee_core::types::TypeSet`] field.

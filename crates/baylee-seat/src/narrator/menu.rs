@@ -41,6 +41,9 @@ pub struct Menu {
     /// Every seat at the table.
     players: Vec<PlayerId>,
     me: PlayerId,
+    /// The player decided for, when it is a player whose turn the seat
+    /// controls (CR 723.5) and not the seat.
+    controlled: Option<PlayerId>,
 }
 
 /// What kind of answer a question takes.
@@ -420,6 +423,15 @@ impl Menu {
             Some(_) => {}
         }
         if decision.concede.is_some() {
+            // A controller never concedes for the player it controls
+            // (CR 723.6): a concession is only ever the seat's own.
+            if let Some(p) = self.controlled.map(Table::player_id) {
+                return Err(format!(
+                    "you cannot concede for {p}: you decide for {p} while you control {p}'s \
+                     turn, and only {p} may concede for {p} (CR 723.6); your own concession is \
+                     yours to make in a decision of your own. Answer {asked} for {p}"
+                ));
+            }
             return Ok(now(PlayerAction::Concede, "concede the game".into()));
         }
         // The orders around the answer are read first: one that is not
@@ -961,7 +973,7 @@ pub(super) fn question(table: &Table<'_>, request: &Request, style: Style) -> (S
         .chain(&view.looking_at)
         .chain(&view.library_tops)
         .map(|o| o.id)
-        .chain(view.hand.iter().map(|c| c.id))
+        .chain(baylee_client_core::decision::known_cards(view).map(|c| c.id))
         .collect();
     let menu = Menu {
         question: request.question,
@@ -970,6 +982,7 @@ pub(super) fn question(table: &Table<'_>, request: &Request, style: Style) -> (S
         visible,
         players: view.seats.iter().map(|s| s.player).collect(),
         me: view.seat,
+        controlled: table.controlled(),
     };
     (q.text, menu)
 }
@@ -1020,7 +1033,7 @@ fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, Str
             kind,
             count,
         } => counter_untap_words(table, *permanent, *kind, *count),
-        YesNoPrompt::PayPact { cost } => pact_words(cost),
+        YesNoPrompt::PayPact { cost } => pact_words(table, cost),
         YesNoPrompt::PayEnergy { amount } => (
             format!("Pay {amount} energy counters?"),
             "pay".into(),
@@ -1038,14 +1051,7 @@ fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, Str
             "accept the draw".into(),
             "play on".into(),
         ),
-        YesNoPrompt::CommanderZone { card } => (
-            format!(
-                "Put your commander {} into the command zone?",
-                table.named(*card)
-            ),
-            "move it to the command zone".into(),
-            "leave it where it is".into(),
-        ),
+        YesNoPrompt::CommanderZone { card } => commander_zone_words(table, *card),
         YesNoPrompt::CommanderReplace { card, to_library } => {
             commander_replace_words(table, *card, *to_library)
         }
@@ -1068,21 +1074,43 @@ fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, Str
             "the top".into(),
             "the bottom".into(),
         ),
-        YesNoPrompt::Discover { card } => (
-            format!(
-                "Cast {} without paying its mana cost? If you don't, it goes into your hand.",
-                table.named(*card)
-            ),
-            "cast it".into(),
-            "put it into your hand".into(),
-        ),
-        YesNoPrompt::SkipTurn { source } => (
-            format!("Skip this turn to untap {}?", table.named(*source)),
-            "skip this turn; untap it when the next turn begins".into(),
-            "take this turn; leave it tapped".into(),
-        ),
+        YesNoPrompt::Discover { card } => discover_words(table, *card),
+        YesNoPrompt::SkipTurn { source } => skip_turn_words(table, *source),
+        YesNoPrompt::GuessNamedCardInHand { holder, card, face } => {
+            guess_words(table, *holder, *card, *face)
+        }
         YesNoPrompt::Generic => ("Yes or no?".into(), "yes".into(), "no".into()),
     }
+}
+
+/// Time Vault's turn trade, both consequences named.
+fn skip_turn_words(table: &Table<'_>, source: ObjectId) -> (String, String, String) {
+    (
+        format!("Skip this turn to untap {}?", table.named(source)),
+        "skip this turn; untap it when the next turn begins".into(),
+        "take this turn; leave it tapped".into(),
+    )
+}
+
+/// Liar's Pendulum's guess, naming the card whose name was chosen aloud
+/// and whose hand it is about.
+fn guess_words(
+    table: &Table<'_>,
+    holder: PlayerId,
+    card: baylee_core::ids::CardIndex,
+    face: u8,
+) -> (String, String, String) {
+    let name = baylee_cards::by_index(card)
+        .and_then(|def| def.faces.get(usize::from(face)))
+        .map_or("the chosen name", |face| face.name);
+    (
+        format!(
+            "Guess: does {} have a card named {name} in hand?",
+            table.player(holder)
+        ),
+        format!("yes, {name} is in that hand"),
+        format!("no, {name} is not in that hand"),
+    )
 }
 
 fn may_do_words() -> (String, String, String) {
@@ -1122,7 +1150,14 @@ fn counter_untap_words(
     )
 }
 
-fn pact_words(cost: &baylee_core::mana::ManaCost) -> (String, String, String) {
+fn pact_words(table: &Table<'_>, cost: &baylee_core::mana::ManaCost) -> (String, String, String) {
+    if let Some(p) = table.controlled().map(Table::player_id) {
+        return (
+            format!("Pay {cost} for {p}'s pact? If it is not paid, {p} loses the game."),
+            format!("pay {cost} with {p}'s mana"),
+            format!("don't pay, and {p} loses the game"),
+        );
+    }
     (
         format!("Pay {cost} for the pact? If you don't, you lose the game."),
         format!("pay {cost}"),
@@ -1148,7 +1183,7 @@ fn miracle_words(table: &Table<'_>, card: ObjectId) -> (String, String, String) 
             table.named(card)
         ),
         "cast it for its miracle cost".into(),
-        "keep it in your hand".into(),
+        table.for_decider("keep it in your hand"),
     )
 }
 
@@ -1208,6 +1243,17 @@ fn proliferate_words(player: PlayerId) -> (String, String, String) {
     )
 }
 
+fn commander_zone_words(table: &Table<'_>, card: ObjectId) -> (String, String, String) {
+    (
+        table.for_decider(&format!(
+            "Put your commander {} into the command zone?",
+            table.named(card)
+        )),
+        "move it to the command zone".into(),
+        "leave it where it is".into(),
+    )
+}
+
 fn commander_replace_words(
     table: &Table<'_>,
     card: ObjectId,
@@ -1215,12 +1261,23 @@ fn commander_replace_words(
 ) -> (String, String, String) {
     let destination = if to_library { "library" } else { "hand" };
     (
-        format!(
+        table.for_decider(&format!(
             "Your commander {} is about to go to your {destination}. Put it into the command zone instead?",
             table.named(card)
-        ),
+        )),
         "put it into the command zone".into(),
-        format!("let it go to your {destination}"),
+        table.for_decider(&format!("let it go to your {destination}")),
+    )
+}
+
+fn discover_words(table: &Table<'_>, card: ObjectId) -> (String, String, String) {
+    (
+        table.for_decider(&format!(
+            "Cast {} without paying its mana cost? If you don't, it goes into your hand.",
+            table.named(card)
+        )),
+        "cast it".into(),
+        table.for_decider("put it into your hand"),
     )
 }
 
@@ -1461,11 +1518,8 @@ fn cast_mode_label(card: Option<baylee_view::CardIdentity>, option: &CastModeDes
 fn own_subtypes(table: &Table<'_>, options: &[SubtypeId]) -> Vec<&'static str> {
     let mut seen: Vec<SubtypeId> = Vec::new();
     let view = table.view;
-    for object in view
-        .battlefield
-        .iter()
-        .filter(|o| o.controller == view.seat)
-    {
+    let decider = table.decider();
+    for object in view.battlefield.iter().filter(|o| o.controller == decider) {
         seen.extend(object.subtypes.iter());
     }
     for entry in &table.context.deck.main {

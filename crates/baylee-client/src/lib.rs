@@ -532,6 +532,20 @@ pub struct Duel {
     /// `Space` pressed now is dropped (DESIGN-v8 §1.1 — a card that moved
     /// under the finger is not the card the finger meant).
     pub follow_settling: bool,
+    /// Whose chair the bottom of the table is shown from while this seat
+    /// controls another player (CR 723.5): the hand row, and the chip
+    /// marked shown (`client-core::perspective`). The question is never
+    /// hidden by it; it is named for the player it is asked for.
+    pub perspective: baylee_client_core::perspective::Perspective,
+    /// How many times [`Self::perspective`] has changed, so the hand that
+    /// arrives from another chair is eased in once per change
+    /// (`hud::hand::arrive`).
+    pub perspective_epoch: u32,
+    /// *Dem gesteuerten Spieler folgen* is off on this device (copied by
+    /// [`arrangement::choose`]): a decision for a controlled player leaves
+    /// the perspective where the player put it. Off by its negative so a
+    /// `Duel::default()` follows, as the setting does by default.
+    pub control_follow_off: bool,
     /// The game menu's arrangement row was pressed: the menu opens on the
     /// next frame ([`arrangement::choose`], which holds the settings).
     pub arrangement_menu_asked: bool,
@@ -958,7 +972,10 @@ pub struct Duel {
     /// it for a cast's X question: that question carries no mana abilities
     /// of its own (only priority does), and the mana it is paid with is made
     /// after it is answered (CR 601.2b, 601.2g). See [`Self::cap_x`].
-    priority_legal: Option<baylee_engine::choice::LegalActions>,
+    ///
+    /// Kept with the player that priority was answered for: this seat, or
+    /// the player it controls (CR 723.5a), whose lands are not its own.
+    priority_legal: Option<(PlayerId, baylee_engine::choice::LegalActions)>,
     /// Actions waiting to be sent.
     outbox: Vec<PlayerAction>,
     /// The last thing that went wrong, shown in the prompt bar.
@@ -1281,7 +1298,12 @@ fn run_autopilot(mut duel: ResMut<Duel>, prefs: Res<prefs::Prefs>) {
         let Some(view) = duel.view.as_ref() else {
             return;
         };
-        let active_is_mine = view.active == view.seat;
+        // Read from the deciding player's chair: a turn this seat controls
+        // (CR 723.5) is played as its own, so `skip_opponent_turns` does not
+        // pass the controlled player's whole turn away, and "the other side"
+        // is the controlled player's opponents.
+        let deciding = baylee_client_core::decision::resource_player(view);
+        let active_is_mine = view.active == deciding;
         let Some(interaction) = duel.interaction.as_ref() else {
             return;
         };
@@ -1298,7 +1320,7 @@ fn run_autopilot(mut duel: ResMut<Duel>, prefs: Res<prefs::Prefs>) {
                 opposing_stack: view
                     .stack
                     .iter()
-                    .any(|o| !hud::same_team(duel.statics.as_ref(), o.controller, view.seat)),
+                    .any(|o| !hud::same_team(duel.statics.as_ref(), o.controller, deciding)),
                 // What this client is offering that the engine's list does
                 // not name. Without it `pass_when_nothing_to_do` reads an
                 // empty `castable` over four untapped Forests as an empty
@@ -1709,10 +1731,36 @@ pub fn rebuild_board(duel: &mut Duel) {
         crate::cardart::registry(),
     ));
     if let Some(board) = &mut duel.board {
-        duel.hand_groups = duel.hand_order.apply(&mut board.hand, view);
+        // The hand row is the chair the table is shown from: the deciding
+        // player's unless the player chose another (or auto-follow is off),
+        // and only ever one the view carries (CR 723.4).
+        let shown = duel.perspective.shown(view);
+        if shown != baylee_client_core::decision::resource_player(view) {
+            board.show_hand(
+                baylee_client_core::decision::hand_of(view, shown),
+                &baylee_client_core::board::Openings {
+                    playable: &playable,
+                    reachable: &reach,
+                    activatable: &duel.activatable,
+                    proposed: &duel.proposed,
+                },
+            );
+        }
+        duel.hand_groups = duel
+            .hand_order
+            .apply(&mut board.hand, shown_hand(view, duel.perspective));
         board.take_modes(&duel.log);
     }
     duel.layout = Some(layout);
+}
+
+/// The hand the row is drawn from: the chair the table is shown from
+/// (`client-core::perspective`), its own or one this seat controls.
+pub(crate) fn shown_hand(
+    view: &PlayerView,
+    perspective: baylee_client_core::perspective::Perspective,
+) -> &[baylee_view::HandObject] {
+    baylee_client_core::decision::hand_of(view, perspective.shown(view))
 }
 
 mod reach;
@@ -1736,6 +1784,8 @@ mod owed_tests;
 
 #[cfg(test)]
 mod activation_payment_tests;
+#[cfg(test)]
+mod controlled_turn_tests;
 #[cfg(test)]
 mod reachable_tests;
 

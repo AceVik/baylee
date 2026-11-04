@@ -22,11 +22,25 @@
 //! which question it could not answer, rather than wait for a clock that an
 //! untimed table does not have.
 //!
+//! # A decision for a controlled player
+//!
 //! A decision this seat makes for another player whose turn it controls
 //! (Mindslaver, CR 723.5) names that player in the question and this seat in
-//! the view's `awaiting`. The least answer makes it: the narrator speaks for
-//! this seat's own player only, and the controlled player passes, attacks
-//! with nothing and chooses the first it must.
+//! the view's `awaiting`; the view's `decision_player` is that player, and
+//! its `controlled_hands` that player's hand. It goes the way of any other
+//! question: the standing orders, the mind, the house, the least answer. The
+//! orders read it from that player's chair ([`crate::wake`], "A decision for
+//! a controlled player"), and the seat holds them in a filter of their own
+//! for that player, so an `until`, a plan's turn or a payment under way of
+//! either player never answers the other's questions: the seat goes on
+//! making its own decisions in the same turn (CR 723.8). The mind is told
+//! the decision is one it makes for that player, which it may make against
+//! that player's interest, with that player's resources only (CR 723.5a).
+//!
+//! A controller never concedes for the player it controls (CR 723.6): an
+//! answer that concedes in such a decision is refused, told why, and asked
+//! again, as any other foul (`SeatCore::foul`); the concession of the
+//! seat's own player is the seat's to make in a decision of its own.
 //!
 //! # Telling questions apart
 //!
@@ -68,6 +82,7 @@ use crate::transcript::{Event, Note};
 use crate::wake::{MIND_STOPS, Standing, Verdict, WakeFilter, Why};
 use baylee_ai::AIProfile;
 use baylee_client_core::automation::{RailRow, RailSide};
+use baylee_core::ids::PlayerId;
 use baylee_core::preset::FormatId;
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_engine::win::GameResult;
@@ -198,8 +213,9 @@ pub struct Stats {
     pub fallbacks: FallbackCounts,
     /// Questions nothing could answer; the seat left at the first.
     pub unanswerable: u32,
-    /// Decisions made for another player whose turn this seat controlled,
-    /// by the least answer (Mindslaver; module docs).
+    /// Questions this seat decided for another player whose turn it
+    /// controlled (Mindslaver; module docs), whoever answered them: they
+    /// are among `questions`, and their answers among `answered`.
     pub controlled: u32,
     /// Mind answers that came after their question was gone.
     pub late: u32,
@@ -348,6 +364,9 @@ struct Current {
     raw: Vec<u8>,
     pending: Pending,
     view: PlayerView,
+    /// The player it is decided for, when that is a player whose turn the
+    /// seat controls rather than the seat itself (module docs).
+    controlled: Option<PlayerId>,
     /// Times the mind has been asked this question.
     tries: u32,
     /// Whether it woke the mind (for the pacing floor and the counts),
@@ -392,7 +411,12 @@ pub struct SeatCore {
     disclosure: Disclosure,
     house: HouseMind,
     memory: TableMemory,
+    /// The standing orders of the seat's own decisions.
     wake: WakeFilter,
+    /// The standing orders of the decisions it makes for a player whose
+    /// turn it controls, and who that is: a fresh filter for each such
+    /// player (module docs).
+    controlled: Option<(PlayerId, WakeFilter)>,
     context: Option<Arc<GameContext>>,
     current: Option<Current>,
     /// What the table said after the last answer went out, if it refused
@@ -418,6 +442,7 @@ impl SeatCore {
         Self {
             house: HouseMind::new(config.house),
             wake: WakeFilter::new(&config.stops),
+            controlled: None,
             config,
             deck,
             disclosure,
@@ -506,13 +531,28 @@ impl SeatCore {
             Ok(answer) => {
                 self.failures = 0;
                 if let (Some(current), Some(context)) = (self.current.as_ref(), &self.context) {
-                    self.wake.apply_orders(
-                        answer.stops.as_deref(),
-                        answer.orders,
-                        answer.planned,
-                        &current.view,
-                        &context.teams,
-                    );
+                    let stops = answer.stops.as_deref();
+                    filter_of(&mut self.wake, &mut self.controlled, current.controlled)
+                        .apply_orders(
+                            stops,
+                            answer.orders,
+                            answer.planned,
+                            &current.view,
+                            &context.teams,
+                        );
+                    // The stops the mind chose hold for every chair it
+                    // decides for, each read from its own; and the mind
+                    // holds one plan, so none left is none for either.
+                    let other = match current.controlled {
+                        None => self.controlled.as_mut().map(|(_, filter)| filter),
+                        Some(_) => Some(&mut self.wake),
+                    };
+                    if let Some(other) = other {
+                        other.apply_stops(stops);
+                        if answer.planned == 0 {
+                            other.drop_plan();
+                        }
+                    }
                 }
                 self.stats.model_ms = self.stats.model_ms.saturating_add(
                     u64::try_from(answer.model_time.as_millis()).unwrap_or(u64::MAX),
@@ -520,12 +560,11 @@ impl SeatCore {
                 let foul = self
                     .current
                     .as_ref()
-                    .and_then(|current| referee::check(&current.pending, &answer.action).err());
+                    .and_then(|current| Self::foul(current, &answer.action));
                 match foul {
                     None => self.send(answer.action.clone(), By::Mind, Some(&answer)),
-                    Some(foul) => {
+                    Some(reason) => {
                         self.stats.refused_by_referee += 1;
-                        let reason = foul.reason().to_string();
                         self.note(
                             question,
                             Event::Refused {
@@ -780,8 +819,8 @@ impl SeatCore {
         };
         // A decision for a player whose turn this seat controls names that
         // player and is sent to this seat alone (module docs).
-        let controlled = pending.asked() != Some(context.seat);
-        if controlled && view.awaiting != Some(context.seat) {
+        let controlled = pending.asked().filter(|player| *player != context.seat);
+        if pending.asked() != Some(context.seat) && view.awaiting != Some(context.seat) {
             return Vec::new();
         }
         if let Some(steps) = self.again(seq, &pending, &raw) {
@@ -795,31 +834,21 @@ impl SeatCore {
         self.refused = None;
         self.questions += 1;
         self.stats.questions += 1;
-        if controlled {
+        if controlled.is_some() {
             self.stats.controlled += 1;
-            self.current = Some(Current {
-                question: self.questions,
-                seq,
-                raw,
-                pending,
-                view,
-                tries: 0,
-                wake: false,
-                why: None,
-                continuing: false,
-                resumed: false,
-                state: State::Thinking,
-            });
-            steps.extend(self.fall_back(By::Least));
-            return steps;
         }
-        let verdict = self.wake.judge(&view, &pending, &context.teams);
+        let verdict = filter_of(&mut self.wake, &mut self.controlled, controlled).judge(
+            &view,
+            &pending,
+            &context.teams,
+        );
         self.current = Some(Current {
             question: self.questions,
             seq,
             raw,
             pending,
             view,
+            controlled,
             tries: 0,
             wake: false,
             why: None,
@@ -896,8 +925,11 @@ impl SeatCore {
     }
 
     fn standing(&mut self, action: PlayerAction, why: Standing) -> Vec<Step> {
-        let pending = self.current.as_ref().map(|c| c.pending.clone());
-        if let Some(foul) = pending.and_then(|p| referee::check(&p, &action).err()) {
+        let foul = self
+            .current
+            .as_ref()
+            .and_then(|current| Self::foul(current, &action));
+        if let Some(reason) = foul {
             // The orders were wrong about this question; the mind decides.
             self.stats.refused_by_referee += 1;
             let question = self.questions;
@@ -906,7 +938,7 @@ impl SeatCore {
                 Event::Refused {
                     by: RefusedBy::Referee,
                     action,
-                    reason: foul.reason().to_string(),
+                    reason,
                 },
             );
             return self.wake_mind(Why::Question);
@@ -958,6 +990,7 @@ impl SeatCore {
         current.tries += 1;
         current.state = State::Thinking;
         let why = current.why;
+        let controlled = current.controlled;
         let request = Request {
             context,
             question: current.question,
@@ -967,7 +1000,7 @@ impl SeatCore {
             budget,
             retry,
             continuing: current.continuing,
-            held: self.wake.take_held(),
+            held: filter_of(&mut self.wake, &mut self.controlled, controlled).take_held(),
         };
         self.stats.asked += 1;
         if request.retry.is_some() {
@@ -984,6 +1017,7 @@ impl SeatCore {
                 retry: request.retry.is_some(),
                 budget_ms: u64::try_from(budget.as_millis()).unwrap_or(u64::MAX),
                 log_lines: request.log.entries.len(),
+                controlled,
             },
         );
         vec![Step::Ask(Box::new(request))]
@@ -1101,22 +1135,42 @@ impl SeatCore {
             let Some(action) = action else {
                 continue;
             };
-            match referee::check(&current.pending, &action) {
-                Ok(()) => return self.send(action, by, None),
-                Err(foul) => {
+            match Self::foul(&current, &action) {
+                None => return self.send(action, by, None),
+                Some(reason) => {
                     self.stats.refused_by_referee += 1;
                     self.note(
                         current.question,
                         Event::Refused {
                             by: RefusedBy::Referee,
                             action,
-                            reason: foul.reason().to_string(),
+                            reason,
                         },
                     );
                 }
             }
         }
         self.unanswerable()
+    }
+
+    /// Why `action` may not be sent for `current`, in words for the mind
+    /// and the transcript: the referee's foul, or a concession in a
+    /// decision for a player whose turn the seat controls, which a
+    /// controller never makes for that player (CR 723.6; module docs).
+    fn foul(current: &Current, action: &PlayerAction) -> Option<String> {
+        if let Some(player) = current.controlled
+            && *action == PlayerAction::Concede
+        {
+            let p = u16::from(player.get()) + 1;
+            return Some(format!(
+                "you cannot concede for P{p}: you decide for P{p} while you control P{p}'s \
+                 turn, and only P{p} may concede for P{p} (CR 723.6); your own concession is \
+                 yours to make in a decision of your own. Answer this question for P{p}"
+            ));
+        }
+        referee::check(&current.pending, action)
+            .err()
+            .map(|foul| foul.reason().to_string())
     }
 
     /// Nothing the seat could send passes: not the mind's answer, not the
@@ -1145,7 +1199,8 @@ impl SeatCore {
         let Some(current) = self.current.as_mut() else {
             return Vec::new();
         };
-        self.wake.heard(&current.view, &action);
+        filter_of(&mut self.wake, &mut self.controlled, current.controlled)
+            .heard(&current.view, &action);
         current.state = State::Sent {
             action: action.clone(),
             by,
@@ -1250,6 +1305,25 @@ impl SeatCore {
             })),
         }))
     }
+}
+
+/// The standing orders a question decided for `controlled` is judged by:
+/// the seat's own (`wake`) for its own decisions, else the filter of that
+/// player, made fresh from the seat's own rail the first time that player
+/// is decided for (module docs). A field-level borrow, so it can be taken
+/// while the seat's current question is borrowed too.
+fn filter_of<'a>(
+    wake: &'a mut WakeFilter,
+    others: &'a mut Option<(PlayerId, WakeFilter)>,
+    controlled: Option<PlayerId>,
+) -> &'a mut WakeFilter {
+    let Some(player) = controlled else {
+        return wake;
+    };
+    if others.as_ref().is_none_or(|(held, _)| *held != player) {
+        *others = Some((player, wake.fresh()));
+    }
+    &mut others.as_mut().expect("just set").1
 }
 
 /// The most bytes of each text an `AiLog` carries: two of them stay well

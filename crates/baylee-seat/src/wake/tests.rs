@@ -10,6 +10,7 @@ use baylee_engine::choice::{BlockOption, TargetPrompt};
 use baylee_view::{CardIdentity, HandObject, PublicObject, RulesFace};
 
 mod combat;
+mod controlled;
 mod foretell;
 mod phasing;
 mod played;

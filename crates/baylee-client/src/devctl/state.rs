@@ -1110,9 +1110,10 @@ pub(super) fn state_dump(believed: &Believed, window: Vec2) -> String {
          \"departing\":{departing},\"cards\":{cards},\"buttons\":{buttons},\"browser\":{browser},\"shelves\":{shelves},\
          \"presentation\":{presentation},\"phase\":{phase},\"loading\":{loading},\"account\":{account},\"lobby_controls\":{lobby_controls},\"update_buttons\":{update_buttons},\"exits\":{exits},\"face_builds\":{face_builds},\
          \"ui_rebuilds\":{ui_rebuilds},\"shell_nodes\":{shell_nodes},\"desk_controls\":{desk_controls},\"report\":{report},\"chat\":{chat},\
-         \"reveal\":{reveal},\"shell\":{shell},\"camera\":{camera},\"arrangement\":{arrangement},\"dial\":{dial},\"chips\":{chips},\"plates\":{plates},\"tour\":{tour},\"replay\":{replay}}}",
+         \"reveal\":{reveal},\"shell\":{shell},\"camera\":{camera},\"arrangement\":{arrangement},\"dial\":{dial},\"chips\":{chips},\"plates\":{plates},\"tour\":{tour},\"replay\":{replay},\"control\":{control}}}",
         tour = tour_json(believed, settings),
         replay = replay_json(duel),
+        control = control_json(duel, settings.map_or(Lang::En, |s| Lang::of(&s.lang))),
         reveal = reveal_json(believed, duel),
         shell = shell_keys_json(believed),
         camera = camera_json(believed, duel),
@@ -2184,5 +2185,29 @@ fn replay_json(duel: &crate::Duel) -> String {
         status.playing,
         quoted(status.speed.label()),
         quoted(status.verify.wire()),
+    )
+}
+
+/// Control of players (CR 723.5): the chairs this seat may play from, the
+/// one the table is shown from and whether by hand, and the banner's line
+/// (`null` while every decision is its own player's).
+fn control_json(duel: &crate::Duel, lang: Lang) -> String {
+    let Some(view) = duel.view.as_ref() else {
+        return "null".to_string();
+    };
+    let seats: Vec<String> = baylee_client_core::perspective::seats(view)
+        .iter()
+        .map(|p| p.get().to_string())
+        .collect();
+    let line = baylee_client_core::perspective::ControlLine::of(view).map_or_else(
+        || "null".to_string(),
+        |l| quoted(&l.text(lang, duel.statics.as_ref())),
+    );
+    format!(
+        "{{\"seats\":[{}],\"shown\":{},\"by_hand\":{},\"follow\":{},\"line\":{line}}}",
+        seats.join(","),
+        duel.perspective.shown(view).get(),
+        duel.perspective.by_hand(),
+        !duel.control_follow_off,
     )
 }

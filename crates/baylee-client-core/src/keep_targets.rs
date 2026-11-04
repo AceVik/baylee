@@ -24,7 +24,8 @@ pub struct KeepTargets {
 }
 
 /// The run a `Pending` is part of: `(index, of, min)` of a new-target
-/// question this seat answers.
+/// question this seat answers, for itself or for the player it controls
+/// (CR 723.5; [`crate::decision::resource_player`]).
 fn retarget(view: &PlayerView, pending: &Pending) -> Option<(u32, u32, u32)> {
     match pending {
         Pending::ChooseTargets {
@@ -32,7 +33,7 @@ fn retarget(view: &PlayerView, pending: &Pending) -> Option<(u32, u32, u32)> {
             min,
             reason: TargetPrompt::Retarget { index, of, .. },
             ..
-        } if *player == view.seat => Some((*index, *of, *min)),
+        } if *player == crate::decision::resource_player(view) => Some((*index, *of, *min)),
         _ => None,
     }
 }
@@ -271,6 +272,29 @@ mod tests {
             run.answer(&view, &question(0, 0, 1, 3)),
             None,
             "and answers nothing"
+        );
+    }
+
+    /// Mindslaver (CR 723.5): the controlled player's copy asks the
+    /// controlled player, and this seat answers for it, so the shortcut is
+    /// offered and kept on that player's questions and not on its own.
+    #[test]
+    fn a_controlled_players_retargeting_is_this_seats_to_keep() {
+        let mut view = ViewBuilder::new(2).controlling(1, vec![]).build();
+        assert_eq!(KeepTargets::offered(&view, &question(1, 0, 0, 3)), Some(3));
+        assert_eq!(
+            KeepTargets::offered(&view, &question(0, 0, 0, 3)),
+            None,
+            "this seat's own question is not the one being asked"
+        );
+        let mut run = KeepTargets::begin(&view, &question(1, 0, 0, 3)).expect("offered");
+        assert_eq!(run.answer(&view, &question(1, 0, 0, 3)), Some(keep()));
+        view.decision_player = None;
+        view.controlled_hands.clear();
+        view.seq += 1;
+        assert!(
+            !run.accepts(&view, &question(1, 0, 1, 3)),
+            "control ended: the player answers its own questions again"
         );
     }
 }

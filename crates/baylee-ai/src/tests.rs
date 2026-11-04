@@ -9,6 +9,7 @@ use baylee_view::{
 };
 
 mod constrained_tests;
+mod controlled_tests;
 /// `worth`'s takes and declines, on this module's boards: a child of
 /// it, so the helpers below serve both.
 mod worth_tests;
@@ -281,6 +282,7 @@ fn view(seat: u8, lives: &[i32], battlefield: Vec<PublicObject>) -> PlayerView {
         sorcery_lock: None,
         sorceries_have_flash: false,
         flash_types: baylee_core::types::TypeSet::EMPTY,
+        controls: Vec::new(),
         ballots: Vec::new(),
     }
 }

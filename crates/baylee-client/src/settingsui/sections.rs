@@ -329,6 +329,12 @@ fn arrangement_rows(out: &mut Out, table: &baylee_client_core::tableview::TableV
         Press::Settings(SettingsPress::FollowTurn),
     );
     out.row(Row::FollowTurn, control);
+    let control = out.toggle(
+        "follow-control",
+        table.follow_control,
+        Press::Settings(SettingsPress::FollowControl),
+    );
+    out.row(Row::FollowControl, control);
     let mut lines = Vec::new();
     // The widest value a seat count's stepper can show: it keeps that room,
     // so its `+` never moves and its value is never cut.

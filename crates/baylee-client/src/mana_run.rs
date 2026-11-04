@@ -136,7 +136,9 @@ pub fn advance_mana_run(duel: &mut Duel) {
     let Some(interaction) = duel.interaction.as_ref() else {
         return;
     };
-    let seat = duel.seat().unwrap_or(PlayerId::new(0));
+    // The player this seat taps and casts for: itself, or the player it
+    // controls (CR 723.5a), whose priority the run is spent in.
+    let seat = duel.actor().unwrap_or(PlayerId::new(0));
     let pending = interaction.pending().clone();
     if let Some(phase) = duel.mana_run.as_ref().and_then(|r| r.cast_first)
         && advance_cast_first(duel, phase, &pending, seat)
@@ -333,7 +335,7 @@ pub fn take_the_chosen_cast_mode(duel: &mut Duel) {
     let Some((card, kind)) = duel.cast_answer else {
         return;
     };
-    let seat = duel.seat().unwrap_or(PlayerId::new(0));
+    let seat = duel.actor().unwrap_or(PlayerId::new(0));
     let Some(interaction) = duel.interaction.as_ref() else {
         return;
     };
@@ -405,12 +407,15 @@ pub fn mana_for(duel: &Duel, card: ObjectId) -> Option<baylee_client_core::manap
 /// printed cost, a graveyard card's flashback cost, an exiled card's printed
 /// cost, or a commander's cost plus its tax, each priced as the engine
 /// charges it: what effects add, less what they take off
-/// (`baylee_ai::spell_price`, CR 601.2f).
+/// (`baylee_ai::spell_price`, CR 601.2f). The hand, graveyard and command
+/// zone are the deciding player's: the controlled player's while this seat
+/// casts for them (CR 723.5a).
 pub(super) fn spell_cost(
     view: &PlayerView,
     legal: &baylee_engine::choice::LegalActions,
     card: ObjectId,
 ) -> Option<baylee_core::mana::ManaCost> {
+    let caster = baylee_client_core::decision::resource_player(view);
     let (cost, identity) = if let Some(hand_card) = baylee_client_core::decision::hand(view)
         .iter()
         .find(|c| c.id == card)
@@ -418,7 +423,7 @@ pub(super) fn spell_cost(
         (manasources::hand_cost(hand_card)?, Some(hand_card.card))
     } else if let Some(buried) = view
         .graveyards
-        .get(view.seat.get() as usize)
+        .get(caster.get() as usize)
         .and_then(|zone| zone.iter().find(|o| o.id == card))
     {
         let cost = buried.flashback.or_else(|| {
@@ -438,7 +443,7 @@ pub(super) fn spell_cost(
         (reach::printed_face(exiled.card?)?.mana_cost, exiled.card)
     } else {
         let commander = view
-            .seat(view.seat)?
+            .seat(caster)?
             .commanders
             .iter()
             .find(|c| c.object == card)?;

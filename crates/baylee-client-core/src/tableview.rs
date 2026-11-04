@@ -150,6 +150,13 @@ pub struct TableView {
     /// (it never shipped) reads as on.
     #[serde(deserialize_with = "lenient_on")]
     pub follow: bool,
+    /// *Dem gesteuerten Spieler folgen*: while this seat controls another
+    /// player (CR 723.5), a decision arriving for that player shows the
+    /// table from their chair and one of this seat's own brings it back
+    /// (`perspective::Perspective::decision`). On by default (the owner,
+    /// 04.11.2026); a file without the field reads as on.
+    #[serde(deserialize_with = "lenient_on")]
+    pub follow_control: bool,
     /// The ring's lean.
     #[serde(deserialize_with = "crate::graphics::lenient")]
     pub lean: RingLean,
@@ -164,6 +171,7 @@ impl Default for TableView {
             arrangement: Arrangement::default(),
             arrangement_by_seats: BySeats::default(),
             follow: true,
+            follow_control: true,
             lean: RingLean::default(),
             visit: VisitCamera::default(),
         }

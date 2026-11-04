@@ -1317,10 +1317,19 @@ too slow, refused or out of budget) and its least answer go to the table
 as the seat's answers, like the model's. Which of them made each answer is
 in the bridge's transcript (`--transcripts`: an `answered` event's `by`), and the
 counts in its closing line. A decision the seat makes for another player
-whose turn it controls (Mindslaver, CR 723.5) is the least answer's too,
-never the model's: the narrator speaks for the seat's own player only, so
-the controlled player passes, attacks with nothing and makes the first
-choice it must (`controlled` in the closing counts). A mind taken off the table (`down_after`
+whose turn it controls (Mindslaver, CR 723.5) is the seat's answer in the
+record too, made the same way: the standing orders (read from that
+player's chair), the model, the house, the least answer. The model plays
+that player's turn with that player's cards and mana, against that
+player's interest where it likes, and never concedes for that player
+(CR 723.6): a concession there is refused and asked again, and the house
+answers after the retries. `controlled` in the closing counts says how
+many such decisions there were, the transcript's `asked` line names the
+player (`controlled`), and how the model is told one is
+`docs/llm-protocol.md` §"A decision for a controlled player". Until
+4 Nov 2026 the least answer made every one of them: the controlled
+player passed, attacked with nothing and made the first choice it had
+to. A mind taken off the table (`down_after`
 failures) leaves the socket, and the table's own stand-in, recorded as a
 `chair` line, plays until it is back. A limited mind is never taken off
 the table: the bridge declares the house (`kind: house` and its level) and

@@ -262,6 +262,11 @@ pub(super) fn look_around(
     if fired.has(Action::FocusHome) {
         navigate_home(duel);
     }
+    // The next chair this seat may play from: its own, then each player it
+    // controls (CR 723.5). With nobody controlled it does nothing.
+    if fired.has(Action::CyclePerspective) {
+        duel.cycle_perspective(true);
+    }
     if fired.has(Action::HandDrawer) {
         duel.toggle_hand_drawer();
     }

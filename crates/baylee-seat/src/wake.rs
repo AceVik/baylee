@@ -76,10 +76,24 @@
 //! offers it. This reader lacks the client's target and cast-mode filters,
 //! so it offers more than the client would: the error is always a wake too
 //! many, never a window passed away.
+//!
+//! # A decision for a controlled player
+//!
+//! A seat that controls another player's turn (Mindslaver, CR 723.5) is
+//! asked that player's questions, with that player's cards and mana
+//! (`PlayerView::decision_player`, read through
+//! [`decision::resource_player`]). Every rule here reads such a decision
+//! from that player's chair: "nothing to do" is what that player's hand,
+//! lands and pool could do, "mine" on the rail is that player's turn, "the
+//! other side" is that player's opponents (this seat among them), and
+//! `react: targets_me` means that player. The seat keeps a filter of its
+//! own for those decisions (`SeatCore`), so an `until`, a plan's turn or a
+//! payment under way of one player never answers the other's questions.
 
 use baylee_client_core::automation::{
     self, AutoAnswer, PhaseOrders, RAIL_ROWS, RailPreset, RailRow, RailSide, Situation,
 };
+use baylee_client_core::decision;
 use baylee_client_core::manaplan::Plan;
 use baylee_client_core::prefs::AutoRules;
 use baylee_core::ids::{CardIndex, ObjectId, PlayerId, TargetRef};
@@ -240,6 +254,22 @@ impl WakeFilter {
         }
     }
 
+    /// A filter with this one's rail and rules and none of its state: no
+    /// `until`, no plan, no payment under way. The filter a seat keeps for
+    /// the decisions it makes for a player whose turn it controls (module
+    /// docs), which stops where this seat's own mind said it stops.
+    #[must_use]
+    pub fn fresh(&self) -> Self {
+        Self {
+            orders: self.orders.clone(),
+            rules: self.rules,
+            paying: None,
+            until: None,
+            planned: None,
+            held: None,
+        }
+    }
+
     /// Takes what the mind's answer asks of the filter: its stops, and, for
     /// an answer of the model's own (`orders`), its `until` and `react`;
     /// `planned` is how many steps of its plan are left after the answer,
@@ -266,6 +296,12 @@ impl WakeFilter {
         }
     }
 
+    /// No plan of the mind's runs any more: it holds one plan at a time,
+    /// and an answer for another player's question said none is left.
+    pub const fn drop_plan(&mut self) {
+        self.planned = None;
+    }
+
     /// How the last `until` ended, once, for the mind's next message.
     pub const fn take_held(&mut self) -> Option<Held> {
         self.held.take()
@@ -285,7 +321,7 @@ impl WakeFilter {
     }
 
     /// Updates the filter with the model's chosen stops.
-    fn apply_stops(&mut self, stops: Option<&crate::narrator::Stops>) {
+    pub fn apply_stops(&mut self, stops: Option<&crate::narrator::Stops>) {
         if let Some(stops) = stops {
             let mut orders = PhaseOrders::default();
             orders.set_to(RailPreset::EveryStep);
@@ -320,9 +356,13 @@ impl WakeFilter {
     /// `None` for a chair on its own side): "the other side" is a question
     /// about the roster, and a teammate's spell on the stack is not an
     /// opponent's.
+    ///
+    /// A question for a player whose turn this seat controls is this
+    /// seat's to answer, and is judged from that player's chair (module
+    /// docs).
     #[must_use]
     pub fn judge(&mut self, view: &PlayerView, pending: &Pending, teams: &[Option<u8>]) -> Verdict {
-        if pending.asked() != Some(view.seat) {
+        if pending.asked() != Some(decision::resource_player(view)) {
             // Not this seat's question: nothing to answer, and nothing the
             // orders may answer for anybody else.
             return Verdict::Wake(Why::NotAsked);
@@ -421,10 +461,11 @@ impl WakeFilter {
         if !offering && nothing_but_mana(view, legal) {
             return standing(PlayerAction::PassPriority, Standing::NothingToDo);
         }
+        let me = decision::resource_player(view);
         let opposing_stack = view
             .stack
             .iter()
-            .any(|object| !same_side(teams, object.controller, view.seat));
+            .any(|object| !same_side(teams, object.controller, me));
         // Held here as well as in `auto_answer`: an opposing stack and a
         // cleanup window are decisions whatever the rail says, unless the
         // mind's `react` says otherwise of the stack.
@@ -452,7 +493,7 @@ impl WakeFilter {
         }
         let at = Situation {
             mine: true,
-            active_is_mine: same_side(teams, view.active, view.seat),
+            active_is_mine: same_side(teams, view.active, me),
             phase: view.phase,
             step: view.step,
             opposing_stack,
@@ -547,9 +588,10 @@ fn same_side(teams: &[Option<u8>], a: PlayerId, b: PlayerId) -> bool {
 }
 
 /// Whether `view` is where `until`, written in `turn`, ends: the seat's
-/// turn, its second main phase, its end step, or any turn after `turn`.
+/// turn, its second main phase, its end step, or any turn after `turn`
+/// (the turn of the player decided for, in a controlled decision).
 fn boundary(until: Until, view: &PlayerView, turn: u32, teams: &[Option<u8>]) -> bool {
-    let mine = same_side(teams, view.active, view.seat);
+    let mine = same_side(teams, view.active, decision::resource_player(view));
     match until {
         Until::MyTurn => mine,
         Until::MyMain2 => mine && view.phase == Phase::SecondMain,
@@ -559,10 +601,11 @@ fn boundary(until: Until, view: &PlayerView, turn: u32, teams: &[Option<u8>]) ->
 }
 
 /// Whether something of the other side's on the stack targets this seat, a
-/// permanent it controls, or its commander (`react: targets_me`). Read
-/// from the targets the view states, never from what a card is.
+/// permanent it controls, or its commander (`react: targets_me`), or in a
+/// controlled decision the player decided for. Read from the targets the
+/// view states, never from what a card is.
 fn targets_me(view: &PlayerView, teams: &[Option<u8>]) -> bool {
-    let me = view.seat;
+    let me = decision::resource_player(view);
     let commanders: Vec<ObjectId> = view
         .seat(me)
         .map(|seat| seat.commanders.iter().map(|c| c.object).collect())
@@ -676,6 +719,11 @@ pub struct AbilityReach {
 /// not here: they need no taps. Nor is a card whose cost the pool already
 /// holds that the engine does not list: something other than mana stops
 /// it. Nor is anything while a payment is owed ([`owes`]).
+///
+/// The hand, the lands, the pool and the command zone are those of the
+/// player whose cards the decision uses ([`decision::resource_player`]):
+/// in a decision for a player whose turn this seat controls (CR 723.5),
+/// that player's, never the seat's own.
 #[must_use]
 pub fn reachable(view: &PlayerView, legal: &LegalActions) -> Vec<Reach> {
     if owes(view) {
@@ -685,7 +733,8 @@ pub fn reachable(view: &PlayerView, legal: &LegalActions) -> Vec<Reach> {
     if sources.is_empty() {
         return Vec::new();
     }
-    let me = baylee_client_core::decision::resource_player(view);
+    let me = decision::resource_player(view);
+    let hand = decision::hand(view);
     let Some(pool) = view.seat(me).map(|seat| seat.mana_pool) else {
         return Vec::new();
     };
@@ -719,8 +768,7 @@ pub fn reachable(view: &PlayerView, legal: &LegalActions) -> Vec<Reach> {
             baylee_ai::plan_for_spell(&total, &pool, view, legal, id)
                 .filter(|plan| !plan.steps.is_empty())
         };
-    let mut reach: Vec<Reach> = view
-        .hand
+    let mut reach: Vec<Reach> = hand
         .iter()
         .filter(|card| {
             !legal.castable.contains(&card.id)
@@ -761,8 +809,7 @@ pub fn reachable(view: &PlayerView, legal: &LegalActions) -> Vec<Reach> {
     // prices that mode. Bug hunt of 3.11.2026, q44: Exalted Angel was never
     // offered with three lands, its printed {4}{W}{W} out of reach.
     reach.extend(
-        view.hand
-            .iter()
+        hand.iter()
             .filter(|card| {
                 !legal.castable.contains(&card.id) && face_down_keyword(card.card).is_some()
             })
@@ -823,7 +870,11 @@ pub fn reachable_abilities(view: &PlayerView, legal: &LegalActions) -> Vec<Abili
             let card = view
                 .object(source)
                 .and_then(|o| o.card)
-                .or_else(|| view.hand.iter().find(|c| c.id == source).map(|c| c.card))
+                .or_else(|| {
+                    decision::known_cards(view)
+                        .find(|c| c.id == source)
+                        .map(|c| c.card)
+                })
                 .map(|c| c.index);
             Some(AbilityReach {
                 source,
@@ -882,8 +933,7 @@ fn printed_ability(
         .object(source)
         .and_then(|o| o.rules.or_else(|| o.card.map(Into::into)))
         .or_else(|| {
-            view.hand
-                .iter()
+            decision::known_cards(view)
                 .find(|c| c.id == source)
                 .map(|c| baylee_view::RulesFace::from(c.card))
         })?;
@@ -952,10 +1002,11 @@ fn commanders(
     legal: &LegalActions,
     payable: &dyn Fn(ObjectId, baylee_view::CardIdentity, ManaCost, CastModeKind) -> Option<Plan>,
 ) -> Vec<Reach> {
-    let Some(seat) = view.seat(baylee_client_core::decision::resource_player(view)) else {
+    let me = decision::resource_player(view);
+    let Some(seat) = view.seat(me) else {
         return Vec::new();
     };
-    let zone = view.command.get(usize::from(view.seat.get()));
+    let zone = view.command.get(usize::from(me.get()));
     seat.commanders
         .iter()
         .filter(|c| !legal.castable.contains(&c.object))
@@ -986,6 +1037,7 @@ fn graveyard_and_exile(
     legal: &LegalActions,
     payable: &dyn Fn(ObjectId, baylee_view::CardIdentity, ManaCost, CastModeKind) -> Option<Plan>,
 ) -> Vec<Reach> {
+    let me = decision::resource_player(view);
     let mut out = Vec::new();
     for object in view
         .graveyards
@@ -1004,7 +1056,7 @@ fn graveyard_and_exile(
         }
         let (Some(cost), mode) = (if let Some(fb) = object.flashback {
             (Some(fb), CastModeKind::Flashback)
-        } else if object.owner == view.seat && legal.payable.contains(&object.id) {
+        } else if object.owner == me && legal.payable.contains(&object.id) {
             (printed_cost(card), CastModeKind::Normal)
         } else {
             (None, CastModeKind::Normal)
@@ -1113,12 +1165,14 @@ pub fn flash(card: baylee_view::CardIdentity) -> bool {
     })
 }
 
-/// Whether a creature of the seat's side attacks or blocks in this combat
+/// Whether a creature of the seat's side (in a controlled decision, the
+/// side of the player decided for) attacks or blocks in this combat
 /// (CR 506.4): the combat the blockers row stops for.
 fn fights(view: &PlayerView, teams: &[Option<u8>]) -> bool {
+    let me = decision::resource_player(view);
     let ours = |id: ObjectId| {
         view.object(id)
-            .is_some_and(|object| same_side(teams, object.controller, view.seat))
+            .is_some_and(|object| same_side(teams, object.controller, me))
     };
     view.combat.attackers.iter().any(|a| ours(a.creature))
         || view.combat.blockers.iter().any(|b| ours(b.blocker))

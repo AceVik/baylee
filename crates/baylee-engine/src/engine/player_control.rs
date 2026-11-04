@@ -457,6 +457,38 @@ impl<L: CardLookup> Engine<L> {
             .collect()
     }
 
+    /// Every player whose decisions another player makes right now, with
+    /// that player and the card whose effect gave the control, where one
+    /// did. Public (CR 723: the effect that gives it is public), so every
+    /// seat is told, not only the two it concerns.
+    #[must_use]
+    pub fn player_controls(
+        &self,
+    ) -> Vec<(PlayerId, PlayerId, Option<baylee_core::ids::CardIndex>)> {
+        self.state
+            .players
+            .iter()
+            .filter(|p| !p.has_lost())
+            .filter_map(|p| {
+                let controller = self.controlled_actor(p.id);
+                (controller != p.id).then(|| {
+                    let source = self
+                        .state
+                        .turn_controls
+                        .iter()
+                        .rev()
+                        .find(|entry| {
+                            entry.player == p.id
+                                && entry.controller == controller
+                                && entry.began == Some(self.state.turn.number)
+                        })
+                        .and_then(|entry| entry.source);
+                    (p.id, controller, source)
+                })
+            })
+            .collect()
+    }
+
     /// The special mana restrictions apply only while playing the selected card.
     pub(super) fn commanded_player(&self) -> Option<PlayerId> {
         self.effect_plays

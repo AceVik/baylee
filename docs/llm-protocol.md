@@ -311,7 +311,10 @@ abilities is on the stack (they resolve, and ask what the step answers),
 and on its own turn before combat when the next step is the attack, and in
 its own combat when the next step casts or plays a card from its hand that
 only a main phase allows (it waits for the second main phase);
-never in a cleanup step. A plan is bound to the turn it was written in.
+never in a cleanup step. A plan is bound to the turn it was written in,
+and to the player it was written for: the seat's own, or the player
+whose turn it controls (§"A decision for a controlled player"); so are an
+option's taps and the targets named ahead.
 
 It stops, and the question is the model's, at anything it does not answer
 exactly; nothing of a plan is ever guessed (`narrator::Stop`):
@@ -322,6 +325,10 @@ exactly; nothing of a plan is ever guessed (`narrator::Stop`):
 - something of another player's is on the stack;
 - a payment is owed;
 - the turn it was written in ended;
+- the question is for the other player: the seat's own when the plan was
+  written for a player whose turn it controls, or the other way round
+  (`Stop::OtherPlayer`: "the plan was for P2's decisions, and this
+  question is your own");
 - the table refused what a step sent (the step is not counted as done);
 - the taps of a cast were interrupted by another question;
 - the targets named ahead are not legal now;
@@ -396,6 +403,57 @@ turn 5: play Verdant Catacombs, crack it, find a Swamp, cast Deathrite
 Shaman) took four calls; with a plan it takes one, which
 `llm::tests::plan::a_fetchland_turn_is_one_call` and
 `tests/cli_mind.rs` hold.
+
+## A decision for a controlled player
+
+A seat that controls another player's turn (Mindslaver, CR 723.5) is
+asked that player's questions: the question names that player, the view
+waits for the seat (`awaiting`), names that player as the one decided for
+(`decision_player`) and carries that player's hand (`controlled_hands`).
+The seat keeps making its own decisions in the same turn (CR 723.8).
+Since 4 Nov 2026 the model makes both (before, the least answer made
+every controlled one); the house answers either when the model cannot.
+
+- **The header says so.** The line under the header:
+  `You control P2 this turn (Mindslaver, CR 723.5): decide this for P2,
+  with P2's cards and mana only. You may play it against P2's interest.
+  You cannot concede for P2. Your own decisions stay yours.`
+  (`Table::controlled_line`). The system prompt's last "THINGS TO KNOW"
+  line says the same once, for every seat.
+- **"You" stays the seat.** P2's pool, hand, lands, commander, library,
+  graveyard and turn are "P2's" (`Table::decider`): `QUESTION: P2 has
+  priority, and you decide for P2.`, `Cast Pacifism #71 {1}{W} (taps
+  Plains #40, Plains #41)`, `Pass priority (moves on to combat, where you
+  declare P2's attackers)`, `QUESTION: Declare P2's attackers. Any defender
+  listed may be attacked, you included.`, `Choose from P2's hand:`. The
+  board tells the hand under `P2's hand (you decide for this player)`.
+  The goldens are `narrator/golden/controlled_priority.txt`,
+  `controlled_attackers.txt` and `controlled_targets.txt`.
+- **Nothing of P2's is hidden from the choice.** P2's own permanents are
+  among the targets and the cards to choose (CR 723.5: its own creatures,
+  its own face), and P2 among the players, labelled `opponent (you decide
+  for this player)`. Every option is read against P2's offer, and the
+  reach planner taps P2's lands and reads P2's pool and P2's hand
+  (`wake::reachable` over `decision::resource_player`), never the seat's;
+  P2's main phase is a sorcery window for it
+  (`client-core::timing::sorcery_window`).
+- **The standing orders read P2's chair.** "Nothing to do" is what P2
+  could do; the rail's `mine` rows are P2's turn, so P2's main phases are
+  stops; the other side is P2's opponents, the seat among them; `react:
+  targets_me` means P2. The seat holds those orders in a filter of their
+  own (`SeatCore`), so an `until` given in an answer for P2 passes P2's
+  windows and never the seat's own, and the other way round. Stops the
+  model sets hold for both, each read from its own chair.
+- **Plans are P2's.** A plan written in an answer for P2 names P2's cards
+  (`cast #71 -> #45`) and answers P2's questions only; one written for the
+  seat answers the seat's only (§"`plan`").
+- **No concession** (CR 723.6). A `concede` in an answer to a decision
+  for P2 is no answer: the model is told `you cannot concede for P2: you
+  decide for P2 while you control P2's turn, and only P2 may concede for
+  P2 (CR 723.6); your own concession is yours to make in a decision of
+  your own. Answer q12 for P2`, and answers again (`Menu::resolve`); the
+  seat refuses one the same way should a mind send it
+  (`SeatCore::foul`), and nothing concedes on P2's behalf.
 
 ## Reports and lookups
 

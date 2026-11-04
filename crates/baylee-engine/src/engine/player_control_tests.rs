@@ -334,6 +334,7 @@ fn scheduled_player_control_applies_only_during_the_subjects_turn() {
             player: SUBJECT,
             turn: engine.state.turn.number + 1,
             began: None,
+            source: None,
         });
     assert_eq!(engine.controlled_actor(SUBJECT), SUBJECT);
 
@@ -363,6 +364,7 @@ fn scheduled(seats: usize, seed: u64, subject: PlayerId) -> Engine<RegistryLooku
             player: subject,
             turn: engine.state.turn.number + 1,
             began: None,
+            source: None,
         });
     engine
 }
@@ -521,6 +523,7 @@ fn scheduled_control_ends_as_soon_as_either_player_leaves() {
                 player: SUBJECT,
                 turn: engine.state.turn.number + 1,
                 began: None,
+                source: None,
             });
         engine.apply(departing, PlayerAction::Concede).unwrap();
         assert!(engine.state.turn_controls.is_empty());

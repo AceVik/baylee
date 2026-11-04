@@ -127,6 +127,7 @@ The narrative version this replaced is `docs/history/baylee-client-CLAUDE-2026-0
 - `abilities.rs` lists only `LegalActions`, registry-labelled, never "Ability N". One option fires on the click; several open a prompt-bar chooser (by position, rebuilt from current `LegalActions` on press).
 - Costs beyond own tap arm (`Duel::armed`), then send; Esc cancels; re-resolved against `LegalActions`; land drops and own-tap-only abilities are one click (`activate_card`, `arm_ability`; docs/keyboard-map.md §Arming).
 - `ARMED` holds still, `ACTIVATABLE` travels, `WILL_TAP` marks lands; armed drops `ACTIVATABLE`. `CardGroup::activatable` needs every member.
+- Controlling another player (CR 723.5, §"Playing another player's turn"): whose cards, mana, permanents, turn and "you" a decision uses is `Duel::actor` / `decision::resource_player`, never `view.seat` (that stays this client's own chair: camera, cues, results); nothing filters an option the engine offers. The hand row is the chair `client-core::perspective` shows (auto-follow per device, chip press, `U`), only ever a hand the view carries; the question is never hidden by it and is named "For Mia: …".
 
 ## On the card
 

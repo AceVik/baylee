@@ -117,6 +117,7 @@ fn view(seats: u8) -> PlayerView {
         sorcery_lock: None,
         sorceries_have_flash: false,
         flash_types: baylee_core::types::TypeSet::EMPTY,
+        controls: Vec::new(),
         ballots: Vec::new(),
     }
 }

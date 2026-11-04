@@ -13,7 +13,7 @@ fn exact(filter: &Filter) -> bool {
 }
 
 impl HeuristicAgent {
-    pub(super) fn exact_x_values(
+    pub(crate) fn exact_x_values(
         &self,
         view: &PlayerView,
         source: ObjectId,

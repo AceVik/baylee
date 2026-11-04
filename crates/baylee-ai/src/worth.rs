@@ -87,6 +87,20 @@ pub(crate) const THRESHOLD: i64 = 25;
 /// A change to a creature: power, toughness and the keyword bits it gains.
 type Pump = (i32, i32, u128);
 
+/// Which end of the measure a target is taken from.
+///
+/// A seat aims its own spells and abilities at what is worth most to it.
+/// A controller deciding for a player it plays against (CR 723.5) aims that
+/// player's at what is worth least to them, by the same measure read from
+/// their side of the table ([`crate::controlled`]).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) enum Pick {
+    /// The target worth most to the seat the view belongs to.
+    Best,
+    /// The target worth least to it.
+    Worst,
+}
+
 /// What an ability's effects are pointed at.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) enum Aim {
@@ -272,6 +286,19 @@ impl HeuristicAgent {
         origin: Origin<'_>,
         def: &AbilityDef,
     ) -> Option<i64> {
+        self.activation_worth_at(view, origin, def, Pick::Best)
+    }
+
+    /// [`Self::activation_worth`] with the target taken from either end of
+    /// the measure: `Pick::Worst` is what the activation is worth to this
+    /// seat when somebody else chooses its target against it (CR 723.5).
+    pub(crate) fn activation_worth_at(
+        &self,
+        view: &PlayerView,
+        origin: Origin<'_>,
+        def: &AbilityDef,
+        pick: Pick,
+    ) -> Option<i64> {
         match def {
             AbilityDef::Activated {
                 cost,
@@ -302,7 +329,7 @@ impl HeuristicAgent {
                     _ => None,
                 }
                 .or_else(|| {
-                    self.aimed_worth(view, origin, effects, targets.as_ref(), 0)
+                    self.aimed(view, origin, effects, targets.as_ref(), 0, pick)
                         .map(|(gain, _)| gain)
                 })?;
                 Some(gain - self.cost_worth(view, origin, cost)?)
@@ -321,12 +348,18 @@ impl HeuristicAgent {
                 // alone, Teferi, Time Raveler's +1 and Karn, the Great
                 // Creator's +1 were never used and both walkers spent
                 // themselves on their minus.
-                let gain = if second_targets.is_some() {
+                let aimed = if second_targets.is_some() {
                     None
                 } else {
-                    self.aimed_worth(view, origin, effects, targets.as_ref(), 0)
+                    self.aimed(view, origin, effects, targets.as_ref(), 0, pick)
+                };
+                // The unread fallback is a guess at what the walker's own
+                // controller would get from it, which says nothing about
+                // what the ability does aimed against them.
+                if aimed.is_none() && pick == Pick::Worst {
+                    return None;
                 }
-                .map_or_else(|| self.effect_value(view, effects), |(gain, _)| gain);
+                let gain = aimed.map_or_else(|| self.effect_value(view, effects), |(gain, _)| gain);
                 let left = origin.object.map_or(0, |o| {
                     o.counters
                         .iter()
@@ -390,6 +423,21 @@ impl HeuristicAgent {
         targets: Option<&TargetReq>,
         x: u32,
     ) -> Option<(i64, Aim)> {
+        self.aimed(view, origin, effects, targets, x, Pick::Best)
+    }
+
+    /// The best or the worst of what `targets` may name for `effects`, to
+    /// this seat, and its worth; ties keep the first in view order either
+    /// way.
+    fn aimed(
+        &self,
+        view: &PlayerView,
+        origin: Origin<'_>,
+        effects: &[Effect],
+        targets: Option<&TargetReq>,
+        x: u32,
+        pick: Pick,
+    ) -> Option<(i64, Aim)> {
         let Some(req) = targets else {
             return Some((
                 self.effects_worth(view, origin, effects, Aim::Source, x)?,
@@ -402,14 +450,20 @@ impl HeuristicAgent {
         }
         aims.into_iter()
             .filter_map(|aim| Some((self.effects_worth(view, origin, effects, aim, x)?, aim)))
-            .fold(None, |best: Option<(i64, Aim)>, next| match best {
-                Some(b) if b.0 >= next.0 => Some(b),
+            .fold(None, |kept: Option<(i64, Aim)>, next| match kept {
+                Some(k) if pick == Pick::Best && k.0 >= next.0 => Some(k),
+                Some(k) if pick == Pick::Worst && k.0 <= next.0 => Some(k),
                 _ => Some(next),
             })
     }
 
     /// Everything `spec` could name on this board, in view order.
-    fn aims(&self, view: &PlayerView, origin: Origin<'_>, spec: &TargetSpec) -> Option<Vec<Aim>> {
+    pub(crate) fn aims(
+        &self,
+        view: &PlayerView,
+        origin: Origin<'_>,
+        spec: &TargetSpec,
+    ) -> Option<Vec<Aim>> {
         let me = view.seat;
         let live = || {
             view.seats

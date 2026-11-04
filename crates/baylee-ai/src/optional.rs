@@ -190,7 +190,7 @@ pub(crate) fn not_now(
 /// branches: what a yes would do.
 // `Err` names a choice whose original resolution controller is not in the
 // decision context. The deciding seat must not become the meaning of "you".
-fn may_branch(effects: &[Effect]) -> Option<Result<&'static [Effect], ()>> {
+pub(crate) fn may_branch(effects: &[Effect]) -> Option<Result<&'static [Effect], ()>> {
     effects.iter().find_map(|effect| match effect {
         Effect::MayDo { effects } | Effect::MayDoOnceEachTurn { effects } => Some(Ok(*effects)),
         Effect::MayDoFor { .. } => Some(Err(())),
@@ -203,7 +203,7 @@ fn may_branch(effects: &[Effect]) -> Option<Result<&'static [Effect], ()>> {
 
 /// Whether the ability `source` names is Island Sanctuary's "you may skip
 /// that draw" replacement.
-fn is_draw_skip(source: Option<AbilityRef>) -> bool {
+pub(crate) fn is_draw_skip(source: Option<AbilityRef>) -> bool {
     let Some(source) = source else {
         return false;
     };
@@ -248,7 +248,7 @@ pub(crate) fn self_draws(view: &PlayerView, effects: &[Effect], x: u32) -> u32 {
 /// seat's library cannot spare the draw or the creatures the restriction
 /// would keep home (no flying, no islandwalk) threaten this seat's life:
 /// their power is half of it or more.
-fn skips_draw(view: &PlayerView, hostile: impl Fn(PlayerId) -> bool) -> bool {
+pub(crate) fn skips_draw(view: &PlayerView, hostile: impl Fn(PlayerId) -> bool) -> bool {
     let Some(seat) = view.seat(view.seat) else {
         return false;
     };

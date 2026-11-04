@@ -60,6 +60,10 @@ pub enum Event {
         budget_ms: u64,
         /// How many log lines went with it.
         log_lines: usize,
+        /// The player it was decided for, when that is a player whose turn
+        /// the seat controls (Mindslaver, CR 723.5) and not the seat.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        controlled: Option<baylee_core::ids::PlayerId>,
     },
     /// An answer was sent.
     Answered {

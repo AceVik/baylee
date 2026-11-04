@@ -72,6 +72,7 @@ mod spreading_algae;
 mod swift_reconfiguration;
 mod tahngarth_s_rage;
 mod tangle_kelp;
+mod thrull_retainer;
 mod torture;
 mod unholy_strength;
 mod unstable_mutation;

@@ -717,6 +717,14 @@ impl Interaction {
         pending_player(&self.pending) == Some(self.seat)
     }
 
+    /// The player this question is answered as: the local seat, or the
+    /// player whose decisions it makes while it controls them (CR 723.5;
+    /// [`crate::decision::resource_player`] when it was installed).
+    #[must_use]
+    pub fn subject(&self) -> PlayerId {
+        self.seat
+    }
+
     /// What the player is being asked.
     #[must_use]
     pub fn prompt(&self) -> Prompt {

@@ -41,7 +41,8 @@ pub(crate) fn menu_click(duel: &mut Duel, action: MenuAction, was_armed: bool) {
             duel.hovered = None;
             duel.hovered_at = None;
             if let (Some(board), Some(view)) = (&mut duel.board, &duel.view) {
-                duel.hand_groups = order.apply(&mut board.hand, view);
+                duel.hand_groups =
+                    order.apply(&mut board.hand, crate::shown_hand(view, duel.perspective));
             }
         }
         MenuAction::ScrollHand(direction) => {

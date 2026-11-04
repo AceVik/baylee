@@ -20,18 +20,23 @@ pub(super) fn matches(
     match filter {
         Filter::This => same_source(),
         Filter::Another => !same_source(),
-        Filter::AttachedToBySource => subjects::event_subject(state, res).map_or_else(
-            || {
-                crate::eval::matches_with_context(
-                    filter,
-                    state,
-                    object,
-                    res.controller,
-                    res.rule_context(),
-                )
-            },
-            |subject| subject.object == object.id && subject.version == object.version,
-        ),
+        // The event's subject for a trigger, else the source's host as the
+        // ability resolves, its last known one included (`attached_host`).
+        Filter::AttachedToBySource => match subjects::event_subject(state, res) {
+            Some(subject) => subject.object == object.id && subject.version == object.version,
+            None => crate::resolve::attached_host(state, res).map_or_else(
+                || {
+                    crate::eval::matches_with_context(
+                        filter,
+                        state,
+                        object,
+                        res.controller,
+                        res.rule_context(),
+                    )
+                },
+                |host| host == (object.id, object.version),
+            ),
+        },
         Filter::Reference => subjects::event(state, res).map_or_else(
             || {
                 crate::eval::matches_with_context(

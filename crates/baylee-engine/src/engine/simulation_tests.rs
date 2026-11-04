@@ -1261,6 +1261,7 @@ fn the_hand_of_a_player_i_control_stays_as_i_see_it() {
                 player: THEM,
                 turn: engine.state.turn.number + 1,
                 began: None,
+                source: None,
             });
         pass_until(&mut engine, |e| {
             e.state().turn.active == THEM

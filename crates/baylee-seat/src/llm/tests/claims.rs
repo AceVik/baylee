@@ -66,3 +66,39 @@ fn the_prompt_teaches_every_stop_and_the_default_rail() {
         "{system}"
     );
 }
+
+/// Mindslaver (CR 723): the prompt says a decision for a controlled player
+/// is the seat's to make, with that player's resources, against that
+/// player's interest if it likes, and never a concession for that player
+/// (CR 723.6), as the header line of such a decision says and the menu
+/// holds (`narrator::tests::controlled`).
+#[test]
+fn the_prompt_says_what_deciding_for_a_controlled_player_means() {
+    use baylee_client_core::test_support::ViewBuilder;
+    let system = prompt::SYSTEM;
+    for claim in [
+        "control of another player's turn (CR 723)",
+        "with that player's cards and mana",
+        "even against that player's interest",
+        "You cannot concede for that player.",
+        "Your own decisions stay yours.",
+    ] {
+        assert!(system.contains(claim), "{claim}");
+    }
+    let mut view = ViewBuilder::new(2).build();
+    view.active = baylee_core::ids::PlayerId::new(1);
+    view.decision_player = Some(view.active);
+    let context = crate::narrator::tests::context();
+    let line = crate::narrator::Table::new(&view, &context)
+        .controlled_line()
+        .expect("a decision for P2");
+    assert!(line.contains("You cannot concede for P2."), "{line}");
+    assert!(line.contains("against P2's interest"), "{line}");
+    view.decision_player = Some(view.seat);
+    assert!(
+        crate::narrator::Table::new(&view, &context)
+            .controlled_line()
+            .is_none(),
+        "the seat's own decision"
+    );
+}

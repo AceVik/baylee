@@ -295,6 +295,7 @@ pub fn seat_view(
         seq,
         Some(pending),
         &SeatContext {
+            controls: &baylee_gamehost::view::player_controls(engine),
             decision_player: pending.asked(),
             controlled_players: engine.controlled_players(seat),
             awaiting: awaiting_for(engine, seat),

@@ -97,6 +97,8 @@ pub(crate) enum SettingsPress {
     Arrangement(baylee_client_core::tableview::Arrangement),
     /// Graphics: *Tisch folgt dem Zug* (DESIGN-v8 §1.1).
     FollowTurn,
+    /// Graphics: *Dem gesteuerten Spieler folgen* (CR 723.5).
+    FollowControl,
     /// Graphics: the arrangement remembered for a seat count, stepped by
     /// one through *Default* and the eight (DESIGN-v8 §2.6).
     ArrangementForSeats(u8, i8),
@@ -196,6 +198,7 @@ impl SettingsPress {
     /// A press on a device row (Graphics, Audio, Display, Privacy): the
     /// settings file written when it differs, and whether it changed —
     /// `None` for every other press.
+    #[allow(clippy::too_many_lines)] // one arm per device row, read top to bottom
     fn on_device(
         self,
         state: &LobbyState,
@@ -255,6 +258,10 @@ impl SettingsPress {
             }),
             SettingsPress::FollowTurn => device(settings, |s| {
                 s.table.follow = !s.table.follow;
+                true
+            }),
+            SettingsPress::FollowControl => device(settings, |s| {
+                s.table.follow_control = !s.table.follow_control;
                 true
             }),
             SettingsPress::ArrangementForSeats(seats, step) => device(settings, |s| {
@@ -521,6 +528,7 @@ impl SettingsPress {
             | SettingsPress::VisitCamera(_)
             | SettingsPress::Arrangement(_)
             | SettingsPress::FollowTurn
+            | SettingsPress::FollowControl
             | SettingsPress::ArrangementForSeats(..)
             | SettingsPress::TextSize(_)
             | SettingsPress::PreviewSize(_)

@@ -64,14 +64,9 @@ impl Builder<'_, '_> {
 
     #[allow(clippy::too_many_lines)] // one arm per question, and no `_`
     pub(super) fn write(&mut self) {
+        // A decision for a controlled player says so under the header
+        // (`Table::controlled_line`); here its sentences name that player.
         let pending = self.request.pending.clone();
-        let resource = baylee_client_core::decision::resource_player(self.table.view);
-        if resource != self.table.view.seat {
-            self.line(format!(
-                "You decide for {}. That player's resources are used.",
-                self.table.player(resource)
-            ));
-        }
         match &pending {
             Pending::ChooseManaAbility {
                 choice,
@@ -192,16 +187,17 @@ impl Builder<'_, '_> {
             }
             Pending::DiscardChoice { count, .. } => {
                 self.line(format!(
-                    "QUESTION: Your hand is over its maximum size. Discard {}.",
+                    "QUESTION: {} hand is over its maximum size. Discard {}.",
+                    self.table.decider_whose_cap(),
                     words::count(usize::from(*count), "card")
                 ));
                 self.hand_objects(usize::from(*count));
             }
             Pending::LegendChoice { options, .. } => {
-                self.line(
+                self.line(self.table.for_decider(
                     "QUESTION: Legend rule (CR 704.5j): you control legendary permanents with \
                      the same name. Choose the one to keep; the rest go to the graveyard.",
-                );
+                ));
                 self.objects(options, 1, 1);
             }
             Pending::ChooseCards {
@@ -219,7 +215,7 @@ impl Builder<'_, '_> {
                             self.table.player(*player)
                         )
                     } else {
-                        words::choice_prompt(*prompt)
+                        self.table.for_decider(&words::choice_prompt(*prompt))
                     };
                 self.line(format!("QUESTION: {question}."));
                 if options.is_empty() || *max == 0 {
@@ -308,17 +304,17 @@ impl Builder<'_, '_> {
                 match label {
                     Some(attacker) => {
                         let attacker = self.table.named(*attacker);
-                        self.line(format!(
+                        self.line(self.table.for_decider(&format!(
                             "QUESTION: Raging River: choose \"left\" (pile1) or \"right\" \
                              (pile2) for your attacking {attacker}. This combat only \
                              creatures with flying and creatures in the chosen pile may \
                              block it."
-                        ));
+                        )));
                     }
-                    None => self.line(
+                    None => self.line(self.table.for_decider(
                         "QUESTION: Choose one pile: it goes into your hand, and the other pile \
                          goes into the graveyard.",
-                    ),
+                    )),
                 }
                 for (i, pile) in piles.iter().enumerate() {
                     let names: Vec<String> = pile.iter().map(|&o| self.table.named(o)).collect();
@@ -374,7 +370,10 @@ impl Builder<'_, '_> {
         let view = self.table.view;
         if manaplan::plan(&owed, pool, &[]).is_some() {
             self.offer(
-                format!("Pay {owed} from your pool"),
+                format!(
+                    "Pay {owed} from {} pool",
+                    self.table.whose(self.table.decider())
+                ),
                 Act::Now(PlayerAction::PassPriority),
                 None,
             );
@@ -393,7 +392,13 @@ impl Builder<'_, '_> {
                     self.offer(label, act, None);
                 }
             }
-            None => self.line("You cannot pay it from what you have untapped."),
+            None => self.line(match self.table.controlled() {
+                Some(p) => {
+                    let p = Table::player_id(p);
+                    format!("It cannot be paid from what {p} has untapped.")
+                }
+                None => "You cannot pay it from what you have untapped.".into(),
+            }),
         }
     }
 
@@ -408,9 +413,10 @@ impl Builder<'_, '_> {
         }
         for &card in &legal.castable {
             let label = format!(
-                "Cast {}{} (paid from your pool)",
+                "Cast {}{} (paid from {} pool)",
                 table.named(card),
-                self.from(card)
+                self.from(card),
+                table.whose(table.decider())
             );
             let index = self.card_of(card);
             self.offer(label, Act::Now(PlayerAction::CastSpell { card }), index);
@@ -513,27 +519,40 @@ impl Builder<'_, '_> {
     pub(super) fn priority(&mut self, legal: &LegalActions) {
         let table = self.table;
         let view = table.view;
-        let mut intro = String::from("QUESTION: You have priority.");
+        let mut intro = match table.controlled() {
+            Some(p) => {
+                let p = Table::player_id(p);
+                format!("QUESTION: {p} has priority, and you decide for {p}.")
+            }
+            None => String::from("QUESTION: You have priority."),
+        };
         if self.request.continuing {
             intro.push_str(" You are in the middle of paying for something.");
         }
         self.line(intro);
         let pool = view
-            .seat(baylee_client_core::decision::resource_player(view))
+            .seat(table.decider())
             .map(|s| s.mana_pool)
             .unwrap_or_default();
         let owed = view.owed.filter(|_| view.awaiting == Some(view.seat));
         if let Some(payment) = owed {
             match payment {
                 ManaPayment::Fixed(cost) => {
-                    let mut line = format!(
-                        "You owe {cost}: a payment you agreed to. Pay it, or pass and leave it unpaid \
-                         (what it was for is lost)."
-                    );
+                    let mut line = match table.controlled() {
+                        Some(p) => format!(
+                            "{} owes {cost}: a payment you agreed to for that player. Pay it, or \
+                             pass and leave it unpaid (what it was for is lost).",
+                            Table::player_id(p)
+                        ),
+                        None => format!(
+                            "You owe {cost}: a payment you agreed to. Pay it, or pass and leave \
+                             it unpaid (what it was for is lost)."
+                        ),
+                    };
                     if !pool.is_empty() {
-                        line.push_str(
+                        line.push_str(&table.for_decider(
                             " Mana already in your pool is applied toward this payment when you pass.",
-                        );
+                        ));
                     }
                     self.line(line);
                 }
@@ -543,10 +562,10 @@ impl Builder<'_, '_> {
                 )),
             }
         } else if !pool.is_empty() {
-            self.line(
+            self.line(table.for_decider(
                 "Mana is in your pool (see your seat line); unspent mana empties at the end of \
                  this step (CR 500.5).",
-            );
+            ));
         }
         if let Some(payment) = owed {
             match payment {
@@ -606,8 +625,9 @@ impl Builder<'_, '_> {
             return;
         }
         let label = format!(
-            "Tap your untapped lands for mana and pass; the mana is lost, and {} counts the \
+            "Tap {} untapped lands for mana and pass; the mana is lost, and {} counts the \
              lands a player controls untapped as a turn begins ({})",
+            self.table.whose(me),
             self.table.named(counter.id),
             self.taps(&steps)
         );
@@ -670,7 +690,8 @@ impl Builder<'_, '_> {
             ),
             ReachFrom::Hand => format!("Cast {} {}", table.named(reach.object), reach.plan.cost),
             ReachFrom::CommandZone => format!(
-                "Cast your commander {} from the command zone for {} (tax included)",
+                "Cast {} commander {} from the command zone for {} (tax included)",
+                table.whose(table.decider()),
                 table.named(reach.object),
                 reach.plan.cost
             ),
@@ -693,10 +714,14 @@ impl Builder<'_, '_> {
         label
     }
 
-    /// Where a castable card is cast from, when not from the hand.
+    /// Where a castable card is cast from, when not from the hand of the
+    /// player decided for.
     pub(super) fn from(&self, card: ObjectId) -> String {
         let view = self.table.view;
-        if view.hand.iter().any(|c| c.id == card) {
+        if baylee_client_core::decision::hand(view)
+            .iter()
+            .any(|c| c.id == card)
+        {
             return String::new();
         }
         if view.graveyards.iter().flatten().any(|o| o.id == card) {
@@ -721,7 +746,11 @@ impl Builder<'_, '_> {
         let view = self.table.view;
         view.object(id)
             .and_then(|o| o.card)
-            .or_else(|| view.hand.iter().find(|c| c.id == id).map(|c| c.card))
+            .or_else(|| {
+                baylee_client_core::decision::known_cards(view)
+                    .find(|c| c.id == id)
+                    .map(|c| c.card)
+            })
             .map(|c| c.index)
     }
 
@@ -754,8 +783,9 @@ impl Builder<'_, '_> {
             let side = if half == 0 { "left" } else { "right" };
             return format!("Unlock the {side} door of {named}");
         }
-        let in_hand = table.view.hand.iter().any(|c| c.id == source);
-        let place = if in_hand { " (from your hand)" } else { "" };
+        let place = board::hand_owner(table, source).map_or_else(String::new, |owner| {
+            format!(" (from {} hand)", table.whose(owner))
+        });
         if let Some(sentence) = ability_sentence(table, source, index) {
             return format!("Activate {named}{place}: \"{sentence}\"");
         }
@@ -794,7 +824,9 @@ impl Builder<'_, '_> {
                     .unwrap_or_default()
             );
         }
-        let mine = view.active == view.seat;
+        // "Mine" is the turn of the player decided for: a controlled
+        // player's own turn is told as that player's.
+        let mine = view.active == table.decider();
         let next = match (view.phase, view.step) {
             (baylee_view::Phase::FirstMain, _) if mine => {
                 "moves on to combat, where you declare attackers"
@@ -804,6 +836,12 @@ impl Builder<'_, '_> {
             (_, baylee_view::Step::Cleanup) => "the turn ends",
             _ if mine => "your turn goes on",
             _ => "the game goes on",
+        };
+        let next = match table.controlled().map(Table::player_id) {
+            Some(p) if next.contains("declare attackers") => {
+                format!("moves on to combat, where you declare {p}'s attackers")
+            }
+            _ => table.for_decider(next),
         };
         format!("Pass priority ({next})")
     }
@@ -838,16 +876,18 @@ impl Builder<'_, '_> {
         self.answer_pick("pick=[one option id]");
     }
 
-    /// A choice of `count` cards from the hand.
+    /// A choice of `count` cards from the hand of the player decided for.
     pub(super) fn hand_objects(&mut self, count: usize) {
-        let hand: Vec<ObjectId> = self.table.view.hand.iter().map(|c| c.id).collect();
-        self.line("Choose from your hand:");
-        let lines: Vec<String> = self
-            .table
-            .view
-            .hand
+        let table = self.table;
+        let cards = baylee_client_core::decision::hand(table.view);
+        let hand: Vec<ObjectId> = cards.iter().map(|c| c.id).collect();
+        self.line(format!(
+            "Choose from {} hand:",
+            table.whose(table.decider())
+        ));
+        let lines: Vec<String> = cards
             .iter()
-            .map(|card| format!("  {}", board::hand_line(self.table, card)))
+            .map(|card| format!("  {}", board::hand_line(table, card, table.decider())))
             .collect();
         for line in lines {
             self.line(line);
@@ -932,8 +972,14 @@ impl Builder<'_, '_> {
         if let Some(object) = view.stack.iter().find(|o| o.id == id) {
             return board::stack_line(table, object);
         }
-        if let Some(card) = view.hand.iter().find(|c| c.id == id) {
-            return format!("{} (in your hand)", board::hand_line(table, card));
+        if let Some(owner) = board::hand_owner(table, id)
+            && let Some(card) = baylee_client_core::decision::known_cards(view).find(|c| c.id == id)
+        {
+            return format!(
+                "{} (in {} hand)",
+                board::hand_line(table, card, owner),
+                table.whose(owner)
+            );
         }
         match view.object(id) {
             Some(object) => format!("{} {} ({})", tag(id), plain(object), board::zone(table, id)),
@@ -947,12 +993,19 @@ impl Builder<'_, '_> {
             .view
             .seat(p)
             .map_or_else(String::new, |s| format!(", {} life", s.life));
+        // The player decided for may be chosen, attacked or targeted like
+        // any other, its own face included (CR 723.5).
+        let deciding = if table.controlled() == Some(p) {
+            " (you decide for this player)"
+        } else {
+            ""
+        };
         if p == table.me() {
             format!("you{life}")
         } else if table.ally(p) {
-            format!("your teammate{life}")
+            format!("your teammate{deciding}{life}")
         } else {
-            format!("opponent{life}")
+            format!("opponent{deciding}{life}")
         }
     }
 
@@ -1123,10 +1176,7 @@ impl Builder<'_, '_> {
     pub(super) fn cast_mode(&mut self, object: ObjectId, options: &[CastModeDesc]) {
         let table = self.table;
         let card = table.view.object(object).and_then(|o| o.card).or_else(|| {
-            table
-                .view
-                .hand
-                .iter()
+            baylee_client_core::decision::known_cards(table.view)
                 .find(|c| c.id == object)
                 .map(|c| c.card)
         });
@@ -1248,16 +1298,16 @@ impl Builder<'_, '_> {
                  each is still discarded."
             ),
         };
-        self.line(intro);
+        self.line(table.for_decider(&intro));
         let named: Vec<String> = cards.iter().map(|&c| table.named(c)).collect();
         self.line(format!("Cards: {}", named.join(", ")));
         self.line("Piles:");
         for (i, pile) in piles.iter().enumerate() {
-            let place = match pile.place {
+            let place = table.for_decider(match pile.place {
                 ArrangePlace::LibraryTop => "the top of your library",
                 ArrangePlace::LibraryBottom => "the bottom of your library",
                 ArrangePlace::Graveyard => "your graveyard",
-            };
+            });
             let order = if pile.ordered {
                 "; list them from the top down"
             } else {
@@ -1284,7 +1334,20 @@ impl Builder<'_, '_> {
 
     pub(super) fn attackers(&mut self, attackers: &[ObjectId], defenders: &[Defender]) {
         let table = self.table;
-        self.line("QUESTION: Declare attackers.");
+        self.line(match table.controlled() {
+            Some(p) => {
+                let you = if defenders.contains(&Defender::Player(table.me())) {
+                    ", you included"
+                } else {
+                    ""
+                };
+                format!(
+                    "QUESTION: Declare {}'s attackers. Any defender listed may be attacked{you}.",
+                    Table::player_id(p)
+                )
+            }
+            None => "QUESTION: Declare attackers.".into(),
+        });
         let pending = self.request.pending.clone();
         if let Pending::ChooseAttackers {
             required,
@@ -1382,7 +1445,10 @@ impl Builder<'_, '_> {
         for line in attacks {
             self.line(line);
         }
-        self.line("Your creatures that can block, and what each may block:");
+        self.line(format!(
+            "{} creatures that can block, and what each may block:",
+            table.decider_whose_cap()
+        ));
         for option in options {
             let blocker = table.view.object(option.blocker);
             let head = blocker.map_or_else(

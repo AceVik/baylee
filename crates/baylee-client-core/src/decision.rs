@@ -16,7 +16,14 @@ pub fn resource_player(view: &PlayerView) -> PlayerId {
 /// Missing control entitlement yields an empty hand, never another hand fallback.
 #[must_use]
 pub fn hand(view: &PlayerView) -> &[HandObject] {
-    let player = resource_player(view);
+    hand_of(view, resource_player(view))
+}
+
+/// `player`'s hand as this seat may play from it: its own, or the hand of a
+/// player it controls (CR 723.4). Any other player's is empty, never a
+/// fallback: a perspective shows only what the view carries.
+#[must_use]
+pub fn hand_of(view: &PlayerView, player: PlayerId) -> &[HandObject] {
     if player == view.seat {
         return &view.hand;
     }
@@ -46,5 +53,18 @@ mod tests {
         assert!(hand(&view).is_empty());
         view.awaiting = Some(PlayerId::new(1));
         assert_eq!(resource_player(&view), view.seat);
+    }
+
+    /// A shown hand is one the view carries: this seat's, or a controlled
+    /// player's; any other seat's is empty, never somebody else's.
+    #[test]
+    fn a_hand_is_shown_only_where_the_view_carries_it() {
+        let view = ViewBuilder::new(3)
+            .with_hand(vec![("Mine", 1, 10)])
+            .controlling(1, vec![("Theirs", 1, 20)])
+            .build();
+        assert_eq!(hand_of(&view, view.seat)[0].name, "Mine");
+        assert_eq!(hand_of(&view, PlayerId::new(1))[0].name, "Theirs");
+        assert!(hand_of(&view, PlayerId::new(2)).is_empty());
     }
 }

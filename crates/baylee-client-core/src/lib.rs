@@ -167,3 +167,7 @@ pub mod text_choice;
 /// Separate decision actor, resource owner and entitled private hands.
 pub mod decision;
 pub mod decisionfold;
+
+/// Whose chair the bottom of the table is shown from while this seat
+/// controls another player (CR 723.5), and who decides for whom.
+pub mod perspective;
