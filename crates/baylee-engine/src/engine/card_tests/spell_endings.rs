@@ -97,9 +97,9 @@ fn a_bought_back_spell_with_rebound_asks_its_controller_once_it_has_done_its_wor
         "Capsize has already bounced the Bears"
     );
     assert_eq!(
-        e.state().zones.list(ZoneLocation::Stack).len(),
-        1,
-        "and is still on the stack, deciding where it goes"
+        e.state().zones.list(ZoneLocation::Stack),
+        e.decision_context().source.as_slice(),
+        "and is still on the stack, the one thing the question is about"
     );
 }
 

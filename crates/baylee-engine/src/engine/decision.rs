@@ -132,6 +132,12 @@ impl<L: CardLookup> Engine<L> {
                 ..DecisionContext::default()
             };
         }
+        if let Some(PlanKind::SpellEnding { spell }) = &self.pending_plan {
+            return DecisionContext {
+                source: Some(*spell),
+                ..DecisionContext::default()
+            };
+        }
         if let Some(PlanKind::SyntheticTriggerTarget { trigger, .. }) = &self.pending_plan {
             let printed = trigger
                 .abilities
