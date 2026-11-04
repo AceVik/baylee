@@ -189,6 +189,9 @@ struct CheckKey {
     list: Option<String>,
     choices: Vec<String>,
     pending: bool,
+    lists: Vec<baylee_cardtext::ListRow>,
+    editor: Option<baylee_client_core::banlist::ListEditor>,
+    focus: BuildField,
 }
 
 /// The deck foot's key.
@@ -591,6 +594,9 @@ fn check_key(env: &Env) -> CheckKey {
         list: deck.list().map(|list| list.id.clone()),
         choices: deck.format_choices(),
         pending: deck.standing() != deck.report().standing(),
+        lists: deck.lists().to_vec(),
+        editor: deck.list_editor().cloned(),
+        focus: deck.focus(),
     }
 }
 
@@ -646,7 +652,7 @@ fn sheet_key(env: &Env) -> SheetKey {
     let ui = env.ui();
     let phone_filters = ui.rail && matches!(env.layout, Layout::Rail | Layout::PhoneSingle);
     SheetKey {
-        check: ui.check_sheet.then(|| check_key(env)),
+        check: (ui.check_sheet || deck.list_editor().is_some()).then(|| check_key(env)),
         leaving: env.state.confirm_leave,
         inspecting: deck.inspecting(),
         held: deck.inspecting().map(|slot| {

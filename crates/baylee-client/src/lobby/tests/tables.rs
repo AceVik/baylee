@@ -685,6 +685,65 @@ fn seated_in_a_room() -> App {
     app
 }
 
+/// A room says what it holds a deck to, its host may choose where a gateway
+/// holds lists, and those at the table read the list.
+#[test]
+fn a_room_says_what_it_holds_a_deck_to() {
+    let mut app = seated_in_a_room();
+    let drawn = labels(&mut app);
+    assert!(
+        drawn.iter().any(|l| l.contains("every deck may sit down")),
+        "{drawn:?}"
+    );
+    assert!(
+        !presses(&mut app).contains(&Press::Room(RoomPress::OpenLists)),
+        "lists live on a gateway"
+    );
+
+    // The same room as a gateway's.
+    app.world_mut().resource_mut::<LobbyState>().offline = None;
+    app.update();
+    app.update();
+    assert!(presses(&mut app).contains(&Press::Room(RoomPress::OpenLists)));
+    app.world_mut().resource_mut::<LobbyState>().lists_sheet = true;
+    app.update();
+    app.update();
+    let found = presses(&mut app);
+    assert!(found.contains(&Press::Room(RoomPress::ChooseList(0, None))));
+    assert!(found.contains(&Press::Room(RoomPress::CloseLists)));
+    press(&mut app, Press::Room(RoomPress::CloseLists));
+    assert!(!app.world().resource::<LobbyState>().lists_sheet);
+
+    // Those at the table read the cards.
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .apply(LobbyEvent::RoomList(Some(baylee_cardtext::ListBody {
+            row: baylee_cardtext::ListRow {
+                name: "No rings".to_string(),
+                ..baylee_cardtext::ListRow::default()
+            },
+            entries: vec![baylee_cardtext::ListEntry {
+                oracle_id: "o1".to_string(),
+                status: baylee_cardtext::ListStatus::Banned,
+                index: None,
+                name: "Sol Ring".to_string(),
+            }],
+        })));
+    app.update();
+    app.update();
+    let drawn = labels(&mut app);
+    assert!(drawn.iter().any(|l| l.contains("Sol Ring")), "{drawn:?}");
+    press(&mut app, Press::Room(RoomPress::CloseList));
+    assert!(
+        app.world()
+            .resource::<LobbyState>()
+            .lobby
+            .room_list()
+            .is_none()
+    );
+}
+
 /// The room chapter's last bubble leaves the table the tour opened, as the
 /// room's own Leave does: the host is asked first (09.10.: a real table
 /// stayed behind after the tour).

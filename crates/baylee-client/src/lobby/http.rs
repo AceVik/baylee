@@ -249,6 +249,61 @@ pub(super) fn build(
                 ),
             }
         }
+        LobbyRequest::ListBanlists => (
+            ehttp::Request::get(format!("{base}/banlists")),
+            Expect::Banlists,
+        ),
+        LobbyRequest::LoadBanlist { id, into } => (
+            ehttp::Request::get(format!("{base}/banlists/{id}")),
+            Expect::Banlist(into),
+        ),
+        LobbyRequest::CopyBanlist { id, name, format } => (
+            json_post(
+                &format!("{base}/banlists"),
+                &serde_json::json!({"name": name, "format": format, "copy_of": id}),
+            ),
+            Expect::Banlist(client_core::lobby::ListFor::Editor),
+        ),
+        LobbyRequest::SaveBanlist {
+            id,
+            name,
+            format,
+            entries,
+        } => {
+            let entries: Vec<_> = entries
+                .iter()
+                .map(|(oracle_id, status)| {
+                    serde_json::json!({"oracle_id": oracle_id, "status": status.word()})
+                })
+                .collect();
+            let body = serde_json::json!({"name": name, "format": format, "entries": entries});
+            let expect = Expect::Banlist(client_core::lobby::ListFor::Editor);
+            match id {
+                Some(id) => (
+                    json_body(ehttp::Method::PUT, &format!("{base}/banlists/{id}"), &body),
+                    expect,
+                ),
+                None => (json_post(&format!("{base}/banlists"), &body), expect),
+            }
+        }
+        LobbyRequest::DeleteBanlist { id } => (
+            ehttp::Request {
+                method: ehttp::Method::DELETE,
+                ..ehttp::Request::get(format!("{base}/banlists/{id}"))
+            },
+            Expect::BanlistDeleted(id),
+        ),
+        LobbyRequest::ChooseRoomList { game_id, list_id } => (
+            json_post(
+                &format!("{base}/lobby/games/{game_id}/list"),
+                &serde_json::json!({"list_id": list_id}),
+            ),
+            Expect::Moved,
+        ),
+        LobbyRequest::LoadRoomList { game_id } => (
+            ehttp::Request::get(format!("{base}/lobby/games/{game_id}/list")),
+            Expect::RoomList,
+        ),
         LobbyRequest::DeleteDeck { deck_id } => (
             ehttp::Request {
                 method: ehttp::Method::DELETE,
@@ -515,7 +570,10 @@ fn fetch(
             Ok(response) if response.status == 404 && matches!(expect, Expect::HostedProfiles) => {
                 Reply::Event(LobbyEvent::HostedProfiles(Vec::new()))
             }
-            Ok(response) => Reply::Event(LobbyEvent::Failed(gateway_error(lang, &response))),
+            Ok(response) => Reply::Event(deck_refusal(&response).map_or_else(
+                || LobbyEvent::Failed(gateway_error(lang, &response)),
+                LobbyEvent::DeckRefused,
+            )),
             Err(err) if addressed => {
                 debug!(err, "the gateway did not answer");
                 Reply::Event(LobbyEvent::GatewayLost)
@@ -566,6 +624,7 @@ fn fetch(
 }
 
 /// Turns a successful response into the event the lobby is waiting for.
+#[allow(clippy::too_many_lines)] // one arm per answer, read top to bottom
 pub(super) fn decode(lang: Lang, expect: Expect, response: &ehttp::Response) -> LobbyEvent {
     /// `POST /auth/login`.
     #[derive(serde::Deserialize)]
@@ -635,6 +694,25 @@ pub(super) fn decode(lang: Lang, expect: Expect, response: &ehttp::Response) -> 
                 .ok()
                 .map(|d| d.deck_id),
         },
+        Expect::Banlists => {
+            #[derive(serde::Deserialize)]
+            struct Lists {
+                lists: Vec<baylee_cardtext::ListRow>,
+            }
+            serde_json::from_str::<Lists>(body).map_or_else(
+                |_| unreadable(lang, Phrase::TheDeckList),
+                |b| LobbyEvent::Banlists(b.lists),
+            )
+        }
+        Expect::Banlist(into) => serde_json::from_str(body).map_or_else(
+            |_| unreadable(lang, Phrase::TheDeckList),
+            |list| LobbyEvent::Banlist(list, into),
+        ),
+        Expect::RoomList => serde_json::from_str(body).map_or_else(
+            |_| unreadable(lang, Phrase::TheDeckList),
+            |list| LobbyEvent::RoomList(Some(list)),
+        ),
+        Expect::BanlistDeleted(id) => LobbyEvent::BanlistDeleted(id),
         Expect::DeckDeleted => LobbyEvent::DeckDeleted,
         Expect::AccountDeleted => LobbyEvent::AccountDeleted,
         Expect::Pool => decode_pool(lang, body),
@@ -756,6 +834,17 @@ pub(super) fn escape(value: &str) -> String {
 /// The message for a body that arrived but made no sense.
 fn unreadable(lang: Lang, what: Phrase) -> LobbyEvent {
     LobbyEvent::Failed(Phrase::Unreadable.fill(lang, &[what.text(lang)]))
+}
+
+/// Why a table's list turned a deck away, where this refusal says.
+pub(super) fn deck_refusal(response: &ehttp::Response) -> Option<baylee_cardtext::DeckRefusal> {
+    #[derive(serde::Deserialize)]
+    struct Body {
+        refused: Option<baylee_cardtext::DeckRefusal>,
+    }
+    serde_json::from_slice::<Body>(&response.bytes)
+        .ok()
+        .and_then(|body| body.refused)
 }
 
 /// The gateway's own `{"error":…}`, or the bare status if it sent none.

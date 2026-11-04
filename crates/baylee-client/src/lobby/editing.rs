@@ -171,6 +171,8 @@ fn escape(state: &mut ResMut<LobbyState>, scrolled: &mut Scrolled) {
         state.confirm_leave = false;
     } else if state.lobby.builder().inspecting().is_some() {
         state.lobby.builder_mut().stop_inspecting();
+    } else if state.lobby.builder().list_editor().is_some() {
+        state.lobby.builder_mut().close_list();
     } else if state.build.check_sheet {
         state.build.check_sheet = false;
     } else if state.build.stats_sheet {
@@ -409,7 +411,7 @@ fn type_key(
                 state.lobby.builder_mut().focus_on(BuildField::Search);
                 crate::buildui::move_nav(state, Nav::Idle);
             }
-            BuildField::PickerSet => {}
+            BuildField::PickerSet | BuildField::ListName | BuildField::ListSearch => {}
         }
         return;
     }

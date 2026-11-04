@@ -141,6 +141,7 @@ pub(super) fn sheet(commands: &mut Commands, env: &Env) -> Entity {
         })
         .collect();
     body.push(wrapped(commands, kit, &chips));
+    super::lists::picker(commands, env, &mut body);
 
     let (mark, ink) = sign(overview.standing);
     let sign = glyph(commands, kit, mark, m.text, ink);
@@ -182,7 +183,7 @@ pub(super) fn sheet(commands: &mut Commands, env: &Env) -> Entity {
 }
 
 /// Chips in rows that wrap.
-fn wrapped(commands: &mut Commands, kit: Kit, chips: &[Entity]) -> Entity {
+pub(super) fn wrapped(commands: &mut Commands, kit: Kit, chips: &[Entity]) -> Entity {
     let row = commands
         .spawn((
             Node {

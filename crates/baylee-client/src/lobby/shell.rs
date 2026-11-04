@@ -602,7 +602,8 @@ pub(super) fn ui(
         *builder_drawn = None;
     }
     super::confirm::draw(&mut commands, root, &state, &fonts, metrics);
-    if state.confirmation.is_some() {
+    super::confirm::draw_refusal(&mut commands, root, &state, &fonts, metrics);
+    if state.confirmation.is_some() || state.lobby.refusal().is_some() {
         *builder_drawn = None;
     }
     // The terms stand over whatever the sign-in led to, until answered;

@@ -402,6 +402,24 @@ fn shell_layer_keys(codes: &ButtonInput<KeyCode>, state: &mut ResMut<LobbyState>
         }
         return true;
     }
+    if state.lobby.refusal().is_some() {
+        if escape {
+            state.lobby.close_refusal();
+        }
+        return true;
+    }
+    if state.lobby.room_list().is_some() {
+        if escape {
+            state.lobby.close_room_list();
+        }
+        return true;
+    }
+    if state.lists_sheet {
+        if escape {
+            state.lists_sheet = false;
+        }
+        return true;
+    }
     if state.chair_sheet.is_some() {
         if escape {
             state.chair_sheet = None;

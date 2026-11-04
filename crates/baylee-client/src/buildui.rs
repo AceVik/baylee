@@ -51,6 +51,7 @@ pub(crate) mod draft;
 pub(crate) mod focus;
 pub(crate) mod header;
 pub(crate) mod legality;
+mod lists;
 pub(crate) mod pool;
 mod retained;
 mod rows;
@@ -123,6 +124,14 @@ pub(crate) const BUILDER_SHEET_ORDER: TabOrder = TabOrder {
         "format",
         "list",
         "sheet-problem",
+        "list-new",
+        "list-open",
+        "list-copy",
+        "list-put",
+        "list-word",
+        "list-remove",
+        "list-delete",
+        "list-save",
         "close",
     ],
     modal: true,

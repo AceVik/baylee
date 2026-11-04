@@ -65,7 +65,8 @@ The narrative version this replaced is `docs/history/baylee-client-CLAUDE-2026-0
 
 - `Screen::Build`; decisions in client-core `deckbuilder.rs` + `deckbuilder/`.
 - Pool: `GET /pool` (registry, `Coverage`), never the catalog; fetched once a session and forgotten at sign-out (`DeckBuilder::forget_pool`), filtered locally. `GET /pool/facts` (rarity, set, format) beside it, kept on disk by version (`lobby::poolfacts`), lent to the `Duel`; without it those keys say so and match nothing. "Playable only" hides stubs, marks Partial. One row per card; search covers `alt_names`.
-- `DeckBuilder::problems` mirrors `POST /decks`: blocking greys Save; advisory (60 cards, 15 sideboard, lands, unimplemented) never blocks.
+- `DeckBuilder::problems` mirrors `POST /decks`: blocking greys Save; advisory (lands, unimplemented, and without a format 60 cards, 15 sideboard) never blocks.
+- The deck's standing: `DeckBuilder::recheck` after every edit (`deckbuilder/legality.rs`, `baylee_cards::formats::validate`), `overview` for the foot, `badge` for a row; `Standing::Unknown` is never drawn as legal; nothing here refuses a save. Lists: `banlist::ListEditor`, drawn by `buildui/lists.rs`; a room's by `lobby/room/rules.rs`; a refusal by `confirm::draw_refusal`. `docs/banlists-and-formats.md`.
 - Sideboard: a real list through store, `DeckBody`, `LoadedDeck`, `SeatSpec`.
 - `open_picker`: `GET /printings` → `deckrow::PrintChoice`. `Entry` is `(slot, count, print, note)`: two printings, two rows; copy limit per card; the uneditable note survives every save. A no-op choice writes nothing (default printing leaves `4 Lightning Bolt`).
 - Card sheet (a press or Space on a row) and row `⋯` menus: add, the other list (keeping the printing), the printing, remove all, set commander. Shape, keys, save state and draft: `docs/client.md` §"The deck builder" (the shell builder, WP4).

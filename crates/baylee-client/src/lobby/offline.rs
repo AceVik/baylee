@@ -258,6 +258,7 @@ impl Offline {
                         let digest =
                             baylee_cards::digest::digest(&d.cards, &d.sideboard, &d.commanders);
                         DeckSummary {
+                            legality: client_core::lobby::DeckLegality::default(),
                             id: d.id.clone(),
                             name: d.name.clone(),
                             format: d.format(),
@@ -327,6 +328,17 @@ impl Offline {
             // sign-in flow asks, but the performer still answers exhaustively.
             LobbyRequest::ListSeats => {
                 LobbyEvent::Seats(client_core::lobby::resume::Listing::default())
+            }
+            // Lists are a gateway's: offline a deck is held to its format's
+            // shape, and the builder says what it could not ask.
+            LobbyRequest::ListBanlists => LobbyEvent::Banlists(Vec::new()),
+            LobbyRequest::LoadRoomList { .. } => LobbyEvent::RoomList(None),
+            LobbyRequest::LoadBanlist { .. }
+            | LobbyRequest::CopyBanlist { .. }
+            | LobbyRequest::SaveBanlist { .. }
+            | LobbyRequest::DeleteBanlist { .. }
+            | LobbyRequest::ChooseRoomList { .. } => {
+                LobbyEvent::Failed(Phrase::ListNeedsGateway.text(lang).to_string())
             }
             LobbyRequest::CreateGame {
                 deck_id,
@@ -698,6 +710,7 @@ impl Offline {
     /// The room as the game list describes it.
     fn summary(&self, room: &Room, lang: Lang) -> GameSummary {
         GameSummary {
+            rules: client_core::lobby::TableRules::default(),
             id: ROOM.to_string(),
             name: room.name.clone(),
             host: Some(Phrase::You.text(lang).to_string()),

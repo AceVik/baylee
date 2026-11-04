@@ -29,6 +29,66 @@ fn every_request_hits_the_route_the_gateway_serves() {
         ),
         (LobbyRequest::ListDecks, "GET", "http://gw/decks"),
         (LobbyRequest::ListSeats, "GET", "http://gw/lobby/seats"),
+        (LobbyRequest::ListBanlists, "GET", "http://gw/banlists"),
+        (
+            LobbyRequest::LoadBanlist {
+                id: "l1".to_string(),
+                into: client_core::lobby::ListFor::Deck,
+            },
+            "GET",
+            "http://gw/banlists/l1",
+        ),
+        (
+            LobbyRequest::CopyBanlist {
+                id: "l1".to_string(),
+                name: "Copy".to_string(),
+                format: "modern".to_string(),
+            },
+            "POST",
+            "http://gw/banlists",
+        ),
+        (
+            LobbyRequest::SaveBanlist {
+                id: None,
+                name: "New".to_string(),
+                format: "modern".to_string(),
+                entries: Vec::new(),
+            },
+            "POST",
+            "http://gw/banlists",
+        ),
+        (
+            LobbyRequest::SaveBanlist {
+                id: Some("l1".to_string()),
+                name: "Old".to_string(),
+                format: "modern".to_string(),
+                entries: Vec::new(),
+            },
+            "PUT",
+            "http://gw/banlists/l1",
+        ),
+        (
+            LobbyRequest::DeleteBanlist {
+                id: "l1".to_string(),
+            },
+            "DELETE",
+            "http://gw/banlists/l1",
+        ),
+        (
+            LobbyRequest::ChooseRoomList {
+                game_id: "g1".to_string(),
+                list_id: None,
+            },
+            "POST",
+            "http://gw/lobby/games/g1/list",
+        ),
+        (
+            LobbyRequest::LoadRoomList {
+                game_id: "g1".to_string(),
+            },
+            "GET",
+            "http://gw/lobby/games/g1/list",
+        ),
         (
             LobbyRequest::SaveDeck {
                 deck_id: None,
@@ -488,6 +548,50 @@ fn a_body_that_makes_no_sense_is_a_failure_not_a_panic() {
         ),
         LobbyEvent::Failed(_)
     ));
+}
+
+#[test]
+fn a_list_and_its_refusal_decode_as_the_gateway_writes_them() {
+    let row = r#"{"id":"l1","name":"Kitchen table","format":"modern","builtin":false,
+                  "mine":true,"version":3,"updated_at":1793810327,"cards":0}"#;
+    let LobbyEvent::Banlists(lists) = decode(
+        Lang::En,
+        Expect::Banlists,
+        &answer(200, &format!(r#"{{"lists":[{row}]}}"#)),
+    ) else {
+        panic!("the lists");
+    };
+    assert_eq!(lists[0].version, 3);
+    assert!(lists[0].mine);
+
+    let body = r#"{"id":"l1","name":"Kitchen table","format":"modern","builtin":false,
+                   "mine":true,"version":3,"updated_at":0,"cards":1,
+                   "entries":[{"oracle_id":"o1","status":"banned_as_commander",
+                               "index":null,"name":""}]}"#;
+    let LobbyEvent::RoomList(Some(list)) = decode(Lang::En, Expect::RoomList, &answer(200, body))
+    else {
+        panic!("the table's list");
+    };
+    assert_eq!(list.row.name, "Kitchen table", "flattened on the wire");
+    assert_eq!(
+        list.entries[0].status,
+        baylee_cardtext::ListStatus::BannedAsCommander
+    );
+
+    // A refusal with reasons is data, and one without stays a sentence.
+    let refused = answer(
+        409,
+        r#"{"error":"the deck does not keep to the list","refused":{"list":"No rings",
+            "format":"commander","problems":[{"kind":"list_banned","card":229}]}}"#,
+    );
+    let reasons = deck_refusal(&refused).expect("the reasons");
+    assert_eq!(reasons.list, "No rings");
+    assert_eq!(
+        reasons.problems,
+        [baylee_cardtext::Problem::ListBanned { card: 229 }]
+    );
+    assert!(deck_refusal(&answer(409, r#"{"error":"the table is full"}"#)).is_none());
+    assert!(deck_refusal(&answer(502, "<html>bad gateway</html>")).is_none());
 }
 
 #[test]

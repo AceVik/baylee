@@ -643,6 +643,8 @@ pub struct LobbyState {
     pub(crate) room_away: bool,
     /// The room's chair sheet (a language model, desktop builds), by seat.
     pub(crate) chair_sheet: Option<u32>,
+    /// Whether the host's choice of a list stands open.
+    pub(crate) lists_sheet: bool,
     /// The chair sheet lists the gateway's hosted models instead.
     pub(crate) hosted_sheet: bool,
     /// The room's seats show their side as a chip that steps on (Set teams).
@@ -954,6 +956,7 @@ impl LobbyState {
             tours_before: None,
             room_away: false,
             chair_sheet: None,
+            lists_sheet: false,
             hosted_sheet: false,
             teams_edit: false,
             invite_copied: false,
@@ -1117,6 +1120,14 @@ enum Reply {
 /// What the shell should make of a successful response body.
 #[derive(Clone)]
 enum Expect {
+    /// `GET /banlists`.
+    Banlists,
+    /// One list and its cards, and what it was asked for.
+    Banlist(client_core::lobby::ListFor),
+    /// `204`: this list is gone.
+    BanlistDeleted(String),
+    /// A table's list; a `404` is a table that has none.
+    RoomList,
     Library(client_core::lobby::library::Request),
     /// `{"ok":true}` — nothing to read.
     Registered,
