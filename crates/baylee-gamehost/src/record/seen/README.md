@@ -16,6 +16,6 @@ This is a game played by the house from seed 3 on the current engine, for the te
 
 When a state-hash change moves only its `hash` values, `refresh_fixture_hashes` (an ignored test in `seen.rs`) rewrites them and checks every `seen` and the finish on the way. When a rule fix makes the game diverge, `capture_acceptance_record` (ignored too) writes it again from `played(3)`. Either way, update the SHA256 below.
 
-Current SHA256: `43cd03424130da89ad6182e19fac114d65dec56b5226488f6494eb8a90c73a2b`, captured 3.11.2026 on branch `c42/llm-report-fixes-20261103`; engine hashes refreshed after integrating the card branch.
+Current SHA256: `e5964a9d729b511dfc932511f364fe1bf8b36310c709980819c04502bb580e7d`, captured 3.11.2026 on branch `c42/llm-report-fixes-20261103`; engine hashes refreshed 4.11.2026 on `agy/mirrodin-2` after rebasing onto main.
 
 The games and names are synthetic repository test data, not a player record.
