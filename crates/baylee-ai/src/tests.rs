@@ -28,6 +28,7 @@ mod modes_tests;
 mod optional_tests;
 mod payment_tests;
 mod planning_tests;
+mod spell_ending_tests;
 mod stack_tests;
 mod targets_tests;
 mod x_target_tests;

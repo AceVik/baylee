@@ -204,6 +204,16 @@ spell draws for it and would draw the library out. A controlled player's
 buyback is declined and their spell not kicked (`controlled/choices.rs`): both
 would buy them something (CR 723.5).
 
+**Where a resolved spell goes is judged by whether the seat can pay for it
+again** (`endings.rs`, CR 616.1e). The card back in hand keeps it at its full
+price, and rebound is one free cast and then the card is gone. So a seat with
+the lands for the spell and its buyback takes the hand, and one without takes
+the free cast. A counterspell always goes home, because the next upkeep has
+nothing on the stack for it to answer. Rebound beats an adventure, the creature
+free against the creature paid for, and an exile that gives nothing back comes
+last. For a player this seat controls the same list is read from the other end:
+plain exile if it is offered, else what they would not have taken.
+
 **Replicate is paid as often as the pool covers.** The engine offers as many
 payments as the floating pool pays for (`NumberPrompt::Replicate`, CR
 702.56a), and each is a copy, so the agent answers `max`. `policy::aim` has

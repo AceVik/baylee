@@ -493,6 +493,50 @@ fn their_burn_with_no_creature_of_theirs_to_kill_goes_at_their_face() {
     );
 }
 
+/// Where their resolved spell goes is theirs to say and so this seat's
+/// (CR 616.1e, 723.5), and it is said against them: nothing at all if that is
+/// offered, else what they would not have taken for themselves. Six lands pay
+/// for Capsize again, so they would keep the card and get the rebound; five do
+/// not, so they would take the free cast and get a card they cannot pay for.
+#[test]
+fn their_spells_ending_is_the_one_worst_for_them() {
+    use baylee_engine::choice::{CastModeDesc, CastModeKind, SpellEnding};
+    let answered = |lands: u32, endings: &[SpellEnding]| {
+        let board = (10..10 + lands)
+            .map(|slot| {
+                let mut land = permanent(obj(slot), THEM, 0);
+                land.types = TypeSet::LAND;
+                land.power = None;
+                land.toughness = None;
+                land
+            })
+            .collect();
+        let mut v = controlling(board, vec![]);
+        v.stack.push(their_spell(1, "Capsize"));
+        let question = Pending::ChooseCastMode {
+            player: THEM,
+            object: obj(1),
+            options: endings
+                .iter()
+                .zip(0..)
+                .map(|(ending, index)| CastModeDesc {
+                    index,
+                    kind: CastModeKind::SpellEnding(*ending),
+                    cost: baylee_core::mana::ManaCost::ZERO,
+                })
+                .collect(),
+        };
+        let PlayerAction::ChooseMode(at) = agent().act(&v, &question) else {
+            panic!("an ending is answered with a position");
+        };
+        endings[at]
+    };
+    let (hand, rebound, exile) = (SpellEnding::Hand, SpellEnding::Rebound, SpellEnding::Exile);
+    assert_eq!(answered(6, &[hand, rebound, exile]), exile);
+    assert_eq!(answered(6, &[hand, rebound]), rebound);
+    assert_eq!(answered(5, &[hand, rebound]), hand);
+}
+
 /// Their Aura goes where it hurts them: Pacifism on their own creature,
 /// Holy Strength on this seat's.
 #[test]

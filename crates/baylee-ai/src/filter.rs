@@ -393,6 +393,10 @@ impl HeuristicAgent {
         object: ObjectId,
         options: &[CastModeDesc],
     ) -> usize {
+        // Not a cast at all: where a resolved spell goes (CR 616.1e).
+        if let Some(ending) = crate::endings::own(view, object, options) {
+            return ending;
+        }
         // A free alternative beats paying for the same spell. The engine
         // offers `Normal` only when the pool already covers it, so taking it
         // spent floating mana on a Deadly Rollick that was free.

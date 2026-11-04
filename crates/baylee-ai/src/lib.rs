@@ -16,6 +16,7 @@ mod constrained;
 mod controlled;
 mod copying;
 mod damage;
+mod endings;
 mod fight;
 mod filter;
 mod granted;

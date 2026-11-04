@@ -31,6 +31,8 @@
 mod attack;
 mod choices;
 
+pub(crate) use choices::counters;
+
 use baylee_cards_dsl::{AbilityDef, Effect, Filter, KeywordSet, Modifier, TargetReq};
 use baylee_core::ids::{CardIndex, ObjectId, PlayerId};
 use baylee_core::types::TypeSet;

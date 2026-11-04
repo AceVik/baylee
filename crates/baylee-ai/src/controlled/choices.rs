@@ -23,7 +23,7 @@ use crate::worth::{Aim, Origin, THRESHOLD};
 
 /// Whether what an "unless" does when its price goes unpaid (CR 118.12a)
 /// counters a spell or an ability: ward, Mana Leak, Power Sink.
-fn counters(effect: &Effect) -> bool {
+pub(crate) fn counters(effect: &Effect) -> bool {
     match effect {
         Effect::Sequence(effects) => effects.iter().any(counters),
         Effect::CounterTargetSpell
@@ -360,6 +360,9 @@ impl HeuristicAgent {
         object: ObjectId,
         options: &[CastModeDesc],
     ) -> Option<usize> {
+        if let Some(ending) = crate::endings::against(theirs, object, options) {
+            return Some(ending);
+        }
         let modes = Self::modal_modes(theirs, object)?;
         let origin = Origin::of(theirs, object);
         let worst = |mode: &baylee_cards_dsl::SpellMode| -> Option<i64> {
