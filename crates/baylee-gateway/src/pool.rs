@@ -138,7 +138,7 @@ pub(crate) fn body(
 ) -> PoolBody {
     let mut cards = registry_rows().to_vec();
     enrich(&mut cards, by_card);
-    name_cards(&mut cards, names);
+    name_cards(&mut cards, names, lang);
     PoolBody {
         total: cards.len(),
         pool_hash: format!("{:016x}", baylee_cards::pool_hash()),
@@ -185,7 +185,13 @@ fn enrich(cards: &mut [PoolCard], by_card: &HashMap<String, baylee_catalog::Card
 ///
 /// A card the catalog knows in one language only ends up with no alternates,
 /// which is correct: there is nothing else to type.
-fn name_cards(cards: &mut [PoolCard], names: &[baylee_catalog::LocalName]) {
+///
+/// `alt_names` is what a search reads, so it holds the served language and
+/// English and nothing else: a Spanish client finds a card by its Spanish and
+/// its English name, never by its German one (owner, 4.11.2026). Every other
+/// language goes to `foreign_names`, which a pasted deck line is read against
+/// and no search is.
+fn name_cards(cards: &mut [PoolCard], names: &[baylee_catalog::LocalName], lang: &str) {
     let mut at: HashMap<&str, usize> = HashMap::with_capacity(cards.len());
     for (i, card) in cards.iter().enumerate() {
         at.entry(card.oracle_id).or_insert(i);
@@ -200,8 +206,13 @@ fn name_cards(cards: &mut [PoolCard], names: &[baylee_catalog::LocalName]) {
         if local.name == card.english_name || local.name == card.name {
             continue;
         }
-        if !card.alt_names.contains(&local.name) {
-            card.alt_names.push(local.name.clone());
+        let list = if local.lang == lang || local.lang == "en" {
+            &mut card.alt_names
+        } else {
+            &mut card.foreign_names
+        };
+        if !list.contains(&local.name) {
+            list.push(local.name.clone());
         }
     }
 }
@@ -554,8 +565,15 @@ mod tests {
             })
             .collect();
 
-        name_cards(&mut cards, &locals);
-        assert_eq!(cards[0].alt_names, vec!["Gegenzauber", "対抗呪文"]);
+        // A Japanese client searches its own name; German is a third language
+        // to it, and a German client's the other way about.
+        let mut japanese = cards.clone();
+        name_cards(&mut japanese, &locals, "ja");
+        assert_eq!(japanese[0].alt_names, vec!["対抗呪文"]);
+        assert_eq!(japanese[0].foreign_names, vec!["Gegenzauber"]);
+        name_cards(&mut cards, &locals, "de");
+        assert_eq!(cards[0].alt_names, vec!["Gegenzauber"]);
+        assert_eq!(cards[0].foreign_names, vec!["対抗呪文"]);
     }
 
     /// The largest field in the answer is the one most rows do not have, so

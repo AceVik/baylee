@@ -589,6 +589,41 @@ async fn a_migration_retires_an_index_only_in_the_schema_it_is_building() {
     sandbox.close().await;
 }
 
+/// A search answers in the client's language and English, and no other: a
+/// Japanese client finds Lightning Bolt as 稲妻 and as Lightning Bolt, and
+/// its German name is a third language there.
+#[tokio::test]
+async fn a_name_in_a_third_language_finds_nothing() {
+    let sandbox = Sandbox::open("thirdlang").await;
+    let mut cards = one_card_five_ways();
+    cards.push(printing(
+        "00000000-0000-4000-8000-000000000006",
+        "ja",
+        "4ed",
+        "1995-04-01",
+        Some("稲妻"),
+        Some("インスタント"),
+    ));
+    sandbox.fill(&cards).await;
+    let found = |query: &'static str, lang: &'static str| {
+        let sandbox = &sandbox;
+        async move {
+            !sandbox
+                .catalog
+                .search(query, lang, 20)
+                .await
+                .expect("the search runs")
+                .is_empty()
+        }
+    };
+    assert!(found("稲妻", "ja").await);
+    assert!(found("Lightning Bolt", "ja").await);
+    assert!(!found("Blitzschlag", "ja").await);
+    assert!(found("Blitzschlag", "de").await);
+    assert!(!found("稲妻", "de").await);
+    assert!(!found("Blitzschlag", "en").await);
+}
+
 /// A card nobody can be shown does not eat a place in the limit.
 ///
 /// `card_search` holds one row per card across *all* languages, and the join

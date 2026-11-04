@@ -412,6 +412,14 @@ pub(crate) const MINE_ROUNDS: [&str; 4] = [
 /// nineteen. Eight cards in this catalog have no English printing at all
 /// (the Japanese Dreamcast promos, `psdg`), which is few enough that the
 /// symptom would have been read as a search that simply found less.
+///
+/// A search answers in the client's language and English, and no other
+/// (owner, 4.11.2026): `names_norm` and `tsv` hold every language, so a card
+/// the query reached through a name in a third language and through no name
+/// in those two is dropped in `ranked`, before the `LIMIT`. A flavor name is in
+/// no language, so one reached through it stands. What stays wider is the
+/// rules text: `tsv` is one vector across languages, and asking it per
+/// language needs a projection per language.
 pub(crate) fn search_sql() -> &'static str {
     "\
         WITH q AS (SELECT catalog_norm($1) AS n, $1 AS raw, $2 AS lang), \
@@ -443,7 +451,16 @@ pub(crate) fn search_sql() -> &'static str {
                             coalesce(s.names ->> q.lang, s.names ->> 'en') \
                  ) AS nth \
           FROM hit h JOIN card_search s USING (oracle_id, face_index) CROSS JOIN q \
-          WHERE jsonb_exists(s.names, q.lang) OR jsonb_exists(s.names, 'en') \
+          WHERE (jsonb_exists(s.names, q.lang) OR jsonb_exists(s.names, 'en')) \
+            AND NOT ( \
+              position(q.n in catalog_norm(coalesce(s.names ->> q.lang, '') || ' | ' \
+                                           || coalesce(s.names ->> 'en', ''))) = 0 \
+              AND EXISTS ( \
+                SELECT 1 FROM jsonb_each_text(s.names) other \
+                WHERE other.key NOT IN (q.lang, 'en') \
+                  AND position(q.n in catalog_norm(other.value)) > 0 \
+              ) \
+            ) \
           ORDER BY nth \
           LIMIT $3 \
         ), \

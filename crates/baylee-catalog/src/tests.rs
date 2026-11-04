@@ -22,6 +22,21 @@ fn the_name_and_the_rules_text_are_never_asked_in_one_predicate() {
     );
 }
 
+/// A search answers in the client's language and English and no other, and
+/// the rule stands in `ranked`, ahead of the `LIMIT`, or a hit dropped later
+/// would cost a row. It reads any language that is neither, so a third one
+/// needs no change here.
+#[test]
+fn a_name_in_a_third_language_finds_nothing() {
+    let sql = search_sql();
+    let ranked = sql.find("ranked AS").expect("the ranking");
+    let limit = sql[ranked..].find("LIMIT").expect("the limit") + ranked;
+    let rule = sql
+        .find("other.key NOT IN (q.lang, 'en')")
+        .expect("the rule");
+    assert!(ranked < rule && rule < limit, "{sql}");
+}
+
 /// The names are fenced in separators so one `position()` can ask "at the
 /// start of *a* name" across every language a card prints in. If the fill
 /// query stops writing the fence, every tier test silently answers 3 —

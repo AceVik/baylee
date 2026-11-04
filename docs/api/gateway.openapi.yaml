@@ -7498,7 +7498,12 @@ components:
           type: array
           items:
             type: string
-          description: "Every other name it is printed under, to search by: its names in other languages the catalog holds, and the whole `A // B` spelling of a card with two faces. Left out when there are none."
+          description: "Its other names to search by: in the served language and in English, and the whole `A // B` spelling of a card with two faces. Left out when there are none."
+        foreign_names:
+          type: array
+          items:
+            type: string
+          description: "Names the card is printed under in languages that are neither the served one nor English: read when a pasted deck line names the card, and by no search. Omitted when empty."
         produces:
           type: string
           description: "The kinds of mana its printed mana abilities make, as `WUBRGC` letters: what a deck's colour sources are counted by. Left out when there are none."
