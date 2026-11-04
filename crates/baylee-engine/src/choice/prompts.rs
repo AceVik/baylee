@@ -521,8 +521,9 @@ impl TargetPrompt {
     Clone, Copy, PartialEq, Eq, Hash, Debug, Default, serde::Serialize, serde::Deserialize,
 )]
 pub struct BuybackParts {
-    /// Life paid.
-    pub life: u16,
+    /// Life paid. Four bytes in all keep `Pending` the size it was: no
+    /// printed buyback asks more than four life.
+    pub life: u8,
     /// Permanents sacrificed.
     pub sacrifices: u8,
     /// Cards discarded, chosen by the caster.
@@ -538,7 +539,7 @@ impl BuybackParts {
         use baylee_cards_dsl::CostPart;
         parts.iter().fold(Self::default(), |sum, part| match part {
             CostPart::PayLife(n) => Self {
-                life: sum.life.saturating_add(*n),
+                life: sum.life.saturating_add(u8::try_from(*n).unwrap_or(u8::MAX)),
                 ..sum
             },
             CostPart::Sacrifice(_) => Self {

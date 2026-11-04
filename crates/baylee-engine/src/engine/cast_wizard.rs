@@ -141,10 +141,10 @@ pub(crate) struct CastWizard {
     /// How many times the multikicker cost is paid. Above zero the spell is
     /// kicked (CR 702.33d), so `kicked` is true beside it.
     pub multikicked: u8,
-    /// The mana part of the buyback cost when it was announced (CR 601.2b),
-    /// as its reductions left it: `{0}` for a cost with no mana in it, `None`
-    /// for a spell whose buyback was not.
-    pub buyback: Option<ManaCost>,
+    /// What comes off the buyback cost's generic mana, when it was announced
+    /// (CR 601.2b); `None` for a spell whose buyback was not. A number and
+    /// not the price, because this rides in every `Engine` by value.
+    pub buyback: Option<u32>,
     /// How many times the replicate cost is paid.
     pub replicated: u8,
     /// Cards chosen for pitch (exile-from-hand).
@@ -1878,8 +1878,8 @@ fn wizard_total_before_reduction(
     if let Some(multikicker) = face.multikicker {
         total = total.combine_n(&multikicker, u32::from(wizard.multikicked));
     }
-    if let Some(buyback) = wizard.buyback {
-        total = total.combine(&buyback);
+    if let (Some(less), Some(buyback)) = (wizard.buyback, face.buyback) {
+        total = total.combine(&buyback.mana.with_less_generic(less));
     }
     if let Some(replicate) = face.replicate {
         total = total.combine_n(&replicate, u32::from(wizard.replicated));

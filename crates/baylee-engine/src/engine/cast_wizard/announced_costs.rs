@@ -18,13 +18,10 @@ use super::*;
 impl<L: CardLookup> Engine<L> {
     /// The buyback question, or `None` when there is nothing to ask.
     pub(super) fn ask_buyback(&mut self, wizard: &CastWizard) -> Option<Pending> {
-        let cost = self.buyback_on_offer(wizard)?;
-        let parts = self
-            .wizard_face(wizard)
-            .buyback
-            .map_or_else(Default::default, |printed| {
-                crate::choice::BuybackParts::of(printed.parts)
-            });
+        let less = self.buyback_on_offer(wizard)?;
+        let printed = self.wizard_face(wizard).buyback?;
+        let cost = printed.mana.with_less_generic(less);
+        let parts = crate::choice::BuybackParts::of(printed.parts);
         let source = self.state.object(wizard.card).and_then(|object| {
             object.card.map(|card| {
                 baylee_core::ids::AbilityRef::new(
@@ -40,30 +37,30 @@ impl<L: CardLookup> Engine<L> {
         })
     }
 
-    /// The buyback cost's mana, if this cast may announce it.
+    /// What comes off the buyback cost, if this cast may announce it.
     ///
     /// A face-down spell has no text (CR 708.2), and with it no buyback.
-    pub(in crate::engine) fn buyback_on_offer(&self, wizard: &CastWizard) -> Option<ManaCost> {
+    pub(in crate::engine) fn buyback_on_offer(&self, wizard: &CastWizard) -> Option<u32> {
         if wizard.option == Some(CastModeKind::Disguise) {
             return None;
         }
-        let printed = self.wizard_face(wizard).buyback?;
-        let mana = self.buyback_mana(wizard, printed.mana);
+        self.wizard_face(wizard).buyback?;
+        let less = self.wizard_buyback_less(wizard);
         let mut paying = wizard.clone();
-        paying.buyback = Some(mana);
-        self.announced_cost_payable(&paying).then_some(mana)
+        paying.buyback = Some(less);
+        self.announced_cost_payable(&paying).then_some(less)
     }
 
-    /// The printed buyback mana less what comes off it (CR 118.7a): it comes
-    /// off the buyback cost and off nothing else.
-    fn buyback_mana(&self, wizard: &CastWizard, printed: ManaCost) -> ManaCost {
+    /// The generic mana that comes off the buyback cost (CR 118.7a), and off
+    /// nothing else.
+    fn wizard_buyback_less(&self, wizard: &CastWizard) -> u32 {
         let def = self
             .state
             .object(wizard.card)
             .and_then(|object| object.card)
             .and_then(|card| self.lookup.card(card.index))
             .expect("wizard card known");
-        let reduction = casting::face_adjustment(
+        casting::face_adjustment(
             &self.state,
             wizard.player,
             wizard.card,
@@ -71,8 +68,7 @@ impl<L: CardLookup> Engine<L> {
             wizard.face_index(),
             None,
         )
-        .buyback_reduction;
-        printed.with_less_generic(reduction)
+        .buyback_reduction
     }
 
     /// Whether the total of `paying`, an announcement this cast could make,

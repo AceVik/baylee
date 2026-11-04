@@ -183,6 +183,27 @@ fn repeated(
         .collect()
 }
 
+/// The card `id` is, and where it would be cast from.
+fn locate(view: &PlayerView, id: ObjectId) -> Option<(CardIdentity, ReachFrom)> {
+    if let Some(card) = baylee_client_core::decision::hand(view)
+        .iter()
+        .find(|card| card.id == id)
+    {
+        return Some((card.card, ReachFrom::Hand));
+    }
+    let in_zone = |zones: &[Vec<baylee_view::PublicObject>]| {
+        zones
+            .iter()
+            .flatten()
+            .find(|object| object.id == id)
+            .and_then(|object| object.card)
+    };
+    in_zone(&view.command)
+        .map(|card| (card, ReachFrom::CommandZone))
+        .or_else(|| in_zone(&view.graveyards).map(|card| (card, ReachFrom::Graveyard)))
+        .or_else(|| in_zone(&view.exile).map(|card| (card, ReachFrom::Exile)))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -212,25 +233,4 @@ mod tests {
         let none = |_: ManaCost| None;
         assert!(repeated(base, each, &none).is_empty());
     }
-}
-
-/// The card `id` is, and where it would be cast from.
-fn locate(view: &PlayerView, id: ObjectId) -> Option<(CardIdentity, ReachFrom)> {
-    if let Some(card) = baylee_client_core::decision::hand(view)
-        .iter()
-        .find(|card| card.id == id)
-    {
-        return Some((card.card, ReachFrom::Hand));
-    }
-    let in_zone = |zones: &[Vec<baylee_view::PublicObject>]| {
-        zones
-            .iter()
-            .flatten()
-            .find(|object| object.id == id)
-            .and_then(|object| object.card)
-    };
-    in_zone(&view.command)
-        .map(|card| (card, ReachFrom::CommandZone))
-        .or_else(|| in_zone(&view.graveyards).map(|card| (card, ReachFrom::Graveyard)))
-        .or_else(|| in_zone(&view.exile).map(|card| (card, ReachFrom::Exile)))
 }

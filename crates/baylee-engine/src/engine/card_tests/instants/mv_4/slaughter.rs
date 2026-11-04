@@ -17,7 +17,7 @@ fn slaughter() -> CardIndex {
 /// Islands and a Counterspell. p0's main phase.
 fn a_slaughter_at(life: i32) -> Engine<RegistryLookup> {
     let mut engine = Duel::new(SEED, swamp())
-        .battlefield(0, &vec![swamp(); 4])
+        .battlefield(0, &[swamp(); 4])
         .battlefield(1, &[index::GRIZZLY_BEARS, island(), island()])
         .hand(0, &[slaughter()])
         .hand(1, &[counterspell()])

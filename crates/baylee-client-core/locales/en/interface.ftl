@@ -3366,7 +3366,7 @@ ReplicateHowOften = Replicate { $cost }: pay it how many times? ({ $min }–{ $m
 MultikickerHowOften = Multikicker { $cost }: pay it how many times? ({ $min }–{ $max })
 
 # The buyback question. $price is the whole cost, one or more of the
-# BuybackPrice phrases below joined by commas.
+# price phrases below joined by commas.
 # Arguments: price
 BuybackAsk = Buyback: { $price }? The spell comes back to your hand as it resolves.
 

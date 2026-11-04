@@ -2037,7 +2037,8 @@ says buyback was announced, and mana either floating or still to be made.
 Mana to be made counts (CR 601.2g), so a multikicker's bound is
 `REPLICATE_CEILING` while a source is left, as an X's is, and a count the
 window cannot reach is reversed there (CR 601.2h, 733.1). `CastWizard::buyback`
-holds the mana as reduced, `{0}` for a cost with none, and
+holds what comes off the printed mana, a number since the wizard rides in every
+`Engine` by value, and
 `wizard_total_before_reduction` adds both, so the frozen reductions of CR
 601.2f reach them. Non-mana parts are paid with the mandatory ones, a random
 discard last (CR 601.2h), and a buyback's `Sacrifice` does not touch the

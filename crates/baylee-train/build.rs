@@ -38,7 +38,7 @@ fn fields_code(fields: &Fields, label: &str, target: &str, is_enum: bool) -> (St
         if label == "FaceDef" && ["buyback", "multikicker"].contains(&field.as_str()) {
             writeln!(
                 present_only,
-                "if ({access}).is_some() {{ children.push(b.field(\"{label}.{field}\", {access})); }}"
+                "if self.{field}.is_some() {{ children.push(b.field(\"{label}.{field}\", {access})); }}"
             )
             .unwrap();
             continue;

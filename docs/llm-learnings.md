@@ -6078,6 +6078,9 @@ fixtures must settle characteristics before measuring a no-new-events boundary.
   before the next face field.
 - `kicked` was never cleared on arrival: no pool permanent read it. A reader of
   a spell-shaped field on a permanent has to normalise it where the X is.
+- `Engine` holds its `CastWizard` by value and tests hold arrays of `Engine`: an
+  `Option<ManaCost>` on the wizard pushed two of them past clippy's 16 KiB, in
+  files nobody had touched. A number beside the printed cost did the same job.
 - A spell whose only target a copy bounced loses it: the copy's Capsize aimed
   where the original did made the original fizzle, which is the rule and looked
   like buyback failing.

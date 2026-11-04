@@ -11,6 +11,29 @@ pub fn resume_with_number(state: &mut GameState, res: &mut Resolution, number: u
     flow
 }
 
+/// Applies the answered word pair to the incarnation the question named. One
+/// that has moved on keeps its text (CR 400.7).
+fn change_text(
+    state: &mut GameState,
+    target: baylee_core::ids::DamageSourceRef,
+    kind: baylee_cards_dsl::TextWordKind,
+    this_turn: bool,
+    number: u32,
+) {
+    if let Some(replacement) = crate::text_changes::TextReplacement::from_choice(kind, number)
+        && state
+            .object(target.object)
+            .is_some_and(|object| object.version == target.version)
+    {
+        if this_turn {
+            state.text_changes.replace_this_turn(target, replacement);
+        } else {
+            state.text_changes.replace(target, replacement);
+        }
+        state.invalidate_projections();
+    }
+}
+
 pub(super) fn resume_with_number_inner(
     state: &mut GameState,
     res: &mut Resolution,
@@ -58,18 +81,7 @@ pub(super) fn resume_with_number_inner(
         this_turn,
     }) = res.awaiting
     {
-        if let Some(replacement) = crate::text_changes::TextReplacement::from_choice(kind, number)
-            && state
-                .object(target.object)
-                .is_some_and(|object| object.version == target.version)
-        {
-            if this_turn {
-                state.text_changes.replace_this_turn(target, replacement);
-            } else {
-                state.text_changes.replace(target, replacement);
-            }
-            state.invalidate_projections();
-        }
+        change_text(state, target, kind, this_turn, number);
         res.awaiting = None;
         res.pc += 1;
         return run(state, res);

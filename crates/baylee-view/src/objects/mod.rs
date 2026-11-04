@@ -212,6 +212,7 @@ pub struct StackText {
 /// values: a Mountain animated into a 4/4 arrives here as a creature with
 /// power 4, and a clone of Serra Angel arrives with Serra Angel's name.
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+#[allow(clippy::struct_excessive_bools)] // independent public facts, each its own wire field
 pub struct PublicObject {
     /// Effective typed word substitutions, separate from the unchanged Oracle.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

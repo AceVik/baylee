@@ -230,7 +230,7 @@ fn a_yes_the_mana_cannot_reach_reverses_the_cast() {
 #[test]
 fn a_countered_spell_goes_to_the_graveyard_with_its_cost_spent() {
     let mut engine = Duel::new(SEED, island())
-        .battlefield(0, &vec![island(); 6])
+        .battlefield(0, &[island(); 6])
         .battlefield(1, &[grizzly_bears(), island(), island()])
         .hand(0, &[capsize()])
         .hand(1, &[counterspell()])
@@ -347,7 +347,7 @@ fn a_copy_of_a_bought_back_spell_ceases_to_exist() {
 #[test]
 fn a_flashed_back_spell_is_exiled_with_its_buyback_paid() {
     let mut engine = Duel::new(SEED, island())
-        .battlefield(0, &vec![island(); 11])
+        .battlefield(0, &[island(); 11])
         .battlefield(1, &[grizzly_bears()])
         .hand(0, &[capsize(), snapcaster_mage()])
         .start();
@@ -440,7 +440,7 @@ fn a_rebounding_spell_with_its_buyback_paid_comes_home() {
 fn a_life_cost_is_paid_and_refused_as_life() {
     for (life, asked) in [(5, true), (3, false)] {
         let mut engine = Duel::new(SEED, swamp())
-            .battlefield(0, &vec![swamp(); 4])
+            .battlefield(0, &[swamp(); 4])
             .battlefield(1, &[grizzly_bears()])
             .hand(0, &[slaughter()])
             .life(0, life)
