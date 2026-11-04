@@ -386,3 +386,59 @@ async fn a_refused_step_ends_the_plan_and_says_so() {
         "{text}"
     );
 }
+
+/// A sorcery the plan casts after its attack waits for the second main
+/// phase: the seat passes the combat windows toward it without a call,
+/// and casts it there (Argon v Astra: an attack and Towering Indrik
+/// after it woke the model in the attackers, blockers and damage steps).
+#[tokio::test]
+async fn a_sorcery_after_combat_waits_for_the_second_main_phase() {
+    let (base, provider) = stand_in().await;
+    provider.script(decides(json!({
+        "ask": "q12", "pick": ["p"], "plan": ["cast #53"]
+    })));
+    let mind = mind(&base, Provider::Anthropic, |_| {});
+    let (mut view, _) = board();
+    let first = mind
+        .decide(ask(&view, offer(&[52], &[], &[(31, 0)], &[]), 12))
+        .await
+        .expect("the first answer");
+    assert_eq!(first.action, PlayerAction::PassPriority);
+
+    for (question, step) in [
+        (13, baylee_view::Step::DeclareAttackers),
+        (14, baylee_view::Step::DeclareBlockers),
+        (15, baylee_view::Step::CombatDamage),
+    ] {
+        view.phase = baylee_view::Phase::Combat;
+        view.step = step;
+        let answer = mind
+            .decide(ask(&view, offer(&[], &[50], &[(31, 0)], &[]), question))
+            .await
+            .expect("a pass");
+        assert_eq!(answer.action, PlayerAction::PassPriority, "{step:?}");
+        assert_eq!(provider.seen().len(), 1, "{step:?}: the model is not asked");
+    }
+
+    view.phase = baylee_view::Phase::SecondMain;
+    view.step = baylee_view::Step::Main;
+    let cast = mind
+        .decide(ask(&view, offer(&[], &[], &[(31, 0)], &[]), 16))
+        .await
+        .unwrap_or_else(|e| {
+            panic!(
+                "the cast: {e:?}\n{}",
+                told(&provider, provider.seen().len() - 1)
+            )
+        });
+    // The plan taps for it, then casts it.
+    assert!(
+        matches!(
+            cast.action,
+            PlayerAction::ActivateManaAbility { .. } | PlayerAction::CastSpell { .. }
+        ),
+        "{:?}",
+        cast.action
+    );
+    assert_eq!(provider.seen().len(), 1, "the plan casts it");
+}

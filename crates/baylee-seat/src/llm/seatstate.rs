@@ -15,8 +15,9 @@
 //! ([`narrator::Menu::plan_decision`]). The seat passes priority for a
 //! plan only toward what its next step answers: while nothing but its own
 //! spells and abilities is on the stack (they resolve, and ask what the
-//! step answers), and on its own turn before combat when the next step is
-//! the attack. Anything else stops the plan, and the model is asked, with
+//! step answers), on its own turn before combat when the next step is
+//! the attack, and in its own combat when the next step casts a card only
+//! a main phase allows. Anything else stops the plan, and the model is asked, with
 //! the reason in the next message (`docs/llm-protocol.md` §"Plans"): a
 //! question of another kind, an id or a name the offer does not hold,
 //! another side's spell or ability on the stack, a payment owed, the end
@@ -694,6 +695,14 @@ impl Seat {
                     return None;
                 }
             }
+            if let Pending::Priority { legal, .. } = &request.pending
+                && legal.can_pass
+                && waits_for_main(view, &step)
+            {
+                let queue = self.queue.as_mut()?;
+                queue.windows += 1;
+                return Some((PlayerAction::PassPriority, plan_label(queue)));
+            }
             let menu = self.narrator.menu(request);
             let resolved = menu
                 .plan_decision(&step, request)
@@ -855,6 +864,29 @@ fn held_line(held: Held, request: &Request) -> String {
         Why::RailStop => "a window you stop at came".into(),
     };
     format!("{head}; woke because {because}.")
+}
+
+/// A cast or a land the plan names that waits for this turn's second main
+/// phase: a card in the seat's hand that only a main phase lets it cast or
+/// play (CR 307.1, CR 305.2), asked in its own combat with the stack empty,
+/// where that phase is still to come (CR 500.1). The seat passes toward
+/// it, as toward an attack before combat (Argon v Astra: an attack and a
+/// creature after it woke the model in every combat step).
+fn waits_for_main(view: &PlayerView, step: &Step) -> bool {
+    let (Step::Cast { card, .. } | Step::Play(card)) = step else {
+        return false;
+    };
+    view.active == view.seat
+        && view.phase == baylee_view::Phase::Combat
+        && view.stack.is_empty()
+        && view.hand.iter().any(|held| {
+            (narrator::tag(held.id) == *card || held.name.eq_ignore_ascii_case(card))
+                && !baylee_client_core::timing::allows(
+                    view,
+                    held.types,
+                    crate::wake::flash(held.card),
+                )
+        })
 }
 
 /// The label of a window a plan passes.

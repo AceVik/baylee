@@ -308,7 +308,9 @@ goes to the mind (`wake::Verdict::Planned`), so no standing order passes a
 window the plan wanted. The seat passes priority for a plan only toward
 what its next step answers: while nothing but the seat's own spells and
 abilities is on the stack (they resolve, and ask what the step answers),
-and on its own turn before combat when the next step is the attack;
+and on its own turn before combat when the next step is the attack, and in
+its own combat when the next step casts or plays a card from its hand that
+only a main phase allows (it waits for the second main phase);
 never in a cleanup step. A plan is bound to the turn it was written in.
 
 It stops, and the question is the model's, at anything it does not answer
