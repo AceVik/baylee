@@ -1581,6 +1581,7 @@ mod owed;
 mod power_surge;
 mod raised;
 mod triage;
+mod upkeep_payments;
 
 /// A vote is told as one, and the ballot cast before it reaches the model
 /// in the log it is narrated (CR 701.38a, 608.2d): the line is client-core's
