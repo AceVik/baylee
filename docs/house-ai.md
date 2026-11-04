@@ -744,6 +744,66 @@ redirect or a Dualcaster Mage back for a later spell; and an opponent's
 redirect aimed at this seat's own spell is not turned back, because a redirect
 hurts nothing by itself.
 
+**A controlled turn is played against its player.** Under Mindslaver the
+house makes every decision of the player whose turn it controls (CR 723.1,
+723.5): their casts and targets, their attack and its damage, their
+resolution choices, their discards. The engine asks that player and awaits
+the house, so `controlled::subject` reads the question as theirs when the
+view awaits this seat and the question names somebody else; a question of
+the house's own in that turn — its blocks, its own priority — is never
+theirs and is answered exactly as before (CR 723.8). The measure is the
+crate's own read from their side of the table: `controlled::seen_by` makes
+the view theirs (their hand where the house's was, their seat as the view's)
+out of nothing the house does not already see (CR 723.4), and the answer
+taken is the other end of what they would take. Only their resources pay
+(CR 723.5a); the payment readers already go through `resource_player`.
+
+- *Priority* acts only once their combat is over, so nothing is spent on a
+  creature the house's block was about to kill. A spell is cast where
+  `casting_harm` says the worst it can be aimed at costs them more than
+  their own best use of the card would have gained them, and never where
+  even its worst aim gains them anything: their Lightning Bolt at their own
+  creature or face, their Giant Growth or Holy Strength on the house's
+  creature, Pacifism on their own, their Ancestral Recall for the house, a
+  draw that empties their library. Damage that does not kill a creature
+  after combat is worth nothing (CR 514.2), so a Bolt is not left on a 4/4.
+  Every permanent but an Aura stays in hand, no land is played, and a text
+  `worth` cannot read is not cast. An activation is taken by
+  `activate::against`, the worth at its worst target net of its cost, so a
+  sacrifice outlet is fed their creature; only a cost that consumes
+  something. In their end step every source of theirs that only makes mana
+  is tapped, so it stays tapped through the house's turn (CR 502.3). A
+  payment the house took on for them (Word of Command) is finished as
+  before.
+- *Their attack* sends what an untapped creature of the house's can block,
+  kill and survive, their best first, and what tapping is worth: a creature
+  whose absence lets more of the house's next attack through than it deals
+  now, while all of it leaves the house above ten life and costs at most a
+  quarter of it. Nothing whose attack sets off a trigger, nothing with
+  evasion the exchange does not read, nothing at the house's planeswalkers;
+  what must attack goes at another opponent of the house's, else at the
+  house. Their divided combat damage gives each of the house's creatures
+  what it survives.
+- *Their choices*: discards, sacrifices, costs and cards put back are their
+  best; what they keep, find, take or put down is their worst and as little
+  as allowed (a search finds nothing); a target, a mode and a pile are the
+  worst for them by the same measure; an X is all their mana pays, with no
+  ceiling under their library and a life X up to all their life (CR 119.4);
+  a "may" is done only when it costs them and an unread one is declined; a
+  pact's debt goes unpaid; a tax is paid only where refusing it would counter
+  the spell cast for them. Scry and surveil keep their worst on top.
+
+What has no reading here falls through to the ordinary answer, which reads
+their permanents as the hostile ones. Open: a creature with an ETB that
+would hurt them, a mana ability that sacrifices (Ashnod's Altar) and an
+ability whose mana does not float yet are never used for them; a subtype,
+colour or card name they choose is the house's ordinary choice; and the
+harness (`baylee-gamehost::harness`) still answers a question by the player
+it names rather than by `Engine::decision_actor`, so a harness game cannot
+run a controlled turn yet. `crates/baylee-ai/src/tests/controlled_tests.rs`
+pins each behaviour, and `crates/baylee-gamehost/tests/ai_mindslaver.rs`
+plays a Mindslaver turn through the real engine with no house fallbacks.
+
 ### Authorized AI scouting
 
 House AIs now have an intentional advantage. The host's private
