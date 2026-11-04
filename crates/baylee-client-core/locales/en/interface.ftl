@@ -8669,3 +8669,163 @@ MemorialZoomOut = Zoom out
 MemorialFit = Fit
 MemorialZoomMinimum = The entire photograph is visible.
 MemorialZoomMaximum = Maximum zoom reached.
+
+# Settings › Network: the background download of the card cache.
+RowCardFill = Card pictures in the background
+
+# Under it: what it does and what it costs.
+HelpCardFill = Downloads the pictures of every fully implemented card straight from Scryfall, so the deck builder and the table show them at once. Scryfall sees this device's address, as for any picture. Rests during a game. Off keeps what is already here.
+
+# Settings › Network: how fast it goes.
+RowCardFillPace = Download pace
+
+# Under it: the three paces in numbers.
+HelpCardFillPace = How many pictures come down at once: Gentle 1, Steady 2, Brisk 3. A picture you are looking at always goes first.
+
+# The slowest pace.
+CardFillPaceGentle = Gentle
+
+# The middle pace.
+CardFillPaceSteady = Steady
+
+# The fastest pace.
+CardFillPaceBrisk = Brisk
+
+# Settings › Network: which pictures are kept.
+RowCardFillReach = Pictures to keep
+
+# Under it: what each choice costs and gives.
+HelpCardFillReach = Thumbnails are about 150 MB for the whole pool and make the lists quick. Large pictures add about 1.1 GB and make the previews quick.
+
+# Only the small pictures.
+CardFillReachThumbnails = Thumbnails
+
+# The small pictures, then the large ones.
+CardFillReachEverything = Large ones too
+
+# Settings › Network: how large the cache may grow.
+RowCardFillBudget = Cache size limit
+
+# Under it: what the limit stops, and what it does not.
+HelpCardFillBudget = The background download stops at this size, and whenever less than 2 GB is free on the disk. Pictures you open are kept all the same.
+
+# A size limit on its control: `$size` whole gigabytes.
+# Arguments: size
+CardFillBudget = { $size } GB
+
+# The button that rests the download.
+CardFillPause = Pause
+
+# The button that lets it go on.
+CardFillResume = Resume
+
+# The button that starts it again after it stopped.
+CardFillTryAgain = Try again
+
+# The button that deletes the cached pictures.
+CardFillEmpty = Empty the cache
+
+# The question before that: what it deletes.
+CardFillEmptyAsk = This deletes every card picture on this device. They are downloaded again when they are needed.
+
+# The second press that does it.
+CardFillEmptySure = Yes, delete them
+
+# It is switched off.
+CardFillStatusOff = Off
+
+# The player pressed Pause.
+CardFillStatusPaused = Paused
+
+# A game is on.
+CardFillStatusMatch = Resting while a game is on
+
+# It works out what is missing.
+CardFillStatusChecking = Checking what is already here
+
+# It is downloading.
+CardFillStatusRunning = Downloading
+
+# It stays away for `$time` ("45 s", "2 min").
+# Arguments: time
+CardFillStatusCooling = The server wants a break, going on in { $time }
+
+# Everything is on disk.
+CardFillStatusFinished = All pictures are here
+
+# No cache directory.
+CardFillStopNoCache = Stopped: this device has no cache folder
+
+# A picture could not be written.
+CardFillStopCannotWrite = Stopped: the cache folder cannot be written
+
+# The size limit.
+CardFillStopBudget = Stopped: the size limit is reached
+
+# The disk.
+CardFillStopDisk = Stopped: less than 2 GB free on the disk
+
+# Failure after failure, with no answer.
+CardFillStopUnreachable = Stopped: the picture server cannot be reached
+
+# Failure after failure, too busy.
+CardFillStopBusy = Stopped: the picture server stayed too busy
+
+# Failure after failure, a server error `$code`.
+# Arguments: code
+CardFillStopServer = Stopped: the picture server keeps failing ({ $code })
+
+# Refused outright, by status `$code`.
+# Arguments: code
+CardFillStopRefused = Stopped: the picture server refused ({ $code })
+
+# How far this round is, in cards.
+# Arguments: done, total
+CardFillCards = { $done } of { $total } cards
+
+# The round of small pictures.
+# Arguments: round, rounds
+CardFillRoundThumbnails = thumbnails, round { $round } of { $rounds }
+
+# The round of large pictures.
+# Arguments: round, rounds
+CardFillRoundLarge = large pictures, round { $round } of { $rounds }
+
+# Pictures the server does not have.
+# Arguments: count
+CardFillMissing = { $count ->
+        [one] one picture the server does not have
+       *[other] { $count } pictures the server does not have
+    }
+
+# What has come down so far: `$size` with its unit.
+# Arguments: size
+CardFillDownloaded = { $size } downloaded
+
+# A span of hours and minutes.
+# Arguments: hours, minutes
+CardFillHours = { $hours } h { $minutes } min
+
+# A span of whole minutes.
+# Arguments: minutes
+CardFillMinutes = { $minutes } min
+
+# A span of seconds.
+# Arguments: seconds
+CardFillSeconds = { $seconds } s
+
+# How long it has been at work: `$time` a span.
+# Arguments: time
+CardFillElapsed = { $time } so far
+
+# How much longer: `$time` a span.
+# Arguments: time
+CardFillLeft = about { $time } left
+
+# How large the cache is, of what it may be: sizes with their units.
+# Arguments: used, budget
+CardFillCache = Cache: { $used } of { $budget }
+
+# The indicator's hint: `$status` what it is doing, `$detail` how far.
+# Arguments: status, detail
+CardFillIndicator = Card pictures: { $status } · { $detail }

@@ -46,6 +46,7 @@ pub mod automation;
 pub mod board;
 pub mod browser;
 pub mod bugreport;
+pub mod cachefill;
 pub mod card_face;
 pub mod cardcrest;
 pub mod cardplate;

@@ -10,6 +10,7 @@ use crate::i18n::{Lang, Phrase};
 
 const KB: u64 = 1_000;
 const MB: u64 = 1_000_000;
+const GB: u64 = 1_000_000_000;
 
 /// Which way a number is rounded to what it shows.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -18,22 +19,29 @@ enum Round {
     Nearest,
 }
 
-/// The unit a size is said in: megabytes from one, kilobytes below.
+/// The unit a size is said in: gigabytes from one, then megabytes from one,
+/// kilobytes below.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Unit {
     Kb,
     Mb,
+    Gb,
 }
 
 impl Unit {
     fn of(bytes: u64) -> Self {
-        if bytes >= MB { Self::Mb } else { Self::Kb }
+        match bytes {
+            GB.. => Self::Gb,
+            MB.. => Self::Mb,
+            _ => Self::Kb,
+        }
     }
 
     fn bytes(self) -> u64 {
         match self {
             Self::Kb => KB,
             Self::Mb => MB,
+            Self::Gb => GB,
         }
     }
 
@@ -41,6 +49,7 @@ impl Unit {
         match self {
             Self::Kb => "kB",
             Self::Mb => "MB",
+            Self::Gb => "GB",
         }
     }
 }
@@ -95,4 +104,20 @@ pub fn rate(lang: Lang, bytes_a_second: u64) -> String {
         amount(lang, bytes_a_second, bytes_a_second, unit, Round::Nearest),
         unit.name()
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A cache runs to gigabytes, where a download never got: the unit grows
+    /// at one, and tenths stand below ten.
+    #[test]
+    fn a_gigabyte_is_said_as_one() {
+        assert_eq!(size(Lang::En, 999_900_000), "1000 MB");
+        assert_eq!(size(Lang::En, 1_230_000_000), "1.2 GB");
+        assert_eq!(size(Lang::De, 1_230_000_000), "1,2 GB");
+        assert_eq!(size(Lang::En, 12_400_000_000), "12 GB");
+        assert_eq!(rate(Lang::En, 3_200_000), "3.2 MB/s");
+    }
 }
