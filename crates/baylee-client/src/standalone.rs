@@ -208,6 +208,9 @@ pub fn run() {
             .add_systems(Startup, open_duel);
     } else {
         app.add_plugins((crate::links::LinksPlugin, LobbyPlugin));
+        // The card cache's fill: only here, only with a lobby to steer it.
+        // A seat ticket's client has no settled art base and fills nothing.
+        crate::cachefill::start();
         // A debug build's panel for changing a language-model chair during
         // the game (`crate::tablellm`); a release build has none.
         if baylee_client_core::llmseat::seating::LIVE_CHANGES {

@@ -14,6 +14,9 @@
 //! - a cached picture is written to a `.part` beside its name and renamed into
 //!   place ([`store`]), so a crash leaves a stray `.part` and never half a JPEG
 //!   that fails to decode on every launch after;
+//! - a picture is filed under what is drawn and not where it came from
+//!   ([`key`]), so the CDN's copy is the one a draw reads under the mirror's
+//!   address, and the other way round;
 //! - it asks only where card art comes from ([`allowed`]): the Scryfall CDNs
 //!   and the gateway mirror the client was told to use. It follows no
 //!   redirect, since a redirect could lead anywhere else;
@@ -21,9 +24,16 @@
 //!   nobody else (#273), and to nothing but the mirror ([`authorization`]):
 //!   never to a Scryfall host, and never in a URL, where it would land in logs.
 //!
+//! The background fill stores through [`fill_one`], which is this file's
+//! allowlist, download, limits and `.part` under another door, so what it
+//! files is exactly what [`ArtReader`] reads. A draw has nothing in front of
+//! it: it only tells the fill it is on its way (`crate::cachefill`).
+//!
 //! A browser keeps bevy's fetch reader (`crates/baylee-client/Cargo.toml`),
 //! because the browser caches.
 
+use crate::cachefill::courier::{self, Courier};
+use baylee_client_core::cachefill::{Answer, retry_after};
 use baylee_client_core::images::{self, SCRYFALL_BACKS_CDN, SCRYFALL_CDN};
 use bevy::asset::io::{
     AssetReader, AssetReaderError, AssetReaderFuture, AssetSourceBuilder, PathStream, Reader,
@@ -33,7 +43,7 @@ use bevy::prelude::*;
 use bevy::tasks::ConditionalSendFuture;
 use std::fmt::Write as _;
 use std::future::ready;
-use std::io::{self, Write as _};
+use std::io::{self, Read as _, Write as _};
 use std::path::{MAIN_SEPARATOR, Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, LazyLock, Mutex};
@@ -79,16 +89,26 @@ pub struct ArtReaderPlugin {
     pub base: Base,
     /// The session the mirror is shown ([`use_session`] in the app).
     pub session: Session,
+    /// Who is told that a wanted picture is on its way
+    /// ([`courier::shared`] in the app).
+    pub courier: Arc<Courier>,
 }
 
 impl Default for ArtReaderPlugin {
     fn default() -> Self {
         Self {
-            cache: cache_home().map(|home| home.join("art")),
+            cache: art_cache(),
             base: Arc::new(images::art_base),
             session: Arc::new(session),
+            courier: courier::shared(),
         }
     }
+}
+
+/// Where card art is cached on this device, if anywhere.
+#[must_use]
+pub fn art_cache() -> Option<PathBuf> {
+    cache_home().map(|home| home.join("art"))
 }
 
 impl Plugin for ArtReaderPlugin {
@@ -104,6 +124,7 @@ impl Plugin for ArtReaderPlugin {
                 cache: self.cache.clone(),
                 base: self.base.clone(),
                 session: self.session.clone(),
+                courier: self.courier.clone(),
             };
             app.register_asset_source(
                 scheme,
@@ -124,6 +145,8 @@ pub struct ArtReader {
     pub base: Base,
     /// The session the mirror is shown.
     pub session: Session,
+    /// Who is told that a wanted picture is on its way.
+    pub courier: Arc<Courier>,
 }
 
 impl AssetReader for ArtReader {
@@ -138,13 +161,15 @@ impl AssetReader for ArtReader {
         allowed(&url, &base)
             .map_err(|refusal| AssetReaderError::Io(Arc::new(io::Error::other(refusal))))?;
         let shown = authorization(&url, &base, (self.session)().as_deref());
-        let cache = self.cache.clone();
+        let file = self.cache.as_ref().map(|dir| dir.join(key(&url, &base)));
         let asked = path.to_path_buf();
+        let courier = self.courier.clone();
         // Off the asset executor: the download and the cache are both
         // blocking, and a table asks for dozens of pictures at once.
-        let bytes =
-            blocking::unblock(move || fetch(&url, shown.as_deref(), cache.as_deref(), asked))
-                .await?;
+        let bytes = blocking::unblock(move || {
+            fetch(&url, shown.as_deref(), file.as_deref(), asked, &courier)
+        })
+        .await?;
         Ok(VecReader::new(bytes))
     }
 
@@ -264,30 +289,32 @@ static AGENT: LazyLock<ureq::Agent> = LazyLock::new(|| {
         .timeout_connect(Some(Duration::from_secs(10)))
         .timeout_global(Some(Duration::from_secs(30)))
         .max_redirects(0)
+        // A refusal has to arrive as an answer: `Retry-After` is one of its
+        // headers, and the error ureq makes of it keeps only the status.
+        .http_status_as_error(false)
         .build()
         .new_agent()
 });
 
-/// The picture at `url`: from the cache when it is there, else downloaded,
-/// showing `shown` as its `Authorization` when there is one, and then cached.
-/// Blocking.
+/// The picture at `url`, for a draw: from `file` when the cache has it, else
+/// downloaded at once, showing `shown` as its `Authorization` when there is
+/// one, and then cached. Blocking.
 fn fetch(
     url: &str,
     shown: Option<&str>,
-    cache: Option<&Path>,
+    file: Option<&Path>,
     asked: PathBuf,
+    courier: &Courier,
 ) -> Result<Vec<u8>, AssetReaderError> {
-    let file = cache.map(|dir| dir.join(key(url)));
-    if let Some(file) = &file {
-        match std::fs::read(file) {
-            Ok(bytes) if !bytes.is_empty() => return Ok(bytes),
-            Ok(_) => {}
-            Err(err) if err.kind() == io::ErrorKind::NotFound => {}
-            Err(err) => warn_once("read", file, &err),
-        }
+    if let Some(bytes) = file.and_then(cached) {
+        return Ok(bytes);
     }
-    let bytes = download(url, shown, asked)?;
-    if let Some(file) = &file
+    let bytes = {
+        // Nothing waits here: the fill is told, and gives way.
+        let _on_its_way = courier.wanted();
+        download(url, shown, &|| false).map_err(|failed| failed.into_asset_error(url, asked))?
+    };
+    if let Some(file) = file
         && let Err(err) = store(file, &bytes)
     {
         warn_once("write", file, &err);
@@ -295,44 +322,147 @@ fn fetch(
     Ok(bytes)
 }
 
-/// `url`'s body, or the error bevy's own reader gave for the same answer.
+/// The picture in `file`, if the cache holds it. A cache that cannot be read
+/// is one warning and no picture.
+fn cached(file: &Path) -> Option<Vec<u8>> {
+    match std::fs::read(file) {
+        Ok(bytes) if !bytes.is_empty() => Some(bytes),
+        Ok(_) => None,
+        Err(err) if err.kind() == io::ErrorKind::NotFound => None,
+        Err(err) => {
+            warn_once("read", file, &err);
+            None
+        }
+    }
+}
+
+/// One picture for the background fill, into the cache and nowhere else: no
+/// bytes come back, nothing is decoded and no texture is made.
 ///
-/// Only a success is a picture.
-fn download(url: &str, shown: Option<&str>, asked: PathBuf) -> Result<Vec<u8>, AssetReaderError> {
-    let failed = |err: ureq::Error| {
-        AssetReaderError::Io(Arc::new(io::Error::other(format!("{url}: {err}"))))
-    };
+/// `url` lies under `base`, which is Scryfall's CDN in the app, so no session
+/// is shown: the fill signs in to nothing. It is checked as a draw's is and
+/// goes through [`download`], [`key`] and [`store`] as a draw's does.
+/// `give_way` is asked between two reads of the body: a wanted picture stops
+/// this one, and it is fetched again later.
+pub(crate) fn fill_one(url: &str, base: &str, cache: &Path, give_way: &dyn Fn() -> bool) -> Answer {
+    // A plan names nothing else, so this is a bug, and the fill stops on it.
+    if allowed(url, base).is_err() {
+        return Answer::Refused(0);
+    }
+    let file = cache.join(key(url, base));
+    if std::fs::metadata(&file).is_ok_and(|meta| meta.len() > 0) {
+        return Answer::Already;
+    }
+    match download(url, None, give_way) {
+        Ok(bytes) => match store(&file, &bytes) {
+            Ok(()) => Answer::Stored(u64::try_from(bytes.len()).unwrap_or(u64::MAX)),
+            Err(err) => {
+                warn_once("write", &file, &err);
+                Answer::CannotWrite
+            }
+        },
+        Err(failed) => failed.answer(),
+    }
+}
+
+/// How a request ended without a picture.
+#[derive(Debug)]
+enum Failed {
+    /// A status other than a success (a redirect among them: with none
+    /// followed, it arrives as an answer, and its body is not the picture),
+    /// and what `Retry-After` said.
+    Status(u16, Option<Duration>),
+    /// No usable answer.
+    Transport(String),
+    /// It stopped for a wanted picture.
+    GaveWay,
+}
+
+impl Failed {
+    /// As the fill counts it.
+    fn answer(&self) -> Answer {
+        match *self {
+            Self::Status(404, _) => Answer::Missing,
+            Self::Status(429 | 503, asked) => Answer::Busy(asked),
+            Self::Status(code @ 500..=599, asked) => Answer::Server(code, asked),
+            Self::Status(code, _) => Answer::Refused(code),
+            Self::Transport(_) => Answer::Unreachable,
+            Self::GaveWay => Answer::GaveWay,
+        }
+    }
+
+    /// The error bevy's own reader gave for the same answer.
+    fn into_asset_error(self, url: &str, asked: PathBuf) -> AssetReaderError {
+        match self {
+            Self::Status(404, _) => AssetReaderError::NotFound(asked),
+            Self::Status(code, _) => AssetReaderError::HttpError(code),
+            Self::Transport(said) => {
+                AssetReaderError::Io(Arc::new(io::Error::other(format!("{url}: {said}"))))
+            }
+            Self::GaveWay => {
+                AssetReaderError::Io(Arc::new(io::Error::other(format!("{url}: gave way"))))
+            }
+        }
+    }
+}
+
+/// `url`'s body. Only a success is a picture. `give_way` is asked between two
+/// reads, and a draw's says no.
+fn download(
+    url: &str,
+    shown: Option<&str>,
+    give_way: &dyn Fn() -> bool,
+) -> Result<Vec<u8>, Failed> {
     let request = AGENT.get(url);
     let request = match shown {
         Some(value) => request.header("Authorization", value),
         None => request,
     };
-    match request.call() {
-        // A redirect among them: with none followed, ureq hands it back as
-        // an answer, and its body is not the picture.
-        Ok(response) if !response.status().is_success() => {
-            Err(AssetReaderError::HttpError(response.status().as_u16()))
+    let mut response = request
+        .call()
+        .map_err(|err| Failed::Transport(err.to_string()))?;
+    if !response.status().is_success() {
+        let unix_now = web_time::SystemTime::now()
+            .duration_since(web_time::UNIX_EPOCH)
+            .map_or(0, |now| now.as_secs());
+        let asked = response
+            .headers()
+            .get("Retry-After")
+            .and_then(|value| value.to_str().ok())
+            .and_then(|value| retry_after(value, unix_now));
+        return Err(Failed::Status(response.status().as_u16(), asked));
+    }
+    let mut body = response.body_mut().with_config().limit(LARGEST).reader();
+    let mut bytes = Vec::new();
+    let mut chunk = [0_u8; 16 * 1024];
+    loop {
+        if give_way() {
+            return Err(Failed::GaveWay);
         }
-        Ok(mut response) => response
-            .body_mut()
-            .with_config()
-            .limit(LARGEST)
-            .read_to_vec()
-            .map_err(failed),
-        Err(ureq::Error::StatusCode(404)) => Err(AssetReaderError::NotFound(asked)),
-        Err(ureq::Error::StatusCode(code)) => Err(AssetReaderError::HttpError(code)),
-        Err(err) => Err(failed(err)),
+        match body.read(&mut chunk) {
+            Ok(0) => return Ok(bytes),
+            Ok(read) => bytes.extend_from_slice(&chunk[..read]),
+            Err(err) if err.kind() == io::ErrorKind::Interrupted => {}
+            Err(err) => return Err(Failed::Transport(err.to_string())),
+        }
     }
 }
 
-/// The cache file name for `url`: its SHA-256, so any URL makes a safe name
-/// and no two share one.
-fn key(url: &str) -> String {
+/// The cache file name for `url`, a picture under `base`: the SHA-256 of what
+/// is drawn ([`images::art_path`]), so any path makes a safe name, no two
+/// pictures share one, and neither the CDN nor a mirror has a copy of its own.
+///
+/// Until 04.11.2026 the hash was of the whole URL. Those files can no more be
+/// told from a URL than be turned into one, so they are not read: a picture
+/// is fetched again, and `.jpg` on the new names is what lets a listing clear
+/// the old ones away (`cachefill::worker::list`).
+pub(crate) fn key(url: &str, base: &str) -> String {
     use sha2::{Digest, Sha256};
-    let mut name = String::with_capacity(64);
-    for byte in Sha256::digest(url.as_bytes()) {
+    let mut name = String::with_capacity(68);
+    for byte in Sha256::digest(images::art_path(url, base).as_bytes()) {
         let _ = write!(name, "{byte:02x}");
     }
+    name.push_str(".jpg");
     name
 }
 
@@ -401,7 +531,6 @@ fn warn_once(doing: &'static str, file: &Path, err: &io::Error) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Read as _;
     use std::net::TcpListener;
     use std::sync::atomic::AtomicUsize;
 
@@ -463,6 +592,7 @@ mod tests {
             cache,
             base: Arc::new(move || base.clone()),
             session: Arc::new(|| None),
+            courier: Arc::new(Courier::new(0.0)),
         }
     }
 
@@ -523,7 +653,7 @@ mod tests {
         assert_eq!(read(&art, &url).expect("cached"), PICTURE);
         assert_eq!(served.load(Ordering::SeqCst), 1, "the second came off disk");
         assert_eq!(
-            std::fs::read(dir.join("art").join(key(&url))).expect("the cache file"),
+            std::fs::read(dir.join("art").join(key(&url, &base))).expect("the cache file"),
             PICTURE
         );
         std::fs::remove_dir_all(&dir).expect("cleaned up");
@@ -541,7 +671,7 @@ mod tests {
             read(&art, &url),
             Err(AssetReaderError::NotFound(_))
         ));
-        assert!(!dir.join("art").join(key(&url)).exists());
+        assert!(!dir.join("art").join(key(&url, &base)).exists());
         std::fs::remove_dir_all(&dir).expect("cleaned up");
     }
 
@@ -681,7 +811,9 @@ mod tests {
     #[test]
     fn a_half_written_picture_is_never_the_cached_one() {
         let dir = scratch("atomic");
-        let file = dir.join("art").join(key("http://mirror/one.jpg"));
+        let file = dir
+            .join("art")
+            .join(key("http://mirror/one.jpg", "http://mirror"));
         let halfway = |part: &Path, bytes: &[u8]| {
             std::fs::write(part, &bytes[..bytes.len() / 2])?;
             Err(io::Error::other("the process died here"))

@@ -46,6 +46,7 @@ pub mod arrowmat;
 pub mod artreader;
 pub mod badgemat;
 pub mod buildui;
+pub mod cachefill;
 mod card_loading;
 pub mod cardart;
 pub mod cardmat;

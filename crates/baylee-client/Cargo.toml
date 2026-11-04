@@ -175,6 +175,9 @@ sha2.workspace = true
 # a phone, whose store is (`docs/client.md` §"Updating").
 [target.'cfg(not(any(target_arch = "wasm32", target_os = "android", target_os = "ios")))'.dependencies]
 baylee-update.workspace = true
+# The cache fill stops before the disk is full (`src/cachefill.rs`): how much
+# room the cache's disk has left, on every desktop.
+sysinfo = { workspace = true, features = ["disk"] }
 
 # Android never calls `main`: it loads a shared object and calls
 # `android_main`, and `android-activity` — winit's door to that — refuses to
