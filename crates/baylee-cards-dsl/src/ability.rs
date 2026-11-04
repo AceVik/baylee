@@ -492,6 +492,10 @@ pub enum Condition {
     /// battlefield (Ebon Praetor, Soul Exchange: "if the sacrificed/exiled
     /// creature was a Thrull").
     SacrificedForCost(&'static Filter),
+    /// Echo's intervening `if` (CR 702.30a, CR 603.4): this permanent came
+    /// under your control since the beginning of your last upkeep, and it is
+    /// still yours to sacrifice.
+    SourceCameUnderYourControlSinceYourLastUpkeep,
 }
 
 /// Trigger conditions for triggered abilities.
@@ -1041,8 +1045,9 @@ pub enum AbilityDef {
         /// The prepare spell face within that definition.
         face: u8,
     },
-    /// Echo (CR 702.30): at your next upkeep after this enters, pay the
-    /// cost or sacrifice it.
+    /// Echo (CR 702.30a), a triggered ability the keyword writes out: at the
+    /// beginning of your upkeep, if this came under your control since the
+    /// beginning of your last upkeep, sacrifice it unless you pay the cost.
     Echo {
         /// The echo cost.
         cost: baylee_core::mana::ManaCost,

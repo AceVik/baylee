@@ -62,6 +62,8 @@ impl GameState {
                     last_turn_attackers: Vec::new(),
                     blocked_since_upkeep: Vec::new(),
                     blocked_before_upkeep: Vec::new(),
+                    upkeep_began: 0,
+                    last_upkeep_began: 0,
                     last_turn_acted: false,
                     tried_empty_draw: false,
                     commander_damage: Vec::new(),

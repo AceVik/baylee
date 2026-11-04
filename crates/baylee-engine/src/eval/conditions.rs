@@ -61,6 +61,9 @@ pub fn condition_holds_with_context(
         Condition::SourceBlockedOrWasBlockedSinceYourLastUpkeep => {
             super::upkeep_history::blocked_since_last_upkeep(state, you, source)
         }
+        Condition::SourceCameUnderYourControlSinceYourLastUpkeep => {
+            super::upkeep_history::came_under_your_control(state, you, source, None)
+        }
         Condition::SomeDefendingPlayerControlsNone(filter) => {
             super::defender_conditions::some_defender_controls_none(state, you, context, filter)
         }
@@ -685,6 +688,9 @@ pub(crate) fn intervening_if_for_incarnation(
         Some(Condition::SourceWasCastByYou) => state
             .damage_source(source, version)
             .is_some_and(|object| object.cast_history.caster() == Some(you)),
+        Some(Condition::SourceCameUnderYourControlSinceYourLastUpkeep) => {
+            super::upkeep_history::came_under_your_control(state, you, source, version)
+        }
         Some(Condition::AttachedMatches(filter)) => {
             attached_for_ability(state, source, version, attachment)
                 .is_some_and(|o| matches(filter, state, o, you, source))

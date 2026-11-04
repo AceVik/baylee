@@ -127,6 +127,15 @@ pub struct Player {
     pub blocked_since_upkeep: Vec<baylee_core::ids::DamageSourceRef>,
     /// The completed interval retained during the player's current upkeep.
     pub blocked_before_upkeep: Vec<baylee_core::ids::DamageSourceRef>,
+    /// The last stamp issued as this player's latest upkeep began, read as
+    /// [`Self::turn_start_timestamp`] is: an object stamped at exactly this
+    /// value was there before it.
+    pub upkeep_began: u64,
+    /// [`Self::upkeep_began`] of the upkeep before that one: during their
+    /// upkeep the beginning of "your last upkeep" (CR 702.30a) is this, and
+    /// not the step they are in. Zero while they have had no such upkeep,
+    /// which everything on the clock came after, the opening board included.
+    pub last_upkeep_began: u64,
     /// Whether this player cast a spell or put a nontoken permanent onto the
     /// battlefield during their most recently completed turn (Arboria's
     /// "during their last turn"); false before their first turn ends.
@@ -389,7 +398,7 @@ pub struct GameState {
     pub per_turn: PerTurn,
     /// Exact-card play permissions, some lasting across several turns.
     pub play_permissions: Vec<PlayPermission>,
-    /// Registered delayed triggers (suspend finishes, pact payments).
+    /// Registered delayed triggers (suspend finishes, a pact's price).
     pub delayed: Vec<DelayedTrigger>,
     /// Lands marked by a particular source incarnation; survives its departure.
     pub counter_links: Vec<crate::resolve::linked_counters::CounterLink>,

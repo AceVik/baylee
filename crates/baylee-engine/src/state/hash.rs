@@ -1549,6 +1549,12 @@ fn hash_player(h: &mut Hasher, player: &Player) {
         last_turn_attackers,
         blocked_since_upkeep,
         blocked_before_upkeep,
+        // Read off the turn clock as an upkeep begins, so they follow from
+        // the inputs that clock already covers and tell no two states of one
+        // game apart. Left out for what they would cost: every hash of every
+        // written record, games with no echo in them included.
+        upkeep_began: _,
+        last_upkeep_began: _,
         last_turn_acted,
         tried_empty_draw,
         commander_damage,
