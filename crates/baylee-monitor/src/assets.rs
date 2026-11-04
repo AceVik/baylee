@@ -18,6 +18,7 @@ pub(crate) const WEB: &[(&str, &str)] = embedded![
     "web/js/disks.js",
     "web/js/dom.js",
     "web/js/format.js",
+    "web/js/layout.js",
     "web/js/navigation.js",
     "web/js/processes.js",
     "web/js/store.js",
