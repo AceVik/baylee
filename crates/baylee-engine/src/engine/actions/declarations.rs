@@ -412,7 +412,7 @@ impl<L: CardLookup> Engine<L> {
         }
         let total_mana_tax = blockers
             .iter()
-            .map(|&(blocker, _)| rules.mana_tax(blocker))
+            .map(|&(blocker, attacker)| rules.mana_tax(blocker, attacker))
             .fold(0_u32, u32::saturating_add);
         let tax = baylee_core::mana::ManaCost::ZERO.with_more_generic(total_mana_tax);
         let can_pay = crate::mana_pay::can_pay(

@@ -1371,6 +1371,7 @@ fn apply(
         | Modifier::CantAttackUnlessPayManaPerCounter(_)
         | Modifier::CantBlockUnlessPayMana(_)
         | Modifier::CantBlockUnlessPayManaPerCounter(_)
+        | Modifier::CantBlockMatchingUnlessPayMana { .. }
         | Modifier::CantAttackUnlessYouSacrifice { .. }
         | Modifier::DamageToItCantBePreventedOrRedirected
         | Modifier::CantEnterBattlefield(_)

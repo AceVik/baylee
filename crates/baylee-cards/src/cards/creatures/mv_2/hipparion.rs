@@ -4,13 +4,12 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-// NOT SUPPORTED: "This creature can't block creatures with power 3 or greater unless you pay {1}."
 card!(
     index = index::HIPPARION,
     oracle_id = "306fd9d2-5ded-4857-90f4-e62d73c6aed2",
     scryfall_id = "f26fc403-b8af-499a-8cbc-4077ff97b8b0",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Partial("conditional blocking mana tax not supported"),
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hipparion",
         mana_cost = mana!("{1}{W}"),
@@ -19,4 +18,11 @@ card!(
         power = Some(1),
         toughness = Some(3),
     ),],
+    abilities = &[static_ability!(
+        Filter::This,
+        Modifier::CantBlockMatchingUnlessPayMana {
+            attacker: &Filter::PowerAtLeast(3),
+            mana: 1,
+        }
+    )],
 );
