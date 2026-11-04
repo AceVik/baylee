@@ -258,8 +258,9 @@ pub struct Catalog {
 ///
 /// Bump it whenever the projection's *content* changes — the fill query, one
 /// of the two function bodies, or a column's meaning. 4 is #35: `names->>'en'`
-/// became the Oracle name rather than the newest printing's styling.
-const SCHEMA_VERSION: i32 = 5;
+/// became the Oracle name rather than the newest printing's styling. 6 is
+/// `card_search_text`: rules text per language.
+const SCHEMA_VERSION: i32 = 6;
 
 /// The key `SCHEMA_VERSION` is stamped under.
 const VERSION_KEY: &str = "search_projection";
@@ -469,7 +470,7 @@ impl Catalog {
     /// Gives the planner the row counts the rebuild just changed.
     async fn analyze_projection(&self) -> Result<()> {
         self.db
-            .execute_unprepared("ANALYZE card_search")
+            .execute_unprepared("ANALYZE card_search, card_search_text")
             .await
             .context("analyzing the projection")?;
         Ok(())
@@ -775,7 +776,7 @@ impl Catalog {
     /// a row, **2742 ms** for `稲妻` and 2132 ms for `li`. The cost was never
     /// the tokenizer and no extension would have moved it.
     ///
-    /// So the two questions are asked separately over one projection and
+    /// So the two questions are asked separately, each of its own projection, and
     /// unioned. A name match also carries a *tier* — the whole name, a name
     /// starting with the query, a word inside a name starting with it, or the
     /// query anywhere in a name — and a rules-text match ranks below all

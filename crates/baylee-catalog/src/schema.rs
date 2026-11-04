@@ -80,7 +80,7 @@ pub(crate) async fn projection_is_stale(conn: &impl ConnectionTrait) -> Result<b
 /// rebuild that fails halfway leaves the old version standing and is tried
 /// again on the next start.
 pub(crate) async fn rebuild_the_projection(conn: &impl ConnectionTrait) -> Result<()> {
-    for sql in ["TRUNCATE card_search", PROJECT_SQL] {
+    for sql in ["TRUNCATE card_search, card_search_text", PROJECT_SQL] {
         conn.execute_raw(Statement::from_string(DbBackend::Postgres, sql))
             .await
             .with_context(|| format!("projecting: {sql}"))?;
@@ -300,7 +300,7 @@ pub(crate) fn projection_schema() -> Vec<String> {
                  LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE AS $fn$ {BIGRAMS_BODY} $fn$"
         ),
         // The search projection: one row per oracle face, every language that
-        // face prints in, and the two things a search asks about.
+        // face prints in, and what a search by name asks about.
         //
         // `bg` is `GENERATED` and `names_norm` is not, and the asymmetry is
         // the point. `catalog_bigrams` is genuinely immutable over its
@@ -314,13 +314,36 @@ pub(crate) fn projection_schema() -> Vec<String> {
             face_index smallint NOT NULL,
             names      jsonb NOT NULL,
             names_norm text NOT NULL,
-            tsv        tsvector NOT NULL,
             bg         text[] GENERATED ALWAYS AS (catalog_bigrams(names_norm)) STORED,
             PRIMARY KEY (oracle_id, face_index)
         )"
         .to_string(),
         "CREATE INDEX IF NOT EXISTS card_search_bg ON card_search USING gin (bg)".to_string(),
-        "CREATE INDEX IF NOT EXISTS card_search_tsv ON card_search USING gin (tsv)".to_string(),
+        // What a search reaches by rules text, per face and language, because
+        // a search answers in the client's language and English and in no
+        // other: a client reads two of a card's rows. `lang` is not in the
+        // index, which would need `btree_gin`: a word of one language hits
+        // that language's rows, and the few it hits elsewhere are filtered.
+        //
+        // The vector across all languages this replaced stood on `card_search`
+        // as `tsv`, and goes with its index when the column goes. Named
+        // through `current_schema()` for the reason the drops below are.
+        "DO $drop$ BEGIN \
+           EXECUTE format('ALTER TABLE %I.card_search DROP COLUMN IF EXISTS tsv', \
+                          current_schema()); \
+         END $drop$"
+            .to_string(),
+        "CREATE TABLE IF NOT EXISTS card_search_text (
+            oracle_id  uuid NOT NULL,
+            face_index smallint NOT NULL,
+            lang       text NOT NULL,
+            tsv        tsvector NOT NULL,
+            PRIMARY KEY (oracle_id, face_index, lang)
+        )"
+        .to_string(),
+        "CREATE INDEX IF NOT EXISTS card_search_text_tsv \
+             ON card_search_text USING gin (tsv)"
+            .to_string(),
         // The two the projection replaces. Left in place they would cost an
         // existing install 124 MB to answer nothing: 74 MB of expression GIN
         // over 554 242 faces and 50 MB of trigrams over the same names the

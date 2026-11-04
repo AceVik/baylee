@@ -22,19 +22,26 @@ fn the_name_and_the_rules_text_are_never_asked_in_one_predicate() {
     );
 }
 
-/// A search answers in the client's language and English and no other, and
-/// the rule stands in `ranked`, ahead of the `LIMIT`, or a hit dropped later
-/// would cost a row. It reads any language that is neither, so a third one
-/// needs no change here.
+/// A search answers in the client's language and English and no other, in
+/// both tiers. The name rule stands in `named`: ahead of the `LIMIT`, or a hit
+/// dropped later would cost a row, and ahead of `hit`, or a card reached by
+/// its rules text would be dropped for what its name does in a third language.
+/// It reads any language that is neither, so a third one needs no change here.
 #[test]
-fn a_name_in_a_third_language_finds_nothing() {
+fn a_third_language_reaches_neither_tier() {
     let sql = search_sql();
-    let ranked = sql.find("ranked AS").expect("the ranking");
-    let limit = sql[ranked..].find("LIMIT").expect("the limit") + ranked;
+    let named = sql.find("named AS").expect("the name tier");
+    let texted = sql.find("texted AS").expect("the text tier");
     let rule = sql
         .find("other.key NOT IN (q.lang, 'en')")
         .expect("the rule");
-    assert!(ranked < rule && rule < limit, "{sql}");
+    assert!(named < rule && rule < texted, "{sql}");
+    let hit = sql.find("hit AS").expect("the hits");
+    let tier = &sql[texted..hit];
+    assert!(
+        tier.contains("FROM card_search_text") && tier.contains("t.lang IN (q.lang, 'en')"),
+        "the text tier stopped asking per language:\n{tier}"
+    );
 }
 
 /// The names are fenced in separators so one `position()` can ask "at the

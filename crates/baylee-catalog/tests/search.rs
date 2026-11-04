@@ -1238,3 +1238,226 @@ async fn an_english_card_is_called_what_the_oracle_calls_it() {
 
     sandbox.close().await;
 }
+
+// ---------------------------------------------------- rules text, per language
+
+/// A card printed in three languages, each saying a word of its own.
+fn spoken(id: &str, lang: &str, name: Option<&str>, kind: Option<&str>, text: Option<&str>) -> scryfall::Card {
+    scryfall::Card {
+        id: id.to_string(),
+        oracle_id: Some("eeeeeeee-0000-4000-8000-000000000001".to_string()),
+        lang: lang.to_string(),
+        set: "m21".to_string(),
+        released_at: Some("2020-07-03".to_string()),
+        name: "Zap".to_string(),
+        type_line: Some("Instant".to_string()),
+        oracle_text: Some("Zap deals damage to any target.".to_string()),
+        printed_name: name.map(str::to_string),
+        printed_type_line: kind.map(str::to_string),
+        printed_text: text.map(str::to_string),
+        ..scryfall::Card::default()
+    }
+}
+
+fn three_languages() -> Vec<scryfall::Card> {
+    vec![
+        spoken("00000000-0000-4000-8000-0000000000e1", "en", None, None, None),
+        spoken(
+            "00000000-0000-4000-8000-0000000000e2",
+            "de",
+            Some("Knall"),
+            Some("Spontanzauber"),
+            Some("Knall fügt einem beliebigen Ziel Schaden zu."),
+        ),
+        spoken(
+            "00000000-0000-4000-8000-0000000000e3",
+            "es",
+            Some("Chispa"),
+            Some("Instantáneo"),
+            Some("Chispa hace daño a cualquier objetivo."),
+        ),
+    ]
+}
+
+impl Sandbox {
+    async fn finds(&self, query: &str, lang: &str) -> bool {
+        !self
+            .catalog
+            .search(query, lang, 20)
+            .await
+            .expect("the search runs")
+            .is_empty()
+    }
+}
+
+/// The rule, on the tier that broke it: the words of a third language's rules
+/// text and type line find nothing, whichever language is the third.
+#[tokio::test]
+async fn rules_text_in_a_third_language_finds_nothing() {
+    let sandbox = Sandbox::open("thirdtext").await;
+    sandbox.fill(&three_languages()).await;
+    for (word, speaks, third) in [
+        ("beliebigen", "de", "es"),
+        ("Spontanzauber", "de", "es"),
+        ("cualquier", "es", "de"),
+        ("Instantáneo", "es", "de"),
+    ] {
+        assert!(sandbox.finds(word, speaks).await, "{word} in {speaks}");
+        assert!(!sandbox.finds(word, third).await, "{word} in {third}");
+        assert!(!sandbox.finds(word, "en").await, "{word} in English");
+    }
+    // A language nobody printed the card in is a third language to both, and
+    // English is read by everybody.
+    for lang in ["de", "es", "en", "ja"] {
+        assert!(sandbox.finds("target", lang).await, "English from {lang}");
+        assert!(sandbox.finds("Instant", lang).await, "English from {lang}");
+    }
+    assert!(!sandbox.finds("beliebigen", "ja").await);
+    sandbox.close().await;
+}
+
+/// The dictionary's words stand per language too, and it is what reaches a
+/// card with no printing in that language: nothing here is printed in German
+/// or Spanish, and each client still finds it in its own word and no other.
+#[tokio::test]
+async fn a_type_word_answers_in_its_own_language_only() {
+    let sandbox = Sandbox::open("typelang").await;
+    sandbox
+        .fill(&[scryfall::Card {
+            id: "00000000-0000-4000-8000-0000000000e4".to_string(),
+            oracle_id: Some("eeeeeeee-0000-4000-8000-000000000002".to_string()),
+            lang: "en".to_string(),
+            set: "m21".to_string(),
+            released_at: Some("2020-07-03".to_string()),
+            name: "Stray Hound".to_string(),
+            type_line: Some("Creature \u{2014} Elephant".to_string()),
+            ..scryfall::Card::default()
+        }])
+        .await;
+    assert!(sandbox.finds("Kreatur", "de").await);
+    assert!(!sandbox.finds("Kreatur", "es").await);
+    assert!(sandbox.finds("Criatura", "es").await);
+    assert!(!sandbox.finds("Criatura", "de").await);
+    assert!(sandbox.finds("Creature", "de").await);
+    sandbox.close().await;
+}
+
+/// The name rule does not reach past names: a card whose Spanish name holds a
+/// word is still found by a German client through its own rules text. It was
+/// dropped when the rule stood after the tiers were joined.
+#[tokio::test]
+async fn a_name_in_a_third_language_does_not_hide_the_clients_own_rules_text() {
+    let sandbox = Sandbox::open("namedtext").await;
+    sandbox
+        .fill(&[
+            spoken("00000000-0000-4000-8000-0000000000e5", "en", None, None, None),
+            spoken(
+                "00000000-0000-4000-8000-0000000000e6",
+                "de",
+                Some("Knall"),
+                None,
+                Some("Ziehe eine Tormenta."),
+            ),
+            spoken(
+                "00000000-0000-4000-8000-0000000000e7",
+                "es",
+                Some("Tormenta"),
+                None,
+                None,
+            ),
+        ])
+        .await;
+    assert!(sandbox.finds("Tormenta", "es").await, "its own name");
+    assert!(sandbox.finds("Tormenta", "de").await, "its own rules text");
+    assert!(!sandbox.finds("Tormenta", "en").await, "neither, in English");
+    sandbox.close().await;
+}
+
+/// A flavor name is in no language, so every client reads its words.
+#[tokio::test]
+async fn a_flavor_name_is_read_from_every_language() {
+    let sandbox = Sandbox::open("flavorlang").await;
+    let mut card = spoken("00000000-0000-4000-8000-0000000000e8", "en", None, None, None);
+    card.flavor_name = Some("Autobot City".to_string());
+    sandbox.fill(&[card]).await;
+    for lang in ["en", "de", "ja"] {
+        assert!(sandbox.finds("Autobot City", lang).await, "from {lang}");
+        assert!(sandbox.finds("City Autobot", lang).await, "as words, from {lang}");
+    }
+    sandbox.close().await;
+}
+
+/// The row a language gets is the row it speaks: one per face and language,
+/// and a language with nothing to say has none.
+#[tokio::test]
+async fn the_projection_holds_a_row_per_face_and_language() {
+    let sandbox = Sandbox::open("textrows").await;
+    sandbox.fill(&three_languages()).await;
+    assert_eq!(
+        sandbox
+            .count("SELECT count(*) AS n FROM \"{s}\".card_search")
+            .await,
+        1
+    );
+    // `Instant` is in the dictionary for every language it has a word in, so
+    // those languages have a row too, and the three printed ones stand among
+    // them; a language outside the dictionary has none.
+    assert_eq!(
+        sandbox
+            .count(
+                "SELECT count(*) AS n FROM \"{s}\".card_search_text \
+                 WHERE lang IN ('en', 'de', 'es')"
+            )
+            .await,
+        3
+    );
+    assert_eq!(
+        sandbox
+            .count(
+                "SELECT count(*) AS n FROM \"{s}\".card_search_text \
+                 WHERE lang = 'qya'"
+            )
+            .await,
+        0
+    );
+    sandbox.close().await;
+}
+
+/// A catalog from before this projection carries `card_search.tsv` and its
+/// index and is stamped 5. The next start takes them away and fills the new
+/// table, or a search would reach no rules text until somebody ingested.
+#[tokio::test]
+async fn an_older_projection_is_rebuilt_and_its_vector_goes() {
+    let sandbox = Sandbox::open("oldtsv").await;
+    sandbox.fill(&three_languages()).await;
+    let schema = &sandbox.schema;
+    sandbox
+        .admin
+        .execute_unprepared(&format!(
+            "ALTER TABLE \"{schema}\".card_search ADD COLUMN tsv tsvector; \
+             CREATE INDEX card_search_tsv ON \"{schema}\".card_search USING gin (tsv); \
+             TRUNCATE \"{schema}\".card_search_text; \
+             UPDATE \"{schema}\".catalog_meta SET value = '5' \
+             WHERE key = 'search_projection'"
+        ))
+        .await
+        .expect("the state an older catalog arrives in");
+    assert!(sandbox.has_index(schema, "card_search_tsv").await);
+    assert!(!sandbox.finds("beliebigen", "de").await, "the premise");
+
+    sandbox.catalog.migrate().await.expect("migrating");
+
+    assert!(sandbox.finds("beliebigen", "de").await);
+    assert!(!sandbox.has_index(schema, "card_search_tsv").await);
+    assert_eq!(
+        sandbox
+            .count(
+                "SELECT count(*) AS n FROM information_schema.columns \
+                 WHERE table_schema = '{s}' AND table_name = 'card_search' \
+                   AND column_name = 'tsv'"
+            )
+            .await,
+        0
+    );
+    sandbox.close().await;
+}

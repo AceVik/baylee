@@ -55,38 +55,41 @@ pub(crate) const BIGRAMS_BODY: &str = "SELECT coalesce(array_agg(DISTINCT g), '{
         WHERE substr(s, i, 1) !~ '[[:ascii:]]' \
      ) t";
 
-/// Fills `card_search` from `cards` and `card_faces`.
+/// Fills `card_search` and `card_search_text` from `cards` and `card_faces`,
+/// in one statement, because both read the same choice of printing and that
+/// sort is most of the work.
 ///
-/// The inner query is one row per *printed text* — `DISTINCT ON (oracle_id,
-/// lang, face_index)` over 542 177 printings leaves 296 313 — and the outer
-/// one collapses those to 41 991 oracle faces, each carrying every language
-/// it is printed in. Which printing speaks for a language is decided here
-/// rather than in the search, and the order is the one the search used to
-/// carry: a printing that actually has a translated type line first, because
-/// 6489 of 59 465 German faces have a `printed_name` and no
-/// `printed_type_line`, and taking one of those heads a German card
-/// `Instant`.
+/// `printed` is one row per *printed text* — `DISTINCT ON (oracle_id, lang,
+/// face_index)` over 542 177 printings leaves 296 313 — and `card_search`
+/// collapses those to 41 991 oracle faces, each carrying every language it is
+/// printed in, while `card_search_text` keeps them apart. Which printing
+/// speaks for a language is decided here rather than in the search, and the
+/// order is the one the search used to carry: a printing that actually has a
+/// translated type line first, because 6489 of 59 465 German faces have a
+/// `printed_name` and no `printed_type_line`, and taking one of those heads a
+/// German card `Instant`.
 ///
-/// The `LEFT JOIN` is the half that reaches cards nobody printed abroad.
+/// **A search answers in the client's language and English, and no other**
+/// (owner, 4.11.2026), so the words a search can reach by rules text stand
+/// per language: one `tsvector` per face and language, and a client reads two
+/// of them ([`search_sql`]). They were one vector across all languages, and a
+/// word of a third language's rules text found the card.
+///
+/// The dictionary is the half that reaches cards nobody printed abroad.
 /// Merging every printed type line already makes `同盟者`, `Ally` and
 /// `Kleriker` reach the right cards — but only cards somebody printed that
 /// way, and **3634 cards have no German printing at all**. So `type_names`
-/// says what `Ally` is called in ten languages and the words go in whether or
-/// not the printing exists. Measured here: 89.5% of the subtype occurrences
-/// on those 3634 cards can be named in German, against none before.
+/// says what `Ally` is called in ten languages and each word goes into that
+/// language's row, whether or not the printing exists. Measured here: 89.5%
+/// of the subtype occurrences on those 3634 cards can be named in German,
+/// against none before.
 ///
-/// It is a join inside this `INSERT` and not an `UPDATE` afterwards, which is
-/// the shape it was written in first. Both produce the same `tsvector` —
-/// `tsv || tsv` deduplicates the tokens — but the update writes every row a
-/// second time, and the whole cost of the translation turned out to be that
-/// second write. Measured on the live catalog, `card_search` in total:
-/// **215 MB** before any of this, **413 MB** written twice, **230 MB** as it
-/// stands. The stored text grew 76 MB to 85 MB in both, so the translation
-/// itself costs 15 MB and the other 183 MB was the rewrite. A `VACUUM` finds
-/// nothing to report about it either, because the dead half is reusable space
-/// inside the files rather than dead tuples, and only the next `TRUNCATE`
-/// gives it back. The join is also the faster of the two: 23.8 s against
-/// 32.8 s for a full rebuild.
+/// It is one `INSERT` and not an `UPDATE` afterwards, which is the shape it
+/// was written in first: the update writes every row a second time, and the
+/// whole cost of the translation turned out to be that second write. A `VACUUM`
+/// finds nothing to report about it either, because the dead half is reusable
+/// space inside the files rather than dead tuples, and only the next `TRUNCATE`
+/// gives it back.
 ///
 /// The dictionary is joined on **whole words**, not with a `LIKE` over the
 /// type line. Padding the line and matching `'% ' || english || ' %'` would
@@ -103,19 +106,20 @@ pub(crate) const BIGRAMS_BODY: &str = "SELECT coalesce(array_agg(DISTINCT g), '{
 /// combination of supertypes was never printed abroad, which would otherwise
 /// get no word at all.
 ///
-/// The second `LEFT JOIN` carries **flavor names** — the just-for-fun name a
-/// Secret Lair prints instead of the card's own, with the real one in small
-/// type beside it. It is joined separately, and not folded into the inner
-/// query, because that one keeps one printing per language (`DISTINCT ON`)
-/// and a flavor name belongs to the *printing*: Command Tower has six of
-/// them, and picking one printing would throw five away. 476 cards in 661
-/// printings carry one. They reach `names_norm`, so typing `Cybertron` finds
-/// Command Tower at the same tier as typing its own name, and `bg` follows
-/// because it is `GENERATED` from that column. They reach neither `names` —
-/// which answers "what is this card called in your language", and a flavor
-/// name is not a language — nor anything the rules read: `oracle_id` and the
-/// Oracle name are unchanged, which is the whole reason this is a search
-/// concern and not a card one.
+/// The `LEFT JOIN` carries **flavor names** — the just-for-fun name a Secret
+/// Lair prints instead of the card's own, with the real one in small type
+/// beside it. It is joined separately, and not folded into `printed`, because
+/// that one keeps one printing per language (`DISTINCT ON`) and a flavor name
+/// belongs to the *printing*: Command Tower has six of them, and picking one
+/// printing would throw five away. 476 cards in 661 printings carry one. They
+/// reach `names_norm`, so typing `Cybertron` finds Command Tower at the same
+/// tier as typing its own name, and `bg` follows because it is `GENERATED`
+/// from that column. They reach neither `names` — which answers "what is this
+/// card called in your language", and a flavor name is not a language — nor
+/// anything the rules read: `oracle_id` and the Oracle name are unchanged,
+/// which is the whole reason this is a search concern and not a card one. A
+/// flavor name is in no language, so its words stand in the English row,
+/// which every client reads.
 ///
 /// **A printed English name is not a language either**, and that is the same
 /// argument one step in. `names` took `coalesce(printed_name, name)` from the
@@ -127,8 +131,8 @@ pub(crate) const BIGRAMS_BODY: &str = "SELECT coalesce(array_agg(DISTINCT g), '{
 /// takes `name` and every other language keeps the printed one.
 ///
 /// The styling is not lost, it moves. `pn` is the printed spelling whatever
-/// the language, and it joins `names_norm` and `tsv` where it differs from
-/// the display name — the same place a flavor name lives, for the same
+/// the language, and it joins `names_norm` and the text row where it differs
+/// from the display name — the same place a flavor name lives, for the same
 /// reason: somebody holding the card and typing what is on it has to find it.
 pub(crate) const PROJECT_SQL: &str = "\
     WITH face AS ( \
@@ -137,37 +141,50 @@ pub(crate) const PROJECT_SQL: &str = "\
       FROM cards c JOIN card_faces cf USING (scryfall_id) \
       WHERE cf.type_line IS NOT NULL \
       ORDER BY c.oracle_id, cf.face_index, (c.lang = 'en') DESC, c.scryfall_id \
-    ) \
-    INSERT INTO card_search (oracle_id, face_index, names, names_norm, tsv) \
-    SELECT p.oracle_id, p.face_index, p.names, \
-           p.names_norm || coalesce(v.extra_norm, ''), \
-           p.tsv || coalesce(t.extra, ''::tsvector) \
-                 || coalesce(v.extra_tsv, ''::tsvector) \
-    FROM ( \
-      SELECT oracle_id, face_index, \
-             jsonb_object_agg(lang, nm) AS names, \
-             '| ' || catalog_norm(string_agg(DISTINCT nm, ' | ') \
-               || coalesce(' | ' || string_agg(DISTINCT pn, ' | ') \
-                             FILTER (WHERE pn <> nm), '')) || ' |' AS names_norm, \
-             to_tsvector('simple', string_agg(nm || ' ' || tl || ' ' || tx, ' ') \
-               || coalesce(' ' || string_agg(pn, ' ') FILTER (WHERE pn <> nm), '')) AS tsv \
+    ), \
+    printed AS ( \
+      SELECT DISTINCT ON (c.oracle_id, c.lang, f.face_index) \
+             c.oracle_id, c.lang AS lang, f.face_index, \
+             CASE WHEN c.lang = 'en' THEN f.name \
+                  ELSE coalesce(f.printed_name, f.name) END AS nm, \
+             coalesce(f.printed_name, f.name) AS pn, \
+             coalesce(f.printed_type_line, f.type_line, '') AS tl, \
+             coalesce(f.printed_text, f.oracle_text, '') AS tx \
+      FROM cards c JOIN card_faces f USING (scryfall_id) \
+      ORDER BY c.oracle_id, c.lang, f.face_index, \
+               (f.printed_type_line IS NOT NULL) DESC, \
+               c.released_at DESC NULLS LAST, c.scryfall_id \
+    ), \
+    named AS ( \
+      INSERT INTO card_search (oracle_id, face_index, names, names_norm) \
+      SELECT p.oracle_id, p.face_index, p.names, \
+             p.names_norm || coalesce(v.extra_norm, '') \
       FROM ( \
-        SELECT DISTINCT ON (c.oracle_id, c.lang, f.face_index) \
-               c.oracle_id, c.lang AS lang, f.face_index, \
-               CASE WHEN c.lang = 'en' THEN f.name \
-                    ELSE coalesce(f.printed_name, f.name) END AS nm, \
-               coalesce(f.printed_name, f.name) AS pn, \
-               coalesce(f.printed_type_line, f.type_line, '') AS tl, \
-               coalesce(f.printed_text, f.oracle_text, '') AS tx \
+        SELECT oracle_id, face_index, \
+               jsonb_object_agg(lang, nm) AS names, \
+               '| ' || catalog_norm(string_agg(DISTINCT nm, ' | ') \
+                 || coalesce(' | ' || string_agg(DISTINCT pn, ' | ') \
+                               FILTER (WHERE pn <> nm), '')) || ' |' AS names_norm \
+        FROM printed \
+        GROUP BY oracle_id, face_index \
+      ) p LEFT JOIN ( \
+        SELECT c.oracle_id, f.face_index, \
+               ' ' || catalog_norm(string_agg(DISTINCT f.flavor_name, ' | ')) || ' |' \
+                 AS extra_norm \
         FROM cards c JOIN card_faces f USING (scryfall_id) \
-        ORDER BY c.oracle_id, c.lang, f.face_index, \
-                 (f.printed_type_line IS NOT NULL) DESC, \
-                 c.released_at DESC NULLS LAST, c.scryfall_id \
-      ) one_per_language \
-      GROUP BY oracle_id, face_index \
-    ) p LEFT JOIN ( \
-      SELECT w.oracle_id, w.face_index, \
-             to_tsvector('simple', string_agg(DISTINCT d.printed, ' ')) AS extra \
+        WHERE f.flavor_name IS NOT NULL AND f.flavor_name <> '' \
+        GROUP BY c.oracle_id, f.face_index \
+      ) v USING (oracle_id, face_index) \
+    ) \
+    INSERT INTO card_search_text (oracle_id, face_index, lang, tsv) \
+    SELECT oracle_id, face_index, lang, to_tsvector('simple', string_agg(said, ' ')) \
+    FROM ( \
+      SELECT oracle_id, face_index, lang, \
+             nm || ' ' || tl || ' ' || tx \
+               || CASE WHEN pn <> nm THEN ' ' || pn ELSE '' END AS said \
+      FROM printed \
+      UNION ALL \
+      SELECT DISTINCT w.oracle_id, w.face_index, d.lang, d.printed \
       FROM ( \
         SELECT oracle_id, face_index, split_part(type_line, ' — ', 1) AS english FROM face \
         UNION ALL \
@@ -177,17 +194,12 @@ pub(crate) const PROJECT_SQL: &str = "\
         SELECT oracle_id, face_index, unnest(string_to_array(split_part(type_line, ' — ', 2), ' ')) \
         FROM face WHERE type_line LIKE '% — %' \
       ) w JOIN type_names d USING (english) \
-      GROUP BY w.oracle_id, w.face_index \
-    ) t USING (oracle_id, face_index) \
-    LEFT JOIN ( \
-      SELECT c.oracle_id, f.face_index, \
-             ' ' || catalog_norm(string_agg(DISTINCT f.flavor_name, ' | ')) || ' |' \
-               AS extra_norm, \
-             to_tsvector('simple', string_agg(DISTINCT f.flavor_name, ' ')) AS extra_tsv \
+      UNION ALL \
+      SELECT DISTINCT c.oracle_id, f.face_index, 'en', f.flavor_name \
       FROM cards c JOIN card_faces f USING (scryfall_id) \
       WHERE f.flavor_name IS NOT NULL AND f.flavor_name <> '' \
-      GROUP BY c.oracle_id, f.face_index \
-    ) v USING (oracle_id, face_index)";
+    ) words \
+    GROUP BY oracle_id, face_index, lang";
 
 /// Every printing [`Catalog::text_by_card`] chooses among, with its faces.
 ///
@@ -434,12 +446,14 @@ pub(crate) const MINE_ROUNDS: [&str; 4] = [
 /// symptom would have been read as a search that simply found less.
 ///
 /// A search answers in the client's language and English, and no other
-/// (owner, 4.11.2026): `names_norm` and `tsv` hold every language, so a card
-/// the query reached through a name in a third language and through no name
-/// in those two is dropped in `ranked`, before the `LIMIT`. A flavor name is in
-/// no language, so one reached through it stands. What stays wider is the
-/// rules text: `tsv` is one vector across languages, and asking it per
-/// language needs a projection per language.
+/// (owner, 4.11.2026), in both tiers. `texted` reads those two languages'
+/// rows of `card_search_text` and nothing else. `names_norm` holds every
+/// language in one string, because the bigrams that make it fast are one
+/// index, so `named` drops a card it reached through a name in a third
+/// language and through no name in those two. That stands in `named` and not
+/// further on: the same card may still be reached by its rules text in the
+/// client's own language, which `hit` then has every right to keep. A flavor
+/// name is in no language, so one reached through it stands.
 pub(crate) fn search_sql() -> &'static str {
     "\
         WITH q AS (SELECT catalog_norm($1) AS n, $1 AS raw, $2 AS lang), \
@@ -452,11 +466,21 @@ pub(crate) fn search_sql() -> &'static str {
           FROM card_search s CROSS JOIN q \
           WHERE s.bg @> catalog_bigrams(q.n) \
             AND position(q.n in s.names_norm) > 0 \
+            AND NOT ( \
+              position(q.n in catalog_norm(coalesce(s.names ->> q.lang, '') || ' | ' \
+                                           || coalesce(s.names ->> 'en', ''))) = 0 \
+              AND EXISTS ( \
+                SELECT 1 FROM jsonb_each_text(s.names) other \
+                WHERE other.key NOT IN (q.lang, 'en') \
+                  AND position(q.n in catalog_norm(other.value)) > 0 \
+              ) \
+            ) \
         ), \
         texted AS ( \
-          SELECT s.oracle_id, s.face_index, 4 AS tier \
-          FROM card_search s CROSS JOIN q \
-          WHERE s.tsv @@ plainto_tsquery('simple', q.raw) \
+          SELECT t.oracle_id, t.face_index, 4 AS tier \
+          FROM card_search_text t CROSS JOIN q \
+          WHERE t.lang IN (q.lang, 'en') \
+            AND t.tsv @@ plainto_tsquery('simple', q.raw) \
         ), \
         hit AS ( \
           SELECT DISTINCT ON (oracle_id) oracle_id, face_index, tier \
@@ -471,16 +495,7 @@ pub(crate) fn search_sql() -> &'static str {
                             coalesce(s.names ->> q.lang, s.names ->> 'en') \
                  ) AS nth \
           FROM hit h JOIN card_search s USING (oracle_id, face_index) CROSS JOIN q \
-          WHERE (jsonb_exists(s.names, q.lang) OR jsonb_exists(s.names, 'en')) \
-            AND NOT ( \
-              position(q.n in catalog_norm(coalesce(s.names ->> q.lang, '') || ' | ' \
-                                           || coalesce(s.names ->> 'en', ''))) = 0 \
-              AND EXISTS ( \
-                SELECT 1 FROM jsonb_each_text(s.names) other \
-                WHERE other.key NOT IN (q.lang, 'en') \
-                  AND position(q.n in catalog_norm(other.value)) > 0 \
-              ) \
-            ) \
+          WHERE jsonb_exists(s.names, q.lang) OR jsonb_exists(s.names, 'en') \
           ORDER BY nth \
           LIMIT $3 \
         ), \
