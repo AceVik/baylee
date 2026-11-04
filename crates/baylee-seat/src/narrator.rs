@@ -23,6 +23,19 @@
 //! learns no person and no game, and a name never stands where an
 //! instruction could.
 //!
+//! # A decision for a controlled player
+//!
+//! A decision the seat makes for the player whose turn it controls
+//! (Mindslaver, CR 723.5) is told as one: a line under the header says
+//! whom it is for, that it may go against that player's interest, uses
+//! that player's cards and mana only, and that the seat cannot concede for
+//! them (CR 723.6; [`Table::controlled_line`]). "You" stays the seat
+//! throughout: the controlled player's hand, pool, lands, commander,
+//! library and turn are "P2's", never "your" ([`Table::decider`]), the
+//! hand the seat sees through control is told under P2's name, and the
+//! options cast, tap and declare with P2's objects. A concession is not an
+//! answer there ([`Menu::resolve`]).
+//!
 //! # Ids
 //!
 //! An object is `#` and its arena slot, which names one live object at a
@@ -237,6 +250,9 @@ impl Narrator {
         let mut text = String::new();
         let headline = table.headline(request);
         let _ = writeln!(text, "{}", table.header(request, stops_summary));
+        if let Some(line) = table.controlled_line() {
+            let _ = writeln!(text, "{line}");
+        }
         for note in notes {
             let _ = writeln!(text, "{note}");
         }
@@ -617,6 +633,52 @@ impl<'a> Table<'a> {
         self.view.seat
     }
 
+    /// The player this decision is made for, whose cards and mana it uses:
+    /// the seat, or the player whose turn it controls (CR 723.5).
+    pub fn decider(&self) -> PlayerId {
+        baylee_client_core::decision::resource_player(self.view)
+    }
+
+    /// The player this decision is made for, when that is not the seat.
+    pub fn controlled(&self) -> Option<PlayerId> {
+        Some(self.decider()).filter(|p| *p != self.me())
+    }
+
+    /// The decider's possessive at the start of a sentence: "Your" or
+    /// "P2's".
+    pub fn decider_whose_cap(&self) -> String {
+        if self.controlled().is_some() {
+            self.whose(self.decider())
+        } else {
+            "Your".into()
+        }
+    }
+
+    /// `text` written for the decider: unchanged in the seat's own
+    /// decision; in a controlled one, "your" is the controlled player's and
+    /// "you control" what that player controls. For the fixed sentences
+    /// the menu shares with the seat's own decisions (a search, a pile).
+    pub fn for_decider(&self, text: &str) -> String {
+        let Some(p) = self.controlled() else {
+            return text.to_string();
+        };
+        let name = Self::player_id(p);
+        text.replace("you control", &format!("{name} controls"))
+            .replace("Your ", &format!("{name}'s "))
+            .replace("your ", &format!("{name}'s "))
+    }
+
+    /// The line under the header of a decision for a controlled player
+    /// (CR 723.5, 723.6); `None` in the seat's own.
+    pub fn controlled_line(&self) -> Option<String> {
+        let p = Self::player_id(self.controlled()?);
+        Some(format!(
+            "You control {p} this turn (Mindslaver, CR 723.5): decide this for {p}, with {p}'s \
+             cards and mana only. You may play it against {p}'s interest. You cannot concede \
+             for {p}. Your own decisions stay yours."
+        ))
+    }
+
     /// A player as a subject: "you" or "P2".
     pub fn player(&self, p: PlayerId) -> String {
         if p == self.me() {
@@ -770,13 +832,17 @@ impl<'a> Table<'a> {
     }
 
     fn headline(&self, request: &Request) -> String {
-        format!(
+        let mut line = format!(
             "q{} · {} · {} · {}",
             request.question,
             self.turn(),
             words::step_name(self.view.phase, self.view.step),
             crate::scripted::kind(&request.pending),
-        )
+        );
+        if let Some(p) = self.controlled() {
+            let _ = write!(line, " for {}", Self::player_id(p));
+        }
+        line
     }
 }
 

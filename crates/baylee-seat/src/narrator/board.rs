@@ -111,23 +111,37 @@ fn pool(pool: &ManaPoolView) -> String {
 }
 
 /// Which zone an object is in, in words.
-pub(super) fn zone(table: &Table<'_>, id: ObjectId) -> &'static str {
+pub(super) fn zone(table: &Table<'_>, id: ObjectId) -> String {
     let view = table.view;
     if view.battlefield.iter().any(|o| o.id == id) {
-        "on the battlefield"
+        "on the battlefield".into()
     } else if view.stack.iter().any(|o| o.id == id) {
-        "on the stack"
+        "on the stack".into()
     } else if view.command.iter().flatten().any(|o| o.id == id) {
-        "in the command zone"
+        "in the command zone".into()
     } else if view.graveyards.iter().flatten().any(|o| o.id == id) {
-        "in a graveyard"
+        "in a graveyard".into()
     } else if view.exile.iter().flatten().any(|o| o.id == id) {
-        "in exile"
-    } else if view.hand.iter().any(|c| c.id == id) {
-        "in your hand"
+        "in exile".into()
+    } else if let Some(owner) = hand_owner(table, id) {
+        format!("in {} hand", table.whose(owner))
     } else {
-        "somewhere you cannot see"
+        "somewhere you cannot see".into()
     }
+}
+
+/// Whose hand a card the seat sees in a hand is in: its own, a hand shown
+/// to it, or the hand of a player whose turn it controls.
+pub(super) fn hand_owner(table: &Table<'_>, id: ObjectId) -> Option<PlayerId> {
+    let view = table.view;
+    if view.hand.iter().any(|c| c.id == id) {
+        return Some(table.me());
+    }
+    view.controlled_hands
+        .iter()
+        .chain(&view.shared_hands)
+        .find(|h| h.cards.iter().any(|c| c.id == id))
+        .map(|h| h.player)
 }
 
 /// The battlefield per controller, the stack, the hand, the other zones and
@@ -140,17 +154,23 @@ pub(super) fn board(table: &Table<'_>, out: &mut String) {
         battlefield(table, p, out);
     }
     stack(table, out);
-    hand(table, "Your hand", &view.hand, out);
+    hand(table, "Your hand", table.me(), &view.hand, out);
     for shared in &view.shared_hands {
         let title = format!("{} hand (shown to you)", table.whose(shared.player));
-        hand(table, &capitalised(&title), &shared.cards, out);
+        hand(table, &capitalised(&title), shared.player, &shared.cards, out);
     }
     for controlled in &view.controlled_hands {
         let title = format!(
             "{} hand (you decide for this player)",
             table.whose(controlled.player)
         );
-        hand(table, &capitalised(&title), &controlled.cards, out);
+        hand(
+            table,
+            &capitalised(&title),
+            controlled.player,
+            &controlled.cards,
+            out,
+        );
     }
     zones(table, out);
     combat(table, out);
@@ -468,19 +488,25 @@ fn names_without_targeting(object: &PublicObject) -> bool {
     }
 }
 
-fn hand(table: &Table<'_>, title: &str, cards: &[HandObject], out: &mut String) {
+fn hand(
+    table: &Table<'_>,
+    title: &str,
+    owner: PlayerId,
+    cards: &[HandObject],
+    out: &mut String,
+) {
     if cards.is_empty() {
         let _ = writeln!(out, "{title}: empty");
         return;
     }
     let _ = writeln!(out, "{title}:");
     for card in cards {
-        let _ = writeln!(out, "  {}", hand_line(table, card));
+        let _ = writeln!(out, "  {}", hand_line(table, card, owner));
     }
 }
 
-/// A card in a hand: "#50 Lightning Bolt {R} · Instant".
-pub(super) fn hand_line(table: &Table<'_>, card: &HandObject) -> String {
+/// A card in `owner`'s hand: "#50 Lightning Bolt {R} · Instant".
+pub(super) fn hand_line(table: &Table<'_>, card: &HandObject, owner: PlayerId) -> String {
     let printed = baylee_cards::by_index(card.card.index)
         .and_then(|def| def.faces.get(usize::from(card.card.face)));
     let mut line = format!("{} {}", tag(card.id), card.name);
@@ -499,7 +525,7 @@ pub(super) fn hand_line(table: &Table<'_>, card: &HandObject) -> String {
         let _ = write!(line, " · {stats}");
     }
     if card.commander {
-        let _ = write!(line, " · {} commander", table.whose(table.me()));
+        let _ = write!(line, " · {} commander", table.whose(owner));
     }
     line
 }
