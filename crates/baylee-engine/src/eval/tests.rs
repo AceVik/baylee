@@ -1177,28 +1177,24 @@ fn combat_participation_survives_removal_but_not_a_new_incarnation_or_combat() {
 }
 
 #[test]
-fn event_blocked_condition_keeps_the_triggering_incarnation_and_turn_boundary() {
+fn source_blocked_condition_distinguishes_departure_from_destination_identity() {
     let mut state = empty_state();
     let attacker = creature(&mut state, P0, KeywordSet::EMPTY);
     let blocker = creature(&mut state, P1, KeywordSet::EMPTY);
     state.declare_block(blocker, attacker);
     let version = state.object(attacker).expect("attacker").version;
-    let event = baylee_core::ids::DamageSourceRef {
-        object: attacker,
-        version,
-    };
-    let holds = |state: &GameState, event| {
+    let holds = |state: &GameState, version| {
         intervening_if_for_incarnation(
             state,
-            Some(Condition::EventObjectWasBlockedThisTurn),
+            Some(Condition::SourceWasBlockedThisTurn),
             P0,
             attacker,
-            Some(version),
+            version,
             None,
-            event,
+            None,
         )
     };
-    assert!(holds(&state, Some(event)));
+    assert!(holds(&state, Some(version)));
 
     state
         .move_object(
@@ -1219,28 +1215,25 @@ fn event_blocked_condition_keeps_the_triggering_incarnation_and_turn_boundary() 
         .expect("the departure is journaled");
     assert_eq!(
         state.event_object_identity(attacker, death.seq),
-        Some((version, 1)),
-        "the death event names the departed battlefield object, not its graveyard successor"
+        Some((version + 1, 1)),
+        "the destination identity remains the graveyard successor"
     );
     assert!(
-        holds(&state, Some(event)),
-        "the graveyard successor does not erase the battlefield block"
+        holds(&state, Some(version)),
+        "the source condition still reads the departed battlefield object"
     );
-    assert!(!holds(&state, None), "the condition needs its event object");
     assert!(
-        !holds(
-            &state,
-            Some(baylee_core::ids::DamageSourceRef {
-                object: attacker,
-                version: version + 1,
-            })
-        ),
+        !holds(&state, None),
+        "the condition needs its source incarnation"
+    );
+    assert!(
+        !holds(&state, Some(version + 1)),
         "a returned permanent is a new object (CR 400.7)"
     );
 
     state.per_turn.blocks.clear();
     assert!(
-        !holds(&state, Some(event)),
+        !holds(&state, Some(version)),
         "the resolution check also fails after this turn's history is gone (CR 603.4)"
     );
 }

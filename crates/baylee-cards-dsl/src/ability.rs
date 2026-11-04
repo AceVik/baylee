@@ -175,9 +175,9 @@ pub enum Condition {
     AmountIsEven(crate::Amount),
     /// This incarnation blocked or became blocked since your previous upkeep.
     SourceBlockedOrWasBlockedSinceYourLastUpkeep,
-    /// The triggering event's object was blocked earlier this turn, as that
-    /// exact battlefield incarnation (CR 400.7, CR 603.4).
-    EventObjectWasBlockedThisTurn,
+    /// The ability's source was blocked earlier this turn, as that exact
+    /// battlefield incarnation (CR 400.7, CR 603.4).
+    SourceWasBlockedThisTurn,
     /// A creature damaged by this source incarnation died this turn.
     CreatureDamagedBySourceDiedThisTurn,
     /// At least one eligible defending player controls no matching permanent.

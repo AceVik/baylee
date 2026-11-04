@@ -6486,22 +6486,22 @@ got wrong was in the tests, not in the cards:
 
 ## 2026-11-04 — Fyndhorn Druid's death-time block condition
 
-- Reuse `PerTurn::blocks` through `Condition::EventObjectWasBlockedThisTurn`.
-  The condition compares the triggering event's exact object incarnation, not
-  the reusable handle or the source's current card. It is checked when the
-  trigger is collected and again when it resolves (CR 400.7, CR 603.4).
-- The shared event-identity reader skipped the current `ZoneChanged` entry and
-  consequently fell back to the graveyard successor when no later departure
-  existed. Read a current battlefield departure before scanning later entries.
-  The direct rule assertion was red without that fix, returning the successor's
-  version 1 instead of the departed battlefield version 0, and green after it.
-  The played block case was also red before the fix: no trigger reached the
-  stack and the controller stayed at 20 instead of gaining 4 life.
+- Reuse `PerTurn::blocks` through `Condition::SourceWasBlockedThisTurn`. The
+  condition compares the source's exact event-time incarnation, not the reusable
+  handle or its current card, when the trigger is collected and again when it
+  resolves (CR 400.7, CR 603.4).
+- A death event's destination-zone identity and its departed source identity
+  serve different readers. Changing the shared event-object reader to prefer the
+  battlefield departure fixed the new card but regressed Rancor, Weatherseed
+  Treefolk, Ojer Taq and Mortuary in the first full test partition. Keep that
+  reader unchanged and pass the source version through event-condition evaluation
+  instead. The direct rule test pins both identities and was red before the
+  source-aware condition existed.
 - Four played tests cover lethal combat after a block, an unblocked attack
   followed by a later death, dying while blocking another creature, and a block
   from an earlier turn. The positive test separately asserts that the trigger
   reaches the stack before its life gain resolves. The direct condition test
-  covers a missing event object, an incarnation mismatch and the turn-history
+  covers the destination successor, an incarnation mismatch and the turn-history
   boundary at resolution.
 - The automatic trigger and ordinary life gain add no pending shape, hidden
   information or client rendering requirement. Desktop, house AI and LLM seats

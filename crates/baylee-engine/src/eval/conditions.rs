@@ -110,7 +110,7 @@ pub fn condition_holds_with_context(
         // resolution (`resolve::immediate::resolution_condition`).
         Condition::ControlCountExceptEvent(_, _)
         | Condition::EventBlockedByOthers { .. }
-        | Condition::EventObjectWasBlockedThisTurn
+        | Condition::SourceWasBlockedThisTurn
         | Condition::TargetSpellWouldDestroy(_) => false,
         // "Only after combat": a main or ending phase after this turn's
         // combat (the postcombat main phase or the end phase).
@@ -700,9 +700,14 @@ pub(crate) fn intervening_if_for_incarnation(
             version.is_none_or(|version| state.object(source).is_some_and(|o| o.version == version))
                 && intervening_if(state, condition, you, source)
         }
-        Some(condition) => {
-            condition_with_event(state, you, live_context(state, source), condition, event)
-        }
+        Some(condition) => condition_with_event(
+            state,
+            you,
+            live_context(state, source),
+            condition,
+            version,
+            event,
+        ),
         None => true,
     }
 }
@@ -712,7 +717,7 @@ pub(crate) fn condition_reads_event(condition: Condition) -> bool {
     match condition {
         Condition::ControlCountExceptEvent(_, _)
         | Condition::EventBlockedByOthers { .. }
-        | Condition::EventObjectWasBlockedThisTurn => true,
+        | Condition::SourceWasBlockedThisTurn => true,
         Condition::All(conditions) | Condition::Any(conditions) => {
             conditions.iter().copied().any(condition_reads_event)
         }
@@ -721,12 +726,13 @@ pub(crate) fn condition_reads_event(condition: Condition) -> bool {
     }
 }
 
-/// Evaluate a condition with the triggering incarnation available to its clauses.
+/// Evaluate a condition with the source and event incarnations available.
 pub(crate) fn condition_with_event(
     state: &GameState,
     you: PlayerId,
     context: RuleContext,
     condition: Condition,
+    source_version: Option<u32>,
     event: Option<baylee_core::ids::DamageSourceRef>,
 ) -> bool {
     match condition {
@@ -745,12 +751,16 @@ pub(crate) fn condition_with_event(
                 .count()
                 >= usize::from(minimum)
         }
-        Condition::EventObjectWasBlockedThisTurn => event.is_some_and(|event| {
+        Condition::SourceWasBlockedThisTurn => source_version.is_some_and(|version| {
+            let attacker = baylee_core::ids::DamageSourceRef {
+                object: context.source,
+                version,
+            };
             state
                 .per_turn
                 .blocks
                 .iter()
-                .any(|record| record.attacker == event)
+                .any(|record| record.attacker == attacker)
         }),
         // Wall of Caltrops: the creature it blocks, as that event names it.
         Condition::EventBlockedByOthers { some, none } => {
@@ -774,13 +784,15 @@ pub(crate) fn condition_with_event(
                 .iter()
                 .any(|b| matches_with_context(none, state, b, you, context))
         }
-        Condition::All(conditions) => conditions
-            .iter()
-            .all(|&condition| condition_with_event(state, you, context, condition, event)),
-        Condition::Any(conditions) => conditions
-            .iter()
-            .any(|&condition| condition_with_event(state, you, context, condition, event)),
-        Condition::Not(condition) => !condition_with_event(state, you, context, *condition, event),
+        Condition::All(conditions) => conditions.iter().all(|&condition| {
+            condition_with_event(state, you, context, condition, source_version, event)
+        }),
+        Condition::Any(conditions) => conditions.iter().any(|&condition| {
+            condition_with_event(state, you, context, condition, source_version, event)
+        }),
+        Condition::Not(condition) => {
+            !condition_with_event(state, you, context, *condition, source_version, event)
+        }
         _ => condition_holds_with_context(state, you, context, condition),
     }
 }

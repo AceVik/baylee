@@ -4150,11 +4150,12 @@ Amounts:
 
 Conditions and triggers:
 
-- `Condition::EventObjectWasBlockedThisTurn` — the triggering event's exact
-  battlefield incarnation was declared blocked earlier this turn. It reads the
-  attacker's object and version in `PerTurn::blocks`, not the source's current
-  card, and is checked both when the trigger is collected and when it resolves
-  (CR 400.7, CR 603.4). Fyndhorn Druid uses it on `Trigger::Dies(&Filter::This)`.
+- `Condition::SourceWasBlockedThisTurn` — the ability source's exact
+  battlefield incarnation was declared blocked earlier this turn. It compares
+  the source's event-time object and version with `PerTurn::blocks`, not its
+  current card, and is checked both when the trigger is collected and when it
+  resolves (CR 400.7, CR 603.4). Fyndhorn Druid uses it on
+  `Trigger::Dies(&Filter::This)`.
 - `Condition::EventBlockedByOthers { some, none }` — intervening "if" about
   the triggering event's creature: at least one creature other than this
   source blocking it matches `some`, and none blocking it matches `none`

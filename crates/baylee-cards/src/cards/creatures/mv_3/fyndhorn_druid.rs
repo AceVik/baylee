@@ -23,6 +23,6 @@ card!(
     abilities = &[triggered!(
         Trigger::Dies(&Filter::This),
         &[Effect::gain_life(4)],
-        condition = Some(Condition::EventObjectWasBlockedThisTurn)
+        condition = Some(Condition::SourceWasBlockedThisTurn)
     )],
 );
