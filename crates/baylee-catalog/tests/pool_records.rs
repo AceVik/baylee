@@ -116,7 +116,10 @@ async fn a_cards_printings_disagreeing_leave_the_strongest_word() {
     let old = || printing(1, MOX, "leb", "en", "rare", &[("oldschool", "restricted")]);
     let reprint = || printing(2, MOX, "30a", "en", "rare", &[("oldschool", "not_legal")]);
 
-    catalog.upsert(&[old(), reprint()]).await.expect("one batch");
+    catalog
+        .upsert(&[old(), reprint()])
+        .await
+        .expect("one batch");
     assert_eq!(
         stored(catalog, MOX).await,
         verdicts(&[("oldschool", "restricted")])
@@ -147,17 +150,37 @@ async fn a_cards_printings_disagreeing_leave_the_strongest_word() {
 async fn an_ingest_replaces_what_the_last_one_said() {
     let sandbox = Sandbox::open("reingest").await;
     let catalog = &sandbox.catalog;
-    let banned = feed(&[printing(1, BOLT, "m21", "en", "rare", &[("modern", "banned")])]);
+    let banned = feed(&[printing(
+        1,
+        BOLT,
+        "m21",
+        "en",
+        "rare",
+        &[("modern", "banned")],
+    )]);
     ingest::from_feed(catalog, move || Ok(banned))
         .await
         .expect("the first ingest");
-    assert_eq!(stored(catalog, BOLT).await, verdicts(&[("modern", "banned")]));
+    assert_eq!(
+        stored(catalog, BOLT).await,
+        verdicts(&[("modern", "banned")])
+    );
 
-    let lifted = feed(&[printing(1, BOLT, "m21", "en", "rare", &[("modern", "legal")])]);
+    let lifted = feed(&[printing(
+        1,
+        BOLT,
+        "m21",
+        "en",
+        "rare",
+        &[("modern", "legal")],
+    )]);
     ingest::from_feed(catalog, move || Ok(lifted))
         .await
         .expect("the second ingest");
-    assert_eq!(stored(catalog, BOLT).await, verdicts(&[("modern", "legal")]));
+    assert_eq!(
+        stored(catalog, BOLT).await,
+        verdicts(&[("modern", "legal")])
+    );
     sandbox.close().await;
 }
 
@@ -168,7 +191,14 @@ async fn a_feed_that_never_opens_leaves_the_verdicts_standing() {
     let sandbox = Sandbox::open("nofeed").await;
     let catalog = &sandbox.catalog;
     catalog
-        .upsert(&[printing(1, BOLT, "m21", "en", "rare", &[("modern", "banned")])])
+        .upsert(&[printing(
+            1,
+            BOLT,
+            "m21",
+            "en",
+            "rare",
+            &[("modern", "banned")],
+        )])
         .await
         .expect("seeding");
     let failed = ingest::from_feed(catalog, || -> anyhow::Result<std::io::Cursor<String>> {
@@ -176,7 +206,10 @@ async fn a_feed_that_never_opens_leaves_the_verdicts_standing() {
     })
     .await;
     assert!(failed.is_err());
-    assert_eq!(stored(catalog, BOLT).await, verdicts(&[("modern", "banned")]));
+    assert_eq!(
+        stored(catalog, BOLT).await,
+        verdicts(&[("modern", "banned")])
+    );
     sandbox.close().await;
 }
 

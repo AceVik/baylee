@@ -445,9 +445,7 @@ impl<'a> CardFacts<'a> {
         let table = self.table;
         self.printed.iter().filter_map(move |packed| {
             let set = table.sets.get((packed >> RARITY_BITS) as usize)?;
-            let rarity = Rarity::ALL
-                .get((packed & NO_RARITY) as usize)
-                .copied();
+            let rarity = Rarity::ALL.get((packed & NO_RARITY) as usize).copied();
             Some(Printed {
                 set: &set.code,
                 rarity,
@@ -531,7 +529,11 @@ mod tests {
     /// make the same table whatever order a query handed them over in.
     #[test]
     fn the_same_cards_make_the_same_table() {
-        let a = line(1, &[("modern", "legal")], &[("m21", "rare"), ("lea", "rare")]);
+        let a = line(
+            1,
+            &[("modern", "legal")],
+            &[("m21", "rare"), ("lea", "rare")],
+        );
         let b = line(2, &[("pauper", "banned")], &[("lea", "common")]);
         let sets = || vec![set("m21"), set("lea")];
         let one = PoolFactsBody::assemble(sets(), vec![a.clone(), b.clone()]);
@@ -541,12 +543,13 @@ mod tests {
 
     #[test]
     fn a_card_with_nothing_stored_has_no_verdict_and_a_rarity_may_be_missing() {
-        let body =
-            PoolFactsBody::assemble(vec![set("m21")], vec![line(1, &[], &[("m21", "")]), line(
-                2,
-                &[("modern", "legal")],
-                &[],
-            )]);
+        let body = PoolFactsBody::assemble(
+            vec![set("m21")],
+            vec![
+                line(1, &[], &[("m21", "")]),
+                line(2, &[("modern", "legal")], &[]),
+            ],
+        );
         let table = PoolFacts::from(body);
         let bare = table.of(1).expect("the card is there");
         assert_eq!(bare.legality("modern"), None);

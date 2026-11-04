@@ -78,8 +78,7 @@ use schema::{
 };
 use sql::{
     BIGRAMS_BODY, CORPUS_SQL, MINE_ROUNDS, NORM_BODY, POOL_PRINTED_SQL, POOL_SETS_SQL,
-    POOL_VERDICTS_SQL, PROJECT_LOCK, PROJECT_SQL, SCHEMA_LOCK,
-    TEXT_SQL, search_sql,
+    POOL_VERDICTS_SQL, PROJECT_LOCK, PROJECT_SQL, SCHEMA_LOCK, TEXT_SQL, search_sql,
 };
 
 /// One search result, for the deck builder.
@@ -234,8 +233,7 @@ pub struct PoolRecords {
     /// The sets these cards were printed in, newest first.
     pub sets: Vec<PoolSet>,
     /// Each card's verdicts, format to Scryfall's word.
-    pub verdicts:
-        std::collections::BTreeMap<String, std::collections::BTreeMap<String, String>>,
+    pub verdicts: std::collections::BTreeMap<String, std::collections::BTreeMap<String, String>>,
     /// Each card's `(set code, rarity word)` pairs.
     pub printed: std::collections::BTreeMap<String, Vec<(String, String)>>,
 }

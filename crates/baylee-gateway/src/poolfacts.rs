@@ -122,11 +122,7 @@ fn assemble(records: &PoolRecords) -> PoolFactsBody {
 
 /// The first 16 hex digits of the SHA-256 of `bytes`.
 fn hash(bytes: &[u8]) -> String {
-    Sha256::digest(bytes)
-        .iter()
-        .take(8)
-        .map(|byte| format!("{byte:02x}"))
-        .collect()
+    crate::auth::hex_lower(&Sha256::digest(bytes)[..8])
 }
 
 /// Query for `GET /pool/facts`.
@@ -173,9 +169,7 @@ pub async fn pool_facts(
         Ok(held) if !held.version.is_empty() && params.have.as_ref() == Some(&held.version) => {
             Ok(StatusCode::NOT_MODIFIED.into_response())
         }
-        Ok(held) => {
-            Ok(([(CONTENT_TYPE, "application/json")], held.body.clone()).into_response())
-        }
+        Ok(held) => Ok(([(CONTENT_TYPE, "application/json")], held.body.clone()).into_response()),
         Err(e) => {
             tracing::warn!(%e, "reading the pool's table failed; answering an empty one");
             Ok(Json(PoolFactsBody::default()).into_response())
@@ -268,10 +262,7 @@ mod tests {
     async fn the_table_is_read_once_until_the_catalog_moves() {
         let sandbox = Sandbox::open("once").await;
         let catalog = &sandbox.catalog;
-        catalog
-            .upsert(&[stone(1, "legal")])
-            .await
-            .expect("seeding");
+        catalog.upsert(&[stone(1, "legal")]).await.expect("seeding");
         let cache = PoolFactsCache::default();
 
         let first = cache.get(catalog).await.expect("reading");

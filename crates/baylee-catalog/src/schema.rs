@@ -122,9 +122,7 @@ pub(crate) fn split_list(joined: &str) -> Vec<String> {
 /// The body of `catalog_verdicts`, spelled from [`VERDICT_ORDER`] so the merge
 /// a batch makes in Rust and the one a conflict makes here cannot differ.
 fn verdicts_body() -> String {
-    let order = VERDICT_ORDER
-        .map(|word| format!("'{word}'"))
-        .join(", ");
+    let order = VERDICT_ORDER.map(|word| format!("'{word}'")).join(", ");
     format!(
         "SELECT coalesce(jsonb_object_agg(format, verdict), '{{}}'::jsonb) FROM ( \
            SELECT DISTINCT ON (key) key AS format, value AS verdict \

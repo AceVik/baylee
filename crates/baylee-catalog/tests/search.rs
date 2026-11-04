@@ -1242,7 +1242,13 @@ async fn an_english_card_is_called_what_the_oracle_calls_it() {
 // ---------------------------------------------------- rules text, per language
 
 /// A card printed in three languages, each saying a word of its own.
-fn spoken(id: &str, lang: &str, name: Option<&str>, kind: Option<&str>, text: Option<&str>) -> scryfall::Card {
+fn spoken(
+    id: &str,
+    lang: &str,
+    name: Option<&str>,
+    kind: Option<&str>,
+    text: Option<&str>,
+) -> scryfall::Card {
     scryfall::Card {
         id: id.to_string(),
         oracle_id: Some("eeeeeeee-0000-4000-8000-000000000001".to_string()),
@@ -1261,7 +1267,13 @@ fn spoken(id: &str, lang: &str, name: Option<&str>, kind: Option<&str>, text: Op
 
 fn three_languages() -> Vec<scryfall::Card> {
     vec![
-        spoken("00000000-0000-4000-8000-0000000000e1", "en", None, None, None),
+        spoken(
+            "00000000-0000-4000-8000-0000000000e1",
+            "en",
+            None,
+            None,
+            None,
+        ),
         spoken(
             "00000000-0000-4000-8000-0000000000e2",
             "de",
@@ -1350,7 +1362,13 @@ async fn a_name_in_a_third_language_does_not_hide_the_clients_own_rules_text() {
     let sandbox = Sandbox::open("namedtext").await;
     sandbox
         .fill(&[
-            spoken("00000000-0000-4000-8000-0000000000e5", "en", None, None, None),
+            spoken(
+                "00000000-0000-4000-8000-0000000000e5",
+                "en",
+                None,
+                None,
+                None,
+            ),
             spoken(
                 "00000000-0000-4000-8000-0000000000e6",
                 "de",
@@ -1369,7 +1387,10 @@ async fn a_name_in_a_third_language_does_not_hide_the_clients_own_rules_text() {
         .await;
     assert!(sandbox.finds("Tormenta", "es").await, "its own name");
     assert!(sandbox.finds("Tormenta", "de").await, "its own rules text");
-    assert!(!sandbox.finds("Tormenta", "en").await, "neither, in English");
+    assert!(
+        !sandbox.finds("Tormenta", "en").await,
+        "neither, in English"
+    );
     sandbox.close().await;
 }
 
@@ -1377,12 +1398,21 @@ async fn a_name_in_a_third_language_does_not_hide_the_clients_own_rules_text() {
 #[tokio::test]
 async fn a_flavor_name_is_read_from_every_language() {
     let sandbox = Sandbox::open("flavorlang").await;
-    let mut card = spoken("00000000-0000-4000-8000-0000000000e8", "en", None, None, None);
+    let mut card = spoken(
+        "00000000-0000-4000-8000-0000000000e8",
+        "en",
+        None,
+        None,
+        None,
+    );
     card.flavor_name = Some("Autobot City".to_string());
     sandbox.fill(&[card]).await;
     for lang in ["en", "de", "ja"] {
         assert!(sandbox.finds("Autobot City", lang).await, "from {lang}");
-        assert!(sandbox.finds("City Autobot", lang).await, "as words, from {lang}");
+        assert!(
+            sandbox.finds("City Autobot", lang).await,
+            "as words, from {lang}"
+        );
     }
     sandbox.close().await;
 }
