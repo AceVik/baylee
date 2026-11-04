@@ -837,9 +837,6 @@ impl Builder<'_, '_> {
         let place = board::hand_owner(table, source).map_or_else(String::new, |owner| {
             format!(" (from {} hand)", table.whose(owner))
         });
-        if let Some(sentence) = ability_sentence(table, source, index) {
-            return format!("Activate {named}{place}: \"{sentence}\"");
-        }
         let mana = ability_def(table, source, index).is_some_and(|def| {
             matches!(
                 def,
@@ -849,9 +846,22 @@ impl Builder<'_, '_> {
                 } | AbilityDef::ActivatedConditional {
                     mana_ability: true,
                     ..
+                } | AbilityDef::ModalActivated {
+                    mana_ability: true,
+                    ..
                 }
             )
         });
+        if let Some(sentence) = ability_sentence(table, source, index) {
+            // A plan of Argon's passed after one, as after an ability on the
+            // stack, and the mana emptied with the step (CR 605.3b, CR 500.5).
+            let at_once = if mana {
+                " (a mana ability: the mana is there at once, no pass needed)"
+            } else {
+                ""
+            };
+            return format!("Activate {named}{place}: \"{sentence}\"{at_once}");
+        }
         let what = if mana {
             "its mana ability"
         } else {

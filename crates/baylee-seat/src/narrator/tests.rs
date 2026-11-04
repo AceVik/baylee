@@ -600,6 +600,45 @@ fn what_the_view_hides_the_message_does_not_say() {
     assert!(!drew.contains('#'), "{drew}");
 }
 
+/// A mana ability with a price of its own is an option like any ability, and
+/// its label says it needs no pass: a plan of Argon's passed after Apprentice
+/// Wizard, as after an ability on the stack, and the mana emptied with the
+/// step. An ability that does use the stack is not told so.
+#[test]
+fn a_priced_mana_ability_says_the_mana_is_there_at_once() {
+    let (mut view, log) = board();
+    view.battlefield.push(card(77, "Apprentice Wizard"));
+    view.battlefield.push(card(78, "Island"));
+    let mut pending = priority(&view);
+    let Pending::Priority { legal, .. } = &mut pending else {
+        unreachable!("priority answers a priority");
+    };
+    legal.mana_abilities.push(id(78));
+    legal.abilities.push((id(77), 0));
+    legal
+        .unpaid_abilities
+        .push((id(77), 0, "{U}".parse().unwrap()));
+    let request = request(view, pending, log);
+    let wake = Narrator::new(&request.context).wake(&request, &[], None);
+    let line = |name: &str| {
+        wake.text
+            .lines()
+            .find(|line| line.contains(name))
+            .unwrap_or_else(|| panic!("{name} in {}", wake.text))
+            .to_string()
+    };
+    assert!(
+        line("Activate Apprentice Wizard").contains("no pass needed"),
+        "{}",
+        wake.text
+    );
+    assert!(
+        !line("Activate Prodigal Sorcerer").contains("no pass needed"),
+        "{}",
+        wake.text
+    );
+}
+
 /// Every option the menu offers resolves to the action it names, and an
 /// id from outside the question is refused with the ids that are in it.
 #[test]
