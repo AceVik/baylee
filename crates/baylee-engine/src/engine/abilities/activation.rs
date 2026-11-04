@@ -816,6 +816,15 @@ impl<L: CardLookup> Engine<L> {
                     |(_, list)| list.acquisition,
                 )
             });
+        // What the source is attached to as it is activated: a cost that
+        // sacrifices it (Thrull Retainer) moves it before the ability is on
+        // the stack to remember it (CR 113.7a, CR 608.2h).
+        let activated_source_attachment = self
+            .state
+            .object(source)
+            .filter(|o| o.zone == crate::zone::Zone::Battlefield)
+            .and_then(|o| o.attached_to)
+            .and_then(|host| self.state.object(host).map(|h| (host, h.version)));
         let completion = super::payment::ActivationCompletion {
             player,
             source,
@@ -827,6 +836,7 @@ impl<L: CardLookup> Engine<L> {
             fixed_mana_cost,
             activation_life,
             activated_source_version,
+            activated_source_attachment,
             activated_text,
             circled_colors,
             acquisition,

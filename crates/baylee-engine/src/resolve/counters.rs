@@ -579,6 +579,18 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                     return None;
                 }
                 smallvec::smallvec![crate::effects::EffectFilter::object(state, this)]
+            } else if matches!(filter, baylee_cards_dsl::Filter::AttachedToBySource) {
+                // "Enchanted creature gets +3/+3": the host now, or the one it
+                // had as it left, sacrificed to pay for this (Briar Shield).
+                let (host, _) = super::attached_host(state, res)?;
+                if seats.as_ref().is_some_and(|seats| {
+                    state
+                        .object(host)
+                        .is_none_or(|o| !seats.contains(&o.controller))
+                }) {
+                    return None;
+                }
+                smallvec::smallvec![crate::effects::EffectFilter::object(state, host)]
             } else {
                 super::bound_now_with_context(
                     state,

@@ -120,6 +120,9 @@ pub(crate) struct ActivationCompletion {
     pub fixed_mana_cost: baylee_core::mana::ManaCost,
     pub activation_life: i32,
     pub activated_source_version: Option<u32>,
+    /// What the source was attached to as it was activated, and that
+    /// host's incarnation: the last known one when the cost moves it.
+    pub activated_source_attachment: Option<(ObjectId, u32)>,
     pub activated_text: crate::text_changes::TextChangeMap,
     pub circled_colors: baylee_core::color::ColorSet,
     pub acquisition: u64,
@@ -222,6 +225,7 @@ impl<L: CardLookup> Engine<L> {
             fixed_mana_cost,
             activation_life,
             activated_source_version,
+            activated_source_attachment,
             activated_text,
             circled_colors,
             acquisition,
@@ -386,6 +390,27 @@ impl<L: CardLookup> Engine<L> {
                     .retain(|r| !matches!(r, crate::object::Rider::AbilitySourceVersion(_)));
                 obj.riders
                     .push(crate::object::Rider::AbilitySourceVersion(version));
+            }
+            // A cost that sacrificed the source (Thrull Retainer, Briar Shield)
+            // moved it before this ability existed, so nothing wrote down what
+            // it was attached to as it left: it was the host it had as it was
+            // activated (CR 113.7a, CR 608.2h).
+            let source_left = !self.state.object(source).is_some_and(|o| {
+                o.zone == crate::zone::Zone::Battlefield
+                    && activated_source_version.is_none_or(|v| v == o.version)
+            });
+            if source_left
+                && let Some((host, version)) = activated_source_attachment
+                && let Some(obj) = self.state.object_mut(ability)
+                && !obj
+                    .riders
+                    .iter()
+                    .any(|r| matches!(r, crate::object::Rider::SourceAttachmentLki(_)))
+            {
+                obj.riders
+                    .push(crate::object::Rider::SourceAttachmentLki(host));
+                obj.riders
+                    .push(crate::object::Rider::SourceAttachmentVersion(version));
             }
             // The second instance's answer, taken so that it belongs to this
             // activation and to no other.

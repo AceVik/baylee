@@ -465,6 +465,21 @@ pub(crate) fn payment_for(state: &GameState, res: &Resolution) -> crate::casting
     )
 }
 
+/// The permanent an Aura's or an Equipment's ability means by "enchanted
+/// creature" or "equipped creature" as it resolves: the source's host now,
+/// or the host it had as it left (CR 113.7a, CR 608.2h), which is the only
+/// one an Aura sacrificed to pay for the ability has (Thrull Retainer,
+/// Briar Shield). `None` where neither is on the battlefield.
+pub(crate) fn attached_host(state: &GameState, res: &Resolution) -> Option<(ObjectId, u32)> {
+    crate::eval::attached_for_ability(
+        state,
+        res.source,
+        source_version(state, res),
+        source_attachment_lki(state, res.on_stack),
+    )
+    .map(|host| (host.id, host.version))
+}
+
 /// Attachment captured when a waiting ability's source left the battlefield.
 pub(crate) fn source_attachment_lki(
     state: &GameState,
