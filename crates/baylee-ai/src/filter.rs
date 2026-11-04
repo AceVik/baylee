@@ -513,7 +513,7 @@ impl HeuristicAgent {
     /// through `baylee_cards::by_index`, so there is no synthetic card to
     /// build one with either. The day that lint goes red is the day this
     /// branch starts running, and the lint is the test that says so.
-    fn modal_modes(view: &PlayerView, object: ObjectId) -> Option<&'static [SpellMode]> {
+    pub(crate) fn modal_modes(view: &PlayerView, object: ObjectId) -> Option<&'static [SpellMode]> {
         // A card in hand is only ever itself; an object anywhere else may be
         // a copy, whose modes are the copied card's (CR 707.2).
         let rules = view

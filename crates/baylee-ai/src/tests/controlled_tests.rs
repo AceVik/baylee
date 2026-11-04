@@ -443,3 +443,434 @@ fn their_divided_damage_spares_this_seats_blockers() {
     };
     assert_eq!(agent().act(&v, &pending), PlayerAction::ChooseNumber(2));
 }
+
+// Their choices as their spells and abilities are cast and resolve.
+use baylee_cards_dsl::{Amount, PlayerRel};
+use baylee_engine::choice::{CastModeDesc, CastModeKind};
+
+static DRAW: [Effect; 1] = [Effect::DrawCards {
+    amount: Amount::Fixed(1),
+}];
+static LOSE: [Effect; 1] = [Effect::LoseLife {
+    amount: Amount::Fixed(3),
+    target: PlayerRel::You,
+}];
+/// "You may draw a card": a gain for them.
+static MAY_DRAW: [Effect; 1] = [Effect::MayDo { effects: &DRAW }];
+/// "You may lose 3 life": a loss for them.
+static MAY_LOSE: [Effect; 1] = [Effect::MayDo { effects: &LOSE }];
+static DRAW_X: [Effect; 1] = [Effect::DrawCards { amount: Amount::X }];
+
+/// With no creature of theirs it kills, their Bolt goes at their own face,
+/// never at this seat or its creature: three damage on their 4/4 after
+/// combat is gone at cleanup (CR 514.2).
+#[test]
+fn their_burn_with_no_creature_of_theirs_to_kill_goes_at_their_face() {
+    let mut v = controlling(
+        vec![sized(obj(2), THEM, 4, 4), sized(obj(3), HOUSE, 3, 3)],
+        vec![],
+    );
+    v.stack.push(their_spell(1, "Lightning Bolt"));
+    let pending = Pending::ChooseTargets {
+        player: THEM,
+        options: vec![obj(2), obj(3)],
+        player_options: vec![HOUSE, THEM],
+        min: 1,
+        max: 1,
+        reason: TargetPrompt::Targets,
+    };
+    let context = DecisionContext {
+        source: Some(obj(1)),
+        effects: spell_effects("Lightning Bolt"),
+        ..Default::default()
+    };
+    assert_eq!(
+        agent().act_with_context(&v, &pending, &context),
+        PlayerAction::ChooseTargets {
+            objects: vec![],
+            players: vec![THEM],
+        }
+    );
+}
+
+/// Their Aura goes where it hurts them: Pacifism on their own creature,
+/// Holy Strength on this seat's.
+#[test]
+fn their_aura_enchants_against_them() {
+    for (name, mana, want) in [("Pacifism", 2, obj(2)), ("Holy Strength", 1, obj(3))] {
+        let mut v = controlling(
+            vec![sized(obj(2), THEM, 4, 4), sized(obj(3), HOUSE, 2, 2)],
+            vec![hand_card(1, name)],
+        );
+        v.seats[1].mana_pool.white = mana;
+        assert_eq!(
+            agent().act(&v, &their_priority(vec![obj(1)])),
+            PlayerAction::CastSpell { card: obj(1) },
+            "{name} is cast for them"
+        );
+        let mut aura = their_spell(1, name);
+        aura.types = TypeSet::ENCHANTMENT;
+        v.controlled_hands[0].cards.clear();
+        v.stack.push(aura);
+        let pending = Pending::ChooseTargets {
+            player: THEM,
+            options: vec![obj(2), obj(3)],
+            player_options: vec![],
+            min: 1,
+            max: 1,
+            reason: TargetPrompt::Targets,
+        };
+        let index = baylee_cards::decks::by_name(name).unwrap();
+        let context = DecisionContext {
+            source: Some(obj(1)),
+            printed: baylee_engine::object::PrintedFace::new(index, 0),
+            effects: spell_effects(name),
+            ..Default::default()
+        };
+        assert_eq!(
+            agent().act_with_context(&v, &pending, &context),
+            PlayerAction::ChooseTargets {
+                objects: vec![want],
+                players: vec![],
+            },
+            "{name}"
+        );
+    }
+}
+
+/// Their Ancestral Recall draws this seat three cards, and a draw of theirs
+/// that empties their library is cast at them (CR 704.5b).
+#[test]
+fn their_draw_goes_to_this_seat_or_empties_their_library() {
+    let mut v = controlling(vec![], vec![hand_card(1, "Ancestral Recall")]);
+    v.seats[1].mana_pool.blue = 1;
+    assert_eq!(
+        agent().act(&v, &their_priority(vec![obj(1)])),
+        PlayerAction::CastSpell { card: obj(1) }
+    );
+    v.controlled_hands[0].cards.clear();
+    v.stack.push(their_spell(1, "Ancestral Recall"));
+    let pending = Pending::ChooseTargets {
+        player: THEM,
+        options: vec![],
+        player_options: vec![HOUSE, THEM],
+        min: 1,
+        max: 1,
+        reason: TargetPrompt::Targets,
+    };
+    let context = DecisionContext {
+        source: Some(obj(1)),
+        effects: spell_effects("Ancestral Recall"),
+        ..Default::default()
+    };
+    assert_eq!(
+        agent().act_with_context(&v, &pending, &context),
+        PlayerAction::ChooseTargets {
+            objects: vec![],
+            players: vec![HOUSE],
+        }
+    );
+    v.seats[1].library_count = 2;
+    assert_eq!(
+        agent().act_with_context(&v, &pending, &context),
+        PlayerAction::ChooseTargets {
+            objects: vec![],
+            players: vec![THEM],
+        },
+        "three cards from a library of two"
+    );
+}
+
+/// Viscera Seer is fed their own creature: the scry is worth less to them
+/// than the creature, which is exactly why this seat takes it for them.
+/// What is sacrificed is the most they have to lose.
+#[test]
+fn their_sacrifice_outlet_is_fed_their_best_creature() {
+    let seer = carded(sized(obj(5), THEM, 1, 1), "Viscera Seer", TypeSet::CREATURE);
+    let big = sized(obj(6), THEM, 5, 5);
+    let v = controlling(vec![seer, big], vec![]);
+    let pending = Pending::Priority {
+        player: THEM,
+        legal: Box::new(LegalActions {
+            can_pass: true,
+            abilities: vec![(obj(5), 0)],
+            ..Default::default()
+        }),
+    };
+    assert_eq!(
+        agent().act(&v, &pending),
+        PlayerAction::ActivateAbility {
+            source: obj(5),
+            ability_index: 0
+        }
+    );
+    let cost = Pending::ChooseCards {
+        player: THEM,
+        options: vec![obj(5), obj(6)],
+        min: 1,
+        max: 1,
+        prompt: ChoicePrompt::CostSacrifice,
+        total: None,
+    };
+    assert_eq!(
+        agent().act(&v, &cost),
+        PlayerAction::ChooseObjects {
+            objects: vec![obj(6)]
+        }
+    );
+}
+
+/// Their discard is their best card by what it is worth to them; the
+/// house's own discard keeps its best.
+#[test]
+fn their_discard_is_their_best_card() {
+    let mut lands = Vec::new();
+    for slot in 20..24 {
+        let mut land = permanent(obj(slot), THEM, 0);
+        land.types = TypeSet::LAND;
+        lands.push(land);
+    }
+    let v = controlling(
+        lands,
+        vec![
+            hand_card(1, "Lightning Bolt"),
+            hand_card(2, "Shivan Dragon"),
+        ],
+    );
+    let pending = Pending::DiscardChoice {
+        player: THEM,
+        count: 1,
+    };
+    assert_eq!(
+        agent().act(&v, &pending),
+        PlayerAction::ChooseObjects {
+            objects: vec![obj(1)]
+        }
+    );
+}
+
+/// What they give up goes at their most valuable, what they keep or find
+/// at their least: an edict, Brainstorm's two back, a creature kept, a
+/// search that finds nothing, the legend rule.
+#[test]
+fn their_losses_are_their_best_and_their_gains_their_worst() {
+    let small = sized(obj(1), THEM, 1, 1);
+    let big = sized(obj(2), THEM, 6, 6);
+    let v = controlling(
+        vec![small, big],
+        vec![
+            hand_card(3, "Lightning Bolt"),
+            hand_card(4, "Healing Salve"),
+            hand_card(5, "Shivan Dragon"),
+        ],
+    );
+    let cards = |options: Vec<ObjectId>, min, max, prompt| Pending::ChooseCards {
+        player: THEM,
+        options,
+        min,
+        max,
+        prompt,
+        total: None,
+    };
+    let edict = DecisionContext {
+        effects: &[Effect::SacrificeFilter {
+            who: PlayerRel::EachPlayer,
+            filter: &baylee_cards_dsl::Filter::CREATURE,
+        }],
+        ..Default::default()
+    };
+    let agent = agent();
+    let chosen = |pending: &Pending, context: &DecisionContext<'_>| {
+        agent.act_with_context(&v, pending, context)
+    };
+    let none = DecisionContext::default();
+    assert_eq!(
+        chosen(
+            &cards(vec![obj(1), obj(2)], 1, 1, ChoicePrompt::Generic),
+            &edict
+        ),
+        PlayerAction::ChooseObjects {
+            objects: vec![obj(2)]
+        },
+        "an edict takes their best"
+    );
+    assert_eq!(
+        chosen(
+            &cards(
+                vec![obj(3), obj(4), obj(5)],
+                2,
+                2,
+                ChoicePrompt::PutBackOnTop
+            ),
+            &none
+        ),
+        PlayerAction::ChooseObjects {
+            objects: vec![obj(3), obj(4)]
+        },
+        "Brainstorm puts back their two best"
+    );
+    assert_eq!(
+        chosen(
+            &cards(vec![obj(1), obj(2)], 1, 1, ChoicePrompt::KeepCreatures),
+            &none
+        ),
+        PlayerAction::ChooseObjects {
+            objects: vec![obj(1)]
+        },
+        "they keep their worst creature"
+    );
+    assert_eq!(
+        chosen(
+            &cards(vec![obj(3), obj(5)], 0, 1, ChoicePrompt::SearchLibrary),
+            &none
+        ),
+        PlayerAction::ChooseObjects { objects: vec![] },
+        "their search finds nothing"
+    );
+    assert_eq!(
+        chosen(
+            &Pending::LegendChoice {
+                player: THEM,
+                options: vec![obj(2), obj(1)],
+            },
+            &none
+        ),
+        PlayerAction::ChooseObjects {
+            objects: vec![obj(1)]
+        },
+        "the legend kept is their worst"
+    );
+    assert_eq!(agent.fallbacks(), 0);
+}
+
+/// Their "may" is done when it costs them and declined when it helps them;
+/// one that cannot be read is declined. Their pact's debt is not paid.
+#[test]
+fn their_may_is_done_only_when_it_hurts_them() {
+    let mut v = controlling(vec![], vec![]);
+    v.stack.push(their_spell(1, "Healing Salve"));
+    let may = |effects: &'static [Effect]| DecisionContext {
+        source: Some(obj(1)),
+        effects,
+        ..Default::default()
+    };
+    let pending = Pending::YesNo {
+        player: THEM,
+        prompt: YesNoPrompt::MayDo,
+        source: None,
+    };
+    assert_eq!(
+        agent().act_with_context(&v, &pending, &may(&MAY_DRAW)),
+        PlayerAction::YesNo(false)
+    );
+    assert_eq!(
+        agent().act_with_context(&v, &pending, &may(&MAY_LOSE)),
+        PlayerAction::YesNo(true)
+    );
+    assert_eq!(
+        agent().act(&v, &pending),
+        PlayerAction::YesNo(false),
+        "nothing to read is nothing done"
+    );
+    let pact = Pending::YesNo {
+        player: THEM,
+        prompt: YesNoPrompt::PayPact {
+            cost: baylee_core::mana::ManaCost::ZERO.with_more_generic(3),
+        },
+        source: None,
+    };
+    v.seats[1].mana_pool.colorless = 3;
+    assert_eq!(agent().act(&v, &pact), PlayerAction::YesNo(false));
+}
+
+/// Their modal spell is cast in the mode worst for them: Darigaaz's Charm's
+/// three damage at their own creature rather than +3/+3 for anything.
+#[test]
+fn their_modal_spell_takes_the_mode_worst_for_them() {
+    let v = controlling(
+        vec![sized(obj(2), THEM, 3, 3), sized(obj(3), HOUSE, 2, 2)],
+        vec![hand_card(1, "Darigaaz's Charm")],
+    );
+    let mode = |index, mode| CastModeDesc {
+        index,
+        kind: CastModeKind::Mode(mode),
+        cost: baylee_core::mana::ManaCost::ZERO,
+    };
+    let pending = Pending::ChooseCastMode {
+        player: THEM,
+        object: obj(1),
+        options: vec![mode(0, 1), mode(1, 2)],
+    };
+    assert_eq!(agent().act(&v, &pending), PlayerAction::ChooseMode(0));
+}
+
+/// Their X is all their mana pays, with no ceiling under their library: a
+/// draw that empties it is the point. The house's own X keeps a card back.
+#[test]
+fn their_x_is_all_their_mana_pays() {
+    let mut v = controlling(vec![], vec![]);
+    v.seats[1].mana_pool.blue = 5;
+    v.seats[1].library_count = 2;
+    let context = DecisionContext {
+        cost: Some(baylee_core::mana::ManaCost::parse("{X}")),
+        effects: &DRAW_X,
+        ..Default::default()
+    };
+    let pending = |player| Pending::ChooseNumber {
+        player,
+        min: 0,
+        max: 10,
+        reason: NumberPrompt::X,
+    };
+    assert_eq!(
+        agent().act_with_context(&v, &pending(THEM), &context),
+        PlayerAction::ChooseNumber(5)
+    );
+    let mut own = v.clone();
+    own.seat = THEM;
+    own.awaiting = Some(THEM);
+    own.controlled_hands.clear();
+    assert_eq!(
+        agent().act_with_context(&own, &pending(THEM), &context),
+        PlayerAction::ChooseNumber(1),
+        "their own seat stops short of its library"
+    );
+}
+
+/// A card of `name` this seat is looking at, as a scry shows it.
+fn looked(slot: u32, name: &str) -> PublicObject {
+    let mut o = permanent(obj(slot), THEM, 0);
+    o.card = Some(hand_card(slot, name).card);
+    o.name = name.into();
+    o
+}
+
+/// Their scry keeps their worst card on top and bottoms their best; the
+/// pile they take is the one worth least to them. With no land out, a
+/// Lightning Bolt is worth having and a Shivan Dragon is not yet.
+#[test]
+fn their_scry_and_their_pile_are_their_worst() {
+    let mut v = controlling(vec![], vec![]);
+    v.looking_at = vec![looked(1, "Lightning Bolt"), looked(2, "Shivan Dragon")];
+    let pending = Pending::Arrange {
+        player: THEM,
+        cards: vec![obj(1), obj(2)],
+        piles: vec![
+            ArrangePile::up_to(ArrangePlace::LibraryTop, 2),
+            ArrangePile::up_to(ArrangePlace::LibraryBottom, 2),
+        ],
+        prompt: ArrangePrompt::Scry,
+    };
+    assert_eq!(
+        agent().act(&v, &pending),
+        PlayerAction::Arrange {
+            piles: vec![vec![obj(2)], vec![obj(1)]],
+        }
+    );
+    let piles = Pending::ChoosePile {
+        player: THEM,
+        piles: vec![vec![obj(1)], vec![obj(2)]],
+        label: None,
+    };
+    assert_eq!(agent().act(&v, &piles), PlayerAction::ChooseMode(1));
+}

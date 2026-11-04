@@ -29,6 +29,7 @@
 //! good controller spends the other player's cards and creatures for them.
 
 mod attack;
+mod choices;
 
 use baylee_cards_dsl::{AbilityDef, Effect, Filter, KeywordSet, Modifier, TargetReq};
 use baylee_core::ids::{CardIndex, ObjectId, PlayerId};
@@ -102,7 +103,7 @@ impl HeuristicAgent {
         &self,
         view: &PlayerView,
         pending: &Pending,
-        _context: &DecisionContext<'_>,
+        context: &DecisionContext<'_>,
         subject: PlayerId,
     ) -> Option<PlayerAction> {
         match pending {
@@ -143,7 +144,7 @@ impl HeuristicAgent {
             } => self
                 .share_against(view, *source, *recipient, *min, *max)
                 .map(PlayerAction::ChooseNumber),
-            _ => None,
+            _ => self.choice_against(view, &seen_by(view, subject), pending, context),
         }
     }
 

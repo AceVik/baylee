@@ -130,7 +130,7 @@ fn draw_answer(
     }
 }
 
-fn identity(view: &PlayerView, id: ObjectId) -> Option<CardIdentity> {
+pub(crate) fn identity(view: &PlayerView, id: ObjectId) -> Option<CardIdentity> {
     known_cards(view)
         .find(|c| c.id == id)
         .map(|c| c.card)
