@@ -305,6 +305,45 @@ mod tests {
         assert!(minutes[1].nets.is_empty());
     }
 
+    /// Every new viewer gets all of this at once, on a phone too, and the
+    /// service must stay far below its 192 MiB limit with twelve viewers.
+    #[test]
+    fn a_full_history_stays_a_few_megabytes() {
+        let mut history = History::new(3600);
+        for second in 0..(24 * 3600) {
+            let busy = 1_000_000_000 + second;
+            history.push(Point {
+                at_ms: 1_793_000_000_000 + second * 1000,
+                cpu: 12.3,
+                ram: 34.5,
+                swap: 12.3,
+                iowait: 1.2,
+                gpu: Some(98.0),
+                vram: Some(65.5),
+                gpu_watts: Some(190.3),
+                cpu_temp: Some(56.4),
+                gpu_temp: Some(66.0),
+                psi_cpu: Some(1.2),
+                psi_mem: Some(0.1),
+                psi_io: Some(11.3),
+                net_rx: busy,
+                net_tx: busy,
+                disk_read: busy,
+                disk_write: busy,
+                disks: ["nvme0n1", "nvme1n1", "nvme2n1"]
+                    .map(|name| (name.to_owned(), busy, busy, 12.3))
+                    .to_vec(),
+                nets: ["enp5s0", "lo"]
+                    .map(|name| (name.to_owned(), busy, busy))
+                    .to_vec(),
+                gpus: vec![(0, Some(98.0), Some(65.5), Some(190.3), Some(66.0))],
+                ..Point::default()
+            });
+        }
+        let json = serde_json::to_string(&history.recorded()).unwrap();
+        assert!(json.len() < 4 << 20, "{} bytes", json.len());
+    }
+
     #[test]
     fn the_minute_ring_stops_at_a_day() {
         let mut history = History::new(1);
