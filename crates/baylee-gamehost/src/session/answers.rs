@@ -118,6 +118,7 @@ impl Session {
             self.engine.information_pending_for(seat),
             &crate::view::SeatContext {
                 awaiting,
+                controls: &crate::view::player_controls(&self.engine),
                 decision_player: crate::view::decision_player_for(&self.engine, seat),
                 controlled_players: self.engine.controlled_players(seat),
                 deciding: self.deciding(),

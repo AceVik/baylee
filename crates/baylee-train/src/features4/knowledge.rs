@@ -69,6 +69,9 @@ struct ObservableView<'a> {
     /// without such an effect hashes as it did before it was told.
     #[serde(skip_serializing_if = "no_flash_types")]
     flash_types: &'a baylee_core::types::TypeSet,
+    /// Who decides for whom; absent while empty, likewise.
+    #[serde(skip_serializing_if = "no_controls")]
+    controls: &'a [baylee_view::PlayerControl],
 }
 
 impl<'a> ObservableView<'a> {
@@ -116,6 +119,7 @@ impl<'a> ObservableView<'a> {
             sorcery_lock,
             sorceries_have_flash,
             flash_types,
+            controls,
         } = view;
         Self {
             decision_player,
@@ -153,8 +157,14 @@ impl<'a> ObservableView<'a> {
             sorcery_lock,
             sorceries_have_flash,
             flash_types,
+            controls,
         }
     }
+}
+
+/// serde hands a field to its skip test by reference.
+fn no_controls(controls: &&[baylee_view::PlayerControl]) -> bool {
+    controls.is_empty()
 }
 
 /// serde hands a field to its skip test by reference.

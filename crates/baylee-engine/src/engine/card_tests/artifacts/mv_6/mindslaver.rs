@@ -451,3 +451,33 @@ fn the_last_player_control_effect_is_the_one_that_works() {
         "the earlier one is overwritten"
     );
 }
+
+/// Who decides for whom is public, for the controlled turn only, with the
+/// card whose effect gave the control: every seat and spectator is told
+/// it (CR 723).
+#[test]
+fn the_control_is_told_with_its_card_for_the_controlled_turn_only() {
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(0, &slaver(&[]))
+        .battlefield(1, &[gray_ogre()])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, P0);
+    let islands = all_on_battlefield(&e, P0, island());
+    tap_mana_where(&mut e, P0, |id| islands.contains(&id));
+    activate(&mut e, P0, mindslaver(), 0);
+    e.apply(
+        P0,
+        PlayerAction::ChooseTargets {
+            objects: vec![],
+            players: vec![P1],
+        },
+    )
+    .unwrap();
+    pass_until(&mut e, stack_is_empty);
+    assert!(e.player_controls().is_empty(), "not before P1's turn");
+    reach_their_main_phase(&mut e, P1);
+    assert_eq!(e.player_controls(), vec![(P1, P0, Some(mindslaver()))]);
+    reach_their_main_phase(&mut e, P0);
+    assert!(e.player_controls().is_empty(), "gone with that turn");
+}

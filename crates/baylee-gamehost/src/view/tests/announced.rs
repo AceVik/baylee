@@ -658,3 +658,41 @@ fn reflexive_synthetic_trigger_target_exposes_source_and_sentence_in_targeting_c
     );
     assert!(targeting_context(&engine, PlayerId::new(1)).is_none());
 }
+
+/// Deciding for a controlled player, a seat is told that player's timing:
+/// Teferi's own controller making the locked opponent's decision (CR 723.5)
+/// sees the lock the opponent is under, and is free again on its own
+/// question.
+#[test]
+fn a_seat_deciding_for_a_locked_player_is_told_that_players_lock() {
+    use baylee_engine::choice::{Pending, PlayerAction};
+
+    let preset = a_table_under_teferi();
+    let mut engine = Engine::new(&preset, Registry).expect("game starts");
+    for _ in 0..2 {
+        let Pending::Mulligan { player, .. } = engine.pending().clone() else {
+            panic!("expected a mulligan")
+        };
+        engine.apply(player, PlayerAction::MulliganKeep).unwrap();
+    }
+    let (locked, teferi) = (PlayerId::new(0), PlayerId::new(1));
+    let view = |decision_player| {
+        player_view(
+            engine.state(),
+            teferi,
+            0,
+            None,
+            &SeatContext {
+                awaiting: Some(teferi),
+                decision_player: Some(decision_player),
+                ..SeatContext::default()
+            },
+            &[],
+        )
+    };
+    assert!(
+        view(locked).sorcery_lock.is_some(),
+        "the controlled player's"
+    );
+    assert_eq!(view(teferi).sorcery_lock, None, "its own");
+}

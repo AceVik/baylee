@@ -118,7 +118,14 @@ pub fn show_control_banner(
     }
     *shown = Some((line, lang));
     if let Some(line) = line {
-        text.0 = line.text(lang, duel.statics.as_ref());
+        let source = duel
+            .view
+            .as_ref()
+            .and_then(|view| line.source(view))
+            .and_then(baylee_cards::by_index)
+            .and_then(|card| card.faces.first());
+        let said = line.text(lang, duel.statics.as_ref());
+        text.0 = source.map_or_else(|| said.clone(), |face| format!("{said} ({})", face.name));
         node.display = Display::Flex;
     } else {
         text.0.clear();
