@@ -114,7 +114,11 @@ impl Menu {
                 of(action).map(|id| (id, c.id.as_str()))
             })
             .collect();
-        let ids: Vec<ObjectId> = offered.iter().map(|(id, _)| *id).collect();
+        // A card may stand on several options at several prices: the step
+        // names the card, and the first of them, its printed price, is taken.
+        let mut ids: Vec<ObjectId> = offered.iter().map(|(id, _)| *id).collect();
+        ids.sort_unstable();
+        ids.dedup();
         let id = object(written, &ids).map_err(Stop::NotOffered)?;
         Ok(offered
             .iter()

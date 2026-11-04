@@ -105,7 +105,9 @@ use baylee_view::{Phase, PlayerView, Step};
 use crate::narrator::{React, Until};
 
 mod convoke;
+mod raised;
 use convoke::{has_convoke, reduce_for_convoke};
+pub use raised::Way;
 
 /// The windows a mind is woken in when it could do something there: its
 /// own two main phases, the other side's attack and end step, and on both
@@ -673,6 +675,9 @@ pub struct Reach {
     /// Cast face down for {3} with its morph or disguise (CR 702.37c,
     /// 702.168a) rather than for its printed cost.
     pub face_down: bool,
+    /// The way it is cast at a price of its own (`wake/raised.rs`): entwined,
+    /// kicked, replicated, overloaded. `None` for the printed cost.
+    pub way: Option<Way>,
     /// The taps, in order, and the cost they pay: the printed cost with
     /// `{X}` at 0, a commander's tax (CR 903.8) added, and priced as the
     /// engine charges it, its increases and reductions applied
@@ -738,35 +743,25 @@ pub fn reachable(view: &PlayerView, legal: &LegalActions) -> Vec<Reach> {
     let Some(pool) = view.seat(me).map(|seat| seat.mana_pool) else {
         return Vec::new();
     };
-    let mut convoke_creatures: Vec<baylee_core::color::ColorSet> = view
-        .battlefield
-        .iter()
-        .filter(|o| {
-            o.controller == me
-                && o.types.contains(TypeSet::CREATURE)
-                && !o.status.is_tapped()
-                && !o.status.is_phased_out()
-                && !sources.iter().any(|s| s.id == o.id)
-        })
-        .map(|o| o.colors)
-        .collect();
-    convoke_creatures.sort_by_key(|c| c.len());
+    let convoke_creatures = convoke_creatures(view, me, &sources);
     // `{X}` at its least: the caster chooses it (CR 107.3a), the matcher
     // will not guess at it, and a spell castable with X = 0 is castable.
     // A plan with nothing to tap is no reach: the mana is in the pool
     // already, so what keeps the engine from listing the card is not mana
     // (a target, an additional cost, a raised cost), and no tap gives it.
+    let whole_price = |id: ObjectId, card: baylee_view::CardIdentity, mut total: ManaCost| {
+        if has_convoke(card) && !convoke_creatures.is_empty() {
+            total = reduce_for_convoke(total, &convoke_creatures);
+        }
+        baylee_ai::plan_for_spell(&total, &pool, view, legal, id)
+            .filter(|plan| !plan.steps.is_empty())
+    };
     let payable =
         |id: ObjectId, card: baylee_view::CardIdentity, cost: ManaCost, mode: CastModeKind| {
             cost.symbols().next()?;
             // The price the engine charges, its reductions included (CR 601.2f).
-            let mut total =
-                baylee_ai::spell_price(view, id, Some(card), legal, mode, cost.with_x(0));
-            if has_convoke(card) && !convoke_creatures.is_empty() {
-                total = reduce_for_convoke(total, &convoke_creatures);
-            }
-            baylee_ai::plan_for_spell(&total, &pool, view, legal, id)
-                .filter(|plan| !plan.steps.is_empty())
+            let total = baylee_ai::spell_price(view, id, Some(card), legal, mode, cost.with_x(0));
+            whole_price(id, card, total)
         };
     let mut reach: Vec<Reach> = hand
         .iter()
@@ -794,6 +789,7 @@ pub fn reachable(view: &PlayerView, legal: &LegalActions) -> Vec<Reach> {
                 card: card.card,
                 from: ReachFrom::Hand,
                 face_down: false,
+                way: None,
                 plan: payable(
                     card.id,
                     card.card,
@@ -821,6 +817,7 @@ pub fn reachable(view: &PlayerView, legal: &LegalActions) -> Vec<Reach> {
                     card: card.card,
                     from: ReachFrom::Hand,
                     face_down: true,
+                    way: None,
                     plan: payable(
                         card.id,
                         card.card,
@@ -832,7 +829,33 @@ pub fn reachable(view: &PlayerView, legal: &LegalActions) -> Vec<Reach> {
     );
     reach.extend(commanders(view, legal, &payable));
     reach.extend(graveyard_and_exile(view, legal, &payable));
+    reach.retain(|plain| has_convoke(plain.card) || raised::stands(legal, plain));
+    let raised = raised::ways(view, legal, &reach, &whole_price);
+    reach.extend(raised);
     reach
+}
+
+/// The colours of the creatures that could convoke and are no mana source,
+/// fewest colours first.
+fn convoke_creatures(
+    view: &PlayerView,
+    me: PlayerId,
+    sources: &[baylee_client_core::manaplan::Source],
+) -> Vec<baylee_core::color::ColorSet> {
+    let mut creatures: Vec<baylee_core::color::ColorSet> = view
+        .battlefield
+        .iter()
+        .filter(|o| {
+            o.controller == me
+                && o.types.contains(TypeSet::CREATURE)
+                && !o.status.is_tapped()
+                && !o.status.is_phased_out()
+                && !sources.iter().any(|s| s.id == o.id)
+        })
+        .map(|o| o.colors)
+        .collect();
+    creatures.sort_by_key(|c| c.len());
+    creatures
 }
 
 /// Every activated ability in `legal.unpaid_abilities` whose mana cost the
@@ -1026,6 +1049,7 @@ fn commanders(
                 card,
                 from: ReachFrom::CommandZone,
                 face_down: false,
+                way: None,
                 plan: payable(c.object, card, cost, CastModeKind::Normal)?,
             })
         })
@@ -1069,6 +1093,7 @@ fn graveyard_and_exile(
                 card,
                 from: ReachFrom::Graveyard,
                 face_down: false,
+                way: None,
                 plan,
             });
         }
@@ -1096,6 +1121,7 @@ fn graveyard_and_exile(
                 card,
                 from: ReachFrom::Exile,
                 face_down: false,
+                way: None,
                 plan,
             });
         }
@@ -1230,4 +1256,4 @@ pub fn stop_id(row: RailRow) -> &'static str {
 }
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;

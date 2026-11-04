@@ -13,7 +13,7 @@ mod combat;
 mod controlled;
 mod foretell;
 mod phasing;
-mod played;
+pub(crate) mod played;
 mod upkeep;
 
 const ME: PlayerId = PlayerId::new(0);

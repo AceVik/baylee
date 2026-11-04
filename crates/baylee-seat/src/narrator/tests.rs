@@ -284,6 +284,7 @@ pub(crate) fn priority(view: &PlayerView) -> Pending {
             // The engine would cast each spell in hand once paid: the Bolt and
             // the Growth have targets, Rampant Growth needs none.
             payable: vec![id(50), id(51), id(53)],
+            cast_ways: vec![],
             spell_increases: vec![],
             spell_reductions: vec![],
             activation_increases: vec![],
@@ -1578,6 +1579,7 @@ mod log_cap;
 mod naming;
 mod owed;
 mod power_surge;
+mod raised;
 mod triage;
 
 /// A vote is told as one, and the ballot cast before it reaches the model

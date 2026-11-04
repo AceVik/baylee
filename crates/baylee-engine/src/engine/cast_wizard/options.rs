@@ -447,7 +447,7 @@ impl<L: CardLookup> Engine<L> {
                 options.push(CastModeDesc {
                     index: (options.len()) as u32,
                     kind: CastModeKind::Dash,
-                    cost: taxed.mana,
+                    cost: price(dash),
                 });
             }
         }
@@ -472,7 +472,7 @@ impl<L: CardLookup> Engine<L> {
                 options.push(CastModeDesc {
                     index: (options.len()) as u32,
                     kind: CastModeKind::Mutate,
-                    cost: taxed.mana,
+                    cost: price(mutate),
                 });
             }
         }

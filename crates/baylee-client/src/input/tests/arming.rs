@@ -11,6 +11,7 @@ fn confirming_a_priority_choice_passes() {
             legal: Box::new(LegalActions {
                 unpaid_abilities: vec![],
                 payable: vec![],
+                cast_ways: vec![],
                 spell_increases: vec![],
                 spell_reductions: vec![],
                 activation_increases: vec![],

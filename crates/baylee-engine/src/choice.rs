@@ -690,6 +690,19 @@ pub struct LegalActions {
     /// is the planner's question. Never in `castable` as well.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub payable: Vec<ObjectId>,
+    /// Every way of casting a card of [`Self::castable`] or [`Self::payable`]
+    /// that prints a price of its own (entwine, overload, a kicker with its
+    /// own targets, an alternative cost with mana in it, a back face), each
+    /// at its whole price, listed only for such a card.
+    ///
+    /// A planning hint, as [`Self::unpaid_abilities`] is. The mode question
+    /// (`Pending::ChooseCastMode`) lists the ways the *pool* pays, so a seat
+    /// that taps for the printed cost never sees the dearer way; this is that
+    /// list with every rule asked but the mana, targets included (CR 601.2c),
+    /// so a planner can tap for the price it wants first. A way whose mana is
+    /// floating when the cast is sent is on that question.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub cast_ways: Vec<(ObjectId, CastModeDesc)>,
     /// Public rules-effect increases, excluding commander tax, for mana planning.
     /// Form-specific entries override Normal; alternatives use Normal's color.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

@@ -332,6 +332,36 @@ pub fn kicked_mana_cost(face: &baylee_cards_dsl::FaceDef) -> ManaCost {
         .fold(face.mana_cost, |cost, extra| cost.combine(&extra.mana))
 }
 
+/// Whether a card prints a way of being cast at a price of its own, which
+/// `LegalActions::cast_ways` lists: entwine, a mode with its own cost
+/// (overload, spree), a kicker that changes the targets, an alternative cost
+/// with mana in it, dash, mutate, a prototype, or a back face.
+#[must_use]
+pub fn has_priced_ways(def: &baylee_cards_dsl::CardDef) -> bool {
+    let Some(face) = def.faces.first() else {
+        return false;
+    };
+    face.entwine.is_some()
+        || face.kicked_targets.is_some()
+        || face.dash.is_some()
+        || face.mutate.is_some()
+        || face.prototype.is_some()
+        || face
+            .alternative_costs
+            .iter()
+            .any(|alt| alt.cost.mana != ManaCost::ZERO)
+        || castable_back_faces(def, false).next().is_some()
+        || def.abilities_for_face(0).iter().any(|ability| {
+            matches!(
+                ability,
+                baylee_cards_dsl::AbilityDef::ModalSpell { modes, .. }
+                    if modes
+                        .iter()
+                        .any(|mode| mode.cost_override.is_some() || mode.additional_cost.is_some())
+            )
+        })
+}
+
 /// Whether one mode of a modal spell (CR 700.2) can be pointed at anything.
 ///
 /// The half of [`face_has_a_legal_target`] a *mode* needs, and the reason it
@@ -1350,12 +1380,17 @@ pub(crate) fn can_cast_form_paying(
     if let Some(def) = printed
         && let Some(req) = def.faces[0].kicked_targets
     {
-        let ordinary = ordinary_targets_reachable(state, def, player, card)
-            && probe_normal(&c.mana_cost.with_x(0));
-        let kicked = kicked_targets_reachable(state, def, player, card, req)
-            && probe_normal(&kicked_mana_cost(&def.faces[0]).with_x(0));
+        let ordinary_targets = ordinary_targets_reachable(state, def, player, card);
+        let kicked_targets = kicked_targets_reachable(state, def, player, card, req);
+        let ordinary = ordinary_targets && probe_normal(&c.mana_cost.with_x(0));
+        let kicked = kicked_targets && probe_normal(&kicked_mana_cost(&def.faces[0]).with_x(0));
+        // Short of mana with something to point at is what `payable` lists:
+        // answered as no way to cast, Tear Asunder over an artifact could
+        // never be cast by tapping for it.
         return if ordinary || kicked {
             Ok(())
+        } else if ordinary_targets || kicked_targets {
+            Err(CastError::NotEnoughMana)
         } else {
             Err(CastError::NoWayToCast)
         };

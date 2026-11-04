@@ -28,7 +28,7 @@ fn entry(name: &str) -> DeckEntry {
 
 /// Seat 0's first main phase with `mine` on its battlefield and `hand` in its
 /// hand, `theirs` across the table, and the view and offer it is asked with.
-pub(super) fn position(
+pub(crate) fn position(
     mine: &[&str],
     hand: &[&str],
     theirs: &[&str],

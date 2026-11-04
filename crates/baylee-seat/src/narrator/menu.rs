@@ -10,7 +10,7 @@
 use super::{Style, Table, board, tag, words};
 use crate::mind::Request;
 use crate::reports::Report;
-use crate::wake::{Reach, ReachFrom, reachable, reachable_abilities, reachable_foretell};
+use crate::wake::{Reach, ReachFrom, Way, reachable, reachable_abilities, reachable_foretell};
 use baylee_cards_dsl::AbilityDef;
 use baylee_client_core::manaplan::{self, Tap};
 use baylee_core::ids::{AbilityRef, CardIndex, Defender, ObjectId, PlayerId, SubtypeId};
@@ -1462,7 +1462,7 @@ fn cast_mode_label(card: Option<baylee_view::CardIdentity>, option: &CastModeDes
                 |w| format!("Mode \"{w}\" for {cost}"),
             )
         }
-        CastModeKind::Modes(n) => format!("Choose {n} modes, for {cost}"),
+        CastModeKind::Modes(set) => modes_label(card, face, set, &cost),
         CastModeKind::Face(i) | CastModeKind::PlayLandFace(i) => {
             let name = card
                 .and_then(|c| baylee_cards::by_index(c.index))
@@ -1584,6 +1584,38 @@ fn entry_life_words(amount: u16) -> (String, String, String) {
         format!("pay {amount} life; it enters untapped"),
         "it enters tapped".to_string(),
     )
+}
+
+/// A set of modes in the card's own words. The set is a bitmask, and it was
+/// written out as a count: Journey of Discovery's two modes read "Choose 3
+/// modes". An entwined cast says so, because its price is what the set is for.
+fn modes_label(
+    card: Option<baylee_view::CardIdentity>,
+    face: usize,
+    set: u8,
+    cost: &str,
+) -> String {
+    let words: Vec<String> = (0..usize::try_from(u8::BITS).unwrap_or(8))
+        .filter(|mode| set & (1 << mode) != 0)
+        .map(|mode| {
+            card.and_then(|c| {
+                baylee_cards::lines::mode_line(c.index, face, mode)
+                    .and_then(|line| baylee_cards::oracle::sentence(c.index, face, line.line))
+                    .or_else(|| baylee_cards::lines::inline_mode_words(c.index, face, mode))
+            })
+            .map_or_else(|| format!("mode {}", mode + 1), |w| format!("\"{w}\""))
+        })
+        .collect();
+    let entwined = card
+        .and_then(|c| baylee_cards::by_index(c.index))
+        .and_then(|def| def.faces.get(face))
+        .is_some_and(|f| f.entwine.is_some());
+    let head = if entwined {
+        "Cast it with entwine"
+    } else {
+        "Cast it with these modes"
+    };
+    format!("{head} for {cost}: {}", words.join(" and "))
 }
 
 fn spoken_cost(cost: &baylee_core::mana::ManaCost) -> String {

@@ -25,6 +25,7 @@ fn offer(lands: &[u32], castable: &[u32], abilities: &[(u32, u32)], mana: &[u32]
                 .filter(|s| !castable.contains(s))
                 .map(|&s| id(s))
                 .collect(),
+            cast_ways: vec![],
             spell_increases: vec![],
             spell_reductions: vec![],
             activation_increases: vec![],

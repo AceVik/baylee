@@ -237,6 +237,7 @@ impl<L: CardLookup> Engine<L> {
         legal.lands.clear();
         legal.castable.clear();
         legal.payable.clear();
+        legal.cast_ways.clear();
         legal.suspendable.clear();
         legal.foretellable.clear();
         legal.unpaid_foretell.clear();

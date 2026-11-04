@@ -24,6 +24,7 @@ fn the_primary_key_plays_the_land_under_the_cursor() {
                 legal: Box::new(LegalActions {
                     unpaid_abilities: vec![],
                     payable: vec![],
+                    cast_ways: vec![],
                     spell_increases: vec![],
                     spell_reductions: vec![],
                     activation_increases: vec![],
@@ -387,6 +388,7 @@ fn pressing_beside(
                 legal: Box::new(LegalActions {
                     unpaid_abilities: vec![],
                     payable: vec![],
+                    cast_ways: vec![],
                     spell_increases: vec![],
                     spell_reductions: vec![],
                     activation_increases: vec![],

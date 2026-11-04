@@ -832,7 +832,31 @@ impl<L: CardLookup> Engine<L> {
                 .iter()
                 .any(|(s, i, _)| s == source && i == index)
         });
+        self.offer_cast_ways(player, &mut legal);
         legal
+    }
+
+    /// `LegalActions::cast_ways`: the wizard's own list with the mana left
+    /// out, so the hint and the question cannot disagree about what is legal.
+    /// Asked of a card that prints such a way and of no other, which is most
+    /// cards at most priorities: this runs on every offer.
+    fn offer_cast_ways(&self, player: PlayerId, legal: &mut LegalActions) {
+        for &card in legal.castable.iter().chain(&legal.payable) {
+            let priced = self
+                .state
+                .object(card)
+                .and_then(|o| o.card)
+                .and_then(|c| self.lookup.card(c.index))
+                .is_some_and(casting::has_priced_ways);
+            if !priced || self.commanded_card(card) {
+                continue;
+            }
+            if let Ok(ways) = self.cast_options(player, card, true) {
+                legal
+                    .cast_ways
+                    .extend(ways.into_iter().map(|way| (card, way)));
+            }
+        }
     }
 
     /// Check non-mana costs with the same reader as activation. An unpaid

@@ -698,6 +698,7 @@ impl Builder<'_, '_> {
             .and_then(|def| def.faces.get(usize::from(reach.card.face)))
             .is_some_and(|face| face.mana_cost.to_string().contains("{X}"));
         let mut label = match reach.from {
+            _ if reach.way.is_some() => self.way_label(reach),
             ReachFrom::Hand if reach.face_down => format!(
                 "Cast {} face down with {} for {}",
                 table.named(reach.object),
@@ -728,6 +729,33 @@ impl Builder<'_, '_> {
         }
         label.push(')');
         label
+    }
+
+    /// A reach at a price of its own, which the label names whole, with the
+    /// way it is cast in the mode question's own words.
+    fn way_label(&self, reach: &Reach) -> String {
+        let named = self.table.named(reach.object);
+        let cost = reach.plan.cost;
+        match reach.way {
+            Some(Way::Kicker) => format!("Cast {named} with its kicker for {cost}"),
+            Some(Way::Replicated(1)) => format!("Cast {named} replicated once for {cost}"),
+            Some(Way::Replicated(times)) => {
+                format!("Cast {named} replicated up to {times} times for {cost}")
+            }
+            Some(Way::Mode(kind)) => {
+                let option = CastModeDesc {
+                    index: 0,
+                    kind,
+                    cost,
+                };
+                let words = cast_mode_label(Some(reach.card), &option);
+                words.strip_prefix("Cast it ").map_or_else(
+                    || format!("Cast {named}: {words}"),
+                    |rest| format!("Cast {named} {rest}"),
+                )
+            }
+            None => format!("Cast {named} {cost}"),
+        }
     }
 
     /// Where a castable card is cast from, when not from the hand of the
