@@ -334,13 +334,16 @@ fn every_other_permanent_in_the_pool_makes_the_mana_its_card_prints() {
 /// This remains the existing reader's population: it recognizes "add", not
 /// "adds". The separate coverage gap (including Eladamri's Vineyard) and the
 /// Aura fixtures needed to close it are recorded in observed-faults #65.
+/// Completing Ice Cauldron moves its face from the partial tier to the wholly
+/// readable implemented tier. Its second ability's remove-a-counter cost adds
+/// one costly line; the card tests exercise its exact noted mana separately.
 const FULL_CORPUS_OTHER_PERMANENTS: Bounds = Bounds {
     colors: 475,
     routes: 215,
     promises: 214..=214,
     creature_promises: 92..=92,
     unparsed: 62..=62,
-    fully_read: 385,
+    fully_read: 386,
     costly_lines: 149..=149,
     triggered_lines: 29..=29,
     granted_lines: 42..=42,
@@ -379,13 +382,13 @@ fn check_other_permanent_population(tally: &Tally) {
     );
     assert_eq!(
         eligible,
-        [445, 0, 19],
+        [446, 0, 18],
         "the coverage-tier population changed"
     );
-    assert_eq!(readable, [385, 0, 0], "the readable coverage tiers changed");
+    assert_eq!(readable, [386, 0, 0], "the readable coverage tiers changed");
     let expected: usize = readable.iter().sum();
     assert_eq!(
-        expected, 385,
+        expected, 386,
         "the independently enumerated full-corpus population changed; review additions/removals before updating its pin"
     );
     assert_eq!(
@@ -413,7 +416,7 @@ fn check_other_permanent_population(tally: &Tally) {
             tally.dual_typed,
             tally.self_typed
         ),
-        (4, 104, 84, 0, 0),
+        (4, 105, 84, 0, 0),
         "the measured skip categories changed"
     );
 }
