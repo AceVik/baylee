@@ -1068,21 +1068,55 @@ fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, Str
             "the top".into(),
             "the bottom".into(),
         ),
-        YesNoPrompt::Discover { card } => (
-            format!(
-                "Cast {} without paying its mana cost? If you don't, it goes into your hand.",
-                table.named(*card)
-            ),
-            "cast it".into(),
-            "put it into your hand".into(),
-        ),
-        YesNoPrompt::SkipTurn { source } => (
-            format!("Skip this turn to untap {}?", table.named(*source)),
-            "skip this turn; untap it when the next turn begins".into(),
-            "take this turn; leave it tapped".into(),
-        ),
+        YesNoPrompt::Discover { card } => discover_words(table, *card),
+        YesNoPrompt::SkipTurn { source } => skip_turn_words(table, *source),
+        YesNoPrompt::GuessNamedCardInHand { holder, card, face } => {
+            guess_words(table, *holder, *card, *face)
+        }
         YesNoPrompt::Generic => ("Yes or no?".into(), "yes".into(), "no".into()),
     }
+}
+
+/// Discover's free cast, and where the card goes otherwise.
+fn discover_words(table: &Table<'_>, card: ObjectId) -> (String, String, String) {
+    (
+        format!(
+            "Cast {} without paying its mana cost? If you don't, it goes into your hand.",
+            table.named(card)
+        ),
+        "cast it".into(),
+        "put it into your hand".into(),
+    )
+}
+
+/// Time Vault's turn trade, both consequences named.
+fn skip_turn_words(table: &Table<'_>, source: ObjectId) -> (String, String, String) {
+    (
+        format!("Skip this turn to untap {}?", table.named(source)),
+        "skip this turn; untap it when the next turn begins".into(),
+        "take this turn; leave it tapped".into(),
+    )
+}
+
+/// Liar's Pendulum's guess, naming the card whose name was chosen aloud
+/// and whose hand it is about.
+fn guess_words(
+    table: &Table<'_>,
+    holder: PlayerId,
+    card: baylee_core::ids::CardIndex,
+    face: u8,
+) -> (String, String, String) {
+    let name = baylee_cards::by_index(card)
+        .and_then(|def| def.faces.get(usize::from(face)))
+        .map_or("the chosen name", |face| face.name);
+    (
+        format!(
+            "Guess: does {} have a card named {name} in hand?",
+            table.player(holder)
+        ),
+        format!("yes, {name} is in that hand"),
+        format!("no, {name} is not in that hand"),
+    )
 }
 
 fn may_do_words() -> (String, String, String) {

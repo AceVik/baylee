@@ -29,7 +29,7 @@ pub(super) fn exec_choice(
         Effect::GuessChosenNameInHand { who, guesser } => {
             let hand_owner = players_of(who, state, you, res).first().copied()?;
             let guesser = players_of(guesser, state, you, res).first().copied()?;
-            let (_, name) = res.subject.named?;
+            let (printed, name) = res.subject.named?;
             let actual = state
                 .zones
                 .list(ZoneLocation::Hand(hand_owner))
@@ -39,7 +39,11 @@ pub(super) fn exec_choice(
             res.awaiting = Some(AwaitingOp::GuessNamedCardInHand { actual });
             Some(Pending::YesNo {
                 player: guesser,
-                prompt: YesNoPrompt::Generic,
+                prompt: YesNoPrompt::GuessNamedCardInHand {
+                    holder: hand_owner,
+                    card: printed.card(),
+                    face: printed.face(),
+                },
                 source: resolving_ability(state, res),
             })
         }

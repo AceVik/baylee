@@ -3513,6 +3513,11 @@ CastDiscovered = You discovered this card. Cast it without paying its mana cost?
 # A turn replacement with an explicit turn cost, not a free optional effect.
 SkipTurnToUntap = Skip this turn to untap this permanent?
 
+# Liar's Pendulum: the guess whether the player has a card with the name
+# just chosen in hand. Yes guesses it is there.
+# Arguments: player
+GuessNamedCardInHand = Guess: does { $player } have a card with the chosen name in hand?
+
 # Yes or no?
 YesOrNo = Yes or no?
 

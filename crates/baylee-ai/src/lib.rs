@@ -899,6 +899,18 @@ impl HeuristicAgent {
                 YesNoPrompt::DrawOffer { .. } | YesNoPrompt::SkipTurn { .. } => {
                     PlayerAction::YesNo(false)
                 }
+                // Liar's Pendulum's guess, on what this seat has seen of that
+                // hand: yes for a card with that name in it (revealed or
+                // shared), otherwise no, the likelier answer to a name chosen
+                // to bluff.
+                YesNoPrompt::GuessNamedCardInHand { holder, card, face } => PlayerAction::YesNo(
+                    view.shared_hands
+                        .iter()
+                        .chain(&view.controlled_hands)
+                        .filter(|hand| hand.player == holder)
+                        .flat_map(|hand| &hand.cards)
+                        .any(|held| held.card.index == card && held.card.face == face),
+                ),
                 // A "may" is weighed by what the yes does (`optional`).
                 // The rest are yes, for reasons that happen to agree. A
                 // commander goes home

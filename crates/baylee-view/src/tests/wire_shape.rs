@@ -342,8 +342,9 @@ fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
     // cannot decode that variant. The version changelog names the wire change.
     // `PlayerView::flash_types` (Alchemist's Refuge and the like) is additive,
     // defaulted and omitted while empty: a reader of 83 without it ignores it
-    // and stays conservative, so 83 still names the shape.
-    const RECORDED: (u32, u64) = (83, 96_263_098_418_150_692);
+    // and stays conservative, so 83 still named the shape.
+    // 84: Liar's Pendulum's guess as its own imported engine prompt.
+    const RECORDED: (u32, u64) = (84, 96_263_098_418_150_692);
 
     let samples = core_samples();
     let sampled: std::collections::BTreeSet<String> =

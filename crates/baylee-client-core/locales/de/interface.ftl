@@ -1212,6 +1212,7 @@ TopOfLibraryOrBottom = Deine Karte kommt in deine Bibliothek. Oben drauf? („Ne
 TakeOneOfType = Nimm bis zu eine Karte vom Typ { $card_type } auf deine Hand
 CastDiscovered = Du hast diese Karte entdeckt. Wirken, ohne ihre Manakosten zu bezahlen? („Nein“ nimmt sie auf deine Hand.)
 SkipTurnToUntap = Diesen Zug überspringen, um dieses Permanent zu enttappen?
+GuessNamedCardInHand = Rate: Hat { $player } eine Karte mit dem gewählten Namen auf der Hand?
 YesOrNo = Ja oder nein?
 OfferADraw = Unentschieden anbieten
 Concede = Aufgeben

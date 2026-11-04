@@ -666,6 +666,17 @@ pub enum YesNoPrompt {
         /// The tapped permanent whose replacement effect is offered.
         source: baylee_core::ids::ObjectId,
     },
+    /// Liar's Pendulum: the guess whether `holder` has a card with the
+    /// name chosen for it in hand. The name was chosen aloud, so the
+    /// question carries it (`card`'s face `face`); yes guesses it is there.
+    GuessNamedCardInHand {
+        /// Whose hand the guess is about.
+        holder: PlayerId,
+        /// The card whose name was chosen.
+        card: baylee_core::ids::CardIndex,
+        /// Which of its faces names it.
+        face: u8,
+    },
     /// Generic yes/no (optional effects).
     Generic,
     /// Pay the full sacrifice required before this card may enter the battlefield.
@@ -739,7 +750,8 @@ impl YesNoPrompt {
             | Self::Generic => true,
             // Declining discover moves the card into the hand: a card for
             // the player, but not nothing, and a free spell is not a
-            // question to answer by the clock.
+            // question to answer by the clock. A guess is a guess either
+            // way: "no" is not passing it up.
             Self::RemoveCountersInsteadOfUntapping { .. }
             | Self::UseDamageClearingReplacement { .. }
             | Self::UseShieldCounter { .. }
@@ -748,7 +760,8 @@ impl YesNoPrompt {
             | Self::CommanderReplace { .. }
             | Self::PayPact { .. }
             | Self::TopOfLibrary { .. }
-            | Self::Discover { .. } => false,
+            | Self::Discover { .. }
+            | Self::GuessNamedCardInHand { .. } => false,
         }
     }
 }

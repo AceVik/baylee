@@ -1611,3 +1611,42 @@ fn a_vote_is_asked_as_one_after_the_ballot_before_it() {
     assert!(text.contains("P2 voted for Serra Angel"), "{text}");
     assert!(text.contains("Vote: choose the one you vote for"), "{text}");
 }
+
+/// Liar's Pendulum's guess names the card whose name was chosen and whose
+/// hand it is about, as it is said aloud at a table (Argon v Astra: the
+/// guess was asked as a bare "Yes or no?").
+#[test]
+fn a_guess_names_the_chosen_card_and_whose_hand() {
+    use baylee_engine::choice::YesNoPrompt;
+    let (view, log) = board();
+    let pending = Pending::YesNo {
+        player: ME,
+        prompt: YesNoPrompt::GuessNamedCardInHand {
+            holder: THEM,
+            card: identity("Lightning Bolt").index,
+            face: 0,
+        },
+        source: None,
+    };
+    let request = request(view, pending, log);
+    let wake = Narrator::new(&request.context).wake(&request, &[], None);
+    assert!(
+        wake.text
+            .contains("Guess: does P2 have a card named Lightning Bolt in hand?"),
+        "{}",
+        wake.text
+    );
+    assert!(
+        wake.text
+            .contains("Yes: yes, Lightning Bolt is in that hand")
+    );
+    let decide = Decision {
+        ask: Some(format!("q{}", wake.menu.question)),
+        pick: vec!["n".into()],
+        ..Decision::default()
+    };
+    assert_eq!(
+        wake.menu.resolve(&decide).unwrap().act,
+        Act::Now(PlayerAction::YesNo(false))
+    );
+}

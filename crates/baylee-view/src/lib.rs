@@ -238,7 +238,10 @@ pub use turn::{DayNight, Phase, Step};
 /// and the game log's [`LogEvent::Voted`], variants a reader of 82 cannot
 /// parse. Compatible addition beside them: [`PlayerView::ballots`] and
 /// [`SpectatorView::ballots`], the vote in progress, absent while empty.
-pub const VIEW_VERSION: u32 = 83;
+/// Version 84 asks Liar's Pendulum's guess as its own engine prompt,
+/// `YesNoPrompt::GuessNamedCardInHand`, naming whose hand and the card whose
+/// name was chosen aloud: a variant a reader of 83 cannot parse.
+pub const VIEW_VERSION: u32 = 84;
 
 // ------------------------------------------------------------------- targets
 
