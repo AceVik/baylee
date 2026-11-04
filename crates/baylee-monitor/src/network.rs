@@ -91,9 +91,40 @@ fn read_link(path: &Path, name: &str) -> Link {
 }
 
 /// Turns each reading of `/proc/net/dev` into rates.
+#[derive(Clone, Copy, Default)]
+struct Rates {
+    rx_bps: f64,
+    tx_bps: f64,
+    rx_pps: f64,
+    tx_pps: f64,
+}
+
+impl Rates {
+    fn between(before: &Counters, now: &Counters, elapsed: f64) -> Self {
+        Self {
+            rx_bps: per_second(before.rx_bytes, now.rx_bytes, elapsed),
+            tx_bps: per_second(before.tx_bytes, now.tx_bytes, elapsed),
+            rx_pps: per_second(before.rx_packets, now.rx_packets, elapsed),
+            tx_pps: per_second(before.tx_packets, now.tx_packets, elapsed),
+        }
+    }
+
+    fn any(self) -> bool {
+        self.rx_bps > 0.0 || self.tx_bps > 0.0
+    }
+}
+
+/// An interface's counters when they last moved.
+struct Seen {
+    counters: Counters,
+    /// Seconds since then, while one reading is being held.
+    held_secs: f64,
+    rates: Rates,
+}
+
 #[derive(Default)]
 pub(crate) struct Tracker {
-    previous: BTreeMap<String, Counters>,
+    previous: BTreeMap<String, Seen>,
 }
 
 impl Tracker {
@@ -103,17 +134,17 @@ impl Tracker {
         links: &BTreeMap<String, Link>,
         elapsed_secs: f64,
     ) -> Vec<Network> {
-        let interfaces = netdev::parse(text);
-        let mut networks: Vec<_> = interfaces
-            .iter()
+        let mut seen = BTreeMap::new();
+        let mut networks: Vec<_> = netdev::parse(text)
+            .into_iter()
             .map(|(name, now)| {
-                // A new interface has no earlier reading: no rate yet, rather
-                // than everything since boot in one second.
-                let before = self.previous.get(name).unwrap_or(now);
-                network(name, before, now, links.get(name), elapsed_secs)
+                let next = next_reading(self.previous.get(&name), now, elapsed_secs);
+                let network = network(&name, next.rates, &now, links.get(&name));
+                seen.insert(name, next);
+                network
             })
             .collect();
-        self.previous = interfaces.into_iter().collect();
+        self.previous = seen;
         networks.sort_by(|a, b| {
             (b.physical, b.state == "up", &a.name).cmp(&(a.physical, a.state == "up", &b.name))
         });
@@ -122,13 +153,37 @@ impl Tracker {
     }
 }
 
-fn network(
-    name: &str,
-    before: &Counters,
-    now: &Counters,
-    link: Option<&Link>,
-    elapsed: f64,
-) -> Network {
+/// Some drivers refresh their counters on a timer of their own, a little over
+/// a second on the `atlantic` driver measured here. A 1 Hz reading then finds
+/// nothing new every twenty-odd seconds and double the next time, which draws
+/// stalls that never happened. So a busy interface whose counters did not move
+/// at all keeps its rate for one reading, and the next one covers both
+/// intervals. Totals stay exact, and a real stop shows one reading later.
+fn next_reading(previous: Option<&Seen>, now: Counters, elapsed: f64) -> Seen {
+    // A new interface has no earlier reading: no rate yet, rather than
+    // everything since boot in one second.
+    let Some(previous) = previous else {
+        return Seen {
+            counters: now,
+            held_secs: 0.0,
+            rates: Rates::default(),
+        };
+    };
+    if previous.counters == now && previous.rates.any() && previous.held_secs == 0.0 {
+        return Seen {
+            counters: now,
+            held_secs: elapsed,
+            rates: previous.rates,
+        };
+    }
+    Seen {
+        counters: now,
+        held_secs: 0.0,
+        rates: Rates::between(&previous.counters, &now, previous.held_secs + elapsed),
+    }
+}
+
+fn network(name: &str, rates: Rates, now: &Counters, link: Option<&Link>) -> Network {
     let fallback = Link::default();
     let link = link.unwrap_or(&fallback);
     Network {
@@ -139,10 +194,10 @@ fn network(
         speed_mbps: link.speed_mbps,
         duplex: link.duplex.clone(),
         mtu: link.mtu,
-        rx_bps: per_second(before.rx_bytes, now.rx_bytes, elapsed),
-        tx_bps: per_second(before.tx_bytes, now.tx_bytes, elapsed),
-        rx_pps: per_second(before.rx_packets, now.rx_packets, elapsed),
-        tx_pps: per_second(before.tx_packets, now.tx_packets, elapsed),
+        rx_bps: rates.rx_bps,
+        tx_bps: rates.tx_bps,
+        rx_pps: rates.rx_pps,
+        tx_pps: rates.tx_pps,
         rx_total: now.rx_bytes,
         tx_total: now.tx_bytes,
         rx_errors: now.rx_errors,
@@ -240,6 +295,35 @@ mod tests {
         assert!(networks[0].rx_bps.abs() < f64::EPSILON);
         assert_eq!(networks[0].rx_total, 999_999);
         assert_eq!(networks[0].kind, "virtual");
+    }
+
+    fn line(rx_bytes: u64) -> String {
+        dev(&format!("eth0: {rx_bytes} 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0\n"))
+    }
+
+    fn rate_at(tracker: &mut Tracker, rx_bytes: u64) -> f64 {
+        tracker.update(&line(rx_bytes), &BTreeMap::new(), 1.0)[0].rx_bps
+    }
+
+    #[test]
+    fn a_counter_that_skips_a_reading_draws_no_stall() {
+        let mut tracker = Tracker::default();
+        rate_at(&mut tracker, 0);
+        assert!((rate_at(&mut tracker, 1000) - 1000.0).abs() < f64::EPSILON);
+        // The driver's timer missed this reading, and caught up on the next.
+        assert!((rate_at(&mut tracker, 1000) - 1000.0).abs() < f64::EPSILON);
+        assert!((rate_at(&mut tracker, 3000) - 1000.0).abs() < f64::EPSILON);
+        assert!((rate_at(&mut tracker, 4000) - 1000.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn a_real_stop_shows_one_reading_later_and_an_idle_link_stays_zero() {
+        let mut tracker = Tracker::default();
+        rate_at(&mut tracker, 0);
+        rate_at(&mut tracker, 1000);
+        assert!((rate_at(&mut tracker, 1000) - 1000.0).abs() < f64::EPSILON);
+        assert!(rate_at(&mut tracker, 1000).abs() < f64::EPSILON);
+        assert!(rate_at(&mut tracker, 1000).abs() < f64::EPSILON);
     }
 
     #[test]
