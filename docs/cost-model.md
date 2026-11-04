@@ -72,7 +72,7 @@ Four orthogonal concepts:
    (Force of Will), overload, evoke, miracle, flashback, conditional free
    ("{0} if you control your commander"). Conditions checked at legality.
 2. **Additional costs** (any number; optional ones are cast choices):
-   kicker, spree, escalate, mandatory extras.
+   kicker, multikicker, buyback, spree, escalate, mandatory extras.
 3. **Payment assists** (change how mana is paid, not the cost): convoke,
    delve, improvise.
 4. **Total-cost pipeline** (CR 601.2f–h): base or alternative → + additional

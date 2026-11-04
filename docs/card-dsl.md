@@ -452,6 +452,24 @@ express at all yet.
   targets. Nothing else is written for it: the trigger is the engine's, not
   an ability on the face. A mana cost only, as every printed replicate cost
   is.
+- `buyback = Some(cost!("{3}"))` — "Buyback {3}" (CR 702.27a). Asked after the
+  kicker and before the targets; a spell it was paid for goes to its owner's
+  hand as it resolves, and nowhere but as it resolves. A cost in parts is
+  written in them: `cost!(Sacrifice(&Filter::LAND))`, `cost!(PayLife(4))`,
+  `cost!(Discard(&Filter::Any), Discard(&Filter::Any))`,
+  `cost!(PayLife(3), DiscardRandom)`. `cast_wizard::paid_as_a_buyback_cost`
+  lists the parts it pays, and `offer_tests` holds the pool to that list.
+  `Modifier::BuybackCostsLess(n)` takes generic mana off the buyback cost
+  alone (Memory Crystal, CR 118.7a).
+- `multikicker = Some(mana!("{1}{G}"))` — "Multikicker {1}{G}" (CR 702.33c),
+  printed instead of `additional_costs`: asked as a count. A spell paid once
+  or more is kicked (CR 702.33d), so `Effect::IfKicked` and `Filter::Kicked`
+  read it as they read a kicker. "For each time it was kicked" is
+  `Amount::TimesKicked`, for a spell's effect, for
+  `EnterModifier::WithCounters`, and for an enters trigger, which
+  `Effect::IfKicked` also reads on. A permanent that came from anywhere but
+  the stack counts none. A mana cost only, as every printed one is. A target
+  count that grows with it (Comet Storm) has no word yet.
 - `FaceDef.mandatory_additional_costs: &[CostPart]` — e.g. `PayLifeX`. Pays
   `PayLifeX` and `PayLife`, and is the one cost list nothing gates at all.
   `PayLifeX` is bounded where it is asked instead — the wizard offers X up to
@@ -3483,7 +3501,10 @@ source references; it does not retarget self-pumps or change damage-source LKI.
 ### Typed text changes and composed copy abilities
 
 `ChangeTextWord { kind }` offers `NumberPrompt::TextReplacement { kind, target }`
-for the exact object incarnation. The twenty valid answers are distinct ordered
+for the exact object incarnation, and `ChangeTextWordThisTurn { kind }` is the
+same "until end of turn": `TextChangeEntry::lasting` holds what stands without
+it, composed apart and not undone, and cleanup goes back to that (CR 514.2).
+The twenty valid answers are distinct ordered
 WUBRG pairs: `from = answer / 4`, and the remainder indexes the four words other
 than `from`. Basic land types use Plains, Island, Swamp, Mountain, Forest in the
 same order. Oracle strings remain unchanged; `PublicObject::word_changes` is a

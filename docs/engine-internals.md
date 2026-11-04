@@ -2025,6 +2025,41 @@ targets with `retarget::start_copy` (CR 707.10c). A copy carries the
 count, as it carries every decision made for the spell (CR 707.10), and
 copies nothing further: a copy is not cast, so no `SpellCast` names it.
 
+**Buyback and multikicker are questions on top of a way of casting** (CR
+702.27a, 702.33c), not ways of casting: each adds to whichever way was chosen,
+a free cast's and an alternative cost's included (CR 118.8a, 118.9d), so
+neither is a `CastModeKind`. `cast_wizard/announced_costs.rs` asks them, in the
+`Buyback` and `Multikicker` stages between `Kicker` and `Replicate`, after X as
+the kicker is (CR 601.2b lists all of it as one announcement, and nothing
+reads the order). A question is asked only when a yes could be paid: parts
+through `casting::additional_payment_capacity_for`, with a `CostChoice` that
+says buyback was announced, and mana either floating or still to be made.
+Mana to be made counts (CR 601.2g), so a multikicker's bound is
+`REPLICATE_CEILING` while a source is left, as an X's is, and a count the
+window cannot reach is reversed there (CR 601.2h, 733.1). `CastWizard::buyback`
+holds the mana as reduced, `{0}` for a cost with none, and
+`wizard_total_before_reduction` adds both, so the frozen reductions of CR
+601.2f reach them. Non-mana parts are paid with the mandatory ones, a random
+discard last (CR 601.2h), and a buyback's `Sacrifice` does not touch the
+sacrifice receipt, which is the printed additional cost's (CR 607.2i).
+
+The ending is one branch of `finalize_spell`, which is why no other door needs
+to know: `Rider::Buyback` is read there, at CR 608.2n, and a spell countered
+(CR 701.6a) or with no target left (CR 608.2b) leaves by another door. Flashback
+goes first (CR 702.34a: "anywhere else"). Beside rebound the two "instead"s
+are the caster's to order (CR 616.1e) and the engine orders them for buyback,
+since they paid for it. Against "exile it instead" from outside (Rest in
+Peace) the same answer falls out of the move: a card going to a hand was never
+going to a graveyard. A copy carries the rider (CR 707.10) and is sent nowhere:
+`is_card` is false, it takes a copy's ending (CR 704.5e). The rider goes when
+the object leaves the stack by any door (CR 400.7).
+
+`GameObject::times_kicked` beside `kicked` is the count: a multikicker's, or 1
+for a kicker. Both stay with the permanent the spell became (CR 400.7d), both
+go when it arrives from anywhere else (`apply_enter_modifiers`, with the X), and
+an `ETB` trigger takes them onto the ability on the stack with the X, so
+`Effect::IfKicked` asks one object whatever is resolving.
+
 **A back face's mana value is its front face's** (CR 202.3b). A nonmodal
 double-faced card's back face has no mana cost, and up on the battlefield
 (CR 712.8e) or cast transformed (CR 712.8c) its mana value is computed

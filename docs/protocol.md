@@ -5100,6 +5100,29 @@ offers `0..=max`, where `max` is the most payments the caster's mana can
 cover; the copies then ask their new targets as the trigger resolves, with
 the question every copy asks.
 
+`NumberPrompt::Multikicker { cost }` is the same question for a multikicker
+(CR 702.33c), and it is a variant a reader before `VIEW_VERSION` 85 cannot
+parse. Its `max` is what the floating mana pays once nothing is left to tap,
+and the engine's ceiling while something is, as an X's is: a client that plans
+its mana narrows it (`Interaction::cap_number`), and a count the window cannot
+reach reverses the cast.
+
+### What a buyback question carries
+
+`YesNoPrompt::Buyback { cost, parts }` (`VIEW_VERSION` 85) is asked as a spell
+is cast, with the other additional costs, and only when a yes could be paid.
+`cost` is the mana as it stands, after `Modifier::BuybackCostsLess`; `parts`
+(`BuybackParts`) counts what else it asks, because the card's own cost parts
+hold `'static` filters no wire can carry and a reader must still be able to
+name the whole price. The objects are asked after a yes, as `ChooseCards`.
+`source` is the card's `AbilityRef::ADDITIONAL_COST`, and no standing answer is
+stored under it. `LegalActions::buyback_less` tells a planner what comes off
+the buyback cost before the cast begins; absent means none.
+
+`PublicObject::times_kicked` and `PublicObject::bought_back` say, for a spell
+on the stack, what was announced for it (CR 601.2b). Every seat is told; both
+are absent on anything else, so they cost a view nothing.
+
 ### What a question holds an answer to
 
 `apply` refuses an answer only for a reason its question states, and takes

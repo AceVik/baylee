@@ -6057,3 +6057,27 @@ fixtures must settle characteristics before measuring a no-new-events boundary.
   announced as it is cast (CR 608.2d), so it is a journaled event, a log line
   and a public view field at once; the in-progress resolution is on the
   `Engine`, not in the hashed state, so no replay hash moved.
+
+## 2026-11-04 — Buyback and multikicker
+
+- An optional cost is not a way of casting. Kicker's `Kicked` mode exists for a
+  kicker with its own targets; a cost that sits on top of every way, a flashback
+  and a free cast included (CR 118.9d), is a question, and a `CastModeKind` for
+  it would have needed one per way.
+- `Duel::battlefield` replaces the seat's list. Calling it twice looked like a
+  board of six lands and a Familiar and was a board of one Familiar, and the
+  failure read as a rules bug in the reduction.
+- `grep -h` over several named files does not keep their order here, and four
+  oracle ids went into a test against the wrong names. The test said so at
+  once, because the wrong "Counterspell" asked for no target: read an id beside
+  its file name.
+- Thunderscape Familiar is black and green. A card remembered is a card to open.
+- Adding a field to `FaceDef` adds a child to every face in `cardstructure`'s
+  generated tree, so every card drifts for every older export. `build.rs` now
+  writes the two new fields only where a card prints one. Check that visitor
+  before the next face field.
+- `kicked` was never cleared on arrival: no pool permanent read it. A reader of
+  a spell-shaped field on a permanent has to normalise it where the X is.
+- A spell whose only target a copy bounced loses it: the copy's Capsize aimed
+  where the original did made the original fizzle, which is the rule and looked
+  like buyback failing.

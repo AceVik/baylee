@@ -25,6 +25,9 @@ never a reason to edit a card by hand.
 
 ## Engine gaps
 
+- Corpse Dance, Shallow Grave: "the top creature card of your graveyard" with its haste and end-step exile has no effect. Corpse Dance's Buyback {2} is not the gap and is waiting on it (`buyback = …` is one line).
+- Comet Storm, Strength of the Tajuru, Zethi: a target count that grows with the kicks. `Amount::TimesKicked` reaches effects and entries, not `TargetReq`.
+
 - Kolaghan's Command, Silumgar's Command: target in more than two modes.
 - Behold the Beyond: a quantity-only search (CR 701.23d) that may not settle for fewer.
 - Keldon Warcaller, Mind Unbound: lore counters; the AI guard wants a regression first (#166).
