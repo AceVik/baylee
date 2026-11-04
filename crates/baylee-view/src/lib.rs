@@ -243,7 +243,12 @@ pub use turn::{DayNight, Phase, Step};
 /// Version 84 asks Liar's Pendulum's guess as its own engine prompt,
 /// `YesNoPrompt::GuessNamedCardInHand`, naming whose hand and the card whose
 /// name was chosen aloud: a variant a reader of 83 cannot parse.
-pub const VIEW_VERSION: u32 = 84;
+/// Version 85 asks buyback (CR 702.27a) and multikicker (CR 702.33c) as engine
+/// prompts, `YesNoPrompt::Buyback` and `NumberPrompt::Multikicker`, variants a
+/// reader of 84 cannot parse. Compatible additions beside them:
+/// [`PublicObject::times_kicked`] and [`PublicObject::bought_back`], absent
+/// on anything that is no spell so announced.
+pub const VIEW_VERSION: u32 = 85;
 
 // ------------------------------------------------------------------- targets
 

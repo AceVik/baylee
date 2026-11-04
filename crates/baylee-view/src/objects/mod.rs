@@ -357,6 +357,14 @@ pub struct PublicObject {
     /// What this is, for objects on the stack; `None` everywhere else.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stack_item: Option<StackItem>,
+    /// How many times this spell on the stack was kicked (CR 702.33d), which
+    /// was announced as it was cast (CR 601.2b). Zero everywhere else.
+    #[serde(default, skip_serializing_if = "crate::wire::is_zero_u8")]
+    pub times_kicked: u8,
+    /// Whether this spell on the stack had its buyback cost paid (CR
+    /// 702.27a): it goes back to its owner's hand as it resolves.
+    #[serde(default, skip_serializing_if = "crate::wire::is_false")]
+    pub bought_back: bool,
     /// Whether this is a creature that has *not* been under its controller's
     /// control continuously since their most recent turn began, and has no
     /// haste (CR 302.6) — so it cannot attack, and cannot pay `{T}` or `{Q}`

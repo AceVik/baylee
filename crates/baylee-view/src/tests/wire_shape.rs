@@ -347,7 +347,9 @@ fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
     // `PlayerView::controls` and `SpectatorView::controls`: additive, defaulted
     // and omitted while empty, so 84 still names the shape.
     // `PlayerView::foreign_targets`: additive and omitted while empty, likewise.
-    const RECORDED: (u32, u64) = (84, 7_489_953_345_886_202_501);
+    // 85: buyback and multikicker as imported engine prompts, and what a spell
+    // on the stack was cast with, additive and omitted when there is none.
+    const RECORDED: (u32, u64) = (85, 5_255_960_576_573_124_094);
 
     let samples = core_samples();
     let sampled: std::collections::BTreeSet<String> =

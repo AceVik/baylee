@@ -15,6 +15,12 @@ pub(crate) const fn is_false(value: &bool) -> bool {
 
 /// For `skip_serializing_if`: a zero is not written.
 #[allow(clippy::trivially_copy_pass_by_ref)] // serde passes the field by reference
+pub(crate) const fn is_zero_u8(value: &u8) -> bool {
+    *value == 0
+}
+
+/// For `skip_serializing_if`: a zero is not written.
+#[allow(clippy::trivially_copy_pass_by_ref)] // serde passes the field by reference
 pub(crate) const fn is_zero_u16(value: &u16) -> bool {
     *value == 0
 }

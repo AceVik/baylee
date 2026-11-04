@@ -45,6 +45,8 @@ fn obj(id: u32, controller: u8) -> PublicObject {
         attached_to: None,
         targets: vec![],
         stack_item: None,
+        times_kicked: 0,
+        bought_back: false,
         summoning_sick: false,
         ability_mana_spending: baylee_core::mana::ManaSpending::EXACT,
         granted_mana: None,
