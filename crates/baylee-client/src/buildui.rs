@@ -124,6 +124,7 @@ pub(crate) const BUILDER_SHEET_ORDER: TabOrder = TabOrder {
         "format",
         "list",
         "sheet-problem",
+        "gear",
         "list-new",
         "list-open",
         "list-copy",

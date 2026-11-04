@@ -400,20 +400,41 @@ impl DeckBuilder {
         self.refilter();
     }
 
-    /// The filter-string builder, while the gear is open.
+    /// The filter-string builder in front, while its gear is open: the list
+    /// editor's while one is open over the screen, else the pool's. Every
+    /// gesture below acts on this one, so a gear added to another box is one
+    /// more arm here and nothing in the renderer's keys.
     #[must_use]
     pub const fn panel(&self) -> Option<&crate::filterdialog::FilterPanel> {
+        match &self.list_editor {
+            Some(list) => list.search.panel(),
+            None => self.search.panel(),
+        }
+    }
+
+    /// The pool's own filter-string builder, which its toolbar draws whatever
+    /// stands in front of it.
+    #[must_use]
+    pub const fn pool_panel(&self) -> Option<&crate::filterdialog::FilterPanel> {
         self.search.panel()
+    }
+
+    /// The search box in front.
+    const fn search_in_front(&mut self) -> &mut crate::cardsearch::SearchBox {
+        match &mut self.list_editor {
+            Some(list) => &mut list.search,
+            None => &mut self.search,
+        }
     }
 
     /// Opens the builder on what is in the box, or closes it.
     pub fn toggle_panel(&mut self) {
-        self.search.toggle_panel();
+        self.search_in_front().toggle_panel();
     }
 
     /// Shuts the builder.
     pub fn close_panel(&mut self) {
-        self.search.close_panel();
+        self.search_in_front().close_panel();
     }
 
     /// Does what a button in the builder means, and writes the box.
@@ -437,8 +458,14 @@ impl DeckBuilder {
     /// would otherwise be one more to remember to forward.
     pub fn in_panel(&mut self, edit: impl FnOnce(&mut crate::filterdialog::FilterPanel)) {
         // The query beside the box is re-read and the results are refiltered
-        // with it: the two are written together, which is what `retext` is for.
-        if self.search.in_panel(edit) {
+        // with it: the two are written together, which is what `retext` and
+        // the list's `refilter` are for.
+        if !self.search_in_front().in_panel(edit) {
+            return;
+        }
+        if self.list_editor.is_some() {
+            self.refilter_list();
+        } else {
             self.retext();
         }
     }

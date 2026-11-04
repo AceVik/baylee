@@ -4781,8 +4781,10 @@ save button: a deck is never refused for being illegal.
 
 **A list is edited over the builder** (`buildui/lists.rs`, `banlist::ListEditor`): its
 name, its format, a search that is the builder's own over the builder's pool (so it
-reads the client's language and English and no other), and its cards, whose word a
-press moves on through banned, restricted and banned as commander. A new list starts
+reads the client's language and English and no other) with the builder's own gear
+beside it (one `SearchBox`, `filterui::build`; `DeckBuilder::panel` is the panel in
+front, the editor's while one is open, and `pool_panel` the toolbar's), and its cards,
+whose word a press moves on through banned, restricted and banned as commander. A new list starts
 empty; *Copy* starts one from an official list or one's own; an official list opens
 to be read and nothing there can write it.
 

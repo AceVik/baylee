@@ -303,6 +303,63 @@ fn a_list_key_filters_the_pool_once_the_lists_are_told() {
     assert!(b.list_shelf().is_none());
 }
 
+/// The gear belongs to the search in front: the list editor's while one is
+/// open, and the pool's panel and box stand as they were.
+#[test]
+fn the_gear_works_the_list_editors_search_while_it_is_open() {
+    use crate::filterdialog::{Act, OFFERED};
+    let mut b = builder();
+    b.set_text("sol");
+    let pool_results = b.results().to_vec();
+    b.open_new_list("Mine");
+    b.toggle_panel();
+    assert!(b.panel().is_some(), "the editor's panel");
+    assert!(b.pool_panel().is_none(), "and not the pool's");
+
+    let at = OFFERED
+        .iter()
+        .position(|key| *key == crate::cardquery::Key::Name)
+        .expect("the menu offers a name");
+    b.filter_act(Act::Add(at));
+    b.filter_act(Act::Edit(0));
+    b.type_into_panel("sol");
+    let open = b.list_editor().expect("open");
+    assert_eq!(open.search.field.text(), "name:sol", "the editor's box");
+    assert_eq!(open.results(), [slot(&b, "Sol Ring")], "and it answered");
+    assert_eq!(b.text(), "sol", "the pool's box is left alone");
+    assert_eq!(b.results(), pool_results);
+
+    b.close_panel();
+    assert!(b.panel().is_none());
+    b.close_list();
+    b.toggle_panel();
+    assert!(b.pool_panel().is_some(), "with no editor it is the pool's");
+}
+
+/// An official list is read: its search and gear are not drawn, and the box
+/// behind them writes nothing that could change it.
+#[test]
+fn a_read_only_list_takes_nothing_from_the_gear() {
+    let mut b = builder();
+    b.open_list(&baylee_cardtext::ListBody {
+        row: baylee_cardtext::ListRow {
+            id: "o1".to_string(),
+            name: "modern".to_string(),
+            format: "modern".to_string(),
+            builtin: true,
+            ..baylee_cardtext::ListRow::default()
+        },
+        entries: Vec::new(),
+    });
+    b.edit_list(|list, pool| {
+        assert!(!list.put(&pool[0], Some(ListStatus::Banned)));
+    });
+    assert!(
+        b.list_editor()
+            .is_some_and(|list| list.entries().is_empty())
+    );
+}
+
 /// A language change reads the lists again, and asks nothing of a client no
 /// gateway has told any.
 #[test]

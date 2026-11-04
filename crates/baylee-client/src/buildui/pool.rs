@@ -35,7 +35,7 @@ pub(crate) fn search_has_caret(env: &Env) -> bool {
     let deck = env.deck();
     env.ui().nav == Nav::Field
         && deck.focus() == BuildField::Search
-        && deck.panel().is_none()
+        && deck.pool_panel().is_none()
         && deck.picker().is_none()
 }
 
@@ -186,14 +186,14 @@ pub(super) fn toolbar(commands: &mut Commands, holder: Entity, env: &Env) {
         commands,
         kit,
         crate::hud::glyph::GEAR,
-        deck.panel().is_some(),
+        deck.pool_panel().is_some(),
         (Press::Build(BuildPress::ToggleFilterPanel), stop("gear")),
     ));
     let top = line(commands, kit, &first);
     commands.entity(holder).add_child(top);
 
     // The filter builder the gear opens: what the box holds, taken apart.
-    if let Some(built) = deck.panel() {
+    if let Some(built) = deck.pool_panel() {
         let also = chips_in_words(deck, lang);
         let rows = crate::filterui::build(
             commands,

@@ -146,21 +146,52 @@ pub(super) fn sheet(commands: &mut Commands, env: &Env, list: &ListEditor) -> En
             })
             .collect();
         body.push(super::legality::wrapped(commands, kit, &chips));
-        body.push(crate::lobby::text_field(
+        let search = crate::lobby::text_field(
             commands,
             kit.fonts,
             env.lobby_metrics(),
             Phrase::ListSearchLabel.text(lang),
             &FieldLook {
                 buffer: deck.buffer(BuildField::ListSearch),
-                focused: deck.focus() == BuildField::ListSearch,
+                focused: deck.focus() == BuildField::ListSearch && deck.panel().is_none(),
                 mask: None,
                 press: Press::Build(BuildPress::FocusBuild(BuildField::ListSearch)),
                 lead: Some(crate::hud::glyph::MAGNIFIER),
                 hint: Some(Phrase::SearchCards.text(lang)),
                 tail: None,
             },
-        ));
+        );
+        commands.entity(search).insert(Node {
+            flex_grow: 1.0,
+            flex_basis: px_fixed(0.0),
+            min_width: px_fixed(0.0),
+            flex_direction: FlexDirection::Column,
+            ..default()
+        });
+        // The deck builder's gear and its panel, over the same box and the
+        // same list of keys: nothing here knows what a condition is.
+        let gear = icon_button(
+            commands,
+            kit,
+            crate::hud::glyph::GEAR,
+            deck.panel().is_some(),
+            (
+                Press::Build(BuildPress::ToggleFilterPanel),
+                sheet_stop("gear"),
+            ),
+        );
+        body.push(line(commands, kit, &[search, gear]));
+        if let Some(built) = deck.panel() {
+            body.push(crate::filterui::build(
+                commands,
+                kit.fonts,
+                built,
+                deck.surface(),
+                None,
+                lang,
+                crate::filterui::Register::LOBBY,
+            ));
+        }
         for &slot in list.results() {
             if let Some(card) = deck.card(slot) {
                 body.push(result_row(commands, env, slot, &card.name));

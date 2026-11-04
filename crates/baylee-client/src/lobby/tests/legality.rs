@@ -190,6 +190,76 @@ fn a_card_goes_on_a_list_through_the_builders_search() {
     assert!(open.saveable());
 }
 
+/// The editor's gear opens the deck builder's own panel over the editor's own
+/// box, and a press in it reaches that box. Esc takes the gear first.
+#[test]
+fn the_list_editors_gear_opens_the_builders_panel() {
+    use baylee_client_core::cardquery::Key;
+    use baylee_client_core::filterdialog::{Act, Adding, ChoiceWord, Control, OFFERED};
+    let mut app = builder();
+    apply(
+        &mut app,
+        LobbyEvent::Banlists(vec![list("m1", "Kitchen table", false).row]),
+    );
+    press(&mut app, Press::Build(BuildPress::OpenCheck));
+    press(&mut app, Press::Build(BuildPress::ListNew));
+    press(&mut app, Press::Build(BuildPress::ToggleFilterPanel));
+    app.update();
+    let box_text = |app: &App| {
+        let deck = app.world().resource::<LobbyState>().lobby.builder();
+        deck.buffer(BuildField::ListSearch).text().to_string()
+    };
+    assert!(
+        app.world()
+            .resource::<LobbyState>()
+            .lobby
+            .builder()
+            .pool_panel()
+            .is_none()
+    );
+    // The same menu, and in it the key this list editor shares with every
+    // other box.
+    press_act(&mut app, Act::AddStep(Adding::Kinds));
+    press_act(&mut app, Act::AddStep(Adding::Keys(Control::Choice)));
+    let at = OFFERED
+        .iter()
+        .position(|key| *key == Key::List)
+        .expect("the menu offers a list");
+    press_act(&mut app, Act::Add(at));
+    let word = ChoiceWord::new("Kitchen table").expect("it fits");
+    press_act(&mut app, Act::Choose(0, word));
+    assert_eq!(box_text(&app), "list:\"Kitchen table\"");
+
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .builder_mut()
+        .close_panel();
+    app.update();
+    app.update();
+    assert!(
+        presses(&mut app).contains(&Press::Build(BuildPress::ToggleFilterPanel)),
+        "the gear stands beside the box"
+    );
+}
+
+/// Presses one control of the filter builder, by what it does.
+fn press_act(app: &mut App, wanted: baylee_client_core::filterdialog::Act) {
+    let mut query = app
+        .world_mut()
+        .query::<(Entity, &crate::filterui::FilterAct)>();
+    let found = query
+        .iter(app.world())
+        .find(|(_, act)| act.0 == wanted)
+        .map(|(entity, _)| entity);
+    let Some(target) = found else {
+        panic!("{wanted:?} is on screen");
+    };
+    tap(app, target);
+    app.update();
+    app.update();
+}
+
 /// A refusal stands over whatever screen the deck came from, a line a reason.
 #[test]
 fn a_refused_deck_reads_why() {

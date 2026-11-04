@@ -496,7 +496,7 @@ fn toolbar_key(env: &Env) -> ToolbarKey {
     ToolbarKey {
         text: deck.buffer(BuildField::Search).clone(),
         typing: super::pool::search_has_caret(env),
-        panel: deck.panel().cloned(),
+        panel: deck.pool_panel().cloned(),
         colors: deck.colors().to_vec(),
         kind: deck.kind().map(str::to_owned),
         cmc: deck.cmc(),

@@ -280,7 +280,7 @@ impl BuildPress {
                 // A tap in the search box shuts the builder and takes the
                 // caret, which is the way back out of it — the same rule the
                 // zone browser's box follows.
-                if field == BuildField::Search {
+                if matches!(field, BuildField::Search | BuildField::ListSearch) {
                     deck.close_panel();
                 }
                 deck.focus_on(field);
