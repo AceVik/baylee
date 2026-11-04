@@ -9,6 +9,7 @@ use baylee_view::{
 };
 
 mod constrained_tests;
+mod controlled_tests;
 /// `worth`'s takes and declines, on this module's boards: a child of
 /// it, so the helpers below serve both.
 mod worth_tests;

@@ -13,6 +13,7 @@ mod activate;
 mod board;
 pub mod combat;
 mod constrained;
+mod controlled;
 mod copying;
 mod damage;
 mod fight;
@@ -206,21 +207,15 @@ impl HeuristicAgent {
         pending: &Pending,
         context: &baylee_engine::engine::DecisionContext<'_>,
     ) -> PlayerAction {
-        // A decision for another player whose turn this seat controls
-        // (Mindslaver, CR 723.5): every step below plays a turn for the
-        // player it decides for, so the controlled player's priority passes
-        // and its creatures attack only where they must. A payment this
-        // seat took on for that player (Word of Command) is still paid, and
-        // the other choices are made as below, where that player's
-        // permanents are the hostile ones.
-        let controlled = view.awaiting == Some(view.seat)
-            && pending.asked().is_some_and(|player| player != view.seat);
-        if controlled
-            && (matches!(pending, Pending::ChooseAttackers { .. })
-                || matches!(pending, Pending::Priority { .. }) && view.owed.is_none())
-            && let Some(least) = baylee_engine::choice::timeout_answer(pending)
+        // A decision for another player this seat controls (Mindslaver,
+        // CR 723.5) is made against them (`controlled`); what that has no
+        // reading for is answered below, where their permanents are the
+        // hostile ones. This seat's own decisions in their turn (CR 723.8)
+        // are not theirs and never come here.
+        if let Some(subject) = controlled::subject(view, pending)
+            && let Some(action) = self.decide_against(view, pending, context, subject)
         {
-            return self.held_to(view, pending, least);
+            return self.held_to(view, pending, action);
         }
         // Most questions are priority. Borrow its potentially large offer
         // instead of allocating a duplicate box and every legal-action list.
