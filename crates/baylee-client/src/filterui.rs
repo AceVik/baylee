@@ -1054,32 +1054,7 @@ fn rarity_name(rarity: Rarity, lang: Lang) -> &'static str {
 /// build has no words for is shown as the feed spells it, as an unknown key
 /// is: the word is the data's, and a blank button would be worse.
 fn format_name(format: &str, lang: Lang) -> &str {
-    let phrase = match format {
-        "alchemy" => Phrase::PlayFormatAlchemy,
-        "brawl" => Phrase::PlayFormatBrawl,
-        "commander" => Phrase::PlayFormatCommander,
-        "competitivebrawl" => Phrase::PlayFormatCompetitiveBrawl,
-        "duel" => Phrase::PlayFormatDuel,
-        "future" => Phrase::PlayFormatFuture,
-        "gladiator" => Phrase::PlayFormatGladiator,
-        "historic" => Phrase::PlayFormatHistoric,
-        "legacy" => Phrase::PlayFormatLegacy,
-        "modern" => Phrase::PlayFormatModern,
-        "oathbreaker" => Phrase::PlayFormatOathbreaker,
-        "oldschool" => Phrase::PlayFormatOldschool,
-        "pauper" => Phrase::PlayFormatPauper,
-        "paupercommander" => Phrase::PlayFormatPauperCommander,
-        "penny" => Phrase::PlayFormatPenny,
-        "pioneer" => Phrase::PlayFormatPioneer,
-        "predh" => Phrase::PlayFormatPredh,
-        "premodern" => Phrase::PlayFormatPremodern,
-        "standard" => Phrase::PlayFormatStandard,
-        "standardbrawl" => Phrase::PlayFormatStandardBrawl,
-        "timeless" => Phrase::PlayFormatTimeless,
-        "vintage" => Phrase::PlayFormatVintage,
-        _ => return format,
-    };
-    phrase.text(lang)
+    baylee_client_core::deckcheck::format_name(format, lang)
 }
 
 /// What a flag is called.

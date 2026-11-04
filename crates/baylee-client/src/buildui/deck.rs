@@ -417,6 +417,7 @@ pub(super) fn foot(commands: &mut Commands, holder: Entity, env: &Env) {
     let m = kit.m;
     let lang = env.lang();
     let deck = env.deck();
+    super::legality::foot(commands, holder, env);
     let shaky = deck.counts().shaky;
     if shaky > 0 {
         let sign = glyph(commands, kit, mark::WARN, m.small, tokens::GOLD);

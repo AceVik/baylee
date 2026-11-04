@@ -1472,6 +1472,7 @@ fn the_builders_history_is_the_one_sheet_over_the_builder_and_esc_stays_there() 
             cards: vec!["4 Lightning Bolt (M11) 149 *F*".to_string()],
             sideboard: Vec::new(),
             commanders: Vec::new(),
+            format: "freeform".to_string(),
         });
         assert!(state.lobby.browse_history().is_some());
         state.lobby.apply(LobbyEvent::Library(Reply::History(

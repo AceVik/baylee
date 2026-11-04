@@ -91,6 +91,14 @@ pub(crate) enum BuildPress {
     SetLit(Option<baylee_client_core::deckbuilder::Group>),
     /// Draw a sample hand of seven.
     DrawSeven,
+    /// Open the deck check's sheet.
+    OpenCheck,
+    /// Put the deck check's sheet away.
+    CloseCheck,
+    /// Hold the deck to the format at this place in the picker.
+    SetFormat(usize),
+    /// A problem pressed: its card, by pool slot.
+    CheckCard(usize),
     /// The phone's Stats sheet.
     OpenStatsSheet,
     /// Put the phone's Stats sheet away.
@@ -575,6 +583,24 @@ impl BuildPress {
             BuildPress::DrawSeven => {
                 state.build.hand = state.lobby.builder().sample_hand(crate::host::fresh_seed());
                 state.build.reveal_hand = true;
+            }
+            BuildPress::OpenCheck => state.build.check_sheet = true,
+            BuildPress::CloseCheck => {
+                if state.build.check_sheet {
+                    state.build.check_sheet = false;
+                }
+            }
+            BuildPress::SetFormat(at) => {
+                let chosen = state.lobby.builder().format_choices().get(at).cloned();
+                if let Some(format) = chosen {
+                    state.lobby.builder_mut().set_format(&format);
+                }
+            }
+            BuildPress::CheckCard(slot) => {
+                state.build.check_sheet = false;
+                state.build.window_back = false;
+                let request = state.lobby.builder_mut().inspect(slot);
+                dispatch(state, mailbox, request);
             }
             BuildPress::OpenStatsSheet => state.build.stats_sheet = true,
             BuildPress::CloseStatsSheet => {

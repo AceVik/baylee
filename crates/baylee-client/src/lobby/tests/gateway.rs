@@ -36,6 +36,7 @@ fn every_request_hits_the_route_the_gateway_serves() {
                 cards: vec!["1 Forest".to_string()],
                 sideboard: Vec::new(),
                 commanders: Vec::new(),
+                format: None,
             },
             "POST",
             "http://gw/decks",
@@ -47,6 +48,7 @@ fn every_request_hits_the_route_the_gateway_serves() {
                 cards: vec!["1 Forest".to_string()],
                 sideboard: Vec::new(),
                 commanders: Vec::new(),
+                format: None,
             },
             "PUT",
             "http://gw/decks/d1",
@@ -192,6 +194,7 @@ fn the_bodies_carry_the_field_names_the_gateway_deserialises() {
             cards: vec!["1 Forest".to_string()],
             sideboard: vec!["2 Naturalize".to_string()],
             commanders: Vec::new(),
+            format: None,
         },
     );
     assert_eq!(
@@ -338,6 +341,7 @@ fn a_json_body_says_so() {
             cards: vec!["1 Forest".to_string()],
             sideboard: Vec::new(),
             commanders: Vec::new(),
+            format: None,
         },
     );
     assert_eq!(built.headers.get("Content-Type"), Some("application/json"));
@@ -541,6 +545,7 @@ fn the_pool_and_a_saved_deck_decode() {
             cards: vec!["4 Llanowar Elves".to_string()],
             sideboard: vec!["1 Forest".to_string()],
             commanders: Vec::new(),
+            format: "freeform".to_string(),
         }
     );
     assert_eq!(

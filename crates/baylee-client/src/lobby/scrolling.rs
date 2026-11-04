@@ -20,6 +20,8 @@ pub(crate) struct Scrollable(pub(crate) List);
 pub(crate) enum List {
     /// The searchable card pool.
     Pool,
+    /// The deck check's sheet.
+    Check,
     /// The deck being built.
     Deck,
     /// The tables and decks on the lobby screen.
@@ -89,7 +91,7 @@ impl Scrolled {
             List::Gateways => self.gateways,
             List::Discovery => self.discovery,
             List::Games => self.games,
-            List::RoomCards | List::PickerSets => 0.0,
+            List::RoomCards | List::PickerSets | List::Check => 0.0,
             List::Library => self.library,
             List::PickerPanel => self.picker_panel,
             List::Settings => self.settings,
@@ -112,7 +114,7 @@ impl Scrolled {
             List::Gateways => self.gateways = at,
             List::Discovery => self.discovery = at,
             List::Games => self.games = at,
-            List::RoomCards | List::PickerSets => {}
+            List::RoomCards | List::PickerSets | List::Check => {}
             List::Library => self.library = at,
             List::PickerPanel => self.picker_panel = at,
             List::Settings => self.settings = at,

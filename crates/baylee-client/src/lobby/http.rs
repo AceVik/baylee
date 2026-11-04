@@ -222,13 +222,19 @@ pub(super) fn build(
             cards,
             sideboard,
             commanders,
+            format,
         } => {
-            let body = serde_json::json!({
+            let mut body = serde_json::json!({
                 "name": name,
                 "cards": cards,
                 "sideboard": sideboard,
                 "commanders": commanders,
             });
+            // Absent rather than null: a deck that does not say keeps what
+            // it said, and a new one is read off its commanders.
+            if let Some(format) = format {
+                body["format"] = serde_json::Value::String(format);
+            }
             match deck_id {
                 // Editing an existing deck overwrites it; without an id this
                 // is a new one. Getting that backwards would either lose the
@@ -602,6 +608,8 @@ pub(super) fn decode(lang: Lang, expect: Expect, response: &ehttp::Response) -> 
         sideboard: Vec<String>,
         #[serde(default)]
         commanders: Vec<String>,
+        #[serde(default)]
+        format: String,
     }
 
     let body = response.text().unwrap_or_default();
@@ -646,6 +654,7 @@ pub(super) fn decode(lang: Lang, expect: Expect, response: &ehttp::Response) -> 
                 cards: d.cards,
                 sideboard: d.sideboard,
                 commanders: d.commanders,
+                format: d.format,
             },
         ),
         Expect::LoggedIn => serde_json::from_str::<TokenBody>(body).map_or_else(

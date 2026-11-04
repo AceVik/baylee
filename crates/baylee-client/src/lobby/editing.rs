@@ -171,6 +171,8 @@ fn escape(state: &mut ResMut<LobbyState>, scrolled: &mut Scrolled) {
         state.confirm_leave = false;
     } else if state.lobby.builder().inspecting().is_some() {
         state.lobby.builder_mut().stop_inspecting();
+    } else if state.build.check_sheet {
+        state.build.check_sheet = false;
     } else if state.build.stats_sheet {
         state.build.stats_sheet = false;
     } else if state.build.syntax {
