@@ -118,12 +118,6 @@ pub enum Modifier {
     /// Matching spells cost {1} less for each counter of this kind on the
     /// continuous effect's source (Herald of War).
     SpellsCostLessPerCounter(crate::CounterKind),
-    /// The buyback cost of a matching spell costs this much less generic
-    /// mana. Only the buyback cost's own generic part (CR 118.7a), so it does
-    /// nothing for a spell whose buyback was not announced and nothing for
-    /// "Buyback—Sacrifice a land", and the mana part of a smaller cost is
-    /// {0} rather than less (CR 118.7).
-    BuybackCostsLess(u32),
     /// Generic cost increase for activated abilities of matching objects.
     AbilitiesCostMore(u32),
     /// Additional life paid when activating a mana ability of the affected object.
@@ -1038,6 +1032,12 @@ pub enum Modifier {
     /// permanent matching the filter (Orgg: "can't attack if defending player
     /// controls an untapped creature with power 3 or greater").
     CantAttackIfDefenderControls(&'static Filter),
+    /// The buyback cost of a matching spell costs this much less generic
+    /// mana. Only the buyback cost's own generic part (CR 118.7a), so it does
+    /// nothing for a spell whose buyback was not announced and nothing for
+    /// "Buyback—Sacrifice a land", and the mana part of a smaller cost is
+    /// {0} rather than less (CR 118.7).
+    BuybackCostsLess(u32),
 }
 
 /// What a [`Modifier::CharacteristicPT`] counts.

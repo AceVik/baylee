@@ -6084,3 +6084,12 @@ fixtures must settle characteristics before measuring a no-new-events boundary.
 - A spell whose only target a copy bounced loses it: the copy's Capsize aimed
   where the original did made the original fizzle, which is the rule and looked
   like buyback failing.
+- The state hash is a format: every written game record holds its values, and
+  `replay_exact` must go on matching them. Two ways to break it, both met here.
+  A new hashed field has to write nothing while it is unset (`hash_times_kicked`,
+  `TextChangeEntry`'s `Hash`, the wizard's fingerprint). A new variant goes at
+  the END of its enum, because `derive(Hash)` writes the discriminant: a variant
+  in the middle of `Amount` or `Modifier` renumbers all that follow, and the
+  record first diverged at an innocent `PlayLand`, 46 inputs in. Do not
+  re-capture the fixture to silence that: `capture_acceptance_record` is for a
+  rule that changed, and a green test would hide every real record now broken.

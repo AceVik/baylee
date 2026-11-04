@@ -2047,7 +2047,8 @@ sacrifice receipt, which is the printed additional cost's (CR 607.2i).
 The ending is one branch of `finalize_spell`, which is why no other door needs
 to know: `Rider::Buyback` is read there, at CR 608.2n, and a spell countered
 (CR 701.6a) or with no target left (CR 608.2b) leaves by another door. Flashback
-goes first (CR 702.34a: "anywhere else"). Beside rebound the two "instead"s
+goes first (CR 702.34a: "anywhere else").
+Beside rebound the two "instead"s
 are the caster's to order (CR 616.1e) and the engine orders them for buyback,
 since they paid for it. Against "exile it instead" from outside (Rest in
 Peace) the same answer falls out of the move: a card going to a hand was never

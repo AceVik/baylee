@@ -882,7 +882,7 @@ fn hash_source_references(h: &mut Hasher, state: &GameState, position: &dyn Fn(O
             // even after the original spell has left the stack.
             h.u32(source.x_value);
             source.kicked.hash(h);
-            source.times_kicked.hash(h);
+            hash_times_kicked(h, source.times_kicked);
             source.replicated.hash(h);
             source.mode_index.hash(h);
             source.modes.hash(h);
@@ -1257,7 +1257,7 @@ fn hash_copy_decisions(h: &mut Hasher, obj: &GameObject) {
     // can restore a different rules bundle on otherwise identical boards.
     obj.x_value.hash(h);
     obj.kicked.hash(h);
-    obj.times_kicked.hash(h);
+    hash_times_kicked(h, obj.times_kicked);
     obj.replicated.hash(h);
     obj.alt_cast.hash(h);
     obj.mode_index.hash(h);
@@ -1267,6 +1267,15 @@ fn hash_copy_decisions(h: &mut Hasher, obj: &GameObject) {
     obj.own_abilities.hash(h);
     obj.own_origin.hash(h);
     obj.own_abilities_until_eot.hash(h);
+}
+
+/// A spell's kick count, written only where there is one: a game record
+/// already written carries hashes of objects with no such field, and it must
+/// go on replaying exactly (`gamehost::record`).
+fn hash_times_kicked(h: &mut Hasher, times_kicked: u8) {
+    if times_kicked != 0 {
+        times_kicked.hash(h);
+    }
 }
 
 /// Hash identity-sensitive riders by whether their remembered incarnation
@@ -2102,7 +2111,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
     paid.hash(h);
     x_value.hash(h);
     kicked.hash(h);
-    times_kicked.hash(h);
+    hash_times_kicked(h, *times_kicked);
     replicated.hash(h);
     alt_cast.hash(h);
     prototyped.hash(h);

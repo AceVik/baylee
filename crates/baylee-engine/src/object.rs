@@ -898,11 +898,6 @@ pub enum Rider {
     /// cleared by every cast. On the battlefield the registered rule takes
     /// over.
     ExileInsteadOfGraveyard,
-    /// A spell whose buyback cost was paid (CR 702.27a): it goes to its
-    /// owner's hand instead of the graveyard as it resolves. Written by the
-    /// cast, read by `Engine::finalize_spell` alone, and gone the moment the
-    /// object leaves the stack, by whatever door (CR 400.7).
-    Buyback,
     /// Can't be countered (Cavern of Souls mana rider).
     Uncounterable,
     /// Additional entry counters carried from paid mana through resolution.
@@ -1023,6 +1018,11 @@ pub enum Rider {
     MergedInto(ObjectId),
     /// Token status of the top component, independent of the root's physical card.
     MergedToken(bool),
+    /// A spell whose buyback cost was paid (CR 702.27a): it goes to its
+    /// owner's hand instead of the graveyard as it resolves. Written by the
+    /// cast, read by `Engine::finalize_spell` alone, and gone the moment the
+    /// object leaves the stack, by whatever door (CR 400.7).
+    Buyback,
 }
 
 /// What ends an "exile … until …" (CR 610.3), as [`Rider::Linked`] carries

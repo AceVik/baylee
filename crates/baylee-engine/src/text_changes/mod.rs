@@ -273,7 +273,7 @@ impl TextChangeMap {
 }
 
 /// Text affecting a live object, or frozen when an ability went on the stack.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct TextChangeEntry {
     /// Exact rules identity; blinking creates a different one.
     pub object: DamageSourceRef,
@@ -283,6 +283,19 @@ pub struct TextChangeEntry {
     /// [`TextChanges::end_turn`] leaves: composed apart and not undone,
     /// because a lasting change made after one has its own word to replace.
     pub lasting: TextChangeMap,
+}
+
+impl std::hash::Hash for TextChangeEntry {
+    /// `lasting` only where it says something: it is the map itself but for a
+    /// change made for the turn, and a game record already written holds
+    /// hashes of entries with no such field, which must go on replaying.
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.object.hash(state);
+        self.map.hash(state);
+        if self.lasting != self.map {
+            self.lasting.hash(state);
+        }
+    }
 }
 
 /// Sparse text changes, kept off every ordinary object's hot representation.

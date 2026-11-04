@@ -296,7 +296,6 @@ impl CastWizard {
             self.beheld,
             self.behold_paid_mana,
             self.north_star,
-            self.buyback,
         ))
         .wrapping_mul(31)
         .wrapping_add(u64::from(self.card.slot()))
@@ -308,12 +307,20 @@ impl CastWizard {
         .wrapping_add(u64::from(self.kicked))
         .wrapping_mul(257)
         .wrapping_add(u64::from(self.replicated))
-        .wrapping_mul(257)
-        .wrapping_add(u64::from(self.multikicked))
         .wrapping_mul(17)
         .wrapping_add(self.chosen_player.map_or(0, |p| u64::from(p.get()) + 1))
         .wrapping_mul(2)
         .wrapping_add(u64::from(self.paying == casting::Paying::DuringTheCast));
+        // Only where there is one: a record already written holds this number
+        // without them, and it must go on replaying.
+        if self.multikicked != 0 || self.buyback.is_some() {
+            hash = hash
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&(
+                    self.multikicked,
+                    self.buyback,
+                )));
+        }
         hash = hash
             .wrapping_mul(2)
             .wrapping_add(u64::from(self.reduction.is_some()));

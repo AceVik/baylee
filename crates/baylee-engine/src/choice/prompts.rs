@@ -413,15 +413,6 @@ pub enum NumberPrompt {
         /// The cost paid each time.
         cost: baylee_core::mana::ManaCost,
     },
-    /// How many times to pay a spell's multikicker cost (CR 702.33c), which
-    /// is how many times it was kicked. The maximum is what the floating
-    /// mana pays for, or the engine's ceiling while there is more mana to
-    /// make, as an X's is: a count nothing can pay reverses the cast
-    /// (CR 601.2h, 733.1).
-    Multikicker {
-        /// The cost paid each time.
-        cost: baylee_core::mana::ManaCost,
-    },
     /// "Damage divided as you choose" (CR 601.2d): how much of what is left
     /// goes to one target, asked target by target in the order they were
     /// chosen. The last target takes the rest and is not asked, and each
@@ -458,6 +449,15 @@ pub enum NumberPrompt {
     Sacrifices,
     /// A bounded number chosen by a resolving or entry instruction.
     Choice,
+    /// How many times to pay a spell's multikicker cost (CR 702.33c), which
+    /// is how many times it was kicked. The maximum is what the floating
+    /// mana pays for, or the engine's ceiling while there is more mana to
+    /// make, as an X's is: a count nothing can pay reverses the cast
+    /// (CR 601.2h, 733.1).
+    Multikicker {
+        /// The cost paid each time.
+        cost: baylee_core::mana::ManaCost,
+    },
 }
 
 /// Why a [`Pending::ChooseTargets`] is presented (UI hint).
@@ -621,15 +621,6 @@ pub enum YesNoPrompt {
     },
     /// Kicker/additional cost yes-or-no at cast time.
     Kicker,
-    /// Pay this spell's buyback cost (CR 702.27a)? Asked with the other
-    /// additional costs (CR 601.2b), and only of a spell that can pay it.
-    Buyback {
-        /// The mana part of the cost as it stands, after anything that
-        /// reduces it (`Modifier::BuybackCostsLess`).
-        cost: baylee_core::mana::ManaCost,
-        /// What it asks besides mana. The objects are asked after a yes.
-        parts: BuybackParts,
-    },
     /// "Pay {N}?" for a tax trigger (Rhystic Study & co.).
     PayTax {
         /// Generic mana to pay.
@@ -747,6 +738,15 @@ pub enum YesNoPrompt {
     SacrificeToEnter {
         /// Number of eligible permanents that must be sacrificed together.
         count: u8,
+    },
+    /// Pay this spell's buyback cost (CR 702.27a)? Asked with the other
+    /// additional costs (CR 601.2b), and only of a spell that can pay it.
+    Buyback {
+        /// The mana part of the cost as it stands, after anything that
+        /// reduces it (`Modifier::BuybackCostsLess`).
+        cost: baylee_core::mana::ManaCost,
+        /// What it asks besides mana. The objects are asked after a yes.
+        parts: BuybackParts,
     },
 }
 
