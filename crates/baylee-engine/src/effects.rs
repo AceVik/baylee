@@ -238,6 +238,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::CombatDamageCantBePrevented
         | Modifier::CantBlock(_)
         | Modifier::CantBeBlockedBy(_)
+        | Modifier::MinimumBlockers(_)
         | Modifier::CantBeBlockedByPlayer(_)
         | Modifier::CantAttack
         | Modifier::AttackWithoutTappingWhileSourceUntapped { .. }
@@ -1797,6 +1798,7 @@ mod tests {
             Modifier::BlockableWithoutLandwalk(baylee_cards_dsl::KeywordSet::SWAMPWALK),
             Modifier::IgnoreOpponentsHexproof,
             Modifier::CantBeBlockedBy(&Filter::CREATURE),
+            Modifier::MinimumBlockers(3),
             Modifier::CantBeBlockedByPlayer(baylee_core::ids::PlayerId::new(0)),
             Modifier::CantAttack,
             Modifier::CantAttackUnlessDefenderControls(&Filter::LAND),
@@ -2012,7 +2014,8 @@ mod tests {
         // creature with mana-value power and toughness. Ghostly Flame's
         // damage projection and Drought's two symbol-counted sacrifice costs
         // modify rules and lock no object set. Buyback's cost reduction is
-        // another rules-only modifier.
+        // another rules-only modifier. MinimumBlockers restricts a declaration
+        // rather than changing a characteristic, so it locks nothing.
         assert_eq!((locking, all.len() - locking), (55, 136));
     }
 

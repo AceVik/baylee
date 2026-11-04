@@ -484,20 +484,25 @@ until-end-of-turn effects on `Layer::Text` like the attack ones:
 
 `combat::block_options` is the offer (the `BlockOption`s), and it is also
 the universe the maximum is taken in: a pair outside it breaks a restriction
-(evasion, protection, a menace attacker no two creatures could block).
-`combat::BlockRules` collects the four once per declaration. The question
-names, in `capacity`, each offered creature that may block more than one
-attacker, and in `obeying` one legal declaration that obeys as many
-requirements as the engine holds a declaration to. `declare_blockers`
-refuses a pair named twice, a blocker over its limit, and a declaration that
-obeys fewer requirements than `obeying` does.
+(evasion, protection, or an attacker with too few possible blockers to meet
+its minimum). Menace supplies a minimum of two (CR 702.111b);
+`Modifier::MinimumBlockers(n)` supplies `n`, and independent minimums combine
+by taking the greatest. `combat::block_bound` publishes the result in
+`Pending::ChooseBlockers::bounds`: a bounded attacker has zero blockers or at
+least that many. `combat::BlockRules` collects the declaration rules once per
+declaration. The question names, in `capacity`, each offered creature that
+may block more than one attacker, and in `obeying` one legal declaration that
+obeys as many requirements as the engine holds a declaration to.
+`declare_blockers` refuses a pair named twice, a blocker over its limit, and
+a declaration that obeys fewer requirements than `obeying` does.
 
 `BlockRules::obeying` gives each blocker the attackers most requirements ask
-of it, up to its limit, attackers without menace first; a menace attacker
-left with one blocker then gets a second from any creature with room that
-may block it, or loses the one it has (CR 702.111b). Without a menace
-attacker that a requirement names, the blockers do not touch one another
-and this is the maximum CR 509.1c asks for. With one, a blocker's help costs
+of it, up to its limit, attackers without a minimum-blocker restriction first;
+a bounded attacker with too few blockers then gets helpers from any creatures
+with room that may block it, or loses the incomplete block (CR 509.1b,
+702.111b). Without a bounded attacker that a requirement names, the blockers
+do not touch one another and this is the maximum CR 509.1c asks for. With
+one, a blocker's help costs
 it its own requirements, and the constructed declaration can fall short of
 the best one. Two attackers each enchanted with Lure, one on the ground with
 menace and one with flying; two blockers with reach and one without, each
@@ -510,9 +515,10 @@ simplification**, lenient only — a declaration
 obeying at least as many as `obeying` is accepted, so no legal declaration
 is ever refused and the engine never asks for more than it can name. The
 clock answers with `obeying` (`choice::timeout_answer`); the house AI keeps
-its own blocks for every blocker `obeying` does not use and drops a menace
-block left alone (`combat::obey_block_rules`); client-core preselects
-`obeying` and never declines blocks by itself while it is not empty.
+its own blocks for every blocker `obeying` does not use and then holds the
+merged declaration to the question's bounds (`combat::keep_bounds`);
+client-core preselects `obeying` and never declines blocks by itself while it
+is not empty.
 
 Counting is over the declared pairs, not the pairs banding adds afterwards
 (CR 702.22h makes the band blocked as the block is made, after 509.1c has
