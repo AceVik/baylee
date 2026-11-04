@@ -136,6 +136,11 @@ pub async fn from_feed<R: BufRead>(
 
     let mut stored = 0usize;
     while let Some(batch) = rx.recv().await {
+        // Here and not with the stamp above: a feed that fails to open has
+        // written nothing, and the verdicts it would have replaced stand.
+        if stored == 0 {
+            catalog.forget_verdicts().await?;
+        }
         stored += catalog.upsert(&batch).await?;
         if stored % 20_000 < BATCH {
             tracing::info!(stored, "ingesting");

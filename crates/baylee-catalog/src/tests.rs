@@ -257,9 +257,14 @@ fn every_statement_binds_exactly_the_placeholders_it_writes() {
     let cards: Vec<&scryfall::Card> = cards.iter().collect();
     let faces = face_rows(&cards);
     assert_eq!(faces.len(), 3, "one face and two");
-    let legalities: Vec<(&str, &scryfall::Card)> = cards
+    let legalities: Vec<(&str, Verdicts)> = cards
         .iter()
-        .map(|c| (c.oracle_identity().expect("an oracle id"), *c))
+        .map(|c| {
+            (
+                c.oracle_identity().expect("an oracle id"),
+                c.legalities.clone(),
+            )
+        })
         .collect();
 
     for (what, (sql, values), rows, columns) in [

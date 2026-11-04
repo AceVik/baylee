@@ -2,6 +2,7 @@
 //! data seeded into them.
 
 use super::*;
+use crate::rows::VERDICT_ORDER;
 
 /// What [`Catalog::readiness`] found, and why they are two questions.
 ///
@@ -116,6 +117,22 @@ pub(crate) fn split_list(joined: &str) -> Vec<String> {
         .filter(|s| !s.is_empty())
         .map(str::to_string)
         .collect()
+}
+
+/// The body of `catalog_verdicts`, spelled from [`VERDICT_ORDER`] so the merge
+/// a batch makes in Rust and the one a conflict makes here cannot differ.
+fn verdicts_body() -> String {
+    let order = VERDICT_ORDER
+        .map(|word| format!("'{word}'"))
+        .join(", ");
+    format!(
+        "SELECT coalesce(jsonb_object_agg(format, verdict), '{{}}'::jsonb) FROM ( \
+           SELECT DISTINCT ON (key) key AS format, value AS verdict \
+           FROM (SELECT * FROM jsonb_each_text(a) UNION ALL \
+                 SELECT * FROM jsonb_each_text(b)) sides \
+           ORDER BY key, array_position(ARRAY[{order}], value) NULLS LAST \
+         ) merged"
+    )
 }
 
 /// The schema, as idempotent statements.
@@ -235,10 +252,9 @@ pub(crate) fn schema_statements() -> Vec<String> {
         // wants the whole map for one card, and a GIN index still answers
         // `legalities ->> 'commander' = 'legal'` across the catalog.
         //
-        // The deckbuilder is what will want it — "may this card go in this
-        // deck" is a format question, and the pool it offers has had no way
-        // to ask one. The corpus asks something much weaker: whether *any*
-        // format has heard of the card.
+        // The deck builder reads it through `GET /pool/facts`: "may this card
+        // go in this deck" is a format question. The corpus asks something
+        // much weaker: whether *any* format has heard of the card.
         "CREATE TABLE IF NOT EXISTS card_legalities (
             oracle_id  uuid PRIMARY KEY,
             legalities jsonb NOT NULL DEFAULT '{}'::jsonb
@@ -247,6 +263,13 @@ pub(crate) fn schema_statements() -> Vec<String> {
         "CREATE INDEX IF NOT EXISTS card_legalities_gin \
              ON card_legalities USING gin (legalities)"
             .to_string(),
+        // Two printings of one card, written in two batches of an ingest,
+        // and the strongest word for each format.
+        format!(
+            "CREATE OR REPLACE FUNCTION catalog_verdicts(a jsonb, b jsonb) RETURNS jsonb \
+                 LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE AS $fn$ {} $fn$",
+            verdicts_body()
+        ),
     ];
     statements.extend(projection_schema());
     statements

@@ -21,7 +21,9 @@ enum State {
 }
 
 /// Bump when another authoritative field needs to be read from the provider.
-const INGEST_VERSION: &str = "1";
+/// 2: a card's verdicts are merged over its printings (`rows::VERDICT_ORDER`),
+/// and a catalog filled before holds whichever printing came last.
+const INGEST_VERSION: &str = "2";
 const INGEST_KEY: &str = "authoritative_ingest";
 
 /// What a deploy-time upgrade did.

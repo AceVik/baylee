@@ -195,20 +195,70 @@ pub(crate) fn faces_statement(rows: &[FaceRow<'_>]) -> (String, Vec<Value>) {
     (sql, values)
 }
 
-/// The `INSERT` for one chunk of `(oracle_id, card)` legality rows.
-pub(crate) fn legalities_statement(rows: &[(&str, &scryfall::Card)]) -> (String, Vec<Value>) {
+/// One card's verdicts, format to Scryfall's word.
+pub(crate) type Verdicts = std::collections::BTreeMap<String, String>;
+
+/// Which of two verdicts stands when a card's printings disagree, first the
+/// strongest.
+///
+/// Scryfall writes legalities on the printing, and on every format but one
+/// all of a card's printings agree. Old School is the exception, because it
+/// admits *printings*: on the feed of 4.11.2026, 779 of 39 287 cards say
+/// `legal` or `restricted` on an old printing and `not_legal` on a reprint.
+/// So `not_legal` says only that this printing is out, and any other word
+/// says what the format thinks of the card, which is what this table is for;
+/// `banned` and `restricted` beat `legal` because they are the narrower
+/// statement (Balance is restricted there, and one Japanese printing says
+/// `legal`). The order is the whole of the rule: without it the row was
+/// whichever printing the feed happened to write last.
+pub(crate) const VERDICT_ORDER: [&str; 4] = ["banned", "restricted", "legal", "not_legal"];
+
+/// Where a word stands in [`VERDICT_ORDER`]; a word nobody knows stands last.
+fn verdict_rank(word: &str) -> usize {
+    VERDICT_ORDER
+        .iter()
+        .position(|known| *known == word)
+        .unwrap_or(VERDICT_ORDER.len())
+}
+
+/// Takes in another printing's verdicts, each format keeping the strongest.
+pub(crate) fn merge_verdicts(held: &mut Verdicts, other: &Verdicts) {
+    for (format, word) in other {
+        match held.get_mut(format) {
+            Some(standing) if verdict_rank(word) < verdict_rank(standing) => {
+                standing.clone_from(word);
+            }
+            Some(_) => {}
+            None => {
+                held.insert(format.clone(), word.clone());
+            }
+        }
+    }
+}
+
+/// The `INSERT` for one chunk of `(oracle_id, verdicts)` rows.
+///
+/// An earlier batch of this ingest may have written the card already, so a
+/// conflict merges rather than replaces; [`Catalog::forget_verdicts`] is what
+/// keeps a lifted ban from standing for ever. The `WHERE` leaves the row alone
+/// when the two agree, which all but a few hundred cards always do.
+pub(crate) fn legalities_statement(rows: &[(&str, Verdicts)]) -> (String, Vec<Value>) {
     let mut sql = format!("INSERT INTO card_legalities ({LEGALITY_INSERT_COLUMNS}) VALUES ");
     let mut values: Vec<Value> = Vec::with_capacity(rows.len() * LEGALITY_COLUMNS);
-    for (n, (oracle_id, card)) in rows.iter().enumerate() {
+    for (n, (oracle_id, verdicts)) in rows.iter().enumerate() {
         if n > 0 {
             sql.push(',');
         }
         push_row(&mut sql, LEGALITY_INSERT_COLUMNS, n * LEGALITY_COLUMNS);
         values.push(Value::from((*oracle_id).to_string()));
         values.push(Value::from(
-            serde_json::to_string(&card.legalities).unwrap_or_else(|_| "{}".to_string()),
+            serde_json::to_string(verdicts).unwrap_or_else(|_| "{}".to_string()),
         ));
     }
-    sql.push_str(" ON CONFLICT (oracle_id) DO UPDATE SET legalities = EXCLUDED.legalities");
+    sql.push_str(
+        " ON CONFLICT (oracle_id) DO UPDATE \
+         SET legalities = catalog_verdicts(card_legalities.legalities, EXCLUDED.legalities) \
+         WHERE card_legalities.legalities <> EXCLUDED.legalities",
+    );
     (sql, values)
 }

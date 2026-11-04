@@ -225,6 +225,26 @@ pub(crate) const TEXT_SQL: &str = "\
     ORDER BY p.oracle_id, p.released_at DESC NULLS LAST, length(p.collector_number), \
              p.collector_number, p.scryfall_id, f.face_index";
 
+/// What each of these cards was stored with, for [`Catalog::pool_records`].
+pub(crate) const POOL_VERDICTS_SQL: &str = "\
+    SELECT oracle_id::text AS oracle_id, legalities::text AS verdicts \
+    FROM card_legalities WHERE oracle_id = ANY(string_to_array($1, ',')::uuid[])";
+
+/// Every `(set, rarity)` pair these cards have printings in: languages and
+/// reprints inside a set fold away, which is what makes it hundreds of
+/// thousands of printings' worth in a few tens of thousands of rows.
+pub(crate) const POOL_PRINTED_SQL: &str = "\
+    SELECT DISTINCT oracle_id::text AS oracle_id, set_code, coalesce(rarity, '') AS rarity \
+    FROM cards \
+    WHERE oracle_id = ANY(string_to_array($1, ',')::uuid[]) AND set_code <> ''";
+
+/// The sets these cards were printed in, newest first, a tie by code.
+pub(crate) const POOL_SETS_SQL: &str = "\
+    SELECT set_code, coalesce(max(set_name), '') AS set_name \
+    FROM cards \
+    WHERE oracle_id = ANY(string_to_array($1, ',')::uuid[]) AND set_code <> '' \
+    GROUP BY set_code ORDER BY min(released_at) DESC NULLS LAST, set_code";
+
 /// The card corpus, in the order the cards first appeared.
 ///
 /// This is where a `CardIndex` comes from. An index is assigned by first
