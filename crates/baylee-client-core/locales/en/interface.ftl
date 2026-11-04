@@ -2049,6 +2049,22 @@ MutateUnderneath = Put underneath
 # Resolution choice: `ChooseMutatePosition`.
 ChooseMutatePosition = Choose how to merge
 
+# Resolution choice: `ChooseSpellEnding`. A resolved spell, and more than one
+# effect wanting it instead of the graveyard (CR 616.1e).
+ChooseSpellEnding = Where does the spell go?
+
+# Resolution choice: `SpellEndingHand`.
+SpellEndingHand = Back to your hand (buyback)
+
+# Resolution choice: `SpellEndingRebound`.
+SpellEndingRebound = Exile it, cast it free next upkeep (rebound)
+
+# Resolution choice: `SpellEndingAdventure`.
+SpellEndingAdventure = Exile it, on an adventure
+
+# Resolution choice: `SpellEndingExile`.
+SpellEndingExile = Exile it
+
 # Resolution choice: `ChooseDungeon`.
 ChooseDungeon = Choose a dungeon
 

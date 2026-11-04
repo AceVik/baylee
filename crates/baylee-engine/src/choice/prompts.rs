@@ -97,6 +97,29 @@ pub enum CastModeKind {
         /// Other graveyard cards required by the chosen grant.
         exile: u8,
     },
+    /// How a resolved instant or sorcery leaves the stack, chosen because
+    /// more than one "instead" wants the same move (CR 616.1e). Not a way of
+    /// casting: the spell has already resolved.
+    SpellEnding(SpellEnding),
+}
+
+/// One way a resolved instant or sorcery can leave the stack in place of the
+/// graveyard of CR 608.2n. Each replaces that one move, so each applied leaves
+/// nothing for the others to replace (CR 616.1f), and which applies is its
+/// controller's choice (CR 616.1, 616.1e).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, serde::Serialize, serde::Deserialize)]
+pub enum SpellEnding {
+    /// Its owner's hand: its buyback cost was paid (CR 702.27a).
+    Hand,
+    /// Exile, and a free cast at the beginning of its controller's next
+    /// upkeep: it has rebound and was cast from hand (CR 702.88a).
+    Rebound,
+    /// Exile on an adventure, from where its controller may play it
+    /// (CR 715.3d).
+    Adventure,
+    /// Exile and nothing more: an effect that replaces the graveyard, such
+    /// as Yawgmoth's Will's or Dauthi Voidwalker's.
+    Exile,
 }
 
 /// Why a [`Pending::ChooseCards`] is presented (UI hint).

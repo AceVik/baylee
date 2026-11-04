@@ -478,6 +478,16 @@ impl<L: CardLookup> Engine<L> {
                         front.chosen_mode = Some(mode as u8);
                         return Ok(());
                     }
+                    // Its controller said which "instead" applies (CR 616.1e).
+                    Some(PlanKind::SpellEnding { spell }) => {
+                        let CastModeKind::SpellEnding(ending) = kind else {
+                            self.pending_plan = Some(PlanKind::SpellEnding { spell });
+                            return Err(EngineError::IllegalAction("not an ending of this spell"));
+                        };
+                        self.awaiting_answer = false;
+                        self.finish_spell(spell, Some(ending));
+                        return Ok(());
+                    }
                     other => self.pending_plan = other,
                 }
                 if let Some(wizard) = self.cast_wizard.as_mut()
@@ -1013,6 +1023,9 @@ impl<L: CardLookup> Engine<L> {
                     }
                     PlanKind::ChoosePhyrexianLife { .. } => {
                         unreachable!("a Phyrexian symbol is answered via YesNo")
+                    }
+                    PlanKind::SpellEnding { .. } => {
+                        unreachable!("a spell's ending is answered via ChooseMode")
                     }
                     PlanKind::ActivateAbilitySecondTargets {
                         source,

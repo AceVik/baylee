@@ -115,7 +115,9 @@ pub fn mode_kind(kind: &CastModeKind) -> i16 {
         CastModeKind::Dash => 11,
         CastModeKind::Escape => 12,
         CastModeKind::Colors(_) => 13,
-        CastModeKind::Counter(_) => 14,
+        // A spell's ending is, like a counter kind, chosen during resolution
+        // and no way to cast.
+        CastModeKind::Counter(_) | CastModeKind::SpellEnding(_) => 14,
         CastModeKind::Permission(_) => 15,
         CastModeKind::EscapeGranted { .. } => 16,
         CastModeKind::BeamMeUp => 17,

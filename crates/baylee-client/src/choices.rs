@@ -1241,6 +1241,17 @@ fn cast_label(
         }
         .text(lang)
         .to_string(),
+        K::SpellEnding(ending) => {
+            use baylee_engine::choice::SpellEnding;
+            match ending {
+                SpellEnding::Hand => Phrase::SpellEndingHand,
+                SpellEnding::Rebound => Phrase::SpellEndingRebound,
+                SpellEnding::Adventure => Phrase::SpellEndingAdventure,
+                SpellEnding::Exile => Phrase::SpellEndingExile,
+            }
+            .text(lang)
+            .to_string()
+        }
         K::Normal => String::new(),
         K::Kicked => Phrase::CastKicked.text(lang).to_string(),
         K::Alternative(i) => {

@@ -120,6 +120,34 @@ fn a_turn_belongs_to_the_seat_that_is_active() {
     assert_eq!(Turn::of(PlayerId::new(1), me()), Turn::Theirs);
 }
 
+/// A resolved spell's ending is asked as where it goes: "how do you cast it"
+/// over a spell that has already resolved would be the wrong question.
+#[test]
+fn a_spells_ending_asks_where_it_goes_in_both_languages() {
+    use baylee_engine::choice::{CastModeDesc, CastModeKind, SpellEnding};
+    let i = interaction(Pending::ChooseCastMode {
+        player: me(),
+        object: obj(1),
+        options: [SpellEnding::Hand, SpellEnding::Rebound]
+            .into_iter()
+            .zip(0..)
+            .map(|(ending, index)| CastModeDesc {
+                index,
+                kind: CastModeKind::SpellEnding(ending),
+                cost: baylee_core::mana::ManaCost::ZERO,
+            })
+            .collect(),
+    });
+    assert_eq!(
+        i.prompt().headline(Lang::En, Turn::Mine, None, false),
+        "Where does the spell go?"
+    );
+    assert_eq!(
+        i.prompt().headline(Lang::De, Turn::Mine, None, false),
+        "Wohin geht der Zauberspruch?"
+    );
+}
+
 /// Multikicker reads as replicate does, and buyback names the whole price.
 #[test]
 fn optional_costs_say_what_they_cost_in_both_languages() {

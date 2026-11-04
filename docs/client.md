@@ -6152,7 +6152,15 @@ times? (0–2)" (`Phrase::ReplicateHowOften`), because over a Lose Focus
 "choose a number" did not say what the number bought. A multikicker reads the
 same (`Phrase::MultikickerHowOften`), and its top is capped at what the seat's
 own mana pays as an X's is (`Duel::cap_x`, `manaplan::greatest_repeat`): the
-engine leaves it open while a land is untapped.
+engine leaves it open, up to its ceiling of 50, while a land is untapped.
+
+A resolved spell two "instead"s want asks where it goes (`docs/protocol.md`,
+"Where a resolved spell goes"): "Where does the spell go?" over one row per
+ending, each saying what it does ("Back to your hand (buyback)", "Exile it, cast
+it free next upkeep (rebound)"; `Phrase::SpellEnding*`). It is a
+`Prompt::CastMode`, drawn on the decision sheet like the other resolution
+choices and not beside a card (`hud::sheet::casts_beside_card`), because no card
+in hand or on the table is being cast.
 
 Buyback is the sheet's yes-or-no, with the whole price in the question:
 "Buyback: {3}? The spell comes back to your hand as it resolves.", or "pay 3

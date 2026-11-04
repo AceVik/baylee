@@ -1307,6 +1307,30 @@ pub(super) fn casts_beside_card(prompt: &Prompt) -> bool {
     use baylee_engine::choice::CastModeKind;
     matches!(prompt, Prompt::CastMode { options, .. } if !options.iter().any(|o| matches!(o.kind,
         CastModeKind::MutatePosition(_) | CastModeKind::Dungeon(_) | CastModeKind::DungeonRoom { .. }
-        | CastModeKind::Colors(_) | CastModeKind::Counter(_)
+        | CastModeKind::Colors(_) | CastModeKind::Counter(_) | CastModeKind::SpellEnding(_)
     )))
+}
+
+#[cfg(test)]
+mod beside_tests {
+    use super::*;
+    use baylee_engine::choice::{CastModeDesc, CastModeKind, SpellEnding};
+
+    /// Where a resolved spell goes is the sheet's question: no card in hand or
+    /// on the table is being cast, so there is none to stand a chooser beside.
+    #[test]
+    fn a_spells_ending_is_not_asked_beside_a_card() {
+        let asked = |kind| Prompt::CastMode {
+            object: baylee_core::ids::ObjectId::new(1, 0),
+            options: vec![CastModeDesc {
+                index: 0,
+                kind,
+                cost: baylee_core::mana::ManaCost::ZERO,
+            }],
+        };
+        assert!(casts_beside_card(&asked(CastModeKind::Normal)));
+        assert!(!casts_beside_card(&asked(CastModeKind::SpellEnding(
+            SpellEnding::Hand
+        ))));
+    }
 }

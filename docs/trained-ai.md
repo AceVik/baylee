@@ -67,6 +67,13 @@ face without them keeps the tree it had: an older export needs
 withdrawn. The DSL summary and `cardwalk` read neither field; their widths are
 contracts, and a checkpoint has learned nothing about either keyword.
 
+**A resolved spell's ending (4 November 2026):** `CastModeKind::SpellEnding` is
+a new question, so no stored row changes, and no width moves. Its candidates
+share slot 40 with `MutatePosition`, the other "where does it go" of a resolving
+spell, as Foretell shares the alternative cost's, and scalar 46 tells the four
+endings apart. `mode_kind` gives it `Counter`'s 14. The net can answer the
+question and has learned nothing about it.
+
 The separate owner-only `PlayerView.announced_cast` observation is supplied by
 `Session::view_for_with_payment_context` and
 `observe_view_with_payment_context`. It survives X and nested mana questions

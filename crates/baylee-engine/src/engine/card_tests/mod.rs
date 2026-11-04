@@ -64,6 +64,7 @@ mod radiation;
 mod rules;
 mod sacrifice_outcomes;
 mod sorceries;
+mod spell_endings;
 mod stun_counters;
 
 use super::testkit::*;

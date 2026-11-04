@@ -1231,10 +1231,21 @@ impl Builder<'_, '_> {
                 .find(|c| c.id == object)
                 .map(|c| c.card)
         });
-        self.line(format!(
-            "QUESTION: How do you cast {}?",
-            table.named(object)
-        ));
+        if options
+            .iter()
+            .any(|option| matches!(option.kind, CastModeKind::SpellEnding(_)))
+        {
+            self.line(format!(
+                "QUESTION: {} has resolved, and more than one effect wants it instead of the \
+                 graveyard. You choose which applies; the others then do nothing.",
+                table.named(object)
+            ));
+        } else {
+            self.line(format!(
+                "QUESTION: How do you cast {}?",
+                table.named(object)
+            ));
+        }
         for (at, option) in options.iter().enumerate() {
             let label = cast_mode_label(card, option);
             self.option(

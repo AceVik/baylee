@@ -1293,7 +1293,10 @@ fn encode_cast_mode_kind_into(kind: &CastModeKind, cost: &ManaCost, index: u8, f
         CastModeKind::BeamMeUp => 37,
         CastModeKind::Dash => 38,
         CastModeKind::Mutate => 39,
-        CastModeKind::MutatePosition(_) => 40,
+        // Where a resolving spell goes, as a mutating spell's position is:
+        // its slot, so the candidate width the trained nets read stays the
+        // same. Which ending is told apart in the scalar below.
+        CastModeKind::MutatePosition(_) | CastModeKind::SpellEnding(_) => 40,
         CastModeKind::Dungeon(_) | CastModeKind::DungeonRoom { .. } => 41,
         CastModeKind::Escape | CastModeKind::EscapeGranted { .. } => 42,
         CastModeKind::Permission(_) => 43,
@@ -1307,6 +1310,9 @@ fn encode_cast_mode_kind_into(kind: &CastModeKind, cost: &ManaCost, index: u8, f
         }
         CastModeKind::MutatePosition(on_top) => {
             feat[47] = f32::from(u8::from(*on_top));
+        }
+        CastModeKind::SpellEnding(ending) => {
+            feat[46] = unit(f32::from(*ending as u8 + 1), 6.0);
         }
         _ => {}
     }

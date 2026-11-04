@@ -1444,6 +1444,22 @@ fn face_down_label(card: Option<baylee_view::CardIdentity>, cost: &str) -> Strin
 }
 
 /// A cast mode in words, with its cost.
+/// What each ending does, because the choice is between outcomes and a model
+/// has only these words to weigh them with.
+fn spell_ending_label(ending: baylee_engine::choice::SpellEnding) -> &'static str {
+    use baylee_engine::choice::SpellEnding;
+    match ending {
+        SpellEnding::Hand => "Buyback: it goes back to your hand, to cast again at its full price",
+        SpellEnding::Rebound => {
+            "Rebound: exile it, and cast it free at the start of your next upkeep, once"
+        }
+        SpellEnding::Adventure => {
+            "Adventure: exile it, and you may cast the creature from exile later at its price"
+        }
+        SpellEnding::Exile => "Exile it, and nothing more comes of it",
+    }
+}
+
 fn cast_mode_label(card: Option<baylee_view::CardIdentity>, option: &CastModeDesc) -> String {
     let face = card.map_or(0, |c| usize::from(c.face));
     let sentence = |line: Option<baylee_cards::lines::AbilityLine>| {
@@ -1505,6 +1521,7 @@ fn cast_mode_label(card: Option<baylee_view::CardIdentity>, option: &CastModeDes
         CastModeKind::MutatePosition(top) => {
             if top { "Put on top" } else { "Put underneath" }.to_string()
         }
+        CastModeKind::SpellEnding(ending) => spell_ending_label(ending).to_string(),
         CastModeKind::Mutate => format!("Cast it with mutate for {cost}"),
         CastModeKind::Escape => format!("Cast it with escape for {cost}"),
         CastModeKind::EscapeGranted {

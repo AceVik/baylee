@@ -34,7 +34,8 @@ pub use mana::{ManaAbilityChoice, ManaChoiceId};
 pub use answers::{AnswerFault, timeout_answer};
 pub use automation::{PriorityHold, SeatAutomation, StandingAnswer};
 pub use prompts::{
-    BuybackParts, CastModeDesc, CastModeKind, ChoicePrompt, NumberPrompt, TargetPrompt, YesNoPrompt,
+    BuybackParts, CastModeDesc, CastModeKind, ChoicePrompt, NumberPrompt, SpellEnding,
+    TargetPrompt, YesNoPrompt,
 };
 
 /// One creature that may block, and the attackers it may be assigned to.

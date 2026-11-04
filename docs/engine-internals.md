@@ -2046,15 +2046,41 @@ sacrifice receipt, which is the printed additional cost's (CR 607.2i).
 
 The ending is one branch of `finalize_spell`, which is why no other door needs
 to know: `Rider::Buyback` is read there, at CR 608.2n, and a spell countered
-(CR 701.6a) or with no target left (CR 608.2b) leaves by another door. Flashback
-goes first (CR 702.34a: "anywhere else").
-Beside rebound the two "instead"s
-are the caster's to order (CR 616.1e) and the engine orders them for buyback,
-since they paid for it. Against "exile it instead" from outside (Rest in
-Peace) the same answer falls out of the move: a card going to a hand was never
-going to a graveyard. A copy carries the rider (CR 707.10) and is sent nowhere:
-`is_card` is false, it takes a copy's ending (CR 704.5e). The rider goes when
-the object leaves the stack by any door (CR 400.7).
+(CR 701.6a) or with no target left (CR 608.2b) leaves by another door. A copy
+carries the rider (CR 707.10) and is sent nowhere: `is_card` is false, it takes
+a copy's ending (CR 704.5e). The rider goes when the object leaves the stack by
+any door (CR 400.7).
+
+**A resolved spell's competing endings are its controller's to choose** (CR
+616.1, 616.1e). Buyback (CR 702.27a), rebound (702.88a), an Adventure (715.3d)
+and whatever `replacement::graveyard_destination` finds (Yawgmoth's Will,
+Dauthi Voidwalker, a one-shot graveyard permission) all replace CR 608.2n's one
+move, none is of the kinds CR 616.1a–d put first, and once one is applied the
+card is not going to the graveyard and nothing is left for the rest (616.1f).
+`Engine::spell_endings` lists them. With two or more,
+`Engine::ask_spell_ending` asks the spell's controller, a
+`Pending::ChooseCastMode` of `CastModeKind::SpellEnding` held by
+`PlanKind::SpellEnding`, and the spell stays on the stack with its work done
+until the answer calls `Engine::finish_spell`. A plan and not a suspended
+resolution, because a spell with no effects reaches `finalize_spell` with no
+`Resolution` at all. It is asked after `finish_resolution` has emptied
+`state.reflexive`, which must be empty while a question is out. `asked` is the
+controller, so a controlled player's answer is their controller's through
+`controlled_actor` (CR 723.5). A concession asks again from what is left (it
+expires the departed's rules first, since the leaving was an event of its own,
+#291); with one ending left nobody is asked and it applies.
+
+Chosen `SpellEnding::Exile` goes to `move_object` as a move to the graveyard,
+because the move is what applies the replacement and counts its counters. An
+Adventure that takes another ending turns back to its front face first (CR
+715.4), and rebound then casts that creature free.
+
+Flashback (and what shares its rider) is not offered beside any of them: it
+exiles "instead of putting it anywhere else" (CR 702.34a), so the hand a buyback
+chose would be exiled too and every order ends alike. Not asked for that reason,
+and known not to be exact: flashback beside Dauthi Voidwalker exiles without the
+void counter, where CR 616.1e would let the controller take either. No spell is
+worse off for it, and it matters only to the player controlling them.
 
 `GameObject::times_kicked` beside `kicked` is the count: a multikicker's, or 1
 for a kicker. Both stay with the permanent the spell became (CR 400.7d), both

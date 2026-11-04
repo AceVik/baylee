@@ -2135,6 +2135,11 @@ fn cast_choice_headline(options: &[CastModeDesc], lang: Lang) -> String {
         )
     }) {
         Phrase::ChooseMutatePosition
+    } else if options
+        .first()
+        .is_some_and(|o| matches!(o.kind, baylee_engine::choice::CastModeKind::SpellEnding(_)))
+    {
+        Phrase::ChooseSpellEnding
     } else if !options.is_empty()
         && options
             .iter()

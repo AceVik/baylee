@@ -931,6 +931,12 @@ enum PlanKind {
         /// Earlier pages of this one cost; nothing has been paid yet.
         chosen: Vec<ObjectId>,
     },
+    /// A resolved spell still on the stack, waiting for its controller to
+    /// say which of its competing endings applies (CR 616.1e).
+    SpellEnding {
+        /// The spell.
+        spell: ObjectId,
+    },
 }
 
 impl<L: CardLookup> Engine<L> {
@@ -1237,6 +1243,11 @@ impl<L: CardLookup> Engine<L> {
             extra = extra
                 .wrapping_mul(31)
                 .wrapping_add(crate::state::structural_fingerprint(&(object, first)));
+        }
+        if let Some(PlanKind::SpellEnding { spell }) = self.pending_plan.as_ref() {
+            extra = extra
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(spell));
         }
         if let Some(wizard) = &self.cast_wizard {
             extra = extra

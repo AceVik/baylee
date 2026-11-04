@@ -939,6 +939,60 @@ fn multikicker_is_asked_as_a_count_and_the_stack_says_what_was_paid() {
     assert!(text.contains("buyback paid"), "{text}");
 }
 
+/// A resolved spell's ending is not a way to cast it: the question says the
+/// spell has resolved, and each answer says what it does, since the outcomes
+/// are what a model has to weigh. Answering takes a position like any mode.
+#[test]
+fn a_spells_ending_says_what_each_answer_does() {
+    use baylee_engine::choice::{CastModeDesc, CastModeKind, SpellEnding};
+    let (mut view, _) = board();
+    let mut spell = card(95, "Capsize");
+    spell.stack_item = Some(baylee_view::StackItem::Spell);
+    let object = spell.id;
+    view.stack = vec![spell];
+    let pending = Pending::ChooseCastMode {
+        player: ME,
+        object,
+        options: [
+            SpellEnding::Hand,
+            SpellEnding::Rebound,
+            SpellEnding::Adventure,
+            SpellEnding::Exile,
+        ]
+        .into_iter()
+        .zip(0..)
+        .map(|(ending, index)| CastModeDesc {
+            index,
+            kind: CastModeKind::SpellEnding(ending),
+            cost: baylee_core::mana::ManaCost::ZERO,
+        })
+        .collect(),
+    };
+    let request = request(
+        view,
+        pending,
+        LogTail {
+            from: 0,
+            entries: Vec::new(),
+        },
+    );
+    let text = Narrator::new(&request.context)
+        .wake(&request, &[], None)
+        .text;
+    assert!(text.contains("has resolved"), "{text}");
+    assert!(!text.contains("How do you cast"), "{text}");
+    assert!(text.contains("goes back to your hand"), "{text}");
+    assert!(
+        text.contains("cast it free at the start of your next upkeep"),
+        "{text}"
+    );
+    assert!(
+        text.contains("cast the creature from exile later"),
+        "{text}"
+    );
+    assert!(text.contains("nothing more comes of it"), "{text}");
+}
+
 /// Log lines already heard are not told twice, and a gap is said.
 /// Whether to pay an additional cost is asked with the spell and its cost,
 /// and with what a yes without the mana does. Found by the gateway e2e: a

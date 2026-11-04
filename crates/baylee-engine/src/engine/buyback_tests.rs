@@ -6,7 +6,9 @@
 //! its file under `card_tests`; what is here is the rule's edges: what the
 //! question asks and when, what the total comes to (CR 601.2f), the ways a
 //! spell leaves the stack without resolving (CR 701.6a, 608.2b), and what
-//! else wants the card (CR 702.34a, 702.88a, 707.10).
+//! else wants the card (CR 702.34a, 707.10). Where another "instead" competes
+//! with buyback its controller chooses, and that is
+//! `card_tests::spell_endings`.
 
 #[allow(clippy::wildcard_imports)] // the shared duel plumbing, as every card test takes it
 use super::testkit::*;
@@ -27,10 +29,6 @@ fn island() -> CardIndex {
 
 fn swamp() -> CardIndex {
     card_index("56719f6a-1a6c-4c0a-8d21-18f7d7350b68")
-}
-
-fn ojer_pakpatiq() -> CardIndex {
-    card_index("34ef174e-1b3d-43d5-9f72-3d35befbdd7f")
 }
 
 fn mountain() -> CardIndex {
@@ -408,30 +406,6 @@ fn a_reduction_comes_off_the_whole_total() {
     );
     pass_until(&mut engine, stack_is_empty);
     assert!(in_hand(&engine, P0, mind_peel()).is_some());
-}
-
-/// A spell cast with its buyback paid goes home whatever else wants it. Ojer
-/// Pakpatiq gives an instant cast from hand rebound, and the two "instead"s
-/// are the caster's to order (CR 616.1e): the engine orders them for the one
-/// who paid.
-#[test]
-fn a_rebounding_spell_with_its_buyback_paid_comes_home() {
-    let mut board = vec![island(); 6];
-    board.push(ojer_pakpatiq());
-    let mut engine = Duel::new(SEED, island())
-        .battlefield(0, &board)
-        .battlefield(1, &[grizzly_bears()])
-        .hand(0, &[capsize()])
-        .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, P0);
-    let bears = on_battlefield(&engine, P1, grizzly_bears()).unwrap();
-    cast_from_hand(&mut engine, P0, capsize());
-    answer(&mut engine, true);
-    aim(&mut engine, bears);
-    pass_until(&mut engine, stack_is_empty);
-    assert!(in_hand(&engine, P0, capsize()).is_some());
-    assert!(engine.state().delayed.is_empty(), "nothing rebounds");
 }
 
 /// A cost in life is offered to a player who has it, and charged as the spell

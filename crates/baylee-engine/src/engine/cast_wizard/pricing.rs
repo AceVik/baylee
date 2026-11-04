@@ -99,7 +99,8 @@ fn raw_option_cost(
             | CastModeKind::Colors(_)
             | CastModeKind::Counter(_)
             | CastModeKind::Permission(_)
-            | CastModeKind::EscapeGranted { .. },
+            | CastModeKind::EscapeGranted { .. }
+            | CastModeKind::SpellEnding(_),
         ) => {
             unreachable!("resolution choices are not spell costs")
         }

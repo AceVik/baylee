@@ -429,6 +429,16 @@ pub fn asked(pending: &Pending) -> &'static str {
         } => "a decision about an offered draw",
         Pending::YesNo { .. } => "a yes or a no",
         Pending::ChooseColor { .. } => "a colour",
+        Pending::ChooseCastMode { options, .. }
+            if options.iter().any(|option| {
+                matches!(
+                    option.kind,
+                    baylee_engine::choice::CastModeKind::SpellEnding(_)
+                )
+            }) =>
+        {
+            "where the resolved spell goes"
+        }
         Pending::ChooseCastMode { .. } => "how to cast it",
         Pending::ChooseNumber { .. } => "a number",
         Pending::ChooseAttackers { .. } => "attackers",

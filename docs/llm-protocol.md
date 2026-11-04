@@ -294,8 +294,19 @@ which says what buyback does and when it does not (countered, or no target
 left). A buyback with no mana in it has no price of its own and comes to the
 plain cast: "Pay its buyback (pay 4 life)?". The multikicker count is a number
 up to what is floating, so a model that took "kicked up to 3 times" may answer
-fewer out of the same taps; zero is not kicked. A spell on the stack says how
-it was kicked and that its buyback was paid.
+fewer out of the same taps; zero is not kicked. While a land is left untapped
+the question's top reads the engine's ceiling of 50 instead, and a count the
+mana cannot pay reverses the cast (`docs/protocol.md`). A spell on the stack
+says how it was kicked and that its buyback was paid.
+
+A resolved spell that more than one effect wants instead of the graveyard asks
+its controller which applies (`docs/protocol.md`, "Where a resolved spell
+goes"). The narrator says the spell has resolved and that the others then do
+nothing, and each option says what it does: "Buyback: it goes back to your hand,
+to cast again at its full price", "Rebound: exile it, and cast it free at the
+start of your next upkeep, once", the adventure's, or a plain exile. It is
+answered like a mode (`m1`, `m2`), and a seat playing another player's turn
+answers it for them.
 
 ## Plans
 

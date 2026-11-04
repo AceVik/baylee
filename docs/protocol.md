@@ -5103,9 +5103,23 @@ the question every copy asks.
 `NumberPrompt::Multikicker { cost }` is the same question for a multikicker
 (CR 702.33c), and it is a variant a reader before `VIEW_VERSION` 85 cannot
 parse. Its `max` is what the floating mana pays once nothing is left to tap,
-and the engine's ceiling while something is, as an X's is: a client that plans
-its mana narrows it (`Interaction::cap_number`), and a count the window cannot
-reach reverses the cast.
+and the engine's ceiling of 50 (`REPLICATE_CEILING`) while something is, as an
+X's is: a client that plans its mana narrows it (`Interaction::cap_number`),
+and a count the window cannot reach reverses the cast. So 50 is the most a
+spell can be kicked in one cast while lands remain. No printed multikicker asks
+for a count near it, and the rule itself sets no limit.
+
+### Where a resolved spell goes
+
+`Pending::ChooseCastMode` also asks where a resolved instant or sorcery goes,
+with every option a `CastModeKind::SpellEnding(SpellEnding)` (`VIEW_VERSION`
+85), when more than one "instead" wants the move to the graveyard: `Hand`
+(buyback), `Rebound`, `Adventure`, or `Exile` (an effect that replaces the
+graveyard). `player` is the spell's controller (CR 616.1), so a controlled
+player's question is answered by their controller, and `object` is the spell,
+still on the stack with its effects done. The answer is
+`PlayerAction::ChooseMode` with the option's position. It is not a way to cast:
+`cost` is zero, nothing can be cancelled, and no question follows it.
 
 ### What a buyback question carries
 

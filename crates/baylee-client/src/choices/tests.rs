@@ -1113,3 +1113,65 @@ fn a_page_clamps_and_its_arrows_are_worded_alike() {
         ]
     );
 }
+
+/// Each ending of a resolved spell is its own button saying what it does, in
+/// both languages, and none has a price.
+#[test]
+fn a_spells_endings_are_buttons_that_say_what_they_do() {
+    use baylee_engine::choice::SpellEnding;
+    let (view, object) = pathway_in_hand();
+    let prompt = Prompt::CastMode {
+        object,
+        options: [
+            SpellEnding::Hand,
+            SpellEnding::Rebound,
+            SpellEnding::Adventure,
+            SpellEnding::Exile,
+        ]
+        .into_iter()
+        .zip(0..)
+        .map(|(ending, index)| CastModeDesc {
+            index,
+            kind: CastModeKind::SpellEnding(ending),
+            cost: ManaCost::ZERO,
+        })
+        .collect(),
+    };
+    let labels = |lang| -> Vec<String> {
+        options(
+            &prompt,
+            lang,
+            None,
+            "",
+            FaceNames {
+                view: Some(&view),
+                texts: None,
+            },
+        )
+        .expect("an ending has rows")
+        .into_iter()
+        .map(|row| {
+            assert!(row.cost.is_none(), "no ending has a price");
+            row.label
+        })
+        .collect()
+    };
+    assert_eq!(
+        labels(Lang::En),
+        [
+            "Back to your hand (buyback)",
+            "Exile it, cast it free next upkeep (rebound)",
+            "Exile it, on an adventure",
+            "Exile it",
+        ]
+    );
+    assert_eq!(
+        labels(Lang::De),
+        [
+            "Zurück auf deine Hand (Rückkauf)",
+            "Ins Exil, in deiner nächsten Versorgung kostenlos wirken",
+            "Ins Exil, auf ein Abenteuer",
+            "Ins Exil",
+        ]
+    );
+}
