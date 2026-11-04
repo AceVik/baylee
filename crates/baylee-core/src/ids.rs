@@ -143,8 +143,10 @@ impl AbilityRef {
     pub const ADDITIONAL_COST: u32 = u32::MAX - 2;
     /// The card's miracle offer (CR 702.94).
     pub const MIRACLE: u32 = u32::MAX - 3;
-    /// A recurring upkeep payment the card imposes (echo, pacts).
-    pub const UPKEEP_COST: u32 = u32::MAX - 4;
+    // `u32::MAX - 4` was a recurring upkeep payment's, until echo and a pact's
+    // price went on the stack as listed abilities. Not given to anything
+    // else: an account's standing answers may still name it.
+
     /// An ability the card does not print: one a continuous effect granted
     /// it, a keyword the engine synthesises a trigger for (prowess, ward), or
     /// a reflexive triggered ability an effect created (CR 603.12).
@@ -451,7 +453,6 @@ mod tests {
             ("ENTERS", AbilityRef::ENTERS),
             ("ADDITIONAL_COST", AbilityRef::ADDITIONAL_COST),
             ("MIRACLE", AbilityRef::MIRACLE),
-            ("UPKEEP_COST", AbilityRef::UPKEEP_COST),
             ("SYNTHETIC", AbilityRef::SYNTHETIC),
             ("COMMANDER_ZONE", AbilityRef::COMMANDER_ZONE),
             ("COMMANDER_REPLACE", AbilityRef::COMMANDER_REPLACE),
