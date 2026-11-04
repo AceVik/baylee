@@ -9,6 +9,7 @@ pub(crate) mod netdev;
 pub(crate) mod pressure;
 pub(crate) mod sockstat;
 pub(crate) mod stat;
+pub(crate) mod status;
 pub(crate) mod swaps;
 pub(crate) mod vmstat;
 

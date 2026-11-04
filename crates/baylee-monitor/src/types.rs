@@ -120,15 +120,27 @@ pub(crate) struct Snapshot {
     pub sample_ms: f64,
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Default, Serialize)]
 pub(crate) struct Process {
     pub pid: u32,
+    pub parent: Option<u32>,
     pub name: String,
+    /// The kernel's state letter: `R`, `S`, `D`, `Z`, `T`, `I`, or `?`.
+    pub state: &'static str,
     /// 100% means one logical CPU. Can exceed 100%.
     pub cpu: f32,
     pub ram: u64,
+    pub swap: Option<u64>,
+    pub threads: Option<u32>,
+    /// Open sockets; `None` for processes of other users, whose descriptors
+    /// are closed to Pulse. Per-process traffic cannot be read at all.
+    pub sockets: Option<u32>,
     pub read_bps: f64,
     pub write_bps: f64,
+    pub read_total: u64,
+    pub write_total: u64,
+    /// Unix seconds; zero when unknown.
+    pub started_secs: u64,
     pub gpu: Vec<GpuProcess>,
 }
 

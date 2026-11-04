@@ -6,6 +6,7 @@ mod gpu;
 mod listen;
 mod network;
 mod power;
+mod processes;
 mod procfs;
 mod sampler;
 mod sensors;

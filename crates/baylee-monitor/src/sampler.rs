@@ -6,6 +6,7 @@ use crate::{
     gpu::Gpus,
     network::{self, Link},
     power::Power,
+    processes::{self, Extra},
     procfs::{
         meminfo, per_second, pressure, sockstat,
         stat::{self, Stat},
@@ -26,7 +27,7 @@ use std::{
     path::Path,
     time::{Duration, Instant},
 };
-use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System};
+use sysinfo::{ProcessRefreshKind, ProcessStatus, ProcessesToUpdate, System};
 
 /// Link speed and state change rarely, and asking the driver can be slow.
 const LINKS_EVERY: Duration = Duration::from_secs(5);
@@ -35,12 +36,15 @@ const SENSORS_EVERY: Duration = Duration::from_secs(2);
 /// Often enough that a filling disk shows within seconds; `statvfs` and the
 /// sysfs walk are its own thread's business, so a sick disk stalls only this.
 const STORAGE_EVERY: Duration = Duration::from_secs(5);
+/// Threads, swap and sockets per process are details, not a 1 Hz signal.
+const PROCESSES_EVERY: Duration = Duration::from_secs(3);
 
 pub(crate) struct Sampler {
     system: System,
     network: network::Tracker,
     links: Latest<BTreeMap<String, Link>>,
     sensors: Latest<SensorView>,
+    extras: Latest<BTreeMap<u32, Extra>>,
     storage: Latest<StorageView>,
     disk_rates: storage::rates::Tracker,
     gpu: Latest<GpuView>,
@@ -65,6 +69,10 @@ impl Sampler {
         background::spawn("sensors", SENSORS_EVERY, sensors.clone(), move || {
             sensors::read(threads)
         })?;
+        let extras = Latest::new(BTreeMap::new());
+        background::spawn("processes", PROCESSES_EVERY, extras.clone(), || {
+            processes::scan(Path::new("/proc"))
+        })?;
         let storage = Latest::new(StorageView::default());
         let mut disks = Storage::default();
         background::spawn("storage", STORAGE_EVERY, storage.clone(), move || {
@@ -79,6 +87,7 @@ impl Sampler {
             sensors,
             network: network::Tracker::default(),
             links,
+            extras,
             storage,
             disk_rates: storage::rates::Tracker::default(),
             gpu,
@@ -196,7 +205,8 @@ impl Sampler {
         let mut sockets = sockstat::Sockets::default();
         sockstat::add(&mut sockets, &read_text("/proc/net/sockstat"));
         sockstat::add(&mut sockets, &read_text("/proc/net/sockstat6"));
-        let processes = collect_processes(&self.system, &gpu.gpus, elapsed);
+        let extras = self.extras.get();
+        let processes = collect_processes(&self.system, &gpu.gpus, &extras, elapsed);
         let primary = gpu.gpus.first();
         let load = System::load_average()
             .ok()
@@ -315,20 +325,47 @@ fn percent(used: u64, total: u64) -> f64 {
     }
 }
 
-fn collect_processes(system: &System, gpus: &[crate::types::Gpu], elapsed: f64) -> Vec<Process> {
+/// The kernel's letter for a process state, for the page to translate.
+fn state_letter(status: ProcessStatus) -> &'static str {
+    match status {
+        ProcessStatus::Run => "R",
+        ProcessStatus::Sleep => "S",
+        ProcessStatus::UninterruptibleDiskSleep => "D",
+        ProcessStatus::Zombie => "Z",
+        ProcessStatus::Stop | ProcessStatus::Tracing => "T",
+        ProcessStatus::Idle => "I",
+        _ => "?",
+    }
+}
+
+fn collect_processes(
+    system: &System,
+    gpus: &[crate::types::Gpu],
+    extras: &BTreeMap<u32, Extra>,
+    elapsed: f64,
+) -> Vec<Process> {
     let mut processes: Vec<_> = system
         .processes()
         .values()
         .map(|p| {
             let io = p.disk_usage();
             let pid = p.pid().as_u32();
+            let extra = extras.get(&pid);
             Process {
                 pid,
+                parent: p.parent().map(sysinfo::Pid::as_u32),
                 name: p.name().to_string_lossy().into_owned(),
+                state: state_letter(p.status()),
                 cpu: p.cpu_usage(),
                 ram: p.memory(),
+                swap: extra.map(|extra| extra.swap),
+                threads: extra.map(|extra| extra.threads),
+                sockets: extra.and_then(|extra| extra.sockets),
                 read_bps: io.read_bytes as f64 / elapsed,
                 write_bps: io.written_bytes as f64 / elapsed,
+                read_total: io.total_read_bytes,
+                write_total: io.total_written_bytes,
+                started_secs: p.start_time(),
                 gpu: gpus
                     .iter()
                     .flat_map(|g| &g.processes)
@@ -349,11 +386,9 @@ fn collect_processes(system: &System, gpus: &[crate::types::Gpu], elapsed: f64) 
                 processes.push(Process {
                     pid: p.pid,
                     name: "Prozess nicht lesbar".into(),
-                    cpu: 0.0,
-                    ram: 0,
-                    read_bps: 0.0,
-                    write_bps: 0.0,
+                    state: "?",
                     gpu: vec![p.clone()],
+                    ..Process::default()
                 });
             }
         }

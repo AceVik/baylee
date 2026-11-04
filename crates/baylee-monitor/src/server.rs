@@ -176,7 +176,8 @@ async fn source() -> Response {
         "src/procfs/diskstats.rs": include_str!("procfs/diskstats.rs"), "src/procfs/mountinfo.rs": include_str!("procfs/mountinfo.rs"),
         "src/storage/mod.rs": include_str!("storage/mod.rs"), "src/storage/inventory.rs": include_str!("storage/inventory.rs"),
         "src/storage/rates.rs": include_str!("storage/rates.rs"), "src/storage/udev.rs": include_str!("storage/udev.rs"),
-        "src/storage/usage.rs": include_str!("storage/usage.rs"),
+        "src/storage/usage.rs": include_str!("storage/usage.rs"), "src/processes.rs": include_str!("processes.rs"),
+        "src/procfs/status.rs": include_str!("procfs/status.rs"),
         "src/training/mod.rs": include_str!("training/mod.rs"), "src/training/dbus.rs": include_str!("training/dbus.rs"),
         "src/training/units.rs": include_str!("training/units.rs"), "src/training/pipeline.rs": include_str!("training/pipeline.rs"),
         "web/index.html": include_str!("../web/index.html"), "web/style.css": include_str!("../web/style.css"), "web/app.js": include_str!("../web/app.js")
