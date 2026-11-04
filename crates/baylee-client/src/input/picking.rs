@@ -208,7 +208,7 @@ pub fn pick_choice(duel: &mut Duel, index: usize) {
                     &p,
                     baylee_client_core::Lang::En,
                     duel.statics.as_ref(),
-                    &duel.subtype_filter,
+                    duel.chooser_search(),
                     crate::choices::FaceNames::default(),
                 )
             })

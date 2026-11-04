@@ -1493,6 +1493,12 @@ FilterClear = Leeren
 FilterAsTyped = wie getippt
 FilterUnanswerable = Eine Bedingung kann hier nicht geprüft werden – die Liste bleibt leer, solange sie steht.
 FilterAlsoChips = Zusätzlich grenzen Chips diese Liste ein: { $chips }
+
+# Arguments: types
+NameOnlyTypes = Diese Frage nimmt nur: { $types }
+
+# Arguments: types
+NameNoTypes = Diese Frage lässt aus: { $types }
 FilterChipPlayable = nur spielbare
 FilterChipCmc = Manabetrag { $mana_value }
 FilterChipCmcUp = Manabetrag { $mana_value } oder mehr

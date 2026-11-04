@@ -698,6 +698,7 @@ fn the_pay_now_label_counts_only_the_taps_still_to_stage() {
         source: forest,
         tap: Tap::Intrinsic,
         color: None,
+        second: None,
     }));
     let answers = answers_for(&duel, Lang::En, false, false, false);
     assert!(

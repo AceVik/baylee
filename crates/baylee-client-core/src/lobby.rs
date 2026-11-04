@@ -2407,6 +2407,13 @@ impl Lobby {
         Some(request)
     }
 
+    /// The pool, for a table: naming a card searches it in the client's own
+    /// language, and a player may reach a table without ever opening the
+    /// builder.
+    pub fn pool_for_the_table(&mut self) -> Option<LobbyRequest> {
+        self.needs_pool()
+    }
+
     /// The pool request, when the builder has not got one yet.
     ///
     /// Guarded by its own flag rather than by [`Lobby::busy`]: the lobby polls

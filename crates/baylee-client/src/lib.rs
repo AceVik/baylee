@@ -856,6 +856,10 @@ pub struct Duel {
     /// box under the player's fingers. It is cleared when an action is sent
     /// and when a choice arrives that is not asking for a type.
     pub subtype_filter: String,
+    /// The name chooser's search: the deck builder's box and builder, and
+    /// the pool in the client's language the lobby lends it. Cleared with
+    /// `subtype_filter`, all but the pool.
+    pub naming: choices::NameSearch,
     /// Which letter group the creature-type chooser's full list shows while
     /// nothing is typed (`typechooser::GROUPS`). Kept with the filter, and
     /// cleared with it.

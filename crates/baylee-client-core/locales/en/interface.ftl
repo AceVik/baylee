@@ -4568,6 +4568,12 @@ FilterUnanswerable = A condition cannot be checked here — the list stays empty
 # Arguments: chips
 FilterAlsoChips = Chips are narrowing this list as well: { $chips }
 
+# Arguments: types
+NameOnlyTypes = This question takes only: { $types }
+
+# Arguments: types
+NameNoTypes = This question leaves out: { $types }
+
 # Playable only
 FilterChipPlayable = playable only
 

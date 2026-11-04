@@ -25,7 +25,6 @@ use std::sync::{Arc, Mutex};
 use crate::cardmat::{CardUiMaterial, UiCardMaterials, UiCards};
 use baylee_client_core as client_core;
 use baylee_client_core::deckbuilder::{BuildField, Zone};
-use baylee_client_core::filterdialog::FilterPanel;
 use baylee_client_core::i18n::{Lang, Phrase};
 use baylee_client_core::images::FinishTreatment;
 use baylee_client_core::lobby::gateway_info::Probe;
@@ -83,6 +82,7 @@ impl Plugin for LobbyPlugin {
         app.add_systems(Last, decks::flush_on_exit);
         #[cfg(not(target_arch = "wasm32"))]
         app.add_systems(Update, central::sync_gateways);
+        app.add_systems(Update, lend_the_pool.after(poll));
         // Closing the application only disconnects. Explicit table actions
         // alone may depart; dropping the World must leave the seat resumable.
         crate::vista::install(app);
@@ -1241,7 +1241,7 @@ use keyboard::keyboard;
 use preview::{Hovered, despawn_preview, hovers, preview, scroll_the_preview};
 use scrolling::scrolls;
 use systems::{
-    art_follows_the_session, came_back, leave_clicks, leave_keys, poll, softkeys,
+    art_follows_the_session, came_back, leave_clicks, leave_keys, lend_the_pool, poll, softkeys,
     text_follows_the_session, waiting, watch,
 };
 

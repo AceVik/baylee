@@ -145,6 +145,7 @@ impl Duel {
         }
         // Whatever was typed belonged to the question just answered.
         self.subtype_filter.clear();
+        self.naming.search = baylee_client_core::cardsearch::SearchBox::default();
         self.subtype_group = 0;
         // And so did the last refusal. Cleared here rather than when a new
         // question arrives, because the acting seat is re-sent its own
@@ -797,6 +798,31 @@ impl Duel {
         label_before
     }
 
+    /// Whether the question standing is a card name, which has the search
+    /// box every card list has and not the type chooser's plain one.
+    #[must_use]
+    pub fn naming_a_card(&self) -> bool {
+        self.interaction.as_ref().is_some_and(|i| {
+            matches!(
+                i.prompt(),
+                baylee_client_core::interaction::Prompt::ChooseCardName { .. }
+            )
+        })
+    }
+
+    /// What the chooser standing is searching for, and in which pool.
+    #[must_use]
+    pub fn chooser_search(&self) -> crate::choices::Search<'_> {
+        crate::choices::Search {
+            text: if self.naming_a_card() {
+                self.naming.search.field.text()
+            } else {
+                &self.subtype_filter
+            },
+            pool: self.naming.pool.as_ref().map(|pool| pool.as_slice()),
+        }
+    }
+
     pub(crate) fn receive_choice(&mut self, pending: Pending) {
         self.clear_hover_for_source_choice(&pending);
         self.target_page = 0;
@@ -807,6 +833,7 @@ impl Duel {
             Pending::ChooseSubtype { .. } | Pending::ChooseCardName { .. }
         ) {
             self.subtype_filter.clear();
+            self.naming.search = baylee_client_core::cardsearch::SearchBox::default();
             self.subtype_group = 0;
         }
         let combat_before = self.interaction.as_ref().is_some_and(my_combat_question);

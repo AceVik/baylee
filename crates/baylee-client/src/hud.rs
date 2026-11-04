@@ -485,6 +485,9 @@ pub enum MenuAction {
     /// Show one letter group of the creature-type chooser's full list
     /// (`typechooser::GROUPS`), emptying what was typed.
     TypeGroup(u8),
+    /// Open the name chooser's filter builder, or shut it again: the gear in
+    /// its box, as the deck builder's and the zone dialog's.
+    NameFilters,
     /// Hold priority until the stack is empty: `PriorityHold::UntilStackEmpty`,
     /// the same thing `Action::HoldForStack` sends and by the same road.
     ///

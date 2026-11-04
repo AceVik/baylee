@@ -783,7 +783,7 @@ fn cast_opening(duel: &Duel, lang: Lang, faces: &crate::cardtext::CardTexts) -> 
         &prompt,
         lang,
         duel.statics.as_ref(),
-        &duel.subtype_filter,
+        duel.chooser_search(),
         crate::choices::FaceNames {
             view: duel.view.as_ref(),
             texts: Some(faces),

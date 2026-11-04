@@ -652,7 +652,7 @@ impl Client {
                     &interaction.prompt(),
                     baylee_client_core::Lang::En,
                     self.statics.as_ref(),
-                    &typed,
+                    typed.as_str(),
                     baylee_client::choices::FaceNames::default(),
                 )
                 .expect("a creature type is a chooser");
@@ -679,7 +679,7 @@ impl Client {
                     &interaction.prompt(),
                     baylee_client_core::Lang::En,
                     self.statics.as_ref(),
-                    &typed,
+                    typed.as_str(),
                     baylee_client::choices::FaceNames::default(),
                 )
                 .expect("a card name is a chooser");

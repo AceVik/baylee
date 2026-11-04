@@ -30,13 +30,15 @@
 //!
 //! **A card name is the same shape, larger.** [`Prompt::ChooseCardName`]
 //! carries no list, because any card's name may be chosen (CR 201.4) and the
-//! pool is the list: this client's own, which is the engine's, since the two
-//! ship as one build. So the rows are every face of the pool, in one fixed
-//! order ([`card_name_at`]), narrowed by the same box, and a row's index is
-//! its place in that order. The model is told the card and face through
+//! pool is the list: every card the deck builder has, which is what the
+//! engine takes, since the two ship as one build (owner, 4.11.2026). So the
+//! rows are every face of the pool, in one fixed order ([`card_name_at`]),
+//! narrowed by the deck builder's own search ([`NameSearch`]), and a row's
+//! index is its place in that order. The card and face go out through
 //! [`pick`], which is the door every chooser press goes through.
 
 use baylee_client_core::card_face::TextBlock;
+use baylee_client_core::deckbuilder::PoolCard;
 use baylee_client_core::i18n::{Lang, Phrase, seat_name};
 use baylee_client_core::interaction::{Interaction, Prompt};
 use baylee_client_core::manapip::{self, Pip};
@@ -250,6 +252,9 @@ pub struct ChoiceOption {
     /// a picked row is (the candle's wash and edge), never as words in the
     /// label: `[x] ` read as code beside a card's name.
     pub chosen: bool,
+    /// The card a row of the name chooser names, whose preview hovering the
+    /// row opens, as a card named in the log does.
+    pub card: Option<baylee_view::CardIdentity>,
 }
 
 impl ChoiceOption {
@@ -262,6 +267,7 @@ impl ChoiceOption {
             cost: None,
             heading: None,
             chosen: false,
+            card: None,
         }
     }
 
@@ -720,13 +726,15 @@ fn text_options(draft: &baylee_client_core::text_choice::Draft, lang: Lang) -> V
 /// The overlay and the click handler call this same function, so a button can
 /// only ever send an answer the current prompt is still offering.
 #[must_use]
-pub fn options(
+pub fn options<'a>(
     prompt: &Prompt,
     lang: Lang,
     statics: Option<&GameStatic>,
-    filter: &str,
+    search: impl Into<Search<'a>>,
     names: FaceNames<'_>,
 ) -> Option<Vec<ChoiceOption>> {
+    let search = search.into();
+    let filter = search.text;
     match prompt {
         Prompt::TextReplacement { draft } => Some(text_options(draft, lang)),
         Prompt::ChooseManaAbility { options, .. } => Some(mana_options(options, lang, names)),
@@ -839,7 +847,7 @@ pub fn options(
         Prompt::ChooseCardName {
             types,
             excluded_types,
-        } => Some(card_name_rows(filter, *types, *excluded_types)),
+        } => Some(card_name_rows(search, *types, *excluded_types)),
         _ => None,
     }
 }
@@ -867,6 +875,33 @@ pub fn picked(interaction: &Interaction) -> Option<usize> {
         .or_else(|| interaction.chosen_index())
 }
 
+/// What a chooser's box holds, and the pool the name chooser reads it against.
+#[derive(Clone, Copy, Default)]
+pub struct Search<'a> {
+    /// The line in the box.
+    pub text: &'a str,
+    /// The pool in the client's language, once the gateway has served it.
+    /// Without it a name is the registry's English.
+    pub pool: Option<&'a [PoolCard]>,
+}
+
+impl<'a> From<&'a str> for Search<'a> {
+    fn from(text: &'a str) -> Self {
+        Self { text, pool: None }
+    }
+}
+
+/// The name chooser's search: the deck builder's box and builder over the
+/// deck builder's pool (`cardsearch`), held on the [`crate::Duel`] for the
+/// reason `subtype_filter` is, and empty until a name is asked.
+#[derive(Clone, Debug, Default)]
+pub struct NameSearch {
+    /// The box and its builder.
+    pub search: baylee_client_core::cardsearch::SearchBox,
+    /// The pool in the client's language, lent by the lobby.
+    pub pool: Option<std::sync::Arc<Vec<PoolCard>>>,
+}
+
 /// One face of the pool, as the card-name chooser lists it.
 struct NamedRow {
     card: CardIndex,
@@ -875,6 +910,19 @@ struct NamedRow {
     types: baylee_core::types::TypeSet,
     /// The name as it is matched, lower-cased once.
     lower: String,
+}
+
+/// The pool as the deck builder reads it offline: the rows a query is asked
+/// of until the gateway's, in the client's language, arrive.
+fn registry_pool() -> &'static std::collections::BTreeMap<u32, PoolCard> {
+    static POOL: std::sync::LazyLock<std::collections::BTreeMap<u32, PoolCard>> =
+        std::sync::LazyLock::new(|| {
+            baylee_cards::pool::rows()
+                .iter()
+                .map(|row| (row.index, crate::lobby::offline::pool_row(row)))
+                .collect()
+        });
+    &POOL
 }
 
 /// Every name the pool prints, one row per face, alphabetized, a name two
@@ -939,25 +987,115 @@ fn card_type_rows(options: &[baylee_core::types::TypeSet], lang: Lang) -> Vec<Ch
         .collect()
 }
 
-/// The card names matching `filter`, cut to what the bar holds.
+/// The question's own restriction in words, which no filter can take away:
+/// `None` for a question that has none (`docs/client.md`, naming a card).
+#[must_use]
+pub fn name_restriction(
+    types: baylee_core::types::TypeSet,
+    excluded_types: baylee_core::types::TypeSet,
+    lang: Lang,
+) -> Option<String> {
+    let words = |set: baylee_core::types::TypeSet| {
+        set.words()
+            .map(|word| baylee_client_core::type_names::name(word, lang))
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    match (types.is_empty(), excluded_types.is_empty()) {
+        (true, true) => None,
+        (false, true) => Some(Phrase::NameOnlyTypes.fill(lang, &[&words(types)])),
+        (true, false) => Some(Phrase::NameNoTypes.fill(lang, &[&words(excluded_types)])),
+        (false, false) => Some(format!(
+            "{} {}",
+            Phrase::NameOnlyTypes.fill(lang, &[&words(types)]),
+            Phrase::NameNoTypes.fill(lang, &[&words(excluded_types)])
+        )),
+    }
+}
+
+/// How well a name answers what was typed, lower being better: it begins
+/// with it, a word of it does, or it was found some other way.
+fn name_rank(lower: &str, typed: &str) -> u8 {
+    if lower.starts_with(typed) {
+        0
+    } else if lower
+        .split(|c: char| !c.is_alphanumeric())
+        .any(|word| word.starts_with(typed))
+    {
+        1
+    } else {
+        2
+    }
+}
+
+/// What was last asked of [`card_name_rows`], and its answer. The drawer, the
+/// keys and the pointer all ask every frame the chooser is open, and the
+/// answer walks the whole pool, so it is walked when the question changes.
+struct LastNames {
+    text: String,
+    types: baylee_core::types::TypeSet,
+    excluded_types: baylee_core::types::TypeSet,
+    /// The pool it was read against: its place and its length.
+    pool: (usize, usize),
+    rows: Vec<ChoiceOption>,
+}
+
+/// The card names the search answers, cut to what the bar holds.
 ///
-/// A name that begins with what was typed first, then one with a word that
-/// does, each alphabetized: typing `needle` is how a player looks for Pithing
-/// Needle, and a prefix match alone would never offer it. In the pool's
-/// English, which is the name's identity in the rules and the one every
-/// client has; nothing is matched inside a word.
-fn card_name_rows(
-    filter: &str,
+/// The rows are the pool's, through the deck builder's own search
+/// ([`baylee_client_core::cardsearch::pool_card_matches`]), so every criterion
+/// it has is here, and the names it speaks: the client's language and English.
+/// The question's restriction stands apart from the search, and a name is
+/// listed only where its face passes it. What begins with the words typed
+/// comes first, then what has a word that does, each alphabetized: typing
+/// `needle` is how a player looks for Pithing Needle.
+fn card_name_rows<'a>(
+    search: impl Into<Search<'a>>,
     types: baylee_core::types::TypeSet,
     excluded_types: baylee_core::types::TypeSet,
 ) -> Vec<ChoiceOption> {
-    let needle = filter.trim().to_lowercase();
-    let word_start = |lower: &str| {
-        lower
-            .split(|c: char| !c.is_alphanumeric())
-            .any(|word| word.starts_with(&needle))
-    };
-    let mut rows: Vec<(bool, ChoiceOption)> = card_names()
+    static LAST: std::sync::Mutex<Option<LastNames>> = std::sync::Mutex::new(None);
+    let search = search.into();
+    let pool = search
+        .pool
+        .map_or((0, 0), |p| (p.as_ptr() as usize, p.len()));
+    let mut last = LAST
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    if let Some(kept) = last.as_ref().filter(|kept| {
+        kept.text == search.text
+            && kept.types == types
+            && kept.excluded_types == excluded_types
+            && kept.pool == pool
+    }) {
+        return kept.rows.clone();
+    }
+    let rows = walk_the_names(search, types, excluded_types);
+    *last = Some(LastNames {
+        text: search.text.to_string(),
+        types,
+        excluded_types,
+        pool,
+        rows: rows.clone(),
+    });
+    rows
+}
+
+/// The walk [`card_name_rows`] keeps the answer of.
+fn walk_the_names(
+    search: Search<'_>,
+    types: baylee_core::types::TypeSet,
+    excluded_types: baylee_core::types::TypeSet,
+) -> Vec<ChoiceOption> {
+    let query = baylee_client_core::cardquery::parse(search.text);
+    let typed = search.text.trim().to_lowercase();
+    let served: std::collections::BTreeMap<u32, &PoolCard> = search
+        .pool
+        .unwrap_or_default()
+        .iter()
+        .map(|card| (card.index, card))
+        .collect();
+    let mut rows: Vec<(u8, ChoiceOption)> = card_names()
         .iter()
         .enumerate()
         .filter_map(|(i, row)| {
@@ -966,12 +1104,38 @@ fn card_name_rows(
             {
                 return None;
             }
-            let first = row.lower.starts_with(&needle);
-            (first || word_start(&row.lower))
-                .then(|| (!first, ChoiceOption::text(i, row.name.to_string())))
+            let at = row.card.get();
+            let card = served
+                .get(&at)
+                .copied()
+                .or_else(|| registry_pool().get(&at))?;
+            if !baylee_client_core::cardsearch::pool_card_matches(&query, card) {
+                return None;
+            }
+            // The name the client shows beside the one the rules read: a
+            // row's own language is a front face's, which is what a pool
+            // row is named for.
+            let shown = (row.face == 0 && card.name != row.name).then_some(card.name.as_str());
+            let rank = name_rank(&row.lower, &typed)
+                .min(shown.map_or(2, |name| name_rank(&name.to_lowercase(), &typed)));
+            let label = shown.map_or_else(
+                || row.name.to_string(),
+                |name| format!("{name} ({})", row.name),
+            );
+            Some((
+                rank,
+                ChoiceOption {
+                    card: Some(baylee_view::CardIdentity {
+                        index: row.card,
+                        print: baylee_core::ids::PrintRef::new(0),
+                        face: row.face,
+                    }),
+                    ..ChoiceOption::text(i, label)
+                },
+            ))
         })
         .collect();
-    rows.sort_by_key(|(later, _)| *later);
+    rows.sort_by_key(|(rank, _)| *rank);
     rows.truncate(SUBTYPE_ROWS);
     rows.into_iter().map(|(_, row)| row).collect()
 }
@@ -1357,6 +1521,9 @@ fn prevention_options(
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod naming_tests;
 
 fn damage_target(
     target: baylee_engine::event::DamageTarget,
