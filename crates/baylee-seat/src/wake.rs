@@ -262,7 +262,7 @@ impl WakeFilter {
     pub fn fresh(&self) -> Self {
         Self {
             orders: self.orders.clone(),
-            rules: self.rules.clone(),
+            rules: self.rules,
             paying: None,
             until: None,
             planned: None,
