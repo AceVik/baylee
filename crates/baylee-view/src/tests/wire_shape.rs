@@ -344,7 +344,9 @@ fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
     // defaulted and omitted while empty: a reader of 83 without it ignores it
     // and stays conservative, so 83 still named the shape.
     // 84: Liar's Pendulum's guess as its own imported engine prompt.
-    const RECORDED: (u32, u64) = (84, 96_263_098_418_150_692);
+    // `PlayerView::controls` and `SpectatorView::controls`: additive, defaulted
+    // and omitted while empty, so 84 still names the shape.
+    const RECORDED: (u32, u64) = (84, 13_883_901_039_124_999_199);
 
     let samples = core_samples();
     let sampled: std::collections::BTreeSet<String> =

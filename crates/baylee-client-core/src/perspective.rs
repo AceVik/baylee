@@ -49,8 +49,9 @@ pub fn controls(view: &PlayerView, player: PlayerId) -> bool {
 
 /// Who is deciding for whom right now, as this seat's view says it. Control
 /// of a player is public (CR 723.1 names no hidden part of it), so every seat
-/// is told; what the view carries is the question in hand: `awaiting` is the
-/// player who answers it and `decision_player` the one it is asked of.
+/// is told: the question in hand first (`awaiting` answers it, and it is
+/// asked of `decision_player`), else the view's `controls`, which hold for
+/// the whole controlled turn.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ControlLine {
     /// This seat is making `player`'s decision (CR 723.5).
@@ -77,17 +78,29 @@ pub enum ControlLine {
 }
 
 impl ControlLine {
-    /// What the view says, or `None` while every decision is its own
-    /// player's.
+    /// What the view says, or `None` while nobody decides for anybody, and
+    /// while this seat is answering its own question inside a turn it
+    /// controls (CR 723.8): that decision is its own.
     #[must_use]
     pub fn of(view: &PlayerView) -> Option<Self> {
-        let (Some(controller), Some(player)) = (view.awaiting, view.decision_player) else {
-            return None;
-        };
-        if controller == player {
-            return None;
+        if let (Some(controller), Some(player)) = (view.awaiting, view.decision_player) {
+            if controller != player {
+                return Some(Self::between(view, controller, player));
+            }
+            if controller == view.seat {
+                return None;
+            }
         }
-        Some(if controller == view.seat {
+        let control = view
+            .controls
+            .iter()
+            .find(|c| c.controller == view.seat || c.player == view.seat)
+            .or_else(|| view.controls.first())?;
+        Some(Self::between(view, control.controller, control.player))
+    }
+
+    fn between(view: &PlayerView, controller: PlayerId, player: PlayerId) -> Self {
+        if controller == view.seat {
             Self::DecidingFor { player }
         } else if player == view.seat {
             Self::DecidedBy {
@@ -96,7 +109,18 @@ impl ControlLine {
             }
         } else {
             Self::Deciding { controller, player }
-        })
+        }
+    }
+
+    /// The card whose effect gave this control, where the view names one:
+    /// the banner's "(Mindslaver)".
+    #[must_use]
+    pub fn source(self, view: &PlayerView) -> Option<baylee_core::ids::CardIndex> {
+        let (player, controller) = self.pair(view.seat);
+        view.controls
+            .iter()
+            .find(|c| c.player == player && c.controller == controller)
+            .and_then(|c| c.source)
     }
 
     /// The banner's sentence: "You decide for Mia" to the seat in control,
@@ -398,6 +422,43 @@ mod tests {
         assert_eq!(line.pair(P3), (P2, ME));
         theirs.awaiting = Some(P2);
         assert_eq!(ControlLine::of(&theirs), None);
+    }
+
+    /// `PlayerView::controls` tells the table for the whole controlled turn:
+    /// a third seat between two questions, with the card behind it, and the
+    /// controller's own question inside that turn stays its own (CR 723.8).
+    #[test]
+    fn the_public_control_holds_for_the_whole_turn() {
+        let card = baylee_core::ids::CardIndex::new(7);
+        let mut v = ViewBuilder::new(3).build();
+        v.seat = P3;
+        v.awaiting = None;
+        v.decision_player = None;
+        assert_eq!(ControlLine::of(&v), None, "nobody controls anybody");
+        v.controls = vec![baylee_view::PlayerControl {
+            player: P2,
+            controller: ME,
+            source: Some(card),
+        }];
+        let line = ControlLine::of(&v).expect("public between questions");
+        assert_eq!(
+            line,
+            ControlLine::Deciding {
+                controller: ME,
+                player: P2
+            }
+        );
+        assert_eq!(line.source(&v), Some(card));
+
+        v.seat = ME;
+        v.awaiting = Some(ME);
+        v.decision_player = Some(ME);
+        assert_eq!(ControlLine::of(&v), None, "its own blocks are its own");
+        v.awaiting = None;
+        assert_eq!(
+            ControlLine::of(&v),
+            Some(ControlLine::DecidingFor { player: P2 })
+        );
     }
 
     /// Each seat reads the line in its own words, the players by name.
