@@ -55,6 +55,18 @@ minimum/maximum, and 39 carries an explicit stable prompt-kind code (zero when
 there is no numeric prompt). These bounds describe legal answers, not a proof
 that a chosen X is payable with the available mana sources.
 
+**Buyback and multikicker (4 November 2026):** no width, no feature index and
+no existing byte moves. `NumberPrompt::Multikicker` takes prompt-kind code 11
+in global 39 (Encoder 8 only; a new prompt, so no stored row changes), and
+`YesNoPrompt::Buyback` is a yes-or-no like any other, with no feature of its
+own: the net can answer it and is told nothing about it beyond the card. The
+view's `times_kicked` and `bought_back` are not read. In the rule tree the two
+`FaceDef` fields are written only where a card prints one (`build.rs`), so a
+face without them keeps the tree it had: an older export needs
+`--catalog-drift` for the 27 cards whose trees changed, and only those are
+withdrawn. The DSL summary and `cardwalk` read neither field; their widths are
+contracts, and a checkpoint has learned nothing about either keyword.
+
 The separate owner-only `PlayerView.announced_cast` observation is supplied by
 `Session::view_for_with_payment_context` and
 `observe_view_with_payment_context`. It survives X and nested mana questions

@@ -2,6 +2,30 @@ use super::*;
 use baylee_cards_dsl::Filter;
 use baylee_core::types::TypeSet;
 
+/// A face that prints neither buyback nor multikicker keeps the tree it had
+/// before the two fields existed, so an older export drifts only on the cards
+/// that print them; one that prints either says so in one more child.
+#[test]
+fn a_face_without_buyback_or_multikicker_keeps_the_tree_it_had() {
+    use baylee_cards_dsl::{Cost, FaceDef};
+    use baylee_core::mana::ManaCost;
+    let children = |f: &Forest, id: u32| f.nodes[id as usize].children.len();
+    let mut f = Forest::new();
+    let plain = FaceDef::DEFAULT.tree(&mut f);
+    let bought = FaceDef {
+        buyback: Some(Cost::TAP),
+        ..FaceDef::DEFAULT
+    }
+    .tree(&mut f);
+    let kicked = FaceDef {
+        multikicker: Some(ManaCost::parse("{1}")),
+        ..FaceDef::DEFAULT
+    }
+    .tree(&mut f);
+    assert_eq!(children(&f, bought), children(&f, plain) + 1);
+    assert_eq!(children(&f, kicked), children(&f, plain) + 1);
+}
+
 #[test]
 fn negation_logic_order_and_large_constants_are_distinct() {
     let mut f = Forest::new();
