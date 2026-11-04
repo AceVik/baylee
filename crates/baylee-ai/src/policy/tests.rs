@@ -262,6 +262,8 @@ fn test_public_object(
         attached_to: attached_to.map(|t| super::ObjectId::new(t, 0)),
         targets: Vec::new(),
         stack_item: None,
+        times_kicked: 0,
+        bought_back: false,
         summoning_sick: false,
         ability_mana_spending: baylee_core::mana::ManaSpending::EXACT,
         grants: Vec::new(),

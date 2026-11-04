@@ -420,6 +420,8 @@ impl HeuristicAgent {
                 }
                 Some(Self::largest_x(view, min, max, context, |_| true))
             }
+            // Every kick makes their spell better, so they get none.
+            NumberPrompt::Multikicker { .. } => Some(min),
             _ => None,
         }
     }
@@ -450,6 +452,7 @@ impl HeuristicAgent {
             | YesNoPrompt::PayLifeOrEnterTapped { .. }
             | YesNoPrompt::PayLife { .. }
             | YesNoPrompt::PayEnergy { .. }
+            | YesNoPrompt::Buyback { .. }
             | YesNoPrompt::EnterTappedForCounters { .. }
             | YesNoPrompt::SacrificeToEnter { .. }
             | YesNoPrompt::Generic => false,

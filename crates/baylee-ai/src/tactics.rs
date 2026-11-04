@@ -71,7 +71,7 @@ pub(crate) fn amount(n: Amount, x: u32) -> i32 {
     }
     let magnitude = match n {
         Amount::Fixed(v) | Amount::NegXFixed(v) => i32::try_from(v).unwrap_or(i32::MAX),
-        Amount::X | Amount::NegX | Amount::XPlusCommanderCasts => {
+        Amount::X | Amount::NegX | Amount::XPlusCommanderCasts | Amount::TimesKicked => {
             i32::try_from(x).unwrap_or(i32::MAX)
         }
         Amount::DoubleX => i32::try_from(x.saturating_mul(2)).unwrap_or(i32::MAX),

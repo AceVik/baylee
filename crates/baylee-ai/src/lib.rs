@@ -778,6 +778,9 @@ impl HeuristicAgent {
                 // what the floating pool pays beside the rest of the cast,
                 // and each payment is the spell once more (CR 702.56a).
                 baylee_engine::choice::NumberPrompt::Replicate { .. } => max,
+                baylee_engine::choice::NumberPrompt::Multikicker { cost } => {
+                    policy::multikicks(view, context, cost, min, max)
+                }
                 // A share of a division: what the target needs to die, if it
                 // is an opponent's, within what the question allows; the
                 // least for anything else.
@@ -892,6 +895,9 @@ impl HeuristicAgent {
                 // already covers it, because the engine pays from the pool
                 // alone and a short one loses the whole cast.
                 YesNoPrompt::Kicker => PlayerAction::YesNo(policy::kicks(view, context)),
+                YesNoPrompt::Buyback { cost, .. } => {
+                    PlayerAction::YesNo(policy::buys_back(view, context, cost))
+                }
                 // A draw is declined because the house AI has no match score
                 // to protect, so accepting would only ever be a game given
                 // away. Untapping at the price of a whole turn needs a

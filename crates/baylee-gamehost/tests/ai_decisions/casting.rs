@@ -187,7 +187,9 @@ fn play_the_kicker(
             _ => agent.act_with_context(&view, pending, &engine.decision_context()),
         };
         if let Pending::YesNo {
-            prompt: baylee_engine::choice::YesNoPrompt::Kicker,
+            prompt:
+                baylee_engine::choice::YesNoPrompt::Kicker
+                | baylee_engine::choice::YesNoPrompt::Buyback { .. },
             ..
         } = pending
         {
@@ -196,6 +198,19 @@ fn play_the_kicker(
         engine.apply(seat, action).expect("the kicked cast is paid");
     }
     panic!("the spell never resolved; kicker answered {kicker:?}");
+}
+
+/// Buyback (CR 702.27a) through the real engine: with five Swamps and nothing
+/// else to do with them the agent floats {B} and {4}, answers yes, and has
+/// its Lab Rats back with a Rat on the table. A sixth land is not needed.
+#[test]
+fn a_house_seat_with_the_mana_to_spare_buys_its_spell_back() {
+    let board = ["Swamp"; 5];
+    let (paid, view) = play_the_kicker(&["Lab Rats"], &board, |v| {
+        v.battlefield_of(v.seat).any(|o| o.name == "Rat")
+    });
+    assert_eq!(paid, Some(PlayerAction::YesNo(true)));
+    assert_eq!(view.hand.len(), 1, "the Rats came home");
 }
 
 /// Kicker (CR 702.33a) and "you may waterbend" (CR 701.67a) through the real

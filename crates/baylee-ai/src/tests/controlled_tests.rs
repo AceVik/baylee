@@ -874,3 +874,41 @@ fn their_scry_and_their_pile_are_their_worst() {
     };
     assert_eq!(agent().act(&v, &piles), PlayerAction::ChooseMode(1));
 }
+
+/// Their spell's optional costs are theirs to lose by (CR 723.5): a buyback
+/// would hand them the card back and a kick would make the spell better, so
+/// neither is paid even with the mana floating.
+#[test]
+fn their_buyback_is_declined_and_their_spell_is_not_kicked() {
+    let mut v = controlling(vec![], vec![hand_card(1, "Capsize")]);
+    v.seats[1].mana_pool.blue = 9;
+    let context = DecisionContext {
+        source: Some(obj(1)),
+        cost: Some("{1}{U}{U}".parse().unwrap()),
+        ..Default::default()
+    };
+    let buyback = Pending::YesNo {
+        player: THEM,
+        prompt: YesNoPrompt::Buyback {
+            cost: "{3}".parse().unwrap(),
+            parts: baylee_engine::choice::BuybackParts::default(),
+        },
+        source: None,
+    };
+    assert_eq!(
+        agent().act_with_context(&v, &buyback, &context),
+        PlayerAction::YesNo(false)
+    );
+    let multikicker = Pending::ChooseNumber {
+        player: THEM,
+        min: 0,
+        max: 3,
+        reason: NumberPrompt::Multikicker {
+            cost: "{1}".parse().unwrap(),
+        },
+    };
+    assert_eq!(
+        agent().act_with_context(&v, &multikicker, &context),
+        PlayerAction::ChooseNumber(0)
+    );
+}

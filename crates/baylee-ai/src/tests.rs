@@ -15,6 +15,7 @@ mod controlled_tests;
 mod worth_tests;
 
 mod activations_tests;
+mod announced_cost_tests;
 mod attacks_tests;
 mod blocks_tests;
 mod choices_tests;
@@ -122,6 +123,8 @@ fn permanent(id: ObjectId, controller: PlayerId, power: i16) -> PublicObject {
         attached_to: None,
         targets: vec![],
         stack_item: None,
+        times_kicked: 0,
+        bought_back: false,
         summoning_sick: false,
         ability_mana_spending: baylee_core::mana::ManaSpending::EXACT,
         granted_mana: None,

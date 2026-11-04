@@ -2,7 +2,7 @@
 //! scouting summary may adjust values without supplying actionable hidden ids.
 
 use baylee_cards_dsl::{
-    AbilityDef, Effect, FaceDef, Filter, KeywordSet, ManaSource, ReplacementRule,
+    AbilityDef, CostPart, Effect, FaceDef, Filter, KeywordSet, ManaSource, ReplacementRule,
 };
 use baylee_client_core::decision::{hand, known_cards, resource_player};
 use baylee_client_core::manaplan::{self, Converter, Source, Tap};
@@ -868,6 +868,7 @@ impl HeuristicAgent {
             );
             let (cost, floats_first) = aim(
                 view,
+                legal,
                 card,
                 f,
                 printed,
@@ -1778,6 +1779,8 @@ fn card_as_object(
         attached_to: None,
         targets: Vec::new(),
         stack_item: None,
+        times_kicked: 0,
+        bought_back: false,
         summoning_sick: false,
         ability_mana_spending: baylee_core::mana::ManaSpending::EXACT,
         granted_mana: None,
@@ -2456,11 +2459,12 @@ fn spell_cost(view: &PlayerView, id: ObjectId, face: &FaceDef) -> baylee_core::m
 /// before the cast. X is the largest the sources can make. A kicker is
 /// aimed for when it fits the budget, and cast only once floating, as with X:
 /// the engine asks the kicker question with no window to tap anything more.
-/// So is replicate, as many payments as the budget and the sources cover:
-/// the engine offers as many as the floating pool pays for (CR 702.56a),
-/// and the answer takes them all.
+/// So are multikicker and replicate, as many payments as the budget and the
+/// sources cover, and buyback where the card is worth the mana
+/// ([`buyback_price`]): each is answered out of what is floating.
 fn aim(
     view: &PlayerView,
+    legal: &LegalActions,
     card: CardIdentity,
     face: &FaceDef,
     cost: baylee_core::mana::ManaCost,
@@ -2495,6 +2499,19 @@ fn aim(
     if let Some(net) = kicked_price(view, face, spell_effects(card), cost, sources).filter(fits) {
         return (net, true);
     }
+    let effects = spell_effects(card);
+    if let Some(net) = face.multikicker.and_then(|each| {
+        (1..=budget.min(50))
+            .rev()
+            .filter(|n| kicks_safely(view, effects, *n, seat.library_count))
+            .map(|n| cost.combine_n(&each, n))
+            .find(fits)
+    }) {
+        return (net, true);
+    }
+    if let Some(net) = buyback_price(view, legal, card, face, cost, budget).filter(fits) {
+        return (net, true);
+    }
     // Every printed replicate cost is mana, so no more payments fit than
     // the budget has mana.
     face.replicate
@@ -2505,6 +2522,150 @@ fn aim(
                 .find(fits)
         })
         .map_or((cost, false), |net| (net, true))
+}
+
+/// Whether kicking a spell `times` times leaves a card to draw: a spell that
+/// draws for each kick would otherwise draw this seat out of the game.
+fn kicks_safely(view: &PlayerView, effects: &[Effect], times: u32, library: u32) -> bool {
+    let draws = crate::optional::self_draws(view, effects, times);
+    draws == 0 || draws < library
+}
+
+/// A seat pays life for a buyback only while this much stays.
+const BUYBACK_LIFE_FLOOR: i32 = 10;
+
+/// The lands a seat keeps on the table: below this a land sacrificed for a
+/// buyback costs more than the card comes back for.
+const BUYBACK_LANDS_KEPT: usize = 5;
+
+/// Whether a buyback cost's parts are worth having `card` back (CR 702.27a).
+///
+/// The card is worth about what it costs again, so the parts are judged
+/// against what they take. Life is paid while plenty stays. A land goes only
+/// once there are more than the seat needs. A discard takes the lands in hand
+/// past the one the seat can play this turn, and a random one is asked only
+/// when it would land on such a card at least half the time. A part this list
+/// does not know is not paid.
+fn buyback_parts_worth(view: &PlayerView, parts: &[CostPart], card: CardIdentity) -> bool {
+    let player = resource_player(view);
+    let Some(seat) = view.seat(player) else {
+        return false;
+    };
+    let lands = view
+        .battlefield_of(player)
+        .filter(|o| o.types.contains(TypeSet::LAND))
+        .count();
+    let others: Vec<_> = hand(view)
+        .iter()
+        .filter(|held| held.card.index != card.index)
+        .collect();
+    let spare = others
+        .iter()
+        .filter(|held| face(held.card).is_some_and(|f| f.types.contains(TypeSet::LAND)))
+        .count()
+        .saturating_sub(1);
+    let discards = parts
+        .iter()
+        .filter(|part| matches!(part, CostPart::Discard(_)))
+        .count();
+    let life: i32 = parts
+        .iter()
+        .map(|part| match part {
+            CostPart::PayLife(n) => i32::from(*n),
+            _ => 0,
+        })
+        .sum();
+    seat.life - life >= BUYBACK_LIFE_FLOOR.min(seat.life)
+        && parts.iter().all(|part| match part {
+            CostPart::PayLife(_) => true,
+            CostPart::Sacrifice(_) => lands > BUYBACK_LANDS_KEPT,
+            CostPart::Discard(_) => spare >= discards,
+            CostPart::DiscardRandom => !others.is_empty() && 2 * spare >= others.len(),
+            _ => false,
+        })
+}
+
+/// What `cost` becomes with the buyback paid, when that is worth planning.
+///
+/// `None` for a cost with no mana to float, for parts not worth paying, and
+/// when the mana it takes would stop this seat casting something else in hand
+/// it could otherwise afford: a Capsize brought back is not a creature played.
+fn buyback_price(
+    view: &PlayerView,
+    legal: &LegalActions,
+    card: CardIdentity,
+    face: &FaceDef,
+    cost: baylee_core::mana::ManaCost,
+    budget: u32,
+) -> Option<baylee_core::mana::ManaCost> {
+    let buyback = face.buyback?;
+    let mana = buyback.mana.with_less_generic(legal.buyback_less);
+    if mana == baylee_core::mana::ManaCost::ZERO || !buyback_parts_worth(view, buyback.parts, card)
+    {
+        return None;
+    }
+    let spare = budget.saturating_sub(cost.cmc());
+    let left = spare.saturating_sub(mana.cmc());
+    let crowded = hand(view)
+        .iter()
+        .filter(|held| held.card.index != card.index)
+        .filter_map(|held| self::face(held.card))
+        .filter(|other| !other.types.contains(TypeSet::LAND))
+        .map(|other| other.mana_cost.with_x(0).cmc())
+        .any(|price| price > left && price <= spare);
+    (!crowded).then(|| cost.combine(&mana))
+}
+
+/// The answer to `YesNoPrompt::Buyback`: yes when the floating pool covers the
+/// whole price, the question's `mana` beside the spell's own, and the parts
+/// are worth paying. The engine would open a window for mana that is short,
+/// but the planner already said what it wanted to spend ([`buyback_price`]):
+/// whatever it floated is what it means to pay.
+pub(crate) fn buys_back(
+    view: &PlayerView,
+    context: &baylee_engine::engine::DecisionContext<'_>,
+    mana: baylee_core::mana::ManaCost,
+) -> bool {
+    let (Some(id), Some(cost), Some(seat)) = (
+        context.source,
+        context.cost,
+        view.seat(resource_player(view)),
+    ) else {
+        return false;
+    };
+    let Some(card) = identity(view, id) else {
+        return false;
+    };
+    face(card)
+        .and_then(|f| f.buyback)
+        .is_some_and(|buyback| buyback_parts_worth(view, buyback.parts, card))
+        && manaplan::plan(&cost.with_x(context.x).combine(&mana), &seat.mana_pool, &[]).is_some()
+}
+
+/// The answer to `NumberPrompt::Multikicker`: as far as the floating pool
+/// reaches, the kick being the better half of the card by design. The engine's
+/// maximum is open while a land is left to tap, so the pool is what is asked.
+pub(crate) fn multikicks(
+    view: &PlayerView,
+    context: &baylee_engine::engine::DecisionContext<'_>,
+    each: baylee_core::mana::ManaCost,
+    min: u32,
+    max: u32,
+) -> u32 {
+    let Some(seat) = view.seat(resource_player(view)) else {
+        return min;
+    };
+    let spell = context
+        .cost
+        .unwrap_or(baylee_core::mana::ManaCost::ZERO)
+        .with_x(context.x);
+    (min..=max.min(50))
+        .rev()
+        .find(|n| {
+            kicks_safely(view, context.effects, *n, seat.library_count)
+                && manaplan::plan(&spell.combine_n(&each, *n), &seat.mana_pool, &[]).is_some()
+        })
+        .unwrap_or(min)
 }
 
 /// Whether casting `face` at the X `cost` pays for puts a creature onto

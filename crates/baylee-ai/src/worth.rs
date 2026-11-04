@@ -604,7 +604,7 @@ impl HeuristicAgent {
         };
         let magnitude = match amount {
             Amount::Fixed(n) | Amount::NegXFixed(n) => i64::from(n),
-            Amount::X | Amount::NegX => i64::from(x),
+            Amount::X | Amount::NegX | Amount::TimesKicked => i64::from(x),
             Amount::DoubleX => 2 * i64::from(x),
             Amount::LifeTotal(who) => self
                 .players(view, who, aim)?

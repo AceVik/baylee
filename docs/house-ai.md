@@ -186,6 +186,24 @@ not a planned mana source, up to the waterbend's own generic mana, which is all
 CR 701.67b lets them pay. Kicked is the better half by design, so it is paid
 whenever it can be, except when the kicked half would draw the library out.
 
+**Buyback is paid when the card is worth more than what it takes.** The
+question comes with the plain cast, and `policy::buys_back` says yes only when
+the floating pool covers the spell and the buyback's mana and the parts are
+worth it (`buyback_parts_worth`): life while ten stays, a land past the fifth,
+a discard out of the lands in hand past the one this turn plays, a random
+discard where it mostly finds one. `policy::buyback_price` floats the mana
+before the cast, unless it would take what another spell in hand could be cast
+with: a Capsize brought back is not a creature played. An X spell spends
+itself on its X, and is bought back only with what is left.
+
+**Multikicker is kicked as far as the pool reaches.** `policy::aim` floats the
+most payments the budget and the sources cover, and `policy::multikicks`
+answers the count out of the pool, not the engine's maximum, which is open
+while a land is untapped. Each kick is the better half by design, unless the
+spell draws for it and would draw the library out. A controlled player's
+buyback is declined and their spell not kicked (`controlled/choices.rs`): both
+would buy them something (CR 723.5).
+
 **Replicate is paid as often as the pool covers.** The engine offers as many
 payments as the floating pool pays for (`NumberPrompt::Replicate`, CR
 702.56a), and each is a copy, so the agent answers `max`. `policy::aim` has
