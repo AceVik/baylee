@@ -516,8 +516,8 @@ fn a_competitor_leaving_takes_its_option_away() {
     assert_eq!(endings(&e), [SpellEnding::Hand, SpellEnding::Rebound]);
 }
 
-/// The player asked leaves: their spell goes with them (CR 800.4a), nobody
-/// chooses for them (CR 800.4f), and the game goes on.
+/// The player asked leaves: their spell leaves the game with them (CR 800.4a),
+/// so there is nothing left to choose, and the game goes on.
 #[test]
 fn the_player_asked_leaving_ends_the_question_and_the_game_goes_on() {
     let mut e = three_seats(&[]);

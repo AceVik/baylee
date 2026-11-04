@@ -2076,11 +2076,12 @@ Adventure that takes another ending turns back to its front face first (CR
 715.4), and rebound then casts that creature free.
 
 Flashback (and what shares its rider) is not offered beside any of them: it
-exiles "instead of putting it anywhere else" (CR 702.34a), so the hand a buyback
-chose would be exiled too and every order ends alike. Not asked for that reason,
-and known not to be exact: flashback beside Dauthi Voidwalker exiles without the
-void counter, where CR 616.1e would let the controller take either. No spell is
-worse off for it, and it matters only to the player controlling them.
+exiles "instead of putting it anywhere else" (CR 702.34a),
+so the hand a buyback chose would be exiled too and every order ends alike. Not
+asked for that reason, and known not to be exact: flashback beside Dauthi
+Voidwalker exiles without the void counter, where CR 616.1e would let the
+controller take either. No spell is worse off for it, and it matters only to the
+player controlling them.
 
 `GameObject::times_kicked` beside `kicked` is the count: a multikicker's, or 1
 for a kicker. Both stay with the permanent the spell became (CR 400.7d), both
