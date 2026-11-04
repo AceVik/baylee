@@ -882,6 +882,7 @@ fn hash_source_references(h: &mut Hasher, state: &GameState, position: &dyn Fn(O
             // even after the original spell has left the stack.
             h.u32(source.x_value);
             source.kicked.hash(h);
+            source.times_kicked.hash(h);
             source.replicated.hash(h);
             source.mode_index.hash(h);
             source.modes.hash(h);
@@ -1256,6 +1257,7 @@ fn hash_copy_decisions(h: &mut Hasher, obj: &GameObject) {
     // can restore a different rules bundle on otherwise identical boards.
     obj.x_value.hash(h);
     obj.kicked.hash(h);
+    obj.times_kicked.hash(h);
     obj.replicated.hash(h);
     obj.alt_cast.hash(h);
     obj.mode_index.hash(h);
@@ -1817,6 +1819,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
         paid,
         x_value,
         kicked,
+        times_kicked,
         replicated,
         alt_cast,
         prototyped,
@@ -2021,6 +2024,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
             Rider::SpellCopy => h.u8(11),
             Rider::AbilityCopy => h.u8(80),
             Rider::ExileInsteadOfGraveyard => h.u8(12),
+            Rider::Buyback => h.u8(92),
             Rider::ExiledWith { host, version } => {
                 h.u8(13);
                 host.hash(h);
@@ -2098,6 +2102,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
     paid.hash(h);
     x_value.hash(h);
     kicked.hash(h);
+    times_kicked.hash(h);
     replicated.hash(h);
     alt_cast.hash(h);
     prototyped.hash(h);

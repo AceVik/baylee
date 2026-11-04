@@ -175,6 +175,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::NextDestructionClearsDamage
         | Modifier::SpellsCostLess(_)
         | Modifier::SpellsCostLessPerCounter(_)
+        | Modifier::BuybackCostsLess(_)
         | Modifier::SpellsCostMore(_)
                     | Modifier::SpellsCostMorePerControlled(_)
         | Modifier::ManaAbilitiesCostLife(_)
@@ -647,6 +648,7 @@ impl EffectTable {
                     | Modifier::SpellsCostMoreMana(_)
                     | Modifier::SpellsCostLess(_)
                     | Modifier::SpellsCostLessPerCounter(_)
+                    | Modifier::BuybackCostsLess(_)
             ),
         );
         self.hints.insert_if(
@@ -1679,6 +1681,7 @@ mod tests {
             Modifier::SwitchPT,
             Modifier::SpellsCostLess(3),
             Modifier::SpellsCostLessPerCounter(baylee_cards_dsl::CounterKind::P1P1),
+            Modifier::BuybackCostsLess(2),
             Modifier::SpellsCostMore(3),
             Modifier::SpellsCostMorePerControlled(&Filter::ARTIFACT),
             Modifier::AbilitiesCostMore(3),
@@ -1889,7 +1892,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            187,
+            188,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -1981,7 +1984,8 @@ mod tests {
         // filtered player protection and mana taxes on attacks and blocks.
         // Its review adds one characteristic modifier, Opalescence's
         // creature with mana-value power and toughness.
-        assert_eq!((locking, all.len() - locking), (55, 132));
+        // Buyback adds one rules-only modifier, its cost reduction.
+        assert_eq!((locking, all.len() - locking), (55, 133));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

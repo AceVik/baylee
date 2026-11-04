@@ -64,6 +64,9 @@ pub fn amount_with_context(
         Amount::CreaturesEnteredUnderYourControlThisTurn => state.per_turn.creatures_entered
             .get(usize::from(you.get())).copied().unwrap_or(0),
         Amount::X | Amount::NegX => x.unwrap_or(0),
+        Amount::TimesKicked => state
+            .object(this)
+            .map_or(0, |object| u32::from(object.times_kicked)),
         Amount::XIfSourceWasForetold { otherwise } => {
             if state.object(this).is_some_and(|object| {
                 object

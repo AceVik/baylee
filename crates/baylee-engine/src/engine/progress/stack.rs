@@ -1296,14 +1296,29 @@ impl<L: CardLookup> Engine<L> {
                 }
             }
         } else {
-            // Rebound (CR 702.88): cast from hand → exile with a rebound
-            // rider and a delayed re-cast at the next upkeep.
-            let rebound = self.state.object(spell).is_some_and(|o| {
-                o.cast_history.was_from_hand()
-                    && o.characteristics()
-                        .keywords
-                        .contains(baylee_cards_dsl::KeywordSet::REBOUND)
+            // Buyback (CR 702.27a) replaces the graveyard of CR 608.2n with
+            // its owner's hand, here and nowhere else: a spell that is
+            // countered (CR 701.6a) or that loses every target (CR 608.2b)
+            // does not resolve and never comes through this door.
+            //
+            // A copy paid nothing, but it carries the decision (CR 707.10);
+            // it has no card to send, and takes the ending every copy takes
+            // (CR 704.5e).
+            let bought_back = self.state.object(spell).is_some_and(|o| {
+                o.is_card() && o.riders.contains(&crate::object::Rider::Buyback)
             });
+            // Rebound (CR 702.88): cast from hand → exile with a rebound
+            // rider and a delayed re-cast at the next upkeep. Beside buyback
+            // the two "instead"s are the caster's to order (CR 616.1e), and
+            // this answers for them: they paid to have the card back. Ojer
+            // Pakpatiq's grant is how a bought-back spell comes to have both.
+            let rebound = !bought_back
+                && self.state.object(spell).is_some_and(|o| {
+                    o.cast_history.was_from_hand()
+                        && o.characteristics()
+                            .keywords
+                            .contains(baylee_cards_dsl::KeywordSet::REBOUND)
+                });
             if rebound {
                 if let Some(obj) = self.state.object_mut(spell) {
                     obj.kind = ObjectKind::Card;
@@ -1325,7 +1340,9 @@ impl<L: CardLookup> Engine<L> {
                 });
                 return;
             }
-            // Flashback (CR 702.34): exile instead of the graveyard.
+            // Flashback (CR 702.34): exile instead of the graveyard, and
+            // instead of "anywhere else" it would go, which is why a flashed
+            // back spell whose buyback was paid is exiled all the same.
             let flashback = self
                 .state
                 .object(spell)
@@ -1345,12 +1362,14 @@ impl<L: CardLookup> Engine<L> {
             if let Some(obj) = self.state.object_mut(spell) {
                 obj.kind = ObjectKind::Card;
             }
-            let _ = self.state.move_object(
-                spell,
-                ZoneLocation::Graveyard(owner),
-                ZonePosition::Top,
-                Cause::Spell,
-            );
+            let destination = if bought_back {
+                ZoneLocation::Hand(owner)
+            } else {
+                ZoneLocation::Graveyard(owner)
+            };
+            let _ = self
+                .state
+                .move_object(spell, destination, ZonePosition::Top, Cause::Spell);
         }
     }
 }

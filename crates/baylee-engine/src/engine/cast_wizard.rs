@@ -16,6 +16,7 @@ use crate::choice::{
 use baylee_cards_dsl::{AltCondition, CostPart, SpellMode, TargetReq, TargetSpec};
 use baylee_core::mana::ManaCost;
 
+mod announced_costs;
 mod commit;
 mod division;
 mod grants;
@@ -28,7 +29,8 @@ mod stages;
 mod transformed;
 use pricing::FrozenReduction;
 
-/// The current replicate-copy limit. Ordinary X choices are bounded by
+/// The most times a repeatable additional cost is announced: replicate's copies
+/// and multikicker's payments. Ordinary X choices are bounded by
 /// resources, never this limit.
 pub(crate) const REPLICATE_CEILING: u32 = 50;
 
@@ -62,6 +64,12 @@ pub(crate) enum WizardStage {
     ChoosePlayer,
     /// Kicker yes/no.
     Kicker,
+    /// Buyback yes/no (CR 702.27a). Skipped when the face prints none or
+    /// nothing could pay it.
+    Buyback,
+    /// How many times to pay the multikicker cost (CR 702.33c). Skipped when
+    /// the face prints none or nothing could pay it once.
+    Multikicker,
     /// How many times to pay the replicate cost (CR 702.56a), announced
     /// with the other additional costs (CR 601.2b) and so before targets.
     /// Skipped when the face has none or the pool pays for none.
@@ -130,6 +138,13 @@ pub(crate) struct CastWizard {
     pub x: u32,
     /// Whether the kicker was taken.
     pub kicked: bool,
+    /// How many times the multikicker cost is paid. Above zero the spell is
+    /// kicked (CR 702.33d), so `kicked` is true beside it.
+    pub multikicked: u8,
+    /// The mana part of the buyback cost when it was announced (CR 601.2b),
+    /// as its reductions left it: `{0}` for a cost with no mana in it, `None`
+    /// for a spell whose buyback was not.
+    pub buyback: Option<ManaCost>,
     /// How many times the replicate cost is paid.
     pub replicated: u8,
     /// Cards chosen for pitch (exile-from-hand).
@@ -214,6 +229,8 @@ impl CastWizard {
             chosen_player: None,
             x: 0,
             kicked: false,
+            multikicked: 0,
+            buyback: None,
             replicated: 0,
             pitch: SmallVec::new(),
             returned: None,
@@ -279,6 +296,7 @@ impl CastWizard {
             self.beheld,
             self.behold_paid_mana,
             self.north_star,
+            self.buyback,
         ))
         .wrapping_mul(31)
         .wrapping_add(u64::from(self.card.slot()))
@@ -290,6 +308,8 @@ impl CastWizard {
         .wrapping_add(u64::from(self.kicked))
         .wrapping_mul(257)
         .wrapping_add(u64::from(self.replicated))
+        .wrapping_mul(257)
+        .wrapping_add(u64::from(self.multikicked))
         .wrapping_mul(17)
         .wrapping_add(self.chosen_player.map_or(0, |p| u64::from(p.get()) + 1))
         .wrapping_mul(2)
@@ -401,6 +421,18 @@ pub(crate) const fn paid_as_a_mandatory_additional_cost(part: &CostPart) -> bool
     )
 }
 
+/// The non-mana parts the wizard pays for a buyback cost, the last of them
+/// after everything else because it is random (CR 601.2h).
+pub(crate) const fn paid_as_a_buyback_cost(part: &CostPart) -> bool {
+    matches!(
+        part,
+        CostPart::PayLife(_)
+            | CostPart::Sacrifice(_)
+            | CostPart::Discard(_)
+            | CostPart::DiscardRandom
+    )
+}
+
 /// The mandatory additional cost parts for `face`, plus entwine's non-mana
 /// cost parts when `option` chooses all modes (CR 702.42a).
 pub(crate) fn wizard_mandatory_parts(
@@ -429,15 +461,48 @@ pub(crate) fn wizard_alternative_parts(
     }
 }
 
+/// The non-mana parts of the buyback cost, when it is being paid.
+pub(crate) fn wizard_buyback_parts(
+    face: &'static baylee_cards_dsl::FaceDef,
+    paid: bool,
+) -> &'static [CostPart] {
+    match face.buyback {
+        Some(cost) if paid => cost.parts,
+        _ => &[],
+    }
+}
+
+/// Which of a face's non-mana costs a cast pays: the way it is cast, and
+/// whether it announced its buyback, the one optional cost with parts.
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct CostChoice {
+    /// The chosen way of casting.
+    pub option: Option<CastModeKind>,
+    /// Whether the buyback cost is paid.
+    pub buyback: bool,
+}
+
+impl From<Option<CastModeKind>> for CostChoice {
+    fn from(option: Option<CastModeKind>) -> Self {
+        Self {
+            option,
+            buyback: false,
+        }
+    }
+}
+
 /// Every non-mana cost part the selected way of casting must pay. Alternative
-/// parts precede mandatory additional parts, matching the payment below.
+/// parts precede mandatory additional parts and those precede buyback's,
+/// matching the payment below.
 pub(crate) fn wizard_cost_parts(
     face: &'static baylee_cards_dsl::FaceDef,
-    option: Option<CastModeKind>,
+    choice: impl Into<CostChoice>,
 ) -> impl Iterator<Item = &'static CostPart> {
+    let CostChoice { option, buyback } = choice.into();
     wizard_alternative_parts(face, option)
         .iter()
         .chain(wizard_mandatory_parts(face, option))
+        .chain(wizard_buyback_parts(face, buyback))
 }
 
 /// The object questions of a spell's cost, in payment order. `TapN` expands
@@ -445,14 +510,14 @@ pub(crate) fn wizard_cost_parts(
 pub(crate) fn additional_card_costs(
     face: &'static baylee_cards_dsl::FaceDef,
 ) -> impl Iterator<Item = &'static CostPart> {
-    additional_card_costs_for(face, None)
+    additional_card_costs_for(face, CostChoice::default())
 }
 
 pub(crate) fn additional_card_costs_for(
     face: &'static baylee_cards_dsl::FaceDef,
-    option: Option<CastModeKind>,
+    choice: impl Into<CostChoice>,
 ) -> impl Iterator<Item = &'static CostPart> {
-    wizard_cost_parts(face, option)
+    wizard_cost_parts(face, choice)
         .filter(|p| {
             matches!(
                 p,
@@ -994,7 +1059,7 @@ impl<L: CardLookup> Engine<L> {
     /// pay, and a count the payment then cannot cover unwinds the whole
     /// cast (CR 601.2h), as a printed X too large does. Capped at
     /// [`REPLICATE_CEILING`], which is also how many copies the trigger can list.
-    fn replicate_bound(
+    pub(super) fn replicate_bound(
         &self,
         wizard: &CastWizard,
         face: &baylee_cards_dsl::FaceDef,
@@ -1810,6 +1875,12 @@ fn wizard_total_before_reduction(
             total = total.combine(&add.mana);
         }
     }
+    if let Some(multikicker) = face.multikicker {
+        total = total.combine_n(&multikicker, u32::from(wizard.multikicked));
+    }
+    if let Some(buyback) = wizard.buyback {
+        total = total.combine(&buyback);
+    }
     if let Some(replicate) = face.replicate {
         total = total.combine_n(&replicate, u32::from(wizard.replicated));
     }
@@ -1837,10 +1908,14 @@ fn targeted_mode(abilities: &'static [AbilityDef], set: u8, nth: usize) -> Optio
 
 /// Whether this cast pays mana at all. A free cast pays none of its mana
 /// cost (CR 601.2h pays nothing it was not asked for), but an additional
-/// cost it chose is still paid (CR 118.9d, 601.2f): a kicker, and the
-/// replicate cost however many times it was announced.
+/// cost it chose is still paid (CR 118.9d, 601.2f): a kicker, a buyback, and
+/// the replicate cost however many times it was announced.
 const fn pays_mana(wizard: &CastWizard) -> bool {
-    !wizard.free || wizard.kicked || wizard.replicated > 0 || wizard.behold_paid_mana
+    !wizard.free
+        || wizard.kicked
+        || wizard.buyback.is_some()
+        || wizard.replicated > 0
+        || wizard.behold_paid_mana
 }
 
 /// What the cast's mana pays for, which restricted mana asks (CR 106.6):

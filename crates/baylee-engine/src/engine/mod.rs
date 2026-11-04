@@ -1914,6 +1914,8 @@ pub(crate) mod cast_wizard;
 mod checkpoint;
 #[cfg(test)]
 mod checkpoint_tests;
+#[cfg(test)]
+mod multikicker_tests;
 mod constrained_mana;
 pub(crate) mod cost_wizard;
 mod effect_play;

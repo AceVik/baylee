@@ -140,7 +140,13 @@ impl<L: CardLookup> Engine<L> {
         // (`progress::apply_enter_modifiers`), so on the battlefield the
         // field already means "the X of the spell that became this, or
         // nothing" and a reanimated body announces a 0.
-        let announced_x = matches!(
+        //
+        // "If it was kicked" and "for each time it was kicked" ride along by
+        // the same door and for the same reason: the ability is asked what
+        // was paid for the spell that became its source (CR 400.7d, 607.2i),
+        // and that is `Effect::IfKicked`'s question of the object on the
+        // stack.
+        let announced = matches!(
             abilities.get(ability_index as usize),
             Some(
                 baylee_cards_dsl::AbilityDef::Triggered {
@@ -152,8 +158,9 @@ impl<L: CardLookup> Engine<L> {
                 }
             )
         )
-        .then(|| self.state.object(source).map_or(0, |o| o.x_value))
-        .unwrap_or(0);
+        .then(|| self.state.object(source))
+        .flatten()
+        .map_or((0, false, 0), |o| (o.x_value, o.kicked, o.times_kicked));
         let id = self.state.arena.insert_with(|id| {
             let mut obj = GameObject::new_ability_on_stack(
                 id,
@@ -172,7 +179,7 @@ impl<L: CardLookup> Engine<L> {
                 obj.riders
                     .push(crate::object::Rider::AbilitySourceVersion(version));
             }
-            obj.x_value = announced_x;
+            (obj.x_value, obj.kicked, obj.times_kicked) = announced;
             if let Some(version) = counter_version {
                 obj.riders
                     .push(crate::object::Rider::CounterSourceVersion(version));

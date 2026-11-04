@@ -13,6 +13,16 @@ pub enum Amount {
     CreaturesEnteredUnderYourControlThisTurn,
     /// The value of X chosen at cast time.
     X,
+    /// How many times the spell was kicked (CR 702.33d): "for each time it
+    /// was kicked", 0 for a spell or permanent that was not.
+    ///
+    /// Read off the object itself, which is what lets one word serve the
+    /// spell's own effect and the permanent it became (CR 400.7d): an entry
+    /// replacement and an enters trigger of a multikicked creature count the
+    /// payments of the spell it was, and a permanent that arrived any other
+    /// way counts none, because arriving from anywhere but the stack clears
+    /// the count with the X (`progress::apply_enter_modifiers`).
+    TimesKicked,
     /// X if this spell was foretold, otherwise the stated amount. The rider
     /// is on the spell, not on a later permanent incarnation (CR 702.143c).
     XIfSourceWasForetold {

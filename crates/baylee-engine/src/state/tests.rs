@@ -1101,6 +1101,7 @@ fn every_field_that_decides_the_future_moves_the_snapshot_hash() {
         }),
         ("x_value", |s, id| fixture_object(s, id).x_value = 3),
         ("kicked", |s, id| fixture_object(s, id).kicked = true),
+        ("times_kicked", |s, id| fixture_object(s, id).times_kicked = 2),
         ("replicated", |s, id| fixture_object(s, id).replicated = 2),
         ("alt_cast", |s, id| fixture_object(s, id).alt_cast = true),
         ("chosen_player", |s, id| {

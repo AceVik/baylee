@@ -364,6 +364,8 @@ pub(crate) struct SpellAdjustment {
     pub eligible_increase: u32,
     pub reduction: u32,
     pub mana_increase: ManaCost,
+    /// What comes off this spell's buyback cost alone (`Modifier::BuybackCostsLess`).
+    pub buyback_reduction: u32,
 }
 impl SpellAdjustment {
     pub(crate) fn allowance(
@@ -396,6 +398,7 @@ fn has_spell_adjustments(state: &GameState) -> bool {
                     | baylee_cards_dsl::Modifier::SpellsCostMoreMana(_)
                     | baylee_cards_dsl::Modifier::SpellsCostLess(_)
                     | baylee_cards_dsl::Modifier::SpellsCostLessPerCounter(_)
+                    | baylee_cards_dsl::Modifier::BuybackCostsLess(_)
             )
         })
 }
@@ -411,6 +414,7 @@ pub(crate) fn spell_adjustment(
         eligible_increase: 0,
         reduction: 0,
         mana_increase: ManaCost::ZERO,
+        buyback_reduction: 0,
     };
     if !has_spell_adjustments(state) {
         return adjustment;
@@ -461,6 +465,11 @@ pub(crate) fn spell_adjustment(
             {
                 adjustment.reduction = adjustment.reduction.saturating_add(amount);
             }
+            baylee_cards_dsl::Modifier::BuybackCostsLess(amount)
+                if crate::effects::applies_to(state, effect, &spell) =>
+            {
+                adjustment.buyback_reduction = adjustment.buyback_reduction.saturating_add(amount);
+            }
             baylee_cards_dsl::Modifier::SpellsCostLessPerCounter(kind)
                 if crate::effects::applies_to(state, effect, &spell) =>
             {
@@ -490,6 +499,7 @@ pub(crate) fn face_adjustment(
             eligible_increase: 0,
             reduction: 0,
             mana_increase: ManaCost::ZERO,
+            buyback_reduction: 0,
         };
     }
     let Some(object) = state.object(card) else {
@@ -649,6 +659,7 @@ mod tests {
                         increase,
                         eligible_increase: 0,
                         mana_increase: ManaCost::ZERO,
+                        buyback_reduction: 0,
                         reduction,
                     }
                     .price(cost, 0);

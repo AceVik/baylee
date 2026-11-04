@@ -691,6 +691,11 @@ impl GameState {
             // anthem would otherwise sit in the graveyard still pumped,
             // and every filter reading its power would agree.
             obj.cache.clear();
+            // Buyback's "instead" is a static ability of the spell (CR
+            // 702.27a), and the card that leaves the stack is not that spell.
+            if from_zone == Zone::Stack {
+                obj.riders.retain(|r| *r != crate::object::Rider::Buyback);
+            }
             // And the rest of what the old object remembered, for the half
             // of it that only a *permanent* can have. Nothing cleared this,
             // so a permanent that left the battlefield carried its tapped

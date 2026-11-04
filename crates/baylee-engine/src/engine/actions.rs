@@ -595,11 +595,17 @@ impl<L: CardLookup> Engine<L> {
                     }
                     _ => {}
                 }
-                // Casting numbers are distinguished by the stage: X,
-                // replicate payments, and each announced damage share.
+                // Casting numbers are distinguished by the stage: X, multikicker
+                // and replicate payments, and each announced damage share.
                 let mut wizard = self.cast_wizard.take().expect("wizard active");
                 if wizard.stage == cast_wizard::WizardStage::DivideDamage {
                     wizard.division.push(n);
+                } else if wizard.stage == cast_wizard::WizardStage::Multikicker {
+                    // Paid once or more, the spell has been kicked (CR
+                    // 702.33d); zero times it has not.
+                    wizard.multikicked = u8::try_from(n).unwrap_or(u8::MAX);
+                    wizard.kicked = n > 0;
+                    wizard.stage = cast_wizard::WizardStage::Replicate;
                 } else if wizard.stage == cast_wizard::WizardStage::Replicate {
                     wizard.replicated = u8::try_from(n).unwrap_or(u8::MAX);
                     wizard.stage = cast_wizard::WizardStage::Targets;
@@ -1889,7 +1895,21 @@ impl<L: CardLookup> Engine<L> {
                 {
                     let mut wizard = self.cast_wizard.take().expect("wizard active");
                     wizard.kicked = answer;
-                    wizard.stage = cast_wizard::WizardStage::Replicate;
+                    wizard.stage = cast_wizard::WizardStage::Buyback;
+                    self.cast_wizard = Some(wizard);
+                    self.continue_cast_wizard();
+                    return Ok(());
+                }
+                // Wizard path: buyback yes/no. The question named the price
+                // and nothing has moved since it was asked.
+                if self
+                    .cast_wizard
+                    .as_ref()
+                    .is_some_and(|w| w.stage == cast_wizard::WizardStage::Buyback)
+                {
+                    let mut wizard = self.cast_wizard.take().expect("wizard active");
+                    wizard.buyback = answer.then(|| self.buyback_on_offer(&wizard)).flatten();
+                    wizard.stage = cast_wizard::WizardStage::Multikicker;
                     self.cast_wizard = Some(wizard);
                     self.continue_cast_wizard();
                     return Ok(());

@@ -118,6 +118,12 @@ pub enum Modifier {
     /// Matching spells cost {1} less for each counter of this kind on the
     /// continuous effect's source (Herald of War).
     SpellsCostLessPerCounter(crate::CounterKind),
+    /// The buyback cost of a matching spell costs this much less generic
+    /// mana. Only the buyback cost's own generic part (CR 118.7a), so it does
+    /// nothing for a spell whose buyback was not announced and nothing for
+    /// "Buyback—Sacrifice a land", and the mana part of a smaller cost is
+    /// {0} rather than less (CR 118.7).
+    BuybackCostsLess(u32),
     /// Generic cost increase for activated abilities of matching objects.
     AbilitiesCostMore(u32),
     /// Additional life paid when activating a mana ability of the affected object.
@@ -1218,6 +1224,7 @@ impl Modifier {
             // No layer: rules-modifying effects.
             Self::SpellsCostLess(_)
             | Self::SpellsCostLessPerCounter(_)
+            | Self::BuybackCostsLess(_)
             | Self::BandsWithOther(_)
             | Self::GraveyardInstantSorceryOnce
             | Self::GraveyardVampireOnce
@@ -1820,6 +1827,7 @@ mod tests {
             Modifier::NextDrawWish,
             Modifier::NextDrawFromTop { count: 3 },
             Modifier::SpellsCostLess(3),
+            Modifier::BuybackCostsLess(2),
             Modifier::SpellsCostMore(3),
             Modifier::SpellsCostMorePerControlled(&Filter::ARTIFACT),
             Modifier::AbilitiesCostMore(3),

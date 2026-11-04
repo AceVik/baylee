@@ -336,7 +336,7 @@ impl<L: CardLookup> Engine<L> {
                     || (face.kicked_targets.is_some() && !wizard.free)
                 {
                     let mut wizard = wizard;
-                    wizard.stage = WizardStage::Replicate;
+                    wizard.stage = WizardStage::Buyback;
                     self.cast_wizard = Some(wizard);
                     return self.advance_cast_wizard();
                 }
@@ -352,6 +352,28 @@ impl<L: CardLookup> Engine<L> {
                         })
                     }),
                 };
+                self.awaiting_answer = true;
+                Ok(())
+            }
+            WizardStage::Buyback => {
+                let Some(question) = self.ask_buyback(&wizard) else {
+                    let mut wizard = wizard;
+                    wizard.stage = WizardStage::Multikicker;
+                    self.cast_wizard = Some(wizard);
+                    return self.advance_cast_wizard();
+                };
+                self.pending = question;
+                self.awaiting_answer = true;
+                Ok(())
+            }
+            WizardStage::Multikicker => {
+                let Some(question) = self.ask_multikicker(&wizard) else {
+                    let mut wizard = wizard;
+                    wizard.stage = WizardStage::Replicate;
+                    self.cast_wizard = Some(wizard);
+                    return self.advance_cast_wizard();
+                };
+                self.pending = question;
                 self.awaiting_answer = true;
                 Ok(())
             }
@@ -596,7 +618,7 @@ impl<L: CardLookup> Engine<L> {
             WizardStage::Sacrifice => {
                 let face = self.wizard_face(&wizard);
                 let asked = wizard.cost_objects.len();
-                let Some(part) = additional_card_costs_for(face, wizard.option).nth(asked) else {
+                let Some(part) = additional_card_costs_for(face, wizard.cost_choice()).nth(asked) else {
                     let mut wizard = wizard;
                     wizard.stage = WizardStage::Done;
                     self.cast_wizard = Some(wizard);
@@ -621,7 +643,7 @@ impl<L: CardLookup> Engine<L> {
                         wizard.player,
                         wizard.card,
                         face,
-                        wizard.option,
+                        wizard.cost_choice(),
                         &chosen,
                     )
                     .is_some()

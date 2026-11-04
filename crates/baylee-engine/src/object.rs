@@ -898,6 +898,11 @@ pub enum Rider {
     /// cleared by every cast. On the battlefield the registered rule takes
     /// over.
     ExileInsteadOfGraveyard,
+    /// A spell whose buyback cost was paid (CR 702.27a): it goes to its
+    /// owner's hand instead of the graveyard as it resolves. Written by the
+    /// cast, read by `Engine::finalize_spell` alone, and gone the moment the
+    /// object leaves the stack, by whatever door (CR 400.7).
+    Buyback,
     /// Can't be countered (Cavern of Souls mana rider).
     Uncounterable,
     /// Additional entry counters carried from paid mana through resolution.
@@ -1107,6 +1112,7 @@ impl Rider {
             | Self::CounterSourceVersion(_)
             | Self::Flashback
             | Self::ExileInsteadOfGraveyard
+            | Self::Buyback
             | Self::Uncounterable
             | Self::Saddled
             | Self::Prepared
@@ -1396,6 +1402,12 @@ pub struct GameObject {
     pub x_value: u32,
     /// Whether the kicker/additional cost was paid (spells).
     pub kicked: bool,
+    /// How many times it was kicked (CR 702.33d): a multikicker's count, 1
+    /// for a plain kicker, 0 for neither. `kicked` is this being above zero.
+    /// It stays with the permanent the spell became, which may ask what was
+    /// paid to cast it (CR 400.7d), and goes when anything else brings the
+    /// object in (`progress::apply_enter_modifiers`).
+    pub times_kicked: u8,
     /// How many times its replicate cost was paid (spells, CR 702.56a),
     /// which is how many copies the cast trigger makes. A copy carries the
     /// original's count, as it carries every cost decision (CR 707.10), and
@@ -1556,6 +1568,7 @@ impl GameObject {
             paid: None,
             x_value: 0,
             kicked: false,
+            times_kicked: 0,
             replicated: 0,
             alt_cast: false,
             prototyped: false,

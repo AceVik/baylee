@@ -356,6 +356,7 @@ fn plain(object: &GameObject) -> Result<(), &'static str> {
         paid: _,
         x_value: _,
         kicked: _,
+        times_kicked: _,
         replicated: _,
         alt_cast: _,
         prototyped,
@@ -471,6 +472,7 @@ const fn rider_object(rider: &Rider) -> Option<ObjectId> {
         | Rider::Suspend
         | Rider::Flashback
         | Rider::ExileInsteadOfGraveyard
+        | Rider::Buyback
         | Rider::Uncounterable
         | Rider::EntryP1P1(_)
         | Rider::EntryFinality

@@ -45,6 +45,8 @@ pub fn land_face(name: &'static str) -> FaceDef {
         freerunning: None,
         disguise: None,
         replicate: None,
+        multikicker: None,
+        buyback: None,
         x_mana_color: None,
         x_mana_colors: None,
         extra_target_cost: 0,

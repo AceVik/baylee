@@ -174,6 +174,8 @@ pub(super) fn copy_spell(
     let chosen_player = from.chosen_player;
     let x_value = from.x_value;
     let kicked = from.kicked;
+    let times_kicked = from.times_kicked;
+    let bought_back = from.riders.contains(&crate::object::Rider::Buyback);
     let replicated = from.replicated;
     let mode_index = from.mode_index;
     let modes = from.modes;
@@ -219,6 +221,10 @@ pub(super) fn copy_spell(
         obj.chosen_player = chosen_player;
         obj.x_value = x_value;
         obj.kicked = kicked;
+        obj.times_kicked = times_kicked;
+        if bought_back {
+            obj.riders.push(crate::object::Rider::Buyback);
+        }
         obj.replicated = replicated;
         obj.mode_index = mode_index;
         obj.modes = modes;

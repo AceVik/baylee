@@ -62,6 +62,7 @@ pub(super) fn prepare(
 fn copy_decisions(object: &mut GameObject, original: &GameObject) {
     object.x_value = original.x_value;
     object.kicked = original.kicked;
+    object.times_kicked = original.times_kicked;
     object.replicated = original.replicated;
     object.alt_cast = original.alt_cast;
     object.mode_index = original.mode_index;

@@ -13,6 +13,8 @@ fn settled_x(wizard: &CastWizard) -> Option<u32> {
         | WizardStage::ManaPermission
         | WizardStage::XValue => None,
         WizardStage::Kicker
+        | WizardStage::Buyback
+        | WizardStage::Multikicker
         | WizardStage::Replicate
         | WizardStage::Targets
         | WizardStage::SecondTargets

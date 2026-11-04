@@ -294,6 +294,29 @@ impl<L: CardLookup> Engine<L> {
                 | CostPart::ExileFromHand(_) => {}
             }
         }
+        // Buyback's parts name no object any "sacrificed creature" of the
+        // spell reads: that sentence is linked to the printed additional
+        // cost (CR 607.2i), so the receipt above is not touched.
+        let buyback = super::wizard_buyback_parts(face, wizard.buyback.is_some());
+        for part in buyback {
+            graveyard_batch.before_part(&mut self.state, part);
+            if !super::paid_as_a_buyback_cost(part) {
+                continue;
+            }
+            match part {
+                CostPart::PayLife(n) => {
+                    self.state.change_life(player, -i32::from(*n), Cause::Cost);
+                }
+                CostPart::Sacrifice(_) | CostPart::Discard(_) => {
+                    let chosen = cost_objects
+                        .next()
+                        .copied()
+                        .ok_or(EngineError::IllegalAction("an unanswered buyback cost"))?;
+                    super::super::cost_wizard::pay(&mut self.state, player, part, chosen)?;
+                }
+                _ => {}
+            }
+        }
         graveyard_batch.finish(&mut self.state);
         // Escape may exile a card sacrificed or discarded for this same
         // spell. All nonmana costs above are paid first (CR 601.2h).
@@ -311,6 +334,27 @@ impl<L: CardLookup> Engine<L> {
                 ZonePosition::Top,
                 Cause::Cost,
             )?;
+        }
+        // CR 601.2h: costs with a random element are paid after the others,
+        // out of the hand the others left. The card being cast is on the
+        // stack by now in all but this object's bookkeeping (CR 601.2a).
+        for _ in buyback
+            .iter()
+            .filter(|part| matches!(part, CostPart::DiscardRandom))
+        {
+            let hand: Vec<_> = self
+                .state
+                .zones
+                .list(ZoneLocation::Hand(player))
+                .iter()
+                .copied()
+                .filter(|id| *id != wizard.card)
+                .collect();
+            if hand.is_empty() {
+                return Err(EngineError::IllegalAction("no card to discard at random"));
+            }
+            let at = self.state.rng.below(hand.len() as u64) as usize;
+            self.state.discard_card(hand[at], player, Cause::Cost, None);
         }
 
         // Move the card to the stack as a spell. The targeting requirement
@@ -362,6 +406,7 @@ impl<L: CardLookup> Engine<L> {
             obj.set_second_players(wizard.second_target_players);
             obj.x_value = wizard.x;
             obj.kicked = wizard.kicked;
+            obj.times_kicked = wizard.times_kicked();
             obj.replicated = wizard.replicated;
             obj.alt_cast = matches!(wizard.option, Some(CastModeKind::Alternative(_)));
             obj.chosen_player = wizard.chosen_player;
@@ -399,6 +444,9 @@ impl<L: CardLookup> Engine<L> {
             obj.riders.retain(|r| *r != crate::object::Rider::Mutating);
             if wizard.option == Some(CastModeKind::Mutate) {
                 obj.riders.push(crate::object::Rider::Mutating);
+            }
+            if wizard.buyback.is_some() {
+                obj.riders.push(crate::object::Rider::Buyback);
             }
             // Escape (CR 702.138b): the spell escaped, and so will the
             // permanent it becomes.

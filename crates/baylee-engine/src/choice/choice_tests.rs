@@ -84,6 +84,12 @@ fn a_timed_out_seat_does_nothing_wherever_the_question_allows_it() {
             no.clone(),
         ),
         (yes_no(YesNoPrompt::Kicker), no.clone()),
+        (
+            yes_no(YesNoPrompt::Buyback {
+                cost: baylee_core::mana::ManaCost::parse("{3}"),
+            }),
+            no.clone(),
+        ),
         (yes_no(YesNoPrompt::PayTax { mana: 1 }), no.clone()),
         (
             yes_no(YesNoPrompt::PayMana {
@@ -387,7 +393,7 @@ fn a_timed_out_seat_does_nothing_wherever_the_question_allows_it() {
 }
 
 /// How many kinds [`kind_of`] tells apart.
-const KINDS: usize = 51;
+const KINDS: usize = 52;
 
 /// Which kind of question this is, numbered without gaps. No wildcard
 /// arm: a new `Pending` variant or yes/no prompt does not compile here
@@ -424,6 +430,7 @@ fn kind_of(pending: &Pending) -> usize {
                 YesNoPrompt::ProliferatePlayer { .. } => 23,
                 YesNoPrompt::PayLifeOrEnterTapped { .. } => 0,
                 YesNoPrompt::Kicker => 1,
+                YesNoPrompt::Buyback { .. } => 34,
                 YesNoPrompt::ManaAnyType => 26,
                 YesNoPrompt::UseRegenerationShield { .. } => 27,
                 YesNoPrompt::UseShieldCounter { .. } => 28,
@@ -666,6 +673,7 @@ fn only_the_questions_whose_answer_cannot_go_stale_are_automatable() {
             | YesNoPrompt::ProliferatePlayer { .. }
             | YesNoPrompt::PayLifeOrEnterTapped { .. }
             | YesNoPrompt::Kicker
+            | YesNoPrompt::Buyback { .. }
             | YesNoPrompt::ManaAnyType
             | YesNoPrompt::PayTax { .. }
             | YesNoPrompt::RemoveCountersInsteadOfUntapping { .. }
@@ -714,6 +722,9 @@ fn only_the_questions_whose_answer_cannot_go_stale_are_automatable() {
             face: 0,
         },
         YesNoPrompt::Kicker,
+        YesNoPrompt::Buyback {
+            cost: baylee_core::mana::ManaCost::parse("{3}"),
+        },
         YesNoPrompt::PayLifeOrEnterTapped { amount: 1 },
         YesNoPrompt::PayTax { mana: 2 },
         YesNoPrompt::PayMana {

@@ -1228,6 +1228,7 @@ fn apply(
         // Handled by SBAs/legality checks, not by characteristics.
         Modifier::SpellsCostLess(_)
         | Modifier::SpellsCostLessPerCounter(_)
+        | Modifier::BuybackCostsLess(_)
         | Modifier::LoseAllBandsWithOther
         | Modifier::BandsWithOther(_)
         | Modifier::SpellsCostMore(_)

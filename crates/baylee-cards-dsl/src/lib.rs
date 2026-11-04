@@ -356,6 +356,26 @@ pub struct FaceDef {
     /// and the engine writes a counted `Effect::CopyThisSpell` instruction
     /// on the cast trigger. Every printed replicate cost is mana.
     pub replicate: Option<ManaCost>,
+    /// Multikicker (CR 702.33c): "you may pay an additional [cost] any
+    /// number of times as you cast this spell". A multikicker cost is a
+    /// kicker cost, so a spell paid once or more has been kicked (702.33d):
+    /// `Effect::IfKicked` and `Filter::Kicked` read it as they read kicker,
+    /// and `Amount::TimesKicked` is how many times.
+    ///
+    /// A face field for the reason [`Self::replicate`] gives. Every printed
+    /// multikicker cost is mana, one of them a hybrid symbol.
+    pub multikicker: Option<ManaCost>,
+    /// Buyback (CR 702.27a): "you may pay an additional [cost] as you cast
+    /// this spell" and "if the buyback cost was paid, put this spell into
+    /// its owner's hand instead of into that player's graveyard as it
+    /// resolves".
+    ///
+    /// A face field and not an ability: both halves function on the stack
+    /// and neither can be aimed at anything, so the wizard asks it with the
+    /// other additional costs (CR 601.2b) and `Engine::finalize_spell` reads
+    /// the answer. Printed buyback costs are mana or a list of parts
+    /// ("Sacrifice a land", "Pay 3 life, Discard a card at random").
+    pub buyback: Option<crate::cost::Cost>,
     /// Only actual mana of this color may pay the X portion. Cost
     /// reductions still reduce that generic portion before mana is paid.
     pub x_mana_color: Option<baylee_core::color::Color>,
@@ -508,6 +528,8 @@ impl FaceDef {
         prototype: None,
         disguise: None,
         replicate: None,
+        multikicker: None,
+        buyback: None,
         x_mana_color: None,
         x_mana_colors: None,
         extra_target_cost: 0,
