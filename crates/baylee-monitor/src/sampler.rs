@@ -2,12 +2,13 @@
 #![allow(clippy::cast_precision_loss)] // Percentages/rates, not exact byte accounting.
 
 use crate::{
+    background::{self, Latest},
     gpu::Gpus,
     power::Power,
-    types::{Disk, Facts, Network, Point, Process, Snapshot, Temperature},
+    types::{Disk, Facts, GpuView, Network, Point, Process, Snapshot, Temperature},
 };
 use anyhow::Context;
-use std::time::{Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use sysinfo::{Components, Disks, Networks, ProcessRefreshKind, ProcessesToUpdate, System};
 
 pub(crate) struct Sampler {
@@ -15,18 +16,22 @@ pub(crate) struct Sampler {
     networks: Networks,
     components: Components,
     disks: Disks,
-    gpu: Gpus,
+    gpu: Latest<GpuView>,
+    gpu_stale_ms: u64,
     power: Power,
     previous: Instant,
     disk_at: Instant,
 }
 
 impl Sampler {
-    pub fn new() -> anyhow::Result<Self> {
+    pub fn new(interval: Duration) -> anyhow::Result<Self> {
         let mut system = System::new().context("System telemetry unavailable")?;
         system.refresh_cpu_all();
         system.refresh_memory();
         refresh_processes(&mut system);
+        let gpu = Latest::new(GpuView::default());
+        let mut gpus = Gpus::new();
+        background::spawn("gpu", interval, gpu.clone(), move || gpus.sample())?;
         Ok(Self {
             system,
             networks: Networks::new_with_refreshed_list()
@@ -34,7 +39,8 @@ impl Sampler {
             components: Components::new_with_refreshed_list()
                 .context("Temperature telemetry unavailable")?,
             disks: Disks::new_with_refreshed_list().context("Disk telemetry unavailable")?,
-            gpu: Gpus::new(),
+            gpu,
+            gpu_stale_ms: (5 * interval.as_millis() as u64).max(5000),
             power: Power::new(),
             previous: Instant::now(),
             disk_at: Instant::now(),
@@ -57,6 +63,20 @@ impl Sampler {
         }
     }
 
+    /// The GPU thread's newest view. A driver that stopped answering gives
+    /// nothing at all: its last busy value would be a lie.
+    fn fresh_gpu_view(&self) -> GpuView {
+        let view = self.gpu.get();
+        if background::now_ms().saturating_sub(view.checked_ms) <= self.gpu_stale_ms {
+            (*view).clone()
+        } else {
+            GpuView {
+                status: "GPU-Treiber antwortet nicht".into(),
+                ..GpuView::default()
+            }
+        }
+    }
+
     pub fn sample(&mut self) -> Snapshot {
         let started = Instant::now();
         let elapsed = started
@@ -74,7 +94,7 @@ impl Sampler {
             self.disks.refresh(true);
             self.disk_at = started;
         }
-        let (gpus, gpu_status) = self.gpu.sample();
+        let gpu = self.fresh_gpu_view();
         let (cpu_watts, cpu_power_status) = self.power.sample();
         let networks: Vec<_> = self
             .networks
@@ -87,8 +107,8 @@ impl Sampler {
             })
             .collect();
         let (net_rx, net_tx) = physical_rates(&self.networks, elapsed);
-        let processes = collect_processes(&self.system, &gpus, elapsed);
-        let primary = gpus.first();
+        let processes = collect_processes(&self.system, &gpu.gpus, elapsed);
+        let primary = gpu.gpus.first();
         let load = System::load_average()
             .ok()
             .map(|load| [load.one, load.five, load.fifteen]);
@@ -102,7 +122,8 @@ impl Sampler {
                 ram: percent(self.system.used_memory(), self.system.total_memory()),
                 gpu: primary.and_then(|g| g.utilization).map(f64::from),
                 vram: primary.and_then(|g| Some(percent(g.memory_used?, g.memory_total?))),
-                gpu_watts: gpus
+                gpu_watts: gpu
+                    .gpus
                     .iter()
                     .map(|g| g.watts)
                     .collect::<Option<Vec<_>>>()
@@ -119,8 +140,10 @@ impl Sampler {
             ram_total: self.system.total_memory(),
             swap_used: self.system.used_swap(),
             swap_total: self.system.total_swap(),
-            gpus,
-            gpu_status,
+            gpu_driver: gpu.driver,
+            gpu_cuda: gpu.cuda,
+            gpus: gpu.gpus,
+            gpu_status: gpu.status,
             cpu_power_status,
             temperatures: self
                 .components
