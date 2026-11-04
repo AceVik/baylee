@@ -3029,3 +3029,62 @@ CardFillElapsed = bisher { $time }
 CardFillLeft = noch etwa { $time }
 CardFillCache = Cache: { $used } von { $budget }
 CardFillIndicator = Kartenbilder: { $status } · { $detail }
+CheckFormat = Format
+CheckNoFormat = Kein Format
+CheckList = Bannliste
+CheckNoList = Die des Formats
+CheckFree = Kein Format gewählt, also wird nichts geprüft.
+CheckLegal = Legal für { $name }
+CheckIllegal =
+    { $count ->
+        [one] Nicht legal für { $name }: ein Problem
+       *[other] Nicht legal für { $name }: { $count } Probleme
+    }
+CheckUnknown = Ob das für { $name } legal ist, lässt sich nicht sagen
+CheckCountAtLeast = { $have } Karten, mindestens { $need }
+CheckCountExactly = { $have } von { $need } Karten
+CheckCount = { $have } Karten
+CheckWaitsForPool = Die Prüfung wartet auf den Kartenpool.
+CheckNoStatuses = Bann, Beschränkung und welche Karten das Format kennt, konnten nicht geprüft werden: Dafür braucht es die Kartentabelle des Gateways.
+CheckNoShape = Deckgröße, Kopien und Anführer dieses Formats werden hier nicht geprüft.
+CheckCardsUnknown =
+    { $count ->
+        [one] Eine Karte konnte nicht geprüft werden: Die Tabelle sagt zu ihr in diesem Format nichts.
+       *[other] { $count } Karten konnten nicht geprüft werden: Die Tabelle sagt zu ihnen in diesem Format nichts.
+    }
+CheckUnscripted =
+    { $count ->
+        [one] Eine Karte hat kein Skript: Sie ist erlaubt und bewirkt im Spiel nichts.
+       *[other] { $count } Karten haben kein Skript: Sie sind erlaubt und bewirken im Spiel nichts.
+    }
+ProblemUnknownCard = { $card } kennt dieser Build nicht.
+ProblemTooFew = { $have } Karten im Deck; es braucht mindestens { $need }.
+ProblemWrongSize = { $have } Karten im Deck; es braucht genau { $need }.
+ProblemTooManyCopies = { $card }: { $have } Kopien, höchstens { $limit } erlaubt.
+ProblemSideboardTooBig = { $have } Karten im Sideboard; höchstens { $limit } erlaubt.
+ProblemNoSideboard = { $have } Karten im Sideboard; dieses Format hat keines.
+ProblemNoLeader = Das Deck hat keinen Commander.
+ProblemLeaders = { $have } Commander; ein Deck hat einen oder zwei, die gemeinsam führen dürfen.
+ProblemNotALeader = { $card } kann kein Commander sein.
+ProblemCannotLeadTogether = { $card } und { $other } können kein Deck gemeinsam führen.
+ProblemOutsideIdentity = { $card } liegt außerhalb der Farbidentität des Commanders.
+ProblemLeadersNotTaken = Dieses Format hat keine Commander.
+ProblemBanned = { $card } ist in { $format } gebannt.
+ProblemRestricted = { $card } ist in { $format } beschränkt: eine Kopie, nicht { $have }.
+ProblemNotLegal = { $card } ist in { $format } nicht legal.
+ProblemListBanned = { $card } ist durch { $list } gebannt.
+ProblemListRestricted = { $card } ist durch { $list } beschränkt: eine Kopie, nicht { $have }.
+ProblemListBannedAsCommander = { $card } darf unter { $list } kein Deck führen.
+BadgeBanned = Gebannt
+BadgeRestricted = Beschränkt
+BadgeNotLegal = Nicht legal
+BadgeTooMany = Zu viele
+BadgeOffColour = Falsche Farbe
+BadgeNoLeader = Kein Anführer
+CheckOpen = Format und Liste
+CheckTitle = Woran dieses Deck gemessen wird
+CheckMore =
+    { $count ->
+        [one] und eins mehr
+       *[other] und { $count } mehr
+    }

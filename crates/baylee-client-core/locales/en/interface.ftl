@@ -8896,3 +8896,151 @@ CardFillCache = Cache: { $used } of { $budget }
 # The indicator's hint: `$status` what it is doing, `$detail` how far.
 # Arguments: status, detail
 CardFillIndicator = Card pictures: { $status } · { $detail }
+
+# What the deck builder's format picker is called.
+CheckFormat = Format
+
+# The picker's entry for a deck that keeps to no format, and what a table
+# with no check says.
+CheckNoFormat = No format
+
+# What the deck builder's list picker is called.
+CheckList = Ban list
+
+# The picker's entry for no list: the format's own bans stand.
+CheckNoList = The format's own
+
+# The overview for a deck with no format and no list: nothing to check.
+CheckFree = No format chosen, so nothing is checked.
+
+# The overview's headline. `$name` a format or a list.
+# Arguments: name
+CheckLegal = Legal for { $name }
+
+# The overview's headline over the problems. `$name` a format or a list.
+# Arguments: name, count
+CheckIllegal =
+    { $count ->
+        [one] Not legal for { $name }: one problem
+       *[other] Not legal for { $name }: { $count } problems
+    }
+
+# The overview's headline when nothing wrong was found and not everything could
+# be asked. Never read as legal. `$name` a format or a list.
+# Arguments: name
+CheckUnknown = Can't say whether this is legal for { $name }
+
+# The deck's size against a format that takes this many or more.
+# Arguments: have, need
+CheckCountAtLeast = { $have } cards, at least { $need }
+
+# The deck's size against a format that takes exactly this many.
+# Arguments: have, need
+CheckCountExactly = { $have } of { $need } cards
+
+# The deck's size where no size is known.
+# Arguments: have
+CheckCount = { $have } cards
+
+# Rows read from a stored deck are waiting for the pool.
+CheckWaitsForPool = The check waits for the card pool.
+
+# Offline, or a gateway with no catalog: what could not be asked.
+CheckNoStatuses = Bans, restrictions and which cards the format has could not be checked: that needs the gateway's card table.
+
+# A format whose deck shape this build does not know.
+CheckNoShape = This format's deck size, copies and leaders are not checked here.
+
+# Cards the gateway's table has no word on in this format.
+# Arguments: count
+CheckCardsUnknown =
+    { $count ->
+        [one] One card could not be checked: the table says nothing about it in this format.
+       *[other] { $count } cards could not be checked: the table says nothing about them in this format.
+    }
+
+# A notice, not a fault: the card does nothing in a game.
+# Arguments: count
+CheckUnscripted =
+    { $count ->
+        [one] One card has no script: it is allowed, and it does nothing in a game.
+       *[other] { $count } cards have no script: they are allowed, and they do nothing in a game.
+    }
+
+# A card this build has no definition for.
+# Arguments: card
+ProblemUnknownCard = { $card } is not a card this build knows.
+
+# Arguments: have, need
+ProblemTooFew = { $have } cards in the deck; it needs at least { $need }.
+
+# Arguments: have, need
+ProblemWrongSize = { $have } cards in the deck; it needs exactly { $need }.
+
+# Copies in the deck and its sideboard together.
+# Arguments: card, have, limit
+ProblemTooManyCopies = { $card }: { $have } copies, at most { $limit } allowed.
+
+# Arguments: have, limit
+ProblemSideboardTooBig = { $have } cards in the sideboard; at most { $limit } allowed.
+
+# Commander games do not use sideboards.
+# Arguments: have
+ProblemNoSideboard = { $have } cards in the sideboard; this format has none.
+
+ProblemNoLeader = The deck has no commander.
+
+# More than two commanders.
+# Arguments: have
+ProblemLeaders = { $have } commanders; a deck has one, or two that may lead together.
+
+# Arguments: card
+ProblemNotALeader = { $card } cannot be a commander.
+
+# Arguments: card, other
+ProblemCannotLeadTogether = { $card } and { $other } cannot lead one deck.
+
+# Arguments: card
+ProblemOutsideIdentity = { $card } is outside the commander's colour identity.
+
+ProblemLeadersNotTaken = This format has no commanders.
+
+# Arguments: card, format
+ProblemBanned = { $card } is banned in { $format }.
+
+# Arguments: card, format, have
+ProblemRestricted = { $card } is restricted in { $format }: one copy, not { $have }.
+
+# Arguments: card, format
+ProblemNotLegal = { $card } is not legal in { $format }.
+
+# Arguments: card, list
+ProblemListBanned = { $card } is banned by { $list }.
+
+# Arguments: card, list, have
+ProblemListRestricted = { $card } is restricted by { $list }: one copy, not { $have }.
+
+# Arguments: card, list
+ProblemListBannedAsCommander = { $card } may not lead a deck under { $list }.
+
+# A deck row's badge, read at a glance.
+BadgeBanned = Banned
+BadgeRestricted = Restricted
+BadgeNotLegal = Not legal
+BadgeTooMany = Too many
+BadgeOffColour = Off colour
+BadgeNoLeader = Can't lead
+
+# The way from the overview to the sheet.
+CheckOpen = Format and list
+
+# The sheet's title.
+CheckTitle = What this deck is held to
+
+# Problems the foot has no room for, a press from the sheet.
+# Arguments: count
+CheckMore =
+    { $count ->
+        [one] and one more
+       *[other] and { $count } more
+    }

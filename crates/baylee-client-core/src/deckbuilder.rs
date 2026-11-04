@@ -913,6 +913,9 @@ pub struct DeckBuilder {
     /// name does not change after it arrives and folding inside the
     /// comparator would fold each name the dozen times a sort reads it.
     keys: Vec<String>,
+    /// Which slot holds which registry index, for a problem that names a
+    /// card. Written in `set_pool`, beside `keys`.
+    slots: std::collections::BTreeMap<u32, usize>,
     search: crate::cardsearch::SearchBox,
     /// [`Self::text`], read as a query.
     ///
@@ -948,6 +951,14 @@ pub struct DeckBuilder {
     /// Whether the table has been asked for this session. See
     /// [`Self::ask_pool_facts`].
     pool_facts_asked: bool,
+    /// The format the deck is held to, by Scryfall's key; empty until one is
+    /// chosen, and [`Self::format`] then reads it off the leaders.
+    format: String,
+    /// The list it is held to, if one was chosen.
+    list: Option<legality::ChosenList>,
+    /// What the last check found, kept because every row asks it as it is
+    /// drawn. Written by [`Self::recheck`] alone.
+    report: baylee_cardtext::Report,
     sort: Sort,
     main: Vec<Entry>,
     side: Vec<Entry>,
@@ -1008,11 +1019,14 @@ pub struct DeckBuilder {
 }
 
 mod builder;
+pub mod legality;
 pub mod statistics;
 pub mod transfer;
 pub mod view;
 pub use view::{Draft, Grouping, STAT_GROUPS, Section, SectionKey};
 
+#[cfg(test)]
+mod legality_tests;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]

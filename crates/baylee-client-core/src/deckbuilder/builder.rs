@@ -100,6 +100,7 @@ impl DeckBuilder {
         self.dirty = true;
         self.changes = self.changes.saturating_add(1);
         self.naming = false;
+        self.recheck();
     }
 
     /// Marks an edit to the name: a run of them counts once.
@@ -232,6 +233,7 @@ impl DeckBuilder {
         self.pool_facts = Some(facts);
         self.pool_revision = self.pool_revision.wrapping_add(1);
         self.refilter();
+        self.recheck();
     }
 
     /// The gateway's table, while it holds one, as a table is lent it.
@@ -260,6 +262,11 @@ impl DeckBuilder {
         self.keys = cards
             .iter()
             .map(|card| crate::prose::sort_key(&card.name))
+            .collect();
+        self.slots = cards
+            .iter()
+            .enumerate()
+            .map(|(slot, card)| (card.index, slot))
             .collect();
         self.pool = cards;
         self.has_text = has_text;
@@ -1594,7 +1601,10 @@ impl DeckBuilder {
                 message: Phrase::CommanderNoLongerEligible.fill(lang, &[name]),
             });
         }
-        if counts.main > 0 && counts.main < MIN_CONSTRUCTED {
+        // With a format chosen the overview says this and says it exactly;
+        // this is the advice for a deck that keeps to none.
+        let free = self.format() == baylee_cards::formats::FREEFORM;
+        if free && counts.main > 0 && counts.main < MIN_CONSTRUCTED {
             out.push(Problem {
                 blocking: false,
                 message: Phrase::DeckTooSmall.fill(
@@ -1603,7 +1613,7 @@ impl DeckBuilder {
                 ),
             });
         }
-        if counts.side > MAX_SIDEBOARD {
+        if free && counts.side > MAX_SIDEBOARD {
             out.push(Problem {
                 blocking: false,
                 message: Phrase::SideboardTooBig.fill(lang, &[&MAX_SIDEBOARD.to_string()]),
@@ -1808,6 +1818,7 @@ impl DeckBuilder {
             cards: self.rows(Zone::Main),
             sideboard: self.rows(Zone::Side),
             commanders: self.commander_names(),
+            format: Some(self.format().to_string()),
         })
     }
 
@@ -1842,6 +1853,8 @@ impl DeckBuilder {
         self.commanders.clear();
         self.pending_commander.clear();
         self.stale_commander = None;
+        self.format.clear();
+        self.recheck();
         // A nameless deck cannot be saved, so that is where the caret starts.
         self.focus_on(BuildField::Name);
     }
@@ -1890,8 +1903,14 @@ impl DeckBuilder {
         self.focus_on(BuildField::Search);
     }
 
-    /// Turns held rows into deck entries, as far as the pool allows.
+    /// Turns held rows into deck entries, as far as the pool allows, and
+    /// asks the deck's standing again.
     pub(super) fn resolve_pending(&mut self) {
+        self.resolve_rows();
+        self.recheck();
+    }
+
+    fn resolve_rows(&mut self) {
         for name in std::mem::take(&mut self.pending_commander) {
             let Some(slot) = self.slot_of(&name) else {
                 // No pool yet, or no such card: keep holding the name.

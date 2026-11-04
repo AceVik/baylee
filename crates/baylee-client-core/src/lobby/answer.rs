@@ -161,9 +161,11 @@ impl Lobby {
                 cards,
                 sideboard,
                 commanders,
+                format,
             } => {
                 self.builder
                     .load(&id, &name, &cards, &sideboard, &commanders);
+                self.builder.keep_format(&format);
                 self.clear_status();
                 // The pool may not have arrived yet — the rows are held by
                 // name until it does, which is why loading is safe either way.

@@ -205,6 +205,16 @@ const FORMATS_FIRST: [&str; 8] = [
     "brawl",
 ];
 
+/// Where a format comes in a list of them: [`FORMATS_FIRST`] in its order,
+/// and every other format after it.
+#[must_use]
+pub fn format_rank(format: &str) -> usize {
+    FORMATS_FIRST
+        .iter()
+        .position(|first| *first == format)
+        .unwrap_or(FORMATS_FIRST.len())
+}
+
 /// What a choice row of this key offers, narrowed by what the row says.
 ///
 /// Rarities are a closed list and are always all there. A format or a set is
@@ -226,12 +236,7 @@ pub fn choices<'a>(key: &Key, typed: &str, surface: Surface<'a>) -> Vec<Choice<'
             .map(String::as_str)
             .filter(|format| format.contains(&typed))
             .collect();
-        formats.sort_by_key(|format| {
-            FORMATS_FIRST
-                .iter()
-                .position(|first| first == format)
-                .unwrap_or(FORMATS_FIRST.len())
-        });
+        formats.sort_by_key(|format| format_rank(format));
         return formats.into_iter().map(Choice::Format).collect();
     }
     if *key != Key::Set {

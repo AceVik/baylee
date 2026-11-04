@@ -1003,6 +1003,7 @@ name = "baylee-client-core"
 version = "0.1.0-beta.9c"
 dependencies = [
  "argon2",
+ "baylee-cards",
  "baylee-cards-dsl",
  "baylee-cardtext",
  "baylee-core",

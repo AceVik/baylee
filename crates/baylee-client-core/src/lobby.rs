@@ -759,6 +759,8 @@ pub enum LobbyRequest {
         sideboard: Vec<String>,
         /// The cards that lead it, when it is a commander deck.
         commanders: Vec<String>,
+        /// What it plays, by Scryfall's key; `None` leaves that to the gateway.
+        format: Option<String>,
     },
     /// `DELETE /decks/{id}`.
     DeleteDeck {
@@ -963,6 +965,8 @@ pub enum LobbyEvent {
         sideboard: Vec<String>,
         /// The cards that lead it, when it is a commander deck.
         commanders: Vec<String>,
+        /// What it plays, as the store says.
+        format: String,
     },
     /// A deck was saved. `deck_id` is the id `POST /decks` hands back for a
     /// *new* deck; an edit answers `204` and carries none, having had one.
@@ -2339,6 +2343,7 @@ impl Lobby {
             cards,
             sideboard: Vec::new(),
             commanders: Vec::new(),
+            format: None,
         })
     }
 

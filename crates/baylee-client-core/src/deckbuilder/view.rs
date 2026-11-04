@@ -273,6 +273,7 @@ impl DeckBuilder {
             main: self.rows(Zone::Main),
             side: self.rows(Zone::Side),
             commanders: self.commander_names(),
+            format: self.format.clone(),
         }
     }
 
@@ -290,6 +291,7 @@ impl DeckBuilder {
             &draft.commanders,
         );
         self.editing = editing;
+        self.format.clone_from(&draft.format);
         self.touch();
     }
 
@@ -320,6 +322,9 @@ pub struct Draft {
     /// Its commanders, by English name.
     #[serde(default)]
     pub commanders: Vec<String>,
+    /// The format chosen for it; empty for none chosen.
+    #[serde(default)]
+    pub format: String,
 }
 
 impl Draft {

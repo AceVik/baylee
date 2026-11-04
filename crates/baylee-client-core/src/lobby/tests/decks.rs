@@ -32,6 +32,7 @@ fn saving_a_deck_re_reads_the_list() {
             cards: rows,
             sideboard: vec![],
             commanders: Vec::new(),
+            format: None,
         })
     );
     assert_eq!(
@@ -149,6 +150,7 @@ fn a_deck_loaded_before_the_pool_still_resolves() {
             cards: vec!["3 Forest".to_string()],
             sideboard: vec![],
             commanders: Vec::new(),
+            format: "freeform".to_string(),
         }),
         Some(LobbyRequest::LoadPool),
         "the rows arrived first; the pool is still needed"
@@ -207,6 +209,7 @@ fn the_builder_refuses_to_save_what_the_gateway_would_reject() {
             cards: vec!["1 Forest".to_string()],
             sideboard: vec![],
             commanders: Vec::new(),
+            format: Some("freeform".to_string()),
         })
     );
     assert_eq!(
@@ -235,6 +238,7 @@ fn the_builder_refuses_to_save_what_the_gateway_would_reject() {
             cards: vec!["1 Forest".to_string()],
             sideboard: vec![],
             commanders: Vec::new(),
+            format: Some("freeform".to_string()),
         })
     );
 }
