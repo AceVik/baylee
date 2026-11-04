@@ -4748,8 +4748,8 @@ cardboard that does not exist.
 The pick becomes a `baylee_core::deckrow::PrintChoice`, which is why an
 `Entry` is `(slot, count, print)`: two printings of one card are two rows in
 the list, addressed by row (`Press::RemoveRow`) rather than by card. The copy
-limit is not fooled by that — it counts every printing of the card, which is
-the rule `POST /decks` enforces.
+limit is not fooled by that — it counts every printing of the card, as the deck
+check does (`formats::validate`).
 
 The rule that keeps old decks clean: **a choice that changes nothing writes
 nothing.** Picking the default printing leaves `4 Lightning Bolt` exactly as
@@ -4760,9 +4760,31 @@ gaining a single character.
 `POST /decks` enforces, split into blocking and advisory. Blocking is the
 gateway's own list (a name, a non-empty deck, 250 lines and 250 cards *per
 list*, no card the pool has lost) and it is what greys the save button out;
-advisory — 60 cards, a sideboard of 15, a land count that fits the curve,
-cards that are not fully implemented — is written in the panel and never stops
-anything. If the button is live, the deck saves.
+advisory — a land count that fits the curve, cards that are not fully
+implemented, and for a deck of no format 60 cards and a sideboard of 15 — is
+written in the panel and never stops anything. If the button is live, the deck
+saves.
+
+**The deck says how it stands, after every edit** (`docs/banlists-and-formats.md`).
+The foot of the deck side carries the overview `DeckBuilder::overview` builds: a mark
+and a headline ("Legal for Commander", "Not legal for Commander: 3 problems", "Can't
+say whether this is legal for Modern"), the count against what the format takes
+(`57 of 100 cards`, `52 cards, at least 60`), and the first three problems, each a
+press on its card; a row wears the fault in a word (`buildui::legality::badge`) and
+the card window the sentence. A standing reads by its mark as well as its ink, and
+one nobody could fully check never wears legal's: without the gateway's table the
+foot says bans and restrictions could not be checked, and the deck is not called
+legal. *Format and list* opens a sheet: the format's chips (from the table, or
+offline the shapes this build knows; a deck of no format is checked for nothing),
+the lists when signed in, and everything the check found. None of this greys the
+save button: a deck is never refused for being illegal.
+
+**A list is edited over the builder** (`buildui/lists.rs`, `banlist::ListEditor`): its
+name, its format, a search that is the builder's own over the builder's pool (so it
+reads the client's language and English and no other), and its cards, whose word a
+press moves on through banned, restricted and banned as commander. A new list starts
+empty; *Copy* starts one from an official list or one's own; an official list opens
+to be read and nothing there can write it.
 
 The rest is a deck list: two zones, a mana curve whose bars are also the mana
 value filter, the coloured pips the main deck asks for, and `+`/`−` on every
@@ -4822,7 +4844,7 @@ row — the other list, the printing, the card; on a deck row Move to the other
 list, the printing, Remove all. Moving keeps the printing — the whole point of
 having chosen one — and the sheet says what is where ("2 in the deck, 1 in the
 sideboard") so the buttons are not the only way to find out. A card that cannot lead a deck is refused as
-a commander rather than offered and then rejected on save; naming one that is
+a commander rather than offered and then called illegal; naming one that is
 not in the deck yet seats a copy, because a commander that is not in its own
 deck is not a legal deck and the builder should not need to be told twice.
 

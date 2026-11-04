@@ -26,6 +26,16 @@ seven land probability complement the mana curve, colored pips and legality
 feedback. Opening-hand statistics exclude the sideboard and apply before
 mulligans.
 
+A room says what it holds a deck to in its rules rail (`lobby/room/rules.rs`): the
+list, or that every deck may sit down; a running game adds the version it froze. The
+host's *Ban list…* opens a sheet of the official lists and their own, and a press
+picks one (`POST …/list`); those at the table read its cards through *Read the list*.
+To anyone not at the table an own list has no name, because a list is its owner's
+until a table uses it. A deck a table's list turns away is told why in a sheet over
+whatever screen it came from (`confirm::draw_refusal`, `Lobby::refusal_lines`), a
+sentence a reason, in the same words the deck builder uses. Offline there are no
+lists: they live on a gateway. The rules are `docs/banlists-and-formats.md`.
+
 House decks are read-only server publications. Copying one refreshes the account
 deck list and opens its private copy. Only a persisted deck belonging to the
 signed-in account offers history. Selecting a version reads a snapshot without
