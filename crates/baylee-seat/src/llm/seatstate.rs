@@ -660,39 +660,11 @@ impl Seat {
         queue.sent = None;
         let view = &request.view;
         let table = Table::new(view, &request.context);
-        if view.turn != queue.turn {
-            self.stop(&Stop::TurnOver);
-            return None;
-        }
-        // A plan answers the questions of the player it was written for,
-        // never the other's in the same turn (module docs).
-        let decider = table.decider();
-        if decider != queue.player {
-            let id = |p: PlayerId| (p != table.me()).then(|| Table::player_id(p));
-            let stop = Stop::OtherPlayer {
-                written: id(queue.player),
-                asked: id(decider),
-            };
+        if let Some(stop) = stop_before_steps(queue, view, &table) {
             self.stop(&stop);
             return None;
         }
-        if let Some(theirs) = view
-            .stack
-            .iter()
-            .find(|o| !table.same_side(o.controller, decider))
-        {
-            let what = format!(
-                "{}'s {}",
-                Table::player_id(theirs.controller),
-                table.named(theirs.id)
-            );
-            self.stop(&Stop::OpposingStack(what));
-            return None;
-        }
-        if view.owed.is_some() {
-            self.stop(&Stop::Owed);
-            return None;
-        }
+        let decider = table.decider();
         loop {
             let queue = self.queue.as_mut()?;
             let step = queue.steps.front()?.clone();
@@ -935,6 +907,36 @@ fn waits_for_main(view: &PlayerView, step: &Step) -> bool {
                     crate::wake::flash(held.card),
                 )
         })
+}
+
+/// Why a plan answers nothing at this question, before its next step is
+/// read: its turn is over; the question is the other player's in that
+/// turn (a plan answers the player it was written for, module docs);
+/// another side's spell or ability is on the stack; or a payment is owed.
+fn stop_before_steps(queue: &Queue, view: &PlayerView, table: &Table<'_>) -> Option<Stop> {
+    if view.turn != queue.turn {
+        return Some(Stop::TurnOver);
+    }
+    let decider = table.decider();
+    if decider != queue.player {
+        let id = |p: PlayerId| (p != table.me()).then(|| Table::player_id(p));
+        return Some(Stop::OtherPlayer {
+            written: id(queue.player),
+            asked: id(decider),
+        });
+    }
+    if let Some(theirs) = view
+        .stack
+        .iter()
+        .find(|o| !table.same_side(o.controller, decider))
+    {
+        return Some(Stop::OpposingStack(format!(
+            "{}'s {}",
+            Table::player_id(theirs.controller),
+            table.named(theirs.id)
+        )));
+    }
+    view.owed.is_some().then_some(Stop::Owed)
 }
 
 /// The label of a window a plan passes.
