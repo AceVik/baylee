@@ -353,6 +353,9 @@ impl<L: CardLookup> Engine<L> {
             },
         );
         crate::copiable_abilities::temporary::restore(&mut self.state);
+        if self.state.text_changes.end_turn() {
+            self.state.invalidate_projections();
+        }
         self.state
             .effects
             .remove_where(|fx| matches!(fx.duration, baylee_cards_dsl::Duration::UntilEndOfTurn));

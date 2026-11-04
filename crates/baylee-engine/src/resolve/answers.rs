@@ -52,13 +52,22 @@ pub(super) fn resume_with_number_inner(
         res.pc += 1;
         return run(state, res);
     }
-    if let Some(AwaitingOp::TextReplacement { target, kind }) = res.awaiting {
+    if let Some(AwaitingOp::TextReplacement {
+        target,
+        kind,
+        this_turn,
+    }) = res.awaiting
+    {
         if let Some(replacement) = crate::text_changes::TextReplacement::from_choice(kind, number)
             && state
                 .object(target.object)
                 .is_some_and(|object| object.version == target.version)
         {
-            state.text_changes.replace(target, replacement);
+            if this_turn {
+                state.text_changes.replace_this_turn(target, replacement);
+            } else {
+                state.text_changes.replace(target, replacement);
+            }
             state.invalidate_projections();
         }
         res.awaiting = None;

@@ -1118,6 +1118,7 @@ impl Effect {
             | Effect::ControlPlayerNextTurn { .. }
             | Effect::BecomeCopyOfTarget { .. }
             | Effect::ChangeTextWord { .. }
+            | Effect::ChangeTextWordThisTurn { .. }
             | Effect::CopyThisSpell { .. }
             | Effect::RemoveAllCountersSelf { .. }
             | Effect::AttachSelf { .. }

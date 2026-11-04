@@ -279,6 +279,10 @@ pub struct TextChangeEntry {
     pub object: DamageSourceRef,
     /// Ordered composition of all relevant substitutions.
     pub map: TextChangeMap,
+    /// The same without the ones that end with the turn, which is what
+    /// [`TextChanges::end_turn`] leaves: composed apart and not undone,
+    /// because a lasting change made after one has its own word to replace.
+    pub lasting: TextChangeMap,
 }
 
 /// Sparse text changes, kept off every ordinary object's hot representation.
@@ -313,32 +317,80 @@ impl TextChanges {
             .map_or(TextChangeMap::IDENTITY, |entry| entry.map)
     }
 
-    /// Install a snapshot; identity maps need no storage.
-    pub fn set(&mut self, object: DamageSourceRef, map: TextChangeMap) {
-        if map == TextChangeMap::IDENTITY {
+    /// Both readings of an incarnation: now, and once the turn is over.
+    fn both(&self, object: DamageSourceRef) -> (TextChangeMap, TextChangeMap) {
+        self.entries
+            .iter()
+            .find(|entry| entry.object == object)
+            .map_or(
+                (TextChangeMap::IDENTITY, TextChangeMap::IDENTITY),
+                |entry| (entry.map, entry.lasting),
+            )
+    }
+
+    /// Identity maps need no storage.
+    fn store(&mut self, object: DamageSourceRef, map: TextChangeMap, lasting: TextChangeMap) {
+        if map == TextChangeMap::IDENTITY && lasting == TextChangeMap::IDENTITY {
             self.remove(object);
         } else if let Some(entry) = self.entries.iter_mut().find(|entry| entry.object == object) {
             entry.map = map;
+            entry.lasting = lasting;
         } else {
-            self.entries.push(TextChangeEntry { object, map });
+            self.entries.push(TextChangeEntry {
+                object,
+                map,
+                lasting,
+            });
         }
+    }
+
+    /// Install a snapshot, which nothing ends.
+    pub fn set(&mut self, object: DamageSourceRef, map: TextChangeMap) {
+        self.store(object, map, map);
     }
 
     /// Add a resolving text change, refusing malformed answers atomically.
     pub fn replace(&mut self, object: DamageSourceRef, replacement: TextReplacement) -> bool {
-        let mut map = self.get(object);
+        let (mut map, mut lasting) = self.both(object);
         if !map.replace(replacement) {
             return false;
         }
-        self.set(object, map);
+        lasting.replace(replacement);
+        self.store(object, map, lasting);
         true
+    }
+
+    /// Add a resolving text change that lasts "until end of turn".
+    pub fn replace_this_turn(
+        &mut self,
+        object: DamageSourceRef,
+        replacement: TextReplacement,
+    ) -> bool {
+        let (mut map, lasting) = self.both(object);
+        if !map.replace(replacement) {
+            return false;
+        }
+        self.store(object, map, lasting);
+        true
+    }
+
+    /// Ends every change made for this turn (CR 514.2), and says whether any
+    /// text moved.
+    pub(crate) fn end_turn(&mut self) -> bool {
+        let moved = self.entries.iter().any(|entry| entry.map != entry.lasting);
+        for entry in &mut self.entries {
+            entry.map = entry.lasting;
+        }
+        self.entries
+            .retain(|entry| entry.map != TextChangeMap::IDENTITY);
+        moved
     }
 
     /// A permanent spell keeps its text changes as it resolves (CR 400.7b).
     pub fn carry(&mut self, previous: DamageSourceRef, entered: DamageSourceRef) {
-        let map = self.get(previous);
+        let (map, lasting) = self.both(previous);
         self.remove(previous);
-        self.set(entered, map);
+        self.store(entered, map, lasting);
     }
 
     /// Drop one departed incarnation once its last-known text was captured.

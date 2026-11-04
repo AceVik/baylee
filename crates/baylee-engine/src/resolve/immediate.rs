@@ -308,7 +308,8 @@ pub(super) fn exec_immediate(
                 options: Vec::new(),
             })
         }
-        Effect::ChangeTextWord { kind } => {
+        Effect::ChangeTextWord { kind } | Effect::ChangeTextWordThisTurn { kind } => {
+            let this_turn = matches!(op, Effect::ChangeTextWordThisTurn { .. });
             let object = state.object(*res.targets.first()?)?;
             res.awaiting = Some(AwaitingOp::TextReplacement {
                 target: baylee_core::ids::DamageSourceRef {
@@ -316,6 +317,7 @@ pub(super) fn exec_immediate(
                     version: object.version,
                 },
                 kind,
+                this_turn,
             });
             Some(Pending::ChooseNumber {
                 player: you,

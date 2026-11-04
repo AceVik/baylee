@@ -1,5 +1,37 @@
 use super::*;
 
+/// A change for the turn ends with the turn, and a lasting one made after it
+/// stands: red to blue for now and blue to green for good leave red red.
+#[test]
+fn a_change_for_the_turn_ends_and_what_lasts_stays() {
+    let color = |from, to| TextReplacement {
+        kind: TextWordKind::Color,
+        from,
+        to,
+    };
+    let (red, blue, green) = (3, 1, 4);
+    let object = DamageSourceRef {
+        object: ObjectId::new(7, 0),
+        version: 1,
+    };
+    let mut changes = TextChanges::default();
+    assert!(changes.replace_this_turn(object, color(red, blue)));
+    assert!(changes.replace(object, color(blue, green)));
+    assert_eq!(changes.get(object).color_word(Color::Red), Color::Green);
+    assert!(changes.end_turn(), "the text moved");
+    assert_eq!(changes.get(object).color_word(Color::Red), Color::Red);
+    assert_eq!(changes.get(object).color_word(Color::Blue), Color::Green);
+    assert!(!changes.end_turn(), "nothing is left to end");
+
+    let mut changes = TextChanges::default();
+    assert!(changes.replace_this_turn(object, color(red, blue)));
+    assert!(changes.end_turn());
+    assert!(
+        changes.is_empty(),
+        "nothing is kept for a change that ended"
+    );
+}
+
 #[test]
 fn replacements_compose_in_order_and_preserve_semantic_families() {
     let mut map = TextChangeMap::IDENTITY;

@@ -2914,6 +2914,12 @@ pub enum Effect {
         /// The word family; both distinct words are chosen on resolution.
         kind: crate::TextWordKind,
     },
+    /// [`Self::ChangeTextWord`] "until end of turn" (Whim of Volrath): the
+    /// word stands changed until the cleanup step (CR 514.2).
+    ChangeTextWordThisTurn {
+        /// The word family; both distinct words are chosen on resolution.
+        kind: crate::TextWordKind,
+    },
     /// Attach the source (equipment/aura) to a target permanent.
     AttachSelf {
         /// To what.

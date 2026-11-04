@@ -176,6 +176,7 @@ mod vertigo;
 mod vision_charm;
 mod vitalize;
 mod warning;
+mod whim_of_volrath;
 mod whispers_of_the_muse;
 mod wirewood_pride;
 mod word_of_undoing;

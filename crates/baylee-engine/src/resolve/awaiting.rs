@@ -353,6 +353,8 @@ pub enum AwaitingOp {
         target: baylee_core::ids::DamageSourceRef,
         /// Word family being replaced.
         kind: baylee_cards_dsl::TextWordKind,
+        /// Whether the change ends with the turn.
+        this_turn: bool,
     },
     /// Damage waiting for replacement ordering or simultaneous prevention.
     Damage(Box<life::DamageResolution>),
