@@ -1133,6 +1133,28 @@ pub(super) fn exec_immediate(
                 total: None,
             })
         }
+        // The top of the pile is the end of the list (CR 404.2), and the card
+        // joins the resolution's targets and what is remembered of them, which
+        // is what lets the next instruction return it and the one after follow
+        // it. `res.targeted` stays false: nothing was targeted (CR 115.1).
+        Effect::TopOfYourGraveyard { filter } => {
+            let card = state
+                .zones
+                .list(ZoneLocation::Graveyard(you))
+                .iter()
+                .rev()
+                .filter_map(|id| state.object(*id))
+                .find(|o| eval::matches_with_context(filter, state, o, you, res.rule_context()))?;
+            let lki = TargetLki {
+                id: card.id,
+                version: card.version,
+                controller: card.controller,
+                chars: card.characteristics().clone(),
+            };
+            res.targets.push(lki.id);
+            res.target_lki.get_or_insert_default().push(lki);
+            None
+        }
         // As `WhenTargetDiesThisTurn`, about the source.
         Effect::WhenSourceDiesThisTurn { effects } => {
             let source = subjects::source(state, res)

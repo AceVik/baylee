@@ -4,7 +4,7 @@ use crate::choice::{ArrangePile, ArrangePlace, ArrangePrompt, Pending};
 use crate::event::GameEvent;
 use crate::state::GameState;
 use crate::zone::{Zone, ZoneLocation};
-use baylee_cards_dsl::{AbilityDef, CardDef, Condition, CostPart};
+use baylee_cards_dsl::{AbilityDef, CardDef, Condition, CostPart, Effect};
 use baylee_core::ids::{ObjectId, PlayerId};
 use std::collections::VecDeque;
 
@@ -91,6 +91,9 @@ pub(crate) fn card_reads_order(card: &CardDef) -> bool {
                     condition.as_ref().is_some_and(reads_order)
                 }
                 AbilityDef::ActivatedConditional { condition, .. } => reads_order(condition),
+                AbilityDef::Spell { effects, .. } => effects
+                    .iter()
+                    .any(|effect| matches!(effect, Effect::TopOfYourGraveyard { .. })),
                 _ => false,
             })
     })

@@ -1119,6 +1119,7 @@ impl Effect {
             | Effect::BecomeCopyOfTarget { .. }
             | Effect::ChangeTextWord { .. }
             | Effect::ChangeTextWordThisTurn { .. }
+            | Effect::TopOfYourGraveyard { .. }
             | Effect::CopyThisSpell { .. }
             | Effect::RemoveAllCountersSelf { .. }
             | Effect::AttachSelf { .. }

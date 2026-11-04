@@ -63,8 +63,8 @@ own: the net can answer it and is told nothing about it beyond the card. The
 view's `times_kicked` and `bought_back` are not read. In the rule tree the two
 `FaceDef` fields are written only where a card prints one (`build.rs`), so a
 face without them keeps the tree it had: an older export needs
-`--catalog-drift` for the 27 cards whose trees changed, and only those are
-withdrawn. The DSL summary and `cardwalk` read neither field; their widths are
+`--catalog-drift` for the cards of the buyback batch, whose trees changed, and
+only those are withdrawn. The DSL summary and `cardwalk` read neither field; their widths are
 contracts, and a checkpoint has learned nothing about either keyword.
 
 **A resolved spell's ending (4 November 2026):** `CastModeKind::SpellEnding` is

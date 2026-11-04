@@ -25,7 +25,7 @@ never a reason to edit a card by hand.
 
 ## Engine gaps
 
-- Corpse Dance, Shallow Grave: "the top creature card of your graveyard" with its haste and end-step exile has no effect. Corpse Dance's Buyback {2} is not the gap and is waiting on it (`buyback = …` is one line).
+- Shallow Grave: its effect exists since Corpse Dance (`Effect::TopOfYourGraveyard`, 4 November 2026). Nothing but its card file and its own test is left, and the same effects do it.
 - Comet Storm, Strength of the Tajuru, Zethi: a target count that grows with the kicks. `Amount::TimesKicked` reaches effects and entries, not `TargetReq`.
 
 - Kolaghan's Command, Silumgar's Command: target in more than two modes.

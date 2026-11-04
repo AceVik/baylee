@@ -4037,6 +4037,14 @@ The verbs that go with it:
   a matching card from `whose`'s graveyard as this resolves and returns it to
   the battlefield under its owner's control (Reincarnation's delayed trigger,
   `whose: PlayerRel::OwnerOfEvent`, inside `Effect::WhenTargetDiesThisTurn`).
+- `Effect::TopOfYourGraveyard { filter }` — "the top [filter] card of your
+  graveyard" (Corpse Dance). Moves nothing: it names the card, untargeted (CR
+  115.1), and the instructions after it read that card as a target, so
+  `Effect::reanimate(TargetSpec::Object(&Filter::Any))`, `Effect::ModifyTargets`
+  and an `Effect::AtNextEndStep` about it all work. With no such card they do
+  nothing. Spell abilities only: `graveyard_order::card_reads_order` looks there
+  to turn on CR 404.3's ordering question, so another kind of ability needs
+  that function taught first.
 - `Effect::WhenSourceDiesThisTurn { effects }` — "when this creature dies
   this turn, …" (Golden Guardian); `Effect::ReturnSourceFromGraveyard { face: Some(1), .. }`
   inside it returns the card that died, transformed.

@@ -19,7 +19,7 @@ Comprehensive Rules of 25 September 2026 (702.27a, 702.33câ€“e, 601.2b, 601.2fâ€
 608.2b, 608.2n, 701.6a, 702.34a, 616.1e, 707.10, 704.5e, 118.7a, 118.8d, 118.9d,
 400.7d, 607.2i).
 
-- **Buyback, all spells that print it but one:** the 26 that were
+- **Buyback, every spell that prints it:** the 26 that were
   `Coverage::Partial` for it are `Implemented`, each played paid, declined,
   countered and, where it has a target, with its target gone.
 - **Memory Crystal** ("Buyback costs cost {2} less") is `Implemented`, adopted
@@ -27,9 +27,13 @@ Comprehensive Rules of 25 September 2026 (702.27a, 702.33câ€“e, 601.2b, 601.2fâ€
 - **Whim of Volrath** is `Implemented`, adopted from the stub the review of PR
   394 held it back to: its text change now ends with the turn
   (`Effect::ChangeTextWordThisTurn`, `TextChanges::end_turn`).
-- **Corpse Dance** stays held back for its other sentence, "the top creature
-  card of your graveyard" with haste and an end-step exile, which no effect says
-  (`docs/generated-held-back.md`). Its Buyback {2} is one line once that exists.
+- **Corpse Dance** is `Implemented`, adopted from the stub the review of PR 394
+  held it back to, which had found any creature returned, and for good.
+  `Effect::TopOfYourGraveyard` names the top creature card of the ordered pile
+  without targeting it (CR 404.2, 115.1), the effects a target has then return
+  it, give it haste and exile it at the next end step, and a game holding the
+  card has its owners order what falls together (CR 404.3). Shallow Grave says
+  the same sentence and is one card file away (`docs/generated-held-back.md`).
 - **Multikicker:** no card in the pool prints it and none was added. A real one
   needs `data/card-pool.txt`, a full `codegen` over the corpus, and its turn in
   release order (Worldwake, 2010, against a frontier in the 1990s:

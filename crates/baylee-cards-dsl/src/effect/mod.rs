@@ -4132,6 +4132,15 @@ pub enum Effect {
         /// The word family; both distinct words are chosen on resolution.
         kind: crate::TextWordKind,
     },
+    /// "The top [filter] card of your graveyard" (Corpse Dance): names the card
+    /// the rest of this resolution acts on by where it lies in the pile (CR
+    /// 404.2). Nothing is targeted (CR 115.1), so the spell cannot lose it and
+    /// a card with hexproof is no obstacle; what follows reads the card as it
+    /// reads a target. With no such card, what follows has nothing to act on.
+    TopOfYourGraveyard {
+        /// What the card must be.
+        filter: &'static Filter,
+    },
 }
 
 #[cfg(test)]
