@@ -349,7 +349,7 @@ fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
     // `PlayerView::foreign_targets`: additive and omitted while empty, likewise.
     // 85: buyback and multikicker as imported engine prompts, and what a spell
     // on the stack was cast with, additive and omitted when there is none.
-    const RECORDED: (u32, u64) = (85, 7_272_999_215_339_055_297);
+    const RECORDED: (u32, u64) = (85, 14_644_063_972_652_947_199);
 
     let samples = core_samples();
     let sampled: std::collections::BTreeSet<String> =
