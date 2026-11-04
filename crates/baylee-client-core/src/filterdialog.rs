@@ -1085,6 +1085,11 @@ pub const FLAGS: &[Flag] = &Flag::ALL;
 /// that is why a key is an index into [`OFFERED`] rather than a [`Key`]: one
 /// variant of `Key` owns a `String`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::large_enum_variant,
+    reason = "a list's name rides in `Choose`, and boxing it would cost the \
+              `Copy` a button needs; a dialog holds a few dozen of these"
+)]
 pub enum Act {
     /// Turn the minus in front of a row on or off.
     Negate(usize, bool),

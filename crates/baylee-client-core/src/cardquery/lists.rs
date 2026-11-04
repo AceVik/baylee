@@ -81,9 +81,7 @@ impl ListShelf {
     #[must_use]
     pub fn named(&self, word: &str) -> Option<&ShelfList> {
         let want = folded(word);
-        self.lists
-            .iter()
-            .find(|list| list.names.iter().any(|name| *name == want))
+        self.lists.iter().find(|list| list.names.contains(&want))
     }
 
     /// The lists whose name holds what has been typed so far.
