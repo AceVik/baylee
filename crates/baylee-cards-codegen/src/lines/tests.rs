@@ -88,6 +88,23 @@ fn life_ward_maps_to_its_printed_sentence_for_the_client() {
     ));
 }
 
+/// Echo goes on the stack (CR 702.30a), and the keyword line is the sentence
+/// that says what it costs. Read as the activation its `{` looks like, it
+/// matched nothing, and the stack could only show the card's name.
+#[test]
+fn echo_maps_to_its_keyword_line_and_not_to_its_neighbour() {
+    use baylee_cards_dsl::{Trigger, triggered};
+    let echo = AbilityDef::Echo {
+        cost: baylee_core::mana::ManaCost::parse("{2}{R}{R}"),
+    };
+    let enters = triggered!(Trigger::ETB, &[]);
+    let oracle = "Haste\nEcho {2}{R}{R} (At the beginning of your upkeep, if this came \
+                  under your control since the beginning of your last upkeep, sacrifice \
+                  it unless you pay its echo cost.)\nWhen this creature enters, it deals \
+                  3 damage to target player or planeswalker.";
+    assert_eq!(map(&[echo, enters], oracle).lines, [Some(1), Some(2)]);
+}
+
 /// A mana ability whose "add" opens the body's second sentence is still
 /// a mana line — and one that targets is not, whatever it adds.
 #[test]

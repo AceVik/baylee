@@ -795,8 +795,8 @@ pub fn content_fits(ability: &baylee_cards_dsl::AbilityDef, line: &str) -> bool 
 ///
 /// One entry per ability in `abilities`, in step with it — `None` where an
 /// ability has no sentence of its own, which is an honest answer and not a
-/// failure. A static is many-to-one with the printing by design, and evoke,
-/// echo and station are *printed* as keyword lines rather than as
+/// failure. A static is many-to-one with the printing by design, and evoke
+/// and station are *printed* as keyword lines rather than as
 /// sentences, so the client renders those from the registry the way
 /// `abilities.rs` already renders "Equip {0}".
 ///
