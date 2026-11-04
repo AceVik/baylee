@@ -149,9 +149,10 @@ fn a_countered_dance_returns_nothing_and_stays_in_the_graveyard() {
     hand_to_graveyard(&mut e, P0, index::GRIZZLY_BEARS);
     dance(&mut e, true);
     let spell = e.state().zones.list(ZoneLocation::Stack)[0];
-    pass_until(&mut e, |e| {
-        matches!(e.pending(), Pending::Priority { player, .. } if *player == P1)
-    });
+    pass_until(
+        &mut e,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == P1),
+    );
     kit::float(&mut e, P1, &[(ManaColor::Blue, 2)]);
     cast_with_floating(&mut e, P1, index::COUNTERSPELL);
     kit::aim(&mut e, &[spell], &[]);
