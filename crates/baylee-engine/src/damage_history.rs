@@ -100,6 +100,21 @@ impl GameState {
                     .unwrap_or(0),
             ));
         }
+        if let Some(entry) = seq
+            .checked_sub(1)
+            .and_then(|index| self.journal.entries().get(index as usize))
+            && let GameEvent::ZoneChanged {
+                object,
+                from: Zone::Battlefield,
+                ..
+            } = entry.event
+            && object == id
+            && let Some(departure) = &entry.departure
+        {
+            // The departure event sees the battlefield object, not its successor
+            // in the destination zone (CR 400.7).
+            return Some((departure.version, departure.power));
+        }
         for entry in self.journal.entries().iter().skip(seq as usize) {
             if matches!(entry.event, GameEvent::ZoneChanged { object, from: Zone::Battlefield, .. } if object == id)
                 && let Some(departure) = &entry.departure

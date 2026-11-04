@@ -64,6 +64,8 @@ pub fn condition_holds_with_context(
         Condition::SourceCameUnderYourControlSinceYourLastUpkeep => {
             super::upkeep_history::came_under_your_control(state, you, source, None)
         }
+        // The triggering incarnation is supplied to `condition_with_event`.
+        Condition::EventObjectWasBlockedThisTurn => false,
         Condition::SomeDefendingPlayerControlsNone(filter) => {
             super::defender_conditions::some_defender_controls_none(state, you, context, filter)
         }
@@ -709,7 +711,9 @@ pub(crate) fn intervening_if_for_incarnation(
 /// An event-dependent clause excludes an incarnation, never a reusable handle.
 pub(crate) fn condition_reads_event(condition: Condition) -> bool {
     match condition {
-        Condition::ControlCountExceptEvent(_, _) | Condition::EventBlockedByOthers { .. } => true,
+        Condition::ControlCountExceptEvent(_, _)
+        | Condition::EventBlockedByOthers { .. }
+        | Condition::EventObjectWasBlockedThisTurn => true,
         Condition::All(conditions) | Condition::Any(conditions) => {
             conditions.iter().copied().any(condition_reads_event)
         }
@@ -742,6 +746,13 @@ pub(crate) fn condition_with_event(
                 .count()
                 >= usize::from(minimum)
         }
+        Condition::EventObjectWasBlockedThisTurn => event.is_some_and(|event| {
+            state
+                .per_turn
+                .blocks
+                .iter()
+                .any(|record| record.attacker == event)
+        }),
         // Wall of Caltrops: the creature it blocks, as that event names it.
         Condition::EventBlockedByOthers { some, none } => {
             let Some(event) = event else { return false };
