@@ -1,7 +1,8 @@
 //! Offline contracts; no client, gateway, model, renderer or production service.
 use super::{
     Args, check, common,
-    devctl::{Control, Devctl, Http},
+    devctl::{Control, Devctl},
+    gateway::{self, Gateway},
     keys, pixels, report, screens, settings,
     tree::Tree,
 };
@@ -363,7 +364,7 @@ fn url_secrets_size_parsing_and_geometry_have_strict_boundaries() {
         "http://[::1]:1/",
         "http://localhost:123",
     ] {
-        assert!(super::devctl::loopback_url(valid).is_ok());
+        assert!(gateway::loopback_url(valid).is_ok());
     }
     for invalid in [
         "https://127.0.0.1:80",
@@ -374,7 +375,7 @@ fn url_secrets_size_parsing_and_geometry_have_strict_boundaries() {
         "http://127.0.0.1/?secret=1",
         "http://192.168.0.1",
     ] {
-        assert!(super::devctl::loopback_url(invalid).is_err(), "{invalid}");
+        assert!(gateway::loopback_url(invalid).is_err(), "{invalid}");
     }
     let a = Control {
         press: "button".into(),
@@ -405,7 +406,7 @@ struct Reply {
     body: Value,
 }
 struct Mock {
-    http: Http,
+    gateway: Gateway,
     port: u16,
     requests: Arc<Mutex<Vec<String>>>,
     worker: thread::JoinHandle<()>,
@@ -469,32 +470,46 @@ fn mock(replies: Vec<Reply>) -> Mock {
         }
     });
     Mock {
-        http: Http::new(&format!("http://127.0.0.1:{port}")).unwrap(),
+        gateway: Gateway::new(&format!("http://127.0.0.1:{port}")).unwrap(),
         port,
         requests,
         worker,
     }
 }
 #[test]
-fn transport_rejects_error_bodies_http_errors_and_redirects_without_leaking_secrets() {
+fn gateway_rejects_error_bodies_http_errors_and_redirects_without_leaking_secrets() {
     for status in [200, 403, 302] {
         let m = mock(vec![Reply {
             status,
             body: json!({"error":"secret-password token=secret-token"}),
         }]);
         let err = m
-            .http
-            .call(
-                "/auth/login",
-                Some(&json!({"password":"secret-password"})),
-                Some("secret-token"),
-                Duration::from_secs(2),
-            )
+            .gateway
+            .get("/decks", "secret-token", Duration::from_secs(2))
             .unwrap_err()
             .to_string();
         m.worker.join().unwrap();
         assert!(!err.contains("secret-password"));
         assert!(!err.contains("secret-token"));
+        assert_eq!(m.requests.lock().unwrap().len(), 1);
+        assert!(m.requests.lock().unwrap()[0].contains("Bearer secret-token"));
+    }
+}
+#[test]
+fn harness_rejects_error_bodies_http_errors_and_redirects_without_leaking_secrets() {
+    for status in [200, 403, 302] {
+        let m = mock(vec![Reply {
+            status,
+            body: json!({"error":"unknown key: secret-password"}),
+        }]);
+        let d = Devctl::new(m.port).unwrap();
+        let err = d
+            .call("/key", Some(&json!({"name":"secret-password"})))
+            .unwrap_err();
+        m.worker.join().unwrap();
+        let chain = format!("{err:#}");
+        assert!(!chain.contains("secret-password"), "{chain}");
+        assert!(chain.contains("/key"), "{chain}");
         assert_eq!(m.requests.lock().unwrap().len(), 1);
     }
 }

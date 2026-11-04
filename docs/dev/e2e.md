@@ -101,6 +101,11 @@ fn the_key_on_the_keep_button_keeps_the_hand() {
   measure, `hid` hidden (inherited), `i` carries a `Press`, `k` the kit's
   role, `cx`/`cy` how the node clips its children across and down
   (`"scroll"` or `"cut"`; absent: it does not).
+- The one driver of the harness is `Devctl` (`src/devctl.rs`), which `cargo dev
+  central`, `cargo tools shell` and `cargo tools recording` use too: loopback
+  by port, no proxy or redirect, a deadline for the whole reply, and any
+  `error` or `"ok": false` a `Refused` that names the harness's reason, which
+  can repeat a request field (`cargo tools shell` withholds it).
 - At the table only the lobby's nodes say they are pressable; what can be
   pressed there is `buttons` and `cards`.
 

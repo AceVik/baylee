@@ -11,8 +11,9 @@ publish = false
 workspace = true
 
 # Small crates and nothing from the workspace, for the reason `baylee-dev`
-# gives: `cargo dev` links this crate's harness driver and compiles it before
-# every gate. The client under test is a separate process, never a dependency.
+# gives: `cargo dev` and `baylee-tools` link this crate's harness driver, and
+# `cargo dev` compiles it before every gate. The client under test is a separate
+# process, never a dependency.
 [dependencies]
 anyhow.workspace = true
 serde_json.workspace = true

@@ -44,7 +44,7 @@ pub mod screen;
 pub mod viewport;
 
 pub use client::{Client, Key, Launch};
-pub use devctl::Devctl;
+pub use devctl::{Devctl, Refused};
 pub use layout::{Issue, Layout};
 pub use monitor::Monitor;
 pub use screen::{Card, Clip, Control, ControlList, Node, Rect, Screen, Target};

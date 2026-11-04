@@ -13,6 +13,9 @@ workspace = true
 
 [dependencies]
 baylee-cards-codegen.workspace = true
+# The one driver of the client's dev-control harness; the crate is small and
+# holds nothing of the client.
+baylee-client-e2e.workspace = true
 anyhow.workspace = true
 clap.workspace = true
 serde.workspace = true

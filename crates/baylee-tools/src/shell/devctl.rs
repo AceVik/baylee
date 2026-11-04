@@ -1,10 +1,11 @@
-//! Shared loopback transport. No redirect/proxy or request/response body logging.
+//! The sweeps' verbs over the shared harness driver. No request or response
+//! body reaches a diagnostic.
 use super::tree::Tree;
 use anyhow::{Context, Result, bail, ensure};
+use baylee_client_e2e::{Devctl as Harness, Refused};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use std::{
-    net::IpAddr,
     path::{Path, PathBuf},
     thread,
     time::{Duration, Instant},
@@ -12,109 +13,6 @@ use std::{
 
 pub(super) fn sleep(seconds: f64) {
     thread::sleep(Duration::from_secs_f64(seconds));
-}
-pub(super) fn loopback_url(url: &str) -> Result<String> {
-    let uri: ureq::http::Uri = url
-        .parse()
-        .map_err(|_| anyhow::anyhow!("invalid loopback URL"))?;
-    let host = uri.host().context("loopback URL needs a host")?;
-    ensure!(
-        uri.scheme_str() == Some("http")
-            && uri.authority().is_some_and(|a| !a.as_str().contains('@'))
-            && uri.query().is_none()
-            && uri.path() == "/",
-        "expected a plain loopback http origin"
-    );
-    let ip = if host == "localhost" {
-        "127.0.0.1".parse::<IpAddr>()?
-    } else {
-        host.trim_matches(['[', ']'])
-            .parse::<IpAddr>()
-            .map_err(|_| anyhow::anyhow!("only literal loopback IPs or localhost accepted"))?
-    };
-    ensure!(ip.is_loopback(), "external network is not allowed");
-    let port = uri.port_u16().unwrap_or(80);
-    ensure!(port > 0, "port must be nonzero");
-    let host = match ip {
-        IpAddr::V4(v) => v.to_string(),
-        IpAddr::V6(v) => format!("[{v}]"),
-    };
-    Ok(format!("http://{host}:{port}"))
-}
-#[derive(Clone)]
-pub(super) struct Http {
-    origin: String,
-    agent: ureq::Agent,
-}
-impl Http {
-    pub fn new(origin: &str) -> Result<Self> {
-        Ok(Self {
-            origin: loopback_url(origin)?,
-            agent: ureq::Agent::config_builder()
-                .proxy(None)
-                .max_redirects(0)
-                .http_status_as_error(false)
-                .timeout_global(Some(Duration::from_secs(60)))
-                .build()
-                .into(),
-        })
-    }
-    pub fn call(
-        &self,
-        path: &str,
-        body: Option<&Value>,
-        token: Option<&str>,
-        timeout: Duration,
-    ) -> Result<Value> {
-        ensure!(
-            path.starts_with('/')
-                && !path.starts_with("//")
-                && !path.contains(['\r', '\n', '?', '#']),
-            "invalid local route"
-        );
-        let url = format!("{}{path}", self.origin);
-        let response = if let Some(body) = body {
-            let mut request = self
-                .agent
-                .post(&url)
-                .config()
-                .timeout_global(Some(timeout))
-                .build();
-            if let Some(token) = token {
-                request = request.header("Authorization", format!("Bearer {token}"));
-            }
-            request.send_json(body)
-        } else {
-            let mut request = self
-                .agent
-                .get(&url)
-                .config()
-                .timeout_global(Some(timeout))
-                .build();
-            if let Some(token) = token {
-                request = request.header("Authorization", format!("Bearer {token}"));
-            }
-            request.call()
-        };
-        // Error bodies may echo typed passwords/tokens. Neither them nor the
-        // underlying transport error's URL/headers are attached to diagnostics.
-        let mut response =
-            response.map_err(|_| anyhow::anyhow!("local HTTP request failed ({path})"))?;
-        ensure!(
-            response.status().is_success(),
-            "local HTTP {path}: status {}",
-            response.status().as_u16()
-        );
-        let value: Value = response
-            .body_mut()
-            .read_json()
-            .map_err(|_| anyhow::anyhow!("invalid JSON from {path}"))?;
-        ensure!(
-            value.get("error").is_none() && value.get("ok") != Some(&Value::Bool(false)),
-            "local request refused ({path}); response body withheld"
-        );
-        Ok(value)
-    }
 }
 #[derive(Clone, Debug, Deserialize)]
 pub(super) struct Control {
@@ -124,17 +22,38 @@ pub(super) struct Control {
 }
 #[derive(Clone)]
 pub(super) struct Devctl {
-    pub http: Http,
+    harness: Harness,
 }
 impl Devctl {
     pub fn new(port: u16) -> Result<Self> {
         ensure!(port > 0, "port must be nonzero");
         Ok(Self {
-            http: Http::new(&format!("http://127.0.0.1:{port}"))?,
+            harness: Harness::new(port),
         })
     }
     pub fn call(&self, path: &str, body: Option<&Value>) -> Result<Value> {
-        self.http.call(path, body, None, Duration::from_secs(60))
+        self.call_within(path, body, Duration::from_secs(60))
+    }
+    /// A refusal can repeat a field of the request, and `shell raw` sends
+    /// whatever it was given, so the harness's reason is withheld here.
+    pub fn call_within(
+        &self,
+        path: &str,
+        body: Option<&Value>,
+        timeout: Duration,
+    ) -> Result<Value> {
+        ensure!(path.starts_with('/'), "invalid local route");
+        let reply = match body {
+            Some(body) => self.harness.post_within(path, body, timeout),
+            None => self.harness.get(path, timeout),
+        };
+        reply.map_err(|error| {
+            if error.is::<Refused>() {
+                anyhow::anyhow!("local request refused ({path}); response body withheld")
+            } else {
+                error
+            }
+        })
     }
     pub fn post(&self, path: &str, body: &Value) -> Result<()> {
         self.call(path, Some(body))?;
@@ -216,10 +135,9 @@ impl Devctl {
     }
     pub fn screenshot(&self, path: &Path) -> Result<()> {
         let path = absolute(path)?;
-        self.http.call(
+        self.call_within(
             "/screenshot",
             Some(&json!({"path":path})),
-            None,
             Duration::from_secs(120),
         )?;
         ensure!(path.is_file(), "screenshot response without a local file");

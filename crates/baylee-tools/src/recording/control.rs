@@ -1,6 +1,8 @@
-//! Bounded loopback-only recorder requests, with no proxies or redirects.
+//! Bounded recorder requests over the shared harness driver, which goes to
+//! loopback only and follows no proxy or redirect.
 use super::{cli::Preview, data, render};
 use anyhow::{Context, Result, bail, ensure};
+use baylee_client_e2e::Devctl;
 use serde_json::{Value, json};
 use std::path::Path;
 use std::sync::{
@@ -17,41 +19,17 @@ pub(super) fn request(port: u16, endpoint: &str, body: Option<&Value>) -> Result
         port != 0 && matches!(endpoint, "start" | "status" | "stop"),
         "invalid local recorder endpoint"
     );
-    let agent: ureq::Agent = ureq::Agent::config_builder()
-        .proxy(None)
-        .max_redirects(0)
-        .http_status_as_error(false)
-        .timeout_global(Some(Duration::from_secs(15)))
-        .build()
-        .into();
-    let url = format!("http://127.0.0.1:{port}/recording/{endpoint}");
-    let mut response = if let Some(body) = body {
-        // A byte body gives ureq a fixed length; dev-control rejects chunking.
-        let bytes = serde_json::to_vec(body)?;
-        ensure!(bytes.len() <= 1024, "recording body exceeds 1 KiB");
-        agent
-            .post(&url)
-            .header("content-type", "application/json")
-            .send(bytes)?
-    } else {
-        agent.get(&url).call()?
+    let harness = Devctl::new(port).reply_limit(1024 * 1024);
+    let route = format!("/recording/{endpoint}");
+    let timeout = Duration::from_secs(15);
+    let Some(body) = body else {
+        return harness.get(&route, timeout);
     };
     ensure!(
-        response.status().is_success(),
-        "dev-control HTTP {}; redirects are refused",
-        response.status()
+        body.to_string().len() <= 1024,
+        "recording body exceeds 1 KiB"
     );
-    let bytes = response
-        .body_mut()
-        .with_config()
-        .limit(1024 * 1024)
-        .read_to_vec()
-        .context("status response exceeds 1 MiB or could not be read")?;
-    let result: Value = serde_json::from_slice(&bytes)?;
-    if let Some(error) = result.get("error") {
-        bail!("dev-control: {error}");
-    }
-    Ok(result)
+    harness.post_within(&route, body, timeout)
 }
 
 pub(super) fn record(port: u16, duration_ms: u32, fps: u32, preview: &Preview) -> Result<Value> {
