@@ -1925,7 +1925,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            192,
+            193,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -2022,7 +2022,7 @@ mod tests {
         // another rules-only modifier. MinimumBlockers restricts a declaration
         // rather than changing a characteristic, so it locks nothing.
         // The attacker-filtered block tax is another rules-only modifier.
-        assert_eq!((locking, all.len() - locking), (55, 137));
+        assert_eq!((locking, all.len() - locking), (55, 138));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

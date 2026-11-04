@@ -124,9 +124,8 @@ pub(crate) fn additional_payment_capacity_for(
     if !state.can_pay_life(player, life) {
         return None;
     }
-    let parts = crate::engine::cast_wizard::additional_card_costs_for(
-        state, player, card, face, choice,
-    );
+    let parts =
+        crate::engine::cast_wizard::additional_card_costs_for(state, player, card, face, choice);
     let menus: Vec<Vec<_>> = parts
         .iter()
         .skip(chosen.len())
