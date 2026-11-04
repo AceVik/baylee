@@ -960,6 +960,10 @@ pub struct DeckBuilder {
     format: String,
     /// The lists this account may hold a deck to (`GET /banlists`).
     lists: Vec<baylee_cardtext::ListRow>,
+    /// Those lists as a search reads them; `None` until a gateway has told
+    /// them, which is what `list:` says it cannot be answered by. An `Arc`
+    /// because it is lent to a table.
+    list_shelf: Option<std::sync::Arc<crate::cardquery::ListShelf>>,
     /// The ban list open in the editor.
     list_editor: Option<crate::banlist::ListEditor>,
     /// The list it is held to, if one was chosen.

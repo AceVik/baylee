@@ -14,6 +14,12 @@ use super::*;
 use baylee_client_core::cardquery::{PoolFacts, PoolFactsBody, pool_facts_document};
 use std::sync::Arc;
 
+/// `GET /banlists`.
+#[derive(serde::Deserialize)]
+struct ListsBody {
+    lists: Vec<baylee_cardtext::ListRow>,
+}
+
 /// The version a kept copy holds, read without keeping the rest.
 fn version_of(kept: &str) -> Option<String> {
     #[derive(serde::Deserialize)]
@@ -78,6 +84,17 @@ pub(super) fn ask(state: &mut LobbyState, mailbox: &Mailbox) {
     if !state.lobby.builder_mut().ask_pool_facts() {
         return;
     }
+    // `list:` reads the lists as `r:` reads the table, so they are asked at
+    // the same moment; a gateway from before lists answers nothing, and the
+    // key says so. A `Banlists` chain keeps them fresh after an edit.
+    super::http::ask_aside::<ListsBody>(
+        &state.gateway,
+        "/banlists",
+        &token,
+        state.gateway_epoch,
+        mailbox,
+        |body| Reply::Event(LobbyEvent::Banlists(body.lists)),
+    );
     let document = pool_facts_document(&state.gateway);
     let kept = crate::settings::store::read_named(&document);
     let have = kept.as_deref().and_then(version_of);

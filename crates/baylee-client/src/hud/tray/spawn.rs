@@ -30,6 +30,7 @@ pub(super) fn spawn_tray(
     scroll_y: f32,
     lit: &[(ObjectId, crate::Reach)],
     facts: Option<&baylee_client_core::cardquery::PoolFacts>,
+    lists: Option<&baylee_client_core::cardquery::ListShelf>,
 ) -> Entity {
     // The catalog reaching the panel's own decisions, which is the half
     // `Browser` cannot do for itself: it decides in `baylee-client-core`,
@@ -47,6 +48,7 @@ pub(super) fn spawn_tray(
         shown: &shown,
         hand: &hand_name,
         facts,
+        lists,
     };
     let mut rows = browser.rows(view, interaction, names);
     // Own-hand arrangement rows are not browser tabs but use the same wording.
@@ -637,19 +639,14 @@ pub(super) fn spawn_tray(
             ))
             .id();
         // Empty because nothing could be asked is not the pile being empty.
-        let lacking = baylee_client_core::cardquery::missing_pool_facts(
+        let lacking = baylee_client_core::cardsearch::lacking(
             &baylee_client_core::cardquery::parse(browser.filter()),
             names.surface(),
         );
         let words = dialog_text(
             commands,
             fonts,
-            if lacking {
-                Phrase::FilterNoPoolFacts
-            } else {
-                Phrase::BrowseEmpty
-            }
-            .text(lang),
+            lacking.unwrap_or(Phrase::BrowseEmpty).text(lang),
             11.5,
             palette::DIALOG_SOFT,
         );

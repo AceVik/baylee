@@ -770,10 +770,94 @@ fn every_key_of_the_table_is_a_choice_and_is_offered() {
         Key::Format,
         Key::Banned,
         Key::Restricted,
+        Key::List,
     ] {
         assert_eq!(Control::of(&key), Control::Choice, "{key:?}");
         assert!(super::OFFERED.contains(&key), "{key:?}");
     }
+}
+
+/// The lists a client holds, as a list row offers them.
+fn shelf() -> crate::cardquery::ListShelf {
+    let row = |name: &str, format: &str, builtin: bool| baylee_cardtext::ListRow {
+        name: name.to_string(),
+        format: format.to_string(),
+        builtin,
+        ..baylee_cardtext::ListRow::default()
+    };
+    crate::cardquery::ListShelf::of(
+        &[
+            row("modern", "modern", true),
+            row("Kitchen table", "freeform", false),
+        ],
+        crate::i18n::Lang::En,
+    )
+}
+
+#[test]
+fn a_list_row_offers_the_lists_the_client_holds_its_own_first() {
+    let shelf = shelf();
+    let surface = Surface::POOL.with_lists(Some(&shelf));
+    let offered = |typed: &str| -> Vec<String> {
+        super::choices(&Key::List, typed, surface)
+            .iter()
+            .map(|choice| choice.word().to_string())
+            .collect()
+    };
+    assert_eq!(offered(""), ["Kitchen table", "modern"]);
+    assert_eq!(offered("KIT"), ["Kitchen table"]);
+    assert!(offered("frob").is_empty());
+    assert!(
+        super::choices(&Key::List, "", Surface::POOL).is_empty(),
+        "no lists held, nothing to offer"
+    );
+}
+
+/// A choice writes the row as the box would read it, a name with a space in
+/// quotes, and the longest name a list may have fits a button.
+#[test]
+fn a_list_is_chosen_like_any_other_word() {
+    let mut panel = FilterPanel::open(&parse(""));
+    panel.act(super::Act::Add(at_of(&Key::List)));
+    assert_eq!(panel.control(0), Some(Control::Choice));
+    let word = super::ChoiceWord::new("Kitchen table").expect("it fits");
+    panel.act(super::Act::Choose(0, word));
+    assert_eq!(
+        crate::cardquery::render(&panel.written().expect("a change")),
+        "list:\"Kitchen table\""
+    );
+    let longest = "ß".repeat(baylee_cardtext::MAX_LIST_NAME_CHARS);
+    assert!(super::ChoiceWord::new(&longest).is_some());
+    let widest = "𝔘".repeat(baylee_cardtext::MAX_LIST_NAME_CHARS);
+    assert_eq!(
+        super::ChoiceWord::new(&widest).map(|word| word.text().to_string()),
+        Some(widest)
+    );
+}
+
+/// Three things the dialog may say, and each only where it is true: no lists
+/// held, a name nobody here knows, and nothing at all.
+#[test]
+fn a_list_row_says_what_is_wrong_with_it() {
+    let shelf = shelf();
+    let holding = Surface::POOL.with_lists(Some(&shelf));
+    let known = FilterPanel::open(&parse("list:modern"));
+    assert!(!known.missing_lists(holding));
+    assert!(!known.unanswerable_otherwise(holding));
+
+    let unknown = FilterPanel::open(&parse("list:frobnicate"));
+    assert!(!unknown.missing_lists(holding));
+    assert!(unknown.unanswerable_otherwise(holding), "no such list");
+
+    assert!(known.missing_lists(Surface::POOL), "offline");
+    assert!(
+        !known.unanswerable_otherwise(Surface::POOL),
+        "said once, by the note about the lists"
+    );
+    assert!(
+        !known.missing_pool_facts(Surface::POOL),
+        "and not as the table's"
+    );
 }
 
 /// A word that is no rarity is drawn as what was written, as `c:esper` is,
@@ -924,5 +1008,7 @@ fn a_panel_says_why_a_row_cannot_be_answered() {
 #[test]
 fn a_word_too_long_to_ride_in_a_button_is_not_offered() {
     assert_eq!(word("paupercommander").text(), "paupercommander");
-    assert!(super::ChoiceWord::new(&"x".repeat(24)).is_none());
+    let room = baylee_cardtext::MAX_LIST_NAME_CHARS * 4;
+    assert!(super::ChoiceWord::new(&"x".repeat(room)).is_some());
+    assert!(super::ChoiceWord::new(&"x".repeat(room + 1)).is_none());
 }

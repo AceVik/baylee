@@ -156,7 +156,7 @@ impl Lobby {
                 None
             }
             LobbyEvent::Banlists(lists) => {
-                self.builder.set_lists(lists);
+                self.builder.set_lists(lists, self.lang);
                 None
             }
             LobbyEvent::Banlist(body, ListFor::Deck) => {

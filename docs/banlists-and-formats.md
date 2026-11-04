@@ -57,8 +57,10 @@ data", read 4.11.2026) are why it stops there: `docs/legal.md` §3.
 
 **The keys.** `r:`, `s:`, `f:`, `banned:` and `restricted:` are written once, in
 `cardquery`, so the deck builder, the zone dialog and the card-name chooser all
-have them (`docs/client.md` §"What the search box understands"). `list:` is not
-built yet: it would ask the lists of §"Built: own lists and the lobby".
+have them (`docs/client.md` §"What the search box understands"). `list:` came with
+own lists (§"Built: own lists and the lobby"), in the same code: `list:"My
+Commander"` reads the lists the client holds, official and its own, by name in any
+case, and says so where it holds none (`docs/client.md` §"Ban lists").
 
 **The search.** Every card search matches the client's language and English
 and no other, `/catalog/search`'s rules text included (`card_search_text`, one

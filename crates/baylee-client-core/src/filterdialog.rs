@@ -31,7 +31,7 @@
 //! [`crate::cardquery`]'s job and is done once.
 
 use crate::cardquery::{
-    Colors, Flag, Key, Op, PoolSet, Query, Rarity, Surface, Term, Value, value_of,
+    Colors, Flag, Key, Op, PoolSet, Query, Rarity, ShelfList, Surface, Term, Value, value_of,
 };
 use crate::textbuf::{Dir, Step, TextBuffer};
 
@@ -87,7 +87,9 @@ impl Control {
             Key::ManaValue | Key::Power | Key::Toughness | Key::Loyalty => Self::Number,
             Key::Is => Self::Flag,
             Key::Mana => Self::Cost,
-            Key::Rarity | Key::Set | Key::Format | Key::Banned | Key::Restricted => Self::Choice,
+            Key::Rarity | Key::Set | Key::Format | Key::Banned | Key::Restricted | Key::List => {
+                Self::Choice
+            }
             Key::Loose | Key::Name | Key::ExactName | Key::Oracle | Key::Type | Key::Unknown(_) => {
                 Self::Text
             }
@@ -142,6 +144,8 @@ pub enum Choice<'a> {
     Format(&'a str),
     /// A set.
     Set(&'a PoolSet),
+    /// A ban list.
+    List(&'a ShelfList),
 }
 
 impl<'a> Choice<'a> {
@@ -152,13 +156,14 @@ impl<'a> Choice<'a> {
             Self::Rarity(rarity) => rarity.word(),
             Self::Format(format) => format,
             Self::Set(set) => &set.code,
+            Self::List(list) => list.word(),
         }
     }
 }
 
 /// A word small enough to ride in an [`Act`], which a button has to be able to
 /// copy: every format key and set code there is fits with room to spare, and
-/// one that did not would simply not be offered, and could still be typed.
+/// so does the longest name a ban list may have.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ChoiceWord {
     bytes: [u8; Self::ROOM],
@@ -166,8 +171,9 @@ pub struct ChoiceWord {
 }
 
 impl ChoiceWord {
-    /// The longest word one holds.
-    const ROOM: usize = 23;
+    /// The longest word one holds, in bytes: a list's name may be four to a
+    /// character.
+    const ROOM: usize = baylee_cardtext::MAX_LIST_NAME_CHARS * 4;
 
     /// The word, when it fits.
     #[must_use]
@@ -219,11 +225,22 @@ pub fn format_rank(format: &str) -> usize {
 ///
 /// Rarities are a closed list and are always all there. A format or a set is
 /// what the gateway's table holds, so a list with no table offers none
-/// (the dialog says why: [`FilterPanel::missing_pool_facts`]).
+/// (the dialog says why: [`FilterPanel::missing_pool_facts`]). A ban list is
+/// what the client holds, and with none it offers none
+/// ([`FilterPanel::missing_lists`]).
 #[must_use]
 pub fn choices<'a>(key: &Key, typed: &str, surface: Surface<'a>) -> Vec<Choice<'a>> {
     if *key == Key::Rarity {
         return Rarity::ALL.map(Choice::Rarity).to_vec();
+    }
+    if key.from_lists() {
+        return surface.lists().map_or_else(Vec::new, |lists| {
+            lists
+                .called(typed.trim())
+                .take(SET_CHOICES)
+                .map(Choice::List)
+                .collect()
+        });
     }
     let Some(facts) = surface.pool_facts() else {
         return Vec::new();
@@ -587,19 +604,32 @@ impl FilterPanel {
         crate::cardquery::missing_pool_facts(&self.form.query(), surface)
     }
 
-    /// Whether a row cannot be answered for a reason other than the table
-    /// missing, which [`Self::missing_pool_facts`] has already said.
+    /// Whether a row names a ban list while this list holds none.
+    #[must_use]
+    pub fn missing_lists(&self, surface: Surface<'_>) -> bool {
+        crate::cardquery::missing_lists(&self.form.query(), surface)
+    }
+
+    /// Whether a row cannot be answered for a reason other than the table or
+    /// the lists missing, which [`Self::missing_pool_facts`] and
+    /// [`Self::missing_lists`] have already said.
     #[must_use]
     pub fn unanswerable_otherwise(&self, surface: Surface<'_>) -> bool {
-        let missing = surface.pool_facts().is_none();
+        let no_table = surface.pool_facts().is_none();
+        let no_lists = surface.lists().is_none();
+        let said = |query: &Query| {
+            (no_table && query.mentions(Key::from_pool_facts))
+                || (no_lists && query.mentions(Key::from_lists))
+        };
         self.form
             .unanswerable(surface)
             .into_iter()
             .any(|at| match self.form.parts.get(at) {
-                Some(FilterPart::Row { term, .. }) => !(missing && term.key.from_pool_facts()),
-                Some(FilterPart::Opaque(query)) => {
-                    !(missing && query.mentions(Key::from_pool_facts))
+                Some(FilterPart::Row { term, .. }) => {
+                    !((no_table && term.key.from_pool_facts())
+                        || (no_lists && term.key.from_lists()))
                 }
+                Some(FilterPart::Opaque(query)) => !said(query),
                 None => false,
             })
     }
@@ -645,7 +675,7 @@ impl FilterPanel {
             return None;
         };
         if self.typing.as_ref().is_some_and(|t| t.row == row) {
-            return Some(if term.key.from_pool_facts() && term.key != Key::Rarity {
+            return Some(if term.key.asks_the_gateway() && term.key != Key::Rarity {
                 Control::Choice
             } else {
                 Control::Text
@@ -1021,6 +1051,7 @@ pub const OFFERED: &[Key] = &[
     Key::Format,
     Key::Banned,
     Key::Restricted,
+    Key::List,
 ];
 
 /// The mana symbols a cost row's keyboard offers, as [`Value::Cost`] holds

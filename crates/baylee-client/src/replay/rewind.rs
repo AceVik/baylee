@@ -57,6 +57,7 @@ impl Duel {
             subtype_filter: String::new(),
             naming: Default::default(),
             pool_facts: Default::default(),
+            list_shelf: Default::default(),
             subtype_group: 0,
             decision_fold: Default::default(),
             stack_selected: None,

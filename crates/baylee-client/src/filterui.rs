@@ -241,6 +241,14 @@ pub(crate) fn build(
             look,
         ));
     }
+    if panel.missing_lists(surface) {
+        children.push(note(
+            commands,
+            fonts,
+            Phrase::FilterNoLists.text(lang),
+            look,
+        ));
+    }
     if panel.unanswerable_otherwise(surface) {
         children.push(note(
             commands,
@@ -746,7 +754,11 @@ fn adder(
                 (Control::Choice, Phrase::FilterKindPrinting),
             ]
             .into_iter()
-            .filter(|(kind, _)| *kind != Control::Choice || surface.pool_facts().is_some())
+            .filter(|(kind, _)| {
+                *kind != Control::Choice
+                    || surface.pool_facts().is_some()
+                    || surface.lists().is_some()
+            })
             .map(|(kind, phrase)| {
                 word(
                     commands,
@@ -775,6 +787,9 @@ fn adder(
                 .iter()
                 .enumerate()
                 .filter(|(_, key)| Control::of(key) == kind)
+                // Holding the table and no lists, or lists and no table,
+                // offers the key that can be answered and not the other.
+                .filter(|(_, key)| !key.asks_the_gateway() || surface.answers(key))
                 .map(|(which, key)| {
                     word(
                         commands,
@@ -1024,6 +1039,7 @@ fn key_name(key: &Key, lang: Lang) -> &str {
         Key::Format => Phrase::FilterKeyFormat.text(lang),
         Key::Banned => Phrase::FilterKeyBanned.text(lang),
         Key::Restricted => Phrase::FilterKeyRestricted.text(lang),
+        Key::List => Phrase::FilterKeyList.text(lang),
         Key::Unknown(word) => word,
     }
 }
@@ -1035,6 +1051,7 @@ fn choice_name(choice: Choice<'_>, lang: Lang) -> String {
         Choice::Rarity(rarity) => rarity_name(rarity, lang).to_string(),
         Choice::Format(format) => format_name(format, lang).to_string(),
         Choice::Set(set) => format!("{} · {}", set.code.to_uppercase(), set.name),
+        Choice::List(list) => list.shown().to_string(),
     }
 }
 

@@ -41,18 +41,23 @@
 //! for rarity, set and format: nothing, and not "no card here is rare". It
 //! is why a row may hand over a card only where the view names one
 //! ([`Facts::card`]): a face-down card has no index, so these keys can
-//! never be a way of learning what it is.
+//! never be a way of learning what it is. `list:` is the same again: a list
+//! that holds no ban lists, or a name nobody here knows, answers nothing.
 //!
 //! [`PoolCard`]: crate::deckbuilder::PoolCard
 
 use crate::prose::sort_key;
 
 mod eval;
+mod lists;
 #[cfg(test)]
 pub(crate) mod tests;
 
 pub use baylee_cardtext::{Legality, PoolFacts, PoolFactsBody, PoolSet, Rarity};
-pub use eval::{Facts, Match, Surface, matches, missing_pool_facts, pool_facts_document};
+pub use eval::{
+    Facts, Match, Surface, matches, missing_lists, missing_pool_facts, pool_facts_document,
+};
+pub use lists::{ListShelf, ShelfList};
 
 /// What a term asks about.
 ///
@@ -125,6 +130,11 @@ pub enum Key {
     Banned,
     /// `restricted:`: a format restricts the card to one copy.
     Restricted,
+    /// `list:`: a ban list names the card, whatever it says about it. A list
+    /// is named as the client holds it, an official one by its format
+    /// ([`ListShelf`]); `list:"My Commander"`, and `-list:modern` for what
+    /// that list leaves alone.
+    List,
     /// A key nothing here knows, kept whole so it can be written back.
     ///
     /// It evaluates to [`Match::Unknown`], so it narrows a search to nothing
@@ -161,6 +171,7 @@ impl Key {
             Self::Format => "f",
             Self::Banned => "banned",
             Self::Restricted => "restricted",
+            Self::List => "list",
             Self::Unknown(word) => word,
         })
     }
@@ -187,6 +198,7 @@ impl Key {
             "f" | "format" | "legal" => Self::Format,
             "banned" => Self::Banned,
             "restricted" => Self::Restricted,
+            "list" => Self::List,
             _ => Self::Unknown(word.to_string()),
         }
     }
@@ -215,6 +227,19 @@ impl Key {
     #[must_use]
     pub const fn from_pool_facts(&self) -> bool {
         self.of_a_printing() || self.of_a_format()
+    }
+
+    /// Whether only the lists a client holds answer this key
+    /// ([`ListShelf`], `GET /banlists`).
+    #[must_use]
+    pub const fn from_lists(&self) -> bool {
+        matches!(self, Self::List)
+    }
+
+    /// Whether answering this key takes something only a gateway hands over.
+    #[must_use]
+    pub const fn asks_the_gateway(&self) -> bool {
+        self.from_pool_facts() || self.from_lists()
     }
 
     /// Whether a value for this key is read as a number rather than a word.

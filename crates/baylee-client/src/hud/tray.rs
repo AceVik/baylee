@@ -593,6 +593,8 @@ pub struct TrayRevision {
     texts: u64,
     /// Whether the gateway's table has arrived, which decides rows and offers.
     facts: bool,
+    /// Which lists it read (`lists_lent`).
+    lists: usize,
     /// The window, rounded to whole pixels — a band a sheet is re-fitted to.
     window: (i32, i32),
     /// Set by whatever has just finished changing the sheet's **size**.
@@ -727,6 +729,7 @@ pub fn sync_tray(
         && revision.faces == faces_always
         && revision.texts == texts.generation()
         && revision.facts == duel.pool_facts.is_some()
+        && revision.lists == lists_lent(&duel)
         && revision.window == canvas
         && showing == browser.sheet.open()
         && !revision.stale
@@ -756,6 +759,7 @@ pub fn sync_tray(
     revision.faces = faces_always;
     revision.texts = texts.generation();
     revision.facts = duel.pool_facts.is_some();
+    revision.lists = lists_lent(&duel);
     revision.window = canvas;
 
     // Sent away rather than despawned, which is `sync_drawer`'s word for the
@@ -850,8 +854,17 @@ pub fn sync_tray(
         scroll_y,
         &lit,
         duel.pool_facts.as_deref(),
+        duel.list_shelf.as_deref(),
     );
     commands.entity(root).add_child(tray);
+}
+
+/// Which lists the lobby has lent: their place, or nothing. A list edited in
+/// the lobby is a new shelf, and a `list:` in the box reads it.
+fn lists_lent(duel: &crate::Duel) -> usize {
+    duel.list_shelf
+        .as_ref()
+        .map_or(0, |lists| std::sync::Arc::as_ptr(lists) as usize)
 }
 
 /// The rows standing, with what the pointer has made of each.

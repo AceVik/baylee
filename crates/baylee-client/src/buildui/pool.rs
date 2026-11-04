@@ -10,7 +10,7 @@ use baylee_client_core::deckbuilder::BuildField;
 
 /// What the syntax popover offers (`docs/client.md` §"What the search box
 /// understands"): an example a press inserts, and what it means.
-pub(crate) const SYNTAX: [(&str, Phrase); 16] = [
+pub(crate) const SYNTAX: [(&str, Phrase); 17] = [
     ("t:creature", Phrase::BuildSyntaxType),
     ("o:draw", Phrase::BuildSyntaxText),
     ("c:rg", Phrase::BuildSyntaxColour),
@@ -27,6 +27,7 @@ pub(crate) const SYNTAX: [(&str, Phrase); 16] = [
     ("s:m21", Phrase::BuildSyntaxSet),
     ("f:modern", Phrase::BuildSyntaxFormat),
     ("banned:commander", Phrase::BuildSyntaxBanned),
+    ("list:\"My Commander\"", Phrase::BuildSyntaxList),
 ];
 
 /// Whether the search box has the caret (and so the keyboard's letters).
@@ -508,12 +509,9 @@ pub(super) fn list(commands: &mut Commands, holder: Entity, env: &Env) {
             crate::hud::glyph::MAGNIFIER,
             // Nothing matched because nothing could be asked, which is a
             // different thing to be told.
-            if deck.search_lacks_pool_facts() {
-                Phrase::FilterNoPoolFacts
-            } else {
-                Phrase::NothingMatches
-            }
-            .text(env.lang()),
+            deck.search_lacking()
+                .unwrap_or(Phrase::NothingMatches)
+                .text(env.lang()),
             None,
         );
         commands.entity(holder).add_child(said);

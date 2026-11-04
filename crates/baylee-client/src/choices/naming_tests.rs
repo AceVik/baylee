@@ -93,6 +93,7 @@ fn a_name_is_found_in_the_clients_language_and_english_and_no_other() {
         text,
         pool: Some(&pool),
         facts: None,
+        lists: None,
     };
     let rows = card_name_rows(search("rayo"), NOTHING, NOTHING);
     let row = rows.first().expect("its own language finds it");
@@ -105,6 +106,7 @@ fn a_name_is_found_in_the_clients_language_and_english_and_no_other() {
         text,
         pool: Some(&pool),
         facts: None,
+        lists: None,
     };
     assert!(!card_name_rows(search("blitzschlag"), NOTHING, NOTHING).is_empty());
     assert!(card_name_rows(search("rayo"), NOTHING, NOTHING).is_empty());
@@ -174,6 +176,7 @@ fn the_table_narrows_the_names_and_without_it_nothing_is_guessed() {
         text,
         pool: Some(&pool),
         facts: Some(&facts),
+        lists: None,
     };
     assert!(!card_name_rows(informed("s:m21 rayo"), NOTHING, NOTHING).is_empty());
     assert!(!card_name_rows(informed("f:modern rayo"), NOTHING, NOTHING).is_empty());
@@ -182,6 +185,7 @@ fn the_table_narrows_the_names_and_without_it_nothing_is_guessed() {
         text,
         pool: Some(&pool),
         facts: None,
+        lists: None,
     };
     for line in ["s:m21 rayo", "-s:m21 rayo", "f:modern rayo"] {
         assert!(
@@ -189,4 +193,25 @@ fn the_table_narrows_the_names_and_without_it_nothing_is_guessed() {
             "{line}"
         );
     }
+
+    // `list:` comes through the same search, read against what the lobby lent.
+    let shelf = baylee_client_core::cardquery::ListShelf::of(
+        &[baylee_cardtext::ListRow {
+            name: "Kitchen table".to_string(),
+            format: "freeform".to_string(),
+            indices: vec![index],
+            ..baylee_cardtext::ListRow::default()
+        }],
+        baylee_client_core::i18n::Lang::En,
+    );
+    let listed = |text| Search {
+        text,
+        pool: Some(&pool),
+        facts: None,
+        lists: Some(&shelf),
+    };
+    assert!(!card_name_rows(listed("list:\"kitchen table\" rayo"), NOTHING, NOTHING).is_empty());
+    assert!(card_name_rows(listed("-list:\"kitchen table\" rayo"), NOTHING, NOTHING).is_empty());
+    assert!(card_name_rows(listed("list:frobnicate rayo"), NOTHING, NOTHING).is_empty());
+    assert!(card_name_rows(bare("list:\"kitchen table\" rayo"), NOTHING, NOTHING).is_empty());
 }

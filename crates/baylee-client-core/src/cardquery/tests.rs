@@ -78,6 +78,7 @@ pub(crate) const CORPUS: &[&str] = &[
     "s:m21 -s:lea",
     "f:modern -banned:commander",
     "restricted:vintage",
+    "list:\"My Commander\"",
     "r:\"\"",
     "s:\"\"",
     "f:\"\"",

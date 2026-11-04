@@ -1956,6 +1956,7 @@ impl Lobby {
     /// and whenever the player picks another language.
     pub fn set_lang(&mut self, lang: Lang) {
         self.lang = lang;
+        self.builder.relabel_lists(lang);
     }
 
     /// Puts the caret in a field.

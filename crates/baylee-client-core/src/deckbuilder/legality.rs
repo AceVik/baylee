@@ -10,6 +10,7 @@
 
 use super::{BuildField, DeckBuilder, PoolCard, Zone};
 use crate::banlist::ListEditor;
+use crate::cardquery::ListShelf;
 use crate::deckcheck;
 use crate::i18n::{Lang, Phrase};
 use baylee_cards::formats::{self, DeckCards, FREEFORM, Rules, SHAPES};
@@ -152,9 +153,33 @@ impl DeckBuilder {
         &self.lists
     }
 
-    /// Takes what `GET /banlists` answered.
-    pub fn set_lists(&mut self, lists: Vec<ListRow>) {
+    /// Takes what `GET /banlists` answered, and rebuilds the results: a
+    /// `list:` that said nothing a moment ago may now say something.
+    pub fn set_lists(&mut self, lists: Vec<ListRow>, lang: Lang) {
         self.lists = lists;
+        self.shelve_lists(lang);
+    }
+
+    /// Reads the lists again in another language, where a gateway has told
+    /// them: an official list answers to what its format is called in it.
+    pub fn relabel_lists(&mut self, lang: Lang) {
+        if self.list_shelf.is_some() {
+            self.shelve_lists(lang);
+        }
+    }
+
+    fn shelve_lists(&mut self, lang: Lang) {
+        self.list_shelf = Some(Arc::new(ListShelf::of(&self.lists, lang)));
+        self.pool_revision = self.pool_revision.wrapping_add(1);
+        self.refilter();
+        self.refilter_list();
+    }
+
+    /// The lists a search may name, as a table is lent them; `None` until a
+    /// gateway has told them.
+    #[must_use]
+    pub const fn list_shelf(&self) -> Option<&Arc<ListShelf>> {
+        self.list_shelf.as_ref()
     }
 
     /// The list open in the editor.

@@ -821,18 +821,19 @@ impl Duel {
             },
             pool: self.naming.pool.as_ref().map(|pool| pool.as_slice()),
             facts: self.pool_facts.as_deref(),
+            lists: self.list_shelf.as_deref(),
         }
     }
 
-    /// Whether something at this table is asking what only the gateway's
-    /// table answers, or could be about to: a name being chosen, the zone
-    /// dialog's builder open, or a line in its box that names such a key. A
-    /// player may reach a table without ever opening the deck builder.
+    /// Whether something at this table is asking what only a gateway
+    /// answers, or could be about to: a name being chosen, the zone dialog's
+    /// builder open, or a line in its box that names such a key. A player may
+    /// reach a table without ever opening the deck builder.
     pub(crate) fn wants_pool_facts(&self) -> bool {
         self.naming_a_card()
             || self.browser.builder().is_some()
             || baylee_client_core::cardquery::parse(self.browser.filter())
-                .mentions(baylee_client_core::cardquery::Key::from_pool_facts)
+                .mentions(baylee_client_core::cardquery::Key::asks_the_gateway)
     }
 
     pub(crate) fn receive_choice(&mut self, pending: Pending) {

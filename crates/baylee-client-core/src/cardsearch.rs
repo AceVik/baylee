@@ -21,6 +21,7 @@
 use crate::cardquery::{Colors, Facts, Flag, Query, Surface};
 use crate::deckbuilder::{Coverage, PoolCard};
 use crate::filterdialog::{Act, FilterPanel};
+use crate::i18n::Phrase;
 use crate::textbuf::{Dir, Step, TextBuffer};
 
 /// A search box and the filter builder its gear opens.
@@ -174,6 +175,21 @@ pub fn pool_card_matches(query: &Query, card: &PoolCard, surface: Surface<'_>) -
     crate::cardquery::matches(query, &pool_facts(card, &flags), surface).shown()
 }
 
+/// What to say over a list that came out empty because the query asks what
+/// only a gateway answers and this list has not got: a different thing to be
+/// told from nothing matching. One door for the three lists, or a key added to
+/// the language would be said on some of them.
+#[must_use]
+pub fn lacking(query: &Query, surface: Surface<'_>) -> Option<Phrase> {
+    if crate::cardquery::missing_pool_facts(query, surface) {
+        Some(Phrase::FilterNoPoolFacts)
+    } else if crate::cardquery::missing_lists(query, surface) {
+        Some(Phrase::FilterNoLists)
+    } else {
+        None
+    }
+}
+
 /// The flags a pool row carries, for `is:`.
 ///
 /// A list and not a set of `bool` fields: [`Facts::flags`] is what a card
@@ -256,7 +272,8 @@ fn printed_numbers(stats: Option<&str>) -> (Option<i32>, Option<i32>, Option<i32
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cardquery::parse;
+    use crate::cardquery::{ListShelf, parse};
+    use baylee_cardtext::ListRow;
 
     /// A card as a Spanish client is served it: a German name is a third
     /// language there, and the gateway files it where no search reads.
@@ -284,6 +301,153 @@ mod tests {
                 "{missed}"
             );
         }
+    }
+
+    /// A shelf holding an own list and an official one, and a row on each.
+    fn shelf() -> ListShelf {
+        let row = |name: &str, format: &str, builtin: bool, indices: &[u32]| ListRow {
+            name: name.to_string(),
+            format: format.to_string(),
+            builtin,
+            indices: indices.to_vec(),
+            ..ListRow::default()
+        };
+        ListShelf::of(
+            &[
+                row("modern", "modern", true, &[8]),
+                row("My Commander", "commander", false, &[7]),
+            ],
+            crate::i18n::Lang::En,
+        )
+    }
+
+    fn numbered(index: u32) -> PoolCard {
+        PoolCard { index, ..bolt() }
+    }
+
+    #[test]
+    fn a_list_key_asks_the_lists_the_client_holds() {
+        let shelf = shelf();
+        let surface = Surface::POOL.with_lists(Some(&shelf));
+        let on_it = numbered(7);
+        let off_it = numbered(9);
+        for found in [
+            "list:\"My Commander\"",
+            "list:\"my commander\"",
+            "LIST:\"MY COMMANDER\"",
+            "list:\"My Commander\" rayo",
+        ] {
+            assert!(pool_card_matches(&parse(found), &on_it, surface), "{found}");
+            assert!(
+                !pool_card_matches(&parse(found), &off_it, surface),
+                "{found}"
+            );
+        }
+        assert!(
+            pool_card_matches(&parse("-list:\"My Commander\""), &off_it, surface),
+            "what the list leaves alone"
+        );
+        assert!(!pool_card_matches(
+            &parse("-list:\"My Commander\""),
+            &on_it,
+            surface
+        ));
+        assert!(pool_card_matches(
+            &parse("list!=\"My Commander\""),
+            &off_it,
+            surface
+        ));
+
+        // An official list goes by its format, its key or its name.
+        for found in ["list:modern", "list:Modern", "list:MODERN"] {
+            assert!(
+                pool_card_matches(&parse(found), &numbered(8), surface),
+                "{found}"
+            );
+        }
+        assert!(!pool_card_matches(&parse("list:modern"), &on_it, surface));
+    }
+
+    /// A name nobody here knows answers nothing, and neither does its
+    /// negation: "no card is on it" would be a fact this list never had.
+    #[test]
+    fn an_unknown_list_answers_nothing_either_way() {
+        let shelf = shelf();
+        let surface = Surface::POOL.with_lists(Some(&shelf));
+        let card = numbered(7);
+        for line in ["list:frobnicate", "-list:frobnicate", "list:\"My\""] {
+            assert!(!pool_card_matches(&parse(line), &card, surface), "{line}");
+        }
+        assert_eq!(
+            lacking(&parse("list:frobnicate"), surface),
+            None,
+            "the lists are here: this is a name, not a missing shelf"
+        );
+    }
+
+    /// Offline nothing is held, and the screen says that rather than "nothing
+    /// matches". A gateway that holds no lists is a shelf with nothing on it.
+    #[test]
+    fn with_no_lists_the_key_says_so() {
+        let card = numbered(7);
+        for line in ["list:modern", "-list:modern"] {
+            assert!(
+                !pool_card_matches(&parse(line), &card, Surface::POOL),
+                "{line}"
+            );
+        }
+        assert_eq!(
+            lacking(&parse("list:modern"), Surface::POOL),
+            Some(Phrase::FilterNoLists)
+        );
+        assert_eq!(
+            lacking(&parse("r:rare"), Surface::POOL),
+            Some(Phrase::FilterNoPoolFacts),
+            "and the table's keys say theirs"
+        );
+        assert_eq!(lacking(&parse("t:elf"), Surface::POOL), None);
+        let empty = ListShelf::default();
+        assert_eq!(
+            lacking(
+                &parse("list:modern"),
+                Surface::POOL.with_lists(Some(&empty))
+            ),
+            None
+        );
+    }
+
+    /// A row that may name no card (a token, a face-down card) answers
+    /// nothing, as for the table's keys: this key says nothing about what a
+    /// hidden card is, or which rows are hidden.
+    #[test]
+    fn a_row_with_no_card_answers_no_list() {
+        use crate::cardquery::{Facts, Match, matches};
+        let shelf = shelf();
+        let surface = Surface::ZONE.with_lists(Some(&shelf));
+        let hidden = Facts::default();
+        let named = Facts {
+            card: Some(7),
+            ..Facts::default()
+        };
+        for line in ["list:modern", "-list:modern"] {
+            assert_eq!(
+                matches(&parse(line), &hidden, surface),
+                Match::Unknown,
+                "{line}"
+            );
+        }
+        assert_eq!(
+            matches(&parse("list:\"my commander\""), &named, surface),
+            Match::Yes,
+            "a zone row that names its card is asked like a pool row"
+        );
+    }
+
+    #[test]
+    fn a_list_key_is_written_back_as_it_was_read() {
+        let line = "list:\"My Commander\"";
+        assert_eq!(crate::cardquery::render(&parse(line)), line);
+        assert_eq!(parse(&crate::cardquery::render(&parse(line))), parse(line));
     }
 
     #[test]

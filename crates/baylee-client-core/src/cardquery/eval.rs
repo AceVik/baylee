@@ -5,7 +5,7 @@
 //! filter dialog needs the first half and never the second, and a surface
 //! that grows a new fact needs the second and never the first.
 
-use super::{Colors, Flag, Key, Op, PoolFacts, Query, Term, Value, folded};
+use super::{Colors, Flag, Key, ListShelf, Op, PoolFacts, Query, Term, Value, folded};
 use baylee_cardtext::{CardFacts, Legality, Printed};
 
 /// What a query says about one card.
@@ -59,6 +59,8 @@ impl Match {
 /// gateway's table, so a surface answers them exactly while it holds one
 /// ([`Self::with_pool_facts`]). Offline, signed in nowhere, or at a gateway
 /// with no catalog it does not, and every such term is [`Match::Unknown`].
+/// `list:` comes and goes the same way, with the lists a client holds
+/// ([`Self::with_lists`]).
 #[derive(Clone, Copy, Debug)]
 pub struct Surface<'a> {
     /// The keys with a control and an answer here.
@@ -67,12 +69,15 @@ pub struct Surface<'a> {
     pub flags: &'static [Flag],
     /// The gateway's table, while this list has one that says anything.
     pool_facts: Option<&'a PoolFacts>,
+    /// The ban lists a search may name, while a gateway has told them.
+    lists: Option<&'a ListShelf>,
 }
 
 impl Surface<'static> {
     /// Everything a compiled card row can be asked.
     pub const POOL: Self = Self {
         pool_facts: None,
+        lists: None,
         keys: &[
             Key::Loose,
             Key::Name,
@@ -122,6 +127,7 @@ impl Surface<'static> {
     /// names no card for answers none of them.
     pub const ZONE: Self = Self {
         pool_facts: None,
+        lists: None,
         keys: &[
             Key::Loose,
             Key::Name,
@@ -143,11 +149,31 @@ impl<'a> Surface<'a> {
     /// table that says nothing, as a gateway with no catalog sends, is no
     /// table: a list of "no card here is rare" is what that would be.
     #[must_use]
-    pub fn with_pool_facts(self, facts: Option<&PoolFacts>) -> Surface<'_> {
+    pub fn with_pool_facts<'b>(self, facts: Option<&'b PoolFacts>) -> Surface<'b>
+    where
+        'a: 'b,
+    {
         Surface {
             keys: self.keys,
             flags: self.flags,
             pool_facts: facts.filter(|facts| !facts.is_empty()),
+            lists: self.lists,
+        }
+    }
+
+    /// This list, with the ban lists a client holds beside it when it holds
+    /// them. A shelf with nothing on it is still a shelf: the gateway said
+    /// there are none, and a name is then a name nobody here knows.
+    #[must_use]
+    pub const fn with_lists<'b>(self, lists: Option<&'b ListShelf>) -> Surface<'b>
+    where
+        'a: 'b,
+    {
+        Surface {
+            keys: self.keys,
+            flags: self.flags,
+            pool_facts: self.pool_facts,
+            lists,
         }
     }
 
@@ -157,11 +183,20 @@ impl<'a> Surface<'a> {
         self.pool_facts
     }
 
+    /// The ban lists this list may name, while it holds them.
+    #[must_use]
+    pub const fn lists(self) -> Option<&'a ListShelf> {
+        self.lists
+    }
+
     /// Whether this surface answers that key.
     #[must_use]
     pub fn answers(self, key: &Key) -> bool {
         if key.from_pool_facts() {
             return self.pool_facts.is_some();
+        }
+        if key.from_lists() {
+            return self.lists.is_some();
         }
         self.keys.contains(key)
     }
@@ -172,12 +207,21 @@ impl<'a> Surface<'a> {
         self.flags.contains(&flag)
     }
 
-    /// Whether this surface answers that term: its key, and for a format, a
-    /// word the table has heard of. An empty word is a fresh row and is fine.
+    /// Whether this surface answers that term: its key, and for a format or
+    /// a list, a word it has heard of. An empty word is a fresh row and is
+    /// fine.
     #[must_use]
     pub fn answers_term(self, term: &Term) -> bool {
         if !self.answers(&term.key) {
             return false;
+        }
+        if term.key.from_lists() {
+            return match &term.value {
+                Value::Word(name) if !name.is_empty() => {
+                    self.lists.is_some_and(|lists| lists.named(name).is_some())
+                }
+                _ => true,
+            };
         }
         if !term.key.of_a_format() {
             return true;
@@ -226,6 +270,13 @@ pub fn pool_facts_document(gateway: &str) -> String {
 #[must_use]
 pub fn missing_pool_facts(query: &Query, surface: Surface<'_>) -> bool {
     surface.pool_facts.is_none() && query.mentions(Key::from_pool_facts)
+}
+
+/// Whether this query names a ban list on a list that holds none: offline, or
+/// a gateway that has not said. The same cue for `list:`.
+#[must_use]
+pub fn missing_lists(query: &Query, surface: Surface<'_>) -> bool {
+    surface.lists.is_none() && query.mentions(Key::from_lists)
 }
 
 /// One card, as much of it as the surface has.
@@ -385,7 +436,25 @@ fn term_matches(
         Key::Rarity => rarity(term, printing),
         Key::Set => set(term, printing),
         Key::Format | Key::Banned | Key::Restricted => format(term, surface.card(facts)),
+        Key::List => on_a_list(term, facts, surface),
         Key::Unknown(_) => Match::Unknown,
+    }
+}
+
+/// Whether a list names the row's card. A name nobody here knows answers
+/// nothing rather than "no card is on it", as a format nobody has heard of
+/// does, and so does a row that names no card.
+fn on_a_list(term: &Term, facts: &Facts<'_>, surface: Surface<'_>) -> Match {
+    if unwritten(&term.value) {
+        return Match::Yes;
+    }
+    let Value::Word(want) = &term.value else {
+        return Match::Unknown;
+    };
+    let list = surface.lists.and_then(|lists| lists.named(want));
+    match (list, facts.card) {
+        (Some(list), Some(card)) => said_of(term.op, list.holds(card)),
+        _ => Match::Unknown,
     }
 }
 

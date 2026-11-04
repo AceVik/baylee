@@ -5003,7 +5003,8 @@ zone answers the three a projection carries: `token`, `basic` and `commander`.
 Every comparison Scryfall writes (`=`, `!=`, `<`, `<=`, `>`, `>=`), negation
 with `-`, `or`, and brackets. And what only the gateway's table answers
 (§"Rarity, set and format"): `r:` for a rarity, `s:` for a set, `f:`,
-`banned:` and `restricted:` for what a format says.
+`banned:` and `restricted:` for what a format says. And `list:` for a ban list the
+client holds (§"Ban lists").
 
 Four decisions in it are worth knowing, and three of them were paid for.
 
@@ -5115,6 +5116,34 @@ place of the deck builder's and the zone dialog's empty line, and under the name
 chooser's box. A card the table lacks, a card with no verdict stored and a
 format the table has not heard of answer `Unknown` the same way; the last is
 the builder's general warning, `FilterForm::unanswerable`.
+
+### Ban lists
+
+| Written | Means |
+| --- | --- |
+| `list:"My Commander"` | a list the client holds names the card, whatever it says about it |
+| `-list:modern` | the list leaves the card alone |
+
+**What `list:` reads is what the client holds.** `GET /banlists` answers the official
+lists and the caller's own, each with its cards by registry index; the lobby asks at
+the moment it asks for the table (`lobby::poolfacts`), a list saved or deleted brings
+a fresh answer, and the lobby lends the shelf to the table beside the table's facts
+(`cardquery::ListShelf`, `Surface::with_lists`). So the deck builder, the zone dialog,
+the name chooser and the list editor all have it from the one path: `cardquery` and
+`filterdialog`, where it is a choice row offering the lists, a player's own first.
+
+**A list goes by its name, case and accents aside.** An own list by what its owner
+called it; an official list by its format's key or by what the format is called in
+the client's language or in English, so `list:modern` and `list:"Duel Commander"`.
+A player's own list comes first, so one named after a format answers to its name.
+
+**It says what it cannot answer, as the table's keys do.** Three-valued again: a row
+with no card (a token, a face-down card) answers nothing, a term and its negation
+alike. A name nobody here knows answers nothing either, and is the builder's general
+warning. Holding no lists at all (offline, or a gateway from before them) leaves the
+key out of the add menu and says `FilterNoLists` where `FilterNoPoolFacts` would stand
+(`cardsearch::lacking`, the one door). A gateway that has none to give is a shelf with
+nothing on it, so a name there is a name nobody knows.
 
 ## Taking a filter string apart
 

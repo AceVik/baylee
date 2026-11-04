@@ -247,6 +247,9 @@ pub struct Names<'a> {
     /// off the card a row names. `None` offline, and those keys then answer
     /// nothing rather than something wrong.
     pub facts: Option<&'a crate::cardquery::PoolFacts>,
+    /// The ban lists the lobby holds, for `list:`, which reads the card a row
+    /// names as those keys do. `None` offline.
+    pub lists: Option<&'a crate::cardquery::ListShelf>,
 }
 
 /// The answer a caller with no card text in reach has: none at all.
@@ -272,13 +275,16 @@ impl Names<'_> {
             shown: &SHOWN,
             hand: &|_| None,
             facts: None,
+            lists: None,
         }
     }
 
     /// What this panel's list can be asked, the gateway's table included.
     #[must_use]
     pub fn surface(&self) -> Surface<'_> {
-        Surface::ZONE.with_pool_facts(self.facts)
+        Surface::ZONE
+            .with_pool_facts(self.facts)
+            .with_lists(self.lists)
     }
 }
 

@@ -865,6 +865,8 @@ pub struct Duel {
     /// zone dialog's and the name chooser's `r:`, `s:` and `f:` read. `None`
     /// offline, and those keys then say they are not available.
     pub pool_facts: Option<std::sync::Arc<baylee_client_core::cardquery::PoolFacts>>,
+    /// The ban lists the lobby holds, lent the same way: what `list:` reads.
+    pub list_shelf: Option<std::sync::Arc<baylee_client_core::cardquery::ListShelf>>,
     /// Which letter group the creature-type chooser's full list shows while
     /// nothing is typed (`typechooser::GROUPS`). Kept with the filter, and
     /// cleared with it.

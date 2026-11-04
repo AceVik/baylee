@@ -61,6 +61,15 @@ fn lend_the_facts(
     if !same {
         duel.pool_facts = held.cloned();
     }
+    let shelf = builder.list_shelf();
+    let same = match (shelf, duel.list_shelf.as_ref()) {
+        (Some(held), Some(lent)) => std::sync::Arc::ptr_eq(held, lent),
+        (None, None) => true,
+        _ => false,
+    };
+    if !same {
+        duel.list_shelf = shelf.cloned();
+    }
     let askable = state.offline.is_none() && state.lobby.token().is_some();
     if askable && held.is_none() && !builder.pool_facts_asked() && duel.wants_pool_facts() {
         super::poolfacts::ask(state, mailbox);

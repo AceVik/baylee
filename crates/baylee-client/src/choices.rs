@@ -885,6 +885,8 @@ pub struct Search<'a> {
     pub pool: Option<&'a [PoolCard]>,
     /// The gateway's table, which `r:`, `s:` and `f:` read.
     pub facts: Option<&'a baylee_client_core::cardquery::PoolFacts>,
+    /// The ban lists the client holds, which `list:` reads.
+    pub lists: Option<&'a baylee_client_core::cardquery::ListShelf>,
 }
 
 impl<'a> From<&'a str> for Search<'a> {
@@ -893,6 +895,7 @@ impl<'a> From<&'a str> for Search<'a> {
             text,
             pool: None,
             facts: None,
+            lists: None,
         }
     }
 }
@@ -1045,6 +1048,8 @@ struct LastNames {
     pool: (usize, usize),
     /// The table it was read against: its place, or nothing.
     facts: usize,
+    /// The lists it was read against, likewise.
+    lists: usize,
     rows: Vec<ChoiceOption>,
 }
 
@@ -1068,6 +1073,7 @@ fn card_name_rows<'a>(
         .pool
         .map_or((0, 0), |p| (p.as_ptr() as usize, p.len()));
     let facts = search.facts.map_or(0, |f| std::ptr::from_ref(f) as usize);
+    let lists = search.lists.map_or(0, |l| std::ptr::from_ref(l) as usize);
     let mut last = LAST
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
@@ -1077,6 +1083,7 @@ fn card_name_rows<'a>(
             && kept.excluded_types == excluded_types
             && kept.pool == pool
             && kept.facts == facts
+            && kept.lists == lists
     }) {
         return kept.rows.clone();
     }
@@ -1087,6 +1094,7 @@ fn card_name_rows<'a>(
         excluded_types,
         pool,
         facts,
+        lists,
         rows: rows.clone(),
     });
     rows
@@ -1099,7 +1107,9 @@ fn walk_the_names(
     excluded_types: baylee_core::types::TypeSet,
 ) -> Vec<ChoiceOption> {
     let query = baylee_client_core::cardquery::parse(search.text);
-    let surface = baylee_client_core::cardquery::Surface::POOL.with_pool_facts(search.facts);
+    let surface = baylee_client_core::cardquery::Surface::POOL
+        .with_pool_facts(search.facts)
+        .with_lists(search.lists);
     let typed = search.text.trim().to_lowercase();
     let served: std::collections::BTreeMap<u32, &PoolCard> = search
         .pool

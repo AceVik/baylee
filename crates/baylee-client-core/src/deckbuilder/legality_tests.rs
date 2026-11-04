@@ -280,6 +280,41 @@ fn a_list_brings_its_format_to_the_check() {
     assert!(b.overview(Lang::En).headline.contains("Commander"));
 }
 
+/// `list:` answers once a gateway has told the lists, says so until then, and
+/// goes at sign-out with what that gateway said.
+#[test]
+fn a_list_key_filters_the_pool_once_the_lists_are_told() {
+    let mut b = builder();
+    b.set_text("list:\"kitchen table\"");
+    assert!(b.results().is_empty());
+    assert_eq!(b.search_lacking(), Some(Phrase::FilterNoLists));
+
+    let row = baylee_cardtext::ListRow {
+        name: "Kitchen table".to_string(),
+        format: FREEFORM.to_string(),
+        indices: vec![index("Sol Ring")],
+        ..baylee_cardtext::ListRow::default()
+    };
+    b.set_lists(vec![row], Lang::En);
+    assert_eq!(b.search_lacking(), None);
+    assert_eq!(b.results(), [slot(&b, "Sol Ring")], "the results moved");
+
+    b.forget_pool();
+    assert!(b.list_shelf().is_none());
+}
+
+/// A language change reads the lists again, and asks nothing of a client no
+/// gateway has told any.
+#[test]
+fn a_new_language_keeps_what_the_lists_are() {
+    let mut b = builder();
+    b.relabel_lists(Lang::De);
+    assert!(b.list_shelf().is_none(), "no shelf out of nothing");
+    b.set_lists(Vec::new(), Lang::En);
+    b.relabel_lists(Lang::De);
+    assert!(b.list_shelf().is_some());
+}
+
 /// Illegal is told and never refused: the button stays live.
 #[test]
 fn an_illegal_deck_still_saves_with_its_format() {

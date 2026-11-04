@@ -245,7 +245,16 @@ impl DeckBuilder {
     /// What the pool can be asked here.
     #[must_use]
     pub fn surface(&self) -> crate::cardquery::Surface<'_> {
-        crate::cardquery::Surface::POOL.with_pool_facts(self.pool_facts.as_deref())
+        crate::cardquery::Surface::POOL
+            .with_pool_facts(self.pool_facts.as_deref())
+            .with_lists(self.list_shelf.as_deref())
+    }
+
+    /// What to say over a list that is empty because the box asks what only
+    /// a gateway answers, rather than because no card matches.
+    #[must_use]
+    pub fn search_lacking(&self) -> Option<Phrase> {
+        crate::cardsearch::lacking(&self.query, self.surface())
     }
 
     /// Whether what is in the box asks what only the gateway's table
@@ -543,7 +552,7 @@ impl DeckBuilder {
     }
 
     /// Recomputes the result list.
-    fn refilter(&mut self) {
+    pub(super) fn refilter(&mut self) {
         let mut hits: Vec<usize> = (0..self.pool.len())
             .filter(|slot| self.matches(&self.pool[*slot]))
             .collect();

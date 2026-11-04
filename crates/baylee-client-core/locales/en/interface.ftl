@@ -4637,7 +4637,7 @@ FilterKeyToughness = Toughness
 FilterKeyLoyalty = Loyalty
 
 # A condition chosen from a list: a printing's rarity or set, or a format.
-FilterKindPrinting = Printing and format
+FilterKindPrinting = Printing, format and list
 
 # A printing's rarity.
 FilterKeyRarity = Rarity
@@ -9101,3 +9101,12 @@ DeckTileIllegal = Not legal
 
 # Offline: a list is a gateway's.
 ListNeedsGateway = Ban lists live on a gateway; sign in to one.
+
+# A ban list names the card.
+FilterKeyList = On ban list
+
+# Under a row naming a ban list, and over an empty list, where this client holds none.
+FilterNoLists = Ban lists come from the gateway, and none are here. The list stays empty while such a condition stands.
+
+# Syntax help: `list:`.
+BuildSyntaxList = on this ban list
