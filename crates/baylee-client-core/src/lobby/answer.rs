@@ -143,6 +143,10 @@ impl Lobby {
                 self.builder.set_blocked(blocked);
                 None
             }
+            LobbyEvent::PoolFacts(facts) => {
+                self.builder.set_pool_facts(facts);
+                None
+            }
             LobbyEvent::Printings {
                 card,
                 printings,

@@ -940,6 +940,14 @@ pub struct DeckBuilder {
     /// marked, never hidden or refused here; the gateway refuses the deck.
     /// Empty offline and from a gateway that does not say.
     blocked: std::collections::BTreeMap<u32, crate::lobby::BlockedCard>,
+    /// What the gateway the pool came from says about its cards beyond their
+    /// text (`GET /pool/facts`, `docs/protocol.md` §"Pool facts"): what the
+    /// rarity, set and format keys read. `None` offline and from a gateway
+    /// with no catalog. An `Arc` because it is lent to a table.
+    pool_facts: Option<std::sync::Arc<crate::cardquery::PoolFacts>>,
+    /// Whether the table has been asked for this session. See
+    /// [`Self::ask_pool_facts`].
+    pool_facts_asked: bool,
     sort: Sort,
     main: Vec<Entry>,
     side: Vec<Entry>,

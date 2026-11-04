@@ -938,6 +938,9 @@ pub enum LobbyEvent {
     /// The cards blocked on the gateway (`GET /cards/blocked`), asked
     /// beside the pool; never offline.
     BlockedCards(Vec<BlockedCard>),
+    /// What the gateway says about its cards beyond their text (`GET
+    /// /pool/facts`), asked beside the pool; never offline.
+    PoolFacts(std::sync::Arc<crate::cardquery::PoolFacts>),
     /// Every printing of one card.
     Printings {
         /// Which card was asked about.

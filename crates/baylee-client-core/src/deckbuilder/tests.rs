@@ -1999,3 +1999,78 @@ fn forgetting_the_pool_forgets_the_blocked_cards() {
     b.forget_pool();
     assert!(b.blocked(3).is_none());
 }
+
+/// A table about `pool()`: the Bolt is rare in `m21` and legal in Modern, the
+/// Ring banned in Commander, and the rest it was never told about.
+fn pool_facts() -> std::sync::Arc<crate::cardquery::PoolFacts> {
+    use baylee_cardtext::{CardLine, PoolFactsBody, PoolSet};
+    let table = PoolFactsBody::assemble(
+        vec![PoolSet {
+            code: "m21".to_string(),
+            name: "Core Set 2021".to_string(),
+        }],
+        vec![
+            CardLine {
+                index: 3,
+                legalities: [("modern".to_string(), "legal".to_string())].into(),
+                printed: vec![("m21".to_string(), "rare".to_string())],
+            },
+            CardLine {
+                index: 5,
+                legalities: [("commander".to_string(), "banned".to_string())].into(),
+                printed: vec![("m21".to_string(), "uncommon".to_string())],
+            },
+        ],
+    );
+    std::sync::Arc::new(table.into())
+}
+
+fn names_of(b: &DeckBuilder) -> Vec<String> {
+    b.results()
+        .iter()
+        .map(|slot| b.pool()[*slot].name.clone())
+        .collect()
+}
+
+/// A search written before the table arrived is answered when it does, and
+/// until then the builder knows why its list is empty.
+#[test]
+fn a_filter_on_the_table_waits_for_it_and_says_so() {
+    let mut b = builder();
+    b.set_text("r:rare");
+    assert!(b.results().is_empty());
+    assert!(b.search_lacks_pool_facts());
+
+    b.set_pool_facts(pool_facts());
+    assert_eq!(names_of(&b), ["Lightning Bolt"]);
+    assert!(!b.search_lacks_pool_facts());
+
+    b.set_text("banned:commander");
+    assert_eq!(names_of(&b), ["Sol Ring"]);
+    b.set_text("s:m21 -f:modern");
+    assert!(b.results().is_empty(), "the Ring has no verdict in Modern");
+    b.set_text("t:creature");
+    assert!(!b.search_lacks_pool_facts());
+}
+
+/// A table with nothing in it, as a gateway with no catalog sends, is no
+/// table: the builder must not read it as "no card here is rare".
+#[test]
+fn an_empty_table_is_no_table() {
+    let mut b = builder();
+    b.set_pool_facts(std::sync::Arc::default());
+    b.set_text("-r:rare");
+    assert!(b.results().is_empty());
+    assert!(b.search_lacks_pool_facts());
+}
+
+#[test]
+fn the_table_is_asked_for_once_and_forgotten_with_the_pool() {
+    let mut b = builder();
+    assert!(b.ask_pool_facts());
+    assert!(!b.ask_pool_facts(), "once a session");
+    b.set_pool_facts(pool_facts());
+    b.forget_pool();
+    assert!(b.pool_facts().is_none());
+    assert!(b.ask_pool_facts(), "and again in the next one");
+}

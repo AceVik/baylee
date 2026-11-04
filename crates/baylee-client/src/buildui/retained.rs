@@ -123,6 +123,8 @@ struct ToolbarKey {
     syntax: bool,
     results: usize,
     pool: usize,
+    /// Whether the gateway's table has arrived: what the builder offers.
+    facts: bool,
     loaded: bool,
     commander_pick: Option<bool>,
 }
@@ -487,6 +489,7 @@ fn toolbar_key(env: &Env) -> ToolbarKey {
         syntax: env.ui().syntax,
         results: deck.results().len(),
         pool: deck.pool().len(),
+        facts: deck.pool_facts().is_some(),
         loaded: deck.loaded(),
         commander_pick: state.commander_pick,
     }

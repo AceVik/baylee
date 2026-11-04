@@ -163,14 +163,15 @@ impl Gesture {
     }
 }
 
-/// Whether a pool row answers `query`.
+/// Whether a pool row answers `query`, asked of a pool list: `surface` is
+/// [`Surface::POOL`] with whatever table that list holds.
 #[must_use]
-pub fn pool_card_matches(query: &Query, card: &PoolCard) -> bool {
+pub fn pool_card_matches(query: &Query, card: &PoolCard, surface: Surface<'_>) -> bool {
     if query.is_anything() {
         return true;
     }
     let flags = pool_flags(card);
-    crate::cardquery::matches(query, &pool_facts(card, &flags), Surface::POOL).shown()
+    crate::cardquery::matches(query, &pool_facts(card, &flags), surface).shown()
 }
 
 /// The flags a pool row carries, for `is:`.
@@ -226,6 +227,7 @@ fn pool_facts<'a>(card: &'a PoolCard, flags: &'a [Flag]) -> Facts<'a> {
         toughness,
         loyalty,
         flags,
+        card: Some(card.index),
     }
 }
 
@@ -271,10 +273,16 @@ mod tests {
     fn a_search_speaks_the_clients_language_and_english_and_no_other() {
         let card = bolt();
         for found in ["rayo", "lightning", "!\"Lightning Bolt\"", "name:rayo"] {
-            assert!(pool_card_matches(&parse(found), &card), "{found}");
+            assert!(
+                pool_card_matches(&parse(found), &card, Surface::POOL),
+                "{found}"
+            );
         }
         for missed in ["blitzschlag", "name:blitz", "!blitzschlag"] {
-            assert!(!pool_card_matches(&parse(missed), &card), "{missed}");
+            assert!(
+                !pool_card_matches(&parse(missed), &card, Surface::POOL),
+                "{missed}"
+            );
         }
     }
 

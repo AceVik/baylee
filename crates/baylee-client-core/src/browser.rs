@@ -243,6 +243,10 @@ pub struct Names<'a> {
     pub shown: &'a dyn Fn(&PublicObject) -> Option<String>,
     /// Localized hand-card names, returning `None` without a catalog.
     pub hand: &'a dyn Fn(&baylee_view::HandObject) -> Option<String>,
+    /// The gateway's table, lent by the lobby: what `r:`, `s:` and `f:` read
+    /// off the card a row names. `None` offline, and those keys then answer
+    /// nothing rather than something wrong.
+    pub facts: Option<&'a crate::cardquery::PoolFacts>,
 }
 
 /// The answer a caller with no card text in reach has: none at all.
@@ -267,7 +271,14 @@ impl Names<'_> {
         Names {
             shown: &SHOWN,
             hand: &|_| None,
+            facts: None,
         }
+    }
+
+    /// What this panel's list can be asked, the gateway's table included.
+    #[must_use]
+    pub fn surface(&self) -> Surface<'_> {
+        Surface::ZONE.with_pool_facts(self.facts)
     }
 }
 
@@ -1602,7 +1613,7 @@ impl Browser {
                 // naming the same card and a player knows the one they
                 // learned it under. The projection is also the only name a
                 // *token* has.
-                if !query.is_anything() && !shows(&query, object, &shown) {
+                if !query.is_anything() && !shows(&query, object, &shown, names.surface()) {
                     continue;
                 }
                 out.push(BrowseRow {
@@ -1833,7 +1844,11 @@ fn seats_from(view: &PlayerView) -> Vec<PlayerId> {
 /// the table may no longer be that. So `t:` answers in English in a zone and
 /// in both languages in the pool, and the gap is the projection's, not a
 /// shortcut.
-fn shows(query: &Query, object: &PublicObject, shown: &str) -> bool {
+///
+/// `card` is the backing card and only that, which `PublicObject::card` gates
+/// on what this seat may know: a face-down permanent has none, nor has a
+/// token, so neither answers `r:`, `s:` or `f:` and the two look alike.
+fn shows(query: &Query, object: &PublicObject, shown: &str, surface: Surface<'_>) -> bool {
     let line = crate::card_face::projected_type_line(
         &crate::card_face::Characteristics::projected(object),
     );
@@ -1871,8 +1886,9 @@ fn shows(query: &Query, object: &PublicObject, shown: &str) -> bool {
         toughness: object.toughness.map(i32::from),
         loyalty: object.loyalty.map(i32::from),
         flags: &flags,
+        card: object.card.map(|card| card.index.get()),
     };
-    crate::cardquery::matches(query, &facts, Surface::ZONE).shown()
+    crate::cardquery::matches(query, &facts, surface).shown()
 }
 
 /// The objects one zone holds, in the order the view lists them.

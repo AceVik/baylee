@@ -214,6 +214,46 @@ impl DeckBuilder {
         self.blocked.get(&index)
     }
 
+    /// Whether the gateway's table should be asked for now, which is once a
+    /// session: the shell keeps its own copy by version between sessions.
+    pub const fn ask_pool_facts(&mut self) -> bool {
+        !std::mem::replace(&mut self.pool_facts_asked, true)
+    }
+
+    /// Whether the gateway's table has been asked for this session.
+    #[must_use]
+    pub const fn pool_facts_asked(&self) -> bool {
+        self.pool_facts_asked
+    }
+
+    /// Takes the gateway's table (`GET /pool/facts`) and rebuilds the results,
+    /// because a filter that said nothing a moment ago may now say something.
+    pub fn set_pool_facts(&mut self, facts: std::sync::Arc<crate::cardquery::PoolFacts>) {
+        self.pool_facts = Some(facts);
+        self.pool_revision = self.pool_revision.wrapping_add(1);
+        self.refilter();
+    }
+
+    /// The gateway's table, while it holds one, as a table is lent it.
+    #[must_use]
+    pub const fn pool_facts(&self) -> Option<&std::sync::Arc<crate::cardquery::PoolFacts>> {
+        self.pool_facts.as_ref()
+    }
+
+    /// What the pool can be asked here.
+    #[must_use]
+    pub fn surface(&self) -> crate::cardquery::Surface<'_> {
+        crate::cardquery::Surface::POOL.with_pool_facts(self.pool_facts.as_deref())
+    }
+
+    /// Whether what is in the box asks what only the gateway's table
+    /// answers, while the builder has none: the empty list is then not "no
+    /// card matches", and the screen says so.
+    #[must_use]
+    pub fn search_lacks_pool_facts(&self) -> bool {
+        crate::cardquery::missing_pool_facts(&self.query, self.surface())
+    }
+
     /// Takes the pool and rebuilds the results.
     pub fn set_pool(&mut self, cards: Vec<PoolCard>, has_text: bool) {
         self.pool_revision = self.pool_revision.wrapping_add(1);
@@ -552,7 +592,7 @@ impl DeckBuilder {
         if !self.colors.is_empty() && !self.color_match(card) {
             return false;
         }
-        crate::cardsearch::pool_card_matches(&self.query, card)
+        crate::cardsearch::pool_card_matches(&self.query, card, self.surface())
     }
 
     /// Whether a card is within the chosen colors.

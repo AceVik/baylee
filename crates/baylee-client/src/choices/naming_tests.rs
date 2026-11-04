@@ -92,6 +92,7 @@ fn a_name_is_found_in_the_clients_language_and_english_and_no_other() {
     let search = |text| Search {
         text,
         pool: Some(&pool),
+        facts: None,
     };
     let rows = card_name_rows(search("rayo"), NOTHING, NOTHING);
     let row = rows.first().expect("its own language finds it");
@@ -103,6 +104,7 @@ fn a_name_is_found_in_the_clients_language_and_english_and_no_other() {
     let search = |text| Search {
         text,
         pool: Some(&pool),
+        facts: None,
     };
     assert!(!card_name_rows(search("blitzschlag"), NOTHING, NOTHING).is_empty());
     assert!(card_name_rows(search("rayo"), NOTHING, NOTHING).is_empty());
@@ -144,4 +146,47 @@ fn asking_again_answers_the_same_rows_and_a_new_search_new_ones() {
     let first = card_name_rows("name:needle", NOTHING, NOTHING);
     assert_eq!(first, card_name_rows("name:needle", NOTHING, NOTHING));
     assert_ne!(first, card_name_rows("name:wasteland", NOTHING, NOTHING));
+}
+
+/// The chooser is a pool list, so the table's keys reach it as they reach the
+/// deck builder, and without the table it offers no card rather than a wrong
+/// one.
+#[test]
+fn the_table_narrows_the_names_and_without_it_nothing_is_guessed() {
+    use baylee_client_core::cardquery::{PoolFacts, PoolFactsBody, PoolSet};
+    let index = baylee_cards::decks::by_name("Lightning Bolt")
+        .expect("in the pool")
+        .get();
+    let facts: PoolFacts = PoolFactsBody::assemble(
+        vec![PoolSet {
+            code: "m21".to_string(),
+            name: "Core Set 2021".to_string(),
+        }],
+        vec![baylee_cardtext::CardLine {
+            index,
+            legalities: [("modern".to_string(), "legal".to_string())].into(),
+            printed: vec![("m21".to_string(), "uncommon".to_string())],
+        }],
+    )
+    .into();
+    let pool = served("Rayo", "Blitzschlag");
+    let informed = |text| Search {
+        text,
+        pool: Some(&pool),
+        facts: Some(&facts),
+    };
+    assert!(!card_name_rows(informed("s:m21 rayo"), NOTHING, NOTHING).is_empty());
+    assert!(!card_name_rows(informed("f:modern rayo"), NOTHING, NOTHING).is_empty());
+    assert!(card_name_rows(informed("r:mythic rayo"), NOTHING, NOTHING).is_empty());
+    let bare = |text| Search {
+        text,
+        pool: Some(&pool),
+        facts: None,
+    };
+    for line in ["s:m21 rayo", "-s:m21 rayo", "f:modern rayo"] {
+        assert!(
+            card_name_rows(bare(line), NOTHING, NOTHING).is_empty(),
+            "{line}"
+        );
+    }
 }

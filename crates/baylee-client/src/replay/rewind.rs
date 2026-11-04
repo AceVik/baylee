@@ -56,6 +56,7 @@ impl Duel {
             outbox: Vec::new(),
             subtype_filter: String::new(),
             naming: Default::default(),
+            pool_facts: Default::default(),
             subtype_group: 0,
             decision_fold: Default::default(),
             stack_selected: None,

@@ -433,3 +433,124 @@ fn the_box_and_the_builder_are_never_both_holding_the_caret() {
     assert!(b.is_typing(), "and a tap in the box takes it back");
     assert!(b.builder().is_none());
 }
+
+/// A table saying card 7 is rare in `m21` and legal in Modern, and 8 only
+/// common in `lea` and banned there.
+fn pool_facts() -> crate::cardquery::PoolFacts {
+    use baylee_cardtext::{CardLine, PoolFactsBody, PoolSet};
+    let set = |code: &str| PoolSet {
+        code: code.to_string(),
+        name: code.to_string(),
+    };
+    let line = |index, word: &str, set: &str, rarity: &str| CardLine {
+        index,
+        legalities: [("modern".to_string(), word.to_string())].into(),
+        printed: vec![(set.to_string(), rarity.to_string())],
+    };
+    PoolFactsBody::assemble(
+        vec![set("m21"), set("lea")],
+        vec![
+            line(7, "legal", "m21", "rare"),
+            line(8, "banned", "lea", "common"),
+        ],
+    )
+    .into()
+}
+
+/// The rows a line in the box leaves, by name.
+fn left_by(
+    view: &PlayerView,
+    line: &str,
+    facts: Option<&crate::cardquery::PoolFacts>,
+) -> Vec<String> {
+    let mut b = Browser::new();
+    b.set_filter(line);
+    let names = Names {
+        facts,
+        ..Names::projected()
+    };
+    b.rows(view, None, names)
+        .into_iter()
+        .map(|row| row.name)
+        .collect()
+}
+
+/// These are facts about the card the view already names, so they narrow a
+/// zone as they narrow the pool.
+#[test]
+fn a_zone_answers_rarity_set_and_format_off_the_card_a_row_names() {
+    let view = ViewBuilder::new(2)
+        .with_graveyard(
+            0,
+            vec![printed(4, 0, "Elves", 7), printed(5, 0, "Forest", 8)],
+        )
+        .build();
+    let facts = pool_facts();
+    let table = Some(&facts);
+    assert_eq!(left_by(&view, "r:rare", table), ["Elves"]);
+    assert_eq!(left_by(&view, "s:lea", table), ["Forest"]);
+    assert_eq!(left_by(&view, "f:modern", table), ["Elves"]);
+    assert_eq!(left_by(&view, "banned:modern", table), ["Forest"]);
+    assert_eq!(left_by(&view, "-f:modern", table), ["Forest"]);
+}
+
+/// No table, nothing shown, and the negation is no way round it: this is the
+/// surface saying it cannot answer, not every card being not rare.
+#[test]
+fn without_the_table_a_zone_shows_nothing_for_these_keys() {
+    let view = ViewBuilder::new(2)
+        .with_graveyard(0, vec![printed(4, 0, "Elves", 7)])
+        .build();
+    for line in ["r:rare", "-r:rare", "s:m21", "f:modern", "-banned:modern"] {
+        assert!(left_by(&view, line, None).is_empty(), "`{line}`");
+    }
+}
+
+/// The hidden-information rule, on these keys: a row the view names no card
+/// for answers nothing, a term and its negation alike. A face-down card and a
+/// token read the same here, so a filter cannot tell them apart or learn
+/// anything about the one that is a card.
+#[test]
+fn a_row_the_view_names_no_card_for_answers_no_rarity_set_or_format() {
+    let mut face_down = printed(4, 1, "Face-down", 7);
+    face_down.card = None;
+    face_down.rules = None;
+    let token = crate::test_support::token(5, 1, "Soldier", 1, 1);
+    let view = ViewBuilder::new(2)
+        .with_graveyard(1, vec![face_down, token])
+        .build();
+    let facts = pool_facts();
+    for line in [
+        "r:rare",
+        "-r:rare",
+        "r>=common",
+        "s:m21",
+        "-s:m21",
+        "f:modern",
+        "-f:modern",
+        "banned:modern",
+        "-banned:modern",
+    ] {
+        assert!(left_by(&view, line, Some(&facts)).is_empty(), "`{line}`");
+    }
+    assert_eq!(
+        left_by(&view, "t:creature", Some(&facts)).len(),
+        2,
+        "what the rows do say is still asked"
+    );
+}
+
+#[test]
+fn a_zone_with_a_table_says_it_can_answer() {
+    let facts = pool_facts();
+    let names = Names {
+        facts: Some(&facts),
+        ..Names::projected()
+    };
+    assert!(names.surface().answers(&crate::cardquery::Key::Rarity));
+    assert!(
+        !Names::projected()
+            .surface()
+            .answers(&crate::cardquery::Key::Rarity)
+    );
+}

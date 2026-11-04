@@ -224,6 +224,10 @@ struct Naming {
     panel: Option<baylee_client_core::filterdialog::FilterPanel>,
     /// What the question restricts itself to, in words.
     restriction: Option<String>,
+    /// The gateway's table, which the builder offers from.
+    facts: Option<std::sync::Arc<baylee_client_core::cardquery::PoolFacts>>,
+    /// Whether the box asks what only that table answers, while there is none.
+    lacks_facts: bool,
 }
 
 impl DrawerRevision {
@@ -1059,6 +1063,11 @@ fn reading(
             } => Some(Naming {
                 panel: duel.naming.search.panel().cloned(),
                 restriction: crate::choices::name_restriction(types, excluded_types, lang),
+                facts: duel.pool_facts.clone(),
+                lacks_facts: baylee_client_core::cardquery::missing_pool_facts(
+                    &duel.naming.search.parsed(),
+                    naming_surface(duel.pool_facts.as_deref()),
+                ),
             }),
             _ => None,
         });
@@ -1336,6 +1345,14 @@ fn letter_groups(
 /// The name chooser's search: its box with the gear beside it, what the
 /// question itself restricts (fixed: no filter can take it away), and the
 /// filter builder the deck builder and the zone dialog open, while it is open.
+/// What the name chooser's rows can be asked: they are pool rows, read
+/// against whatever table the lobby lent.
+fn naming_surface(
+    facts: Option<&baylee_client_core::cardquery::PoolFacts>,
+) -> baylee_client_core::cardquery::Surface<'_> {
+    baylee_client_core::cardquery::Surface::POOL.with_pool_facts(facts)
+}
+
 fn name_search(
     commands: &mut Commands,
     fonts: &UiFonts,
@@ -1405,12 +1422,25 @@ fn name_search(
             .id();
         commands.entity(column).add_child(words);
     }
+    // An empty list under a line of the query language reads as "no such
+    // card", and here it is not: nothing could be asked.
+    if naming.lacks_facts && naming.panel.is_none() {
+        let words = commands
+            .spawn((
+                Text::new(Phrase::FilterNoPoolFacts.text(lang).to_string()),
+                tf(fonts, HINT_PT),
+                TextColor(palette::DOCK_INK.with_alpha(0.75)),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(column).add_child(words);
+    }
     if let Some(panel) = &naming.panel {
         let built = crate::filterui::build(
             commands,
             fonts,
             panel,
-            baylee_client_core::cardquery::Surface::POOL,
+            naming_surface(naming.facts.as_deref()),
             None,
             lang,
             crate::filterui::Register::TRAY,

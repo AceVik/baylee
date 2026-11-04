@@ -883,11 +883,17 @@ pub struct Search<'a> {
     /// The pool in the client's language, once the gateway has served it.
     /// Without it a name is the registry's English.
     pub pool: Option<&'a [PoolCard]>,
+    /// The gateway's table, which `r:`, `s:` and `f:` read.
+    pub facts: Option<&'a baylee_client_core::cardquery::PoolFacts>,
 }
 
 impl<'a> From<&'a str> for Search<'a> {
     fn from(text: &'a str) -> Self {
-        Self { text, pool: None }
+        Self {
+            text,
+            pool: None,
+            facts: None,
+        }
     }
 }
 
@@ -1037,6 +1043,8 @@ struct LastNames {
     excluded_types: baylee_core::types::TypeSet,
     /// The pool it was read against: its place and its length.
     pool: (usize, usize),
+    /// The table it was read against: its place, or nothing.
+    facts: usize,
     rows: Vec<ChoiceOption>,
 }
 
@@ -1059,6 +1067,7 @@ fn card_name_rows<'a>(
     let pool = search
         .pool
         .map_or((0, 0), |p| (p.as_ptr() as usize, p.len()));
+    let facts = search.facts.map_or(0, |f| std::ptr::from_ref(f) as usize);
     let mut last = LAST
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
@@ -1067,6 +1076,7 @@ fn card_name_rows<'a>(
             && kept.types == types
             && kept.excluded_types == excluded_types
             && kept.pool == pool
+            && kept.facts == facts
     }) {
         return kept.rows.clone();
     }
@@ -1076,6 +1086,7 @@ fn card_name_rows<'a>(
         types,
         excluded_types,
         pool,
+        facts,
         rows: rows.clone(),
     });
     rows
@@ -1088,6 +1099,7 @@ fn walk_the_names(
     excluded_types: baylee_core::types::TypeSet,
 ) -> Vec<ChoiceOption> {
     let query = baylee_client_core::cardquery::parse(search.text);
+    let surface = baylee_client_core::cardquery::Surface::POOL.with_pool_facts(search.facts);
     let typed = search.text.trim().to_lowercase();
     let served: std::collections::BTreeMap<u32, &PoolCard> = search
         .pool
@@ -1109,7 +1121,7 @@ fn walk_the_names(
                 .get(&at)
                 .copied()
                 .or_else(|| registry_pool().get(&at))?;
-            if !baylee_client_core::cardsearch::pool_card_matches(&query, card) {
+            if !baylee_client_core::cardsearch::pool_card_matches(&query, card, surface) {
                 return None;
             }
             // The name the client shows beside the one the rules read: a

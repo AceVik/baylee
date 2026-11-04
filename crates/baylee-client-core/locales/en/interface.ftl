@@ -4636,6 +4636,61 @@ FilterKeyToughness = Toughness
 # Printed starting loyalty.
 FilterKeyLoyalty = Loyalty
 
+# A condition chosen from a list: a printing's rarity or set, or a format.
+FilterKindPrinting = Printing and format
+
+# A printing's rarity.
+FilterKeyRarity = Rarity
+
+# A printing's set.
+FilterKeySet = Set
+
+# The format lets the card be played. A restricted card counts.
+FilterKeyFormat = Legal in
+
+# The format bans the card.
+FilterKeyBanned = Banned in
+
+# The format allows one copy.
+FilterKeyRestricted = Restricted in
+
+# Under a row asking for rarity, set or format, and over an empty list, on a
+# list without the gateway's table: offline, or at a gateway with no catalog.
+FilterNoPoolFacts = Rarity, set and format need the gateway's card catalog, which is not available here. The list stays empty while such a condition stands.
+
+# The six rarities, as a filter row offers them.
+RarityCommon = Common
+RarityUncommon = Uncommon
+RarityRare = Rare
+RaritySpecial = Special
+RarityMythic = Mythic
+RarityBonus = Bonus
+
+# Formats a card can be legal in, as a filter row offers them. A format the
+# gateway knows and this list does not is shown by its key.
+PlayFormatAlchemy = Alchemy
+PlayFormatBrawl = Brawl
+PlayFormatCommander = Commander
+PlayFormatCompetitiveBrawl = Competitive Brawl
+PlayFormatDuel = Duel Commander
+PlayFormatFuture = Future Standard
+PlayFormatGladiator = Gladiator
+PlayFormatHistoric = Historic
+PlayFormatLegacy = Legacy
+PlayFormatModern = Modern
+PlayFormatOathbreaker = Oathbreaker
+PlayFormatOldschool = Old School
+PlayFormatPauper = Pauper
+PlayFormatPauperCommander = Pauper Commander
+PlayFormatPenny = Penny Dreadful
+PlayFormatPioneer = Pioneer
+PlayFormatPredh = PreDH
+PlayFormatPremodern = Premodern
+PlayFormatStandard = Standard
+PlayFormatStandardBrawl = Standard Brawl
+PlayFormatTimeless = Timeless
+PlayFormatVintage = Vintage
+
 # A colour reading: the card has these and may have others.
 FilterAtLeast = at least
 
@@ -7714,6 +7769,18 @@ BuildSyntaxExact = exactly this name
 
 # Syntax help: `or`.
 BuildSyntaxOr = either
+
+# Syntax help: `r:`.
+BuildSyntaxRarity = a printing's rarity
+
+# Syntax help: `s:`.
+BuildSyntaxSet = printed in this set
+
+# Syntax help: `f:`.
+BuildSyntaxFormat = may be played in this format
+
+# Syntax help: `banned:`.
+BuildSyntaxBanned = banned in this format (also restricted:)
 
 # The pool's filter disclosure. Chip budget 14.
 BuildFilters = Filters

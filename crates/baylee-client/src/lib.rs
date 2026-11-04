@@ -861,6 +861,10 @@ pub struct Duel {
     /// the pool in the client's language the lobby lends it. Cleared with
     /// `subtype_filter`, all but the pool.
     pub naming: choices::NameSearch,
+    /// The gateway's table (`GET /pool/facts`), lent by the lobby: what the
+    /// zone dialog's and the name chooser's `r:`, `s:` and `f:` read. `None`
+    /// offline, and those keys then say they are not available.
+    pub pool_facts: Option<std::sync::Arc<baylee_client_core::cardquery::PoolFacts>>,
     /// Which letter group the creature-type chooser's full list shows while
     /// nothing is typed (`typechooser::GROUPS`). Kept with the filter, and
     /// cleared with it.

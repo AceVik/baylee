@@ -86,6 +86,7 @@ impl fmt::Debug for LobbyEvent {
             Self::Decks(_) => "Decks",
             Self::Pool { .. } => "Pool",
             Self::BlockedCards(_) => "BlockedCards",
+            Self::PoolFacts(_) => "PoolFacts",
             Self::Printings { .. } => "Printings",
             Self::DeckLoaded { .. } => "DeckLoaded",
             Self::DeckSaved { .. } => "DeckSaved",

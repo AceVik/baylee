@@ -10,7 +10,7 @@ use baylee_client_core::deckbuilder::BuildField;
 
 /// What the syntax popover offers (`docs/client.md` §"What the search box
 /// understands"): an example a press inserts, and what it means.
-pub(crate) const SYNTAX: [(&str, Phrase); 12] = [
+pub(crate) const SYNTAX: [(&str, Phrase); 16] = [
     ("t:creature", Phrase::BuildSyntaxType),
     ("o:draw", Phrase::BuildSyntaxText),
     ("c:rg", Phrase::BuildSyntaxColour),
@@ -23,6 +23,10 @@ pub(crate) const SYNTAX: [(&str, Phrase); 12] = [
     ("-t:land", Phrase::BuildSyntaxNot),
     ("!\"Llanowar Elves\"", Phrase::BuildSyntaxExact),
     ("t:elf or t:goblin", Phrase::BuildSyntaxOr),
+    ("r:rare", Phrase::BuildSyntaxRarity),
+    ("s:m21", Phrase::BuildSyntaxSet),
+    ("f:modern", Phrase::BuildSyntaxFormat),
+    ("banned:commander", Phrase::BuildSyntaxBanned),
 ];
 
 /// Whether the search box has the caret (and so the keyboard's letters).
@@ -194,7 +198,7 @@ pub(super) fn toolbar(commands: &mut Commands, holder: Entity, env: &Env) {
             commands,
             kit.fonts,
             built,
-            baylee_client_core::cardquery::Surface::POOL,
+            deck.surface(),
             also.as_deref(),
             lang,
             crate::filterui::Register::LOBBY,
@@ -502,7 +506,14 @@ pub(super) fn list(commands: &mut Commands, holder: Entity, env: &Env) {
             commands,
             kit,
             crate::hud::glyph::MAGNIFIER,
-            Phrase::NothingMatches.text(env.lang()),
+            // Nothing matched because nothing could be asked, which is a
+            // different thing to be told.
+            if deck.search_lacks_pool_facts() {
+                Phrase::FilterNoPoolFacts
+            } else {
+                Phrase::NothingMatches
+            }
+            .text(env.lang()),
             None,
         );
         commands.entity(holder).add_child(said);

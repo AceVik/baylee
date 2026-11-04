@@ -23,10 +23,11 @@ use crate::ui_button::UiButton;
 use bevy::input::keyboard::{Key as Pressed, KeyboardInput};
 use bevy::prelude::*;
 
-use baylee_client_core::cardquery::{Colors, Flag, Key, Op, Surface, Term, Value, render};
+use baylee_client_core::cardquery::{Colors, Flag, Key, Op, Rarity, Surface, Term, Value, render};
 use baylee_client_core::cardsearch::Gesture;
 use baylee_client_core::filterdialog::{
-    Act, Adding, ColorRule, Control, FLAGS, FilterPanel, FilterPart, OFFERED, SYMBOLS, Typing,
+    Act, Adding, Choice, ChoiceWord, ColorRule, Control, FLAGS, FilterPanel, FilterPart, OFFERED,
+    SYMBOLS, Typing, choices,
 };
 use baylee_client_core::i18n::{Lang, Phrase};
 use baylee_client_core::textbuf::{Dir, Step, TextBuffer};
@@ -186,7 +187,7 @@ pub(crate) fn build(
     commands: &mut Commands,
     fonts: &UiFonts,
     panel: &FilterPanel,
-    surface: Surface,
+    surface: Surface<'_>,
     also: Option<&str>,
     lang: Lang,
     look: Register,
@@ -231,7 +232,16 @@ pub(crate) fn build(
             FilterPart::Opaque(query) => as_typed(commands, fonts, at, &render(query), lang, look),
         });
     }
-    if !panel.unanswerable(surface).is_empty() {
+    // Its own sentence first, because it is the one a player can act on.
+    if panel.missing_pool_facts(surface) {
+        children.push(note(
+            commands,
+            fonts,
+            Phrase::FilterNoPoolFacts.text(lang),
+            look,
+        ));
+    }
+    if panel.unanswerable_otherwise(surface) {
         children.push(note(
             commands,
             fonts,
@@ -250,7 +260,7 @@ pub(crate) fn build(
             look,
         ));
     }
-    children.push(adder(commands, fonts, panel.adding(), lang, look));
+    children.push(adder(commands, fonts, panel.adding(), surface, lang, look));
     children.push(foot(commands, fonts, lang, look));
     commands.entity(root).add_children(&children);
     root
@@ -268,6 +278,7 @@ fn heading(commands: &mut Commands, fonts: &UiFonts, lang: Lang, look: Register)
 }
 
 /// What a row needs to draw itself.
+#[derive(Clone, Copy)]
 struct RowLook<'a> {
     at: usize,
     negated: bool,
@@ -276,7 +287,7 @@ struct RowLook<'a> {
     caret: Option<&'a Typing>,
     lang: Lang,
     look: Register,
-    surface: Surface,
+    surface: Surface<'a>,
 }
 
 /// One condition: the minus, what it asks about, how, and the answer.
@@ -401,6 +412,16 @@ fn row(commands: &mut Commands, fonts: &UiFonts, it: RowLook<'_>) -> Entity {
         Control::Text => {
             kids.push(field(commands, fonts, at, term, caret, look));
         }
+        Control::Choice => {
+            // A rarity has an order to compare by and six words that fit; a
+            // format or a set has neither, and a box to narrow its list with.
+            if term.key == Key::Rarity {
+                kids.push(comparison(commands, fonts, at, term.op, look));
+            } else {
+                kids.push(field(commands, fonts, at, term, caret, look));
+            }
+            kids.extend(choice_words(commands, fonts, &it));
+        }
     }
     kids.push(icon(
         commands,
@@ -412,6 +433,28 @@ fn row(commands: &mut Commands, fonts: &UiFonts, it: RowLook<'_>) -> Entity {
     ));
     commands.entity(line).add_children(&kids);
     line
+}
+
+/// The words a choice row offers, the one it holds lit. The list narrows only
+/// under the caret: a row that merely holds a word still shows what else it
+/// could hold.
+fn choice_words(commands: &mut Commands, fonts: &UiFonts, it: &RowLook<'_>) -> Vec<Entity> {
+    let typed = it.caret.map_or("", |typing| typing.field().text());
+    let held = it.term.value.written();
+    choices(&it.term.key, typed, it.surface)
+        .into_iter()
+        .filter_map(|choice| {
+            let chosen = ChoiceWord::new(choice.word())?;
+            Some(word(
+                commands,
+                fonts,
+                &choice_name(choice, it.lang),
+                Act::Choose(it.at, chosen),
+                held.eq_ignore_ascii_case(choice.word()),
+                it.look,
+            ))
+        })
+        .collect()
 }
 
 /// A branch no control stands for, shown as the player wrote it.
@@ -643,14 +686,20 @@ fn comparison(
 
 /// The add button, and whichever of its two steps is unfolded.
 ///
-/// Two steps and not one list of thirteen keys: the first asks what *kind* of
+/// Two steps and not one list of eighteen keys: the first asks what *kind* of
 /// condition, and the second offers the keys of that kind. The grouping is
 /// `Control::of` over the same list the rows are added from, so a key cannot
 /// go missing from the menu by being left out of a second one.
+///
+/// A list with no table is not offered what only the table answers: a row
+/// that could only ever hide everything is not a condition to add. It says so
+/// instead, because a menu that merely stops offering rarity reads as a
+/// client that never heard of it.
 fn adder(
     commands: &mut Commands,
     fonts: &UiFonts,
     adding: Adding,
+    surface: Surface<'_>,
     lang: Lang,
     look: Register,
 ) -> Entity {
@@ -694,8 +743,10 @@ fn adder(
                 (Control::Number, Phrase::FilterKindNumber),
                 (Control::Flag, Phrase::FilterKindFlag),
                 (Control::Cost, Phrase::FilterKindCost),
+                (Control::Choice, Phrase::FilterKindPrinting),
             ]
             .into_iter()
+            .filter(|(kind, _)| *kind != Control::Choice || surface.pool_facts().is_some())
             .map(|(kind, phrase)| {
                 word(
                     commands,
@@ -709,6 +760,14 @@ fn adder(
             .collect();
             commands.entity(line).add_children(&buttons);
             kids.push(line);
+            if surface.pool_facts().is_none() {
+                kids.push(note(
+                    commands,
+                    fonts,
+                    Phrase::FilterNoPoolFacts.text(lang),
+                    look,
+                ));
+            }
         }
         Adding::Keys(kind) => {
             let line = band(commands, None);
@@ -960,8 +1019,67 @@ fn key_name(key: &Key, lang: Lang) -> &str {
         Key::Toughness => Phrase::FilterKeyToughness.text(lang),
         Key::Loyalty => Phrase::FilterKeyLoyalty.text(lang),
         Key::Is => Phrase::FilterKindFlag.text(lang),
+        Key::Rarity => Phrase::FilterKeyRarity.text(lang),
+        Key::Set => Phrase::FilterKeySet.text(lang),
+        Key::Format => Phrase::FilterKeyFormat.text(lang),
+        Key::Banned => Phrase::FilterKeyBanned.text(lang),
+        Key::Restricted => Phrase::FilterKeyRestricted.text(lang),
         Key::Unknown(word) => word,
     }
+}
+
+/// What a choice is called. A set is named by its code and its own name,
+/// which is the data's and never translated.
+fn choice_name(choice: Choice<'_>, lang: Lang) -> String {
+    match choice {
+        Choice::Rarity(rarity) => rarity_name(rarity, lang).to_string(),
+        Choice::Format(format) => format_name(format, lang).to_string(),
+        Choice::Set(set) => format!("{} · {}", set.code.to_uppercase(), set.name),
+    }
+}
+
+/// What a rarity is called.
+fn rarity_name(rarity: Rarity, lang: Lang) -> &'static str {
+    match rarity {
+        Rarity::Common => Phrase::RarityCommon.text(lang),
+        Rarity::Uncommon => Phrase::RarityUncommon.text(lang),
+        Rarity::Rare => Phrase::RarityRare.text(lang),
+        Rarity::Special => Phrase::RaritySpecial.text(lang),
+        Rarity::Mythic => Phrase::RarityMythic.text(lang),
+        Rarity::Bonus => Phrase::RarityBonus.text(lang),
+    }
+}
+
+/// What a format is called. The list of formats follows the feed, so one this
+/// build has no words for is shown as the feed spells it, as an unknown key
+/// is: the word is the data's, and a blank button would be worse.
+fn format_name(format: &str, lang: Lang) -> &str {
+    let phrase = match format {
+        "alchemy" => Phrase::PlayFormatAlchemy,
+        "brawl" => Phrase::PlayFormatBrawl,
+        "commander" => Phrase::PlayFormatCommander,
+        "competitivebrawl" => Phrase::PlayFormatCompetitiveBrawl,
+        "duel" => Phrase::PlayFormatDuel,
+        "future" => Phrase::PlayFormatFuture,
+        "gladiator" => Phrase::PlayFormatGladiator,
+        "historic" => Phrase::PlayFormatHistoric,
+        "legacy" => Phrase::PlayFormatLegacy,
+        "modern" => Phrase::PlayFormatModern,
+        "oathbreaker" => Phrase::PlayFormatOathbreaker,
+        "oldschool" => Phrase::PlayFormatOldschool,
+        "pauper" => Phrase::PlayFormatPauper,
+        "paupercommander" => Phrase::PlayFormatPauperCommander,
+        "penny" => Phrase::PlayFormatPenny,
+        "pioneer" => Phrase::PlayFormatPioneer,
+        "predh" => Phrase::PlayFormatPredh,
+        "premodern" => Phrase::PlayFormatPremodern,
+        "standard" => Phrase::PlayFormatStandard,
+        "standardbrawl" => Phrase::PlayFormatStandardBrawl,
+        "timeless" => Phrase::PlayFormatTimeless,
+        "vintage" => Phrase::PlayFormatVintage,
+        _ => return format,
+    };
+    phrase.text(lang)
 }
 
 /// What a flag is called.
