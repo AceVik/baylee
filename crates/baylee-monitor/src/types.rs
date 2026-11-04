@@ -1,7 +1,7 @@
 //! Wire values deliberately exclude command lines, environment and usernames.
 
 use crate::{
-    procfs::{pressure::Pressure, stat::CpuShares, swaps::SwapDevice},
+    procfs::{pressure::Pressure, sockstat::Sockets, stat::CpuShares, swaps::SwapDevice},
     training::Training,
 };
 use serde::Serialize;
@@ -108,6 +108,7 @@ pub(crate) struct Snapshot {
     pub temperatures: Vec<Temperature>,
     pub disks: Vec<Disk>,
     pub networks: Vec<Network>,
+    pub sockets: Sockets,
     pub processes: Vec<Process>,
     pub sample_ms: f64,
 }
@@ -210,8 +211,26 @@ pub(crate) struct Disk {
 #[derive(Clone, Serialize)]
 pub(crate) struct Network {
     pub name: String,
+    /// `ethernet`, `wlan`, `bridge`, `tunnel`, `loopback` or `virtual`.
+    pub kind: String,
+    /// The kernel's `operstate`.
+    pub state: String,
+    /// A real adapter, counted in the machine's total traffic.
+    pub physical: bool,
+    pub speed_mbps: Option<u32>,
+    pub duplex: Option<String>,
+    pub mtu: Option<u32>,
     pub rx_bps: f64,
     pub tx_bps: f64,
+    pub rx_pps: f64,
+    pub tx_pps: f64,
+    /// Bytes since the interface appeared, normally since boot.
+    pub rx_total: u64,
+    pub tx_total: u64,
+    pub rx_errors: u64,
+    pub tx_errors: u64,
+    pub rx_drops: u64,
+    pub tx_drops: u64,
 }
 
 /// One live message: the latest snapshot and the training panel's view.

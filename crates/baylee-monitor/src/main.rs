@@ -4,10 +4,13 @@ mod admission;
 mod background;
 mod gpu;
 mod listen;
+mod network;
 mod power;
 mod procfs;
 mod sampler;
 mod server;
+#[cfg(test)]
+mod test_support;
 mod training;
 mod types;
 

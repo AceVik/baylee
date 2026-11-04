@@ -3,7 +3,9 @@
 //! Unknown lines and fields are skipped: kernels add them freely.
 
 pub(crate) mod meminfo;
+pub(crate) mod netdev;
 pub(crate) mod pressure;
+pub(crate) mod sockstat;
 pub(crate) mod stat;
 pub(crate) mod swaps;
 pub(crate) mod vmstat;

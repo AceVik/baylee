@@ -4,28 +4,35 @@
 use crate::{
     background::{self, Latest},
     gpu::Gpus,
+    network::{self, Link},
     power::Power,
     procfs::{
-        meminfo, per_second, pressure,
+        meminfo, per_second, pressure, sockstat,
         stat::{self, Stat},
         swaps,
         vmstat::{self, Vmstat},
     },
     types::{
-        CpuDetail, Disk, Facts, GpuView, Memory, Network, Point, PressureView, Process, Snapshot,
-        Swap, Temperature,
+        CpuDetail, Disk, Facts, GpuView, Memory, Point, PressureView, Process, Snapshot, Swap,
+        Temperature,
     },
 };
 use anyhow::Context;
 use std::{
+    collections::BTreeMap,
     fs,
+    path::Path,
     time::{Duration, Instant},
 };
-use sysinfo::{Components, Disks, Networks, ProcessRefreshKind, ProcessesToUpdate, System};
+use sysinfo::{Components, Disks, ProcessRefreshKind, ProcessesToUpdate, System};
+
+/// Link speed and state change rarely, and asking the driver can be slow.
+const LINKS_EVERY: Duration = Duration::from_secs(5);
 
 pub(crate) struct Sampler {
     system: System,
-    networks: Networks,
+    network: network::Tracker,
+    links: Latest<BTreeMap<String, Link>>,
     components: Components,
     disks: Disks,
     gpu: Latest<GpuView>,
@@ -46,10 +53,14 @@ impl Sampler {
         let gpu = Latest::new(GpuView::default());
         let mut gpus = Gpus::new();
         background::spawn("gpu", interval, gpu.clone(), move || gpus.sample())?;
+        let links = Latest::new(BTreeMap::new());
+        background::spawn("links", LINKS_EVERY, links.clone(), || {
+            network::read_links(Path::new("/sys/class/net"))
+        })?;
         Ok(Self {
             system,
-            networks: Networks::new_with_refreshed_list()
-                .context("Network telemetry unavailable")?,
+            network: network::Tracker::default(),
+            links,
             components: Components::new_with_refreshed_list()
                 .context("Temperature telemetry unavailable")?,
             disks: Disks::new_with_refreshed_list().context("Disk telemetry unavailable")?,
@@ -152,7 +163,6 @@ impl Sampler {
         self.previous = started;
         self.system.refresh_cpu_usage();
         refresh_processes(&mut self.system);
-        self.networks.refresh(true);
         self.components.refresh(true);
         // statvfs is slower, and free space does not need 1 Hz updates.
         if started.duration_since(self.disk_at).as_secs() >= 15 {
@@ -161,17 +171,14 @@ impl Sampler {
         }
         let gpu = self.fresh_gpu_view();
         let (cpu_watts, cpu_power_status) = self.power.sample();
-        let networks: Vec<_> = self
-            .networks
-            .iter()
-            .filter(|(name, _)| *name != "lo")
-            .map(|(name, data)| Network {
-                name: name.to_string_lossy().into_owned(),
-                rx_bps: data.received() as f64 / elapsed,
-                tx_bps: data.transmitted() as f64 / elapsed,
-            })
-            .collect();
-        let (net_rx, net_tx) = physical_rates(&self.networks, elapsed);
+        let links = self.links.get();
+        let networks = self
+            .network
+            .update(&read_text("/proc/net/dev"), &links, elapsed);
+        let (net_rx, net_tx) = network::physical_rates(&networks);
+        let mut sockets = sockstat::Sockets::default();
+        sockstat::add(&mut sockets, &read_text("/proc/net/sockstat"));
+        sockstat::add(&mut sockets, &read_text("/proc/net/sockstat6"));
         let processes = collect_processes(&self.system, &gpu.gpus, elapsed);
         let primary = gpu.gpus.first();
         let load = System::load_average()
@@ -249,6 +256,7 @@ impl Sampler {
                 })
                 .collect(),
             networks,
+            sockets,
             processes,
             sample_ms: started.elapsed().as_secs_f64() * 1000.0,
         }
@@ -270,25 +278,6 @@ fn refresh_processes(system: &mut System) {
             .with_memory()
             .with_disk_usage(),
     );
-}
-
-// Aggregate physical interfaces only; bridges/veth repeat the same traffic.
-// Keep native names for filesystem lookup, including non-UTF-8 interfaces.
-fn physical_rates(networks: &Networks, elapsed: f64) -> (f64, f64) {
-    networks
-        .iter()
-        .filter(|(name, _)| {
-            std::path::Path::new("/sys/class/net")
-                .join(name)
-                .join("device")
-                .exists()
-        })
-        .fold((0.0, 0.0), |(rx, tx), (_, data)| {
-            (
-                rx + data.received() as f64 / elapsed,
-                tx + data.transmitted() as f64 / elapsed,
-            )
-        })
 }
 
 fn percent(used: u64, total: u64) -> f64 {
