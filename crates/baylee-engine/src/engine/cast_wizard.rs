@@ -185,6 +185,56 @@ pub(crate) struct CastWizard {
 }
 
 impl CastWizard {
+    /// A cast nothing has been answered for yet, standing at `stage` with
+    /// `options` to choose from: paid out of the pool at its full price by
+    /// nobody's effect. Each way of starting a cast says what it changes
+    /// beside this, so a new answer the wizard keeps is written once.
+    fn new(
+        card: ObjectId,
+        player: PlayerId,
+        stage: WizardStage,
+        options: Vec<CastModeDesc>,
+    ) -> Self {
+        Self {
+            card,
+            player,
+            option: None,
+            announced: None,
+            forced_face: None,
+            north_star: None,
+            permission: None,
+            permissions: Vec::new(),
+            reduction: None,
+            target_references: crate::sources::TargetReferences::default(),
+            division: Vec::new(),
+            targets: SmallVec::new(),
+            second_targets: SmallVec::new(),
+            second_target_players: baylee_core::ids::SeatSet::new(),
+            target_players: baylee_core::ids::SeatSet::new(),
+            chosen_player: None,
+            x: 0,
+            kicked: false,
+            replicated: 0,
+            pitch: SmallVec::new(),
+            returned: None,
+            beheld: None,
+            behold_paid_mana: false,
+            delve_exiles: SmallVec::new(),
+            escape_exiles: SmallVec::new(),
+            convoke_taps: SmallVec::new(),
+            cost_objects: SmallVec::new(),
+            phyrexian: SmallVec::new(),
+            stage,
+            options,
+            free: false,
+            masked: false,
+            by_effect: None,
+            started: None,
+            paying: casting::Paying::FromThePool,
+            window_start: None,
+        }
+    }
+
     pub(super) fn face_index(&self) -> usize {
         if let Some(face) = self.forced_face {
             return usize::from(face);
@@ -436,46 +486,14 @@ impl<L: CardLookup> Engine<L> {
             && self.compute_legal(player).payable.contains(&card);
         let options = self.cast_options(player, card, pay_in_window)?;
         let mut wizard = CastWizard {
-            card,
-            player,
-            option: None,
-            announced: None,
-            forced_face: None,
-            north_star: None,
-            permission: None,
-            permissions: Vec::new(),
-            reduction: None,
-            target_references: crate::sources::TargetReferences::default(),
-            division: Vec::new(),
-            targets: SmallVec::new(),
-            second_targets: SmallVec::new(),
-            second_target_players: baylee_core::ids::SeatSet::new(),
-            target_players: baylee_core::ids::SeatSet::new(),
-            chosen_player: None,
-            x: 0,
-            kicked: false,
-            replicated: 0,
-            pitch: SmallVec::new(),
-            returned: None,
-            beheld: None,
-            behold_paid_mana: false,
-            delve_exiles: SmallVec::new(),
-            escape_exiles: SmallVec::new(),
-            convoke_taps: SmallVec::new(),
-            cost_objects: SmallVec::new(),
-            phyrexian: SmallVec::new(),
-            stage: WizardStage::ChooseMode,
-            options,
-            free: false,
-            masked: false,
             by_effect: self.commanded_card(card).then_some(EffectCast::Plain),
-            window_start: None,
             paying: if pay_in_window {
                 casting::Paying::DuringTheCast
             } else {
                 casting::Paying::FromThePool
             },
             started: (!self.commanded_card(card)).then(|| self.cast_start()),
+            ..CastWizard::new(card, player, WizardStage::ChooseMode, options)
         };
         if wizard.options.len() == 1 {
             wizard.option = Some(wizard.options[0].kind);
@@ -507,47 +525,17 @@ impl<L: CardLookup> Engine<L> {
         }
         let cost =
             casting::spell_adjustment(&self.state, player, &projected).price(ManaCost::ZERO, 0);
+        let options = vec![CastModeDesc {
+            index: 0,
+            kind: CastModeKind::Normal,
+            cost,
+        }];
         self.cast_wizard = Some(CastWizard {
-            card,
-            player,
             option: Some(CastModeKind::Normal),
-            announced: None,
-            forced_face: None,
-            north_star: None,
-            permission: None,
-            permissions: Vec::new(),
-            reduction: None,
-            target_references: crate::sources::TargetReferences::default(),
-            division: Vec::new(),
-            targets: SmallVec::new(),
-            second_targets: SmallVec::new(),
-            second_target_players: baylee_core::ids::SeatSet::new(),
-            target_players: baylee_core::ids::SeatSet::new(),
-            chosen_player: None,
-            x: 0,
-            kicked: false,
-            replicated: 0,
-            pitch: SmallVec::new(),
-            returned: None,
-            beheld: None,
-            behold_paid_mana: false,
-            delve_exiles: SmallVec::new(),
-            escape_exiles: SmallVec::new(),
-            convoke_taps: SmallVec::new(),
-            cost_objects: SmallVec::new(),
-            phyrexian: SmallVec::new(),
-            stage: WizardStage::Done,
-            options: vec![CastModeDesc {
-                index: 0,
-                kind: CastModeKind::Normal,
-                cost,
-            }],
             free: true,
             masked: true,
             by_effect: Some(EffectCast::Plain),
-            window_start: None,
-            paying: casting::Paying::FromThePool,
-            started: None,
+            ..CastWizard::new(card, player, WizardStage::Done, options)
         });
         self.advance_cast_wizard()
     }
@@ -634,47 +622,13 @@ impl<L: CardLookup> Engine<L> {
             cost: self.front_spell_price(player, card, cost),
         }];
         Some(CastWizard {
-            card,
-            player,
             option: Some(CastModeKind::Miracle),
-            announced: None,
-            forced_face: None,
-            north_star: None,
-            permission: None,
-            permissions: Vec::new(),
-            reduction: None,
-            target_references: crate::sources::TargetReferences::default(),
-            division: Vec::new(),
-            targets: SmallVec::new(),
-            second_targets: SmallVec::new(),
-            second_target_players: baylee_core::ids::SeatSet::new(),
-            target_players: baylee_core::ids::SeatSet::new(),
-            chosen_player: None,
-            x: 0,
-            kicked: false,
-            replicated: 0,
-            pitch: SmallVec::new(),
-            returned: None,
-            beheld: None,
-            behold_paid_mana: false,
-            delve_exiles: SmallVec::new(),
-            escape_exiles: SmallVec::new(),
-            convoke_taps: SmallVec::new(),
-            cost_objects: SmallVec::new(),
-            phyrexian: SmallVec::new(),
             // A miracle cost is paid "rather than its mana cost" (CR 702.94a),
             // which makes it an alternative cost, and an alternative cost
             // with an {X} in it announces X like any other (CR 107.3a) —
             // Entreat the Dead's `{X}{B}{B}` was cast for X = 0 and returned
             // nobody. `XValue` falls through to `Targets` when there is none.
-            stage: WizardStage::XValue,
-            options,
-            free: false,
-            masked: false,
-            by_effect: None,
-            window_start: None,
-            paying: casting::Paying::FromThePool,
-            started: None,
+            ..CastWizard::new(card, player, WizardStage::XValue, options)
         })
     }
 
@@ -793,47 +747,15 @@ impl<L: CardLookup> Engine<L> {
             [only] => (Some(only.kind), WizardStage::XValue),
             _ => (None, WizardStage::ChooseMode),
         };
-        let mut wizard = CastWizard {
-            card,
-            player,
+        // `XValue` fixes a waived mana-cost X at zero, but still asks about
+        // independent additional costs such as Toxic Deluge's X life.
+        let wizard = CastWizard {
             option,
-            announced: None,
             forced_face,
-            north_star: None,
-            permission: None,
-            permissions: Vec::new(),
-            reduction: None,
-            target_references: crate::sources::TargetReferences::default(),
-            division: Vec::new(),
-            targets: SmallVec::new(),
-            second_targets: SmallVec::new(),
-            second_target_players: baylee_core::ids::SeatSet::new(),
-            target_players: baylee_core::ids::SeatSet::new(),
-            chosen_player: None,
-            x: 0,
-            kicked: false,
-            replicated: 0,
-            pitch: SmallVec::new(),
-            returned: None,
-            beheld: None,
-            behold_paid_mana: false,
-            delve_exiles: SmallVec::new(),
-            escape_exiles: SmallVec::new(),
-            convoke_taps: SmallVec::new(),
-            cost_objects: SmallVec::new(),
-            phyrexian: SmallVec::new(),
-            // `XValue` fixes a waived mana-cost X at zero, but still asks
-            // about independent additional costs such as Toxic Deluge's X life.
-            stage,
-            options,
             free: true,
-            masked: false,
             by_effect: by_effect.then_some(EffectCast::Plain),
-            window_start: None,
-            paying: casting::Paying::FromThePool,
-            started: None,
+            ..CastWizard::new(card, player, stage, options)
         };
-        let _ = &mut wizard;
         self.cast_wizard = Some(wizard);
         self.advance_cast_wizard()
     }
@@ -866,49 +788,17 @@ impl<L: CardLookup> Engine<L> {
         }
         let single = options.len() <= 1;
         let option = options.first().map(|o| o.kind);
+        // `XValue` asks nothing of a free wizard (CR 107.3b); from there on it
+        // is every other cast.
+        let stage = if single {
+            WizardStage::XValue
+        } else {
+            WizardStage::ChooseMode
+        };
         let wizard = CastWizard {
-            card,
-            player,
             option: if single { option } else { None },
-            announced: None,
-            forced_face: None,
-            north_star: None,
-            permission: None,
-            permissions: Vec::new(),
-            reduction: None,
-            target_references: crate::sources::TargetReferences::default(),
-            division: Vec::new(),
-            targets: SmallVec::new(),
-            second_targets: SmallVec::new(),
-            second_target_players: baylee_core::ids::SeatSet::new(),
-            target_players: baylee_core::ids::SeatSet::new(),
-            chosen_player: None,
-            x: 0,
-            kicked: false,
-            replicated: 0,
-            pitch: SmallVec::new(),
-            returned: None,
-            beheld: None,
-            behold_paid_mana: false,
-            delve_exiles: SmallVec::new(),
-            escape_exiles: SmallVec::new(),
-            convoke_taps: SmallVec::new(),
-            cost_objects: SmallVec::new(),
-            phyrexian: SmallVec::new(),
-            // `XValue` asks nothing of a free wizard (CR 107.3b); from there
-            // on it is every other cast.
-            stage: if single {
-                WizardStage::XValue
-            } else {
-                WizardStage::ChooseMode
-            },
-            options,
             free: true,
-            masked: false,
-            by_effect: None,
-            window_start: None,
-            paying: casting::Paying::FromThePool,
-            started: None,
+            ..CastWizard::new(card, player, stage, options)
         };
         self.cast_wizard = Some(wizard);
         self.advance_cast_wizard()
@@ -945,43 +835,13 @@ impl<L: CardLookup> Engine<L> {
         if !casting::may_begin_casting(&self.state, player) {
             return Err(EngineError::IllegalAction("no more spells this turn"));
         }
+        let options = vec![CastModeDesc {
+            index: 0,
+            kind: CastModeKind::Normal,
+            cost: self.front_spell_price(player, card, cost),
+        }];
         let wizard = CastWizard {
-            card,
-            player,
             option: Some(CastModeKind::Normal),
-            announced: None,
-            forced_face: None,
-            north_star: None,
-            permission: None,
-            permissions: Vec::new(),
-            reduction: None,
-            target_references: crate::sources::TargetReferences::default(),
-            division: Vec::new(),
-            targets: SmallVec::new(),
-            second_targets: SmallVec::new(),
-            second_target_players: baylee_core::ids::SeatSet::new(),
-            target_players: baylee_core::ids::SeatSet::new(),
-            chosen_player: None,
-            x: 0,
-            kicked: false,
-            replicated: 0,
-            pitch: SmallVec::new(),
-            returned: None,
-            beheld: None,
-            behold_paid_mana: false,
-            delve_exiles: SmallVec::new(),
-            escape_exiles: SmallVec::new(),
-            convoke_taps: SmallVec::new(),
-            cost_objects: SmallVec::new(),
-            phyrexian: SmallVec::new(),
-            stage: WizardStage::XValue,
-            options: vec![CastModeDesc {
-                index: 0,
-                kind: CastModeKind::Normal,
-                cost: self.front_spell_price(player, card, cost),
-            }],
-            free: false,
-            masked: false,
             by_effect: Some(if any_mana {
                 EffectCast::AnyMana
             } else if then_no_more_spells {
@@ -990,8 +850,7 @@ impl<L: CardLookup> Engine<L> {
                 EffectCast::Plain
             }),
             window_start: Some(opened),
-            paying: casting::Paying::FromThePool,
-            started: None,
+            ..CastWizard::new(card, player, WizardStage::XValue, options)
         };
         self.cast_wizard = Some(wizard);
         self.advance_cast_wizard()
