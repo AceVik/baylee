@@ -203,6 +203,9 @@ pub struct MenuRevision {
     leaving: bool,
     /// Whether this seat has already been eliminated in a multi-seat game.
     eliminated: bool,
+    /// Whether this seat is making another player's decision (CR 723.5):
+    /// the concession then says it is this seat's own (CR 723.6).
+    controlling: bool,
 }
 
 /// Where the panel stands.
@@ -349,6 +352,7 @@ pub fn sync_menu(
         replay: duel.replay.is_some(),
         leaving: duel.leave_armed,
         eliminated: duel.my_seat_eliminated(),
+        controlling: duel.deciding_for().is_some(),
     };
     // Whether the panel is *showing*, which is not whether it is visible: one
     // in the middle of folding away is still on the screen and is already
@@ -414,10 +418,22 @@ pub fn sync_menu(
         (Phrase::StopWatching.text(lang), Weight::Secondary)
     } else if next.eliminated {
         (Phrase::Concede.text(lang), Weight::Dead)
-    } else if next.armed {
-        (Phrase::ConcedeConfirm.text(lang), Weight::Danger)
     } else {
-        (Phrase::Concede.text(lang), Weight::Secondary)
+        // The engine hears a concession as its sender's own, so while this
+        // seat decides for another player the row is still this seat's, and
+        // it says so: nothing here concedes for the controlled player
+        // (CR 723.6), and a bare "Concede" beside "You decide for …" read as
+        // if it did.
+        let (row, confirm) = if next.controlling {
+            (Phrase::ConcedeYourself, Phrase::ConcedeYourselfConfirm)
+        } else {
+            (Phrase::Concede, Phrase::ConcedeConfirm)
+        };
+        if next.armed {
+            (confirm.text(lang), Weight::Danger)
+        } else {
+            (row.text(lang), Weight::Secondary)
+        }
     };
     let concede = answer(&mut commands, &fonts, words, weight, None);
     if weight != Weight::Dead {
@@ -689,6 +705,8 @@ mod tests {
                 Phrase::OfferADraw,
                 Phrase::Concede,
                 Phrase::ConcedeConfirm,
+                Phrase::ConcedeYourself,
+                Phrase::ConcedeYourselfConfirm,
                 Phrase::StopWatching,
                 Phrase::LeaveTable,
                 Phrase::LeaveTableConfirm,

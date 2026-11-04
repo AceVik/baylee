@@ -3550,6 +3550,14 @@ YouAreWatching = You are watching
 # Concede, armed and waiting for the second press.
 ConcedeConfirm = Concede? Press again
 
+# Concede while this seat makes another player's decisions (CR 723.5):
+# it concedes only this seat's own game, never the controlled player's
+# (CR 723.6), and says so.
+ConcedeYourself = Concede yourself
+
+# The same, armed and waiting for the second press.
+ConcedeYourselfConfirm = Concede yourself? Press again
+
 # The game menu's way up from a running table without conceding
 # (report 33).
 LeaveTable = Leave the table
