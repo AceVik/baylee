@@ -432,7 +432,7 @@ pub struct GameState {
     /// turn instead of the normal successor.
     pub extra_turns: std::collections::VecDeque<PlayerId>,
     /// Players controlling other players during their next actual turn
-    /// (CR 722.1), waiting for that turn or in it.
+    /// (CR 723.1), waiting for that turn or in it.
     pub turn_controls: Vec<crate::state::PlayerTurnControl>,
     /// While the current turn is an extra one, the player whose normal
     /// turn it was added after: "the turns directly after the specified

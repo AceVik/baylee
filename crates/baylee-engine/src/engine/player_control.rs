@@ -419,7 +419,7 @@ impl<L: CardLookup> Engine<L> {
                         .map(|entry| (entry.controller, entry.player))
                 })
                 .or_else(|| {
-                    // The last one created is the one that works (CR 722.1a),
+                    // The last one created is the one that works (CR 723.1a),
                     // and only during the turn it was stamped with.
                     self.state
                         .turn_controls
@@ -515,9 +515,9 @@ impl<L: CardLookup> Engine<L> {
     /// A turn has just begun (`begin_turn`, with its number and active player
     /// set): a control that covered the turn before ends, since it lasts
     /// "until the beginning of the next turn", whoever takes it, and one
-    /// waiting for the active player's next actual turn begins it (CR 722.1).
+    /// waiting for the active player's next actual turn begins it (CR 723.1).
     /// A skipped turn never begins, so the control waits on past it
-    /// (CR 722.1b), and another player's turn, extra or not, leaves it
+    /// (CR 723.1b), and another player's turn, extra or not, leaves it
     /// waiting.
     pub(super) fn begin_turn_controls(&mut self) {
         let number = self.state.turn.number;

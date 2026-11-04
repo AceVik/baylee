@@ -1009,7 +1009,7 @@ pub enum Rider {
     /// its owner owns to merge with on resolution.
     Mutating,
     /// Additional physical card merged into this permanent via Mutate or Meld
-    /// (CR 712.21a, CR 727.3), which moves to the same zone when this
+    /// (CR 712.21a, CR 730.3), which moves to the same zone when this
     /// permanent leaves the battlefield.
     MergedComponent(ObjectId),
     /// Top component of a merged permanent; the root retains its physical card.

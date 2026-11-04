@@ -496,12 +496,12 @@ pub enum LogEvent {
         /// the game ended in a draw (CR 104.4b).
         broken: bool,
     },
-    /// It became day or night (CR 730.1).
+    /// It became day or night (CR 731.1).
     DayNight {
         /// Which it is now.
         now: DayNight,
     },
-    /// A player became the monarch (CR 724.3). Who the monarch is now is
+    /// A player became the monarch (CR 725.3). Who the monarch is now is
     /// [`crate::PlayerView::monarch`]; this line says when it changed.
     BecameMonarch {
         /// The new monarch.

@@ -70,7 +70,7 @@ pub struct PlayerView {
     /// This may differ from the viewing seat under CR 722.
     #[serde(default)]
     pub decision_player: Option<PlayerId>,
-    /// Hands inspected through current control of another player (CR 722.4).
+    /// Hands inspected through current control of another player (CR 723.4).
     /// Separate from voluntary team sharing; rebuilt for every decision.
     #[serde(default)]
     pub controlled_hands: Vec<SharedHand>,

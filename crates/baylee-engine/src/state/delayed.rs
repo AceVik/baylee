@@ -18,11 +18,11 @@ pub struct DelayedTrigger {
 }
 
 /// One effect giving a player control of another player during that
-/// player's next turn (CR 722.1): "the next turn that the affected player
+/// player's next turn (CR 723.1): "the next turn that the affected player
 /// actually takes", the whole of it, until "the beginning of the next turn".
 ///
 /// It waits through every turn another player takes, extra turns among them,
-/// and through a turn of the affected player's that is skipped (CR 722.1b),
+/// and through a turn of the affected player's that is skipped (CR 723.1b),
 /// is stamped with the number of the affected player's turn as that turn
 /// begins (`Engine::begin_turn`), controls exactly that turn, and ends as the
 /// next turn begins, whoever takes it.

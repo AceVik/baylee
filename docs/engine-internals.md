@@ -1323,7 +1323,7 @@ increment. The chooser's historical view carries its own entitled identity and
 characteristics instead of looking up the current object. Target revalidation
 uses the separate exact-target contract described above (#117).
 
-### The monarch's abilities have no source (CR 724.2)
+### The monarch's abilities have no source (CR 725.2)
 
 `trigger::monarch_triggers` reads both off the events and queues synthetic
 triggers from `ObjectId::NO_SOURCE`, controlled by the monarch they
@@ -1338,7 +1338,7 @@ opponent becomes the monarch" that resolves after an opponent was crowned
 since it was put on the stack exiles nothing
 (`resolve::zones::an_opponent_was_crowned_since`). Players who lose in one
 state-based check leave together (`sba::run` finds every loss first), so
-the crown passes over all of them to the heir (CR 724.4), never through one.
+the crown passes over all of them to the heir (CR 725.4), never through one.
 
 ### Undying and persist, and the question about an object that is gone
 
@@ -2140,7 +2140,7 @@ stream, so the copy (`simulation::driver::duplicate`) is private and
   nothing. What the seat can see now stays out of the deal, the same
   objects in the same places: a hand revealed by a static (`hand_revealed`:
   Revelation, Stromgald Spy), the hand of a player the seat controls
-  (`may_inspect_private`, CR 722.4), and a library top a static reveals
+  (`may_inspect_private`, CR 723.4), and a library top a static reveals
   (`library_top_revealed`: Courser of Kruphix, Field of Dreams) — dealing
   those would put a card there the seat knows is not, and with Courser
   change which lands can be played from the top. What the seat knew earlier
@@ -2284,16 +2284,16 @@ that original calculation restored.
    its owner. Under a later thief it goes back to the earlier one. Their
    control of a player ends too, both ways the engine keeps one as an
    effect: Opposition Agent's `SearchTakeover` hold on a searching player
-   (CR 722.2), and Mindslaver's control of a player's next turn
-   (`GameState::turn_controls`, CR 722.1), waiting or under way, whether
+   (CR 723.2), and Mindslaver's control of a player's next turn
+   (`GameState::turn_controls`, CR 723.1), waiting or under way, whether
    they are its controller or the player it controls. A search they were
    making for somebody else when they left goes back to that player, with
-   the same cards and limits, to finish as their own search (CR 722.5).
+   the same cards and limits, to finish as their own search (CR 723.5).
 3. What a permanent of theirs held "until it leaves the battlefield" comes
    back (CR 610.3, `GameState::return_what_departed_hosts_held`): their
    permanents left without a move, so this is the one departure
    `move_object` does not see. If they were the monarch, the crown passes
-   as they leave (CR 724.4, `GameState::monarch_leaves`): to the active
+   as they leave (CR 725.4, `GameState::monarch_leaves`): to the active
    player, or, when the leaver is the active player, to the next player in
    turn order still in the game, and to nobody when nobody is left. It
    passes through `set_monarch`, so Palace Jailer's exile ends if the heir
@@ -2316,13 +2316,13 @@ the new one as well.
 
 A turn control waits through every turn its player does not take, other
 players' and extra turns among them, and through a turn of theirs that is
-skipped, which never begins (CR 722.1b). As the player's turn begins,
+skipped, which never begins (CR 723.1b). As the player's turn begins,
 `Engine::begin_turn` stamps the control with that turn's number
 (`PlayerTurnControl::began`); `controlled_actor` reads it only during the
 turn it was stamped with; and the next turn's beginning ends it, whoever
 takes that turn, the player's own extra turn included ("the effect doesn't
-end until the beginning of the next turn", CR 722.1). Of two waiting for
-the same player, the later works (CR 722.1a). Keyed on turn numbers alone
+end until the beginning of the next turn", CR 723.1). Of two waiting for
+the same player, the later works (CR 723.1a). Keyed on turn numbers alone
 it was dropped once two turns passed before the player's (seat 0's on seat
 3's, at four seats, or after its controller's two extra turns) and lasted
 on through an extra turn the player took right after

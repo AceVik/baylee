@@ -5370,7 +5370,7 @@ LogDay = It became day
 # It became night (CR 730).
 LogNight = It became night
 
-# The reading seat became the monarch (CR 724.3).
+# The reading seat became the monarch (CR 725.3).
 # Arguments: player, unused_1, unused_2, unused_3, unused_4, unused_5, unused_6, you_subject
 LogMonarchYou = { $you_subject } became the monarch
 

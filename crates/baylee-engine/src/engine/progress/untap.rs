@@ -25,7 +25,7 @@ impl<L: CardLookup> Engine<L> {
     /// where it is, in either direction.
     ///
     /// A game with neither designation skips the check entirely and keeps
-    /// having neither (CR 730.2c) — which is every game in this pool that
+    /// having neither (CR 731.2c) — which is every game in this pool that
     /// has no daybound card in it, so the common case costs two compares.
     ///
     /// CR 502.2a states a variant for the shared team turns option, which

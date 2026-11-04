@@ -319,7 +319,7 @@ fn a_crown_taken_in_combat_draws_at_the_new_monarchs_end_step() {
 }
 
 /// The monarch dies to the combat damage that would have taken the crown.
-/// The crown passes to the active player as the monarch leaves (CR 724.4),
+/// The crown passes to the active player as the monarch leaves (CR 725.4),
 /// and the game goes on with the attacker crowned, once.
 #[test]
 fn a_monarch_killed_by_the_damage_crowns_the_attacker_as_they_leave() {

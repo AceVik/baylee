@@ -1993,7 +1993,7 @@ pub(super) fn exec_immediate(
             None
         }
         Effect::BecomeMonarch(rel) => {
-            // One monarch at a time (CR 724.3), so one player at most.
+            // One monarch at a time (CR 725.3), so one player at most.
             if let Some(&player) = players_of(rel, state, you, res).first() {
                 state.set_monarch(player);
             }

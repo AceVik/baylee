@@ -8,7 +8,7 @@
 //! leaves hands the object back to an earlier one. Three seats, so the game
 //! outlives the leaver.
 //!
-//! Opposition Agent controls a player while they search (CR 722.2); that
+//! Opposition Agent controls a player while they search (CR 723.2); that
 //! ends too.
 //!
 //! No card in the pool gives control of a creature until end of combat, or
@@ -569,7 +569,7 @@ fn a_leavers_creature_is_exiled_when_a_combats_taker_lets_go() {
 }
 
 /// `{2}{B}` "You control your opponents while they're searching their
-/// libraries": the one card in the pool that controls a player (CR 722.2).
+/// libraries": the one card in the pool that controls a player (CR 723.2).
 fn opposition_agent() -> CardIndex {
     card_index("1f438b8f-fe23-4f3b-ab2e-f6c33676c462")
 }
@@ -582,7 +582,7 @@ fn grim_tutor() -> CardIndex {
 
 /// The Agent's controller leaves while making seat 1's search for them. The
 /// effect that gave them control of seat 1 ends (CR 800.4a), so seat 1 makes
-/// the choice (CR 722.5), and the card goes where the tutor sends it: into
+/// the choice (CR 723.5), and the card goes where the tutor sends it: into
 /// seat 1's hand, not into exile.
 #[test]
 fn a_search_taken_over_by_a_leaver_goes_back_to_the_searcher() {
@@ -655,7 +655,7 @@ fn a_search_taken_over_by_a_leaver_goes_back_to_the_searcher() {
 }
 
 /// Opposition Agent controls a player through `Modifier::SearchTakeover`
-/// (CR 722.2), while Mindslaver schedules control of that player's next turn.
+/// (CR 723.2), while Mindslaver schedules control of that player's next turn.
 /// Both are effects a player leaving ends besides control of objects
 /// (CR 800.4a). A new printed form fails here until its departure rule exists.
 #[test]

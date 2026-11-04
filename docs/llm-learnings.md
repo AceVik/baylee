@@ -154,7 +154,7 @@ one, and every one of them passed every gate.
    number.** Mindslaver's control was keyed on `turn.number` and the active
    seat, so it was dropped when two turns passed before its player's (four
    seats, or the controller's two extra turns) and lasted into the player's
-   own extra turn after it. CR 722.1 names the turn the player takes and ends
+   own extra turn after it. CR 723.1 names the turn the player takes and ends
    at the next turn's beginning: stamp the control as that turn begins.
 5. **Every resume path advances the program as the plain path does.** The
    damage contest's plain path returns to `run`, which steps past it; the

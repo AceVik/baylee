@@ -381,7 +381,7 @@ fn next_turn(
 }
 
 /// "This effect applies to the next turn that the affected player actually
-/// takes" (CR 722.1): at a table of four, seat 0's Mindslaver on seat 3
+/// takes" (CR 723.1): at a table of four, seat 0's Mindslaver on seat 3
 /// waits through seats 1 and 2, controls seat 3's turn, and has ended as
 /// seat 0's begins. The global turn number passing the one the control was
 /// created for is no reason to drop it.
@@ -430,7 +430,7 @@ fn a_scheduled_control_waits_through_the_controllers_extra_turns() {
 }
 
 /// "The affected player is controlled during the entire turn; the effect
-/// doesn't end until the beginning of the next turn" (CR 722.1): the next
+/// doesn't end until the beginning of the next turn" (CR 723.1): the next
 /// turn, even when it is the subject's own extra turn right after the
 /// controlled one.
 #[test]

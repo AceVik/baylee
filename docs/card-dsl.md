@@ -4701,11 +4701,11 @@ brackets. Read them as vocabulary, not as card text.
 
 **Controlling a player.** `Effect::ControlPlayerNextTurn { player }`
 [Mindslaver] gives the resolving controller control of each player of
-`player` during the next turn that player actually takes (CR 722.1). It
+`player` during the next turn that player actually takes (CR 723.1). It
 waits through every turn somebody else takes, extra turns among them, and
-through a turn of theirs that is skipped (CR 722.1b); it covers that whole
+through a turn of theirs that is skipped (CR 723.1b); it covers that whole
 turn and ends as the next turn begins, whoever takes it. Of several on one
-player the last created works (CR 722.1a). It ends at once when either
+player the last created works (CR 723.1a). It ends at once when either
 player leaves the game. It is not `Effect::ControlPlayerPlayCard` (Word of
 Command), which controls one instructed play.
 

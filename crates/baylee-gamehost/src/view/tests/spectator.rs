@@ -279,7 +279,7 @@ fn a_spectator_is_told_no_log_line_about_a_private_card() {
     );
 }
 
-/// Word of Command (CR 722.4) shows its caster the target's hand while the
+/// Word of Command (CR 723.4) shows its caster the target's hand while the
 /// caster chooses. A spectator is not the caster.
 #[test]
 fn word_of_commands_hand_is_not_shown_to_a_spectator() {

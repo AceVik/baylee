@@ -250,7 +250,7 @@ fn public_facts(engine: &Engine<RegistryLookup>) -> String {
 /// any other question (a discard to hand size) gets the kit's first legal
 /// answer, which depends on nothing but the question. Whoever answers is
 /// the decision's actor: the controller, while a player's turn is
-/// controlled (CR 722.1).
+/// controlled (CR 723.1).
 fn step(engine: &mut Engine<RegistryLookup>) {
     let actor = engine.decision_actor().expect("somebody is asked");
     let action = match engine.pending() {
@@ -1234,7 +1234,7 @@ fn a_tutor_and_its_shuffle_do_not_reach_the_fork() {
 
 /// I control their turn (Mindslaver, scheduled as
 /// `Effect::ControlPlayerNextTurn` schedules it), so I may look at their
-/// hand (CR 722.4): the fork keeps it as I see it, the same objects, and
+/// hand (CR 723.4): the fork keeps it as I see it, the same objects, and
 /// deals their library. Taken in their upkeep, before their draw: a card
 /// drawn from a shuffled library keeps the deck-list id of the slot that
 /// was on top, so twins taken after it would differ in that id.

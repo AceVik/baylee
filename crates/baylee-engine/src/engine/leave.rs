@@ -324,7 +324,7 @@ impl<L: CardLookup> Engine<L> {
         // A search they were making for another player (Opposition Agent)
         // is that player's own again: the effect that gave them control of
         // the searcher has ended (CR 800.4a), and a player nobody controls
-        // makes their own choices (CR 722.5). Same cards, same limits, and
+        // makes their own choices (CR 723.5). Same cards, same limits, and
         // the finds go where the search sends them.
         if !their_own
             && let Some(res) = &mut self.resolution

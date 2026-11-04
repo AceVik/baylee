@@ -156,7 +156,7 @@ impl HeuristicAgent {
     /// purely for sitting in the lowest seat.
     fn pick_defender(&self, view: &PlayerView, defenders: &[PlayerId]) -> PlayerId {
         // The monarch, whatever the profile: any creature that connects takes
-        // the crown, a card every turn, for this seat (CR 724.2). No policy
+        // the crown, a card every turn, for this seat (CR 725.2). No policy
         // read it, so at a table of house seats the crown never moved.
         if let Some(monarch) = view.monarch.filter(|m| defenders.contains(m)) {
             return monarch;

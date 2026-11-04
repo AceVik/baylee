@@ -1337,7 +1337,7 @@ lost:
 - an ability that has left the stack before the log read it is named by its
   source alone (`ability: None`).
 
-A triggered ability with no source, the monarch's two (CR 724.2), gets no
+A triggered ability with no source, the monarch's two (CR 725.2), gets no
 line of its own; what it does has its lines. The crown moving is one of
 them: `LogEvent::BecameMonarch { player }` (view version 55), told to every
 seat, once per change. Who holds it now is `PlayerView::monarch`, in every
@@ -2121,7 +2121,7 @@ as `Session::seat_view` builds it for a socket at it):
    exiled face down and may look at), by name;
 5. its **log** as it was told it: its draws and the cards it was shown, by
    name;
-6. a hand it saw while **controlling** another player (CR 722.4,
+6. a hand it saw while **controlling** another player (CR 723.4,
    `controlled_hands`), only where that player is in **S**;
 7. its own answers' bookkeeping (what its policies answered, whether the
    clock or a stand-in answered for it).

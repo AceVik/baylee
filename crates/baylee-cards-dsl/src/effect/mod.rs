@@ -498,7 +498,7 @@ pub enum Effect {
         player: PlayerRel,
     },
     /// Control a player during the next turn that player actually takes
-    /// (CR 722.1): the whole turn, until the next one begins.
+    /// (CR 723.1): the whole turn, until the next one begins.
     ControlPlayerNextTurn {
         /// The player to control.
         player: PlayerRel,

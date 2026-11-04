@@ -3473,8 +3473,8 @@ new object with no relation to the exile it left (CR 400.7).
 (not on a move from exile to exile).
 
 **The crown stayed with a player who had left.** Nothing implemented
-CR 724.4, so the monarch kept the designation after leaving the game. No
-creature could take it with combat damage (CR 724.2) from a player who was no
+CR 725.4, so the monarch kept the designation after leaving the game. No
+creature could take it with combat damage (CR 725.2) from a player who was no
 longer there, and Palace Jailer's prisoner stayed exiled until some other
 card made an opponent the monarch.
 `sba::eliminate_player` now passes the crown as the monarch leaves

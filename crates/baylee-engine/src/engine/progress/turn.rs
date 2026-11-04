@@ -45,7 +45,7 @@ impl<L: CardLookup> Engine<L> {
                 .delayed
                 .retain(|d| !d.when.lapses_with_the_turn());
             // Control of a player's turn ends as the next one begins, and
-            // one waiting for this player's turn begins it (CR 722.1).
+            // one waiting for this player's turn begins it (CR 723.1).
             self.begin_turn_controls();
         }
         // Only the seat whose turn this is: summoning sickness is measured
@@ -426,7 +426,7 @@ impl<L: CardLookup> Engine<L> {
     }
 
     /// The name a synthetic ability on the stack goes by: its source's, or,
-    /// for the monarch's abilities, which have none (CR 724.2), the
+    /// for the monarch's abilities, which have none (CR 725.2), the
     /// designation's. Falling back to name `0` named them after whatever
     /// card was interned first.
     pub(super) fn synthetic_source_name(

@@ -1173,7 +1173,7 @@ impl GameLog {
         source: ObjectId,
         controller: PlayerId,
     ) {
-        // The monarch's two abilities have no source (CR 724.2), so there is
+        // The monarch's two abilities have no source (CR 725.2), so there is
         // nothing to name one by; what it does has lines of its own.
         if source == ObjectId::NO_SOURCE {
             return;

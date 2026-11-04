@@ -879,7 +879,7 @@ fn a_permanent_gone_before_a_line_named_it_is_named_as_it_stood() {
     );
 }
 
-/// The monarch's abilities have no source (CR 724.2): there is nothing
+/// The monarch's abilities have no source (CR 725.2): there is nothing
 /// to name one by, and no line says an unknown object did something.
 #[test]
 fn a_trigger_with_no_source_gets_no_line() {
@@ -926,7 +926,7 @@ fn every_seat_sees_the_monarch_and_is_told_when_the_crown_moves() {
     assert_eq!(
         views(&engine),
         [None; 4],
-        "no monarch until an effect makes one (CR 724.1)"
+        "no monarch until an effect makes one (CR 725.1)"
     );
 
     let from = log.len();

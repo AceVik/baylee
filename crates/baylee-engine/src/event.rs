@@ -454,9 +454,9 @@ pub enum GameEvent {
         /// Whether it is now phased out.
         phased_out: bool,
     },
-    /// The game became day or night (CR 730.1).
+    /// The game became day or night (CR 731.1).
     ///
-    /// One event for both directions, because CR 730.1a defines "night
+    /// One event for both directions, because CR 731.1a defines "night
     /// becomes day" as a single change — losing one designation and
     /// gaining the other — and the game's first designation is the same
     /// change from nothing.
@@ -475,13 +475,13 @@ pub enum GameEvent {
         /// Why it was taken back.
         reason: CastCancelReason,
     },
-    /// A player became the monarch (CR 724.3), and whoever was the monarch
+    /// A player became the monarch (CR 725.3), and whoever was the monarch
     /// ceased to be.
     ///
     /// Recorded only when the designation moves: a monarch told to become
     /// the monarch again does not become it (CR 603.2e reads "becomes" as
     /// the change, not the state). The game going on with no monarch after
-    /// the last heir left (CR 724.4) records nothing.
+    /// the last heir left (CR 725.4) records nothing.
     BecameMonarch {
         /// The new monarch.
         player: PlayerId,
