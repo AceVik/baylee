@@ -7662,6 +7662,14 @@ components:
           minimum: 0
           maximum: 4294967295
           description: How many cards it names.
+        indices:
+          type: array
+          items:
+            type: integer
+            format: int64
+            minimum: 0
+            maximum: 4294967295
+          description: "The registry index of each of them this pool holds, on `GET /banlists` alone: what `list:` searches by. `GET /banlists/{id}` says it per entry instead."
       required:
       - id
       - name

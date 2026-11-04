@@ -340,6 +340,11 @@ pub struct ListRow {
     pub updated_at: u64,
     /// @description How many cards it names.
     pub cards: u32,
+    /// @description The registry index of each of them this pool holds, on
+    /// `GET /banlists` alone: what `list:` searches by. `GET /banlists/{id}`
+    /// says it per entry instead.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub indices: Vec<u32>,
 }
 
 /// One card on a list.

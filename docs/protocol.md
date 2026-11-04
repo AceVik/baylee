@@ -4246,6 +4246,10 @@ keys on the oracle id; `index` is `null` for a card this build has no definition
 for, and such a card stays on the list. `baylee_cardtext::{ListBody, ListRow,
 ListEntry}` are the shapes both ends link.
 
+A row of `GET /banlists` also carries `indices`, the registry index of each of its
+cards this pool holds, sorted, so a client can answer `list:` for every list it may
+read from that one answer; a list with none leaves the key out.
+
 **An official list** (`builtin`) is one row per format the feed names, brought in
 step with `card_legalities` when the catalog's stamp moves: the pool's cards it bans
 or restricts, read by whoever asks, written by nobody. `PUT` answers `403`,

@@ -104,6 +104,7 @@ fn row_of(list: &Banlist, account: Option<Uuid>) -> ListRow {
         version: list.version,
         updated_at: u64::try_from(list.updated_at.unix_timestamp()).unwrap_or(0),
         cards: list.cards,
+        indices: Vec::new(),
     }
 }
 
@@ -210,10 +211,26 @@ pub(crate) async fn list_banlists(
     let lists = banlists::listed(&state.db, account)
         .await
         .map_err(|e| down(&e))?;
+    let held = banlists::listed_cards(&state.db, account)
+        .await
+        .map_err(|e| down(&e))?;
+    // By registry index, which is what a client's rows are asked by; a card
+    // this pool does not hold is on the list and in no search here.
+    let mut indices: BTreeMap<Uuid, Vec<u32>> = BTreeMap::new();
+    for (list, oracle_id) in held {
+        if let Some(def) = baylee_cards::by_oracle_id(&oracle_id.to_string()) {
+            indices.entry(list).or_default().push(def.index.get());
+        }
+    }
     Ok(Json(BanlistsBody {
         lists: lists
             .iter()
-            .map(|list| row_of(list, Some(account)))
+            .map(|list| {
+                let mut row = row_of(list, Some(account));
+                row.indices = indices.remove(&list.id).unwrap_or_default();
+                row.indices.sort_unstable();
+                row
+            })
             .collect(),
     }))
 }

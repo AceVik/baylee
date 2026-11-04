@@ -161,6 +161,24 @@ async fn a_list_is_read_and_written_by_its_owner_alone() {
 
     let ring = oracle_of(gw.port, &alice, "Sol Ring");
     let written = write_cards(gw.port, &alice, id, &[(&ring, "restricted")]);
+
+    // The listing carries a list's cards by index, which is what `list:`
+    // searches by, and only to the one who may read it.
+    let (status, body) = http(gw.port, "GET", "/banlists", Some(&alice), "");
+    assert_eq!(status, 200, "{body}");
+    let listed: Value = serde_json::from_str(&body).expect("lists");
+    assert_eq!(
+        listed["lists"][0]["indices"],
+        json!([written["entries"][0]["index"]]),
+        "{body}"
+    );
+    let (_, theirs) = http(gw.port, "GET", "/banlists", Some(&bob), "");
+    assert!(!theirs.contains("indices"), "{theirs}");
+    assert!(
+        written.get("indices").is_none(),
+        "one list says it per entry: {written}"
+    );
+
     assert_eq!(written["version"], 2);
     assert_eq!(written["cards"], 1);
     assert_eq!(written["entries"][0]["name"], "Sol Ring");

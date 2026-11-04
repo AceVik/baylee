@@ -160,6 +160,34 @@ pub async fn listed(db: &impl ConnectionTrait, account: Uuid) -> Result<Vec<Banl
     .collect()
 }
 
+/// Which cards the lists [`listed`] answers name, as `(list, oracle id)`, for
+/// a search to read without asking for each list.
+///
+/// # Errors
+///
+/// When the database fails.
+pub async fn listed_cards(
+    db: &impl ConnectionTrait,
+    account: Uuid,
+) -> Result<Vec<(Uuid, Uuid)>, DbErr> {
+    db.query_all_raw(statement(
+        db,
+        "SELECT e.banlist_id, e.oracle_id FROM banlist_entries e \
+         JOIN banlists b ON b.id = e.banlist_id \
+         WHERE b.builtin OR b.owner = $1",
+        vec![account.into()],
+    ))
+    .await?
+    .iter()
+    .map(|row| {
+        Ok((
+            row.try_get("", "banlist_id")?,
+            row.try_get("", "oracle_id")?,
+        ))
+    })
+    .collect()
+}
+
 /// The list `id` if `account` may read it: an official one or its own.
 ///
 /// # Errors
