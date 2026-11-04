@@ -237,6 +237,17 @@ pub(crate) const TEXT_SQL: &str = "\
     ORDER BY p.oracle_id, p.released_at DESC NULLS LAST, length(p.collector_number), \
              p.collector_number, p.scryfall_id, f.face_index";
 
+/// Every format the feed names, for [`Catalog::official_lists`].
+pub(crate) const OFFICIAL_FORMATS_SQL: &str = "\
+    SELECT DISTINCT verdict.key AS format \
+    FROM card_legalities, jsonb_each_text(legalities) AS verdict";
+
+/// Every card a format bans or restricts, for [`Catalog::official_lists`].
+pub(crate) const OFFICIAL_ENTRIES_SQL: &str = "\
+    SELECT verdict.key AS format, oracle_id::text AS oracle_id, verdict.value AS word \
+    FROM card_legalities, jsonb_each_text(legalities) AS verdict \
+    WHERE verdict.value IN ('banned', 'restricted')";
+
 /// What each of these cards was stored with, for [`Catalog::pool_records`].
 pub(crate) const POOL_VERDICTS_SQL: &str = "\
     SELECT oracle_id::text AS oracle_id, legalities::text AS verdicts \

@@ -32,6 +32,7 @@ old gateway data is preserved during the transition. See
 | Admin console numbers, and its lists of accounts and who is online | nowhere: read per request from the rows and memory above | — | — |
 | Confirmation link | Postgres `confirmation` (hash only) | 24 h valid | use, the next resend for that account, or the sweep once expired |
 | Deck and its history | Postgres `deck`, `deck_version` | indefinitely | `DELETE /decks/{id}`, or the account's deletion |
+| A player's own ban list: its name, format and cards, and whose it is | Postgres `banlists` (`owner`), `banlist_entries` | indefinitely | `DELETE /banlists/{id}`, or the account's deletion |
 | Settings | Postgres `client_settings` | indefinitely | the account's deletion |
 | Which terms of use an account accepted, and when: a local (legacy) account's | Postgres `account` (`terms_version`, `terms_accepted_at`) | until the next acceptance replaces it | the account's deletion |
 | The same for a Baylee Central account: which version and digest of this gateway's terms (and of Central's) it accepted, and when | Baylee Central (`terms_acceptances`), never the gateway; the gateway learns per request only whether it did | Central's privacy policy: as long as the account exists | the account's deletion at Central |
@@ -471,6 +472,31 @@ any of it to another.
   with it by cascade. The sleeve and mat files stay while an account claims
   them (see below).
 
+## Ban lists
+
+`crates/baylee-db/src/banlists.rs`, `crates/baylee-gateway/src/banlists.rs`.
+An official list is the card feed's and nobody's; what follows is a player's
+own.
+
+- **Stored:** the list's name and format, which cards it names and what it says
+  about each (`banlists`, `banlist_entries`), a version, when it last changed,
+  and `owner`, the account it belongs to. That last column makes a list
+  personal data: the name is free text its owner wrote.
+- **Seen by others:** nothing, until its owner hosts a table with it. A list
+  that is not the caller's answers as if it did not exist, on every route,
+  and it can be neither read nor copied. Nothing on any route says whose a
+  list is, not even at the table it is used at.
+- **At a table** the room holds a copy in memory (§"Lobby tables"): its name, its
+  cards and its version, not its owner. Those at the table read all of it;
+  anyone else who can see the table sees that it has a list, whether it is
+  official, and nothing more. A deck it turns away reads the cards it was turned
+  away for, so a player who tries learns those of the list.
+- **Kept:** indefinitely.
+- **Removed:** `DELETE /banlists/{id}`, or by cascade with the account. A room
+  already holding the list keeps its copy until the room is gone, which is at
+  most the times §"Lobby tables" states, and a running game keeps the version it
+  started under for as long as the game.
+
 ## Settings
 
 - **Stored:** `client_settings(account_id, doc, updated_at)`. The gateway
@@ -521,7 +547,8 @@ any of it to another.
     account id the host's account id and the name the bridge sat under,
     and its deck only here, never as a deck row;
   - per table: the host's account id, the room name, a hash of the room
-    password, and the game's preset.
+    password, the game's preset, the format the host named, and a copy of
+    the ban list it picked, without its owner (§"Ban lists").
 - **Seen by others:** every signed-in session sees an open or running
   table's name, host, seat handles, deck names and whether it is locked;
   for a seat bridge's chair its name and the handle of the host it sits

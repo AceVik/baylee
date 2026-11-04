@@ -47,7 +47,7 @@ fn list(entries: &[(&str, ListStatus)]) -> ListRules {
         .collect()
 }
 
-fn deck<'a>(main: &'a [CardIndex]) -> DeckCards<'a> {
+fn deck(main: &[CardIndex]) -> DeckCards<'_> {
     DeckCards {
         main,
         side: &[],

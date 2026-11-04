@@ -233,6 +233,9 @@ below remain the basis for runtime card images and finishes.
    signed-in session only, as `/pool` does. A client keeps a copy for its
    own use, by version, as it keeps card text. A new field needs this look
    again before it is added (`crates/baylee-cardtext/src/poolfacts.rs`).
+   The official ban lists (`GET /banlists`, `docs/banlists-and-formats.md`)
+   say no more than this table does: the pool's cards a format bans or
+   restricts, for the same signed-in sessions, and no card outside the pool.
 
    **The feedback service's admin UI shows card pictures, and fetches none
    of them** (beta.7, 10.10.2026). A report names cards (`[Lightning

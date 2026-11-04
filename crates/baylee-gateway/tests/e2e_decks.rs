@@ -223,10 +223,6 @@ fn the_gateway_refuses_exactly_what_the_builder_calls_blocking() {
             r#"{"name":"D","cards":[],"sideboard":[],"commander":null}"#,
         ),
         (
-            "a fifth copy",
-            r#"{"name":"D","cards":["5 Baleful Strix"],"sideboard":[],"commander":null}"#,
-        ),
-        (
             "a nameless deck",
             r#"{"name":"","cards":["1 Forest"],"sideboard":[],"commander":null}"#,
         ),
@@ -234,45 +230,24 @@ fn the_gateway_refuses_exactly_what_the_builder_calls_blocking() {
             "an unknown card in the sideboard",
             r#"{"name":"D","cards":["1 Forest"],"sideboard":["1 Not A Real Card"],"commander":null}"#,
         ),
-        // The limit is on the card. Once a printing became part of a row's
-        // identity, each of these was a pair of rows that passed a per-row
-        // check and stored more copies than the route's own error message
-        // allows — through the side that is supposed to be doing the
-        // enforcing, which is what made it a way to cheat.
-        (
-            "eight copies split across two printings",
-            r#"{"name":"D","cards":["4 Baleful Strix","4 Baleful Strix *F*"],"sideboard":[],"commander":null}"#,
-        ),
-        (
-            "five copies split across two rows of the same printing",
-            r#"{"name":"D","cards":["2 Baleful Strix","3 Baleful Strix"],"sideboard":[],"commander":null}"#,
-        ),
-        (
-            "the same split, in the sideboard",
-            r#"{"name":"D","cards":["1 Forest"],"sideboard":["4 Baleful Strix","4 Baleful Strix *F*"],"commander":null}"#,
-        ),
     ] {
         let (status, answer) = http(gateway.port, "POST", "/decks", Some(&token), body);
         assert_eq!(status, 400, "{why}: {answer}");
     }
 
-    // And a basic land is the one card there may be any number of.
-    let body = r#"{"name":"Mono-forest","cards":["40 Forest"],"sideboard":[],"commander":null}"#;
-    let (status, answer) = http(gateway.port, "POST", "/decks", Some(&token), body);
-    assert_eq!(status, 200, "{answer}");
-
-    // The other half of counting per card: four copies *are* four copies
-    // however many pieces of cardboard they are. Owning two foils and two
-    // plain is an ordinary deck list, and the fix above must not refuse it.
-    let body = r#"{"name":"Split","cards":["2 Baleful Strix","2 Baleful Strix *F*"],"sideboard":[],"commander":null}"#;
-    let (status, answer) = http(gateway.port, "POST", "/decks", Some(&token), body);
-    assert_eq!(status, 200, "{answer}");
-
-    // Each list is counted on its own, which is what `DeckBuilder::add_print`
-    // does — see the note in `docs/proposals/design.md` about whether it should.
-    let body = r#"{"name":"Both","cards":["4 Baleful Strix"],"sideboard":["4 Baleful Strix"],"commander":null}"#;
-    let (status, answer) = http(gateway.port, "POST", "/decks", Some(&token), body);
-    assert_eq!(status, 200, "{answer}");
+    // How many copies is the format's question, and a save is never refused
+    // for it (`docs/banlists-and-formats.md`): a deck is stored and told, and
+    // `formats::validate` counts per card over every row and printing.
+    for body in [
+        r#"{"name":"Mono-forest","cards":["40 Forest"],"sideboard":[],"commander":null}"#,
+        r#"{"name":"Split","cards":["2 Baleful Strix","2 Baleful Strix *F*"],"sideboard":[],"commander":null}"#,
+        r#"{"name":"Both","cards":["4 Baleful Strix"],"sideboard":["4 Baleful Strix"],"commander":null}"#,
+        r#"{"name":"Eight","cards":["4 Baleful Strix","4 Baleful Strix *F*"],"sideboard":[],"commander":null}"#,
+        r#"{"name":"Five","cards":["5 Baleful Strix"],"sideboard":[],"commander":null}"#,
+    ] {
+        let (status, answer) = http(gateway.port, "POST", "/decks", Some(&token), body);
+        assert_eq!(status, 200, "{body}: {answer}");
+    }
 }
 
 /// Decks belong to accounts, and the builder addresses them by id alone.
@@ -334,15 +309,13 @@ fn a_row_keeps_the_printing_its_owner_chose() {
     }
 }
 
-/// The rules still apply through the extra groups: a copy count is a copy
-/// count whether or not the row names a foil.
+/// The row's rules still apply through the extra groups.
 #[test]
-fn a_printing_does_not_buy_a_fifth_copy() {
+fn a_printing_does_not_excuse_a_row() {
     let gateway = spawn_gateway("printing-rules");
     let token = login(gateway.port, "sneaky", "Sneaky");
 
     for (why, row) in [
-        ("five copies", "5 Baleful Strix (2X2) 155 *F*"),
         ("an unknown card", "1 Not A Real Card [de]"),
         ("a finish this build has never heard of", "1 Forest *Q*"),
         ("a language that is a word", "1 Forest [deutsch]"),

@@ -365,6 +365,10 @@ pub(crate) async fn try_start(
     id: &str,
 ) -> Result<bool, (StatusCode, Json<ErrorBody>)> {
     let seed = auth::new_game_seed();
+    let guard = super::room_list::guard(state, id).await?;
+    if let Some(guard) = &guard {
+        super::room_list::hold_the_table(state, id, guard)?;
+    }
     let snapshot = {
         let lobby = state.lobby.lock();
         let Some(game) = lobby.games.get(id) else {
@@ -406,6 +410,11 @@ pub(crate) async fn try_start(
         game.preset = Some(preset);
         game.state = LobbyState::Playing;
         game.started_at = Some(auth::now_secs());
+        // The version the decks passed, whatever an edit wrote meanwhile: it
+        // stands for this game from here on, and nothing reads it again.
+        if let Some(guard) = guard {
+            game.list = Some(guard.list);
+        }
     }
     // Outside the lobby lock: it spawns a task rather than doing the work, but
     // a mutex held across anything that touches the network is how a lobby

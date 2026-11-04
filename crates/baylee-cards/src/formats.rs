@@ -184,6 +184,12 @@ pub(crate) fn shape_problems(
         }
         return problems;
     }
+    leader_problems(main, leaders, &mut problems);
+    problems
+}
+
+/// Who leads a Commander deck, and what they admit.
+fn leader_problems(main: &[CardIndex], leaders: &[CardIndex], problems: &mut Vec<Problem>) {
     if leaders.is_empty() || leaders.len() > 2 {
         problems.push(Problem::Leaders {
             have: count(leaders.len()),
@@ -234,7 +240,6 @@ pub(crate) fn shape_problems(
             .into_iter()
             .map(|card| Problem::OutsideIdentity { card: card.get() }),
     );
-    problems
 }
 
 #[cfg(test)]

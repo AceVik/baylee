@@ -23,7 +23,7 @@ use axum::extract::{Query, State};
 use axum::http::header::CONTENT_TYPE;
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Json, Response};
-use baylee_catalog::{CardLine, Catalog, PoolFactsBody, PoolRecords};
+use baylee_catalog::{CardLine, Catalog, PoolFacts, PoolFactsBody, PoolRecords};
 use serde::Deserialize;
 use sha2::{Digest as _, Sha256};
 use std::sync::Arc;
@@ -37,6 +37,9 @@ pub struct Held {
     version: String,
     /// The whole answer, serialized once.
     body: bytes::Bytes,
+    /// The same table as a deck check reads it. `None` when it says nothing,
+    /// which a check takes as no table at all.
+    pub(crate) table: Option<Arc<PoolFacts>>,
 }
 
 /// The table this process holds, read again when the catalog's stamp moves.
@@ -88,12 +91,14 @@ impl Held {
             let unstamped = serde_json::to_vec(&body).context("serializing the pool's table")?;
             body.version = hash(&unstamped);
         }
+        let bytes = serde_json::to_vec(&body).context("serializing the pool's table")?;
+        let version = body.version.clone();
+        let table = (!body.cards.is_empty()).then(|| Arc::new(PoolFacts::from(body)));
         Ok(Self {
             stamp,
-            version: body.version.clone(),
-            body: serde_json::to_vec(&body)
-                .context("serializing the pool's table")?
-                .into(),
+            version,
+            body: bytes.into(),
+            table,
         })
     }
 }

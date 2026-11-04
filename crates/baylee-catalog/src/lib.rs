@@ -64,7 +64,8 @@ use std::fmt::Write as _;
 /// What `/catalog/text` answers: the one wire shape both ends link, from
 /// the crate that also holds the rule a printing is picked by.
 pub use baylee_cardtext::{
-    CardLine, CardTextEntry, FaceText, Legality, PoolFacts, PoolFactsBody, PoolSet, Rarity,
+    CardLine, CardTextEntry, FaceText, Legality, ListStatus, PoolFacts, PoolFactsBody, PoolSet,
+    Rarity,
 };
 use baylee_cardtext::{TextFace, TextPrinting, card_entry};
 use rows::{
@@ -77,8 +78,9 @@ use schema::{
     take_the_projection_lock, take_the_schema_lock,
 };
 use sql::{
-    BIGRAMS_BODY, CORPUS_SQL, MINE_ROUNDS, NORM_BODY, POOL_PRINTED_SQL, POOL_SETS_SQL,
-    POOL_VERDICTS_SQL, PROJECT_LOCK, PROJECT_SQL, SCHEMA_LOCK, TEXT_SQL, search_sql,
+    BIGRAMS_BODY, CORPUS_SQL, MINE_ROUNDS, NORM_BODY, OFFICIAL_ENTRIES_SQL, OFFICIAL_FORMATS_SQL,
+    POOL_PRINTED_SQL, POOL_SETS_SQL, POOL_VERDICTS_SQL, PROJECT_LOCK, PROJECT_SQL, SCHEMA_LOCK,
+    TEXT_SQL, search_sql,
 };
 
 /// One search result, for the deck builder.
@@ -988,6 +990,37 @@ impl Catalog {
                 .push((row.try_get("", "set_code")?, row.try_get("", "rarity")?));
         }
         Ok(records)
+    }
+
+    /// Every format the feed names, each with the cards it bans and restricts
+    /// by oracle id: what the official ban lists are made of. A format that
+    /// bans nothing is still in it, as an empty list.
+    ///
+    /// # Errors
+    /// When a query fails or a stored row cannot be read.
+    pub async fn official_lists(
+        &self,
+    ) -> Result<std::collections::BTreeMap<String, Vec<(String, ListStatus)>>> {
+        let mut lists: std::collections::BTreeMap<String, Vec<(String, ListStatus)>> =
+            std::collections::BTreeMap::new();
+        let rows = |sql: &'static str, what: &'static str| {
+            let statement = Statement::from_string(DbBackend::Postgres, sql);
+            async move { self.db.query_all_raw(statement).await.context(what) }
+        };
+        for row in rows(OFFICIAL_FORMATS_SQL, "listing the feed's formats").await? {
+            lists.entry(row.try_get("", "format")?).or_default();
+        }
+        for row in rows(OFFICIAL_ENTRIES_SQL, "reading the formats' bans").await? {
+            let word: String = row.try_get("", "word")?;
+            let Some(status) = ListStatus::of(&word) else {
+                continue;
+            };
+            lists
+                .entry(row.try_get("", "format")?)
+                .or_default()
+                .push((row.try_get("", "oracle_id")?, status));
+        }
+        Ok(lists)
     }
 
     /// Inserts or updates a batch of printings.

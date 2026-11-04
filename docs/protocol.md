@@ -4218,6 +4218,107 @@ the network, a lid closed). No departure request is sent, so the gateway waits:
 client asks for its chair again (`POST …/seat`) inside the window, and a
 paused game simply goes on.
 
+### Ban lists
+
+What a table holds a deck to (`docs/banlists-and-formats.md`). All of it is for
+a signed-in session, a guest's included, and it is new routes and additive
+fields: `PROTOCOL_VERSION` and `VIEW_VERSION` do not move.
+
+```
+GET    /banlists                   the official lists and the caller's own
+POST   /banlists                   {name, format, copy_of?, entries?}: a new list
+GET    /banlists/{id}              a list and every card on it
+PUT    /banlists/{id}              {name?, format?, entries?}: all of it or none
+DELETE /banlists/{id}              204
+POST   /lobby/games/{id}/list      {list_id?, format?}: the host picks
+GET    /lobby/games/{id}/list      the table's list, for those at the table
+```
+
+```json
+{"id": "019…", "name": "Kitchen table", "format": "commander", "builtin": false,
+ "mine": true, "version": 4, "updated_at": 1793810327, "cards": 1,
+ "entries": [{"oracle_id": "…", "status": "banned_as_commander",
+              "index": 229, "name": "Sol Ring"}]}
+```
+
+`status` is `banned`, `restricted` (one copy) or `banned_as_commander`. A list
+keys on the oracle id; `index` is `null` for a card this build has no definition
+for, and such a card stays on the list. `baylee_cardtext::{ListBody, ListRow,
+ListEntry}` are the shapes both ends link.
+
+**An official list** (`builtin`) is one row per format the feed names, brought in
+step with `card_legalities` when the catalog's stamp moves: the pool's cards it bans
+or restricts, read by whoever asks, written by nobody. `PUT` answers `403`,
+and `DELETE` `404`, because it is nobody's. Without a catalog there are none.
+
+**An own list** is its owner's alone. A list that is not the caller's and one that
+does not exist answer alike, `404 no such list`, on every route, so an id proves
+nothing. Nothing on any route says whose a list is; `mine` is "is it yours".
+`copy_of` takes an official list or one of the caller's own, and a copy stands on
+its own after that. A list holds at most 2000 cards and an account 50 lists; a
+name is 1 to 60 characters; a format reads as a key (`freeform` for none).
+
+`version` counts up with the cards and the format, not with a rename, and an
+ingest that changes nothing moves nothing.
+
+**A table.** `POST …/list` is the host's: a list the host may read, or `null` for
+none, and the format (absent: the list's; with a list it must be the list's unless
+that is `freeform`). A change takes back every chair's ready. The listing says, on
+every row:
+
+```json
+"rules": {"format": "commander",
+          "list": {"builtin": false, "name": null, "version": null, "frozen": false}}
+```
+
+Anyone who can see the table sees that it has a list and whether it is official,
+because deciding to sit down means knowing that. What an own list is called, its
+`version` and its cards are for those at the table (`GET …/list`, a `403` for
+anyone else). A room holds its own copy, read again before every check while it
+waits: its owner editing the list reaches a waiting room, and deleting the list
+or the account leaves the room the copy it last read.
+
+**The check** is `baylee_cards::formats::validate`, against the list and the
+format, the gateway's own and the one that counts. It stands at every door a deck
+comes through: `POST …/join` (after the password, so a locked room says nothing to
+a stranger), `POST …/seats/{seat}`, a seat bridge's own deck as it redeems its chair,
+`POST …/ready` and the start. Without a list
+there is no check and every deck may sit down. What could not be asked (no catalog,
+a format whose shape this build does not know) does not refuse anything.
+
+A deck turned away is a `409` that says why, to the player whose deck it is:
+
+```json
+{"error": "the deck “Ringed” does not keep to the list “No rings”: Sol Ring",
+ "refused": {"list": "No rings", "format": "commander",
+             "problems": [{"kind": "list_banned", "card": 229},
+                          {"kind": "wrong_size", "have": 60, "need": 100}]}}
+```
+
+`kind` is one of `baylee_cardtext::Problem`'s, and the client words it; `error` is
+for one that cannot. A seated deck the list later rejects stays in its chair and is
+refused at its next ready. At the start a deck that no longer passes loses its
+chair's ready and the `409` names the seat and never the cards: the host does not
+read another player's deck.
+
+**Frozen.** `POST …/start` writes the version the decks passed onto the game, and
+nothing reads the list for it again: an edit, a deletion or an ingest cannot reach
+a running game, whose row says `"frozen": true` and whose `GET …/list` answers that
+version. A rematch is a new game and reads the list afresh.
+
+**A deck is never refused for being illegal.** `POST /decks` and `PUT /decks/{id}`
+ask only what a game could not be built from: a line that does not read, a card
+this pool lacks, 250 cards a list. Copies and who may lead are the format's
+questions, and `GET /decks` says how each deck stands in its own format now, so one
+that became illegal later is told:
+
+```json
+"legality": {"standing": "illegal", "problems": [{"kind": "banned", "card": 229}]}
+```
+
+`standing` is `legal`, `illegal` or `unknown` (no catalog, or a format whose shape
+this build does not know). A deck of `freeform` has nothing to keep to.
+
 ### Which clock a table plays at
 
 Every game this gateway hosted ran the same clock — 600 s to decide and 60 s

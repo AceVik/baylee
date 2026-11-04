@@ -299,6 +299,22 @@ impl Report {
     }
 }
 
+/// Why a table's list turned a deck away, in a refusal's `refused`.
+///
+/// @description Why a table's list turned a deck away: the list, the format
+/// and every problem the deck has against them. A client words them; `error`
+/// says the same in English for one that cannot.
+/// @openapi
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DeckRefusal {
+    /// @description The list's name; an official list's is its format's key.
+    pub list: String,
+    /// @description The format the list keeps to.
+    pub format: String,
+    /// @description What is wrong with the deck.
+    pub problems: Vec<Problem>,
+}
+
 /// A list, as `GET /banlists` lists it.
 ///
 /// @description A ban list: an official one (`builtin`), which follows the

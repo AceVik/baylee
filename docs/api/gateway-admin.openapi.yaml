@@ -4508,6 +4508,25 @@ components:
           maximum: 100
       additionalProperties: false
       description: "`baylee-gateway invite create`'s flags as fields, read by the command's own parser: the same defaults, bounds and refusals. Every field may be left out."
+    DeckRefusal:
+      type: object
+      properties:
+        list:
+          type: string
+          description: The list's name; an official list's is its format's key.
+        format:
+          type: string
+          description: The format the list keeps to.
+        problems:
+          type: array
+          items:
+            $ref: "#/components/schemas/Problem"
+          description: What is wrong with the deck.
+      required:
+      - list
+      - format
+      - problems
+      description: "Why a table's list turned a deck away: the list, the format and every problem the deck has against them. A client words them; `error` says the same in English for one that cannot."
     Definition:
       type: object
       properties:
@@ -4573,6 +4592,9 @@ components:
           enum:
           - central
           - gateway
+        refused:
+          $ref: "#/components/schemas/DeckRefusal"
+          description: "Why a table's list turned a deck away: only on the `409` of a route that sat a deck down, and only to the player whose deck it is."
       required:
       - error
       description: "A refusal: one English sentence in `error`, and the parts a client words itself where a refusal has them."
@@ -5477,6 +5499,385 @@ components:
       - unimplemented
       - absent
       description: "`GET /admin/sets`'s pool."
+    Problem:
+      type: object
+      oneOf:
+      - $ref: "#/components/schemas/ProblemUnknownCard"
+      - $ref: "#/components/schemas/ProblemTooFew"
+      - $ref: "#/components/schemas/ProblemWrongSize"
+      - $ref: "#/components/schemas/ProblemTooManyCopies"
+      - $ref: "#/components/schemas/ProblemSideboardTooBig"
+      - $ref: "#/components/schemas/ProblemLeaders"
+      - $ref: "#/components/schemas/ProblemNotALeader"
+      - $ref: "#/components/schemas/ProblemCannotLeadTogether"
+      - $ref: "#/components/schemas/ProblemOutsideIdentity"
+      - $ref: "#/components/schemas/ProblemLeadersNotTaken"
+      - $ref: "#/components/schemas/ProblemBanned"
+      - $ref: "#/components/schemas/ProblemRestricted"
+      - $ref: "#/components/schemas/ProblemNotLegal"
+      - $ref: "#/components/schemas/ProblemListBanned"
+      - $ref: "#/components/schemas/ProblemListRestricted"
+      - $ref: "#/components/schemas/ProblemListBannedAsCommander"
+      discriminator:
+        propertyName: kind
+        mapping:
+          unknown_card: "#/components/schemas/ProblemUnknownCard"
+          too_few: "#/components/schemas/ProblemTooFew"
+          wrong_size: "#/components/schemas/ProblemWrongSize"
+          too_many_copies: "#/components/schemas/ProblemTooManyCopies"
+          sideboard_too_big: "#/components/schemas/ProblemSideboardTooBig"
+          leaders: "#/components/schemas/ProblemLeaders"
+          not_a_leader: "#/components/schemas/ProblemNotALeader"
+          cannot_lead_together: "#/components/schemas/ProblemCannotLeadTogether"
+          outside_identity: "#/components/schemas/ProblemOutsideIdentity"
+          leaders_not_taken: "#/components/schemas/ProblemLeadersNotTaken"
+          banned: "#/components/schemas/ProblemBanned"
+          restricted: "#/components/schemas/ProblemRestricted"
+          not_legal: "#/components/schemas/ProblemNotLegal"
+          list_banned: "#/components/schemas/ProblemListBanned"
+          list_restricted: "#/components/schemas/ProblemListRestricted"
+          list_banned_as_commander: "#/components/schemas/ProblemListBannedAsCommander"
+      description: >-
+        One reason a deck fails a check; `kind` says which, and the other fields are
+        that kind's. A card is its registry index, as in `GET /pool`. A client words each
+        kind itself.
+    ProblemBanned:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+          - banned
+          description: "Discriminator: banned"
+        card:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: The card.
+      required:
+      - kind
+      - card
+      description: The format bans the card.
+    ProblemCannotLeadTogether:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+          - cannot_lead_together
+          description: "Discriminator: cannot_lead_together"
+        card:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: One of them.
+        with:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: The other.
+      required:
+      - kind
+      - card
+      - with
+      description: Two leaders that may not lead together.
+    ProblemLeaders:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+          - leaders
+          description: "Discriminator: leaders"
+        have:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: Leaders named.
+      required:
+      - kind
+      - have
+      description: A Commander deck without a leader, or with more than two.
+    ProblemLeadersNotTaken:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+          - leaders_not_taken
+          description: "Discriminator: leaders_not_taken"
+      required:
+      - kind
+      description: Leaders were named for a shape that has none.
+    ProblemListBanned:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+          - list_banned
+          description: "Discriminator: list_banned"
+        card:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: The card.
+      required:
+      - kind
+      - card
+      description: The chosen list bans the card.
+    ProblemListBannedAsCommander:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+          - list_banned_as_commander
+          description: "Discriminator: list_banned_as_commander"
+        card:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: The card.
+      required:
+      - kind
+      - card
+      description: The chosen list bans the card as a commander, and it leads the deck.
+    ProblemListRestricted:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+          - list_restricted
+          description: "Discriminator: list_restricted"
+        card:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: The card.
+        have:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: Copies in the deck and its sideboard.
+      required:
+      - kind
+      - card
+      - have
+      description: The chosen list restricts the card to one copy, and the deck holds more.
+    ProblemNotALeader:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+          - not_a_leader
+          description: "Discriminator: not_a_leader"
+        card:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: The card.
+      required:
+      - kind
+      - card
+      description: A leader that may not lead a deck.
+    ProblemNotLegal:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+          - not_legal
+          description: "Discriminator: not_legal"
+        card:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: The card.
+      required:
+      - kind
+      - card
+      description: The format does not have the card at all.
+    ProblemOutsideIdentity:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+          - outside_identity
+          description: "Discriminator: outside_identity"
+        card:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: The card.
+      required:
+      - kind
+      - card
+      description: A card outside the leaders' colour identity.
+    ProblemRestricted:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+          - restricted
+          description: "Discriminator: restricted"
+        card:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: The card.
+        have:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: Copies in the deck and its sideboard.
+      required:
+      - kind
+      - card
+      - have
+      description: The format restricts the card to one copy, and the deck holds more.
+    ProblemSideboardTooBig:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+          - sideboard_too_big
+          description: "Discriminator: sideboard_too_big"
+        have:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: Cards in the sideboard.
+        limit:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: The most the shape takes.
+      required:
+      - kind
+      - have
+      - limit
+      description: A sideboard over what the shape takes; a Commander deck takes none.
+    ProblemTooFew:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+          - too_few
+          description: "Discriminator: too_few"
+        have:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: Cards in the deck, leaders included.
+        need:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: The least the shape takes.
+      required:
+      - kind
+      - have
+      - need
+      description: Fewer cards than the shape needs.
+    ProblemTooManyCopies:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+          - too_many_copies
+          description: "Discriminator: too_many_copies"
+        card:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: The card.
+        have:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: Copies in the deck and its sideboard.
+        limit:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: Copies allowed.
+      required:
+      - kind
+      - card
+      - have
+      - limit
+      description: More copies of a card than the shape allows.
+    ProblemUnknownCard:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+          - unknown_card
+          description: "Discriminator: unknown_card"
+        card:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: The card.
+      required:
+      - kind
+      - card
+      description: A card the pool has no definition for.
+    ProblemWrongSize:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+          - wrong_size
+          description: "Discriminator: wrong_size"
+        have:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: Cards in the deck, leaders included.
+        need:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: The size the shape takes.
+      required:
+      - kind
+      - have
+      - need
+      description: Not the exact size a singleton shape takes.
     ProfileAccess:
       type: object
       properties:

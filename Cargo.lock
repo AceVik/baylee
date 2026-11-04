@@ -1204,6 +1204,7 @@ dependencies = [
  "baylee-build",
  "baylee-cards",
  "baylee-cards-index",
+ "baylee-cardtext",
  "baylee-catalog",
  "baylee-client-core",
  "baylee-core",

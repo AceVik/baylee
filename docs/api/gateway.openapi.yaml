@@ -146,6 +146,278 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
+  /banlists:
+    get:
+      summary: The ban lists the caller may use
+      description: |-
+        Every official list (one a format, following the card feed;
+        none without a catalog) and the caller's own. No list of anyone else's.
+        For a signed-in session, a guest's included.
+      operationId: list_banlists
+      tags:
+      - Decks
+      security:
+      - bearer: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BanlistsBody"
+        "401":
+          description: No bearer token, or one that is invalid or expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: >-
+            The account is banned (`ban`) or must accept the terms in force first
+            (`terms_required`)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "503":
+          description: The account store or Baylee Central is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+    post:
+      summary: Make a ban list of your own
+      description: |-
+        An empty list, or a copy of an official list or of one of
+        the caller's own. A copy stands on its own after that: the feed moving
+        does not move it. Answers the new list. An account holds at most 50.
+      operationId: create_banlist
+      tags:
+      - Decks
+      security:
+      - bearer: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewBanlist"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListBody"
+        "400":
+          description: >-
+            A name that is empty, over 60 characters or holds a control character, a format
+            that does not read as a key, a card id that is not one, or a card named twice
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "401":
+          description: No bearer token, or one that is invalid or expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: >-
+            The account is banned (`ban`) or must accept the terms in force first
+            (`terms_required`)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "404":
+          description: "`copy_of` names no list the caller may read (`no such list`)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "409":
+          description: The account holds 50 lists already, or the list to copy is over 2000 cards
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "503":
+          description: The account store or Baylee Central is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+  "/banlists/{id}":
+    get:
+      summary: One ban list and its cards
+      description: |-
+        An official list, or one of the caller's own. Anyone else's
+        reads as no list at all.
+      operationId: get_banlist
+      tags:
+      - Decks
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: The list's id
+        schema:
+          type: string
+      security:
+      - bearer: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListBody"
+        "401":
+          description: No bearer token, or one that is invalid or expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: >-
+            The account is banned (`ban`) or must accept the terms in force first
+            (`terms_required`)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "404":
+          description: No such list, or one that is not the caller's (`no such list`)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "503":
+          description: The account store or Baylee Central is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+    put:
+      summary: Change one of your ban lists
+      description: |-
+        All of it or none of it. A change to the cards or the
+        format counts the version up, and a waiting room holding the list reads it
+        at its next check; a game already started keeps the version it started
+        with. Answers the list as it now stands.
+      operationId: update_banlist
+      tags:
+      - Decks
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: The list's id
+        schema:
+          type: string
+      security:
+      - bearer: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BanlistChange"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListBody"
+        "400":
+          description: >-
+            A name or format that may not stand, a card id that is not one, or a card named
+            twice
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "401":
+          description: No bearer token, or one that is invalid or expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: |-
+            - The account is banned (`ban`) or must accept the terms in force first (`terms_required`)
+            - An official list (`official lists are read-only`); or the account is banned (`ban`) or must accept the terms first (`terms_required`)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "404":
+          description: No such list, or one that is not the caller's (`no such list`)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "409":
+          description: More than 2000 cards
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "503":
+          description: The account store or Baylee Central is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+    delete:
+      summary: Delete one of your ban lists
+      description: |-
+        A room holding the list keeps the copy it read, until it
+        closes. An official list is nobody's to delete.
+      operationId: delete_banlist
+      tags:
+      - Decks
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: The list's id
+        schema:
+          type: string
+      security:
+      - bearer: []
+      responses:
+        "204":
+          description: The list is gone
+        "401":
+          description: No bearer token, or one that is invalid or expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: >-
+            The account is banned (`ban`) or must accept the terms in force first
+            (`terms_required`)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "404":
+          description: No such list, or one that is not the caller's (`no such list`)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "503":
+          description: The account store or Baylee Central is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
   /auth/central/login:
     post:
       summary: Sign in with Baylee Central
@@ -1409,9 +1681,9 @@ paths:
       description: |-
         Stores a deck for the signed-in account and answers its
         id. Every line is read against this build's pool: a card it cannot play,
-        more than four copies of a card that is not a basic land, an illegal
-        commander or a picture the account did not upload refuses the deck, and
-        the error says which.
+        a commander it does not know or a picture the account did not upload
+        refuses the deck, and the error says which. A deck illegal in its format
+        is saved and told so (`GET /decks`).
       operationId: create_deck
       tags:
       - Decks
@@ -2615,6 +2887,130 @@ paths:
                 $ref: "#/components/schemas/ErrorBody"
         "404":
           description: No record of that game
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "503":
+          description: The account store or Baylee Central is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+  "/lobby/games/{id}/list":
+    post:
+      summary: Pick a room's list and format
+      description: |-
+        The host's. With a list, a deck it rejects cannot sit down,
+        and the player is told exactly why; with none, everything may. A change
+        takes back every chair's ready, because it is not the table they said yes
+        to. A deck already seated that the new list rejects stays in its chair and
+        is refused at its next ready. Answers the whole listing as the caller sees
+        it.
+      operationId: choose_room_list
+      tags:
+      - Lobby
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: The room's game id
+        schema:
+          type: string
+      security:
+      - bearer: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoomListBody"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LobbyListing"
+        "400":
+          description: A format that does not read as a key, or that is not the list's
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "401":
+          description: No bearer token, or one that is invalid or expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: |-
+            - The account is banned (`ban`) or must accept the terms in force first (`terms_required`)
+            - The account is banned (`ban`) or must accept the terms first (`terms_required`), or the caller is not the host (`only the host arranges seats`)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "404":
+          description: No such room (`no such game`), or no list the host may read (`no such list`)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "409":
+          description: The game has started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "503":
+          description: The account store or Baylee Central is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+    get:
+      summary: The list a table holds decks to
+      description: |-
+        For those at the table: its list and every card on it, as
+        the room holds it. A running game answers the version it froze. Nothing
+        says whose the list is.
+      operationId: read_room_list
+      tags:
+      - Lobby
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: The game's id
+        schema:
+          type: string
+      security:
+      - bearer: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListBody"
+        "401":
+          description: No bearer token, or one that is invalid or expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: |-
+            - The account is banned (`ban`) or must accept the terms in force first (`terms_required`)
+            - The caller has no chair there (`you are not at this table`); or the account is banned (`ban`) or must accept the terms first (`terms_required`)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "404":
+          description: No such game, or the table has no list
           content:
             application/json:
               schema:
@@ -5304,6 +5700,40 @@ components:
       - reason
       - until
       description: "How a ban reads on a refusal: `{\"reason\", \"until\"}`, `until` an RFC 3339 moment in UTC or `null` for good."
+    BanlistChange:
+      type: object
+      properties:
+        name:
+          type:
+          - string
+          - "null"
+          description: Its new name.
+        format:
+          type:
+          - string
+          - "null"
+          description: Its new format.
+        entries:
+          type:
+          - array
+          - "null"
+          items:
+            $ref: "#/components/schemas/NewEntry"
+          description: Every card it then names, at most 2000, each once.
+      description: >-
+        What to change about a list; an absent field leaves that part alone. `entries`
+        is every card the list then names.
+    BanlistsBody:
+      type: object
+      properties:
+        lists:
+          type: array
+          items:
+            $ref: "#/components/schemas/ListRow"
+          description: Every official list, then the caller's own, by name.
+      required:
+      - lists
+      description: "`GET /banlists`."
     BlockedCard:
       type: object
       properties:
@@ -5894,7 +6324,7 @@ components:
           type: array
           items:
             type: string
-          description: "Main-deck lines, 1–250 of them: `N Card Name`, a card named as this pool or Scryfall spells it, optionally with a printing, finish, language or note (`docs/deck-format.md`). At most four copies of a card that is not a basic land, and 250 cards in all."
+          description: "Main-deck lines, 1–250 of them: `N Card Name`, a card named as this pool or Scryfall spells it, optionally with a printing, finish, language or note (`docs/deck-format.md`). At most 250 cards in all; how many copies a format takes is told, not refused."
           minItems: 1
           maxItems: 250
         sideboard:
@@ -6184,6 +6614,21 @@ components:
       description: >-
         A card a deck is pictured by (one of its commanders, or the signature card of a
         deck without one) and the printing to picture it with.
+    DeckLegality:
+      type: object
+      properties:
+        standing:
+          type: string
+          description: "`legal`, `illegal`, or `unknown` where not everything could be asked (no catalog, a format whose shape this build does not know). A deck of `freeform` has nothing to keep to and is `legal`."
+        problems:
+          type: array
+          items:
+            $ref: "#/components/schemas/Problem"
+          description: What is wrong with it; empty for a deck with nothing against it.
+      required:
+      - standing
+      - problems
+      description: "How a deck stands in its own format, as this gateway reads it now: a deck may be saved illegal and may become so after a ban, and it is told so here and never refused for it."
     DeckPast:
       type: object
       properties:
@@ -6234,6 +6679,25 @@ components:
       - delta
       - card_count
       description: One state a deck no longer holds, in `GET /decks/{id}/history`.
+    DeckRefusal:
+      type: object
+      properties:
+        list:
+          type: string
+          description: The list's name; an official list's is its format's key.
+        format:
+          type: string
+          description: The format the list keeps to.
+        problems:
+          type: array
+          items:
+            $ref: "#/components/schemas/Problem"
+          description: What is wrong with the deck.
+      required:
+      - list
+      - format
+      - problems
+      description: "Why a table's list turned a deck away: the list, the format and every problem the deck has against them. A client words them; `error` says the same in English for one that cannot."
     DeckReverted:
       type: object
       properties:
@@ -6247,6 +6711,9 @@ components:
     DeckRow:
       type: object
       properties:
+        legality:
+          $ref: "#/components/schemas/DeckLegality"
+          description: How it stands in its own format.
         id:
           type: string
           description: The deck's id.
@@ -6329,6 +6796,7 @@ components:
           - "null"
           description: The image id of its playmat, `null` for none.
       required:
+      - legality
       - id
       - blocked
       - name
@@ -6603,6 +7071,9 @@ components:
           enum:
           - central
           - gateway
+        refused:
+          $ref: "#/components/schemas/DeckRefusal"
+          description: "Why a table's list turned a deck away: only on the `409` of a route that sat a deck down, and only to the player whose deck it is."
       required:
       - error
       description: "A refusal: one English sentence in `error`, and the parts a client words itself where a refusal has them."
@@ -7121,6 +7592,93 @@ components:
       required:
       - keys
       description: "`GET /social/keys?tag=…`: only the tags this account may write to; any other tag is left out rather than refused."
+    ListBody:
+      type: object
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/ListEntry"
+          description: Its cards, by oracle id.
+      required:
+      - entries
+      allOf:
+      - $ref: "#/components/schemas/ListRow"
+      description: A list and every card on it.
+    ListEntry:
+      type: object
+      properties:
+        oracle_id:
+          type: string
+          description: The card's oracle id, which is what a list is keyed on.
+        status:
+          $ref: "#/components/schemas/ListStatus"
+          description: What the list says about it.
+        index:
+          type:
+          - integer
+          - "null"
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: Its registry index, `null` for a card this build has no definition for.
+        name:
+          type: string
+          description: Its English name, empty where this gateway knows none.
+      required:
+      - oracle_id
+      - status
+      description: One card on a list.
+    ListRow:
+      type: object
+      properties:
+        id:
+          type: string
+          description: The list's id.
+        name:
+          type: string
+          description: Its name; an official list's is its format's key.
+        format:
+          type: string
+          description: "The format it is for: Scryfall's key, or `freeform` for a list that keeps to no format."
+        builtin:
+          type: boolean
+          description: Whether it is an official list.
+        mine:
+          type: boolean
+          description: Whether it is the caller's own.
+        version:
+          type: integer
+          format: int64
+          description: "Counts up with every change: what a game freezes."
+        updated_at:
+          type: integer
+          format: int64
+          minimum: 0
+          description: When it last changed, in unix seconds.
+        cards:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: How many cards it names.
+      required:
+      - id
+      - name
+      - format
+      - builtin
+      - mine
+      - version
+      - updated_at
+      - cards
+      description: "A ban list: an official one (`builtin`), which follows the card feed and nobody edits, or the caller's own. Nothing says whose a list is beyond `mine`."
+    ListStatus:
+      type: string
+      enum:
+      - banned
+      - restricted
+      - banned_as_commander
+      description: "What a list says about a card: `banned` out of every deck, `restricted` one copy, `banned_as_commander` in the deck but not leading it."
     LobbyChair:
       type: object
       properties:
@@ -7304,6 +7862,9 @@ components:
           description: >-
             How long a running game has been going, in seconds as of this answer; `null`
             for a room still waiting.
+        rules:
+          $ref: "#/components/schemas/TableRules"
+          description: What the table holds a deck to.
         seats:
           type: array
           items:
@@ -7344,6 +7905,7 @@ components:
       - name
       - rematch
       - running_secs
+      - rules
       - seats
       - setup
       - spectators
@@ -7365,6 +7927,44 @@ components:
       - complete
       - gzip_base64
       description: A client's record of its own game, as the body carries it.
+    NewBanlist:
+      type: object
+      properties:
+        name:
+          type: string
+          description: What it is called, 1 to 60 characters.
+        format:
+          type: string
+          description: "The format it is for: Scryfall's key, or `freeform` for a list that keeps to no format."
+        copy_of:
+          type:
+          - string
+          - "null"
+          description: "The list to start from: an official one or the caller's own; absent for an empty list."
+        entries:
+          type:
+          - array
+          - "null"
+          items:
+            $ref: "#/components/schemas/NewEntry"
+          description: Every card it holds, at most 2000, each once, in place of what `copy_of` holds.
+      required:
+      - name
+      - format
+      description: "A new list of the caller's own: empty, or a copy of one the caller may read."
+    NewEntry:
+      type: object
+      properties:
+        oracle_id:
+          type: string
+          description: The card's oracle id.
+        status:
+          $ref: "#/components/schemas/ListStatus"
+          description: What the list says about it.
+      required:
+      - oracle_id
+      - status
+      description: One card of a list being written.
     OrderBody:
       type: object
       properties:
@@ -7655,6 +8255,385 @@ components:
       - from_catalog
       - printings
       description: The answer to `GET /printings`.
+    Problem:
+      type: object
+      oneOf:
+      - $ref: "#/components/schemas/ProblemUnknownCard"
+      - $ref: "#/components/schemas/ProblemTooFew"
+      - $ref: "#/components/schemas/ProblemWrongSize"
+      - $ref: "#/components/schemas/ProblemTooManyCopies"
+      - $ref: "#/components/schemas/ProblemSideboardTooBig"
+      - $ref: "#/components/schemas/ProblemLeaders"
+      - $ref: "#/components/schemas/ProblemNotALeader"
+      - $ref: "#/components/schemas/ProblemCannotLeadTogether"
+      - $ref: "#/components/schemas/ProblemOutsideIdentity"
+      - $ref: "#/components/schemas/ProblemLeadersNotTaken"
+      - $ref: "#/components/schemas/ProblemBanned"
+      - $ref: "#/components/schemas/ProblemRestricted"
+      - $ref: "#/components/schemas/ProblemNotLegal"
+      - $ref: "#/components/schemas/ProblemListBanned"
+      - $ref: "#/components/schemas/ProblemListRestricted"
+      - $ref: "#/components/schemas/ProblemListBannedAsCommander"
+      discriminator:
+        propertyName: kind
+        mapping:
+          unknown_card: "#/components/schemas/ProblemUnknownCard"
+          too_few: "#/components/schemas/ProblemTooFew"
+          wrong_size: "#/components/schemas/ProblemWrongSize"
+          too_many_copies: "#/components/schemas/ProblemTooManyCopies"
+          sideboard_too_big: "#/components/schemas/ProblemSideboardTooBig"
+          leaders: "#/components/schemas/ProblemLeaders"
+          not_a_leader: "#/components/schemas/ProblemNotALeader"
+          cannot_lead_together: "#/components/schemas/ProblemCannotLeadTogether"
+          outside_identity: "#/components/schemas/ProblemOutsideIdentity"
+          leaders_not_taken: "#/components/schemas/ProblemLeadersNotTaken"
+          banned: "#/components/schemas/ProblemBanned"
+          restricted: "#/components/schemas/ProblemRestricted"
+          not_legal: "#/components/schemas/ProblemNotLegal"
+          list_banned: "#/components/schemas/ProblemListBanned"
+          list_restricted: "#/components/schemas/ProblemListRestricted"
+          list_banned_as_commander: "#/components/schemas/ProblemListBannedAsCommander"
+      description: >-
+        One reason a deck fails a check; `kind` says which, and the other fields are
+        that kind's. A card is its registry index, as in `GET /pool`. A client words each
+        kind itself.
+    ProblemBanned:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+          - banned
+          description: "Discriminator: banned"
+        card:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: The card.
+      required:
+      - kind
+      - card
+      description: The format bans the card.
+    ProblemCannotLeadTogether:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+          - cannot_lead_together
+          description: "Discriminator: cannot_lead_together"
+        card:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: One of them.
+        with:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: The other.
+      required:
+      - kind
+      - card
+      - with
+      description: Two leaders that may not lead together.
+    ProblemLeaders:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+          - leaders
+          description: "Discriminator: leaders"
+        have:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: Leaders named.
+      required:
+      - kind
+      - have
+      description: A Commander deck without a leader, or with more than two.
+    ProblemLeadersNotTaken:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+          - leaders_not_taken
+          description: "Discriminator: leaders_not_taken"
+      required:
+      - kind
+      description: Leaders were named for a shape that has none.
+    ProblemListBanned:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+          - list_banned
+          description: "Discriminator: list_banned"
+        card:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: The card.
+      required:
+      - kind
+      - card
+      description: The chosen list bans the card.
+    ProblemListBannedAsCommander:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+          - list_banned_as_commander
+          description: "Discriminator: list_banned_as_commander"
+        card:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: The card.
+      required:
+      - kind
+      - card
+      description: The chosen list bans the card as a commander, and it leads the deck.
+    ProblemListRestricted:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+          - list_restricted
+          description: "Discriminator: list_restricted"
+        card:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: The card.
+        have:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: Copies in the deck and its sideboard.
+      required:
+      - kind
+      - card
+      - have
+      description: The chosen list restricts the card to one copy, and the deck holds more.
+    ProblemNotALeader:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+          - not_a_leader
+          description: "Discriminator: not_a_leader"
+        card:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: The card.
+      required:
+      - kind
+      - card
+      description: A leader that may not lead a deck.
+    ProblemNotLegal:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+          - not_legal
+          description: "Discriminator: not_legal"
+        card:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: The card.
+      required:
+      - kind
+      - card
+      description: The format does not have the card at all.
+    ProblemOutsideIdentity:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+          - outside_identity
+          description: "Discriminator: outside_identity"
+        card:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: The card.
+      required:
+      - kind
+      - card
+      description: A card outside the leaders' colour identity.
+    ProblemRestricted:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+          - restricted
+          description: "Discriminator: restricted"
+        card:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: The card.
+        have:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: Copies in the deck and its sideboard.
+      required:
+      - kind
+      - card
+      - have
+      description: The format restricts the card to one copy, and the deck holds more.
+    ProblemSideboardTooBig:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+          - sideboard_too_big
+          description: "Discriminator: sideboard_too_big"
+        have:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: Cards in the sideboard.
+        limit:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: The most the shape takes.
+      required:
+      - kind
+      - have
+      - limit
+      description: A sideboard over what the shape takes; a Commander deck takes none.
+    ProblemTooFew:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+          - too_few
+          description: "Discriminator: too_few"
+        have:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: Cards in the deck, leaders included.
+        need:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: The least the shape takes.
+      required:
+      - kind
+      - have
+      - need
+      description: Fewer cards than the shape needs.
+    ProblemTooManyCopies:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+          - too_many_copies
+          description: "Discriminator: too_many_copies"
+        card:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: The card.
+        have:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: Copies in the deck and its sideboard.
+        limit:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: Copies allowed.
+      required:
+      - kind
+      - card
+      - have
+      - limit
+      description: More copies of a card than the shape allows.
+    ProblemUnknownCard:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+          - unknown_card
+          description: "Discriminator: unknown_card"
+        card:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: The card.
+      required:
+      - kind
+      - card
+      description: A card the pool has no definition for.
+    ProblemWrongSize:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+          - wrong_size
+          description: "Discriminator: wrong_size"
+        have:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: Cards in the deck, leaders included.
+        need:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: The size the shape takes.
+      required:
+      - kind
+      - have
+      - need
+      description: Not the exact size a singleton shape takes.
     Profile:
       type: object
       properties:
@@ -8038,6 +9017,27 @@ components:
       required:
       - seats
       description: "`GET /lobby/seats`."
+    RoomListBody:
+      type: object
+      properties:
+        list_id:
+          type:
+          - string
+          - "null"
+          description: >-
+            An official list or one of the host's own (`GET /banlists`); `null` for none,
+            and then every deck may sit down.
+        format:
+          type:
+          - string
+          - "null"
+          description: >-
+            The format the table plays, by Scryfall's key. With a list it must be the
+            list's, unless the list is `freeform`; absent, it is the list's. Without a list it is
+            said on the table and checks nothing.
+      description: >-
+        The list a room holds decks to, and the format it plays. Both absent take any
+        list away and leave a table that takes every deck.
     RoomSeatSetup:
       type: object
       properties:
@@ -8439,6 +9439,58 @@ components:
       - host
       default: host
       description: "Which decks a room is for: `host` (the host's deck names the table's format, and a player whose deck is of another format is warned) or `mixed` (decks of every format side by side, nobody warned). It changes no rule. A word the gateway does not know reads as `host`."
+    TableList:
+      type: object
+      properties:
+        builtin:
+          type: boolean
+          description: Whether it is an official list.
+        name:
+          type:
+          - string
+          - "null"
+          description: >-
+            Its name; an official list's is its format's key, and an own list's is `null`
+            to anyone not at the table.
+        version:
+          type:
+          - integer
+          - "null"
+          format: int64
+          description: >-
+            The version a running game froze, or the one a waiting room last read; `null`
+            to anyone not at the table.
+        frozen:
+          type: boolean
+          description: Whether the game has started, so the version stands for good.
+      required:
+      - builtin
+      - name
+      - version
+      - frozen
+      description: >-
+        The list a table holds decks to. Anyone who can see the table sees that it has
+        one, because deciding to sit down means knowing it; only those at the table see
+        what an own list is called.
+    TableRules:
+      type: object
+      properties:
+        format:
+          type:
+          - string
+          - "null"
+          description: The format the host says the table plays, by Scryfall's key; `null` for none.
+        list:
+          anyOf:
+          - $ref: "#/components/schemas/TableList"
+          - type: "null"
+          description: The list a deck must keep to; `null` for none.
+      required:
+      - format
+      - list
+      description: >-
+        What a table holds a deck to. A table with a list turns a deck it rejects away;
+        one without takes every deck.
     TagBody:
       type: object
       properties:
