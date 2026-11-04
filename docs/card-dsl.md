@@ -2450,6 +2450,12 @@ hashes, layers and does nothing. This paragraph said THREE until
 - **`Modifier::CantBeBlockedBy(filter)`** is "can't be blocked by [filter]".
   Examples: Questing Beast (`PowerAtMost(2)`) and Delney (`PowerAtLeast(3)`).
   `combat::can_block` enforces it.
+- **`Modifier::MinimumBlockers(n)`** is "can't be blocked except by `n` or
+  more creatures" (Gorilla Berserkers uses `3`). It restricts the whole
+  declaration under CR 509.1b, so zero blockers is still legal. Menace and
+  multiple minimums combine by taking the greatest; `combat::block_bound`
+  publishes that minimum in `Pending::ChooseBlockers::bounds` and the
+  declaration validator enforces it.
 - **`Filter::PowerLessThanSourcePower`** and
   **`Filter::ToughnessLessThanSourcePower`** compare with the source's
   projected power, strictly: Stone Giant's "target creature you control

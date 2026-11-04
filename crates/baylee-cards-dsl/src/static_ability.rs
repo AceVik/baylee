@@ -457,6 +457,12 @@ pub enum Modifier {
     /// declaration of blockers, CR 509.1b, read against each blocker as it
     /// stands; the filter's "you" is the effect's controller.
     CantBeBlockedBy(&'static crate::Filter),
+    /// If the affected creature is blocked, at least this many creatures
+    /// must block it (Gorilla Berserkers: three or more). A restriction on
+    /// the whole declaration of blockers (CR 509.1b), not on any one pair;
+    /// zero blockers remains legal. Independent minimums, including
+    /// menace's two, combine by taking the greatest.
+    MinimumBlockers(u8),
     /// The affected creature can't be blocked by creatures `player`
     /// controls. Written only by the engine, from
     /// `Effect::CantBeBlockedByPlayerThisTurn` (The Black Gate), with the
@@ -1326,6 +1332,7 @@ impl Modifier {
             | Self::CrewSaddlePowerBonus(_)
             | Self::CantBlock(_)
             | Self::CantBeBlockedBy(_)
+            | Self::MinimumBlockers(_)
             | Self::CantBeBlockedByPlayer(_)
             | Self::CantAttack
             | Self::CantAttackYou
@@ -1943,6 +1950,7 @@ mod tests {
             Modifier::DamageToItCantBePreventedOrRedirected,
             Modifier::CantBlock(&Filter::CREATURE),
             Modifier::CantBeBlockedBy(&Filter::CREATURE),
+            Modifier::MinimumBlockers(3),
             Modifier::CantBeBlockedByPlayer(baylee_core::ids::PlayerId::new(0)),
             Modifier::CantAttackUnlessDefenderControls(&Filter::LAND),
             Modifier::CantAttackPlayerIdleLastTurn,

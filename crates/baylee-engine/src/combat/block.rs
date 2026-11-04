@@ -1,6 +1,5 @@
 //! Declaring blockers: who may block what, the offer, the rules effects add (CR 509.1), and recording a block.
 
-use super::damage::has_keyword;
 use super::{historical_defending_player, landwalk_removed};
 use crate::object::{GameObject, Status};
 use crate::state::GameState;
@@ -284,23 +283,24 @@ pub fn can_block(
     true
 }
 
-/// Whether `defending` could field the two blockers CR 702.111b demands.
+/// Whether `defending` could field the minimum number of blockers that
+/// [`block_bound`] demands (menace's two under CR 702.111b, or more).
 ///
-/// The half of menace that *is* answerable one attacker at a time. The
-/// restriction itself is on the whole declaration, so [`can_block`] does not
-/// try — but a defender who has only one creature that may legally block a
-/// menace attacker has no legal declaration that blocks it at all, and an
+/// The half of the restriction that *is* answerable one attacker at a time.
+/// The restriction itself is on the whole declaration, so [`can_block`] does
+/// not try — but a defender with too few creatures that may legally block a
+/// bounded attacker has no legal declaration that blocks it at all, and an
 /// offer naming that pairing would name a block `declare_blockers` must
 /// refuse. The engine publishes only what a player may actually answer.
 ///
 /// The count is over distinct blockers and never over blocks: CR 702.111b
 /// asks for two or more *creatures*, so a single creature that may block an
-/// additional creature still answers it once. `take(2)` walks `candidates`,
-/// which holds each permanent once: [`ready_blockers`], or any list of
-/// permanents that includes them (the whole battlefield answers the same,
-/// only slower, since [`can_block`] asks the blocker's half again).
+/// additional creature still answers it once. `take(need)` walks
+/// `candidates`, which holds each permanent once: [`ready_blockers`], or any
+/// list of permanents that includes them (the whole battlefield answers the
+/// same, only slower, since [`can_block`] asks the blocker's half again).
 ///
-/// `true` for an attacker without menace, so callers may ask it of every
+/// `true` for an attacker without a minimum, so callers may ask it of every
 /// attacker without asking twice. The count asked for is the one
 /// [`block_bound`] states, so the offer and the declaration read one number.
 #[must_use]
@@ -328,8 +328,9 @@ pub fn menace_satisfiable(
 
 /// How many creatures may block `attacker`, where a rule bounds it: the
 /// restriction on the whole declaration that CR 509.1b checks and no pair
-/// can answer. Menace is two or more (CR 702.111b); an attacker nobody
-/// blocks keeps it.
+/// can answer. Menace is two or more (CR 702.111b), and a minimum-blocker
+/// effect can demand more; independent minimums combine by taking the
+/// greatest. An attacker nobody blocks keeps every such restriction.
 ///
 /// `None` for an attacker any number of creatures may block. The one
 /// reader of the rule: the offer states what this returns
@@ -338,23 +339,33 @@ pub fn menace_satisfiable(
 #[must_use]
 pub fn block_bound(state: &GameState, attacker: ObjectId) -> Option<crate::choice::AttackerBound> {
     let a = state.object(attacker)?;
-    a.characteristics()
-        .keywords
-        .contains(K::MENACE)
-        .then_some(crate::choice::AttackerBound {
-            attacker,
-            min_blockers: 2,
-            max_blockers: u32::MAX,
-        })
+    let mut minimum = if a.characteristics().keywords.contains(K::MENACE) {
+        2
+    } else {
+        0
+    };
+    for effect in state.effects.iter() {
+        if let baylee_cards_dsl::Modifier::MinimumBlockers(n) = effect.modifier
+            && crate::effects::applies_to(state, effect, a)
+        {
+            minimum = minimum.max(u32::from(n));
+        }
+    }
+    (minimum > 1).then_some(crate::choice::AttackerBound {
+        attacker,
+        min_blockers: minimum,
+        max_blockers: u32::MAX,
+    })
 }
 
 /// The declare-blockers offer for `defending` (CR 509.1a): each creature
 /// that may block, and the attackers it may block.
 ///
-/// CR 702.111b restricts the declaration and not the pair, so [`can_block`]
-/// cannot answer it — but an attacker this defender could never field two
-/// legal blockers against is one no legal declaration blocks, and offering
-/// that pairing would name a block `declare_blockers` has to refuse (#156).
+/// A minimum-blocker rule restricts the declaration and not the pair, so
+/// [`can_block`] cannot answer it — but an attacker this defender could never
+/// field enough legal blockers against is one no legal declaration blocks,
+/// and offering that pairing would name a block `declare_blockers` has to
+/// refuse (#156).
 /// Asked once per attacker rather than once per pair, because the answer is
 /// the same for every blocker.
 ///
@@ -422,13 +433,13 @@ pub fn block_options(
 /// CR 509.1c refuses a declaration obeying fewer requirements than the
 /// most any declaration could obey without breaking a restriction. The
 /// restrictions the engine knows are the pairs [`block_options`] offers,
-/// each blocker's limit, and menace's two blockers or none (CR 702.111b).
-/// Without menace the blockers do not touch one another, and each obeys
-/// most by blocking the attackers most requirements ask of it, up to its
-/// limit: [`BlockRules::obeying`] does exactly that, so its count is the
-/// maximum. A menace attacker a requirement names ties blockers together —
-/// blocking it needs a second blocker, whose own requirements may then go
-/// unobeyed — and there the declaration `obeying` builds is one good
+/// each blocker's limit, and each attacker's minimum blockers or none
+/// (CR 509.1b). Without a bounded attacker the blockers do not touch one
+/// another, and each obeys most by blocking the attackers most requirements
+/// ask of it, up to its limit: [`BlockRules::obeying`] does exactly that, so
+/// its count is the maximum. A bounded attacker a requirement names ties
+/// blockers together — blocking it needs helpers, whose own requirements may
+/// then go unobeyed — and there the declaration `obeying` builds is one good
 /// declaration and not necessarily the best: its count can fall short of
 /// the maximum, and a declaration between the two is accepted. It never
 /// refuses a legal declaration, since `obeying`'s own is always one.
@@ -645,18 +656,23 @@ impl<'a> BlockRules<'a> {
     /// "The maximum"): empty when none is in force.
     ///
     /// Each blocker takes the attackers most requirements ask of it, up to
-    /// its limit — attackers without menace first, since blocking one
-    /// needs nobody else, and within each kind the most asked first. A
-    /// menace attacker left with one blocker then gets a second from any
-    /// creature that may block it and has room, or loses the one it has
-    /// (CR 702.111b: two or none). Every pair is one `options` offers, and
-    /// no blocker exceeds its limit, so `declare_blockers` accepts it.
+    /// its limit — attackers without a minimum-blocker restriction first,
+    /// since blocking one needs nobody else, and within each kind the most
+    /// asked first. A bounded attacker with too few blockers then gets
+    /// helpers from any creatures that may block it and have room, or loses
+    /// the incomplete block (CR 509.1b, 702.111b). Every pair is one
+    /// `options` offers, and no blocker exceeds its limit, so
+    /// `declare_blockers` accepts it.
     #[must_use]
     pub fn obeying(&self, options: &[crate::choice::BlockOption]) -> Vec<(ObjectId, ObjectId)> {
         if !self.has_requirements() {
             return Vec::new();
         }
-        let menace = |attacker: ObjectId| has_keyword(self.state, attacker, K::MENACE);
+        let minimum = |attacker: ObjectId| {
+            block_bound(self.state, attacker).map_or(0, |bound| {
+                usize::try_from(bound.min_blockers).unwrap_or(usize::MAX)
+            })
+        };
         let room = |blocker: ObjectId| self.capacity(blocker).unwrap_or(usize::MAX);
         let mut distinct_blockers: std::collections::BTreeSet<ObjectId> = self
             .state
@@ -681,13 +697,13 @@ impl<'a> BlockRules<'a> {
                 .filter_map(|attacker| {
                     let demands = self.demands(option.blocker, *attacker);
                     (demands > 0).then_some((
-                        menace(*attacker),
+                        minimum(*attacker) > 1,
                         std::cmp::Reverse(demands),
                         *attacker,
                     ))
                 })
                 .collect();
-            asked.sort_by_key(|(menace, demands, _)| (*menace, *demands));
+            asked.sort_by_key(|(bounded, demands, _)| (*bounded, *demands));
             let before = chosen.len();
             chosen.extend(
                 asked
@@ -699,31 +715,34 @@ impl<'a> BlockRules<'a> {
                 distinct_blockers.insert(option.blocker);
             }
         }
-        let menacing: Vec<ObjectId> = chosen
+        let bounded: Vec<ObjectId> = chosen
             .iter()
             .map(|(_, attacker)| *attacker)
-            .filter(|attacker| menace(*attacker))
+            .filter(|attacker| minimum(*attacker) > 1)
             .collect();
-        for attacker in menacing {
-            let mut on_it = chosen.iter().filter(|(_, a)| *a == attacker);
-            let (Some(&(lone, _)), None) = (on_it.next(), on_it.next()) else {
-                continue;
-            };
-            // Never a blocker that costs mana: `obeying` is a declaration
-            // nobody has to pay for (CR 509.1c), and the clock answers with it.
-            let helper = options.iter().find(|o| {
-                o.blocker != lone
-                    && self.mana_tax(o.blocker) == 0
-                    && can_add_blocker(&distinct_blockers, o.blocker)
-                    && o.attackers.contains(&attacker)
-                    && chosen.iter().filter(|(b, _)| *b == o.blocker).count() < room(o.blocker)
-            });
-            match helper {
-                Some(helper) => {
+        for attacker in bounded {
+            let need = minimum(attacker);
+            let mut count = chosen.iter().filter(|(_, a)| *a == attacker).count();
+            while count > 0 && count < need {
+                // Never a blocker that costs mana: `obeying` is a declaration
+                // nobody has to pay for (CR 509.1c), and the clock answers with it.
+                let helper = options.iter().find(|o| {
+                    self.mana_tax(o.blocker) == 0
+                        && can_add_blocker(&distinct_blockers, o.blocker)
+                        && o.attackers.contains(&attacker)
+                        && !chosen
+                            .iter()
+                            .any(|(b, a)| *b == o.blocker && *a == attacker)
+                        && chosen.iter().filter(|(b, _)| *b == o.blocker).count() < room(o.blocker)
+                });
+                if let Some(helper) = helper {
                     distinct_blockers.insert(helper.blocker);
                     chosen.push((helper.blocker, attacker));
+                    count += 1;
+                } else {
+                    chosen.retain(|(_, a)| *a != attacker);
+                    break;
                 }
-                None => chosen.retain(|pair| *pair != (lone, attacker)),
             }
         }
         chosen

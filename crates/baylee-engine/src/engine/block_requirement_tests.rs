@@ -453,6 +453,48 @@ fn a_menace_attacker_it_must_block_takes_a_second_blocker() {
     obeying_is_accepted(engine, &question);
 }
 
+/// Independent restrictions combine: menace requires two blockers and the
+/// additional effect requires three, so the automatic declaration must find
+/// all three rather than treating the attacker as ordinary menace.
+#[test]
+fn a_lure_with_menace_and_a_greater_minimum_takes_three_blockers() {
+    let mine = [MENACING_LURE];
+    let theirs = [BEAR, BEAR, BEAR];
+    let (me, them) = ids(&mine, &theirs);
+    let lure = me[0];
+    let (mut engine, question) = blocks(&mine, &theirs, &me, |engine| {
+        let state = engine
+            .dev_state_mut(ME)
+            .expect("the harness may add an effect");
+        let timestamp = state.next_timestamp();
+        let filter = crate::effects::EffectFilter::object(state, lure);
+        state.effects.register(crate::effects::ContinuousEffect {
+            id: baylee_core::ids::EffectId::new(0),
+            source: None,
+            controller: ME,
+            origin: crate::effects::EffectOrigin::Resolution,
+            layer: baylee_cards_dsl::Layer::Text,
+            timestamp,
+            duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
+            filter,
+            modifier: Modifier::MinimumBlockers(3),
+        });
+    });
+    assert_eq!(
+        question.obeying,
+        vec![(them[0], lure), (them[1], lure), (them[2], lure)]
+    );
+    refused(
+        declare(&mut engine, &[(them[0], lure)]),
+        "too few blockers for that attacker",
+    );
+    refused(
+        declare(&mut engine, &[(them[0], lure), (them[1], lure)]),
+        "too few blockers for that attacker",
+    );
+    obeying_is_accepted(engine, &question);
+}
+
 /// A creature that must block each attacker and may block one: an
 /// attacker without menace first, since blocking a menace attacker needs
 /// a second creature that here has its own requirement to obey. Blocking

@@ -822,10 +822,10 @@ fn crew_taps_the_strongest_until_the_total_is_reached() {
 
 /// Every profile holds its blocks to the bounds the blockers question
 /// states, not only to the menace it reads off the view: an attacker the
-/// question bounds to two or more blockers (CR 702.111b) is blocked by
-/// two or by none, whatever the view shows of its keywords. With two
-/// creatures offered against a lethal attacker the default profile
-/// blocks with both; with one offered, nobody blocks it.
+/// question bounds to three or more blockers is blocked by three or by none,
+/// whatever the view shows of its keywords. With three creatures offered
+/// against a lethal attacker the default profile blocks with all three;
+/// with only two offered, nobody blocks it.
 #[test]
 fn every_profile_holds_its_blocks_to_the_bounds_the_question_states() {
     let me = PlayerId::new(0);
@@ -837,6 +837,7 @@ fn every_profile_holds_its_blocks_to_the_bounds_the_question_states() {
                 permanent(obj(1), PlayerId::new(1), 4),
                 permanent(obj(2), me, 2),
                 permanent(obj(3), me, 2),
+                permanent(obj(4), me, 2),
             ],
         );
         v.combat.attackers.push(baylee_view::AttackerView {
@@ -859,13 +860,13 @@ fn every_profile_holds_its_blocks_to_the_bounds_the_question_states() {
             .collect(),
         bounds: vec![baylee_engine::choice::AttackerBound {
             attacker: obj(1),
-            min_blockers: 2,
+            min_blockers: 3,
             max_blockers: u32::MAX,
         }],
         capacity: Vec::new(),
         obeying: Vec::new(),
     };
-    for blockers in [&[2, 3][..], &[2]] {
+    for blockers in [&[2, 3, 4][..], &[2, 3]] {
         let pending = ask(blockers);
         for (profile_name, profile) in PROFILES {
             let answer = HeuristicAgent::new(profile).act(&v, &pending);
@@ -877,11 +878,11 @@ fn every_profile_holds_its_blocks_to_the_bounds_the_question_states() {
         }
     }
     assert_eq!(
-        agent().act(&v, &ask(&[2, 3])),
+        agent().act(&v, &ask(&[2, 3, 4])),
         PlayerAction::DeclareBlockers {
-            blockers: vec![(obj(2), obj(1)), (obj(3), obj(1))]
+            blockers: vec![(obj(2), obj(1)), (obj(3), obj(1)), (obj(4), obj(1))]
         },
-        "three life against four power: both block"
+        "three life against four power: all three block"
     );
 }
 
