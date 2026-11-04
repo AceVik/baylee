@@ -43,6 +43,33 @@ fn anoint_and_two_bolts() -> Engine<RegistryLookup> {
     engine
 }
 
+/// p0 has Grizzly Bears, four Plains and a Mountain, with Anoint and a
+/// Lightning Bolt in hand; p1 has two Islands and a Counterspell. p0's first
+/// main phase, the Plains tapped and the Mountain kept for the Bolt.
+fn anoint_with_four_floating() -> Engine<RegistryLookup> {
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(
+            0,
+            &[
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                mountain(),
+                grizzly_bears(),
+            ],
+        )
+        .battlefield(1, &[island(), island()])
+        .hand(0, &[anoint(), lightning_bolt()])
+        .hand(1, &[counterspell()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, P0);
+    let white = all_on_battlefield(&engine, P0, plains());
+    tap_mana_where(&mut engine, P0, |id| white.contains(&id));
+    engine
+}
+
 #[track_caller]
 fn bolt(engine: &mut Engine<RegistryLookup>, target: ObjectId) {
     cast_with_floating(engine, P0, lightning_bolt());
@@ -50,7 +77,7 @@ fn bolt(engine: &mut Engine<RegistryLookup>, target: ObjectId) {
     pass_until(engine, stack_is_empty);
 }
 
-/// Anoint (fcb03c54-5b9a-428d-bbf6-ef8977770c8d) — {W} Instant (Partial: buyback not modeled):
+/// Anoint (fcb03c54-5b9a-428d-bbf6-ef8977770c8d) — {W} Instant:
 /// "Prevent the next 3 damage that would be dealt to target creature this turn."
 #[test]
 fn anoint_prevents_the_next_three_damage_to_the_target_creature() {
@@ -105,20 +132,6 @@ fn anoint_protects_only_its_target() {
     assert!(on_battlefield(&engine, P0, grizzly_bears()).is_some());
 }
 
-#[test]
-fn anoint_goes_to_the_graveyard_without_its_unmodeled_buyback() {
-    let mut engine = anoint_and_two_bolts();
-    tap_all_mana(&mut engine, P0);
-    let bears = on_battlefield(&engine, P0, grizzly_bears()).unwrap();
-
-    cast_with_floating(&mut engine, P0, anoint());
-    aim_at(&mut engine, P0, bears);
-    pass_until(&mut engine, stack_is_empty);
-
-    assert!(in_graveyard(&engine, P0, anoint()).is_some());
-    assert!(in_hand(&engine, P0, anoint()).is_none());
-}
-
 /// "This turn": a shield made on p0's turn does not stop a Bolt on p1's.
 #[test]
 fn anoint_shield_ends_with_the_turn() {
@@ -129,6 +142,7 @@ fn anoint_shield_ends_with_the_turn() {
     let plains_id = on_battlefield(&engine, P0, plains()).unwrap();
     tap_mana_where(&mut engine, P0, |id| id == plains_id);
     cast_with_floating(&mut engine, P0, anoint());
+    answer_buyback(&mut engine, P0, false);
     aim_at(&mut engine, P0, bears);
     pass_until(&mut engine, stack_is_empty);
 
@@ -144,4 +158,81 @@ fn anoint_shield_ends_with_the_turn() {
         in_graveyard(&engine, P0, grizzly_bears()).is_some(),
         "the next turn's Bolt is not prevented"
     );
+}
+
+/// "Buyback {3}": the {3} is paid on top, the shield still stands, and the
+/// card comes home.
+#[test]
+fn anoint_with_its_buyback_paid_comes_back_to_hand() {
+    let mut engine = anoint_with_four_floating();
+    let bears = on_battlefield(&engine, P0, grizzly_bears()).unwrap();
+
+    cast_with_floating(&mut engine, P0, anoint());
+    answer_buyback(&mut engine, P0, true);
+    aim_at(&mut engine, P0, bears);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "{{W}} and {{3}} are the four floating"
+    );
+    pass_until(&mut engine, stack_is_empty);
+    assert_bought_back(&engine, P0, anoint());
+
+    tap_all_mana(&mut engine, P0);
+    bolt(&mut engine, bears);
+    assert_eq!(engine.state().object(bears).unwrap().damage, 0);
+}
+
+/// Declined, it costs three less and is an Anoint that is spent.
+#[test]
+fn anoint_without_its_buyback_goes_to_the_graveyard() {
+    let mut engine = anoint_with_four_floating();
+    let bears = on_battlefield(&engine, P0, grizzly_bears()).unwrap();
+
+    cast_with_floating(&mut engine, P0, anoint());
+    answer_buyback(&mut engine, P0, false);
+    aim_at(&mut engine, P0, bears);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 3);
+    pass_until(&mut engine, stack_is_empty);
+    assert_not_bought_back(&engine, P0, anoint());
+
+    tap_all_mana(&mut engine, P0);
+    bolt(&mut engine, bears);
+    assert_eq!(engine.state().object(bears).unwrap().damage, 0);
+}
+
+/// Countered, it does not resolve: buyback paid, card gone, no shield.
+#[test]
+fn anoint_countered_with_its_buyback_paid_goes_to_the_graveyard() {
+    let mut engine = anoint_with_four_floating();
+    let bears = on_battlefield(&engine, P0, grizzly_bears()).unwrap();
+
+    cast_with_floating(&mut engine, P0, anoint());
+    answer_buyback(&mut engine, P0, true);
+    aim_at(&mut engine, P0, bears);
+    counter_the_top_spell(&mut engine, P0, P1);
+
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+    assert_not_bought_back(&engine, P0, anoint());
+    tap_all_mana(&mut engine, P0);
+    bolt(&mut engine, bears);
+    assert!(
+        in_graveyard(&engine, P0, grizzly_bears()).is_some(),
+        "no shield was made"
+    );
+}
+
+/// With its one target gone it does not resolve either.
+#[test]
+fn anoint_that_loses_its_target_goes_to_the_graveyard() {
+    let mut engine = anoint_with_four_floating();
+    let bears = on_battlefield(&engine, P0, grizzly_bears()).unwrap();
+
+    cast_with_floating(&mut engine, P0, anoint());
+    answer_buyback(&mut engine, P0, true);
+    aim_at(&mut engine, P0, bears);
+    bury(&mut engine, &[bears]);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_not_bought_back(&engine, P0, anoint());
 }

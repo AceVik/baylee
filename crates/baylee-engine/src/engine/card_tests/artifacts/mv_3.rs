@@ -62,6 +62,7 @@ mod mana_geode;
 mod mana_prism;
 mod manalith;
 mod matzalantli_the_great_door;
+mod memory_crystal;
 mod mindstorm_crown;
 mod misers_cage;
 mod nuisance_engine;

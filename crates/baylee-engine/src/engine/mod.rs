@@ -1909,13 +1909,13 @@ mod targeting;
 pub use decision::DecisionContext;
 mod actions;
 mod announcement_context;
+#[cfg(test)]
+mod buyback_tests;
 mod cancel_cast;
 pub(crate) mod cast_wizard;
 mod checkpoint;
 #[cfg(test)]
 mod checkpoint_tests;
-#[cfg(test)]
-mod multikicker_tests;
 mod constrained_mana;
 pub(crate) mod cost_wizard;
 mod effect_play;
@@ -1930,6 +1930,8 @@ mod life_cost_flow_tests;
 #[cfg(test)]
 mod lost_target_tests;
 mod mulligan;
+#[cfg(test)]
+mod multikicker_tests;
 mod payment_window;
 mod player_control;
 #[cfg(test)]

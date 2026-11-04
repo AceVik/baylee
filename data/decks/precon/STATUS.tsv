@@ -109,7 +109,7 @@ ARC/bring-about-the-undead-apocalypse	ARC	Archenemy Deck	2010-06-18	Bring About 
 ARC/scorch-the-world-with-dragonfire	ARC	Archenemy Deck	2010-06-18	Scorch The World With Dragonfire	60	no
 ARC/trample-civilization-underfoot	ARC	Archenemy Deck	2010-06-18	Trample Civilization Underfoot	60	no
 ATH/dark-alliance	ATH	Theme Deck	1998-11-01	Dark Alliance	60	no
-ATH/defenders-of-the-cause	ATH	Theme Deck	1998-11-01	Defenders of the Cause	60	no
+ATH/defenders-of-the-cause	ATH	Theme Deck	1998-11-01	Defenders of the Cause	60	yes
 AVR/angelic-might	AVR	Intro Pack	2012-05-04	Angelic Might	60	no
 AVR/bound-by-strength	AVR	Intro Pack	2012-05-04	Bound by Strength	60	no
 AVR/death-s-encroach	AVR	Event Deck	2012-05-25	Death's Encroach	75	no
@@ -1174,8 +1174,8 @@ WC98/brian-selden-cali-nightmare	WC98	World Championship Deck	1998-08-12	Brian S
 WC98/randy-buehler-draw-go	WC98	World Championship Deck	1998-08-12	Randy Buehler - Draw, Go	75	no
 WC99/jakub-slemr-mono-black-control	WC99	World Championship Deck	1999-08-04	Jakub Šlemr - Mono-Black Control	75	no
 WC99/kai-budde-red-artifact-wildfire	WC99	World Championship Deck	1999-08-04	Kai Budde - Red-Artifact Wildfire	75	no
-WC99/mark-le-pine-sped-red	WC99	World Championship Deck	1999-08-04	Mark Le Pine - Sped Red	75	no
-WC99/matt-linde-mono-green-stompy	WC99	World Championship Deck	1999-08-04	Matt Linde - Mono-Green Stompy	75	no
+WC99/mark-le-pine-sped-red	WC99	World Championship Deck	1999-08-04	Mark Le Pine - Sped Red	75	yes
+WC99/matt-linde-mono-green-stompy	WC99	World Championship Deck	1999-08-04	Matt Linde - Mono-Green Stompy	75	yes
 WHO/blast-from-the-past	WHO	Commander Deck	2023-10-13	Blast from the Past	100	no
 WHO/masters-of-evil	WHO	Commander Deck	2023-10-13	Masters of Evil	100	no
 WHO/paradox-power	WHO	Commander Deck	2023-10-13	Paradox Power	100	no
