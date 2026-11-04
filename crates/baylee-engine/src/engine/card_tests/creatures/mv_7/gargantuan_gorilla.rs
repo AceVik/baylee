@@ -2,6 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use baylee_core::generated::index;
 
 fn gargantuan_gorilla() -> CardIndex {
     card_index("8314bdf5-1539-4215-949e-f46584cb43bb")
@@ -138,8 +139,81 @@ fn gargantuan_gorilla_upkeep_offers_only_forests_and_paying_keeps_it() {
         "the Forest was sacrificed"
     );
     assert!(on_battlefield(&engine, p0, mountain()).is_some());
-    assert!(on_battlefield(&engine, p0, gargantuan_gorilla()).is_some());
+    let gorilla = on_battlefield(&engine, p0, gargantuan_gorilla()).unwrap();
+    assert!(
+        !keywords(&engine, gorilla).contains(KeywordSet::TRAMPLE),
+        "an ordinary Forest keeps the Gorilla but grants no trample"
+    );
     assert_eq!(engine.state().players[0].life, 20);
+}
+
+/// A snow Forest is the same optional Forest payment, with the printed additional
+/// trample grant. The combat and following turn verify its effect and duration.
+#[test]
+fn gargantuan_gorilla_snow_forest_grants_trample_until_end_of_turn() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[gargantuan_gorilla(), index::SNOW_COVERED_FOREST])
+        .battlefield(1, &[index::LLANOWAR_ELVES])
+        .start();
+    keep_mulligans(&mut engine);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let snow = on_battlefield(&engine, p0, index::SNOW_COVERED_FOREST).unwrap();
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![snow],
+            },
+        )
+        .unwrap();
+    finish_the_upkeep(&mut engine);
+
+    let gorilla = on_battlefield(&engine, p0, gargantuan_gorilla()).unwrap();
+    let blocker = on_battlefield(&engine, p1, index::LLANOWAR_ELVES).unwrap();
+    assert!(in_graveyard(&engine, p0, index::SNOW_COVERED_FOREST).is_some());
+    assert!(keywords(&engine, gorilla).contains(KeywordSet::TRAMPLE));
+
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == p0),
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(gorilla, Defender::Player(p1))],
+            },
+        )
+        .unwrap();
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::ChooseBlockers { player, .. } if *player == p1),
+    );
+    engine
+        .apply(
+            p1,
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(blocker, gorilla)],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| e.state().turn.phase == Phase::SecondMain);
+
+    assert_eq!(
+        engine.state().players[1].life,
+        14,
+        "six damage tramples over"
+    );
+    assert!(in_graveyard(&engine, p1, index::LLANOWAR_ELVES).is_some());
+    assert_eq!(engine.state().object(gorilla).unwrap().damage, 1);
+    reach_their_main_phase(&mut engine, p1);
+    assert!(
+        !keywords(&engine, gorilla).contains(KeywordSet::TRAMPLE),
+        "the snow payment's trample expires at end of turn"
+    );
 }
 
 /// "If you don't sacrifice a Forest, sacrifice this creature and it deals 7 damage to you": naming
