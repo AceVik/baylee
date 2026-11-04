@@ -4310,6 +4310,12 @@ Effects:
   still has it fire). Once per pair; the other creature is
   `TargetSpec::EventObject`, the attached creature as it was then is the
   trigger's subject.
+- `Trigger::AttachedBlocksOrBecomesBlockedByOneOrMore(&filter)` — the same
+  source-owned trigger for "blocks or becomes blocked" without "by a
+  creature": once when the attached creature blocks and once when it becomes
+  blocked, however many opposing creatures are declared on that side (CR
+  509.3a, 509.3c). `Filter::AttachedToBySource` selects the attached creature
+  for its effects; the source's controller still controls the ability.
 - `Effect::AtNextEndStepAboutSubject { effects }` — "at the beginning of the
   next end step, … the first creature": a delayed trigger about that subject,
   carried through delayed triggers made in between (`AtEndOfCombat`); in

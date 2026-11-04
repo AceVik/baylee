@@ -891,11 +891,12 @@ fn matches(
                     )
                 })
         }
-        // The same pair, seen from the creature this source is attached to
-        // (Infinite Authority's "enchanted creature"): the source's own
-        // ability (CR 603.3a), once per pair.
+        // The same pair, seen from the creature this source is attached to:
+        // the source's own ability (CR 603.3a), either once per pair or once
+        // per side of the declaration (CR 509.3a–d).
         (
-            Trigger::AttachedBlocksOrBecomesBlockedBy(filter),
+            trigger @ (Trigger::AttachedBlocksOrBecomesBlockedBy(filter)
+            | Trigger::AttachedBlocksOrBecomesBlockedByOneOrMore(filter)),
             GameEvent::BecameBlocker {
                 object: blocker,
                 attacker,
@@ -904,16 +905,36 @@ fn matches(
             let Some(host) = state.object(source).and_then(|o| o.attached_to) else {
                 return false;
             };
-            let other = if *blocker == host {
-                *attacker
-            } else if *attacker == host {
-                *blocker
-            } else {
+            let hit = |b: ObjectId, a: ObjectId| {
+                let other = if b == host {
+                    a
+                } else if a == host {
+                    b
+                } else {
+                    return false;
+                };
+                state
+                    .object(other)
+                    .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context))
+            };
+            if !hit(*blocker, *attacker) {
+                return false;
+            }
+            if matches!(trigger, Trigger::AttachedBlocksOrBecomesBlockedBy(_)) {
+                return true;
+            }
+            let Some(at) = event_groups::index_of_event(event, batch) else {
                 return false;
             };
-            state
-                .object(other)
-                .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context))
+            !batch[..at].iter().any(|entry| {
+                matches!(
+                    entry.event,
+                    GameEvent::BecameBlocker {
+                        object: b,
+                        attacker: a,
+                    } if (b == host) == (*blocker == host) && hit(b, a)
+                )
+            })
         }
         // CR 509.3d: one event per blocker of this creature.
         (

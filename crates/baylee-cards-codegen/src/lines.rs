@@ -577,6 +577,7 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         T::BlocksOrBecomesBlockedBy(_)
         | T::BlocksOrBecomesBlockedByOneOrMore(_)
         | T::AttachedBlocksOrBecomesBlockedBy(_)
+        | T::AttachedBlocksOrBecomesBlockedByOneOrMore(_)
         | T::BecomesBlockedBy(_)
         | T::BecomesBlocked
         | T::ControlledBecomesBlocked(_)

@@ -102,6 +102,28 @@ fn gift_of_the_woods_pumps_and_gains_life_when_only_the_enchanted_creature_becom
     assert_eq!(engine.state().players[1].life, 20);
 }
 
+/// "Becomes blocked" is one event, not one per blocker (CR 509.3c): two
+/// blockers still produce one pump and one life.
+#[test]
+fn gift_of_the_woods_triggers_once_when_two_creatures_block_it() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let (mut engine, bears, _ogre) = gifted_table();
+    let giant = on_battlefield(&engine, p1, hill_giant()).unwrap();
+    let their_bears = on_battlefield(&engine, p1, grizzly_bears()).unwrap();
+
+    fight(
+        &mut engine,
+        p0,
+        p1,
+        &[bears],
+        vec![(giant, bears), (their_bears, bears)],
+    );
+
+    assert_eq!(pt(&engine, bears), (2, 5));
+    assert_eq!(engine.state().players[0].life, 21);
+    assert_eq!(engine.state().players[1].life, 20);
+}
+
 /// "... blocks": on the other player's turn the enchanted creature blocks one attacker and the
 /// unenchanted one blocks the other, and again only the enchanted blocker is pumped and pays out.
 #[test]
@@ -164,35 +186,52 @@ fn gift_of_the_woods_pump_ends_with_the_turn() {
     assert_eq!(pt(&engine, bears), (2, 2));
 }
 
-/// "Enchant creature": a land is no target. (The card enchants only a creature its controller
-/// controls, so the opponent's Hill Giant is refused too, which is less than printed.)
+/// "Enchant creature" allows an opponent's creature but not a land. The
+/// trigger remains the Aura's own: its controller, not the creature's
+/// controller, gains the life (CR 603.3a).
 #[test]
-fn gift_of_the_woods_enchants_only_creatures_you_control() {
+fn gift_of_the_woods_enchants_an_opponents_creature_but_keeps_its_own_controller() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[forest(), forest(), grizzly_bears()])
+        .battlefield(0, &[forest(), gray_ogre()])
         .battlefield(1, &[hill_giant()])
         .hand(0, &[gift_of_the_woods()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
     let land = on_battlefield(&engine, p0, forest()).unwrap();
+    let ogre = on_battlefield(&engine, p0, gray_ogre()).unwrap();
     let giant = on_battlefield(&engine, p1, hill_giant()).unwrap();
 
     tap_all_mana(&mut engine, p0);
     cast_with_floating(&mut engine, p0, gift_of_the_woods());
-    for illegal in [land, giant] {
-        assert!(
-            engine
-                .apply(
-                    p0,
-                    PlayerAction::ChooseTargets {
-                        objects: vec![illegal],
-                        players: vec![],
-                    },
-                )
-                .is_err(),
-            "{illegal:?} is not a creature you control"
-        );
-    }
+    assert!(
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseTargets {
+                    objects: vec![land],
+                    players: vec![],
+                },
+            )
+            .is_err(),
+        "a land is not a creature"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![giant],
+                players: vec![],
+            },
+        )
+        .expect("an opponent's creature is a legal target");
+    pass_until(&mut engine, stack_is_empty);
+
+    reach_their_main_phase(&mut engine, p1);
+    fight(&mut engine, p1, p0, &[giant], vec![(ogre, giant)]);
+
+    assert_eq!(pt(&engine, giant), (3, 6));
+    assert_eq!(engine.state().players[0].life, 21);
+    assert_eq!(engine.state().players[1].life, 20);
 }

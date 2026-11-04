@@ -113,7 +113,8 @@ pub(super) fn event_object_for(
         // The other creature of the pair: the one that is not the creature
         // this source is attached to.
         (
-            Trigger::AttachedBlocksOrBecomesBlockedBy(_),
+            Trigger::AttachedBlocksOrBecomesBlockedBy(_)
+            | Trigger::AttachedBlocksOrBecomesBlockedByOneOrMore(_),
             GameEvent::BecameBlocker {
                 object: blocker,
                 attacker,
@@ -181,7 +182,8 @@ pub(super) fn event_subject_for(
     state: &GameState,
 ) -> Option<baylee_core::ids::DamageSourceRef> {
     let (
-        Trigger::AttachedBlocksOrBecomesBlockedBy(_),
+        Trigger::AttachedBlocksOrBecomesBlockedBy(_)
+        | Trigger::AttachedBlocksOrBecomesBlockedByOneOrMore(_),
         GameEvent::BecameBlocker {
             object: blocker,
             attacker,
