@@ -52,6 +52,7 @@
 
 mod align;
 mod cost;
+mod deckcheck;
 mod entry;
 mod pick;
 mod poolfacts;
@@ -61,6 +62,10 @@ mod wire;
 
 pub use align::{Aligned, Stage, align, untranslated};
 pub use cost::{Split, licensed, split_cost};
+pub use deckcheck::{
+    ListBody, ListEntry, ListRow, ListRules, ListStatus, MAX_LIST_ENTRIES, MAX_LIST_NAME_CHARS,
+    MAX_LISTS_PER_ACCOUNT, Problem, Report, Standing, Unchecked,
+};
 pub use entry::{TextFace, TextPrinting, card_entry};
 pub use pick::{Layer, Printing, pick};
 pub use poolfacts::{

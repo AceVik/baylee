@@ -867,6 +867,7 @@ name = "baylee-cards"
 version = "0.1.0-beta.9c"
 dependencies = [
  "baylee-cards-dsl",
+ "baylee-cardtext",
  "baylee-core",
  "serde",
  "uuid",
