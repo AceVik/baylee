@@ -1619,6 +1619,10 @@ is `PendingTrigger::event_subject`. On the stack it rides as
 `Effect::AtNextEndStepAboutSubject` makes a delayed end-step trigger about
 it, in which it is the event object and the reference. A subject that has
 left the battlefield since is a new object (CR 400.7) and is not affected.
+`Trigger::AttachedBlocksOrBecomesBlockedByOneOrMore` shares the same source
+and attached-object lookup but groups matching declarations by side: once
+when the attached creature blocks and once when it becomes blocked, rather
+than once per opposing creature (CR 509.3a, 509.3c).
 
 ### The reference object (`RuleContext::reference`)
 

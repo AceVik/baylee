@@ -10631,8 +10631,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Gift of the Woods
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[None, None],
+        stackable: 1,
+        lines: &[None, Some(1)],
         modes: &[],
         alternatives: &[],
     }],

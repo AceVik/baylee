@@ -791,6 +791,11 @@ pub enum Trigger {
     /// subject, which `Effect::AtNextEndStepAboutSubject` names later
     /// (Infinite Authority's "the first creature").
     AttachedBlocksOrBecomesBlockedBy(&'static Filter),
+    /// The attached creature blocks or becomes blocked by one or more matching
+    /// creatures: the source's own trigger, once when it blocks and once when
+    /// it becomes blocked, not once for every opposing creature (CR 509.3a,
+    /// 509.3c). Otherwise this follows [`Self::AttachedBlocksOrBecomesBlockedBy`].
+    AttachedBlocksOrBecomesBlockedByOneOrMore(&'static Filter),
     /// Rampage's "whenever this creature becomes blocked" (CR 702.23).
     /// Its effects carry N, so every separate instance triggers independently.
     Rampage,

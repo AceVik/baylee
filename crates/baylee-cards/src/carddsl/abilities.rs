@@ -334,6 +334,7 @@ fn encode_trigger_into(trigger: &Trigger, dst: &mut [f32]) {
         | Trigger::BlocksOrBecomesBlockedBy(_)
         | Trigger::BlocksOrBecomesBlockedByOneOrMore(_)
         | Trigger::AttachedBlocksOrBecomesBlockedBy(_)
+        | Trigger::AttachedBlocksOrBecomesBlockedByOneOrMore(_)
         | Trigger::Rampage => {
             dst[4] = 1.0;
         }
