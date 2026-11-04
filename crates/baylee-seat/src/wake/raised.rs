@@ -15,7 +15,8 @@
 //!   it, dash, mutate, a prototype, a back face. The engine lists these,
 //!   legal targets asked and whole prices named (`LegalActions::cast_ways`),
 //!   so no way is invented here.
-//! - **After the cast begins**: a kicker (`YesNoPrompt::Kicker`) and replicate
+//! - **After the cast begins**: a kicker (`YesNoPrompt::Kicker`), buyback
+//!   (`YesNoPrompt::Buyback`), multikicker (`NumberPrompt::Multikicker`) and replicate
 //!   (`NumberPrompt::Replicate`). Their legality is the plain cast's, so the
 //!   card's own cost is read. A kicker could also be paid in the window the
 //!   "yes" opens, but replicate is bounded by the pool and is asked only
@@ -36,6 +37,13 @@ pub enum Way {
     Mode(CastModeKind),
     /// With its kicker, which is asked after the cast begins.
     Kicker,
+    /// With its buyback cost's mana paid, which is asked after the cast
+    /// begins. A buyback with no mana in it has no price of its own: the
+    /// plain cast is asked it.
+    Buyback,
+    /// With its multikicker cost paid up to this many times; the number
+    /// question that follows may ask for fewer.
+    Multikicked(u32),
     /// With its replicate cost paid this many times.
     Replicated(u32),
 }
@@ -129,19 +137,81 @@ pub(super) fn ways(
                 .fold(reach.plan.cost, |cost, extra| cost.combine(&extra.mana));
             out.extend(pay(reach.object, reach.card, kicked).map(|plan| with(Way::Kicker, plan)));
         }
-        if let Some(each) = face.replicate {
-            let price = |times: u32| reach.plan.cost.combine_n(&each, times);
-            let greatest = (1..=MOST_REPLICATES)
-                .take_while(|&times| pay(reach.object, reach.card, price(times)).is_some())
-                .last()
-                .unwrap_or(0);
-            out.extend(replications(greatest).filter_map(|times| {
-                let plan = pay(reach.object, reach.card, price(times))?;
-                Some(with(Way::Replicated(times), plan))
-            }));
+        if let Some(buyback) = face.buyback {
+            let mana = buyback.mana.with_less_generic(legal.buyback_less);
+            if mana != ManaCost::ZERO {
+                let bought = reach.plan.cost.combine(&mana);
+                out.extend(
+                    pay(reach.object, reach.card, bought).map(|plan| with(Way::Buyback, plan)),
+                );
+            }
+        }
+        for (each, way) in [
+            (face.multikicker, Way::Multikicked as fn(u32) -> Way),
+            (face.replicate, Way::Replicated),
+        ] {
+            let Some(each) = each else {
+                continue;
+            };
+            let priced = repeated(reach.plan.cost, each, &|cost| {
+                pay(reach.object, reach.card, cost)
+            });
+            out.extend(
+                priced
+                    .into_iter()
+                    .map(|(times, plan)| with(way(times), plan)),
+            );
         }
     }
     out
+}
+
+/// The prices of a cost paid any number of times on top of `base`: once, and
+/// as often as `pay` reaches, each with the taps that pay it.
+fn repeated(
+    base: ManaCost,
+    each: ManaCost,
+    pay: &dyn Fn(ManaCost) -> Option<Plan>,
+) -> Vec<(u32, Plan)> {
+    let price = |times: u32| base.combine_n(&each, times);
+    let greatest = (1..=MOST_REPLICATES)
+        .take_while(|&times| pay(price(times)).is_some())
+        .last()
+        .unwrap_or(0);
+    replications(greatest)
+        .filter_map(|times| Some((times, pay(price(times))?)))
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// No printed card in the pool has multikicker, so its prices are read
+    /// here off a pay that stands for six lands: the spell's {1} and {1}{G}
+    /// as often as they reach, which is twice, and the number question asks
+    /// for fewer out of the same taps.
+    #[test]
+    fn a_repeated_cost_is_priced_once_and_as_often_as_the_lands_pay() {
+        let six = |cost: ManaCost| {
+            (cost.cmc() <= 6).then_some(Plan {
+                steps: Vec::new(),
+                cost,
+            })
+        };
+        let base = ManaCost::parse("{1}");
+        let each = ManaCost::parse("{1}{G}");
+        let prices: Vec<(u32, String)> = repeated(base, each, &six)
+            .into_iter()
+            .map(|(times, plan)| (times, plan.cost.to_string()))
+            .collect();
+        assert_eq!(
+            prices,
+            [(1, "{2}{G}".to_string()), (2, "{3}{G}{G}".to_string())]
+        );
+        let none = |_: ManaCost| None;
+        assert!(repeated(base, each, &none).is_empty());
+    }
 }
 
 /// The card `id` is, and where it would be cast from.

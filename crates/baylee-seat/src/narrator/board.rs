@@ -413,11 +413,22 @@ pub(super) fn stack_line(table: &Table<'_>, object: &PublicObject) -> String {
         line
     } else {
         let kind = words::types(object.types, baylee_core::types::SupertypeSet::EMPTY);
-        format!(
+        let mut line = format!(
             "{} {} · {owner} {kind} spell",
             tag(object.id),
             object_name(object)
-        )
+        );
+        match object.times_kicked {
+            0 => {}
+            1 => line.push_str(", kicked"),
+            times => {
+                let _ = write!(line, ", kicked {times} times");
+            }
+        }
+        if object.bought_back {
+            line.push_str(", buyback paid: it returns to its owner's hand as it resolves");
+        }
+        line
     };
     if !object.targets.is_empty() {
         let targets: Vec<String> = object

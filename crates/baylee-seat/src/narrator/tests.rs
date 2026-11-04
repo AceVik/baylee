@@ -287,6 +287,7 @@ pub(crate) fn priority(view: &PlayerView) -> Pending {
             cast_ways: vec![],
             spell_increases: vec![],
             spell_reductions: vec![],
+            buyback_less: 0,
             activation_increases: vec![],
             can_pass: true,
             lands: vec![id(52)],
@@ -897,6 +898,45 @@ fn the_shared_graveyard_arrangement_does_not_mislabel_explore() {
     assert!(text.contains("graveyard and the rest on top of your library, in any order"));
     assert!(!text.contains("Surveil"));
     assert!(!text.contains("701.25"));
+}
+
+/// A multikicker's number says what each one costs and that fewer is an
+/// answer, and a spell on the stack says what it was cast with.
+#[test]
+fn multikicker_is_asked_as_a_count_and_the_stack_says_what_was_paid() {
+    use baylee_engine::choice::NumberPrompt;
+    let (mut view, _) = board();
+    let mut spell = card(95, "Capsize");
+    spell.stack_item = Some(baylee_view::StackItem::Spell);
+    spell.times_kicked = 3;
+    spell.bought_back = true;
+    view.stack = vec![spell];
+    let pending = Pending::ChooseNumber {
+        player: ME,
+        min: 0,
+        max: 4,
+        reason: NumberPrompt::Multikicker {
+            cost: baylee_core::mana::ManaCost::parse("{1}{G}"),
+        },
+    };
+    let request = request(
+        view,
+        pending,
+        LogTail {
+            from: 0,
+            entries: Vec::new(),
+        },
+    );
+    let text = Narrator::new(&request.context)
+        .wake(&request, &[], None)
+        .text;
+    assert!(
+        text.contains("How many times do you pay its multikicker? Each time costs {1}{G} more"),
+        "{text}"
+    );
+    assert!(text.contains("(from 0 to 4)"), "{text}");
+    assert!(text.contains("kicked 3 times"), "{text}");
+    assert!(text.contains("buyback paid"), "{text}");
 }
 
 /// Log lines already heard are not told twice, and a gap is said.

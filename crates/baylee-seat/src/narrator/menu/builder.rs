@@ -738,6 +738,13 @@ impl Builder<'_, '_> {
         let cost = reach.plan.cost;
         match reach.way {
             Some(Way::Kicker) => format!("Cast {named} with its kicker for {cost}"),
+            Some(Way::Buyback) => {
+                format!("Cast {named} with its buyback for {cost}, and have the spell back")
+            }
+            Some(Way::Multikicked(1)) => format!("Cast {named} kicked once for {cost}"),
+            Some(Way::Multikicked(times)) => {
+                format!("Cast {named} kicked up to {times} times for {cost}")
+            }
             Some(Way::Replicated(1)) => format!("Cast {named} replicated once for {cost}"),
             Some(Way::Replicated(times)) => {
                 format!("Cast {named} replicated up to {times} times for {cost}")
@@ -1182,7 +1189,7 @@ impl Builder<'_, '_> {
         let about = source.and_then(ability_ref_sentence);
         let (question, yes, no) = yes_no_words(table, prompt);
         self.line(format!("QUESTION: {question}"));
-        let kicker = matches!(prompt, YesNoPrompt::Kicker);
+        let kicker = matches!(prompt, YesNoPrompt::Kicker | YesNoPrompt::Buyback { .. });
         if let Some(about) = about {
             self.line(format!("The ability asking: \"{about}\""));
         } else if kicker && let Some((name, sentence)) = source.and_then(additional_cost) {
@@ -1288,6 +1295,10 @@ impl Builder<'_, '_> {
             NumberPrompt::Replicate { cost } => {
                 format!("How many times do you replicate it? Each copy costs {cost} more")
             }
+            NumberPrompt::Multikicker { cost } => format!(
+                "How many times do you pay its multikicker? Each time costs {cost} more, and \
+                 zero is not kicked at all. Fewer than the mana you floated is a legal answer"
+            ),
             NumberPrompt::CombatDamage {
                 source,
                 recipient,
@@ -1314,9 +1325,38 @@ impl Builder<'_, '_> {
                 u16::from(*index) + 1
             ),
         };
+        // The engine leaves a multikicker open while a land is untapped; a
+        // count past what is floating has to be tapped for in a window this
+        // seat answers blind, so the number is the one the mana already pays.
+        let max = match reason {
+            NumberPrompt::Multikicker { cost } => self
+                .kicks_floating(cost)
+                .map_or(max, |pays| pays.clamp(min, max)),
+            _ => max,
+        };
         self.line(format!("QUESTION: {question} (from {min} to {max})."));
         self.ask = Ask::Number { min, max };
         self.answer(&format!("number=<an integer from {min} to {max}>"));
+    }
+
+    /// How many times the floating pool pays `each` beside the spell being
+    /// cast, read off the printed cost; `None` when the pool does not reach
+    /// that, which is the engine's range to answer.
+    fn kicks_floating(&self, each: &ManaCost) -> Option<u32> {
+        let view = self.table.view;
+        let casting = view.casting?;
+        let card = baylee_client_core::decision::hand(view)
+            .iter()
+            .find(|held| held.id == casting)
+            .map(|held| held.card)
+            .or_else(|| view.object(casting).and_then(|object| object.card))?;
+        let face = baylee_cards::by_index(card.index)?
+            .faces
+            .get(usize::from(card.face))?;
+        let pool = view
+            .seat(baylee_client_core::decision::resource_player(view))?
+            .mana_pool;
+        baylee_client_core::manaplan::greatest_repeat(&face.mana_cost.with_x(0), each, &pool, &[])
     }
 
     pub(super) fn arrange(

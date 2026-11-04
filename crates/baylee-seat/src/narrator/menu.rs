@@ -1033,6 +1033,21 @@ fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, Str
             "pay it".into(),
             "cast it without it".into(),
         ),
+        YesNoPrompt::Buyback { cost, parts } => (
+            format!(
+                "Pay its buyback ({})? If you do, the spell goes back to your hand as it \
+                 resolves instead of into your graveyard, and you may cast it again; if it is \
+                 countered, or every target is gone, it goes to your graveyard and the cost \
+                 stays paid.",
+                baylee_client_core::interaction::buyback_price(
+                    baylee_client_core::Lang::En,
+                    *cost,
+                    *parts
+                )
+            ),
+            "pay it, and have the spell back as it resolves".into(),
+            "cast it without it, and it goes to your graveyard".into(),
+        ),
         YesNoPrompt::PayTax { mana } => (
             format!("Pay {{{mana}}} for this tax?"),
             format!("pay {{{mana}}}"),

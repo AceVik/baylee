@@ -145,6 +145,68 @@ fn a_kicker_is_offered_at_its_whole_price_and_the_question_follows() {
     panic!("the kicker was not asked");
 }
 
+/// Capsize's {3} is a price of its own, its whole price named, the plain one
+/// stays beside it, and pressing it reaches the engine's question with the
+/// mana floating. The question then says what buyback does.
+#[test]
+fn a_buyback_is_offered_at_its_whole_price_and_the_question_follows() {
+    const ISLANDS: [&str; 6] = ["Island"; 6];
+    let (mut session, request) = table(&ISLANDS, &["Capsize"], &["Grizzly Bears"]);
+    let bought = offers(&request, "with its buyback for {4}{U}{U}");
+    assert_eq!(bought.len(), 1, "{:#?}", lines(&request));
+    assert_eq!(
+        offers(&request, "{1}{U}{U} (taps").len(),
+        1,
+        "the plain one stays"
+    );
+    press(&mut session, &request, &bought[0]);
+    let question = asked(&session);
+    assert!(
+        matches!(
+            question.pending,
+            Pending::YesNo {
+                prompt: YesNoPrompt::Buyback { .. },
+                ..
+            }
+        ),
+        "{:?}",
+        question.pending
+    );
+    let text = lines(&question).join("\n");
+    assert!(text.contains("Pay its buyback ({3})?"), "{text}");
+    assert!(
+        text.contains("goes back to your hand as it resolves"),
+        "{text}"
+    );
+    assert!(text.contains("countered"), "{text}");
+    assert!(
+        text.contains("The spell: Capsize: \"Buyback {3}"),
+        "the printed sentence is shown too: {text}"
+    );
+}
+
+#[test]
+fn too_little_mana_offers_no_buyback() {
+    const ISLANDS: [&str; 5] = ["Island"; 5];
+    let (_, request) = table(&ISLANDS, &["Capsize"], &["Grizzly Bears"]);
+    assert!(offers(&request, "buyback").is_empty());
+    assert_eq!(offers(&request, "{1}{U}{U} (taps").len(), 1);
+}
+
+/// A buyback with no mana in it costs the plain cast nothing more, so it has
+/// no price of its own: the question comes to the plain cast, and names it.
+#[test]
+fn a_buyback_of_parts_is_asked_of_the_plain_cast() {
+    const SWAMPS: [&str; 4] = ["Swamp"; 4];
+    let (mut session, request) = table(&SWAMPS, &["Slaughter"], &["Grizzly Bears"]);
+    assert!(offers(&request, "buyback").is_empty());
+    let plain = offers(&request, "{2}{B}{B} (taps");
+    assert_eq!(plain.len(), 1, "{:#?}", lines(&request));
+    press(&mut session, &request, &plain[0]);
+    let text = lines(&asked(&session)).join("\n");
+    assert!(text.contains("Pay its buyback (pay 4 life)?"), "{text}");
+}
+
 #[test]
 fn too_little_mana_offers_no_kicker() {
     const ISLANDS: [&str; 8] = ["Island"; 8];

@@ -28,6 +28,7 @@ fn offer(lands: &[u32], castable: &[u32], abilities: &[(u32, u32)], mana: &[u32]
             cast_ways: vec![],
             spell_increases: vec![],
             spell_reductions: vec![],
+            buyback_less: 0,
             activation_increases: vec![],
             can_pass: true,
             lands: lands.iter().map(|&s| id(s)).collect(),

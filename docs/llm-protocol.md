@@ -280,11 +280,22 @@ that way on it. The ways the mode question lists (entwine, overload and any
 mode with its own cost, a kicker with its own targets, an alternative cost with
 mana in it, dash, mutate, a prototype, a back face) are the engine's own list
 (`LegalActions::cast_ways`), legal targets asked, so no way is invented. A
-kicker and replicate are asked once the cast has begun and share the plain
-cast's legality, so they are read off the card: a kicker's price, and replicate
-once and as often as the lands pay. A price that does not fit the lands is not
-listed, and a printed price no way stands at is dropped (Cyclonic Rift with
-nothing to bounce). Multikicker and buyback have no engine support yet.
+kicker, buyback, multikicker and replicate are asked once the cast has begun
+and share the plain cast's legality, so they are read off the card: a kicker's
+price, a buyback's with what comes off it (`LegalActions::buyback_less`), and
+multikicker and replicate once and as often as the lands pay. A price that
+does not fit the lands is not listed, and a printed price no way stands at is
+dropped (Cyclonic Rift with nothing to bounce).
+
+Taking one taps for that price and casts, and the question then comes as it
+always does: the model answers it, so "Cast Capsize with its buyback for
+{4}{U}{U}, and have the spell back" is followed by the buyback's yes or no,
+which says what buyback does and when it does not (countered, or no target
+left). A buyback with no mana in it has no price of its own and comes to the
+plain cast: "Pay its buyback (pay 4 life)?". The multikicker count is a number
+up to what is floating, so a model that took "kicked up to 3 times" may answer
+fewer out of the same taps; zero is not kicked. A spell on the stack says how
+it was kicked and that its buyback was paid.
 
 ## Plans
 

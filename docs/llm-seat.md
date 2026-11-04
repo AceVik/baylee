@@ -1027,6 +1027,10 @@ one line. `llmseat::panel::SeatPanel` decides and is tested in client-core,
 
 ## A language model at your table
 
+What a model is offered for a card is every price its lands can pay, each with
+its taps: buyback and multikicker among them (`docs/llm-protocol.md`, "Prices
+above the printed one"). The narrator says what buyback does as it asks.
+
 A host's desktop client can seat a language model in a chair of its own
 gateway table, beside the house. The engine plays the house; a language
 model is a seat bridge the client starts (`llmseat::seating`, decided and
