@@ -173,6 +173,7 @@ fn condition_matches(
     condition: Option<Condition>,
     you: PlayerId,
     context: RuleContext,
+    source_version: Option<u32>,
     entry: Option<&crate::event::JournalEntry>,
 ) -> bool {
     let Some(condition) = condition else {
@@ -193,7 +194,7 @@ fn condition_matches(
             .event_object_identity(object, entry.seq)
             .map(|(version, _)| baylee_core::ids::DamageSourceRef { object, version })
     });
-    eval::condition_with_event(state, you, context, condition, event)
+    eval::condition_with_event(state, you, context, condition, source_version, event)
 }
 
 fn freeze_trigger(state: &GameState, trigger: &mut PendingTrigger) {
@@ -375,6 +376,7 @@ fn collect_emblems(
                         firing.condition,
                         obj.controller,
                         context,
+                        Some(obj.version),
                         Some(entry),
                     ) {
                         continue;
@@ -494,7 +496,7 @@ fn graveyard_triggers(
             let context = ability_context(state, object, &list, index);
             let condition_reads_event = firing.condition.is_some_and(eval::condition_reads_event);
             if !condition_reads_event
-                && !condition_matches(state, firing.condition, owner, context, None)
+                && !condition_matches(state, firing.condition, owner, context, None, None)
             {
                 continue;
             }
@@ -505,7 +507,14 @@ fn graveyard_triggers(
                         && at_event.status.contains(crate::object::Status::FACE_DOWN))
                     || at_event.version != object.version
                     || (condition_reads_event
-                        && !condition_matches(state, firing.condition, owner, context, Some(entry)))
+                        && !condition_matches(
+                            state,
+                            firing.condition,
+                            owner,
+                            context,
+                            Some(object.version),
+                            Some(entry),
+                        ))
                 {
                     continue;
                 }
@@ -755,7 +764,7 @@ fn cast_this_spell_triggers(
                 continue;
             }
             let context = ability_context(state, spell, &list, index);
-            if !condition_matches(state, firing.condition, player, context, None) {
+            if !condition_matches(state, firing.condition, player, context, None, None) {
                 continue;
             }
             triggers.push(PendingTrigger {
@@ -1165,7 +1174,14 @@ fn collect_for_objects(
             };
             let condition_reads_event = firing.condition.is_some_and(eval::condition_reads_event);
             let obj_condition_holds = !condition_reads_event
-                && condition_matches(state, firing.condition, obj.controller, obj_context, None);
+                && condition_matches(
+                    state,
+                    firing.condition,
+                    obj.controller,
+                    obj_context,
+                    None,
+                    None,
+                );
             if source_is_constant && !condition_reads_event && !obj_condition_holds {
                 continue;
             }
@@ -1194,6 +1210,7 @@ fn collect_for_objects(
                         firing.condition,
                         source.controller,
                         context,
+                        Some(source.version),
                         Some(entry),
                     )
                 };

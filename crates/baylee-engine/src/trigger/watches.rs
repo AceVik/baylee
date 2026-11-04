@@ -63,7 +63,14 @@ pub fn state_triggers(
             let index = index as u32;
             if in_flight(permanent, index)
                 || !eval::condition_holds_with_context(state, obj.controller, context, **condition)
-                || !condition_matches(state, firing.condition, obj.controller, context, None)
+                || !condition_matches(
+                    state,
+                    firing.condition,
+                    obj.controller,
+                    context,
+                    Some(obj.version),
+                    None,
+                )
             {
                 continue;
             }

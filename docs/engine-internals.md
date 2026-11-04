@@ -408,11 +408,11 @@ The source's version also follows the resulting ability onto the stack, so a
 self-counter cannot affect a later incarnation. A phased-out source is absent
 both when observing a death and when an effect would put a counter on it.
 
-`GameState::event_object_identity` reads a battlefield departure on the current
-journal entry before looking ahead to a later departure. A `ZoneChanged` leaving
-the battlefield refers to the departing incarnation, not its successor in the
-destination zone (CR 400.7). Trigger-time event conditions and the identity
-captured on the stack share this reader, so both name that same incarnation.
+A zone-change trigger keeps two identities distinct. `event_object_identity`
+can name the card in its destination zone for an instruction such as Rancor's
+return, while the source version retains the permanent that left the
+battlefield. A condition about what that permanent did earlier reads the
+latter; it must not replace the former (CR 400.7).
 
 `Trigger::DealtDamage` retains the damaged permanent as `EventObject` with
 its event-time incarnation, and the received damage as `EventAmount`. As with
@@ -1584,7 +1584,7 @@ Four records, each read by name and never inferred from the journal:
   `BlockedReferenceThisTurn` and `BlockedThisTurnBy` compare both versions, so
   a creature that left and came back is a new object that was never blocked
   (CR 400.7); `Effect::ReturnPerBlockedDeath` reads the controller.
-  `Condition::EventObjectWasBlockedThisTurn` compares the captured event
+  `Condition::SourceWasBlockedThisTurn` compares the source's captured event
   incarnation at both trigger collection and resolution (CR 603.4).
 - `PerTurn::damage_log` — every damage event this turn after prevention
   (CR 615.1: prevented damage was never dealt), with the amount, combat or
