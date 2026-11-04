@@ -126,8 +126,12 @@ async fn a_plan_casts_the_controlled_players_card_with_its_lands() {
 #[tokio::test]
 async fn a_plan_never_answers_the_other_players_question() {
     let (base, provider) = stand_in().await;
-    provider.script(decides(json!({"ask": "q12", "pick": ["a1"], "plan": ["pass"]})));
-    provider.script(decides(json!({"ask": "q13", "pick": ["p"], "plan": ["pass"]})));
+    provider.script(decides(
+        json!({"ask": "q12", "pick": ["a1"], "plan": ["pass"]}),
+    ));
+    provider.script(decides(
+        json!({"ask": "q13", "pick": ["p"], "plan": ["pass"]}),
+    ));
     provider.script(decides(json!({"ask": "q14", "pick": ["p"]})));
     let mind = mind(&base, Provider::Anthropic, |_| {});
     mind.decide(ask(&their_turn(), their_priority(), 12))

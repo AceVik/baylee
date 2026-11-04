@@ -910,20 +910,24 @@ fn held_line(held: Held, request: &Request) -> String {
     format!("{head}; woke because {because}.")
 }
 
-/// A cast or a land the plan names that waits for this turn's second main
-/// phase: a card in the seat's hand that only a main phase lets it cast or
-/// play (CR 307.1, CR 305.2), asked in its own combat with the stack empty,
-/// where that phase is still to come (CR 500.1). The seat passes toward
-/// it, as toward an attack before combat (Argon v Astra: an attack and a
-/// creature after it woke the model in every combat step).
+/// A cast or a land the plan names that waits for a main phase still to
+/// come this turn: a card in the deciding player's hand that only a main
+/// phase lets it cast or play (CR 307.1, CR 305.2), asked in that player's
+/// own beginning phase or combat with the stack empty (CR 500.1). The seat
+/// passes toward it, as toward an attack before combat (Argon v Astra: a
+/// land written at the mulligan woke the model in the upkeep, a creature
+/// after an attack in every combat step).
 fn waits_for_main(view: &PlayerView, step: &Step) -> bool {
     let (Step::Cast { card, .. } | Step::Play(card)) = step else {
         return false;
     };
-    view.active == view.seat
-        && view.phase == baylee_view::Phase::Combat
+    view.active == baylee_client_core::decision::resource_player(view)
+        && matches!(
+            view.phase,
+            baylee_view::Phase::Beginning | baylee_view::Phase::Combat
+        )
         && view.stack.is_empty()
-        && view.hand.iter().any(|held| {
+        && baylee_client_core::decision::hand(view).iter().any(|held| {
             (narrator::tag(held.id) == *card || held.name.eq_ignore_ascii_case(card))
                 && !baylee_client_core::timing::allows(
                     view,

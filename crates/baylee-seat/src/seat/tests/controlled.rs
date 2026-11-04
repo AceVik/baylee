@@ -181,10 +181,7 @@ fn a_controlled_question_the_mind_cannot_answer_falls_to_the_house() {
     let steps = core.answered(question, Err(MindError::Unavailable("TEST down".into())));
     let (action, by, _) = answer(&steps).expect("an answer");
     assert_eq!(by, By::House, "{steps:?}");
-    assert!(
-        matches!(action, PlayerAction::ChooseColor(_)),
-        "{action:?}"
-    );
+    assert!(matches!(action, PlayerAction::ChooseColor(_)), "{action:?}");
     assert_eq!(core.stats().controlled, 1);
 }
 

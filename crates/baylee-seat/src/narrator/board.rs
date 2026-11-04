@@ -157,7 +157,13 @@ pub(super) fn board(table: &Table<'_>, out: &mut String) {
     hand(table, "Your hand", table.me(), &view.hand, out);
     for shared in &view.shared_hands {
         let title = format!("{} hand (shown to you)", table.whose(shared.player));
-        hand(table, &capitalised(&title), shared.player, &shared.cards, out);
+        hand(
+            table,
+            &capitalised(&title),
+            shared.player,
+            &shared.cards,
+            out,
+        );
     }
     for controlled in &view.controlled_hands {
         let title = format!(
@@ -488,13 +494,7 @@ fn names_without_targeting(object: &PublicObject) -> bool {
     }
 }
 
-fn hand(
-    table: &Table<'_>,
-    title: &str,
-    owner: PlayerId,
-    cards: &[HandObject],
-    out: &mut String,
-) {
+fn hand(table: &Table<'_>, title: &str, owner: PlayerId, cards: &[HandObject], out: &mut String) {
     if cards.is_empty() {
         let _ = writeln!(out, "{title}: empty");
         return;

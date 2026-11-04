@@ -194,7 +194,10 @@ fn a_controlled_target_choice_reads_as_its_golden_text() {
     let request = request(view, pending, no_log());
     let wake = Narrator::new(&request.context).wake(&request, &[], None);
     golden("controlled_targets.txt", &wake.text);
-    let own = wake.menu.resolve(&pick(12, &["#45"])).expect("P2's own Angel");
+    let own = wake
+        .menu
+        .resolve(&pick(12, &["#45"]))
+        .expect("P2's own Angel");
     assert_eq!(
         own.act,
         Act::Now(PlayerAction::ChooseTargets {
@@ -261,7 +264,10 @@ fn a_controlled_discard_chooses_from_the_controlled_hand() {
     let request = request(view, pending, no_log());
     let wake = Narrator::new(&request.context).wake(&request, &[], None);
     let question = wake.text.split("QUESTION").nth(1).expect("a question");
-    assert!(question.contains("P2's hand is over its maximum size"), "{question}");
+    assert!(
+        question.contains("P2's hand is over its maximum size"),
+        "{question}"
+    );
     assert!(question.contains("Choose from P2's hand:"), "{question}");
     assert!(question.contains("#71 Pacifism"), "{question}");
     assert!(!question.contains("Lightning Bolt"), "{question}");

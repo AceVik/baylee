@@ -442,3 +442,45 @@ async fn a_sorcery_after_combat_waits_for_the_second_main_phase() {
     );
     assert_eq!(provider.seen().len(), 1, "the plan casts it");
 }
+
+/// A land the plan plays waits for the main phase: written in the upkeep
+/// (or at the mulligan), it passes the draw step without a call and plays
+/// in the first main phase (Argon v Astra: "play #44" woke the model in
+/// turn 1's upkeep).
+#[tokio::test]
+async fn a_land_written_before_the_main_phase_waits_for_it() {
+    let (base, provider) = stand_in().await;
+    provider.script(decides(json!({
+        "ask": "q12", "pick": ["p"], "plan": ["play #52"]
+    })));
+    let mind = mind(&base, Provider::Anthropic, |_| {});
+    let (mut view, _) = board();
+    view.phase = baylee_view::Phase::Beginning;
+    view.step = baylee_view::Step::Upkeep;
+    let first = mind
+        .decide(ask(&view, offer(&[], &[], &[(31, 0)], &[]), 12))
+        .await
+        .expect("the first answer");
+    assert_eq!(first.action, PlayerAction::PassPriority);
+
+    view.step = baylee_view::Step::Draw;
+    let draw = mind
+        .decide(ask(&view, offer(&[], &[], &[(31, 0)], &[]), 13))
+        .await
+        .expect("a pass");
+    assert_eq!(draw.action, PlayerAction::PassPriority);
+    assert_eq!(
+        provider.seen().len(),
+        1,
+        "the draw step is passed without a call"
+    );
+
+    view.phase = baylee_view::Phase::FirstMain;
+    view.step = baylee_view::Step::Main;
+    let land = mind
+        .decide(ask(&view, offer(&[52], &[], &[(31, 0)], &[]), 14))
+        .await
+        .expect("the land");
+    assert_eq!(land.action, PlayerAction::PlayLand { card: id(52) });
+    assert_eq!(provider.seen().len(), 1, "the plan played it");
+}

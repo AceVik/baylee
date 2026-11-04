@@ -404,12 +404,10 @@ impl Stop {
             Self::TargetsNotLegal => "the targets you named ahead are not legal now".into(),
             Self::AttackPassed => "the attack step passed without that attack".into(),
             Self::OtherPlayer { written, asked } => {
-                let written = written
-                    .as_ref()
-                    .map_or_else(
-                        || "your own decisions".to_string(),
-                        |p| format!("{p}'s decisions"),
-                    );
+                let written = written.as_ref().map_or_else(
+                    || "your own decisions".to_string(),
+                    |p| format!("{p}'s decisions"),
+                );
                 let asked = asked.as_ref().map_or_else(
                     || "is your own".to_string(),
                     |p| format!("is one you decide for {p}"),
