@@ -413,6 +413,31 @@ pub fn reset_art_base() {
     }
 }
 
+/// What a picture's URL says is drawn, whichever host serves it: its path
+/// below its base. The disk cache files a picture under this, so a picture
+/// fetched from the CDN is the one a draw reads under a mirror's address.
+///
+/// The two shapes are one but for the back, which the mirror's route gives a
+/// middle segment and Scryfall's own host does not ([`back_url_at`]): the
+/// CDN's is said in the mirror's shape, so both name one file. A URL under
+/// neither base is its own name.
+#[must_use]
+pub fn art_path<'a>(url: &'a str, base: &str) -> std::borrow::Cow<'a, str> {
+    let below = |root: &str| {
+        url.strip_prefix(root.trim_end_matches('/'))
+            .filter(|rest| rest.starts_with('/'))
+    };
+    if let Some((size, shelf)) =
+        below(SCRYFALL_BACKS_CDN).and_then(|rest| rest.trim_start_matches('/').split_once('/'))
+    {
+        return format!("/{size}/{BACKS_SEGMENT}/{shelf}").into();
+    }
+    below(SCRYFALL_CDN)
+        .or_else(|| below(base))
+        .unwrap_or(url)
+        .into()
+}
+
 /// The art base for a gateway, from the URL the client already talks to it on.
 ///
 /// `docs/protocol.md` §"Card art" is the shape; the gateway route is a mirror
@@ -850,6 +875,49 @@ mod tests {
             back_url_at(&gateway_art_base("http://127.0.0.1:28766"), ArtSize::Normal),
             "http://127.0.0.1:28766/art/normal/backs/0/a/\
              0aeebaf5-8c7d-4636-9e82-8c27447861f7.jpg"
+        );
+    }
+
+    /// A picture has one name whichever host serves it, the printed back
+    /// included, whose two shapes differ: the disk cache depends on it. Two
+    /// sizes, faces or printings never share one.
+    #[test]
+    fn a_picture_is_named_alike_on_the_cdn_and_in_a_mirror() {
+        let mirror = gateway_art_base("http://127.0.0.1:28766");
+        let id = "f333ea01-124f-4125-87ab-609be40e774c";
+        let other = "a333ea01-124f-4125-87ab-609be40e774c";
+        let at = |base: &str, id, face, size| art_url_at(base, id, face, size).expect("a url");
+        for size in [ArtSize::Small, ArtSize::Normal, ArtSize::ArtCrop] {
+            for face in [Face::Front, Face::Back] {
+                let (cdn, near) = (
+                    at(SCRYFALL_CDN, id, face, size),
+                    at(&mirror, id, face, size),
+                );
+                assert_eq!(art_path(&cdn, &mirror), art_path(&near, &mirror));
+                assert_eq!(art_path(&cdn, SCRYFALL_CDN), art_path(&near, &mirror));
+            }
+            let (cdn, near) = (back_url_at(SCRYFALL_CDN, size), back_url_at(&mirror, size));
+            assert_eq!(art_path(&cdn, SCRYFALL_CDN), art_path(&near, &mirror));
+        }
+        assert_eq!(
+            art_path(&at(SCRYFALL_CDN, id, Face::Front, ArtSize::Small), &mirror),
+            format!("/small/front/f/3/{id}.jpg")
+        );
+        let names: std::collections::BTreeSet<_> = [
+            at(SCRYFALL_CDN, id, Face::Front, ArtSize::Small),
+            at(SCRYFALL_CDN, id, Face::Front, ArtSize::Normal),
+            at(SCRYFALL_CDN, id, Face::Back, ArtSize::Small),
+            at(SCRYFALL_CDN, other, Face::Front, ArtSize::Small),
+            back_url_at(SCRYFALL_CDN, ArtSize::Small),
+        ]
+        .iter()
+        .map(|url| art_path(url, SCRYFALL_CDN).into_owned())
+        .collect();
+        assert_eq!(names.len(), 5);
+        assert_eq!(
+            art_path("https://elsewhere.example/x.jpg", &mirror),
+            "https://elsewhere.example/x.jpg",
+            "under neither base it is its own name"
         );
     }
 
