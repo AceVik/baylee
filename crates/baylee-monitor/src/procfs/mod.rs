@@ -2,7 +2,9 @@
 //! text, so the tests feed it fixtures and nothing here needs a real system.
 //! Unknown lines and fields are skipped: kernels add them freely.
 
+pub(crate) mod diskstats;
 pub(crate) mod meminfo;
+pub(crate) mod mountinfo;
 pub(crate) mod netdev;
 pub(crate) mod pressure;
 pub(crate) mod sockstat;

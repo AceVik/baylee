@@ -10,6 +10,7 @@ mod procfs;
 mod sampler;
 mod sensors;
 mod server;
+mod storage;
 #[cfg(test)]
 mod test_support;
 mod training;

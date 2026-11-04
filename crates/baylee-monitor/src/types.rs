@@ -32,6 +32,8 @@ pub(crate) struct Point {
     pub swap_in: u64,
     pub swap_out: u64,
     pub iowait: f32,
+    pub disk_read: u64,
+    pub disk_write: u64,
     pub cpu_temp: Option<f32>,
     pub gpu_temp: Option<f32>,
     pub psi_cpu: Option<f32>,
@@ -111,6 +113,7 @@ pub(crate) struct Snapshot {
     pub sensors: SensorView,
     pub temperatures: Vec<Temperature>,
     pub disks: Vec<Disk>,
+    pub storage: StorageView,
     pub networks: Vec<Network>,
     pub sockets: Sockets,
     pub processes: Vec<Process>,
@@ -210,6 +213,87 @@ pub(crate) struct Disk {
     pub mount: String,
     pub total: u64,
     pub available: u64,
+}
+
+/// How full a filesystem is and where that is heading.
+#[derive(Clone, Debug, Default, PartialEq, Serialize)]
+pub(crate) struct Usage {
+    pub total: u64,
+    pub used: u64,
+    /// What an unprivileged process can still write.
+    pub available: u64,
+    /// Like `df`: used out of used plus available.
+    pub used_pct: f32,
+    /// `None` on filesystems without a fixed inode count.
+    pub inodes_pct: Option<f32>,
+    /// The trend over the last half hour; negative while emptying.
+    pub filling_bps: Option<f64>,
+    /// When that trend reaches zero free bytes, if it is filling noticeably.
+    pub full_in_secs: Option<u64>,
+}
+
+/// One device's activity over the last sampling interval.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize)]
+pub(crate) struct DiskIo {
+    pub read_bps: f64,
+    pub write_bps: f64,
+    pub read_iops: f64,
+    pub write_iops: f64,
+    /// Time with at least one request in progress.
+    pub busy_pct: f64,
+    pub in_flight: u64,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize)]
+pub(crate) struct Partition {
+    /// The kernel's device name, such as `nvme1n1p2`.
+    pub name: String,
+    /// The filesystem's label.
+    pub label: Option<String>,
+    /// The partition table's own name for it.
+    pub part_name: Option<String>,
+    pub fs_type: Option<String>,
+    pub mount: Option<String>,
+    /// Further mounts of the same filesystem, such as bind mounts.
+    pub more_mounts: u32,
+    pub read_only: bool,
+    pub size: u64,
+    pub usage: Option<Usage>,
+    pub io: Option<DiskIo>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize)]
+pub(crate) struct PhysicalDisk {
+    pub name: String,
+    pub model: String,
+    pub size: u64,
+    /// `NVMe`, `SATA`, `USB`, …
+    pub transport: String,
+    pub rotational: bool,
+    pub removable: bool,
+    pub temperature: Option<f32>,
+    pub link: Option<PcieLink>,
+    pub io: Option<DiskIo>,
+    pub partitions: Vec<Partition>,
+}
+
+/// A local filesystem on no listed partition, such as `/tmp` or a ZFS pool.
+#[derive(Clone, Debug, Default, PartialEq, Serialize)]
+pub(crate) struct Volume {
+    pub mount: String,
+    pub fs_type: String,
+    pub read_only: bool,
+    pub usage: Option<Usage>,
+}
+
+/// The newest result of the storage thread, plus the sampler's rates.
+#[derive(Clone, Debug, Default, Serialize)]
+pub(crate) struct StorageView {
+    /// When this view was assembled; zero before the first refresh.
+    pub checked_ms: u64,
+    pub disks: Vec<PhysicalDisk>,
+    pub volumes: Vec<Volume>,
+    pub problem: Option<String>,
 }
 
 #[derive(Clone, Serialize)]

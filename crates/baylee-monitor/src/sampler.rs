@@ -13,9 +13,10 @@ use crate::{
         vmstat::{self, Vmstat},
     },
     sensors::{self, SensorView},
+    storage::{self, Storage},
     types::{
-        CpuDetail, Disk, Facts, GpuView, Memory, Point, PressureView, Process, Snapshot, Swap,
-        Temperature,
+        CpuDetail, Disk, Facts, GpuView, Memory, Point, PressureView, Process, Snapshot,
+        StorageView, Swap, Temperature,
     },
 };
 use anyhow::Context;
@@ -25,19 +26,23 @@ use std::{
     path::Path,
     time::{Duration, Instant},
 };
-use sysinfo::{Disks, ProcessRefreshKind, ProcessesToUpdate, System};
+use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System};
 
 /// Link speed and state change rarely, and asking the driver can be slow.
 const LINKS_EVERY: Duration = Duration::from_secs(5);
 /// Temperatures and fans move over seconds; an embedded controller is slow.
 const SENSORS_EVERY: Duration = Duration::from_secs(2);
+/// Often enough that a filling disk shows within seconds; `statvfs` and the
+/// sysfs walk are its own thread's business, so a sick disk stalls only this.
+const STORAGE_EVERY: Duration = Duration::from_secs(5);
 
 pub(crate) struct Sampler {
     system: System,
     network: network::Tracker,
     links: Latest<BTreeMap<String, Link>>,
     sensors: Latest<SensorView>,
-    disks: Disks,
+    storage: Latest<StorageView>,
+    disk_rates: storage::rates::Tracker,
     gpu: Latest<GpuView>,
     gpu_stale_ms: u64,
     power: Power,
@@ -45,7 +50,6 @@ pub(crate) struct Sampler {
     stat: Stat,
     vmstat: Vmstat,
     page_size: u64,
-    disk_at: Instant,
 }
 
 impl Sampler {
@@ -61,6 +65,11 @@ impl Sampler {
         background::spawn("sensors", SENSORS_EVERY, sensors.clone(), move || {
             sensors::read(threads)
         })?;
+        let storage = Latest::new(StorageView::default());
+        let mut disks = Storage::default();
+        background::spawn("storage", STORAGE_EVERY, storage.clone(), move || {
+            disks.refresh()
+        })?;
         let links = Latest::new(BTreeMap::new());
         background::spawn("links", LINKS_EVERY, links.clone(), || {
             network::read_links(Path::new("/sys/class/net"))
@@ -70,7 +79,8 @@ impl Sampler {
             sensors,
             network: network::Tracker::default(),
             links,
-            disks: Disks::new_with_refreshed_list().context("Disk telemetry unavailable")?,
+            storage,
+            disk_rates: storage::rates::Tracker::default(),
             gpu,
             gpu_stale_ms: (5 * interval.as_millis() as u64).max(5000),
             power: Power::new(),
@@ -78,7 +88,6 @@ impl Sampler {
             stat: stat::parse(&read_text("/proc/stat")),
             vmstat: vmstat::parse(&read_text("/proc/vmstat")),
             page_size: rustix::param::page_size() as u64,
-            disk_at: Instant::now(),
         })
     }
 
@@ -170,11 +179,6 @@ impl Sampler {
         self.previous = started;
         self.system.refresh_cpu_usage();
         refresh_processes(&mut self.system);
-        // statvfs is slower, and free space does not need 1 Hz updates.
-        if started.duration_since(self.disk_at).as_secs() >= 15 {
-            self.disks.refresh(true);
-            self.disk_at = started;
-        }
         let gpu = self.fresh_gpu_view();
         let (cpu_watts, cpu_power_status) = self.power.sample();
         let links = self.links.get();
@@ -183,6 +187,12 @@ impl Sampler {
             .network
             .update(&read_text("/proc/net/dev"), &links, elapsed);
         let (net_rx, net_tx) = network::physical_rates(&networks);
+        let mut storage = (*self.storage.get()).clone();
+        let rates = self
+            .disk_rates
+            .update(&read_text("/proc/diskstats"), elapsed);
+        storage::rates::overlay(&mut storage, &rates);
+        let (disk_read, disk_write) = storage::rates::totals(&storage);
         let mut sockets = sockstat::Sockets::default();
         sockstat::add(&mut sockets, &read_text("/proc/net/sockstat"));
         sockstat::add(&mut sockets, &read_text("/proc/net/sockstat6"));
@@ -208,6 +218,8 @@ impl Sampler {
                 swap_in: swap.in_bps as u64,
                 swap_out: swap.out_bps as u64,
                 iowait: cpu.shares.iowait,
+                disk_read: disk_read as u64,
+                disk_write: disk_write as u64,
                 cpu_temp: sensors.cpu_temp,
                 gpu_temp: primary.and_then(|g| g.temperature).map(|t| t as f32),
                 psi_cpu: some10(pressure.cpu),
@@ -252,22 +264,30 @@ impl Sampler {
                 })
                 .collect(),
             sensors: (*sensors).clone(),
-            disks: self
-                .disks
-                .iter()
-                .filter(|d| !d.is_removable())
-                .map(|d| Disk {
-                    mount: d.mount_point().to_string_lossy().into_owned(),
-                    total: d.total_space(),
-                    available: d.available_space(),
-                })
-                .collect(),
+            disks: mounted_disks(&storage),
+            storage,
             networks,
             sockets,
             processes,
             sample_ms: started.elapsed().as_secs_f64() * 1000.0,
         }
     }
+}
+
+fn mounted_disks(storage: &StorageView) -> Vec<Disk> {
+    storage
+        .disks
+        .iter()
+        .flat_map(|disk| &disk.partitions)
+        .filter_map(|partition| {
+            let usage = partition.usage.as_ref()?;
+            Some(Disk {
+                mount: partition.mount.clone()?,
+                total: usage.total,
+                available: usage.available,
+            })
+        })
+        .collect()
 }
 
 /// `/proc` files never block on hardware. A missing one parses as empty.
