@@ -294,6 +294,15 @@ impl HeuristicAgent {
             None if !context.effects.is_empty() => context.effects,
             None => return true,
         };
+        // An unbounded, doubling contest cannot be valued as one effect:
+        // always repeating eventually exceeds the numeric limits. Declining
+        // also ends the contest legally after its first, still-valid flip.
+        if then
+            .iter()
+            .any(|effect| matches!(effect, Effect::FlipCoinLifeExchangeRepeat { .. }))
+        {
+            return false;
+        }
         let draws = self_draws(view, then, context.x);
         if draws > 0
             && view

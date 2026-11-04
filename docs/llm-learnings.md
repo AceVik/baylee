@@ -6447,3 +6447,22 @@ got wrong was in the tests, not in the cards:
 - The card adds no new pending shape or view data. Desktop, house AI and LLM seats
   already render and answer the shared replacement choice when more than one
   replacement applies, so no card-specific interface or seat policy is needed.
+
+## 2026-11-04 — Game of Chaos reuses the winner-controlled coin contest
+
+- Replace the partial one-flip branches with the existing
+  `FlipCoinLifeExchangeRepeat { opponent: Chosen, initial: 1, multiplier: 2 }`.
+  The caster flips every time, the latest winner makes the optional repeat choice,
+  and the stake doubles only after that player agrees. No new card-specific engine
+  effect or continuation is needed.
+- Three played card tests cover both initial outcomes, the opponent's repeat
+  decision, both players stopping, and three consecutive wins at stakes 1, 2 and
+  4. The general coin tests independently cover replacement flips, zero-life
+  intermediate states, numeric bounds and substitute choosers after departure.
+- Desktop and LLM seats use the existing `YesNoPrompt::MayDo` flow; there is
+  no new pending shape or hidden information. The house AI now recognizes the
+  general unbounded contest effect and declines its optional repeat rather
+  than accepting until the doubled stake overflows. Its focused regression was
+  red before the fix, ordinary optional gains are still accepted, and the
+  six-seat implemented-card harness now completes the card's games without a
+  refused answer. No card-specific policy was added.
