@@ -296,6 +296,12 @@ impl WakeFilter {
         }
     }
 
+    /// No plan of the mind's runs any more: it holds one plan at a time,
+    /// and an answer for another player's question said none is left.
+    pub const fn drop_plan(&mut self) {
+        self.planned = None;
+    }
+
     /// How the last `until` ended, once, for the mind's next message.
     pub const fn take_held(&mut self) -> Option<Held> {
         self.held.take()

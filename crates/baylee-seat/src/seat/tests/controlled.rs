@@ -267,6 +267,45 @@ fn the_seats_own_until_never_passes_a_controlled_players_window() {
     assert_eq!(asked_of_mind(&steps).pending.asked(), Some(THEM));
 }
 
+/// A plan for P2 sends P2's questions to the mind; once an answer to the
+/// seat's own question says no plan is left (the mind holds one), P2's
+/// next window with nothing to do is the orders' again.
+#[test]
+fn a_plan_that_ended_at_the_seats_own_question_is_no_plan_for_the_controlled_player() {
+    let mut core = seated(BridgeConfig::default());
+    core.hear(&sent(2, their_main(&["Llanowar Elves"])));
+    let question = asked_of_mind(&core.hear(&asked(2, &their_priority(1)))).question;
+    core.answered(
+        question,
+        Ok(Answer {
+            planned: 1,
+            ..Answer::new(PlayerAction::PassPriority)
+        }),
+    );
+    core.hear(&sent(3, their_main(&[])));
+    let steps = core.hear(&asked(3, &their_priority(0)));
+    assert!(request(&steps).is_some(), "P2's plan sees it: {steps:?}");
+    core.answered(
+        asked_of_mind(&steps).question,
+        Ok(Answer {
+            planned: 1,
+            ..Answer::new(PlayerAction::PassPriority)
+        }),
+    );
+
+    // The seat's own question stops P2's plan in the mind, which says no
+    // plan is left.
+    let question = ask_mind(&mut core, 4, &colour());
+    core.answered(question, Ok(Answer::new(GREEN)));
+    core.hear(&sent(5, their_main(&[])));
+    let steps = core.hear(&asked(5, &their_priority(0)));
+    assert_eq!(
+        answer(&steps).map(|(action, by, _)| (action.clone(), by)),
+        Some((PlayerAction::PassPriority, By::Standing)),
+        "{steps:?}"
+    );
+}
+
 /// An `until` the mind gave for P2 passes P2's windows, never the seat's
 /// own in the same turn (CR 723.8).
 #[test]

@@ -541,14 +541,17 @@ impl SeatCore {
                             &context.teams,
                         );
                     // The stops the mind chose hold for every chair it
-                    // decides for, each read from its own.
-                    match current.controlled {
-                        None => {
-                            if let Some((_, filter)) = self.controlled.as_mut() {
-                                filter.apply_stops(stops);
-                            }
+                    // decides for, each read from its own; and the mind
+                    // holds one plan, so none left is none for either.
+                    let other = match current.controlled {
+                        None => self.controlled.as_mut().map(|(_, filter)| filter),
+                        Some(_) => Some(&mut self.wake),
+                    };
+                    if let Some(other) = other {
+                        other.apply_stops(stops);
+                        if answer.planned == 0 {
+                            other.drop_plan();
                         }
-                        Some(_) => self.wake.apply_stops(stops),
                     }
                 }
                 self.stats.model_ms = self.stats.model_ms.saturating_add(
