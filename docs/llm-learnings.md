@@ -6466,3 +6466,20 @@ got wrong was in the tests, not in the cards:
   red before the fix, ordinary optional gains are still accepted, and the
   six-seat implemented-card harness now completes the card's games without a
   refused answer. No card-specific policy was added.
+
+## 2026-11-04 — Gargantuan Gorilla remembers an optional sacrifice's snow supertype
+
+- Compose the existing optional `PlayerMayPayCostOr` with a following
+  `IfCondition` on `SacrificedForCost`. The payment continuation already records
+  the sacrificed incarnation on the resolving source; the condition reads that
+  last-known battlefield object instead of inspecting its current graveyard card.
+  A `PumpFilter` on `This` supplies trample until end of turn without a new
+  card-specific effect or engine mechanic.
+- Five played tests cover the Forest-only offer, ordinary and snow Forest
+  payments, refusal with self-sacrifice and 7 damage, the opponent's upkeep,
+  another-creature targeting and mutual power damage, and actual excess combat
+  damage. The snow grant expires at end of turn, while an ordinary Forest grants
+  no trample.
+- Desktop, house AI and LLM seats reuse the existing optional object payment,
+  layered keyword projection and combat decisions. No new pending shape, wire
+  data, client presentation or card-specific seat policy is needed.
