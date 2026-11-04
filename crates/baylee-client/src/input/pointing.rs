@@ -109,6 +109,11 @@ pub fn pointer(
             {
                 continue;
             }
+            // A chair this seat may play from (its own, or a player it
+            // controls, CR 723.5) becomes the one the table is shown from:
+            // its hand, its mana, its questions. Every other seat's tab is
+            // only the camera's.
+            duel.show_from(tab.player);
             // Your own tab, or the one being visited, brings the camera
             // home; any other seat's tab visits it.
             match baylee_client_core::tableview::press(duel.seat(), duel.visiting, tab.player) {

@@ -294,18 +294,19 @@ fn question_row(duel: &Duel, lang: Lang, elsewhere: bool) -> Vec<(Says, String)>
 }
 
 /// Retarget identity and instructions live in the wrapping drawer above the shelf.
+///
+/// A question asked of a player this seat controls (CR 723.5) is named for
+/// them before it is asked: "For Mia: choose targets" (`Phrase::ForPlayer`),
+/// whichever chair the table is shown from.
 pub(super) fn shelf_headline(
     duel: &Duel,
     lang: Lang,
     texts: &crate::cardtext::CardTexts,
 ) -> Option<String> {
     let headline = base_shelf_headline(duel, lang, texts)?;
-    if let Some(view) = duel.view.as_ref() {
-        let subject = baylee_client_core::decision::resource_player(view);
-        if subject != view.seat {
-            let who = baylee_client_core::i18n::seat_name(lang, duel.statics.as_ref(), subject);
-            return Some(Phrase::DecidingFor.fill(lang, &[&who]));
-        }
+    if let Some(player) = duel.deciding_for() {
+        let who = baylee_client_core::i18n::seat_name(lang, duel.statics.as_ref(), player);
+        return Some(Phrase::ForPlayer.fill(lang, &[&who, &headline]));
     }
     Some(headline)
 }

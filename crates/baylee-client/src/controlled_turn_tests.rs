@@ -11,6 +11,7 @@
 //! reading of it rather than a hand-made view either side could agree with.
 
 use super::*;
+use baylee_client_core::perspective::Perspective;
 use baylee_core::ids::Defender;
 use baylee_core::preset::DeckEntry;
 use baylee_engine::choice::LegalActions;
@@ -683,4 +684,233 @@ fn a_controlled_question_left_standing_goes_when_control_ends() {
     theirs.decision_player = Some(THEM);
     duel.receive_view(theirs);
     assert!(duel.interaction.is_some());
+}
+
+// The perspective (`client-core::perspective`) as the duel drives it: the
+// hand row follows the decisions, a chair chosen by hand holds until the
+// next one, and the setting turns the following off.
+
+fn hand_row(duel: &Duel) -> Vec<&str> {
+    duel.board
+        .as_ref()
+        .expect("a board")
+        .hand
+        .iter()
+        .map(|c| c.name.as_str())
+        .collect()
+}
+
+/// This seat's own priority in their turn (CR 723.8).
+fn my_priority() -> (PlayerView, Pending) {
+    let mut view = controlling_view();
+    view.decision_player = Some(ME);
+    (
+        view,
+        Pending::Priority {
+            player: ME,
+            legal: Box::default(),
+        },
+    )
+}
+
+/// An answer sent: the next question is a new decision.
+fn answered(duel: &mut Duel) {
+    duel.take_outbox();
+    duel.interaction = None;
+}
+
+#[test]
+fn the_hand_row_follows_the_decision_and_a_choice_by_hand_holds_until_the_next() {
+    let mut duel = Duel::default();
+    duel.receive_view(controlling_view());
+    duel.receive_choice(their_priority(LegalActions::default()));
+    assert_eq!(
+        duel.shown_seat(),
+        Some(THEM),
+        "their decision shows their chair"
+    );
+    assert_eq!(hand_row(&duel), ["Their card"]);
+    let epoch = duel.perspective_epoch;
+
+    // Back to my own hand by hand; the question asked again leaves it.
+    assert!(duel.show_from(ME));
+    assert_eq!(hand_row(&duel), ["Own card"]);
+    assert_ne!(
+        duel.perspective_epoch, epoch,
+        "the change is told to the hand's rise"
+    );
+    duel.receive_view(controlling_view());
+    duel.receive_choice(their_priority(LegalActions::default()));
+    assert_eq!(
+        duel.shown_seat(),
+        Some(ME),
+        "a re-sent question is not a new one"
+    );
+    assert!(
+        duel.interaction.as_ref().is_some_and(Interaction::is_mine),
+        "and it is still this seat's to answer, named for them"
+    );
+
+    // The next decision follows again: mine, then theirs.
+    answered(&mut duel);
+    let (view, pending) = my_priority();
+    duel.receive_view(view);
+    duel.receive_choice(pending);
+    assert_eq!(duel.shown_seat(), Some(ME));
+    assert!(
+        duel.show_from(THEM),
+        "their chair by hand during my own question"
+    );
+    answered(&mut duel);
+    duel.receive_view(controlling_view());
+    duel.receive_choice(their_priority(LegalActions::default()));
+    assert_eq!(duel.shown_seat(), Some(THEM));
+    assert!(!duel.perspective.by_hand());
+
+    // A seat this one does not control is never a chair to play from.
+    assert!(!duel.show_from(PlayerId::new(5)));
+}
+
+#[test]
+fn with_follow_off_the_chair_stays_where_the_player_put_it() {
+    let mut duel = Duel {
+        control_follow_off: true,
+        ..Duel::default()
+    };
+    duel.receive_view(controlling_view());
+    duel.receive_choice(their_priority(LegalActions::default()));
+    assert_eq!(duel.shown_seat(), Some(ME));
+    assert_eq!(
+        hand_row(&duel),
+        ["Own card"],
+        "the question is theirs, the hand mine"
+    );
+    assert!(duel.cycle_perspective(true));
+    assert_eq!(hand_row(&duel), ["Their card"]);
+    answered(&mut duel);
+    let (view, pending) = my_priority();
+    duel.receive_view(view);
+    duel.receive_choice(pending);
+    assert_eq!(
+        duel.shown_seat(),
+        Some(THEM),
+        "my decision does not move it either"
+    );
+}
+
+/// The control ends while their chair is shown: the next view shows this
+/// seat's own hand, and nothing of theirs is left on it.
+#[test]
+fn control_ending_mid_perspective_shows_my_own_hand_again() {
+    let mut duel = Duel::default();
+    duel.receive_view(controlling_view());
+    duel.receive_choice(their_priority(LegalActions::default()));
+    assert_eq!(duel.shown_seat(), Some(THEM));
+    let mut after = controlling_view();
+    after.awaiting = Some(THEM);
+    after.decision_player = Some(THEM);
+    after.controlled_hands.clear();
+    duel.receive_view(after);
+    rebuild_board(&mut duel);
+    assert_eq!(duel.shown_seat(), Some(ME));
+    assert_eq!(hand_row(&duel), ["Own card"]);
+}
+
+/// Two players controlled at once: `U` walks every chair, mine included,
+/// and a decision for the other one goes there.
+#[test]
+fn several_controlled_chairs_are_cycled_and_followed() {
+    let p3 = PlayerId::new(2);
+    let mut view = baylee_client_core::test_support::ViewBuilder::new(3)
+        .with_hand(vec![("Own card", 1, 10)])
+        .controlling(1, vec![("Their card", 1, 20)])
+        .build();
+    view.controlled_hands.push(baylee_view::SharedHand {
+        player: p3,
+        public: false,
+        cards: baylee_client_core::test_support::ViewBuilder::new(1)
+            .with_hand(vec![("Third card", 1, 30)])
+            .build()
+            .hand,
+    });
+    let mut duel = Duel::default();
+    duel.receive_view(view.clone());
+    duel.receive_choice(their_priority(LegalActions::default()));
+    assert_eq!(duel.shown_seat(), Some(THEM));
+    assert!(duel.cycle_perspective(true));
+    assert_eq!(hand_row(&duel), ["Third card"]);
+    assert!(duel.cycle_perspective(true));
+    assert_eq!(hand_row(&duel), ["Own card"], "round to my own chair");
+    answered(&mut duel);
+    view.decision_player = Some(p3);
+    duel.receive_view(view);
+    duel.receive_choice(Pending::Priority {
+        player: p3,
+        legal: Box::default(),
+    });
+    assert_eq!(duel.shown_seat(), Some(p3));
+}
+
+/// The badges over the chips: the controller's chips say whose chairs it
+/// holds and which is shown, the controlled player's own table says who
+/// controls it, and the turn's hint says both.
+#[test]
+fn the_chips_say_who_is_under_whose_control() {
+    use crate::hud::control_badge;
+    use baylee_client_core::Lang;
+    let mut duel = Duel::default();
+    duel.receive_view(controlling_view());
+    duel.receive_choice(their_priority(LegalActions::default()));
+    let view = duel.view.clone().unwrap();
+    let badge = |duel: &Duel, view: &PlayerView, player| {
+        control_badge(view, &duel.perspective, None, Lang::En, player).map(|(words, _)| words)
+    };
+    assert_eq!(
+        badge(&duel, &view, THEM).as_deref(),
+        Some("Shown · under your control")
+    );
+    assert_eq!(badge(&duel, &view, ME), None, "my own chip is mine");
+    duel.show_from(ME);
+    assert_eq!(
+        badge(&duel, &view, THEM).as_deref(),
+        Some("Under your control")
+    );
+
+    let mut theirs = view.clone();
+    theirs.seat = THEM;
+    theirs.controlled_hands.clear();
+    let (words, hint) =
+        control_badge(&theirs, &Perspective::default(), None, Lang::En, THEM).expect("public");
+    assert!(words.starts_with("Controlled by"), "{words}");
+    assert!(hint.contains("turn — controlled by"), "{hint}");
+}
+
+/// `U` at the real keyboard system walks the chairs: their hand, then mine.
+#[test]
+fn the_key_walks_the_chairs() {
+    use bevy::input::ButtonInput;
+    use bevy::input::keyboard::KeyboardInput;
+    use bevy::prelude::*;
+    let mut duel = Duel::default();
+    duel.receive_view(controlling_view());
+    duel.receive_choice(their_priority(LegalActions::default()));
+    let mut app = App::new();
+    app.init_resource::<ButtonInput<KeyCode>>()
+        .init_resource::<crate::prefs::Prefs>()
+        .init_resource::<crate::table::CameraRig>()
+        .init_resource::<crate::settings::ClientSettings>()
+        .add_message::<KeyboardInput>()
+        .insert_resource(duel)
+        .add_systems(Update, input::keyboard);
+    let press = |app: &mut App| {
+        let mut keys = app.world_mut().resource_mut::<ButtonInput<KeyCode>>();
+        keys.release_all();
+        keys.clear();
+        keys.press(KeyCode::KeyU);
+        app.update();
+        app.world().resource::<Duel>().shown_seat()
+    };
+    assert_eq!(press(&mut app), Some(ME), "past their chair, round to mine");
+    assert_eq!(press(&mut app), Some(THEM));
+    assert!(app.world().resource::<Duel>().perspective.by_hand());
 }

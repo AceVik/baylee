@@ -253,6 +253,7 @@ fn duel_choosing_a_colour() -> Duel {
 }
 
 mod answer_tests;
+mod control_tests;
 mod decision_tests;
 mod menu_tests;
 mod phone_stack_tests;

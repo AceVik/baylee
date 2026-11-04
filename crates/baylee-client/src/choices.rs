@@ -1129,12 +1129,15 @@ pub(crate) fn target_question(
     statics: Option<&GameStatic>,
 ) -> Vec<String> {
     let mut lines = base_target_question(interaction, view, lang, texts, statics);
+    // A controlled player's question (CR 723.5) is named for them: "For
+    // Mia: choose a target", as the shelf names it.
     let subject = baylee_client_core::decision::resource_player(view);
     if subject != view.seat {
-        lines.insert(
-            0,
-            Phrase::DecidingFor.fill(lang, &[&seat_name(lang, statics, subject)]),
-        );
+        let who = seat_name(lang, statics, subject);
+        match lines.first_mut() {
+            Some(first) => *first = Phrase::ForPlayer.fill(lang, &[&who, first]),
+            None => lines.push(Phrase::DecidingFor.fill(lang, &[&who])),
+        }
     }
     lines
 }

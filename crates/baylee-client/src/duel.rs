@@ -68,12 +68,17 @@ impl Duel {
         // Whose turn it is, for the one line that changes with it. A seat
         // holds priority on every turn at the table, so the bar has to be
         // told which one this is or it says "Your move" through the whole
-        // game.
+        // game. The turn is the deciding player's: deciding for the player
+        // whose turn this seat controls (CR 723.5), it is "their" move on
+        // their own turn, not a response on somebody else's.
         let turn = self
             .view
             .as_ref()
             .map_or(baylee_client_core::Turn::Mine, |v| {
-                baylee_client_core::Turn::of(v.active, v.seat)
+                baylee_client_core::Turn::of(
+                    v.active,
+                    baylee_client_core::decision::resource_player(v),
+                )
             });
         let name = |id: baylee_core::ids::ObjectId| {
             let view = self.view.as_ref()?;
@@ -252,6 +257,11 @@ impl Duel {
         self.follow_the_turn(&view);
         self.end_a_controlled_decision(&view);
         self.table_mana = manasources::table_mana(&view);
+        // A chair shown that this seat no longer controls is shown no
+        // longer: the control ended mid-perspective.
+        if self.perspective.read(&view) {
+            self.perspective_epoch = self.perspective_epoch.wrapping_add(1);
+        }
         self.view = Some(view);
         let was_choosing = self.browser.for_choice();
         if let Some(v) = self.view.as_ref() {
@@ -296,6 +306,70 @@ impl Duel {
             self.cast_menu = None;
             self.ability_menu = None;
         }
+    }
+
+    /// A decision arriving shows the table from the chair it is for, unless
+    /// *Dem gesteuerten Spieler folgen* is off (`perspective::decision`).
+    ///
+    /// A decision arrives when a question is installed where none stood (the
+    /// last one was answered, `flush_outbox`) or one for another player
+    /// replaced it; the same question asked again is not one, so a chair the
+    /// player chose by hand holds until the next.
+    fn follow_the_decision(&mut self, asked_before: Option<PlayerId>) {
+        let (Some(view), Some(interaction)) = (self.view.as_ref(), self.interaction.as_ref())
+        else {
+            return;
+        };
+        if !interaction.is_mine() || asked_before == Some(interaction.subject()) {
+            return;
+        }
+        if self
+            .perspective
+            .decision(view, interaction.subject(), !self.control_follow_off)
+        {
+            self.perspective_epoch = self.perspective_epoch.wrapping_add(1);
+            self.hand_scroll = 0.0;
+        }
+    }
+
+    /// The chair the bottom of the table is shown from: this seat's own, or
+    /// a player's it controls (`perspective`).
+    #[must_use]
+    pub fn shown_seat(&self) -> Option<PlayerId> {
+        self.view.as_ref().map(|v| self.perspective.shown(v))
+    }
+
+    /// Shows the table from `player`'s chair, a press on its chip: this
+    /// seat's own, or a player it controls; any other is refused. Holds
+    /// until the next decision. Answers whether the chair changed.
+    pub fn show_from(&mut self, player: PlayerId) -> bool {
+        let changed = self
+            .view
+            .as_ref()
+            .is_some_and(|v| self.perspective.choose(v, player));
+        self.perspective_moved(changed)
+    }
+
+    /// The next chair this seat may show the table from, or the one before
+    /// it (`Action::CyclePerspective`). Answers whether the chair changed.
+    pub fn cycle_perspective(&mut self, forward: bool) -> bool {
+        let changed = self
+            .view
+            .as_ref()
+            .is_some_and(|v| self.perspective.cycle(v, forward));
+        self.perspective_moved(changed)
+    }
+
+    /// A chair changed by hand: the hand row is drawn again from it.
+    fn perspective_moved(&mut self, changed: bool) -> bool {
+        if changed {
+            self.perspective_epoch = self.perspective_epoch.wrapping_add(1);
+            self.hand_scroll = 0.0;
+            self.hovered = None;
+            self.hovered_at = None;
+            rebuild_board(self);
+        }
+        changed
     }
 
     /// Caps a cast's X question at what this seat's own mana pays (#20).
@@ -736,7 +810,9 @@ impl Duel {
             self.subtype_group = 0;
         }
         let combat_before = self.interaction.as_ref().is_some_and(my_combat_question);
+        let asked_before = self.interaction.as_ref().map(Interaction::subject);
         let label_before = self.install_question(pending, seat);
+        self.follow_the_decision(asked_before);
         self.cap_x();
         self.refresh_owed_plan();
         // My own attackers or blockers being asked for brings the camera home

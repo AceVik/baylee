@@ -311,6 +311,7 @@ fn every_mark_the_overlay_names_is_in_the_icon_face() {
         ("RESTORE", glyph::RESTORE),
         ("RESIZE", glyph::RESIZE),
         ("ZONES", glyph::ZONES),
+        ("CONTROL", glyph::CONTROL),
     ];
     for (name, mark) in named {
         assert!(
