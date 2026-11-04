@@ -172,7 +172,7 @@ async fn source() -> Response {
         "src/procfs/pressure.rs": include_str!("procfs/pressure.rs"), "src/procfs/stat.rs": include_str!("procfs/stat.rs"),
         "src/procfs/swaps.rs": include_str!("procfs/swaps.rs"), "src/procfs/vmstat.rs": include_str!("procfs/vmstat.rs"),
         "src/procfs/netdev.rs": include_str!("procfs/netdev.rs"), "src/procfs/sockstat.rs": include_str!("procfs/sockstat.rs"),
-        "src/network.rs": include_str!("network.rs"),
+        "src/network.rs": include_str!("network.rs"), "src/sensors.rs": include_str!("sensors.rs"),
         "src/training/mod.rs": include_str!("training/mod.rs"), "src/training/dbus.rs": include_str!("training/dbus.rs"),
         "src/training/units.rs": include_str!("training/units.rs"), "src/training/pipeline.rs": include_str!("training/pipeline.rs"),
         "web/index.html": include_str!("../web/index.html"), "web/style.css": include_str!("../web/style.css"), "web/app.js": include_str!("../web/app.js")

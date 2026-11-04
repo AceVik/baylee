@@ -166,6 +166,7 @@ pub(crate) fn physical_rates(networks: &[Network]) -> (f64, f64) {
 mod tests {
     use super::*;
     use crate::test_support::Scratch;
+    use std::fmt::Write as _;
 
     const HEADER: &str = "Inter-|\n face |\n";
 
@@ -294,9 +295,10 @@ mod tests {
 
     #[test]
     fn a_page_of_veth_pairs_is_cut_after_the_real_adapters() {
-        let mut lines: String = (0..50)
-            .map(|n| format!("veth{n}: 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0\n"))
-            .collect();
+        let mut lines = String::new();
+        for n in 0..50 {
+            writeln!(lines, "veth{n}: 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0").unwrap();
+        }
         lines.push_str("enp5s0: 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0\n");
         let networks = Tracker::default().update(&dev(&lines), &links(), 1.0);
         assert_eq!(networks.len(), MAX_INTERFACES);

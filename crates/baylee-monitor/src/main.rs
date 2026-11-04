@@ -8,6 +8,7 @@ mod network;
 mod power;
 mod procfs;
 mod sampler;
+mod sensors;
 mod server;
 #[cfg(test)]
 mod test_support;

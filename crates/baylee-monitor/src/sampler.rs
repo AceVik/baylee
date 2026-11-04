@@ -12,6 +12,7 @@ use crate::{
         swaps,
         vmstat::{self, Vmstat},
     },
+    sensors::{self, SensorView},
     types::{
         CpuDetail, Disk, Facts, GpuView, Memory, Point, PressureView, Process, Snapshot, Swap,
         Temperature,
@@ -24,16 +25,18 @@ use std::{
     path::Path,
     time::{Duration, Instant},
 };
-use sysinfo::{Components, Disks, ProcessRefreshKind, ProcessesToUpdate, System};
+use sysinfo::{Disks, ProcessRefreshKind, ProcessesToUpdate, System};
 
 /// Link speed and state change rarely, and asking the driver can be slow.
 const LINKS_EVERY: Duration = Duration::from_secs(5);
+/// Temperatures and fans move over seconds; an embedded controller is slow.
+const SENSORS_EVERY: Duration = Duration::from_secs(2);
 
 pub(crate) struct Sampler {
     system: System,
     network: network::Tracker,
     links: Latest<BTreeMap<String, Link>>,
-    components: Components,
+    sensors: Latest<SensorView>,
     disks: Disks,
     gpu: Latest<GpuView>,
     gpu_stale_ms: u64,
@@ -53,16 +56,20 @@ impl Sampler {
         let gpu = Latest::new(GpuView::default());
         let mut gpus = Gpus::new();
         background::spawn("gpu", interval, gpu.clone(), move || gpus.sample())?;
+        let threads = system.cpus().len();
+        let sensors = Latest::new(SensorView::default());
+        background::spawn("sensors", SENSORS_EVERY, sensors.clone(), move || {
+            sensors::read(threads)
+        })?;
         let links = Latest::new(BTreeMap::new());
         background::spawn("links", LINKS_EVERY, links.clone(), || {
             network::read_links(Path::new("/sys/class/net"))
         })?;
         Ok(Self {
             system,
+            sensors,
             network: network::Tracker::default(),
             links,
-            components: Components::new_with_refreshed_list()
-                .context("Temperature telemetry unavailable")?,
             disks: Disks::new_with_refreshed_list().context("Disk telemetry unavailable")?,
             gpu,
             gpu_stale_ms: (5 * interval.as_millis() as u64).max(5000),
@@ -163,7 +170,6 @@ impl Sampler {
         self.previous = started;
         self.system.refresh_cpu_usage();
         refresh_processes(&mut self.system);
-        self.components.refresh(true);
         // statvfs is slower, and free space does not need 1 Hz updates.
         if started.duration_since(self.disk_at).as_secs() >= 15 {
             self.disks.refresh(true);
@@ -172,6 +178,7 @@ impl Sampler {
         let gpu = self.fresh_gpu_view();
         let (cpu_watts, cpu_power_status) = self.power.sample();
         let links = self.links.get();
+        let sensors = self.sensors.get();
         let networks = self
             .network
             .update(&read_text("/proc/net/dev"), &links, elapsed);
@@ -201,6 +208,8 @@ impl Sampler {
                 swap_in: swap.in_bps as u64,
                 swap_out: swap.out_bps as u64,
                 iowait: cpu.shares.iowait,
+                cpu_temp: sensors.cpu_temp,
+                gpu_temp: primary.and_then(|g| g.temperature).map(|t| t as f32),
                 psi_cpu: some10(pressure.cpu),
                 psi_mem: some10(pressure.memory),
                 psi_io: some10(pressure.io),
@@ -233,18 +242,16 @@ impl Sampler {
             gpus: gpu.gpus,
             gpu_status: gpu.status,
             cpu_power_status,
-            temperatures: self
-                .components
+            temperatures: sensors
+                .readings
                 .iter()
-                .filter_map(|c| {
-                    Some(Temperature {
-                        label: c.label().into(),
-                        celsius: c
-                            .temperature()
-                            .filter(|v| v.is_finite() && *v > -20.0 && *v < 150.0)?,
-                    })
+                .filter(|reading| reading.kind == "temp")
+                .map(|reading| Temperature {
+                    label: format!("{} {}", reading.chip, reading.label),
+                    celsius: reading.value,
                 })
                 .collect(),
+            sensors: (*sensors).clone(),
             disks: self
                 .disks
                 .iter()

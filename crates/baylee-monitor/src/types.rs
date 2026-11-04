@@ -2,6 +2,7 @@
 
 use crate::{
     procfs::{pressure::Pressure, sockstat::Sockets, stat::CpuShares, swaps::SwapDevice},
+    sensors::SensorView,
     training::Training,
 };
 use serde::Serialize;
@@ -31,6 +32,8 @@ pub(crate) struct Point {
     pub swap_in: u64,
     pub swap_out: u64,
     pub iowait: f32,
+    pub cpu_temp: Option<f32>,
+    pub gpu_temp: Option<f32>,
     pub psi_cpu: Option<f32>,
     pub psi_mem: Option<f32>,
     pub psi_io: Option<f32>,
@@ -105,6 +108,7 @@ pub(crate) struct Snapshot {
     pub gpu_driver: Option<String>,
     pub gpu_cuda: Option<String>,
     pub cpu_power_status: String,
+    pub sensors: SensorView,
     pub temperatures: Vec<Temperature>,
     pub disks: Vec<Disk>,
     pub networks: Vec<Network>,
