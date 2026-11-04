@@ -18,8 +18,8 @@ use crate::{
     sensors::{self, SensorView},
     storage::{self, Storage},
     types::{
-        CpuDetail, Disk, Facts, Gpu, GpuView, Memory, Point, PressureView, Process, Snapshot,
-        StorageView, Swap, Temperature, tenths,
+        CpuDetail, Facts, Gpu, GpuView, Memory, Point, PressureView, Process, Snapshot,
+        StorageView, Swap, tenths,
     },
 };
 use anyhow::Context;
@@ -217,10 +217,6 @@ impl Sampler {
                 .ok()
                 .map(|load| [load.one, load.five, load.fifteen]),
             cores: self.system.cpus().iter().map(sysinfo::Cpu::usage).collect(),
-            ram_used: memory.used,
-            ram_total: memory.total,
-            swap_used: swap.used,
-            swap_total: swap.total,
             cpu: self.read_cpu(elapsed, cpu_watts),
             memory,
             swap,
@@ -234,17 +230,7 @@ impl Sampler {
             gpus: gpu.gpus,
             gpu_status: gpu.status,
             cpu_power_status,
-            temperatures: sensors
-                .readings
-                .iter()
-                .filter(|reading| reading.kind == "temp")
-                .map(|reading| Temperature {
-                    label: format!("{} {}", reading.chip, reading.label),
-                    celsius: reading.value,
-                })
-                .collect(),
             sensors: (*sensors).clone(),
-            disks: mounted_disks(&storage),
             storage,
             networks,
             sockets,
@@ -255,22 +241,6 @@ impl Sampler {
         snapshot.sample_ms = started.elapsed().as_secs_f64() * 1000.0;
         snapshot
     }
-}
-
-fn mounted_disks(storage: &StorageView) -> Vec<Disk> {
-    storage
-        .disks
-        .iter()
-        .flat_map(|disk| &disk.partitions)
-        .filter_map(|partition| {
-            let usage = partition.usage.as_ref()?;
-            Some(Disk {
-                mount: partition.mount.clone()?,
-                total: usage.total,
-                available: usage.available,
-            })
-        })
-        .collect()
 }
 
 /// What of a snapshot enters the graphs' history.

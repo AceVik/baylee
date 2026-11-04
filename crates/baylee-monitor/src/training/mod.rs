@@ -14,6 +14,8 @@ use std::{
 };
 
 pub(crate) use pipeline::Pipeline;
+#[cfg(test)]
+pub(crate) use pipeline::{Progress, Stage};
 pub(crate) use units::{Services, Unit};
 
 /// Training changes over minutes; five seconds keeps the panel current.

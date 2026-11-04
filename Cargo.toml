@@ -113,7 +113,7 @@ rustix = { version = "1", features = ["fs", "param"] }
 axum = { version = "0.8", features = ["ws"] }
 # The optional workstation monitor: no GPU context, no process commands,
 # and no parallel process scan competing with the training workers.
-sysinfo = { version = "0.40.1", default-features = false, features = ["system", "disk", "network", "component"] }
+sysinfo = { version = "0.40.1", default-features = false, features = ["system"] }
 nvml-wrapper = "0.13"
 argon2 = "0.6"
 getrandom = "0.4"

@@ -3,81 +3,97 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#0c1118">
+  <meta name="theme-color" content="#0b1117">
   <title>Pulse · Baylee</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='12' fill='%231c3535'/%3E%3Cpath d='M5 21h8l4-10 6 19 4-9h8' fill='none' stroke='%236ce2bc' stroke-width='3'/%3E%3C/svg%3E">
+  <link rel="icon" id="favicon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='12' fill='%23123030'/%3E%3Cpath d='M5 21h8l4-10 6 19 4-9h8' fill='none' stroke='%2362e0ba' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="/style.css">
-  <script src="/app.js" defer></script>
+  <script src="/js/theme-early.js"></script>
+  <script type="module" src="/js/main.js"></script>
 </head>
 <body>
-<a class="skip" href="#processes">Zur Prozessliste</a>
-<div class="shell">
-  <aside class="rail" aria-label="Navigation">
-    <a class="brand" href="#" aria-label="Pulse Startseite"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M3 19h8l4-10 6 19 4-9h8"/></svg></a>
-    <a class="rail-link selected" href="#overview" title="Übersicht" aria-label="Übersicht">◫</a>
-    <a class="rail-link" href="#training" title="Training" aria-label="Training">◎</a>
-    <a class="rail-link" href="#processes" title="Prozesse" aria-label="Prozesse">☷</a>
-    <a class="rail-link" href="#hardware" title="Hardware" aria-label="Hardware">▦</a>
-    <span class="rail-word">BAYLEE</span>
-  </aside>
-  <main id="overview">
-    <header>
-      <div class="wordmark">pulse<span>WORKSTATION MONITOR</span></div>
-      <div class="connection" role="status"><i id="connection-dot"></i><span id="connection">Verbinde …</span></div>
-    </header>
-    <section class="intro">
-      <div><div class="eyebrow">DEIN SYSTEM, LIVE</div><h1>Alles im Blick<span>.</span></h1><p id="machine">Messwerte werden geladen …</p></div>
-      <div class="host-chip"><span class="host-icon">⌘</span><div><strong id="hostname">Workstation</strong><small id="uptime">—</small></div></div>
-    </section>
-    <div id="stale" class="notice" hidden>Verbindung unterbrochen. Die letzten Messwerte bleiben sichtbar; die Verbindung wird automatisch wiederhergestellt.</div>
-    <section class="stats" aria-label="Aktuelle Auslastung">
-      <article class="stat cpu"><div class="stat-top"><span>CPU</span><span class="mini-icon">▦</span></div><div class="big" id="cpu-value">—</div><div class="meter"><i id="cpu-meter"></i></div><p id="cpu-caption">Prozessor-Auslastung</p></article>
-      <article class="stat gpu"><div class="stat-top"><span>GPU</span><span class="mini-icon">◈</span></div><div class="big" id="gpu-value">—</div><div class="meter"><i id="gpu-meter"></i></div><p id="gpu-caption">Grafikkarte</p></article>
-      <article class="stat ram"><div class="stat-top"><span>ARBEITSSPEICHER</span><span class="mini-icon">▤</span></div><div class="big" id="ram-value">—</div><div class="meter"><i id="ram-meter"></i></div><p id="ram-caption">RAM</p></article>
-      <article class="stat vram"><div class="stat-top"><span>GPU-SPEICHER</span><span class="mini-icon">▥</span></div><div class="big" id="vram-value">—</div><div class="meter"><i id="vram-meter"></i></div><p id="vram-caption">VRAM</p></article>
-    </section>
-    <section class="panel training" id="training" aria-labelledby="training-title">
-      <div class="panel-heading"><h2 id="training-title">Training</h2><span class="tag" id="training-checked">NUR ANZEIGE</span></div>
-      <div class="training-grid">
-        <div id="pipelines" class="pipeline-list"><p class="muted-note">Warte auf Messwerte …</p></div>
-        <div class="units-block"><h3>Systemdienste <span class="count">baylee-*</span></h3><p id="units-problem" class="muted-note" hidden></p><ul id="units" class="unit-list"></ul></div>
-      </div>
-    </section>
-    <section class="charts-grid">
-      <article class="panel activity-panel">
-        <div class="panel-heading"><h2>Auslastung</h2><div class="segmented" aria-label="Zeitraum"><button data-window="300" aria-pressed="true">5 Min.</button><button data-window="900" aria-pressed="false">15 Min.</button><button data-window="3600" aria-pressed="false">1 Std.</button></div></div>
-        <div class="legend"><span class="cpu">CPU</span><span class="gpu">GPU 0</span><span class="ram">RAM</span><span class="vram">VRAM 0</span></div>
-        <div class="chart-wrap"><canvas id="activity-chart" role="img" aria-label="Verlauf der CPU-, GPU-, RAM- und VRAM-Auslastung in Prozent"></canvas><output class="tooltip" id="activity-tooltip" hidden></output></div>
-        <div class="chart-footer"><span id="history-caption">Verlauf wird aufgebaut</span><span>1 Sekunde · live</span></div>
-      </article>
-      <article class="panel power-panel">
-        <div class="panel-heading"><h2>Leistungsaufnahme</h2><span class="tag">SENSOREN</span></div>
-        <div class="power-reading"><strong id="power-value">—</strong><span>GPU gesamt</span></div>
-        <div class="chart-wrap compact"><canvas id="power-chart" role="img" aria-label="Verlauf der gemessenen GPU- und CPU-Leistung in Watt"></canvas><output class="tooltip" id="power-tooltip" hidden></output></div>
-        <div class="power-meta"><span>CPU-Package <b id="cpu-watts">—</b></span><span>Gesamter PC <b>nicht messbar</b></span></div>
-        <p class="muted-note" id="power-note">Es werden ausschließlich verfügbare Sensorwerte angezeigt.</p>
-      </article>
-    </section>
-    <section class="detail-grid">
-      <article class="panel processes" id="processes">
-        <div class="panel-heading"><h2>Prozesse <span class="count" id="process-count">0</span></h2><span class="tag">NUR ANZEIGE</span></div>
-        <div class="process-toolbar"><div class="segmented" aria-label="Prozessfilter"><button data-filter="all" aria-pressed="true">Alle</button><button data-filter="gpu" aria-pressed="false">GPU</button><button data-filter="active" aria-pressed="false">Aktiv</button></div><label class="search"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="Name oder PID" aria-label="Prozesse nach Name oder PID filtern" autocomplete="off"></label></div>
-        <div class="table-scroll" tabindex="0" role="region" aria-label="Prozessliste, horizontal scrollbar"><table><thead><tr><th scope="col"><button data-sort="name">Prozess</button></th><th scope="col" aria-sort="descending"><button data-sort="cpu">CPU ↓</button></th><th scope="col"><button data-sort="ram">RAM</button></th><th scope="col"><button data-sort="gpu">GPU-Zeit</button></th><th scope="col"><button data-sort="vram">VRAM</button></th><th scope="col"><button data-sort="io">Disk I/O</button></th></tr></thead><tbody id="process-body"><tr><td colspan="6" class="empty">Warte auf Messwerte …</td></tr></tbody></table></div>
-        <div class="process-footer"><span id="process-caption">100 % CPU = ein logischer Kern.</span><button class="text-button" id="show-more" hidden>Mehr anzeigen</button></div>
-        <p class="muted-note">RAM = residenter Speicher (RSS, gemeinsam genutzte Seiten können mehrfach zählen). GPU-Zeit je Prozess nur bei verfügbarer Einzelmessung; Prozessleistung in Watt ist nicht messbar.</p>
-      </article>
-      <aside class="hardware-stack" id="hardware">
-        <article class="panel core-panel"><div class="panel-heading"><h2>CPU im Detail</h2><span class="tag" id="core-count">—</span></div><div id="cores" class="cores"></div><div class="core-key"><span>Auslastung je logischem Kern</span><span>0 — 100 %</span></div><div class="line-item"><span>Load · 1 / 5 / 15 Min.</span><strong id="load">—</strong></div><div class="line-item"><span>Swap</span><strong id="swap">—</strong></div></article>
-        <article class="panel"><div class="panel-heading"><h2>Temperaturen</h2><span class="tag">°C</span></div><div id="temperatures" class="sensor-list"><p class="muted-note">Noch keine Messwerte</p></div><button id="show-sensors" class="text-button" hidden>Weitere Sensoren</button></article>
-        <article class="panel"><div class="panel-heading"><h2>Grafikkarten</h2><span class="tag" id="gpu-count">0</span></div><div id="gpu-details" class="sensor-list"></div></article>
-      </aside>
-    </section>
-    <section class="bottom-grid">
-      <article class="panel"><div class="panel-heading"><h2>Netzwerk</h2><div class="legend"><span class="cpu">↓ Empfang</span><span class="vram">↑ Versand</span></div></div><div class="network-values"><strong id="rx-value">—</strong><span>↓</span><strong id="tx-value">—</strong><span>↑</span></div><div class="chart-wrap compact"><canvas id="network-chart" role="img" aria-label="Datenrate der physischen Netzwerkanschlüsse"></canvas><output class="tooltip" id="network-tooltip" hidden></output></div><p class="muted-note" id="network-caption">Summe physischer Anschlüsse · ohne doppelt gezählte virtuelle Interfaces</p></article>
-      <article class="panel"><div class="panel-heading"><h2>Speicherplatz</h2><span class="tag">DATEISYSTEME</span></div><div id="disks" class="disk-list"></div><p class="muted-note">Aktualisierung alle 15 Sekunden.</p></article>
-    </section>
-    <footer><span><b>pulse</b> by Baylee · <span id="sample-time">—</span></span><span>Lokale Messwerte · keine Cloud · <a href="/source">Quellcode · AGPL-3.0</a></span></footer>
-  </main>
+<a class="skip" href="#content">Zum Inhalt</a>
+
+<svg class="sprite" aria-hidden="true">
+  <defs>
+    <symbol id="i-pulse" viewBox="0 0 36 36"><path d="M3 19h8l4-10 6 19 4-9h8"/></symbol>
+    <symbol id="i-dashboard" viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="10" rx="2.5"/><rect x="13" y="3" width="8" height="6" rx="2.5"/><rect x="13" y="11" width="8" height="10" rx="2.5"/><rect x="3" y="15" width="8" height="6" rx="2.5"/></symbol>
+    <symbol id="i-performance" viewBox="0 0 24 24"><path d="M3 12h4l3-7 4 14 3-7h4"/></symbol>
+    <symbol id="i-processes" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="4" cy="6" r="1.2"/><circle cx="4" cy="12" r="1.2"/><circle cx="4" cy="18" r="1.2"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2.2"/><circle cx="8" cy="17" r="2.2"/></symbol>
+    <symbol id="i-arrange" viewBox="0 0 24 24"><path d="M12 3v18M3 12h18M12 3l-2.5 2.5M12 3l2.5 2.5M12 21l-2.5-2.5M12 21l2.5-2.5M3 12l2.5-2.5M3 12l2.5 2.5M21 12l-2.5-2.5M21 12l-2.5 2.5"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><path d="M9 5v14M15 5v14"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5l11 7-11 7z"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 4 2.8 20h18.4zM12 10v5M12 17.5v.5"/></symbol>
+    <symbol id="i-warn" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v6M12 16.5v.5"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8 12.5 3 3 5-6"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></symbol>
+    <symbol id="i-columns" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16M15 4v16"/></symbol>
+    <symbol id="i-grip" viewBox="0 0 24 24"><circle cx="9" cy="6" r="1.4"/><circle cx="15" cy="6" r="1.4"/><circle cx="9" cy="12" r="1.4"/><circle cx="15" cy="12" r="1.4"/><circle cx="9" cy="18" r="1.4"/><circle cx="15" cy="18" r="1.4"/></symbol>
+    <symbol id="i-hide" viewBox="0 0 24 24"><path d="M3 12s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6z"/><path d="M4 20 20 4"/></symbol>
+    <symbol id="i-wider" viewBox="0 0 24 24"><path d="M3 12h18M6 8l-3 4 3 4M18 8l3 4-3 4"/></symbol>
+    <symbol id="i-narrower" viewBox="0 0 24 24"><path d="M3 12h7M14 12h7M7 8l3 4-3 4M17 8l-3 4 3 4"/></symbol>
+    <symbol id="i-taller" viewBox="0 0 24 24"><path d="M12 3v18M8 6l4-3 4 3M8 18l4 3 4-3"/></symbol>
+    <symbol id="i-shorter" viewBox="0 0 24 24"><path d="M12 3v7M12 14v7M8 7l4 3 4-3M8 17l4-3 4 3"/></symbol>
+    <symbol id="i-resize" viewBox="0 0 24 24"><path d="M20 10 10 20M20 16l-4 4"/></symbol>
+    <symbol id="i-disk" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3.5"/><path d="M7 15h.5M11 15h6"/></symbol>
+  </defs>
+</svg>
+
+<header class="topbar">
+  <a class="brand" href="#dashboard" aria-label="Pulse, zum Dashboard"><svg class="brand-mark" aria-hidden="true"><use href="#i-pulse"/></svg><span>pulse</span></a>
+  <nav class="tabs" aria-label="Ansichten">
+    <a class="tab" data-tab="dashboard" href="#dashboard"><svg class="icon" aria-hidden="true"><use href="#i-dashboard"/></svg><span>Dashboard</span></a>
+    <a class="tab" data-tab="performance" href="#leistung"><svg class="icon" aria-hidden="true"><use href="#i-performance"/></svg><span>Leistung</span></a>
+    <a class="tab" data-tab="processes" href="#prozesse"><svg class="icon" aria-hidden="true"><use href="#i-processes"/></svg><span>Prozesse</span></a>
+  </nav>
+  <div class="host"><strong id="hostname">Workstation</strong><small id="uptime">—</small></div>
+  <div class="topbar-actions">
+    <div class="connection" role="status"><i id="connection-dot"></i><span id="connection">Verbinde …</span></div>
+    <button class="pill-button alert-pill" id="alert-pill" type="button" aria-haspopup="dialog"><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg><span id="alert-count">Alles gut</span></button>
+    <button class="icon-button" id="open-settings" type="button" aria-label="Einstellungen" title="Einstellungen" aria-haspopup="dialog"><svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg></button>
+  </div>
+</header>
+
+<div id="banner" class="banner" role="alert" hidden></div>
+<div id="stale" class="notice" hidden>Verbindung unterbrochen. Die letzten Messwerte bleiben sichtbar; die Verbindung wird automatisch wiederhergestellt.</div>
+
+<div class="scopebar">
+  <div class="segmented" id="ranges" role="group" aria-label="Zeitraum der Graphen"></div>
+  <button class="pill-button" id="pause" type="button" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#i-pause"/></svg><span id="pause-label">Pause</span></button>
+  <span class="scope-note" id="range-note">Verlauf wird aufgebaut</span>
+  <button class="pill-button arrange" id="arrange" type="button" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#i-arrange"/></svg><span id="arrange-label">Anordnen</span></button>
 </div>
+<p class="arrange-hint" id="arrange-hint" hidden>Karten am Kopf ziehen und an der Ecke skalieren. Tastatur: Griff fokussieren, Pfeiltasten bewegen, Umschalt und Pfeiltasten ändern die Größe, Entf blendet aus. Ausgeblendetes kommt in den Einstellungen zurück.</p>
+
+<main id="content">
+  <section id="view-dashboard" aria-label="Dashboard"><div class="grid" id="grid"></div></section>
+  <section id="view-performance" aria-label="Leistung" hidden><div class="performance" id="performance"></div></section>
+  <section id="view-processes" aria-label="Prozesse" hidden><div class="card process-page" id="process-host"><header class="card-head"><h2>Prozesse</h2><span class="tag">Nur Anzeige</span></header></div></section>
+</main>
+
+<footer class="page-footer">
+  <span><b>pulse</b> by Baylee · <span id="sample-time">—</span></span>
+  <span>Lokale Messwerte · keine Cloud · <a href="/source">Quellcode · AGPL-3.0</a></span>
+</footer>
+
+<dialog id="settings" class="sheet" aria-labelledby="settings-title">
+  <header class="sheet-head"><h2 id="settings-title">Einstellungen</h2><button class="icon-button" id="close-settings" type="button" aria-label="Einstellungen schließen"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button></header>
+  <div class="sheet-body" id="settings-body"></div>
+</dialog>
+
+<dialog id="alerts-dialog" class="sheet" aria-labelledby="alerts-title">
+  <header class="sheet-head"><h2 id="alerts-title">Warnungen</h2><button class="icon-button" id="close-alerts" type="button" aria-label="Warnungen schließen"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button></header>
+  <div class="sheet-body">
+    <p class="lead" id="alerts-none">Keine aktiven Warnungen.</p>
+    <ul class="alert-list" id="alerts-active"></ul>
+    <h3>Verlauf seit dem Öffnen</h3>
+    <ol class="log-list" id="alerts-log"></ol>
+    <p class="muted-note">Schwellen stehen in den Einstellungen. Warnungen entstehen auf dieser Seite und brauchen sie offen; der Dienst misst nur.</p>
+  </div>
+</dialog>
+
+<div id="toast" class="toast" role="status" hidden></div>
+<div id="live" class="sr-only" aria-live="polite"></div>
 </body>
 </html>

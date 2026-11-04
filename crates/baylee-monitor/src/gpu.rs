@@ -224,7 +224,6 @@ fn read_device(device: &Device, index: u32, fixed: &Fixed, since: &mut u64) -> G
         temperature: device.temperature(TemperatureSensor::Gpu).ok(),
         temp_slowdown: fixed.temp_slowdown,
         temp_shutdown: fixed.temp_shutdown,
-        fan: fans.first().copied(),
         fans,
         clock_graphics: clock(Clock::Graphics),
         clock_sm: clock(Clock::SM),
