@@ -449,6 +449,14 @@ Four properties are load-bearing:
   route here answers: the session rides in a header, never in a cookie, and
   no `Allow-Credentials` is ever sent beside it.
 
+### What a client's disk cache makes of this
+
+A desktop client's background fill never asks this route: it goes straight to
+Scryfall's image hosts (`docs/client.md`, "The cache fills itself"). A client
+files a picture by its path below the base, so the mirror's path shape above is
+also what lets a draw from here find the copy the fill brought from Scryfall,
+and `images::art_path` is where the back's two shapes are made one.
+
 ### Warming a table
 
 When a game is created the gateway walks the preset's whole print table and

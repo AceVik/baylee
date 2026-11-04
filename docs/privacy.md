@@ -702,7 +702,13 @@ decks and settings as JSON.
   Each is written `0600` on unix (`write_at`, tested). A registered
   account's session is held in memory only. A kept guest's entry goes at
   sign-out and when the gateway says the guest has ended. The art cache
-  (`artreader`) holds only images, with default permissions.
+  (`artreader`) holds only images, with default permissions. A desktop
+  client also fills it in the background (`docs/client.md`, on by default,
+  off in Settings › Network & Gateway), straight from Scryfall's image
+  hosts, signed in or not and also before any sign-in: each request names a
+  printing and nothing about the player, and shows no session. So Scryfall
+  sees that device's IP address ask for every card's picture, which a client
+  on a gateway's mirror did not show it before. Nothing here is kept about it.
 - **Browser:** `localStorage` keys `baylee:client-settings` (a kept guest's
   token included), `baylee:gateway` and one per stored document
   (`baylee:preferences.json`, `baylee:offline-decks.json`,

@@ -2507,9 +2507,11 @@ before `AssetPlugin`, and:
   Android. It never uses the working directory;
 - treats the cache as optional: a read or write that fails is one `WARN` per
   operation and error kind, and the downloaded bytes still load;
-- names a cached picture by the SHA-256 of its URL, and writes it to a `.part`
-  that is synced and then renamed into place, so a crash cannot leave half a
-  JPEG that fails to decode on every later launch;
+- names a cached picture by the SHA-256 of what is drawn, the URL's path below
+  its base (`images::art_path`, the printed back's two shapes made one), so a
+  picture is one file whichever host served it, and writes it to a `.part` that
+  is synced and then renamed into place, so a crash cannot leave half a JPEG
+  that fails to decode on every later launch;
 - asks only under `https://cards.scryfall.io/`, `https://backs.scryfall.io/`
   and the art base in force (`images::art_base`, which is the gateway mirror
   after sign-in). Anything else, and any path containing `..`, is refused with
@@ -2522,7 +2524,108 @@ before `AssetPlugin`, and:
   did).
 
 A cache that bevy's reader left in `<repo>/.web-asset-cache` is simply no
-longer read: pictures are fetched again, once, into the new place.
+longer read: pictures are fetched again, once, into the new place. So it went
+with the cache's own old names, the hash of the whole URL (until 04.11.2026):
+they cannot be turned back into a path, so they are fetched again, and the fill's
+next listing removes them, since nothing reads them and they would eat the
+budget. The new names end in `.jpg`, which is how a listing tells them apart.
+
+The name's independence has a price worth knowing: a gateway's mirror used to
+fill a cache of its own, and now what any mirror serves is what the device keeps
+for that picture, also after the player moves to another gateway.
+
+**The cache fills itself in the background on a desktop (owner, 04.11.2026).**
+`client-core::cachefill` decides and `crate::cachefill` does: a few threads of
+its own, the HTTP and the disk. It fetches what the deck builder and the table
+will ask for before they ask, so a first scroll through the pool and a first
+hover find their pictures on disk.
+
+*What it fetches*, read off what a draw reads: every card with
+`Coverage::Implemented` in the compiled registry (10 754 today, 110 of them
+with a second picture), at the printing a row that picks nothing shows, in two
+rounds. First `small`, front and back, which is what a row and the table draw;
+then `normal`, which is what a preview and the card window draw. And the printed
+back at `normal`. That is 21 729 pictures. One card measured 13.6 kB `small` and
+97 kB `normal`, so about 150 MB and 1.1 GB. Inside a round it is the basic lands
+and then the builder's own list (`Sort::Name`); the registry holds no date and
+no count of decks, so "newest" and "most used" are not to be had cheaply.
+
+Left out, with the reason. `GET /printings` and `GET /pool` are a gateway's, and
+none of the fill reaches a gateway, so the builder's first opening still waits
+for `/pool` as it did. `GET /catalog/text` is not read by the builder at all,
+which takes its text from `/pool`. A card's other printings are many times as
+many pictures, for a dialog opened now and then. Tokens and deck art bands are
+not in the plan.
+
+*It goes straight to Scryfall*: `cards.scryfall.io` and `backs.scryfall.io`,
+signed in or not, and so also at the front door. No fill traffic reaches a
+gateway, the fill shows no session, and its URLs are built from ids the client
+holds, so there is no call to `api.scryfall.com` either. That works because the
+name of a cached picture does not depend on the host: `cachefill::plan` builds
+with the functions a draw uses, `artreader::fill_one` is the reader's own
+allowlist, `download`, limits, User-Agent, `key` and `store`, and the mirror's
+path is Scryfall's. Its bytes go to the file and no further: nothing is decoded
+and nothing is uploaded, which is why the frame never feels it.
+`the_plan_holds_what_a_row_a_preview_and_the_table_ask_for` holds the join
+against the real row, preview and print-table code, and
+`a_picture_filled_from_the_cdn_is_drawn_after_sign_in_with_no_request` fills a
+cache from one server on loopback and draws every picture under another's
+address, asking neither. A client started on a seat ticket has no lobby and
+fills nothing, and neither does a `dev-control` build, because a harness's run
+has to stay measurable and a driver must not start bulk traffic.
+
+*What is wanted goes first, and nothing is in front of it.* A wanted picture goes
+as it always went: no queue, no pace, no slot. It only tells the fill it is on
+its way (`Courier::wanted`). The fill starts nothing while one runs and for
+750 ms after the last, and a fill request already running gives way between two
+16 kB reads of its body and goes back to the head of the queue. Measured on
+loopback, the fill's requests taking 150 ms and a wanted picture 30,
+`a_running_batch_adds_almost_nothing_to_a_wanted_picture`: a wanted picture took
+31.9 ms with nothing running and 31.5 ms beside a running batch, the worst of
+seven 31.5 ms. Thirty wanted pictures at once beside a fill all reach the server
+within 13 ms of each other (`wanted_pictures_have_nothing_in_front_of_them`).
+
+*How fast.* `*.scryfall.io` has no rate limit (`docs/legal.md` §3), so the fill
+has none either, only a cap on requests in flight, out of courtesy and for the
+player's own line: 1, 2 or 3 by pace, 2 by default. Within it the next picture
+starts when the last is done.
+
+*When a server objects.* `Retry-After`, seconds or a date, keeps the fill away for
+as long as it says, up to an hour. A 429 or 503 that names no time costs it at
+least a minute; other failures wait 2 s, doubling to 5 min, a quarter of that
+stretched per client so a server coming back up is not asked by everybody in one
+second. Eight failures in a row stop the fill with the reason, and a refusal
+(401, 403, a redirect) or sixteen 404s in a row stop it at once. A stop lasts
+until *Try again* or the next start. None of this touches a wanted picture.
+
+*It rests.* Any `DuelPhase` but `Closed` is a table, a replay's among them, and
+from that moment no fill request starts and no cache is listed, and a request
+in flight gives way to the table's own pictures. It goes on by itself. A
+Pause lasts for the run. Nothing about the fill is stored: on every start, and
+whenever the reach changes, it lists the cache and plans around what is there
+(an empty file is missing, as the reader says). The listing also clears a
+`.part` over an hour old.
+
+*It never fills the disk.* It stops when the cache reaches the budget (1, 2 or
+5 GB, 2 by default, which holds the pool and what a player looks at) or the
+disk has 2 GB left, read when it plans and every minute, wanted pictures
+included. Those stops are the fill's alone: a draw still downloads and keeps its
+picture, and a cache that cannot be written stops the fill at the first failed
+write and costs a draw nothing, as before.
+
+*What the player sees*: Settings › Network & Gateway, device rows
+(`ClientSettings::card_fill`). The switch, on by default on a desktop, because
+the owner asked for it, a picture costs the player nothing a draw would not, it
+rests during a game and it stops at its budget; off keeps what is there. A
+browser caches for itself and a phone's data plan is not spent behind its
+owner's back, so neither is offered it. Under the switch the state and its
+reason, a bar, cards done of this round's, bytes, time at work, the current speed
+(the last 10 s), the time left (the last minute's pace, said only while it runs)
+and the cache's size against its budget (`lobby::card_fill`, written in place
+twice a second, like the update card, and not read during a game); then Pause,
+Resume or Try again, *Empty the cache* (two presses), and the three choices.
+While pictures are on their way the header carries a small mark with the share,
+which says how far on hover and opens the block.
 
 
 Board cards are fetched `small` (146×204); only the focused card is fetched
