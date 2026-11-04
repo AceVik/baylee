@@ -39,3 +39,74 @@ fn hipparion_casts_and_blocks_in_combat() {
     let offer = lk::declare(&mut engine, &[bears]);
     assert!(lk::may_block(&offer, horse, bears));
 }
+
+fn blocking_game(
+    attacker: CardIndex,
+    with_mana_source: bool,
+) -> (Engine<RegistryLookup>, ObjectId, ObjectId) {
+    let mut defender_board = vec![hipparion()];
+    if with_mana_source {
+        defender_board.push(index::FOREST);
+    }
+    let engine = lk::game(SEED, &[attacker], &defender_board, &[], &[]);
+    let attacker = lk::obj(&engine, P0, attacker);
+    let horse = lk::obj(&engine, P1, hipparion());
+    (engine, horse, attacker)
+}
+
+#[test]
+fn hipparion_blocks_power_two_or_less_without_paying() {
+    let (mut engine, horse, bears) = blocking_game(index::GRIZZLY_BEARS, false);
+    let offer = lk::attack(&mut engine, &[bears]);
+    assert!(lk::may_block(&offer, horse, bears));
+
+    lk::block(&mut engine, &[(horse, bears)]);
+    assert!(engine.state().combat.is_blocking(horse, bears));
+    assert_eq!(engine.state().players[1].mana_pool.total(), 0);
+}
+
+#[test]
+fn hipparion_cannot_block_power_three_without_mana() {
+    let (mut engine, horse, giant) = blocking_game(index::HILL_GIANT, false);
+    let offer = lk::attack(&mut engine, &[giant]);
+    assert!(
+        !lk::may_block(&offer, horse, giant),
+        "an unpayable conditional block is absent from every seat's offer"
+    );
+    assert!(
+        engine
+            .apply(
+                P1,
+                PlayerAction::DeclareBlockers {
+                    blockers: vec![(horse, giant)],
+                },
+            )
+            .is_err(),
+        "the declaration is illegal even if a caller bypasses the offer"
+    );
+}
+
+#[test]
+fn hipparion_pays_one_to_block_power_three_or_greater() {
+    let (mut engine, horse, giant) = blocking_game(index::HILL_GIANT, true);
+    let offer = lk::attack(&mut engine, &[giant]);
+    assert!(
+        lk::may_block(&offer, horse, giant),
+        "the Forest makes the conditional block payable in the offer"
+    );
+
+    lk::block(&mut engine, &[(horse, giant)]);
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("the conditional block opens a mana payment window");
+    };
+    for source in legal.mana_abilities {
+        engine
+            .apply(P1, PlayerAction::ActivateManaAbility { source })
+            .expect("tap the Forest for the conditional block");
+    }
+    engine
+        .apply(P1, PlayerAction::PassPriority)
+        .expect("pay the one generic mana");
+    assert!(engine.state().combat.is_blocking(horse, giant));
+    assert_eq!(engine.state().players[1].mana_pool.total(), 0);
+}

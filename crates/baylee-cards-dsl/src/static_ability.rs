@@ -1061,6 +1061,14 @@ pub enum Modifier {
         /// The permanent each additional sacrifice must match.
         sacrifice: &'static Filter,
     },
+    /// The affected creature can't block an attacker matching `attacker`
+    /// unless its controller pays `mana` generic mana.
+    CantBlockMatchingUnlessPayMana {
+        /// Which attackers trigger the payment requirement.
+        attacker: &'static Filter,
+        /// Generic mana paid per matching block declaration.
+        mana: u32,
+    },
     /// The buyback cost of a matching spell costs this much less generic
     /// mana. Only the buyback cost's own generic part (CR 118.7a), so it does
     /// nothing for a spell whose buyback was not announced and nothing for
@@ -1342,6 +1350,7 @@ impl Modifier {
             | Self::CantAttackUnlessPayManaPerCounter(_)
             | Self::CantBlockUnlessPayMana(_)
             | Self::CantBlockUnlessPayManaPerCounter(_)
+            | Self::CantBlockMatchingUnlessPayMana { .. }
             | Self::CantAttackUnlessYouSacrifice { .. }
             | Self::AttackWithoutTappingWhileSourceUntapped { .. }
             | Self::CantAttackUnlessDefenderControls(_)

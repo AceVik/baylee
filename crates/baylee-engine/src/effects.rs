@@ -312,6 +312,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::CantAttackUnlessPayManaPerCounter(_)
         | Modifier::CantBlockUnlessPayMana(_)
         | Modifier::CantBlockUnlessPayManaPerCounter(_)
+        | Modifier::CantBlockMatchingUnlessPayMana { .. }
         | Modifier::CantAttackUnlessYouSacrifice { .. }
         | Modifier::DamageToItCantBePreventedOrRedirected
         | Modifier::CantEnterBattlefield(_)
@@ -1868,6 +1869,10 @@ mod tests {
             Modifier::CantAttackUnlessPayManaPerCounter(baylee_cards_dsl::CounterKind::P1P1),
             Modifier::CantBlockUnlessPayMana(1),
             Modifier::CantBlockUnlessPayManaPerCounter(baylee_cards_dsl::CounterKind::P1P1),
+            Modifier::CantBlockMatchingUnlessPayMana {
+                attacker: &Filter::PowerAtLeast(3),
+                mana: 1,
+            },
             Modifier::CantAttackUnlessYouSacrifice {
                 count: 2,
                 filter: &Filter::LAND,
@@ -1920,7 +1925,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            191,
+            192,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -2016,7 +2021,8 @@ mod tests {
         // modify rules and lock no object set. Buyback's cost reduction is
         // another rules-only modifier. MinimumBlockers restricts a declaration
         // rather than changing a characteristic, so it locks nothing.
-        assert_eq!((locking, all.len() - locking), (55, 136));
+        // The attacker-filtered block tax is another rules-only modifier.
+        assert_eq!((locking, all.len() - locking), (55, 137));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

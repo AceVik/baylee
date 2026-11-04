@@ -310,6 +310,17 @@ pub fn menace_satisfiable(
     attacker: ObjectId,
     candidates: &[ObjectId],
 ) -> bool {
+    menace_satisfiable_by(state, defending, attacker, candidates, |_| true)
+}
+
+/// The same count, restricted to candidates whose block is affordable.
+fn menace_satisfiable_by(
+    state: &GameState,
+    defending: PlayerId,
+    attacker: ObjectId,
+    candidates: &[ObjectId],
+    mut affordable: impl FnMut(ObjectId) -> bool,
+) -> bool {
     if state.object(attacker).is_none() {
         return false;
     }
@@ -320,7 +331,7 @@ pub fn menace_satisfiable(
     candidates
         .iter()
         .copied()
-        .filter(|blocker| can_block(state, defending, *blocker, attacker))
+        .filter(|blocker| can_block(state, defending, *blocker, attacker) && affordable(*blocker))
         .take(need)
         .count()
         == need
@@ -385,16 +396,17 @@ pub fn block_options(
     mana_reach: u64,
 ) -> Vec<crate::choice::BlockOption> {
     let rules = BlockRules::new(state).reaching(mana_reach);
-    let candidates: Vec<ObjectId> = ready_blockers(state, defending)
-        .into_iter()
-        .filter(|blocker| rules.can_pay_mana(*blocker))
-        .collect();
+    let candidates: Vec<ObjectId> = ready_blockers(state, defending);
     let blockable: Vec<ObjectId> = state
         .combat
         .attackers()
         .iter()
         .map(|a| a.creature)
-        .filter(|a| menace_satisfiable(state, defending, *a, &candidates))
+        .filter(|attacker| {
+            menace_satisfiable_by(state, defending, *attacker, &candidates, |blocker| {
+                rules.can_pay_mana(blocker, *attacker)
+            })
+        })
         .collect();
     candidates
         .iter()
@@ -403,7 +415,10 @@ pub fn block_options(
             let attackers: Vec<ObjectId> = blockable
                 .iter()
                 .copied()
-                .filter(|a| can_block(state, defending, blocker, *a))
+                .filter(|attacker| {
+                    can_block(state, defending, blocker, *attacker)
+                        && rules.can_pay_mana(blocker, *attacker)
+                })
                 .collect();
             (!attackers.is_empty()).then_some(crate::choice::BlockOption { blocker, attackers })
         })
@@ -480,7 +495,10 @@ impl<'a> BlockRules<'a> {
         for fx in state.effects.iter() {
             match fx.modifier {
                 Modifier::CantBlockUnlessPayMana(_)
-                | Modifier::CantBlockUnlessPayManaPerCounter(_) => rules.unless_pay_mana.push(fx),
+                | Modifier::CantBlockUnlessPayManaPerCounter(_)
+                | Modifier::CantBlockMatchingUnlessPayMana { .. } => {
+                    rules.unless_pay_mana.push(fx);
+                }
                 Modifier::CanBlockAdditional(_) => rules.additional.push(fx),
                 Modifier::CanBlockAnyNumber => rules.any_number.push(fx),
                 Modifier::MustBeBlockedByAllAble | Modifier::MustBeBlockedByAllAbleMatching(_) => {
@@ -515,11 +533,11 @@ impl<'a> BlockRules<'a> {
         self
     }
 
-    /// Whether `blocker`'s own tax can be paid from its controller's pool or
+    /// Whether this block's tax can be paid from its controller's pool or
     /// the sources the payment window offers.
     #[must_use]
-    fn can_pay_mana(&self, blocker: ObjectId) -> bool {
-        let tax = self.mana_tax(blocker);
+    fn can_pay_mana(&self, blocker: ObjectId, attacker: ObjectId) -> bool {
+        let tax = self.mana_tax(blocker, attacker);
         if tax == 0 {
             return true;
         }
@@ -547,10 +565,12 @@ impl<'a> BlockRules<'a> {
     }
 
     /// Total generic mana cost `blocker`'s controller must pay to declare it
-    /// blocking (CR 509.1d–f).
+    /// blocking `attacker` (CR 509.1d–f).
     #[must_use]
-    pub fn mana_tax(&self, blocker: ObjectId) -> u32 {
-        let Some(obj) = self.state.object(blocker) else {
+    pub fn mana_tax(&self, blocker: ObjectId, attacker: ObjectId) -> u32 {
+        let (Some(obj), Some(attacker_obj)) =
+            (self.state.object(blocker), self.state.object(attacker))
+        else {
             return 0;
         };
         self.unless_pay_mana
@@ -560,6 +580,21 @@ impl<'a> BlockRules<'a> {
                     baylee_cards_dsl::Modifier::CantBlockUnlessPayMana(n) => n,
                     baylee_cards_dsl::Modifier::CantBlockUnlessPayManaPerCounter(kind) => {
                         u32::from(obj.counters.get(kind))
+                    }
+                    baylee_cards_dsl::Modifier::CantBlockMatchingUnlessPayMana {
+                        attacker: filter,
+                        mana,
+                    } => {
+                        if !crate::eval::matches(
+                            filter,
+                            self.state,
+                            attacker_obj,
+                            fx.controller,
+                            fx.source.unwrap_or(blocker),
+                        ) {
+                            return None;
+                        }
+                        mana
                     }
                     _ => return None,
                 };
@@ -609,7 +644,7 @@ impl<'a> BlockRules<'a> {
     /// (`attack_question`, CR 508.1d).
     #[must_use]
     pub fn demands(&self, blocker: ObjectId, attacker: ObjectId) -> usize {
-        if self.mana_tax(blocker) > 0 {
+        if self.mana_tax(blocker, attacker) > 0 {
             return 0;
         }
         let state = self.state;
@@ -727,7 +762,7 @@ impl<'a> BlockRules<'a> {
                 // Never a blocker that costs mana: `obeying` is a declaration
                 // nobody has to pay for (CR 509.1c), and the clock answers with it.
                 let helper = options.iter().find(|o| {
-                    self.mana_tax(o.blocker) == 0
+                    self.mana_tax(o.blocker, attacker) == 0
                         && can_add_blocker(&distinct_blockers, o.blocker)
                         && o.attackers.contains(&attacker)
                         && !chosen
