@@ -150,7 +150,8 @@ enum Central {
     },
     /// The dev-control client signing in against the integration fixture.
     Client {
-        /// The additional left monitor's index.
+        /// The index of the screen to run on, never the primary display
+        /// (`.claude/skills/dev-control/SKILL.md` names it per machine).
         #[arg(long, default_value_t = 0)]
         monitor: i64,
     },

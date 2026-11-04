@@ -289,13 +289,37 @@ fn bootstrap(migrator: &str, runtime: &str, legacy: &str) -> String {
     sql
 }
 
-/// `client`: the dev-control client against the integration fixture. It
-/// signs in, sees exactly the restored gateway list, signs out (access gone),
-/// signs in again and is admitted to the gateway with a one-use ticket. The
-/// client runs on monitor `monitor` (the additional left display) and every
-/// owned process and port is proven gone afterwards.
+/// The fixture's one synthetic account's password (`PASSWORD` in the gateway's
+/// `e2e_central`): the ready file carries no credential, so it is named twice.
+const FIXTURE_PASSWORD: &str = "synthetic legacy password";
+
+/// The file the client reads its settings from (`settings::store::SETTINGS`).
+const CLIENT_SETTINGS: &str = "client-settings.json";
+
+/// A gateway only this device knows. It stands in the file so that "nothing of
+/// the device's list while Central's form is up, and only the account's list
+/// after it" has something to hide: with it gone the counts below still pass.
+const DEVICE_ONLY_GATEWAY: &str = "https://unused-device.invalid";
+
+/// The fixture's row. A list with no uses is ordered by address, and the
+/// fixture's is the only `http:` one, so it comes first and the pinned live
+/// gateway never does.
+const FIXTURE_ROW: &str = "Front(SelectGateway(0))";
+
+/// `client`: the dev-control client against the integration fixture, through
+/// the door `docs/central-login.md` describes. Choosing the fixture from the
+/// device's list turns the form into Central's with that list set aside; the
+/// sign-in admits; leaving the gateway shows only the account's list, and its
+/// row admits with a new one-use ticket; Central's sign-out brings the device's
+/// list back, and a second sign-in admits again. The client runs on monitor
+/// `monitor`, never the primary display, and every owned process and port is
+/// proven gone afterwards.
 pub fn client(monitor: i64) -> Result<i32> {
-    let run_dir = PathBuf::from("target").join(format!("central-ui-{}", crate::secret::hex(5)?));
+    // Absolute: the fixture is a `cargo test`, which runs in its package's
+    // directory and not here, and takes this path through the environment.
+    let run_dir = std::env::current_dir()?
+        .join("target")
+        .join(format!("central-ui-{}", crate::secret::hex(5)?));
     fs::create_dir_all(&run_dir)?;
     let ready = run_dir.join("fixture.json");
     let exe = PathBuf::from("target/debug")
@@ -344,8 +368,14 @@ pub fn client(monitor: i64) -> Result<i32> {
         let home = run_dir.join("config");
         fs::create_dir_all(home.join("baylee"))?;
         fs::write(
-            home.join("baylee/settings.json"),
-            r#"{"lang":"en","feedback_url":"","usage_count":false,"gateways":["https://unused-device.invalid"]}"#,
+            home.join("baylee").join(CLIENT_SETTINGS),
+            json!({
+                "lang": "en",
+                "feedback_url": "",
+                "usage_count": false,
+                "gateways": [gateway, DEVICE_ONLY_GATEWAY],
+            })
+            .to_string(),
         )?;
         let started = Owned::spawn(
             Command::new(&exe)
@@ -439,8 +469,8 @@ fn scenario(devctl: &Devctl, client: &mut Owned, monitor: i64, run_dir: &Path) -
         .filter(|m| m["index"] == monitor)
         .collect();
     ensure!(
-        chosen.len() == 1 && chosen[0]["x"].as_i64().is_some_and(|x| x < 0),
-        "the selected monitor is not the additional left display"
+        chosen.len() == 1 && !at_the_origin(chosen[0]),
+        "the selected monitor is the primary display, or is not there"
     );
     let deadline = Instant::now() + Duration::from_secs(40);
     while state(devctl)?["loading"]["destination"] != "hidden" {
@@ -450,49 +480,80 @@ fn scenario(devctl: &Devctl, client: &mut Owned, monitor: i64, run_dir: &Path) -
         );
         std::thread::sleep(Duration::from_millis(250));
     }
-    let signed_out = |a: &Value| a["central_pending"] == true && a["central_ready"] == false;
-    let restored = |a: &Value| {
-        a["central_ready"] == true && a["central_pending"] == false && a["saved_gateway_count"] == 1
+    // The device's own list, Central off: the file's two and the pinned row.
+    let device = |a: &Value| {
+        a["central_pending"] == false
+            && a["central_ready"] == false
+            && a["gateway_authenticated"] == false
+            && a["saved_gateway_count"] == 3
     };
-    let initial = wait_account(devctl, client, run_dir, |a| {
-        signed_out(a) && a["saved_gateway_count"] == 0
-    })?;
+    // Central's form: the device's list is set aside, none of it shown.
+    let form = |a: &Value| {
+        a["central_pending"] == true && a["central_ready"] == false && a["saved_gateway_count"] == 0
+    };
+    let admitted = |a: &Value| {
+        a["central_ready"] == true
+            && a["gateway_authenticated"] == true
+            && a["offline"] == false
+            && a["saved_gateway_count"] == 1
+    };
+    // Signed out of the gateway and not of Central: the account's list.
+    let listed = |a: &Value| {
+        a["central_ready"] == true
+            && a["gateway_authenticated"] == false
+            && a["saved_gateway_count"] == 1
+    };
+    let start = wait_account(devctl, client, run_dir, device)?;
+    click(devctl, FIXTURE_ROW)?;
+    let hidden = wait_account(devctl, client, run_dir, form)?;
     devctl.post(
         "screenshot",
         &json!({ "path": run_dir.join("01-login.png") }),
     )?;
     sign_in(devctl)?;
-    wait_account(devctl, client, run_dir, restored)?;
+    let bound = wait_account(devctl, client, run_dir, admitted)?;
+    got_it(devctl)?;
+    leave_gateway(devctl, run_dir)?;
+    let restored = wait_account(devctl, client, run_dir, listed)?;
     devctl.post(
         "screenshot",
         &json!({ "path": run_dir.join("02-gateways.png") }),
     )?;
+    click(devctl, FIXTURE_ROW)?;
+    let ticket = wait_account(devctl, client, run_dir, admitted)?;
+    leave_gateway(devctl, run_dir)?;
     click(devctl, "Front(CentralSignOut)")?;
-    let out = wait_account(devctl, client, run_dir, |a| {
-        signed_out(a) && a["gateway_authenticated"] == false && a["saved_gateway_count"] == 0
-    })?;
+    let out = wait_account(devctl, client, run_dir, device)?;
+    click(devctl, FIXTURE_ROW)?;
+    wait_account(devctl, client, run_dir, form)?;
     sign_in(devctl)?;
-    let again = wait_account(devctl, client, run_dir, restored)?;
-    click(devctl, "Front(SelectGateway(0))")?;
-    let admitted = wait_account(devctl, client, run_dir, |a| {
-        a["central_ready"] == true && a["gateway_authenticated"] == true && a["offline"] == false
-    })?;
+    let again = wait_account(devctl, client, run_dir, admitted)?;
     devctl.post(
         "screenshot",
         &json!({ "path": run_dir.join("03-admitted.png") }),
     )?;
-    let summary =
-        json!({ "initial": initial, "restored": again, "signed_out": out, "admitted": admitted });
+    let summary = json!({
+        "device_list": start, "central_form": hidden, "admitted": bound,
+        "restored_list": restored, "admitted_from_the_list": ticket,
+        "signed_out": out, "admitted_again": again,
+    });
     fs::write(run_dir.join("result.json"), summary.to_string())?;
     println!("Native Central login, restored gateway list and ticket admission passed.");
     Ok(())
+}
+
+/// Whether this `/monitors` row is the primary display, which starts at the
+/// desktop's origin: the one a test client keeps off, whichever screen the
+/// machine's own rule names instead (`.claude/skills/dev-control/SKILL.md`).
+fn at_the_origin(monitor: &Value) -> bool {
+    monitor["x"] == 0 && monitor["y"] == 0
 }
 
 fn sign_in(devctl: &Devctl) -> Result<()> {
     click(devctl, "Shared(Focus(Username))")?;
     devctl.post("text", &json!({ "text": "synthetic" }))?;
     click(devctl, "Shared(Focus(Password))")?;
-    devctl.post("text", &json!({ "text": "a-very-fine-password" }))?;
+    devctl.post("text", &json!({ "text": FIXTURE_PASSWORD }))?;
     click(devctl, "Front(Submit)")
 }
 
@@ -512,6 +573,73 @@ fn click(devctl: &Devctl, press: &str) -> Result<()> {
     ensure!(controls.len() == 1, "expected one visible control: {press}");
     devctl.post("pointer", &json!({ "x": controls[0]["at_x"], "y": controls[0]["at_y"], "button": "left", "press": true }))?;
     Ok(())
+}
+
+/// Answers the chat's first notice (`social::sheet`), which comes up over the
+/// lobby a moment after the first admission and takes every press until then.
+/// Pressed until it is gone, as a lobby coming in may not answer the first
+/// ([`open_until_shown`]).
+fn got_it(devctl: &Devctl) -> Result<()> {
+    let deadline = Instant::now() + Duration::from_secs(25);
+    let mut answered = false;
+    while Instant::now() < deadline {
+        let state = state(devctl)?;
+        let notice = state["chat"]["controls"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .find(|c| c["press"] == "GotIt");
+        match notice {
+            Some(control) => {
+                devctl.post("pointer", &json!({ "x": control["x"], "y": control["y"], "button": "left", "press": true }))?;
+                answered = true;
+            }
+            None if answered && state["chat"]["sheet"].is_null() => return Ok(()),
+            None => {}
+        }
+        std::thread::sleep(Duration::from_millis(750));
+    }
+    bail!("the chat's notice did not come up, or did not close")
+}
+
+/// From the lobby back to the gateway list: the session at the gateway ends and
+/// Central's goes on, so the list drawn is the account's.
+fn leave_gateway(devctl: &Devctl, run_dir: &Path) -> Result<()> {
+    open_until_shown(devctl, run_dir, "Header(Account)", "Header(SignOut)")?;
+    click(devctl, "Header(SignOut)")?;
+    open_until_shown(
+        devctl,
+        run_dir,
+        "Front(LeaveGateway)",
+        "Front(CentralSignOut)",
+    )
+}
+
+/// Presses `opener` until `shown` is drawn. A lobby coming in answers no press
+/// (`lobby::clicks`), and `/state` does not say when it is in: the press is
+/// repeated, and only while what it opens is not there, so it never closes it.
+fn open_until_shown(devctl: &Devctl, run_dir: &Path, opener: &str, shown: &str) -> Result<()> {
+    let deadline = Instant::now() + Duration::from_secs(15);
+    while Instant::now() < deadline {
+        click(devctl, opener)?;
+        std::thread::sleep(Duration::from_millis(750));
+        if has_control(&state(devctl)?, shown) {
+            return Ok(());
+        }
+    }
+    fs::write(
+        run_dir.join("failure-state.json"),
+        state(devctl)?.to_string(),
+    )?;
+    bail!("{opener} did not bring up {shown}")
+}
+
+fn has_control(state: &Value, press: &str) -> bool {
+    state["lobby_controls"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .any(|c| c["press"] == press)
 }
 
 /// The account state once it holds on two reads in a row with the front
@@ -594,6 +722,26 @@ mod tests {
             [SCHEMA_MUST_RUN[0]]
         );
         assert_eq!(not_passed("", SCHEMA_MUST_RUN), SCHEMA_MUST_RUN);
+    }
+
+    #[test]
+    fn the_scenario_names_what_the_client_and_the_fixture_name() {
+        // Neither is read by anything in the gate: a wrong name here only
+        // shows when somebody runs the scenario, as `settings.json` did not.
+        let settings = include_str!("../../baylee-client/src/settings.rs");
+        assert!(settings.contains(&format!("const SETTINGS: &str = \"{CLIENT_SETTINGS}\";")));
+        let fixture = include_str!("../../baylee-gateway/tests/e2e_central.rs");
+        assert!(fixture.contains(&format!("const PASSWORD: &str = \"{FIXTURE_PASSWORD}\";")));
+    }
+
+    #[test]
+    fn the_primary_display_is_the_one_at_the_origin() {
+        assert!(at_the_origin(&json!({ "x": 0, "y": 0 })));
+        // The MacBook's built-in display and the workstation's left one.
+        assert!(!at_the_origin(&json!({ "x": 6016, "y": 1112 })));
+        assert!(!at_the_origin(&json!({ "x": -2560, "y": 864 })));
+        // A screen above or below the primary shares its `x`.
+        assert!(!at_the_origin(&json!({ "x": 0, "y": -1080 })));
     }
 
     #[test]

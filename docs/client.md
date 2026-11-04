@@ -10156,8 +10156,8 @@ gateway-authenticated, offline and front-panel-transition booleans plus
 the saved-gateway count. It contains no username, saved URL, password or token.
 `cargo dev central client` uses this state and live control rectangles to
 test login, restoration and admission, then verifies owned client/backend cleanup.
-Build `baylee-client --features dev-control` first; the script defaults to this
-workstation's left display (native index 0) and rejects a non-left monitor.
+Build `baylee-client --features dev-control` first; `--monitor` is the screen
+the dev-control skill names for the machine, and the primary display is refused.
 
 `crates/baylee-client/src/devctl.rs` is a loopback HTTP harness that presses
 keys, moves and clicks the pointer, dumps what the client believes, and saves a

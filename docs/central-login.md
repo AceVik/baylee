@@ -518,7 +518,8 @@ bounded 1 GiB PostgreSQL filesystem for repeated schema/WAL work and checkpoints
 between targets. No production database URL is inherited by either mode.
 It kills only its owned process tree/container and verifies cleanup,
 including with `--exercise-failure`. Client UI tests must follow the dev-control
-skill, use the extra left monitor, and close the exact owned client afterward.
+skill, use the screen it names for the machine, and close the exact owned client
+afterward.
 `cargo dev central integration` additionally runs a real gateway and
 Central against that isolated database: the cutover (the gateway's own
 `legacy export` into Central's legacy store, and the end of the password
@@ -552,13 +553,21 @@ committed lockfile after a temporary sibling test; final gates use the immutable
 Git pins and no local patch configuration.
 
 `cargo dev central client` exercises the actual native client against
-that fixture. The 19 October 2026 Windows run passed: no saved gateways before
-login, exactly the restored list afterward, Central sign-out clears access,
-repeat login restores it again, and a one-use ticket obtains a gateway session.
-Screenshots verified the login and restored-list layouts. Admission is asserted
-from application state, not from a transitional frame. The harness reports
-front-panel motion so the script waits until controls accept input. Exact
-owned client PIDs, HTTP listeners and backend containers were closed/verified.
+that fixture, through the door this document opens with. Its settings file
+names the fixture's gateway and one only the device knows, so the device's
+list is three rows with the pinned one. Choosing the fixture turns the form into
+Central's with that list set aside (none of it shown); the sign-in admits;
+leaving the gateway shows exactly the account's list, whose row admits with a
+new one-use ticket; Central's sign-out brings the device's three rows back, and
+a second sign-in admits again. The 4 November 2026 macOS run passed, the first
+since the scenario was rewritten in Rust on 20 October: the 19 October Windows
+pass was the script before it, on the sign-in that opened at startup.
+Admission is asserted from application state, not from a transitional frame. The
+harness reports front-panel motion, not a lobby still coming in, which answers
+no press: the script repeats a press until what it opens is drawn. The fixture
+has 160 seconds to hand over, which a loaded machine misses: run it under the
+cargo lock there. Exact owned client PIDs, HTTP listeners and backend containers
+are closed and verified.
 
 Sessions renew (since beta.8b): the account worker renews its Central session
 every ten minutes (`Account::renew`; a failure is retried a minute later and
