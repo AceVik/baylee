@@ -60,7 +60,9 @@ pub fn sorcery_window(view: &PlayerView) -> bool {
 /// has just said that an instant may not be cast either.
 ///
 /// Conversely, [`PlayerView::sorceries_have_flash`] is Teferi's +1 ability,
-/// which allows its controller to cast sorceries as though they had flash.
+/// which allows its controller to cast sorceries as though they had flash,
+/// and [`PlayerView::flash_types`] the same for the types an effect such as
+/// Alchemist's Refuge names.
 #[must_use]
 pub fn allows(view: &PlayerView, types: TypeSet, flash: bool) -> bool {
     if view.sorcery_lock.is_some() {
@@ -70,6 +72,7 @@ pub fn allows(view: &PlayerView, types: TypeSet, flash: bool) -> bool {
         || flash
         || sorcery_window(view)
         || (view.sorceries_have_flash && types.contains(TypeSet::SORCERY))
+        || types.intersects(view.flash_types)
 }
 
 #[cfg(test)]
@@ -106,6 +109,25 @@ mod tests {
             !allows(&view, TypeSet::SORCERY, false),
             "an opponent's Teferi pulls it back to sorcery speed"
         );
+    }
+
+    /// Alchemist's Refuge or Leyline of Anticipation
+    /// (`PlayerView::flash_types`): the types it names are lit on somebody
+    /// else's turn, the rest are not, and an opponent's lock still wins.
+    #[test]
+    fn granted_flash_lights_the_types_it_names() {
+        let mut view = open();
+        view.active = PlayerId::new(1);
+        assert!(!allows(&view, TypeSet::CREATURE, false), "without it");
+        view.flash_types = TypeSet::CREATURE;
+        assert!(allows(&view, TypeSet::CREATURE, false), "creatures");
+        assert!(
+            allows(&view, TypeSet::CREATURE.union(TypeSet::ARTIFACT), false),
+            "an artifact creature is a creature"
+        );
+        assert!(!allows(&view, TypeSet::SORCERY, false), "not sorceries");
+        view.sorcery_lock = Some(ObjectId::new(7, 0));
+        assert!(!allows(&view, TypeSet::CREATURE, false), "the lock wins");
     }
 
     #[test]

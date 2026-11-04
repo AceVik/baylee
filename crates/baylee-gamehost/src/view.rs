@@ -635,7 +635,31 @@ pub fn player_view(
             })
             .flatten(),
         sorceries_have_flash: sorceries_have_flash(state, seat),
+        flash_types: flash_types(state, seat),
     }
+}
+
+/// The card types `seat` may cast as though they had flash by an effect it
+/// controls (`Modifier::SpellsHaveFlash`: Alchemist's Refuge, Leyline of
+/// Anticipation, Vivien, Champion of the Wilds), the same reading
+/// `casting::timing_allows` makes. `None` there is every spell, so every
+/// card type here.
+fn flash_types(state: &GameState, seat: PlayerId) -> baylee_core::types::TypeSet {
+    use baylee_core::types::TypeSet;
+    if !state.effects.may_change_cast_timing_or_lock() {
+        return TypeSet::EMPTY;
+    }
+    state
+        .effects
+        .iter()
+        .filter(|fx| fx.controller == seat)
+        .fold(TypeSet::EMPTY, |types, fx| match fx.modifier {
+            baylee_cards_dsl::Modifier::SpellsHaveFlash(None) => TypeSet::CARD_TYPES
+                .iter()
+                .fold(types, |all, one| all.union(*one)),
+            baylee_cards_dsl::Modifier::SpellsHaveFlash(Some(mask)) => types.union(mask),
+            _ => types,
+        })
 }
 
 /// Every seat's public numbers, alike in every view and the spectator's.

@@ -351,6 +351,19 @@ pub struct PlayerView {
     /// Added to support Teferi, Time Raveler's +1 ability correctly.
     #[serde(default)]
     pub sorceries_have_flash: bool,
+    /// The card types of spells this seat may cast as though they had flash
+    /// by an effect it controls (`Modifier::SpellsHaveFlash`): every type
+    /// under Alchemist's Refuge or Leyline of Anticipation, creatures under
+    /// Vivien, Champion of the Wilds. Empty in the ordinary case, and then
+    /// not written. Teferi's +1 stays [`Self::sorceries_have_flash`].
+    #[serde(default, skip_serializing_if = "no_types")]
+    pub flash_types: baylee_core::types::TypeSet,
+}
+
+/// `skip_serializing_if` for a [`baylee_core::types::TypeSet`] field.
+#[allow(clippy::trivially_copy_pass_by_ref)] // serde hands the field by reference
+const fn no_types(types: &baylee_core::types::TypeSet) -> bool {
+    types.is_empty()
 }
 
 /// Authoritative context, sent only to the seat choosing targets.

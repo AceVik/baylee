@@ -126,6 +126,7 @@ fn empty_view(me: PlayerId) -> PlayerView {
         announced_x: None,
         sorcery_lock: None,
         sorceries_have_flash: false,
+        flash_types: baylee_core::types::TypeSet::EMPTY,
         ballots: Vec::new(),
     }
 }

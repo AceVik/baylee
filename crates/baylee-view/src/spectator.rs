@@ -114,6 +114,7 @@ impl SpectatorView {
             library_tops: self.library_tops,
             sorcery_lock: None,
             sorceries_have_flash: false,
+            flash_types: baylee_core::types::TypeSet::EMPTY,
         }
     }
 

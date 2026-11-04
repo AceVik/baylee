@@ -836,3 +836,18 @@ fn a_morph_card_is_reached_face_down_for_three() {
     assert_eq!(reach.len(), 2, "{reach:?}");
     assert_eq!(reach.iter().filter(|r| r.face_down).count(), 1);
 }
+
+/// Alchemist's Refuge resolved for this seat (`PlayerView::flash_types`):
+/// a sorcery the lands pay is reached on the other seat's turn, as the
+/// engine casts it (Argon v Astra, Simplify after Refuge). Without the
+/// effect it is nothing to do there.
+#[test]
+fn a_sorcery_with_granted_flash_is_reached_on_their_turn() {
+    let (mut view, legal) = table(&["Forest"], &["Simplify"]);
+    their(&mut view, Phase::Ending, Step::End);
+    assert_eq!(judge(&view, legal.clone()), passes(Standing::NothingToDo));
+    view.flash_types = TypeSet::SORCERY.union(TypeSet::CREATURE);
+    let reach = reachable(&view, &legal);
+    assert_eq!(reach.len(), 1, "{reach:?}");
+    assert_eq!(judge(&view, legal), Verdict::Wake(Why::RailStop));
+}

@@ -65,6 +65,10 @@ struct ObservableView<'a> {
     library_tops: &'a [baylee_view::PublicObject],
     sorcery_lock: &'a Option<ObjectId>,
     sorceries_have_flash: &'a bool,
+    /// Granted flash by type; absent while empty, so every observation
+    /// without such an effect hashes as it did before it was told.
+    #[serde(skip_serializing_if = "no_flash_types")]
+    flash_types: &'a baylee_core::types::TypeSet,
 }
 
 impl<'a> ObservableView<'a> {
@@ -111,6 +115,7 @@ impl<'a> ObservableView<'a> {
             library_tops,
             sorcery_lock,
             sorceries_have_flash,
+            flash_types,
         } = view;
         Self {
             decision_player,
@@ -147,8 +152,14 @@ impl<'a> ObservableView<'a> {
             library_tops,
             sorcery_lock,
             sorceries_have_flash,
+            flash_types,
         }
     }
+}
+
+/// serde hands a field to its skip test by reference.
+fn no_flash_types(types: &&baylee_core::types::TypeSet) -> bool {
+    types.is_empty()
 }
 
 /// serde hands a field to its skip test by reference.
