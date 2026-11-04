@@ -664,6 +664,13 @@ pub fn player_view(
         sorceries_have_flash: sorceries_have_flash(state, decider),
         flash_types: flash_types(state, decider),
         controls: ctx.controls.to_vec(),
+        foreign_targets: state
+            .zones
+            .list(ZoneLocation::Stack)
+            .iter()
+            .copied()
+            .filter(|&id| state.targets_chosen_by_another(id))
+            .collect(),
     }
 }
 

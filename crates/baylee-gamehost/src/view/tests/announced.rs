@@ -696,3 +696,63 @@ fn a_seat_deciding_for_a_locked_player_is_told_that_players_lock() {
     );
     assert_eq!(view(teferi).sorcery_lock, None, "its own");
 }
+
+/// Confusion in the Ranks under one player, set off by the other: the
+/// ability is its controller's, its target the other player's choice, and
+/// every seat is told so while it stands on the stack.
+#[test]
+fn an_ability_aimed_by_someone_else_is_told_while_it_is_on_the_stack() {
+    let entry = |name: &str| DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
+        card: baylee_cards::decks::by_name(name).unwrap(),
+        print: PrintRef::new(0),
+    };
+    let mut preset = mixed_print_preset();
+    preset.seats[0].starting_hand = Some(vec![entry("Ornithopter")]);
+    preset.seats[1].starting_battlefield =
+        vec![entry("Confusion in the Ranks"), entry("Ondu Cleric")];
+    let mut engine = Engine::new(&preset, Registry).unwrap();
+    let view = settle(&mut engine, None);
+    let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+    let cleric = view
+        .battlefield
+        .iter()
+        .find(|object| object.name == "Ondu Cleric")
+        .unwrap()
+        .id;
+    engine
+        .apply(
+            me,
+            PlayerAction::CastSpell {
+                card: view.hand[0].id,
+            },
+        )
+        .unwrap();
+    assert!(
+        player_view(engine.state(), me, 0, None, &SeatContext::default(), &[])
+            .foreign_targets
+            .is_empty(),
+        "a spell's targets are its caster's"
+    );
+    while !matches!(engine.pending(), Pending::ChooseTargets { .. }) {
+        let Pending::Priority { player, .. } = *engine.pending() else {
+            panic!("the spell resolves on passes: {:?}", engine.pending());
+        };
+        engine.apply(player, PlayerAction::PassPriority).unwrap();
+    }
+    engine
+        .apply(
+            me,
+            PlayerAction::ChooseObjects {
+                objects: vec![cleric],
+            },
+        )
+        .unwrap();
+    for seat in [me, them] {
+        let view = player_view(engine.state(), seat, 0, None, &SeatContext::default(), &[]);
+        assert_eq!(view.stack.len(), 1);
+        assert_eq!(view.stack[0].controller, them);
+        assert_eq!(view.foreign_targets, vec![view.stack[0].id]);
+    }
+}

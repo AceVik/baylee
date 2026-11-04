@@ -467,7 +467,7 @@ impl WakeFilter {
         let opposing_stack = view
             .stack
             .iter()
-            .any(|object| !same_side(teams, object.controller, me));
+            .any(|object| decision::opposes(view, object, me, |a, b| same_side(teams, a, b)));
         // Held here as well as in `auto_answer`: an opposing stack and a
         // cleanup window are decisions whatever the rail says, unless the
         // mind's `react` says otherwise of the stack.
@@ -602,7 +602,7 @@ fn boundary(until: Until, view: &PlayerView, turn: u32, teams: &[Option<u8>]) ->
     }
 }
 
-/// Whether something of the other side's on the stack targets this seat, a
+/// Whether something this seat answers ([`decision::opposes`]) targets it, a
 /// permanent it controls, or its commander (`react: targets_me`), or in a
 /// controlled decision the player decided for. Read from the targets the
 /// view states, never from what a card is.
@@ -614,7 +614,7 @@ fn targets_me(view: &PlayerView, teams: &[Option<u8>]) -> bool {
         .unwrap_or_default();
     view.stack
         .iter()
-        .filter(|object| !same_side(teams, object.controller, me))
+        .filter(|object| decision::opposes(view, object, me, |a, b| same_side(teams, a, b)))
         .flat_map(|object| &object.targets)
         .any(|target| match target {
             TargetRef::Player(player) => *player == me,

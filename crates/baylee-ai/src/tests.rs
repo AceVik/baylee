@@ -283,6 +283,7 @@ fn view(seat: u8, lives: &[i32], battlefield: Vec<PublicObject>) -> PlayerView {
         sorceries_have_flash: false,
         flash_types: baylee_core::types::TypeSet::EMPTY,
         controls: Vec::new(),
+        foreign_targets: Vec::new(),
         ballots: Vec::new(),
     }
 }

@@ -1326,10 +1326,11 @@ fn run_autopilot(mut duel: ResMut<Duel>, prefs: Res<prefs::Prefs>) {
                 // Read here rather than in `automation`, because "the other
                 // side" is a question about the roster and that module knows
                 // only about turns.
-                opposing_stack: view
-                    .stack
-                    .iter()
-                    .any(|o| !hud::same_team(duel.statics.as_ref(), o.controller, deciding)),
+                opposing_stack: view.stack.iter().any(|o| {
+                    baylee_client_core::decision::opposes(view, o, deciding, |a, b| {
+                        hud::same_team(duel.statics.as_ref(), a, b)
+                    })
+                }),
                 // What this client is offering that the engine's list does
                 // not name. Without it `pass_when_nothing_to_do` reads an
                 // empty `castable` over four untapped Forests as an empty

@@ -364,6 +364,14 @@ pub struct PlayerView {
     /// and then not written.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub controls: Vec<PlayerControl>,
+    /// The abilities on [`Self::stack`] whose text has someone other than
+    /// their controller choose the targets: Confusion in the Ranks, The
+    /// Abyss, Preacher. A stack object says who controls it, and a reader
+    /// would take that for who aimed it; one of these aimed at its own
+    /// controller is that player's to answer as an opposing spell is. Empty
+    /// in the ordinary case, and then not written.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub foreign_targets: Vec<ObjectId>,
 }
 
 /// One player whose decisions another makes (CR 723.5).

@@ -120,6 +120,8 @@ impl SpectatorView {
             sorceries_have_flash: false,
             flash_types: baylee_core::types::TypeSet::EMPTY,
             controls: self.controls,
+            // Nobody at this view decides anything.
+            foreign_targets: Vec::new(),
         }
     }
 

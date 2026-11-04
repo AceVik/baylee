@@ -228,7 +228,10 @@ something (`wake::offering`: a land, a spell or an activation its untapped
 sources reach, not mana alone). Every other question, a declaration with
 something to declare, a payment owed, a cleanup window and an opposing
 spell or ability reach it wherever it stops (`wake::WakeFilter`, whose
-module docs are the rules in full).
+module docs are the rules in full). An ability of the seat's own that someone
+else aimed at it is an opposing one here: Confusion in the Ranks is controlled
+by its enchantment's player and aimed by the player whose permanent entered
+(`PlayerView::foreign_targets`, `decision::opposes`).
 
 The default rail (`wake::MIND_STOPS`) is the seat's `main1`, `blockers` and
 `main2`, and the other side's `attackers`, `blockers` and `end_step`. An

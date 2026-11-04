@@ -37,3 +37,53 @@ fn confusion_in_the_ranks_exchanges_control_of_entering_creature_with_opponent_c
     assert_eq!(engine.state().object(bear).unwrap().controller, p1);
     assert_eq!(engine.state().object(giant).unwrap().controller, p0);
 }
+
+/// The trigger is its enchantment's controller's and is aimed by the player
+/// whose creature entered, so it can come to point at that controller's own
+/// permanent. It is still a trigger on the stack: that controller gets
+/// priority with it there and may answer (Argon v Astra, where the seat was
+/// passed by its own filter and the engine had offered the window).
+#[test]
+fn confusion_in_the_ranks_is_aimed_by_the_entering_permanents_controller() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .hand(0, &[grizzly_bears()])
+        .battlefield(0, &[forest(), forest()])
+        .battlefield(1, &[confusion_in_the_ranks(), HILL_GIANT])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let giant = on_battlefield(&engine, p1, HILL_GIANT).unwrap();
+
+    cast_from_hand(&mut engine, p0, grizzly_bears());
+    let spell = *engine
+        .state()
+        .zones
+        .list(ZoneLocation::Stack)
+        .last()
+        .unwrap();
+    assert!(
+        !engine.state().targets_chosen_by_another(spell),
+        "a spell's are its caster's"
+    );
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::ChooseTargets { player, .. } if *player == p0),
+    );
+    aim_at(&mut engine, p0, giant);
+
+    let trigger = *engine
+        .state()
+        .zones
+        .list(ZoneLocation::Stack)
+        .last()
+        .unwrap();
+    assert_eq!(engine.state().object(trigger).unwrap().controller, p1);
+    assert!(engine.state().targets_chosen_by_another(trigger));
+    assert!(matches!(engine.pending(), Pending::Priority { player, .. } if *player == p0));
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    assert!(
+        matches!(engine.pending(), Pending::Priority { player, .. } if *player == p1),
+        "its controller answers it before the exchange"
+    );
+}

@@ -385,6 +385,56 @@ impl GameState {
             .then(changed)
     }
 
+    /// Whether the text of the ability `on_stack` has someone other than its
+    /// controller choose its targets (`TargetReq::chosen_by_event_player`,
+    /// `chosen_by_opponent`): Confusion in the Ranks, The Abyss, Preacher.
+    /// An ability that is not on the stack, or a modal one still announcing
+    /// its mode, has nobody's choice to read and answers `false`.
+    #[must_use]
+    pub fn targets_chosen_by_another(&self, on_stack: ObjectId) -> bool {
+        use baylee_cards_dsl::{AbilityDef, TargetChooser, TargetReq};
+        let foreign = |req: Option<TargetReq>| {
+            req.is_some_and(|req| req.chooser != TargetChooser::Controller)
+        };
+        let Some(object) = self.object(on_stack) else {
+            return false;
+        };
+        if object.kind != ObjectKind::AbilityOnStack {
+            return false;
+        }
+        if foreign(object.target_req) || foreign(object.second_target_req()) {
+            return true;
+        }
+        let Some(loc) = object.ability else {
+            return false;
+        };
+        if loc.index == baylee_core::ids::AbilityRef::SYNTHETIC
+            || crate::choice::granted_slot(loc.index).is_some()
+        {
+            return false;
+        }
+        let abilities = object.own_abilities.as_ref().map_or_else(
+            || {
+                self.object(loc.source)
+                    .map_or(crate::copiable_abilities::AbilityDefs::EMPTY, |source| {
+                        source.printed_abilities(self.bases.as_ref())
+                    })
+            },
+            crate::copiable_abilities::AbilityDefs::from,
+        );
+        let announcing = object.mode_index.is_none()
+            && matches!(
+                abilities.get(loc.index as usize),
+                Some(AbilityDef::ModalTriggered { .. } | AbilityDef::ModalActivated { .. })
+            );
+        !announcing
+            && foreign(crate::object::ability_target_req(
+                abilities,
+                loc.index,
+                object.mode_index,
+            ))
+    }
+
     /// The current copiable rules of an admitted object, without a second registry.
     #[must_use]
     pub fn printed_ability_list(&self, id: ObjectId) -> Option<crate::object::AbilityList> {

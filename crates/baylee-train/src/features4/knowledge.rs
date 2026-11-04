@@ -72,6 +72,10 @@ struct ObservableView<'a> {
     /// Who decides for whom; absent while empty, likewise.
     #[serde(skip_serializing_if = "no_controls")]
     controls: &'a [baylee_view::PlayerControl],
+    /// Abilities whose targets another player chooses; absent while empty,
+    /// likewise.
+    #[serde(skip_serializing_if = "no_foreign_targets")]
+    foreign_targets: &'a [ObjectId],
 }
 
 impl<'a> ObservableView<'a> {
@@ -120,6 +124,7 @@ impl<'a> ObservableView<'a> {
             sorceries_have_flash,
             flash_types,
             controls,
+            foreign_targets,
         } = view;
         Self {
             decision_player,
@@ -158,8 +163,14 @@ impl<'a> ObservableView<'a> {
             sorceries_have_flash,
             flash_types,
             controls,
+            foreign_targets,
         }
     }
+}
+
+/// serde hands a field to its skip test by reference.
+fn no_foreign_targets(targets: &&[ObjectId]) -> bool {
+    targets.is_empty()
 }
 
 /// serde hands a field to its skip test by reference.

@@ -852,3 +852,46 @@ fn a_sorcery_with_granted_flash_is_reached_on_their_turn() {
     assert_eq!(reach.len(), 1, "{reach:?}");
     assert_eq!(judge(&view, legal), Verdict::Wake(Why::RailStop));
 }
+
+/// Confusion in the Ranks (Argon v Astra): this seat's own trigger, aimed by
+/// the player whose creature entered, at this seat's permanent. That is an
+/// exchange of its own creature to answer, and the filter read the
+/// controller and passed it three times in one game. Aimed elsewhere, or
+/// aimed by this seat itself, it stays quiet.
+#[test]
+fn a_trigger_of_ours_that_someone_else_aimed_at_us_wakes() {
+    let (mut view, legal) = table(&["Forest"], &["Giant Growth"]);
+    their(&mut view, Phase::Beginning, Step::Upkeep);
+    let mut trigger = token(40, 0, "Confusion in the Ranks", 0, 0);
+    trigger.targets = vec![at(1)];
+    view.stack = vec![trigger];
+    assert_eq!(
+        judge(&view, legal.clone()),
+        passes(Standing::QuietWindow),
+        "its text names no other chooser, so this seat aimed it"
+    );
+    view.foreign_targets = vec![o(40)];
+    assert_eq!(
+        judge(&view, legal.clone()),
+        Verdict::Wake(Why::OpposingStack)
+    );
+    view.stack[0].targets = vec![at(70)];
+    assert_eq!(judge(&view, legal), passes(Standing::QuietWindow));
+}
+
+/// `react: targets_me` reads the same way: the mind asked to hear of what is
+/// aimed at it, and who controls the ability does not change that.
+#[test]
+fn react_targets_me_hears_a_trigger_of_ours_someone_else_aimed_at_us() {
+    let (mut view, legal) = table(&["Forest"], &["Giant Growth"]);
+    their(&mut view, Phase::Beginning, Step::Upkeep);
+    let mut filter = holding(Until::MyTurn, React::TargetsMe, &view);
+    let mut trigger = token(40, 0, "Confusion in the Ranks", 0, 0);
+    trigger.targets = vec![at(1)];
+    view.stack = vec![trigger];
+    view.foreign_targets = vec![o(40)];
+    assert_eq!(
+        filter.judge(&view, &priority(legal), &[]),
+        Verdict::Wake(Why::OpposingStack)
+    );
+}
