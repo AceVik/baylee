@@ -704,7 +704,12 @@ impl<'a> Table<'a> {
 
     /// Whether `p` plays on this seat's side.
     pub fn ally(&self, p: PlayerId) -> bool {
-        if p == self.me() {
+        self.same_side(p, self.me())
+    }
+
+    /// Whether `a` and `b` play on one side: the same player, or one team.
+    pub fn same_side(&self, a: PlayerId, b: PlayerId) -> bool {
+        if a == b {
             return true;
         }
         let side = |p: PlayerId| {
@@ -714,7 +719,7 @@ impl<'a> Table<'a> {
                 .copied()
                 .flatten()
         };
-        matches!((side(p), side(self.me())), (Some(a), Some(b)) if a == b)
+        matches!((side(a), side(b)), (Some(x), Some(y)) if x == y)
     }
 
     /// An object's name as the view shows it, wherever it is.

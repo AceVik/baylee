@@ -13,7 +13,7 @@ use baylee_view::SharedHand;
 /// P2's Plains #40 and #41 and Island #42 untapped, Serra Angel #45 and a
 /// face-down #46; P2's hand of Unsummon #70, Pacifism #71 and Island #72,
 /// seen through control; the seat's own hand and board as in [`board`].
-fn their_turn() -> PlayerView {
+pub(crate) fn their_turn() -> PlayerView {
     let (mut view, _) = board();
     view.turn = 8;
     view.active = THEM;
@@ -36,7 +36,7 @@ fn their_turn() -> PlayerView {
 
 /// P2's priority: P2's land to play, P2's lands' mana, P2's two spells
 /// castable once paid.
-fn their_priority() -> Pending {
+pub(crate) fn their_priority() -> Pending {
     Pending::Priority {
         player: THEM,
         legal: Box::new(LegalActions {

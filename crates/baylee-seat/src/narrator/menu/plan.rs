@@ -375,6 +375,16 @@ pub enum Stop {
     TargetsNotLegal,
     /// The attack step passed without the attack the plan names.
     AttackPassed,
+    /// The question is for another player than the one the plan was
+    /// written for: the seat's own, or one whose turn it controls
+    /// (CR 723.5, 723.8). Each a player id such as `P2`, `None` for the
+    /// seat itself.
+    OtherPlayer {
+        /// Whom the plan was written for.
+        written: Option<String>,
+        /// Whom the question is for.
+        asked: Option<String>,
+    },
 }
 
 impl Stop {
@@ -393,6 +403,19 @@ impl Stop {
                 .into(),
             Self::TargetsNotLegal => "the targets you named ahead are not legal now".into(),
             Self::AttackPassed => "the attack step passed without that attack".into(),
+            Self::OtherPlayer { written, asked } => {
+                let written = written
+                    .as_ref()
+                    .map_or_else(
+                        || "your own decisions".to_string(),
+                        |p| format!("{p}'s decisions"),
+                    );
+                let asked = asked.as_ref().map_or_else(
+                    || "is your own".to_string(),
+                    |p| format!("is one you decide for {p}"),
+                );
+                format!("the plan was for {written}, and this question {asked}")
+            }
         }
     }
 }

@@ -1570,7 +1570,7 @@ fn untap_replacement_refusal_does_not_offer_a_free_untap() {
     );
 }
 
-mod controlled;
+pub(crate) mod controlled;
 mod event_object;
 mod foretell;
 mod land_triggers;

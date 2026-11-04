@@ -22,6 +22,13 @@
 //! question of another kind, an id or a name the offer does not hold,
 //! another side's spell or ability on the stack, a payment owed, the end
 //! of its turn, a refusal. Nothing of a plan is ever guessed.
+//!
+//! A plan, an option's taps and a hint's targets are bound to the player
+//! they were written for: the seat's own, or the player whose turn it
+//! controls (Mindslaver, CR 723.5), whose cards they name. The seat makes
+//! both players' decisions in that turn (CR 723.8); a question for the
+//! other one stops the plan ([`Stop::OtherPlayer`]), and the taps and the
+//! hint wait for a question of their own player's.
 
 use super::prompt::{LOOKUPS_PER_GAME, LOOKUPS_PER_QUESTION};
 use super::{RETRY_FLOOR, SAYS, Settings, lock};
@@ -31,8 +38,9 @@ use crate::narrator::{self, Act, Decision, Hint, Narrator, Step, Stop, Table};
 use crate::reports::{self, Report};
 use crate::transcript::Transcript;
 use crate::wake::{Held, Orders, Why};
+use baylee_client_core::decision;
 use baylee_client_core::manaplan;
-use baylee_core::ids::ObjectId;
+use baylee_core::ids::{ObjectId, PlayerId};
 use baylee_core::mana::ManaColor;
 use baylee_engine::choice::{LegalActions, Pending, PlayerAction, TargetPrompt};
 use baylee_view::{LogEvent, LogObject, PlayerView};
@@ -51,6 +59,8 @@ pub(crate) struct Plan {
     label: String,
     /// The step it was chosen in: a plan never runs into another.
     at: (u32, baylee_view::Phase, baylee_view::Step),
+    /// The player whose lands it taps (module docs).
+    player: PlayerId,
     /// The colour the last tap makes, for the question it may ask.
     color: Option<ManaColor>,
 }
@@ -63,6 +73,8 @@ struct Queue {
     written: u64,
     /// The turn it runs in.
     turn: u32,
+    /// The player whose questions it answers (module docs).
+    player: PlayerId,
     /// The number of the next step, from 1.
     next: usize,
     /// What it did, in order: steps, and windows passed.
@@ -123,7 +135,8 @@ pub(crate) struct Seat {
     /// Whether the last answer sent was the model's own (not a plan's).
     pub(crate) last_by_model: bool,
     plan: Option<Plan>,
-    hint: Option<Hint>,
+    /// Targets named ahead, and the player whose cast they are for.
+    hint: Option<(Hint, PlayerId)>,
     /// The steps of the model's plan still to run.
     queue: Option<Queue>,
     /// Lines for the next message, under its header.
@@ -473,15 +486,17 @@ impl Seat {
                 self.says.pop_front();
             }
         }
-        self.hint.clone_from(&resolved.hint);
+        let view = &request.view;
+        let player = decision::resource_player(view);
+        self.hint = resolved.hint.clone().map(|hint| (hint, player));
         if let Some(stops) = resolved.stops {
             self.stops = Some(stops);
         }
-        let view = &request.view;
         self.queue = (!resolved.plan.is_empty()).then(|| Queue {
             steps: resolved.plan.into(),
             written: request.question,
             turn: view.turn,
+            player,
             next: 1,
             done: Vec::new(),
             windows: 0,
@@ -506,6 +521,7 @@ impl Seat {
                     then: then.clone(),
                     label,
                     at: (view.turn, view.phase, view.step),
+                    player: decision::resource_player(view),
                     color: first.and_then(|s| s.color),
                 });
                 if let Some(step) = first {
@@ -560,9 +576,7 @@ impl Seat {
             return None;
         }
         let view = &request.view;
-        let name = view
-            .hand
-            .iter()
+        let name = decision::known_cards(view)
             .find(|c| c.id == card)
             .map(|c| c.name.clone())
             .or_else(|| {
@@ -572,11 +586,18 @@ impl Seat {
                     .find(|o| o.id == card)
                     .map(|o| o.name.clone())
             })?;
+        let again = Table::new(view, &request.context).controlled().map_or_else(
+            || "you have priority again".to_string(),
+            |p| {
+                let p = Table::player_id(p);
+                format!("{p} has priority again, and you decide for {p}")
+            },
+        );
         Some(format!(
-            "Your cast of {name} {} did not happen: the card is where it was, and you have \
-             priority again. The table takes back a cast whose whole cost cannot be paid, \
-             with any kicker or additional cost you said yes to (CR 601.2h, 733.1); count \
-             the cost before you cast it again.",
+            "Your cast of {name} {} did not happen: the card is where it was, and {again}. The \
+             table takes back a cast whose whole cost cannot be paid, with any kicker or \
+             additional cost you said yes to (CR 601.2h, 733.1); count the cost before you \
+             cast it again.",
             narrator::tag(card)
         ))
     }
@@ -643,7 +664,23 @@ impl Seat {
             self.stop(&Stop::TurnOver);
             return None;
         }
-        if let Some(theirs) = view.stack.iter().find(|o| !table.ally(o.controller)) {
+        // A plan answers the questions of the player it was written for,
+        // never the other's in the same turn (module docs).
+        let decider = table.decider();
+        if decider != queue.player {
+            let id = |p: PlayerId| (p != table.me()).then(|| Table::player_id(p));
+            let stop = Stop::OtherPlayer {
+                written: id(queue.player),
+                asked: id(decider),
+            };
+            self.stop(&stop);
+            return None;
+        }
+        if let Some(theirs) = view
+            .stack
+            .iter()
+            .find(|o| !table.same_side(o.controller, decider))
+        {
             let what = format!(
                 "{}'s {}",
                 Table::player_id(theirs.controller),
@@ -662,7 +699,7 @@ impl Seat {
             if let Pending::Priority { legal, .. } = &request.pending
                 && !step.at_priority()
             {
-                let mine = view.active == view.seat;
+                let mine = view.active == decider;
                 let before_combat = matches!(
                     view.phase,
                     baylee_view::Phase::Beginning | baylee_view::Phase::FirstMain
@@ -725,7 +762,7 @@ impl Seat {
                 let ran = self.queue.take().expect("a plan").ran();
                 self.notes.push(ran);
             }
-            self.hint.clone_from(&resolved.hint);
+            self.hint = resolved.hint.map(|hint| (hint, decider));
             let action = self.start(resolved.act, label.clone(), view);
             return Some((action, label));
         }
@@ -734,7 +771,8 @@ impl Seat {
     fn follow_plan(&mut self, request: &Request) -> Option<PlayerAction> {
         let plan = self.plan.as_mut()?;
         let view = &request.view;
-        let same = (view.turn, view.phase, view.step) == plan.at;
+        let same = (view.turn, view.phase, view.step) == plan.at
+            && decision::resource_player(view) == plan.player;
         match &request.pending {
             Pending::ChooseColor { options, .. } if same => {
                 if let Some(color) = plan.color.take().filter(|c| options.contains(c)) {
@@ -782,7 +820,13 @@ impl Seat {
     }
 
     fn follow_hint(&mut self, request: &Request) -> Option<PlayerAction> {
-        let hint = self.hint.take()?;
+        let (hint, player) = self.hint.take()?;
+        if decision::resource_player(&request.view) != player {
+            // Named for the other player's cast: it waits for that one's
+            // questions (module docs).
+            self.hint = Some((hint, player));
+            return None;
+        }
         let Pending::ChooseTargets {
             options,
             player_options,
@@ -794,7 +838,7 @@ impl Seat {
         else {
             // A cast mode, an X or a colour may come before the targets.
             if !matches!(request.pending, Pending::Priority { .. }) {
-                self.hint = Some(hint);
+                self.hint = Some((hint, player));
             }
             return None;
         };
