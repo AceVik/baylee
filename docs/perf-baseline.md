@@ -610,6 +610,12 @@ No client calls `/catalog/search` today (the deck builder searches the
 pool), so this was measured and left alone. The one-letter case and the text
 tier's join back to `card_search` per hit are where a change would go.
 
+Rules text moved to `card_search_text` on 4.11.2026, one vector per face and
+language, on 547 958 printings and a machine building at the same time: 550 863
+rows, 230 MB with a 54 MB index, and `card_search` down from 232 MB to 67 MB;
+`creature` 146 ms, `flying` 25 ms, `ziehe eine karte` 25 ms, `稲妻` 7 ms, a whole
+rebuild 44 s. The figures above were not taken again beside them.
+
 ### The database
 
 `session_token` was the one table following an account away without an index

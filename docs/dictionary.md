@@ -44,9 +44,9 @@ Say which one. "The index" alone is a question, not a fact.
 - **view projection** — the *characteristics* `baylee-view` carries after the
   layer system has run (P/T after anthems, a clone's name). A client cannot run
   layers, so the host projects for it.
-- **catalog projection** — the `card_search` table, one row per oracle face,
-  rebuilt wholesale by `Catalog::project()`. Nothing to do with the layer
-  system.
+- **catalog projection** — the `card_search` and `card_search_text` tables, one
+  row per oracle face and one per face and language, rebuilt wholesale by
+  `Catalog::project()`. Nothing to do with the layer system.
 
 ### ledger
 

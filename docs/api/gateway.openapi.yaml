@@ -825,6 +825,56 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
+  /pool/facts:
+    get:
+      summary: What a client filters a pool card by
+      description: |-
+        Every format's verdict on each pool card the catalog knows,
+        and the sets and rarities it was printed in, in one compact table
+        (`docs/protocol.md` §"Pool facts"). Answers `304` with no body when `have`
+        names the current `version`. Empty without a filled catalog. For a
+        signed-in session, a guest's included.
+      operationId: pool_facts
+      tags:
+      - Catalog
+      parameters:
+      - name: have
+        in: query
+        required: false
+        description: The `version` of the table the client already keeps.
+        schema:
+          type: string
+      security:
+      - bearer: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PoolFactsBody"
+        "304":
+          description: "`have` names the table this gateway holds"
+        "401":
+          description: No bearer token, or one that is invalid or expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: >-
+            The account is banned (`ban`) or must accept the terms in force first
+            (`terms_required`)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "503":
+          description: The account store or Baylee Central is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
   /client/reports:
     post:
       summary: Send a report from a client signed in nowhere
@@ -7526,6 +7576,59 @@ components:
       - scryfall_id
       - oracle_id
       description: "One card of the pool a deck may be built from: its registry index, its printed characteristics, how much of it this build plays, and its names and rules text in the served language."
+    PoolFactsBody:
+      type: object
+      properties:
+        version:
+          type: string
+          description: "A hash of the rest of this answer, 16 hex digits: what `have` names to be told nothing changed. Empty on an empty answer."
+        formats:
+          type: array
+          items:
+            type: string
+          description: >-
+            Scryfall's format keys, sorted; a `verdicts` string has a letter for each, in
+            this order.
+        sets:
+          type: array
+          items:
+            $ref: "#/components/schemas/PoolSet"
+          description: The sets the pool was printed in, newest first.
+        verdicts:
+          type: array
+          items:
+            type: string
+          description: "The distinct verdict strings, one letter per format: `l` legal, `b` banned, `r` restricted, `n` not legal, `-` nothing stored."
+        cards:
+          type: array
+          items:
+            type: array
+            items:
+              type: integer
+              format: int64
+              minimum: 0
+              maximum: 4294967295
+          description: "One row per pool card the catalog knows, by ascending registry index: `[index, place in verdicts, printing…]`, where a printing is a place in `sets` times 8 plus a rarity, 0 to 5 for `common`, `uncommon`, `rare`, `special`, `mythic`, `bonus`, 7 for none stored."
+      required:
+      - version
+      - formats
+      - sets
+      - verdicts
+      - cards
+      description: "What a client filters a pool card by: every format's verdict and the sets and rarities it was printed in, for the whole pool. Empty (`version` too) where the gateway has no filled catalog."
+    PoolSet:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Scryfall's set code, lower case.
+        name:
+          type: string
+          description: The set's name, as Scryfall gives it (never translated).
+      required:
+      - code
+      - name
+      description: One set a pool card was printed in.
     PrintingsBody:
       type: object
       properties:

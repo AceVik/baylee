@@ -4720,8 +4720,8 @@ nothing here: `GET /pool` files a name in any other language in
 `foreign_names`, which only a pasted deck line is read against
 (`DeckBuilder::slot_of`) and no search is, and `Facts` holds nothing but the
 two (`cardsearch`). `/catalog/search` drops a card it reached only through a
-third language's name. Its rules-text tier is still one vector across
-languages, and asking it per language needs a projection per language.
+third language's name, and reads rules text and type words per language, the
+client's row of `card_search_text` and the English one.
 
 A two-faced card carries one more, its whole `A // B` spelling, and because
 the search is a substring match that answers three things a player might
@@ -4893,8 +4893,8 @@ P/T · its front face's first keyword (never rules text), pips, how many the
 deck holds, one `+` (Shift: the other list) and `⋯`. Under the search, one
 chip row: the colour identity's six discs, the type and mana value chips in
 force, *Filters* (a rail of card type, mana value and what to show; a sheet
-on a phone — the pool carries no rarity, set or keyword facts, so the rail
-offers none), Playable only, the order, Clear; `?` in the box opens what the
+on a phone — rarity, set and format are the search's and the gear's, and the
+rail offers none of them), Playable only, the order, Clear; `?` in the box opens what the
 search understands, a press inserting the example. The deck side has its
 commander slot, tabs Main · Sideboard · Stats, the list grouped by type, mana
 value or colour with folding, rows with `− n +` and `⋯`; Stats is the curve
@@ -4979,7 +4979,9 @@ and colour identity, `m:` for the symbols of a mana cost, `mv`/`cmc`,
 answers `playable`, `partial`, `stub`, `commander`, `basic` and `dfc`, and a
 zone answers the three a projection carries: `token`, `basic` and `commander`.
 Every comparison Scryfall writes (`=`, `!=`, `<`, `<=`, `>`, `>=`), negation
-with `-`, `or`, and brackets.
+with `-`, `or`, and brackets. And what only the gateway's table answers
+(§"Rarity, set and format"): `r:` for a rarity, `s:` for a set, `f:`,
+`banned:` and `restricted:` for what a format says.
 
 Four decisions in it are worth knowing, and three of them were paid for.
 
@@ -5035,6 +5037,63 @@ is how it does not: read letter by letter, `esper` is `{R}` and `boros` is
 is neither a colour name nor made of nothing but `wubrg` letters is refused,
 and is still written back out so a player can see what was refused.
 
+### Rarity, set and format
+
+| Written | Also | Means |
+| --- | --- | --- |
+| `r:rare` | `rarity:`, `r:r` | a printing at this rarity; `r>=rare` compares in Scryfall's order: common, uncommon, rare, special, mythic, bonus |
+| `s:m21` | `set:`, `e:`, `edition:` | a printing in this set, by its code in any case |
+| `f:modern` | `format:`, `legal:`, `f:edh` | the format lets the card be played, a restricted card included, as on Scryfall |
+| `banned:commander` | | the format bans the card |
+| `restricted:vintage` | | the format allows one copy |
+
+None of these is in a pool row or a view. They read the gateway's table
+(`docs/protocol.md` §"Pool facts"), which the lobby asks for beside the pool,
+once a session (`lobby::poolfacts`, off the one-request chain as the blocks
+are), and a table reaches for by itself when something there wants it, because
+a player may sit down without ever opening the deck builder. A copy stays on
+this machine, one per gateway, as a named document of the settings store; the
+next session names its version, and the copy is used only when the gateway
+answers `304`. `DeckBuilder::pool_facts` holds it, forgotten with the pool at
+sign-out, and `lobby::lend_the_pool` lends it to the `Duel`. So all three
+lists answer the same keys, through `Surface::with_pool_facts`.
+
+**A query is asked of one printing at a time, and a card answers if some
+printing does.** So `r:rare s:m21` is a card that was rare *in M21*, not one
+that was rare somewhere and printed in M21 at some other rarity, and
+`-r:common` is a card with a printing that is not common, not one that never
+was. That is Scryfall's reading too. `cardquery::matches` first asks with no
+printing in hand, so any answer that does not depend on one stands, and walks
+the card's printings only for what is left undecided.
+
+**A row answers for the card, whichever printing it shows.** A pool row is the
+card; a deck row is not searched at all; and an object in a zone names a
+printing by a Scryfall id the table does not carry, because 43 887 pairs are
+what the filters need and half a million printing ids are not. So `s:m21` in a
+graveyard is "this card was printed in M21" even where the art on the row is
+another printing's, on every surface alike. A list that shows a printing the
+table can name would hand the query that one printing and nothing else
+about the language would change.
+
+**In a zone these are facts about a card already visible, never a way to learn
+a hidden one.** A row hands the query `PublicObject::card`, which the view
+gates on what this seat may know. A face-down card has none, nor has a token;
+neither answers these keys, a term and its negation alike, and the two read the
+same, so a filter cannot tell one from the other. The facts are the card's,
+not the object's: a Clone that became Serra Angel answers as Clone, because
+rarity is no characteristic it copied.
+
+**Without the table a key says it is not available and matches nothing.** That
+is offline, signed in nowhere, at a gateway with no catalog (it sends an empty
+table, which counts as none), or an older gateway. `Surface::answers` then
+refuses the five keys, so a term and its negation both answer `Unknown` and no
+row is shown, and `FilterNoPoolFacts` says why where the player is looking:
+under the row in the builder, in the add menu (which stops offering them), in
+place of the deck builder's and the zone dialog's empty line, and under the name
+chooser's box. A card the table lacks, a card with no verdict stored and a
+format the table has not heard of answer `Unknown` the same way; the last is
+the builder's general warning, `FilterForm::unanswerable`.
+
 ## Taking a filter string apart
 
 The gear inside the search box opens a builder, and the builder has one
@@ -5071,8 +5130,9 @@ question — so a term inside a bracket is never lifted into a ticked box. That
 is the same line `FilterPart` draws, said from the other side.
 
 `Control::of` maps a key to the widget it wants (text, colour pips, a
-comparison and a number, a tri-state tick, a mana cost), and a key nothing
-knows gets a plain text box rather than being hidden: `frobnicate:yes` is
+comparison and a number, a tri-state tick, a mana cost, a choice from a list),
+and a key nothing knows gets a plain text box rather than being hidden:
+`frobnicate:yes` is
 still something a player can read and edit. `FilterForm::unanswerable` names
 the rows the surface the dialog was opened from cannot answer — it is a
 warning beside the control and never a refusal, because a term this surface
@@ -5154,6 +5214,22 @@ is a text box until the caret is given back.
 All of this was found by **photographing** the dialog, not by a test: the
 round trip was green throughout, because the form was carrying the values
 faithfully and only the drawing could not show them.
+
+### A choice row
+
+`Control::Choice` is one word out of a list (`filterdialog::choices`): a
+rarity's six, with the comparison strip because a rarity has an order; a
+format's, the ones a player reaches for first and then the rest of what the
+table holds; a set's, a dozen at a time by code or name, a code that begins
+with what was typed first, newest first within each. A format or a set row has
+a box, and it is the one row that stays what it is under the caret: its value
+is a word whatever the letters are, so nothing changes kind mid-word, and the
+list is what the letters narrow. A press writes the word through `value_of`,
+and a press on the word it holds takes the row back to nothing, because a list
+has no other way of being asked for nothing. `Act::Choose` carries the word
+inline (`ChoiceWord`), so it stays `Copy` and a button means what it says
+however the list moved since. A value no list holds, `r:frobnicate`, is a text
+box like any other.
 
 ### One drawing, two registers
 

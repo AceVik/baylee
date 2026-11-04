@@ -207,8 +207,9 @@ below remain the basis for runtime card images and finishes.
    mirror for anyone else, because their terms forbid republishing or
    proxying their data: the gateway's `/art` serves only a signed-in session
    and marks what it serves `private` (#273; `docs/protocol.md` §"Card
-   art"), and `/catalog/text`, `/catalog/search`, `/pool` and `/printings`
-   serve only a signed-in session too (#270; §"Card text"). The gateway
+   art"), and `/catalog/text`, `/catalog/search`, `/pool`, `/pool/facts` and
+   `/printings` serve only a signed-in session too (#270; §"Card text"). The
+   gateway
    asks Scryfall on nobody's behalf: it no longer fetches a printing its
    catalog lacks for whoever asked. A free account is enough, a guest's
    included, which the terms allow: "If you have an account system,
@@ -219,6 +220,19 @@ below remain the basis for runtime card images and finishes.
    as an asset. It is the same rule and it is worth spelling out, because the
    back is the one card image a client would be tempted to bundle: it never
    changes and every game needs it.
+
+   **`GET /pool/facts` is the game's own table, not a feed** (4.11.2026; the
+   rule read that day: "You may not simply repackage, republish, or proxy
+   Scryfall data"). It serves the client's filters and, later, its deck
+   validation, and it holds only what they read: per card of this game's own
+   pool, keyed on our registry index and not on a Scryfall id, each format's
+   status, and which `(set, rarity)` pairs the card has printings in; set
+   names, because the dialog offers sets by name. No printing id, collector
+   number, language, artist, price, image, date or card text is in it, and a
+   card outside the pool is not: about 12 500 of 39 000 cards. It answers a
+   signed-in session only, as `/pool` does. A client keeps a copy for its
+   own use, by version, as it keeps card text. A new field needs this look
+   again before it is added (`crates/baylee-cardtext/src/poolfacts.rs`).
 
    **The feedback service's admin UI shows card pictures, and fetches none
    of them** (beta.7, 10.10.2026). A report names cards (`[Lightning

@@ -382,6 +382,66 @@ an ingest on its next request. (The gateway's own fill from Scryfall did not mov
 second gateway served the older pick until the next ingest; #270 removed
 the fill.) `crates/baylee-gateway/src/texts.rs` has the mechanism.
 
+## Pool facts (`GET /pool/facts`)
+
+What a client filters a pool card by beyond its text: what each format says
+about it, and the sets and rarities it was printed in. For a signed-in session
+only, a guest's included, like `/pool`.
+
+```
+GET /pool/facts              the whole table
+GET /pool/facts?have=<version>   304 with no body while that is the table
+```
+
+```json
+{"version": "b768281be93d5f67",
+ "formats": ["commander", "modern", "vintage"],
+ "sets": [{"code": "m21", "name": "Core Set 2021"},
+          {"code": "lea", "name": "Limited Edition Alpha"}],
+ "verdicts": ["bnr", "lll"],
+ "cards": [[42, 1, 2, 9], [97, 0, 10]]}
+```
+
+`baylee_cardtext::PoolFactsBody` is the one type both ends link, pinned there.
+
+- `version` is 16 hex digits of a SHA-256 of the rest of the answer. A hash and
+  not the catalog's stamp, because the stamp goes back when a catalog is
+  restored and two gateways on two catalogs can hold the same one.
+- `formats` are Scryfall's keys, sorted, as the catalog stores them. They follow
+  the feed: a new format needs no release of anything.
+- `sets` are the sets the pool was printed in, newest first.
+- `verdicts` are the distinct verdict strings, one letter per format in
+  `formats` order: `l` legal, `b` banned, `r` restricted, `n` not legal, `-`
+  nothing stored. Each stands for a few dozen cards, which is the point.
+- `cards` holds one row per pool card the catalog knows, ascending by registry
+  index (a `/pool` row's `index`): `[index, place in verdicts, printing…]`. A
+  printing is a place in `sets` times 8 plus a rarity: 0 `common`, 1 `uncommon`,
+  2 `rare`, 3 `special`, 4 `mythic`, 5 `bonus`, 7 none stored. Each `(set,
+  rarity)` pair is listed once, whatever the languages and reprints behind it.
+
+In the example card 42 is legal in all three formats, rare in `m21` (`0 × 8 +
+2`) and uncommon in `lea` (`1 × 8 + 1`); card 97 is banned in Commander, not
+legal in Modern, restricted in Vintage, and rare in `lea`.
+
+**A card the table lacks has no row**, and that is not a card with no verdicts:
+a client answers nothing about it, a term and its negation alike. A card with
+printings and no stored verdict has a row of `-`.
+
+Without a filled catalog, or while the catalog cannot be read, the answer is
+`200` with an empty table (`version` empty, every list empty), for the reason
+`/pool` serves the registry alone. A client takes that as having no table and
+says these filters are not available. An older gateway answers `404`, which a
+client takes the same way.
+
+The table is built once per catalog stamp and kept as its bytes, read again as
+§"How long an answer is held" describes; it does not depend on the language.
+`crates/baylee-gateway/src/poolfacts.rs` has the mechanism. A verdict is a
+card's, merged over its printings (`docs/banlists-and-formats.md`). What the
+table leaves out of a printing is deliberate: `docs/legal.md` §3.
+
+`PROTOCOL_VERSION` does not move: this is a new HTTP route, and an older client
+never asks it.
+
 ## Card art (`GET /art/…`)
 
 The gateway mirrors printing images on disk, and the route is a **mirror of
@@ -3770,6 +3830,7 @@ from a curl recipe into a contract:
 | fetch one | `GET /images/{id}` | the stored JPEG |
 | what a table wears | `GET /games/{id}/cosmetics`, `Authorization: Bearer <seat token>` | `{"<seat>":{sleeve, playmat}}` |
 | the card pool | `GET /pool?lang=de` | `{total, pool_hash, lang, has_text, cards:[…]}` |
+| what a pool card is filtered by | `GET /pool/facts?have=` (§"Pool facts") | `{version, formats, sets, verdicts, cards}`; `304` when `have` is the version |
 | a card's printings | `GET /printings?card=42` | `{card, english_name, from_catalog, printings:[…]}` |
 | tables | `GET /lobby/games?q=&offset=&limit=` | `{games:[{id, name, host, yours, state, seats:[…]}], total, offset, limit}` |
 | a socket ticket | `POST /ws-ticket` `{"socket":"lobby"}` or `{"socket":"seat","game"}` (§"Opening a socket: tickets") | `{ticket, expires_in}` |
@@ -3952,7 +4013,7 @@ cannot acquire or exercise a seat capability again; already queued final views
 may still be delivered to its existing connection.
 
 `/pool` is the deck builder's card list. It answers a signed-in session
-only (#270), as `/printings`, `/catalog/text` and `/art` do: its rows carry
+only (#270), as `/pool/facts`, `/printings`, `/catalog/text` and `/art` do: its rows carry
 the catalog's text and names, which are Scryfall's data, and one rule for
 every route that answers such data is simpler than an exception. A guest's
 session is enough. The client fetches it once a session and forgets it at
