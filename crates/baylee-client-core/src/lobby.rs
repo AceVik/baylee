@@ -230,9 +230,70 @@ impl std::fmt::Debug for KeptGuest {
     }
 }
 
+/// What a list was asked for.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ListFor {
+    /// To hold the deck in the builder to.
+    Deck,
+    /// To read or edit.
+    Editor,
+}
+
+/// How a deck stands in its own format, as `GET /decks` says (`legality`).
+#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
+pub struct DeckLegality {
+    /// `legal`, `illegal` or `unknown`; empty from a gateway that does not say.
+    #[serde(default)]
+    pub standing: String,
+    /// What is wrong with it.
+    #[serde(default)]
+    pub problems: Vec<baylee_cardtext::Problem>,
+}
+
+impl DeckLegality {
+    /// Whether the gateway says this deck is illegal now.
+    #[must_use]
+    pub fn illegal(&self) -> bool {
+        self.standing == "illegal"
+    }
+}
+
+/// What a table holds a deck to, as the listing says (`rules`).
+#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
+pub struct TableRules {
+    /// The format the host named, by Scryfall's key.
+    #[serde(default)]
+    pub format: Option<String>,
+    /// The list a deck must keep to.
+    #[serde(default)]
+    pub list: Option<TableList>,
+}
+
+/// The list a table holds decks to, as the caller may see it.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
+pub struct TableList {
+    /// Whether it is an official list.
+    #[serde(default)]
+    pub builtin: bool,
+    /// Its name: an official list's is its format's key, and an own list's
+    /// is `None` to anyone not at the table.
+    #[serde(default)]
+    pub name: Option<String>,
+    /// The version in force, to those at the table.
+    #[serde(default)]
+    pub version: Option<i64>,
+    /// Whether the game has started and the version stands for good.
+    #[serde(default)]
+    pub frozen: bool,
+}
+
 /// One of the account's saved decks, as `GET /decks` lists it.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 pub struct DeckSummary {
+    /// How it stands in its own format now: a deck may be illegal, and may
+    /// become so after a ban, and is told so here.
+    #[serde(default)]
+    pub legality: DeckLegality,
     /// Opaque id, the handle every other deck call takes.
     pub id: String,
     /// The name the owner gave it.
@@ -456,6 +517,9 @@ pub struct GameSummary {
     /// Rules and starting positions advertised by the host.
     #[serde(default)]
     pub setup: baylee_core::preset::RoomSetup,
+    /// What the table holds a deck to.
+    #[serde(default)]
+    pub rules: TableRules,
     /// The pace it plays at; `None` from a gateway that does not say.
     #[serde(default)]
     pub clock: Option<play::TableClock>,
@@ -747,6 +811,52 @@ pub enum LobbyRequest {
         /// Which deck.
         deck_id: String,
     },
+    /// `GET /banlists`: the lists this account may use.
+    ListBanlists,
+    /// `GET /banlists/{id}`: one list and its cards.
+    LoadBanlist {
+        /// Which list.
+        id: String,
+        /// What it is asked for.
+        into: ListFor,
+    },
+    /// `POST /banlists` with `copy_of`: a list of one's own from another.
+    CopyBanlist {
+        /// The list to copy.
+        id: String,
+        /// What the copy is called.
+        name: String,
+        /// The format it is for.
+        format: String,
+    },
+    /// `POST /banlists`, or `PUT /banlists/{id}` for one that has an id.
+    SaveBanlist {
+        /// The list to overwrite, or `None` to make one.
+        id: Option<String>,
+        /// Its name.
+        name: String,
+        /// The format it is for.
+        format: String,
+        /// Every card on it, by oracle id.
+        entries: Vec<(String, baylee_cardtext::ListStatus)>,
+    },
+    /// `DELETE /banlists/{id}`.
+    DeleteBanlist {
+        /// Which list.
+        id: String,
+    },
+    /// `POST /lobby/games/{id}/list`: what a room holds a deck to.
+    ChooseRoomList {
+        /// The room.
+        game_id: String,
+        /// The list, or `None` for a table that takes every deck.
+        list_id: Option<String>,
+    },
+    /// `GET /lobby/games/{id}/list`: the table's list, for those at it.
+    LoadRoomList {
+        /// The room.
+        game_id: String,
+    },
     /// `POST /decks`, or `PUT /decks/{id}` when editing an existing one.
     SaveDeck {
         /// The deck to overwrite, or `None` to create one.
@@ -953,6 +1063,16 @@ pub enum LobbyEvent {
         /// below is this build's own reference, not the whole history.
         from_catalog: bool,
     },
+    /// The lists this account may use.
+    Banlists(Vec<baylee_cardtext::ListRow>),
+    /// One list, and what it was asked for.
+    Banlist(baylee_cardtext::ListBody, ListFor),
+    /// The list of a table; `None` for a table that has none.
+    RoomList(Option<baylee_cardtext::ListBody>),
+    /// A list is gone, by its id.
+    BanlistDeleted(String),
+    /// A table's list turned a deck away, and why.
+    DeckRefused(baylee_cardtext::DeckRefusal),
     /// One deck, with its rows, ready to edit.
     DeckLoaded {
         /// The deck's id.
@@ -1097,6 +1217,11 @@ enum GatewaySelection {
     reason = "independent facts about the session and the request in flight"
 )]
 pub struct Lobby {
+    /// Why a table's list last turned a deck away, until it is put away.
+    refusal: Option<baylee_cardtext::DeckRefusal>,
+    /// The list of the table this player sits at, as last read: what those
+    /// at the table may see.
+    room_list: Option<baylee_cardtext::ListBody>,
     library: library::Library,
     copied_deck: Option<String>,
     /// A house deck just copied by **Add and use**: once the list names it,

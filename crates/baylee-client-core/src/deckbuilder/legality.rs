@@ -8,11 +8,12 @@
 //! being illegal (`docs/banlists-and-formats.md`), and the gateway's own
 //! verdict is the one a table reads.
 
-use super::{DeckBuilder, Zone};
+use super::{BuildField, DeckBuilder, PoolCard, Zone};
+use crate::banlist::ListEditor;
 use crate::deckcheck;
 use crate::i18n::{Lang, Phrase};
 use baylee_cards::formats::{self, DeckCards, FREEFORM, Rules, SHAPES};
-use baylee_cardtext::{ListRules, Problem, Report, Standing};
+use baylee_cardtext::{ListBody, ListRow, ListRules, Problem, Report, Standing};
 use baylee_core::ids::CardIndex;
 use std::sync::Arc;
 
@@ -21,8 +22,12 @@ use std::sync::Arc;
 pub struct ChosenList {
     /// Its id at the gateway.
     pub id: String,
-    /// What it is called.
+    /// What it is called; an official list's is its format's key.
     pub name: String,
+    /// Whether it is an official list.
+    pub builtin: bool,
+    /// The format it keeps to, `freeform` for none.
+    pub format: String,
     /// What it says, shared with whoever else reads it.
     pub rules: Arc<ListRules>,
 }
@@ -67,6 +72,16 @@ impl DeckBuilder {
         }
     }
 
+    /// The format the check asks: a list's where it keeps to one, as a table
+    /// holding that list would ask, else the deck's own.
+    fn held_format(&self) -> &str {
+        self.list
+            .as_ref()
+            .map(|list| list.format.as_str())
+            .filter(|format| *format != FREEFORM)
+            .unwrap_or_else(|| self.format())
+    }
+
     /// Chooses the format. It is saved with the deck, so it is an edit.
     pub fn set_format(&mut self, format: &str) {
         if self.format != format {
@@ -107,6 +122,111 @@ impl DeckBuilder {
     pub fn set_list(&mut self, list: Option<ChosenList>) {
         self.list = list;
         self.recheck();
+    }
+
+    /// Takes the list `body` as what the deck is held to.
+    pub fn hold_to(&mut self, body: &ListBody) {
+        self.set_list(Some(ChosenList {
+            id: body.row.id.clone(),
+            name: body.row.name.clone(),
+            builtin: body.row.builtin,
+            format: body.row.format.clone(),
+            rules: Arc::new(body.rules()),
+        }));
+    }
+
+    /// What a list is called: an own list by its name, an official one by its
+    /// format's.
+    #[must_use]
+    pub fn list_name(&self, row: &ListRow, lang: Lang) -> String {
+        if row.builtin {
+            deckcheck::format_name(&row.format, lang).to_string()
+        } else {
+            row.name.clone()
+        }
+    }
+
+    /// The lists this account may use.
+    #[must_use]
+    pub fn lists(&self) -> &[ListRow] {
+        &self.lists
+    }
+
+    /// Takes what `GET /banlists` answered.
+    pub fn set_lists(&mut self, lists: Vec<ListRow>) {
+        self.lists = lists;
+    }
+
+    /// The list open in the editor.
+    #[must_use]
+    pub const fn list_editor(&self) -> Option<&ListEditor> {
+        self.list_editor.as_ref()
+    }
+
+    /// Opens a list in the editor, keeping the search of one being saved.
+    pub fn open_list(&mut self, body: &ListBody) {
+        let search = self
+            .list_editor
+            .as_ref()
+            .filter(|open| open.id() == Some(&body.row.id) || open.id().is_none())
+            .map(|open| open.search.clone());
+        let mut editor = ListEditor::of(body);
+        if let Some(search) = search {
+            editor.search = search;
+        }
+        self.list_editor = Some(editor);
+        self.refilter_list();
+        // A deck held to a list hears what the list now says.
+        if self
+            .list
+            .as_ref()
+            .is_some_and(|held| held.id == body.row.id)
+        {
+            self.hold_to(body);
+        }
+    }
+
+    /// Opens a new empty list for the deck's format.
+    pub fn open_new_list(&mut self, name: &str) {
+        self.list_editor = Some(ListEditor::blank(name, self.format()));
+        self.focus_on(BuildField::ListName);
+    }
+
+    /// Shuts the editor; what was not saved goes.
+    pub fn close_list(&mut self) {
+        self.list_editor = None;
+        if matches!(self.focus, BuildField::ListName | BuildField::ListSearch) {
+            self.focus_on(BuildField::Search);
+        }
+    }
+
+    /// One change to the list in the editor.
+    pub fn edit_list(&mut self, edit: impl FnOnce(&mut ListEditor, &[PoolCard])) {
+        if let Some(list) = &mut self.list_editor {
+            edit(list, &self.pool);
+        }
+    }
+
+    /// The list's search, asked again.
+    pub(super) fn refilter_list(&mut self) {
+        let surface = crate::cardquery::Surface::POOL.with_pool_facts(self.pool_facts.as_deref());
+        if let Some(list) = &mut self.list_editor {
+            list.refilter(&self.pool, surface);
+        }
+    }
+
+    /// A list went: out of the editor, and from under the deck.
+    pub fn list_gone(&mut self, id: &str) {
+        if self
+            .list_editor
+            .as_ref()
+            .is_some_and(|list| list.id() == Some(id))
+        {
+            self.close_list();
+        }
+        if self.list.as_ref().is_some_and(|held| held.id == id) {
+            self.set_list(None);
+        }
     }
 
     /// What the last check found.
@@ -164,7 +284,7 @@ impl DeckBuilder {
                 leaders: &leaders,
             },
             Rules {
-                format: self.format(),
+                format: self.held_format(),
                 facts: self.pool_facts.as_deref(),
                 list: self.list.as_ref().map(|list| &*list.rules),
             },
@@ -222,19 +342,31 @@ impl DeckBuilder {
         deckcheck::problem(
             problem,
             deckcheck::Context {
-                format: self.format(),
-                list: self.list.as_ref().map_or("", |list| list.name.as_str()),
+                format: self.held_format(),
+                list: &self.list_called(lang),
                 lang,
             },
             &name,
         )
     }
 
+    /// What the list the deck is held to is called: an official one by its
+    /// format's name in this language, an own one as its owner wrote it.
+    fn list_called(&self, lang: Lang) -> String {
+        self.list.as_ref().map_or_else(String::new, |list| {
+            if list.builtin {
+                deckcheck::format_name(&list.name, lang).to_string()
+            } else {
+                list.name.clone()
+            }
+        })
+    }
+
     /// How the deck's size reads against what the format takes.
     fn count_line(&self, lang: Lang) -> String {
         let have = self.counts().main;
         let have = have.to_string();
-        match formats::shape_of(self.format()) {
+        match formats::shape_of(self.held_format()) {
             Some(formats::Shape::Constructed) => Phrase::CheckCountAtLeast
                 .fill(lang, &[&have, &formats::CONSTRUCTED_MIN.to_string()]),
             Some(formats::Shape::Highlander | formats::Shape::Commander) => {
@@ -247,11 +379,12 @@ impl DeckBuilder {
     /// What the builder says about the deck.
     #[must_use]
     pub fn overview(&self, lang: Lang) -> Overview {
-        let format = self.format();
-        let named = self.list.as_ref().map_or_else(
-            || deckcheck::format_name(format, lang).to_string(),
-            |list| list.name.clone(),
-        );
+        let format = self.held_format();
+        let named = if self.list.is_some() {
+            self.list_called(lang)
+        } else {
+            deckcheck::format_name(format, lang).to_string()
+        };
         let standing = self.standing();
         let free = format == FREEFORM && self.list.is_none();
         let headline = match standing {

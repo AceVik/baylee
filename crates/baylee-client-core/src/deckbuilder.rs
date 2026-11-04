@@ -883,6 +883,10 @@ pub enum BuildField {
     Search,
     /// The deck's name.
     Name,
+    /// The name of the ban list open in the editor.
+    ListName,
+    /// The search over the pool in the ban list editor.
+    ListSearch,
     /// Printing picker set autocomplete.
     PickerSet,
 }
@@ -954,6 +958,10 @@ pub struct DeckBuilder {
     /// The format the deck is held to, by Scryfall's key; empty until one is
     /// chosen, and [`Self::format`] then reads it off the leaders.
     format: String,
+    /// The lists this account may hold a deck to (`GET /banlists`).
+    lists: Vec<baylee_cardtext::ListRow>,
+    /// The ban list open in the editor.
+    list_editor: Option<crate::banlist::ListEditor>,
     /// The list it is held to, if one was chosen.
     list: Option<legality::ChosenList>,
     /// What the last check found, kept because every row asks it as it is
@@ -994,12 +1002,12 @@ pub struct DeckBuilder {
     /// A loaded deck's commander that the pool resolves but the rules will
     /// not seat. The mark is not taken; the name is kept so it can be said.
     ///
-    /// The gateway refuses such a deck on save (`POST /decks` answers "that
-    /// card cannot be a commander"), so this cannot come from a deck saved
-    /// today — it comes from one saved *before* the card's `CommanderRule`
-    /// changed. Remembered rather than dropped, because a Commander deck
-    /// quietly demoted to Freeform is something the player would otherwise
-    /// find out about at the table.
+    /// The builder offers no such mark, so this comes from a deck saved
+    /// *before* the card's `CommanderRule` changed, or written by something
+    /// else: the gateway stores it and tells (`formats::validate`). Remembered
+    /// rather than dropped, because a Commander deck quietly demoted to
+    /// Freeform is something the player would otherwise find out about at the
+    /// table.
     stale_commander: Option<String>,
     /// The open printing picker, if a card is being picked for.
     picker: Option<Picker>,

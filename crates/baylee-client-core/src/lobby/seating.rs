@@ -330,6 +330,92 @@ impl Lobby {
         })
     }
 
+    /// The host picks what the room holds a deck to; the gateway checks that
+    /// it is the host's to pick.
+    pub fn choose_room_list(
+        &mut self,
+        game_id: &str,
+        list_id: Option<String>,
+    ) -> Option<LobbyRequest> {
+        if self.busy || !self.has_a_performer() {
+            return None;
+        }
+        self.busy = true;
+        self.note(Phrase::ArrangingTable);
+        Some(LobbyRequest::ChooseRoomList {
+            game_id: game_id.to_string(),
+            list_id,
+        })
+    }
+
+    /// Why a table's list last turned a deck away.
+    #[must_use]
+    pub const fn refusal(&self) -> Option<&baylee_cardtext::DeckRefusal> {
+        self.refusal.as_ref()
+    }
+
+    /// Puts that away.
+    pub fn close_refusal(&mut self) {
+        self.refusal = None;
+    }
+
+    /// Why a table's list turned a deck away, a sentence a reason, cards by
+    /// the names the pool gives them where this session holds it.
+    #[must_use]
+    pub fn refusal_lines(&self) -> Vec<String> {
+        let Some(refusal) = &self.refusal else {
+            return Vec::new();
+        };
+        let name = |card: u32| {
+            self.builder
+                .pool()
+                .iter()
+                .find(|row| row.index == card)
+                .map_or_else(
+                    || crate::deckcheck::english_name(card),
+                    |row| row.name.clone(),
+                )
+        };
+        refusal
+            .problems
+            .iter()
+            .map(|problem| {
+                crate::deckcheck::problem(
+                    *problem,
+                    crate::deckcheck::Context {
+                        format: &refusal.format,
+                        // An official list goes by its format's key.
+                        list: crate::deckcheck::format_name(&refusal.list, self.lang),
+                        lang: self.lang,
+                    },
+                    &name,
+                )
+            })
+            .collect()
+    }
+
+    /// The list of the table this player sits at, as last read.
+    #[must_use]
+    pub const fn room_list(&self) -> Option<&baylee_cardtext::ListBody> {
+        self.room_list.as_ref()
+    }
+
+    /// Puts it away.
+    pub fn close_room_list(&mut self) {
+        self.room_list = None;
+    }
+
+    /// What a table's list is called, as the caller may read it.
+    #[must_use]
+    pub fn table_list_name(&self, list: &TableList) -> Option<String> {
+        let name = list.name.as_deref()?;
+        Some(if list.builtin {
+            crate::deckcheck::format_name(name, self.lang).to_string()
+        } else {
+            name.to_string()
+        })
+    }
+
     /// Says whether this player is ready to play.
     pub fn set_ready(&mut self, game_id: &str, ready: bool) -> Option<LobbyRequest> {
         if self.busy || !self.has_a_performer() {

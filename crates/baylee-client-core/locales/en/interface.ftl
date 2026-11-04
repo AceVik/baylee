@@ -9044,3 +9044,60 @@ CheckMore =
         [one] and one more
        *[other] and { $count } more
     }
+
+# The status line when a table's list turned a deck away.
+# Arguments: list
+RefusedNote = The list { $list } turned this deck away.
+
+# The sheet that says why. `$list` the list.
+# Arguments: list
+RefusedTitle = This deck does not keep to { $list }
+
+# The list picker in a room and in the check.
+ListNone = None
+ListNew = New list
+ListCopy = Copy
+ListEdit = Edit
+ListRead = Read
+ListDelete = Delete list
+ListSave = Save list
+ListNameLabel = Name
+ListSearchLabel = Find a card
+ListOfficial = Official
+ListEmpty = No cards on this list.
+ListStatusBanned = Banned
+ListStatusRestricted = Restricted: one copy
+ListStatusBannedAsCommander = Banned as commander
+ListTitle = Ban list
+ListTitleOfficial = Official list
+
+# The default name of a copy. `$name` the list it was made from.
+# Arguments: name
+ListCopyName = Copy of { $name }
+
+# The default name of a new list.
+ListNewName = My list
+
+# A room's rules line: `$list` the list it holds decks to.
+# Arguments: list
+RoomRulesList = Ban list: { $list }
+
+# A room without a list.
+RoomRulesNoList = No ban list: every deck may sit down
+
+# A room's own list, to someone not at the table.
+RoomRulesOwnList = Ban list: the host's own
+
+# The list a running game keeps. `$version` its version.
+# Arguments: version
+RoomRulesFrozen = Fixed at version { $version } for this game
+
+RoomRulesChoose = Ban list…
+RoomRulesRead = Read the list
+RoomListTitle = What this table holds a deck to
+
+# A deck tile's word for a deck its gateway calls illegal.
+DeckTileIllegal = Not legal
+
+# Offline: a list is a gateway's.
+ListNeedsGateway = Ban lists live on a gateway; sign in to one.

@@ -3088,3 +3088,32 @@ CheckMore =
         [one] und eins mehr
        *[other] und { $count } mehr
     }
+RefusedNote = Die Liste { $list } weist dieses Deck ab.
+RefusedTitle = Dieses Deck hält sich nicht an { $list }
+ListNone = Keine
+ListNew = Neue Liste
+ListCopy = Kopieren
+ListEdit = Bearbeiten
+ListRead = Ansehen
+ListDelete = Liste löschen
+ListSave = Liste speichern
+ListNameLabel = Name
+ListSearchLabel = Karte suchen
+ListOfficial = Offiziell
+ListEmpty = Keine Karten auf dieser Liste.
+ListStatusBanned = Gebannt
+ListStatusRestricted = Beschränkt: eine Kopie
+ListStatusBannedAsCommander = Als Commander gebannt
+ListTitle = Bannliste
+ListTitleOfficial = Offizielle Liste
+ListCopyName = Kopie von { $name }
+ListNewName = Meine Liste
+RoomRulesList = Bannliste: { $list }
+RoomRulesNoList = Keine Bannliste: Jedes Deck darf Platz nehmen
+RoomRulesOwnList = Bannliste: die des Gastgebers
+RoomRulesFrozen = Für dieses Spiel auf Version { $version } festgelegt
+RoomRulesChoose = Bannliste…
+RoomRulesRead = Liste ansehen
+RoomListTitle = Woran dieser Tisch ein Deck misst
+DeckTileIllegal = Nicht legal
+ListNeedsGateway = Bannlisten liegen auf einem Gateway; melde dich bei einem an.

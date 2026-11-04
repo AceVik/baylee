@@ -238,6 +238,8 @@ fn a_list_is_held_up_to_the_deck_and_named() {
     b.set_list(Some(ChosenList {
         id: "l1".to_string(),
         name: "Kitchen table".to_string(),
+        builtin: false,
+        format: FREEFORM.to_string(),
         rules: Arc::new(rules),
     }));
     let overview = b.overview(Lang::En);
@@ -247,6 +249,35 @@ fn a_list_is_held_up_to_the_deck_and_named() {
     assert_eq!(b.badge(slot(&b, "Sol Ring")), Some(Phrase::BadgeRestricted));
     b.set_list(None);
     assert_eq!(b.standing(), Standing::Legal);
+}
+
+/// A list keeps to its format, as a table holding it would ask, and an
+/// official list goes by the format's name in the client's language.
+#[test]
+fn a_list_brings_its_format_to_the_check() {
+    let mut b = builder();
+    b.set_format("modern");
+    add(&mut b, "Island", 60);
+    b.hold_to(&baylee_cardtext::ListBody {
+        row: baylee_cardtext::ListRow {
+            id: "l1".to_string(),
+            name: "commander".to_string(),
+            format: "commander".to_string(),
+            builtin: true,
+            ..baylee_cardtext::ListRow::default()
+        },
+        entries: Vec::new(),
+    });
+    assert_eq!(b.format(), "modern", "the deck's own stands");
+    assert!(
+        b.report().problems.contains(&Problem::WrongSize {
+            have: 60,
+            need: 100
+        }),
+        "{:?}",
+        b.report().problems
+    );
+    assert!(b.overview(Lang::En).headline.contains("Commander"));
 }
 
 /// Illegal is told and never refused: the button stays live.

@@ -155,6 +155,37 @@ impl Lobby {
                 self.builder.set_printings(card, printings, from_catalog);
                 None
             }
+            LobbyEvent::Banlists(lists) => {
+                self.builder.set_lists(lists);
+                None
+            }
+            LobbyEvent::Banlist(body, ListFor::Deck) => {
+                self.builder.hold_to(&body);
+                None
+            }
+            LobbyEvent::Banlist(body, ListFor::Editor) => {
+                self.builder.open_list(&body);
+                self.busy = true;
+                Some(LobbyRequest::ListBanlists)
+            }
+            LobbyEvent::BanlistDeleted(id) => {
+                self.builder.list_gone(&id);
+                self.busy = true;
+                Some(LobbyRequest::ListBanlists)
+            }
+            LobbyEvent::RoomList(body) => {
+                self.room_list = body;
+                None
+            }
+            LobbyEvent::DeckRefused(refusal) => {
+                self.room_saving = false;
+                self.write(
+                    Phrase::RefusedNote.fill(self.lang, &[&refusal.list]),
+                    Tone::Refusal,
+                );
+                self.refusal = Some(refusal);
+                None
+            }
             LobbyEvent::DeckLoaded {
                 id,
                 name,

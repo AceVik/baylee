@@ -1336,6 +1336,8 @@ impl DeckBuilder {
         self.focus_on(match self.focus {
             BuildField::Search => BuildField::Name,
             BuildField::Name | BuildField::PickerSet => BuildField::Search,
+            BuildField::ListName => BuildField::ListSearch,
+            BuildField::ListSearch => BuildField::ListName,
         });
     }
 
@@ -1346,6 +1348,7 @@ impl DeckBuilder {
             BuildField::Search => self.search.field.text(),
             BuildField::Name => self.name.text(),
             BuildField::PickerSet => self.buffer(BuildField::PickerSet).text(),
+            BuildField::ListName | BuildField::ListSearch => self.buffer(self.focus).text(),
         }
     }
 
@@ -1354,10 +1357,12 @@ impl DeckBuilder {
         match self.focus {
             BuildField::Search => self.set_text(value),
             BuildField::Name => self.set_name(value),
-            BuildField::PickerSet => self.edit_buffer(BuildField::PickerSet, |b| {
-                b.clear();
-                b.insert(value);
-            }),
+            field @ (BuildField::PickerSet | BuildField::ListName | BuildField::ListSearch) => {
+                self.edit_buffer(field, |b| {
+                    b.clear();
+                    b.insert(value);
+                });
+            }
         }
     }
 
@@ -1371,6 +1376,14 @@ impl DeckBuilder {
                 .picker
                 .as_ref()
                 .map_or(&self.search.field, |p| &p.set_query),
+            BuildField::ListName => self
+                .list_editor
+                .as_ref()
+                .map_or(&self.search.field, |list| &list.name),
+            BuildField::ListSearch => self
+                .list_editor
+                .as_ref()
+                .map_or(&self.search.field, |list| &list.search.field),
         }
     }
 
@@ -1389,6 +1402,16 @@ impl DeckBuilder {
                 };
                 &mut p.set_query
             }
+            BuildField::ListName | BuildField::ListSearch => {
+                let Some(list) = &mut self.list_editor else {
+                    return;
+                };
+                if field == BuildField::ListName {
+                    &mut list.name
+                } else {
+                    &mut list.search.field
+                }
+            }
         };
         let before = buffer.text().to_owned();
         edit(buffer);
@@ -1404,6 +1427,12 @@ impl DeckBuilder {
                     p.set_open = true;
                 }
             }
+            BuildField::ListName => {
+                if let Some(list) = &mut self.list_editor {
+                    list.renamed();
+                }
+            }
+            BuildField::ListSearch => self.refilter_list(),
         }
     }
 
@@ -1412,8 +1441,8 @@ impl DeckBuilder {
         match self.focus {
             BuildField::Search => self.type_char(ch),
             BuildField::Name => self.type_name(ch),
-            BuildField::PickerSet => {
-                self.edit_buffer(BuildField::PickerSet, |b| b.insert(&ch.to_string()));
+            field @ (BuildField::PickerSet | BuildField::ListName | BuildField::ListSearch) => {
+                self.edit_buffer(field, |b| b.insert(&ch.to_string()));
             }
         }
     }
@@ -1423,9 +1452,11 @@ impl DeckBuilder {
         match self.focus {
             BuildField::Search => self.backspace(),
             BuildField::Name => self.backspace_name(),
-            BuildField::PickerSet => self.edit_buffer(BuildField::PickerSet, |b| {
-                b.delete_back();
-            }),
+            field @ (BuildField::PickerSet | BuildField::ListName | BuildField::ListSearch) => {
+                self.edit_buffer(field, |b| {
+                    b.delete_back();
+                });
+            }
         }
     }
 
@@ -1684,7 +1715,7 @@ impl DeckBuilder {
     /// Makes a card the deck's commander.
     ///
     /// Refused for a card the rules cannot seat as one — the pool says which,
-    /// and offering the choice on a card that would be rejected on save is
+    /// and offering a choice the deck's check would then call illegal is
     /// worse than not offering it.
     ///
     /// A commander is also a card in the deck, so this puts one there if it
@@ -1927,9 +1958,9 @@ impl DeckBuilder {
                 // Pushed rather than `set_commander`ed: a stored deck's
                 // leaders are already in its rows, and re-adding them here
                 // would put a second copy of each in the library. The pair's
-                // legality is the gateway's to refuse on save; a deck that
-                // is already stored is not the place to start arguing about
-                // it, or reopening one would silently drop a commander.
+                // legality is the check's to tell; a deck that is already
+                // stored is not the place to start arguing about it, or
+                // reopening one would silently drop a commander.
                 if !self.commanders.contains(&slot) {
                     self.commanders.push(slot);
                 }
