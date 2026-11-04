@@ -513,6 +513,51 @@ impl TargetPrompt {
     }
 }
 
+/// What a buyback cost asks besides mana, in the words a question can carry:
+/// the card's own [`baylee_cards_dsl::CostPart`]s hold `'static` filters,
+/// which no wire can, and a reader that cannot look the card up still has to
+/// name the whole price.
+#[derive(
+    Clone, Copy, PartialEq, Eq, Hash, Debug, Default, serde::Serialize, serde::Deserialize,
+)]
+pub struct BuybackParts {
+    /// Life paid.
+    pub life: u16,
+    /// Permanents sacrificed.
+    pub sacrifices: u8,
+    /// Cards discarded, chosen by the caster.
+    pub discards: u8,
+    /// Cards discarded at random.
+    pub random_discards: u8,
+}
+
+impl BuybackParts {
+    /// The count of each part of a printed buyback cost.
+    #[must_use]
+    pub fn of(parts: &[baylee_cards_dsl::CostPart]) -> Self {
+        use baylee_cards_dsl::CostPart;
+        parts.iter().fold(Self::default(), |sum, part| match part {
+            CostPart::PayLife(n) => Self {
+                life: sum.life.saturating_add(*n),
+                ..sum
+            },
+            CostPart::Sacrifice(_) => Self {
+                sacrifices: sum.sacrifices.saturating_add(1),
+                ..sum
+            },
+            CostPart::Discard(_) => Self {
+                discards: sum.discards.saturating_add(1),
+                ..sum
+            },
+            CostPart::DiscardRandom => Self {
+                random_discards: sum.random_discards.saturating_add(1),
+                ..sum
+            },
+            _ => sum,
+        })
+    }
+}
+
 /// What a [`Pending::YesNo`] asks.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, serde::Serialize, serde::Deserialize)]
 pub enum YesNoPrompt {
@@ -579,10 +624,10 @@ pub enum YesNoPrompt {
     /// additional costs (CR 601.2b), and only of a spell that can pay it.
     Buyback {
         /// The mana part of the cost as it stands, after anything that
-        /// reduces it (`Modifier::BuybackCostsLess`); what it asks besides
-        /// mana is printed on the card, and asked after this as the objects
-        /// it names.
+        /// reduces it (`Modifier::BuybackCostsLess`).
         cost: baylee_core::mana::ManaCost,
+        /// What it asks besides mana. The objects are asked after a yes.
+        parts: BuybackParts,
     },
     /// "Pay {N}?" for a tax trigger (Rhystic Study & co.).
     PayTax {

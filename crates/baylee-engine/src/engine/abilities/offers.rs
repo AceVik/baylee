@@ -171,6 +171,22 @@ impl<L: CardLookup> Engine<L> {
         out
     }
 
+    /// `LegalActions::buyback_less`: every printed reduction applies to every
+    /// spell, so one number serves the planners.
+    fn buyback_less(&self) -> u32 {
+        if !self.state.effects.may_change_spell_costs() {
+            return 0;
+        }
+        self.state
+            .effects
+            .iter()
+            .filter_map(|effect| match effect.modifier {
+                baylee_cards_dsl::Modifier::BuybackCostsLess(amount) => Some(amount),
+                _ => None,
+            })
+            .fold(0, u32::saturating_add)
+    }
+
     #[allow(clippy::too_many_lines)]
     pub(crate) fn compute_legal(&self, player: PlayerId) -> LegalActions {
         let adjustments = self.spell_adjustments(player);
@@ -178,6 +194,7 @@ impl<L: CardLookup> Engine<L> {
             can_pass: true,
             spell_increases: adjustments.increases,
             spell_reductions: adjustments.reductions,
+            buyback_less: self.buyback_less(),
             activation_increases: self.activation_increases(player),
             ..LegalActions::default()
         };

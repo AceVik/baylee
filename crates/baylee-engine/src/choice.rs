@@ -34,7 +34,7 @@ pub use mana::{ManaAbilityChoice, ManaChoiceId};
 pub use answers::{AnswerFault, timeout_answer};
 pub use automation::{PriorityHold, SeatAutomation, StandingAnswer};
 pub use prompts::{
-    CastModeDesc, CastModeKind, ChoicePrompt, NumberPrompt, TargetPrompt, YesNoPrompt,
+    BuybackParts, CastModeDesc, CastModeKind, ChoicePrompt, NumberPrompt, TargetPrompt, YesNoPrompt,
 };
 
 /// One creature that may block, and the attackers it may be assigned to.
@@ -668,6 +668,12 @@ pub const fn is_special_action(index: u32) -> bool {
 // answers once and for good, so it is a wire constant and belongs in
 // `baylee-core` beside the other reserved handles.
 
+/// For `skip_serializing_if`: a zero is not written.
+#[allow(clippy::trivially_copy_pass_by_ref)] // serde passes the field by reference
+const fn is_zero(value: &u32) -> bool {
+    *value == 0
+}
+
 /// Everything a player may legally do with priority (precomputed).
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct LegalActions {
@@ -717,6 +723,11 @@ pub struct LegalActions {
     /// says, so a reader of that field alone keeps its meaning (protocol 11).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub spell_reductions: Vec<(ObjectId, CastModeKind, u32)>,
+    /// Generic mana that comes off a buyback cost, and off nothing else
+    /// (`Modifier::BuybackCostsLess`, CR 118.7a), for a planner pricing a
+    /// spell before it is cast; the question names the price itself.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub buyback_less: u32,
     /// Generic activation increases on controlled permanents. Simple mana
     /// planners must not count a taxed mana ability as free production.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

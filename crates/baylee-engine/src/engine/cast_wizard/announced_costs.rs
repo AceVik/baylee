@@ -19,6 +19,12 @@ impl<L: CardLookup> Engine<L> {
     /// The buyback question, or `None` when there is nothing to ask.
     pub(super) fn ask_buyback(&mut self, wizard: &CastWizard) -> Option<Pending> {
         let cost = self.buyback_on_offer(wizard)?;
+        let parts = self
+            .wizard_face(wizard)
+            .buyback
+            .map_or_else(Default::default, |printed| {
+                crate::choice::BuybackParts::of(printed.parts)
+            });
         let source = self.state.object(wizard.card).and_then(|object| {
             object.card.map(|card| {
                 baylee_core::ids::AbilityRef::new(
@@ -29,7 +35,7 @@ impl<L: CardLookup> Engine<L> {
         });
         Some(Pending::YesNo {
             player: wizard.player,
-            prompt: YesNoPrompt::Buyback { cost },
+            prompt: YesNoPrompt::Buyback { cost, parts },
             source,
         })
     }
@@ -57,16 +63,15 @@ impl<L: CardLookup> Engine<L> {
             .and_then(|object| object.card)
             .and_then(|card| self.lookup.card(card.index))
             .expect("wizard card known");
-        let reduction =
-            casting::face_adjustment(
-                &self.state,
-                wizard.player,
-                wizard.card,
-                def,
-                wizard.face_index(),
-                None,
-            )
-                .buyback_reduction;
+        let reduction = casting::face_adjustment(
+            &self.state,
+            wizard.player,
+            wizard.card,
+            def,
+            wizard.face_index(),
+            None,
+        )
+        .buyback_reduction;
         printed.with_less_generic(reduction)
     }
 

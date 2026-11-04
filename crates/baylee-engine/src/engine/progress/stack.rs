@@ -1304,9 +1304,10 @@ impl<L: CardLookup> Engine<L> {
             // A copy paid nothing, but it carries the decision (CR 707.10);
             // it has no card to send, and takes the ending every copy takes
             // (CR 704.5e).
-            let bought_back = self.state.object(spell).is_some_and(|o| {
-                o.is_card() && o.riders.contains(&crate::object::Rider::Buyback)
-            });
+            let bought_back = self
+                .state
+                .object(spell)
+                .is_some_and(|o| o.is_card() && o.riders.contains(&crate::object::Rider::Buyback));
             // Rebound (CR 702.88): cast from hand → exile with a rebound
             // rider and a delayed re-cast at the next upkeep. Beside buyback
             // the two "instead"s are the caster's to order (CR 616.1e), and

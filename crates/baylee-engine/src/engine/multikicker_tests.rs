@@ -226,7 +226,12 @@ fn a_smaller_count_is_taken_and_one_is_kicked() {
 fn no_payment_is_not_kicked() {
     let mut engine = cast_over(SPELL, 5);
     engine.apply(ME, PlayerAction::ChooseNumber(0)).unwrap();
-    let spell = *engine.state().zones.list(ZoneLocation::Stack).last().unwrap();
+    let spell = *engine
+        .state()
+        .zones
+        .list(ZoneLocation::Stack)
+        .last()
+        .unwrap();
     assert!(!engine.state().object(spell).unwrap().kicked);
     resolve(&mut engine);
     assert_eq!(engine.state().players[0].life, 19);
@@ -279,7 +284,11 @@ fn a_permanent_reads_the_count_as_it_enters_and_when_it_has() {
     let object = engine.state().object(body[0]).unwrap();
     assert_eq!(object.counters.get(CounterKind::P1P1), 3);
     assert_eq!(hand_size(&engine), before - 1 + 3, "a card for each kick");
-    assert_eq!(engine.state().players[0].life, 21, "the trigger saw it kicked");
+    assert_eq!(
+        engine.state().players[0].life,
+        21,
+        "the trigger saw it kicked"
+    );
 }
 
 /// A permanent nobody kicked has no count: left unkicked the 0/0 has no

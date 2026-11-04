@@ -87,6 +87,7 @@ fn a_timed_out_seat_does_nothing_wherever_the_question_allows_it() {
         (
             yes_no(YesNoPrompt::Buyback {
                 cost: baylee_core::mana::ManaCost::parse("{3}"),
+                parts: crate::choice::BuybackParts::default(),
             }),
             no.clone(),
         ),
@@ -724,6 +725,7 @@ fn only_the_questions_whose_answer_cannot_go_stale_are_automatable() {
         YesNoPrompt::Kicker,
         YesNoPrompt::Buyback {
             cost: baylee_core::mana::ManaCost::parse("{3}"),
+            parts: crate::choice::BuybackParts::default(),
         },
         YesNoPrompt::PayLifeOrEnterTapped { amount: 1 },
         YesNoPrompt::PayTax { mana: 2 },
