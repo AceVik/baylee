@@ -649,7 +649,7 @@ fn the_pool_and_a_saved_deck_decode() {
             cards: vec!["4 Llanowar Elves".to_string()],
             sideboard: vec!["1 Forest".to_string()],
             commanders: Vec::new(),
-            format: "freeform".to_string(),
+            format: String::new(),
         }
     );
     assert_eq!(
