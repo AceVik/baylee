@@ -151,11 +151,15 @@ pub enum Action {
     /// Open or shut the friends drawer (unbound by default; `/friends` and
     /// the game menu's row open it too).
     Friends,
+    /// Show the table from the next player this seat controls, or from its
+    /// own chair again (CR 723.5; `perspective::Perspective::cycle`). Last
+    /// in the enum, so a stored keymap's order does not move.
+    CyclePerspective,
 }
 
 impl Action {
     /// Every action, in the order a settings screen should list them.
-    pub const ALL: [Self; 50] = [
+    pub const ALL: [Self; 51] = [
         Self::Primary,
         Self::Confirm,
         Self::ConfirmTargetBatch,
@@ -171,6 +175,7 @@ impl Action {
         Self::FocusNextSeat,
         Self::FocusPrevSeat,
         Self::FocusHome,
+        Self::CyclePerspective,
         Self::ArrangementMenu,
         Self::NextArrangement,
         Self::HandDrawer,
@@ -266,6 +271,7 @@ impl Action {
             Self::ChatReply => Phrase::ActChatReply,
             Self::ChatOpen => Phrase::ActChatOpen,
             Self::Friends => Phrase::ActFriends,
+            Self::CyclePerspective => Phrase::ActCyclePerspective,
         }
     }
 
@@ -292,6 +298,7 @@ impl Action {
             | Self::FocusNextSeat
             | Self::FocusPrevSeat
             | Self::FocusHome
+            | Self::CyclePerspective
             | Self::ArrangementMenu
             | Self::NextArrangement
             | Self::HandDrawer => Phrase::GroupMovingAround,
@@ -576,6 +583,7 @@ impl Keymap {
         bind(Action::FocusNextSeat, vec![Chord::key("KeyF")]);
         bind(Action::FocusPrevSeat, vec![Chord::shift("KeyF")]);
         bind(Action::FocusHome, vec![Chord::key("KeyH")]);
+        bind(Action::CyclePerspective, vec![Chord::key("KeyU")]);
         bind(Action::ArrangementMenu, vec![Chord::key("KeyP")]);
         bind(Action::NextArrangement, vec![Chord::shift("KeyP")]);
         bind(Action::HandDrawer, vec![Chord::key("KeyI")]);
@@ -649,6 +657,7 @@ impl Keymap {
         map.bindings.remove(&Action::ChatReply);
         map.bindings.remove(&Action::ChatOpen);
         map.bindings.remove(&Action::Friends);
+        map.bindings.remove(&Action::CyclePerspective);
         map
     }
 
@@ -1616,7 +1625,7 @@ mod tests {
     /// what they are bound to, and that the settings list names them.
     #[test]
     fn the_chat_actions_are_listed_grouped_and_bound_as_the_design_says() {
-        assert_eq!(Action::ALL.len(), 50);
+        assert_eq!(Action::ALL.len(), 51);
         let chat = [
             Action::ChatCommand,
             Action::ChatReply,

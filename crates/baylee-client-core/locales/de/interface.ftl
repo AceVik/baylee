@@ -835,6 +835,20 @@ RequiredManaProgress =
        *[other] Verpflichtend – { $count } Aktivierungen ausgeführt
     }
 DecidingFor = Du entscheidest für { $player }
+ForPlayer = Für { $player }: { $question }
+ControlTakesYourTurn = { $player } steuert deinen Zug
+ControlDecidesForYou = { $player } entscheidet für dich
+ControlDecidesForOther = { $controller } entscheidet für { $player }
+ControlUnderYours = Unter deiner Kontrolle
+ControlUnderYoursShown = Angezeigt · unter deiner Kontrolle
+ControlledBy = Gesteuert von { $player }
+ControlHandOf = Hand von { $player } · unter deiner Kontrolle
+ControlChipHint = Drücken, um vom Platz von { $player } aus zu spielen: Hand, Mana und Fragen dieses Spielers
+ControlChipHintBack = Drücken, um zur eigenen Hand zurückzukehren
+ControlTurnOf = Zug von { $player } — gesteuert von { $controller }
+RowFollowControl = Dem gesteuerten Spieler folgen
+HelpFollowControl = Steuerst du einen anderen Spieler (Mindslaver), zeigt der Tisch dessen Hand, Mana und Fragen, sobald eine seiner Entscheidungen ansteht, und wieder deine, sobald eine eigene kommt. Ein Platz, den du an seinem Chip wählst, bleibt bis zur nächsten Entscheidung. Aus bleibt der Tisch, wo du ihn hinstellst.
+ActCyclePerspective = Vom nächsten gesteuerten Platz aus spielen
 DamageTurnFaceUp = Vor dem Schaden aufdecken
 GrantedPaymentHint = Mana erzeugen oder passen.
 PrepareManaPayment = Du kannst Mana erzeugen, um bis zu { $amount } Schaden zu verhindern. Passe, um den Betrag zu wählen.

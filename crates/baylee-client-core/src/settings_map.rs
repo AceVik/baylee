@@ -237,6 +237,8 @@ pub enum Row {
     Arrangement,
     /// Whether the table follows the turn (DESIGN-v8 §1.1, D25).
     FollowTurn,
+    /// Whether the table follows the player this seat decides for (CR 723.5).
+    FollowControl,
     /// The arrangement remembered per seat count (DESIGN-v8 §2.6, D24).
     ArrangementBySeats,
     // Graphics (account)
@@ -450,6 +452,13 @@ pub const ROWS: &[RowDef] = &[
         D,
         P::RowFollowTurn,
         P::HelpFollowTurn,
+    ),
+    def(
+        Row::FollowControl,
+        S::Graphics,
+        D,
+        P::RowFollowControl,
+        P::HelpFollowControl,
     ),
     def(
         Row::ArrangementBySeats,
@@ -841,6 +850,7 @@ mod tests {
             Row::VisitCamera,
             Row::Arrangement,
             Row::FollowTurn,
+            Row::FollowControl,
             Row::ArrangementBySeats,
             Row::PriorityCue,
         ] {

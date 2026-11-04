@@ -1034,6 +1034,32 @@ pub struct BoardModel {
     pub hand: Vec<HandCard>,
 }
 
+/// The hand row's cards for `cards`, lit by what is offered.
+fn hand_cards(cards: &[baylee_view::HandObject], openings: &Openings<'_>) -> Vec<HandCard> {
+    cards
+        .iter()
+        .map(|h| HandCard {
+            id: h.id,
+            name: h.name.clone(),
+            mana_value: h.mana_value,
+            art: ImageKey::of(h.card, ArtSize::Small),
+            playable: openings.playable.contains(&h.id),
+            reachable: openings.reachable.contains(&h.id),
+            commander: h.commander,
+        })
+        .collect()
+}
+
+impl BoardModel {
+    /// Draws the hand row from `cards` instead of the deciding player's:
+    /// the hand of the chair the table is shown from (`perspective`), which
+    /// is this seat's own or one it controls, never any other
+    /// (`decision::hand_of`).
+    pub fn show_hand(&mut self, cards: &[baylee_view::HandObject], openings: &Openings<'_>) {
+        self.hand = hand_cards(cards, openings);
+    }
+}
+
 fn stack_art(
     lookup: &Lookup<'_>,
     object: &PublicObject,
@@ -1215,18 +1241,7 @@ impl BoardModel {
         // the pointer was not the card that got clicked. Sorting was carrying
         // information that `playable`/`reachable` already carry as light, and
         // it was the one that could move a card out from under a click.
-        let hand: Vec<HandCard> = crate::decision::hand(view)
-            .iter()
-            .map(|h| HandCard {
-                id: h.id,
-                name: h.name.clone(),
-                mana_value: h.mana_value,
-                art: ImageKey::of(h.card, ArtSize::Small),
-                playable: openings.playable.contains(&h.id),
-                reachable: openings.reachable.contains(&h.id),
-                commander: h.commander,
-            })
-            .collect();
+        let hand = hand_cards(crate::decision::hand(view), &openings);
 
         Self {
             seq: view.seq,

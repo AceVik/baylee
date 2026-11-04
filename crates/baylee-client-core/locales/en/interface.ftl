@@ -2614,6 +2614,60 @@ RequiredManaProgress =
 # Arguments: player
 DecidingFor = You decide for { $player }
 
+# A question asked of a player this seat controls (CR 723.5), on the shelf
+# and the decision sheet: whose it is, then the question.
+# Arguments: player, question
+ForPlayer = For { $player }: { $question }
+
+# The banner on the controlled player's own table during their turn
+# (Mindslaver, CR 723.1). `$player` is the player in control.
+# Arguments: player
+ControlTakesYourTurn = { $player } controls your turn
+
+# The same outside their own turn: a control limited to an instruction
+# (Word of Command, CR 723.2).
+# Arguments: player
+ControlDecidesForYou = { $player } decides for you
+
+# The banner on every other seat's table: control of a player is public.
+# Arguments: controller, player
+ControlDecidesForOther = { $controller } decides for { $player }
+
+# The badge on the chip of a player this seat controls.
+ControlUnderYours = Under your control
+
+# The same badge on the chip whose chair the table is shown from.
+ControlUnderYoursShown = Shown · under your control
+
+# The badge on a controlled player's chip, for everybody.
+# Arguments: player
+ControlledBy = Controlled by { $player }
+
+# The label over the hand while the table is shown from a controlled
+# player's chair.
+# Arguments: player
+ControlHandOf = { $player }'s hand · under your control
+
+# The hint on a controlled player's chip: what a press on it does.
+# Arguments: player
+ControlChipHint = Press to play from { $player }'s chair: their hand, mana and questions
+
+# The hint on this seat's own chip while another chair is shown.
+ControlChipHintBack = Press to go back to your own hand
+
+# The hint on a turn whose player is controlled.
+# Arguments: player, controller
+ControlTurnOf = { $player }'s turn — controlled by { $controller }
+
+# Settings: whether the table follows the player this seat decides for.
+RowFollowControl = Follow the player you decide for
+
+# Its help line.
+HelpFollowControl = While you control another player (Mindslaver), the table shows that player's hand, mana and questions as one of their decisions arrives, and yours again as one of your own does. A chair you pick on its chip stays until the next decision. Off, the table stays where you put it.
+
+# The keymap: show the table from the next player you control.
+ActCyclePerspective = Play from the next chair you control
+
 # A replacement effect turns the affected face-down creature face up.
 DamageTurnFaceUp = Turn face up before damage
 
