@@ -58,7 +58,9 @@ pub use objects::{
     AbilitySource, BoardMana, CardIdentity, DamageSourceView, GrantSource, GrantedMana, HandObject,
     NamedFace, ObjectSummaryKey, PublicObject, RulesFace, StackItem, StackText, TokenAbility,
 };
-pub use player_view::{Ballot, LostSeat, PlayerView, SeatClock, TargetingContext, WordChange};
+pub use player_view::{
+    Ballot, LostSeat, PlayerControl, PlayerView, SeatClock, TargetingContext, WordChange,
+};
 pub use seats::{CommanderDamage, CommanderView, HouseAnswer, LossCause, ManaPoolView, SeatView};
 pub use seen::{Seen, SeenIn};
 pub use shown_hands::{SeatSetting, SharedHand};

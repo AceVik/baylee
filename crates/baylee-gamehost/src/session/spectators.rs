@@ -43,7 +43,7 @@ impl Session {
     /// The public view as it stands, built for no seat.
     #[must_use]
     pub fn spectator_view(&self) -> SpectatorView {
-        crate::view::spectator_view(
+        let mut view = crate::view::spectator_view(
             self.engine.state(),
             self.seq,
             self.awaiting_seat(),
@@ -51,7 +51,9 @@ impl Session {
             self.engine.library_reveal_blocked(),
             &self.house_answered,
             self.engine.ballots(),
-        )
+        );
+        view.controls = crate::view::player_controls(&self.engine);
+        view
     }
 
     /// The opening payload of a spectator's stream: the roster and the

@@ -329,6 +329,23 @@ pub fn deciding<L: baylee_engine::state::CardLookup>(
         .collect()
 }
 
+/// Every player whose decisions another makes now, as every seat and
+/// spectator is told it ([`baylee_view::PlayerView::controls`]).
+#[must_use]
+pub fn player_controls<L: baylee_engine::state::CardLookup>(
+    engine: &baylee_engine::engine::Engine<L>,
+) -> Vec<baylee_view::PlayerControl> {
+    engine
+        .player_controls()
+        .into_iter()
+        .map(|(player, controller, source)| baylee_view::PlayerControl {
+            player,
+            controller,
+            source,
+        })
+        .collect()
+}
+
 /// Who `seat`'s view says the table is waiting for, for
 /// [`SeatContext::awaiting`].
 ///
@@ -391,6 +408,9 @@ pub fn decision_player_for<L: baylee_engine::state::CardLookup>(
 /// the two that should go red when the next field arrives.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct SeatContext<'a> {
+    /// Who decides for whom right now, public to every seat (CR 723). Pass
+    /// [`player_controls`].
+    pub controls: &'a [baylee_view::PlayerControl],
     /// All privately inspected cards, including ineligible picks. Visible
     /// only to the current choice's resource player and controlling actor.
     pub inspected_cards: &'a [ObjectId],
@@ -547,6 +567,13 @@ pub fn player_view(
     house_answered: &[Option<HouseAnswer>],
 ) -> PlayerView {
     let mut references = None;
+    // Whose timing the view tells: the player this seat is deciding for, a
+    // controlled player under Mindslaver (CR 723.5), else the seat's own.
+    let decider = if ctx.awaiting == Some(seat) {
+        ctx.decision_player.unwrap_or(seat)
+    } else {
+        seat
+    };
     PlayerView {
         decision_player: ctx.decision_player,
         controlled_hands: ctx
@@ -629,13 +656,14 @@ pub fn player_view(
                         matches!(
                             fx.modifier,
                             baylee_cards_dsl::Modifier::OpponentsCastAsSorcery
-                        ) && state.is_opponent(fx.controller, seat)
+                        ) && state.is_opponent(fx.controller, decider)
                     })
                     .and_then(|fx| fx.source)
             })
             .flatten(),
-        sorceries_have_flash: sorceries_have_flash(state, seat),
-        flash_types: flash_types(state, seat),
+        sorceries_have_flash: sorceries_have_flash(state, decider),
+        flash_types: flash_types(state, decider),
+        controls: ctx.controls.to_vec(),
     }
 }
 
@@ -744,6 +772,8 @@ pub fn spectator_view(
         combat: combat_view(state),
         revealed_hands: revealed_hands(state, None),
         ballots: ballot_views(ballots),
+        // What only the engine knows; `Session::spectator_view` fills it in.
+        controls: Vec::new(),
         library_tops: state
             .players
             .iter()
