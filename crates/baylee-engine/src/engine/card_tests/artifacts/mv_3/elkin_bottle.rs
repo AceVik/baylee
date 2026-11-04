@@ -61,11 +61,40 @@ fn elkin_bottle_exiles_top_card_and_allows_playing_it() {
     );
 }
 
-/// The permission outlasts the turn — P0 may still cast the exiled Bolt in
-/// P1's turn — and is gone by P0's next main phase (under the printed "until
-/// the beginning of your next upkeep" as under the Partial's next turn).
 #[test]
-fn elkin_bottle_permission_lasts_through_the_opponents_turn_and_no_further() {
+fn elkin_bottle_allows_playing_an_exiled_land() {
+    let mut engine = lk::game(SEED, &[elkin_bottle()], &[], &[index::FOREST], &[]);
+    let forest = in_hand(&engine, P0, index::FOREST).expect("in hand");
+    engine
+        .dev_state_mut(P0)
+        .unwrap()
+        .move_object(
+            forest,
+            ZoneLocation::Library(P0),
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::Effect,
+        )
+        .expect("move Forest to top of library");
+    engine.refresh_offer();
+
+    lk::float(&mut engine, P0, &[(ManaColor::Colorless, 3)]);
+    activate(&mut engine, P0, elkin_bottle(), 0);
+    pass_until(&mut engine, stack_is_empty);
+    engine
+        .apply(P0, PlayerAction::PlayLand { card: forest })
+        .expect("Elkin Bottle's unrestricted play permission includes lands");
+
+    assert!(
+        on_battlefield(&engine, P0, index::FOREST).is_some(),
+        "the exiled Forest entered the battlefield through a land play"
+    );
+}
+
+/// The permission outlasts the turn — P0 may still cast the exiled Bolt in
+/// P1's turn — retains the printed next-upkeep lifetime rather than the
+/// shorter next-turn lifetime, and is gone before P0's next upkeep priority.
+#[test]
+fn elkin_bottle_permission_lasts_through_the_opponents_turn_and_expires_at_upkeep() {
     let mut engine = lk::game(SEED, &[elkin_bottle()], &[], &[index::LIGHTNING_BOLT], &[]);
     let bolt = in_hand(&engine, P0, index::LIGHTNING_BOLT).expect("in hand");
     engine
@@ -91,6 +120,17 @@ fn elkin_bottle_permission_lasts_through_the_opponents_turn_and_no_further() {
             .contains(&bolt),
         "the top card of the library was exiled"
     );
+    let permission = engine
+        .state()
+        .play_permissions
+        .iter()
+        .find(|permission| permission.player == P0 && permission.card == bolt)
+        .expect("Elkin Bottle granted P0 permission to play the exiled Bolt");
+    assert_eq!(
+        permission.window,
+        baylee_cards_dsl::PlayWindow::UntilYourNextUpkeep.into(),
+        "the permission survives P0's next turn start and expires as upkeep begins"
+    );
 
     let castable_by_p0 = |e: &Engine<RegistryLookup>| matches!(e.pending(), Pending::Priority { player, legal } if *player == P0 && legal.castable.contains(&bolt));
 
@@ -106,9 +146,11 @@ fn elkin_bottle_permission_lasts_through_the_opponents_turn_and_no_further() {
         "the exiled card may still be played in the opponent's turn"
     );
 
-    // P0's next main phase: the permission is over.
+    // P0's next upkeep: the permission ended before either player got priority.
     pass_until(&mut engine, |e| {
-        e.state().turn.active == P0 && e.state().turn.phase == Phase::FirstMain
+        e.state().turn.active == P0
+            && e.state().turn.step == crate::turn::Step::Upkeep
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == P0)
     });
     lk::float(&mut engine, P0, &[(ManaColor::Red, 1)]);
     assert!(
