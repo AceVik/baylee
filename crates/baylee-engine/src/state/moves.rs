@@ -743,6 +743,7 @@ impl GameState {
                             | crate::object::Rider::ChosenCardType(_)
                             | crate::object::Rider::ChosenNumber { .. }
                             | crate::object::Rider::ChosenName { .. }
+                            | crate::object::Rider::ActivationManaNote { .. }
                             | crate::object::Rider::EntryTappingApplied
                             | crate::object::Rider::EntryCopyApplied
                             | crate::object::Rider::BattleProtector(_)

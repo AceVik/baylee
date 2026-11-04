@@ -71,7 +71,7 @@ pub(super) fn resume_inner(
                 });
             }
         }
-        AwaitingOp::ExileFromHandWithSource => {
+        AwaitingOp::ExileFromHandWithSource { cast } => {
             if let Some(&card) = chosen.first().filter(|&&card| {
                 state
                     .object(card)
@@ -120,6 +120,29 @@ pub(super) fn resume_inner(
                     ZonePosition::Top,
                     Cause::Effect,
                 );
+                if let Some(object) = state.object(card) {
+                    let exile = baylee_core::ids::DamageSourceRef {
+                        object: card,
+                        version: object.version,
+                    };
+                    if cast {
+                        state.play_permissions.push(crate::state::PlayPermission {
+                            player: res.controller,
+                            card,
+                            version: object.version,
+                            free: false,
+                            mana_any_type: false,
+                            cast_only: true,
+                            spell_types: None,
+                            window: crate::state::PlayLifetime::WhileExiled,
+                        });
+                    }
+                    if let Some(source) = state.object_mut(source.object)
+                        && source.version == version
+                    {
+                        source.note_last_linked_exile(acquisition, exile);
+                    }
+                }
             }
         }
         AwaitingOp::ReturnLinkedExile { to } => {

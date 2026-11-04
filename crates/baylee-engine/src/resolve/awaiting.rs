@@ -95,7 +95,10 @@ pub enum AwaitingOp {
         looked: Vec<ObjectId>,
     },
     /// A matching hand card chosen for exile with the resolving source.
-    ExileFromHandWithSource,
+    ExileFromHandWithSource {
+        /// Also let its controller cast that exact exile incarnation indefinitely.
+        cast: bool,
+    },
     /// Remaining linked cards that may each be played during this resolution.
     LinkedPlay {
         /// Exact exile incarnations; a later exile never inherits the permission.
@@ -1282,7 +1285,9 @@ impl AwaitingOp {
             Self::TapGroup(selection) => crate::state::structural_fingerprint(&(13u8, selection)),
             Self::EmpowerJace { amount } => crate::state::structural_fingerprint(&(11u8, amount)),
             Self::Hideaway { looked } => crate::state::structural_fingerprint(&(7u8, looked)),
-            Self::ExileFromHandWithSource => crate::state::structural_fingerprint(&81u8),
+            Self::ExileFromHandWithSource { cast } => {
+                crate::state::structural_fingerprint(&(81u8, cast))
+            }
             Self::LinkedPlay { cards, copy } => {
                 crate::state::structural_fingerprint(&(8u8, cards, copy))
             }

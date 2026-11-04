@@ -15,6 +15,8 @@ pub struct ManaProvenance {
     pub(crate) restriction: ManaRestriction,
     pub(crate) chosen_subtype: Option<SubtypeId>,
     pub(crate) source_watermark: Option<WatermarkId>,
+    /// Exact exile that `ManaUse::LastLinkedExile` alone admits.
+    pub(crate) last_linked_exile: Option<baylee_core::ids::DamageSourceRef>,
 }
 impl ManaProvenance {
     pub(crate) fn capture(
@@ -25,6 +27,15 @@ impl ManaProvenance {
         restriction: Option<ManaRestriction>,
     ) -> Self {
         let object = state.damage_source(context.source, version);
+        let last_linked_exile = if restriction
+            .is_some_and(|restriction| restriction.uses == ManaUse::LastLinkedExile)
+        {
+            object
+                .and_then(|source| source.activation_mana_note(source.rules_acquisition()))
+                .and_then(|(_, exile)| exile)
+        } else {
+            None
+        };
         Self {
             context,
             source_version: version.or_else(|| {
@@ -36,6 +47,7 @@ impl ManaProvenance {
             timestamp: object.map_or(state.timestamp, |object| object.timestamp),
             chosen_subtype: object.and_then(|object| object.chosen_subtype),
             source_watermark: object.and_then(GameObject::watermark),
+            last_linked_exile,
             restriction: restriction.unwrap_or(ManaRestriction {
                 uses: ManaUse::SpellsOrAbilities,
                 filter: &Filter::Any,
@@ -69,11 +81,14 @@ impl ManaProvenance {
         if ability && self.restriction.uses == ManaUse::NonSpellPaymentsOrMatchingSpells {
             return true;
         }
+        if self.restriction.uses == ManaUse::LastLinkedExile {
+            return !ability && self.admits_last_linked_exile(state, object);
+        }
         let allowed = match self.restriction.uses {
             ManaUse::Spells | ManaUse::NonSpellPaymentsOrMatchingSpells => !ability,
             ManaUse::Abilities => ability,
             ManaUse::SpellsOrAbilities | ManaUse::CostsFromMatchingSource => true,
-            ManaUse::CumulativeUpkeep => false,
+            ManaUse::CumulativeUpkeep | ManaUse::LastLinkedExile => false,
         };
         let filter = if ability {
             self.restriction
@@ -83,6 +98,25 @@ impl ManaProvenance {
             self.restriction.filter
         };
         allowed && self.matches(filter, state, object, self.controller)
+    }
+
+    fn admits_last_linked_exile(&self, state: &GameState, object: &GameObject) -> bool {
+        let Some(exile) = self.last_linked_exile else {
+            return false;
+        };
+        if object.id != exile.object {
+            return false;
+        }
+        // The offer probes the exiled card before moving it; the actual cost
+        // is paid after that exact incarnation has become the next stack object.
+        let prospective =
+            object.zone == crate::zone::Zone::Exile && object.version == exile.version;
+        let announced = object.zone == crate::zone::Zone::Stack
+            && object.version.checked_sub(1) == Some(exile.version);
+        (prospective || announced)
+            && state
+                .damage_source(exile.object, Some(exile.version))
+                .is_some_and(|previous| previous.zone == crate::zone::Zone::Exile)
     }
 
     fn matches(
@@ -202,6 +236,7 @@ impl
             },
             chosen_subtype: None,
             source_watermark: None,
+            last_linked_exile: None,
         }
     }
 }

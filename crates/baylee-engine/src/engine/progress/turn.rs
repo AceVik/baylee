@@ -153,7 +153,8 @@ impl<L: CardLookup> Engine<L> {
                         permission.window = PlayWindow::ThisTurn.into();
                     }
                     PlayLifetime::Turns(PlayWindow::ThisTurn | PlayWindow::UntilYourNextUpkeep)
-                    | PlayLifetime::Prepared(_) => {}
+                    | PlayLifetime::Prepared(_)
+                    | PlayLifetime::WhileExiled => {}
                 }
             }
             true

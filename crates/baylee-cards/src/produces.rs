@@ -54,6 +54,7 @@ pub fn produces(def: &CardDef) -> String {
                 | ManaSource::CircledColors
                 | ManaSource::ColorsAmong { .. }
                 | ManaSource::LandColor { .. }
+                | ManaSource::NotedActivationMana
                 | ManaSource::Chosen => {}
             }
         }

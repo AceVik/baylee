@@ -123,6 +123,33 @@ fn a_black_prototype_keeps_the_colored_tax_in_its_mana_plan() {
 }
 
 #[test]
+fn a_noted_activation_offer_keeps_its_fixed_bundle() {
+    let mut view = base_view();
+    let mut cauldron = test_public_object(10, "Ice Cauldron", 0, None);
+    cauldron.board_mana = Some(baylee_view::BoardMana {
+        index: 1,
+        colors: vec![
+            baylee_core::mana::ManaColor::Red,
+            baylee_core::mana::ManaColor::Red,
+            baylee_core::mana::ManaColor::Colorless,
+        ],
+        restricted_to: Some(ObjectId::new(50, 0)),
+    });
+    let id = cauldron.id;
+    view.battlefield = vec![cauldron];
+    let legal = LegalActions {
+        abilities: vec![(id, 1)],
+        ..LegalActions::default()
+    };
+    let offers = crate::policy::offers(&view, &legal);
+    assert_eq!(offers.len(), 1);
+    assert_eq!(offers[0].source.amount, 3);
+    assert!(offers[0].source.bundle);
+    assert_eq!(offers[0].source.colors.len(), 3);
+    assert!(offers[0].only_for.is_some());
+}
+
+#[test]
 fn phased_out_permanents_do_not_satisfy_or_block_casting_conditions() {
     use crate::policy::spell_can_be_cast_now;
 

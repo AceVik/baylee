@@ -62,6 +62,10 @@ pub enum ManaSource {
     /// chosen color" names no alternative, and a card never restates a
     /// default.
     ChosenOr(&'static [ManaColor]),
+    /// The exact mixture of mana types noted for this source's linked abilities.
+    /// Unlike the other sources, this supplies its own amount and distribution:
+    /// every noted unit is produced without a color choice.
+    NotedActivationMana,
 }
 
 /// How an instruction distributes its amount among the available colors.
@@ -91,6 +95,9 @@ pub enum ManaUse {
     CostsFromMatchingSource,
     /// Only paying cumulative upkeep costs (CR 702.24a).
     CumulativeUpkeep,
+    /// Only casting the exact card incarnation most recently exiled by the
+    /// producing source's linked ability. No other payment or same-named card qualifies.
+    LastLinkedExile,
 }
 
 /// What produced mana may be spent on (Cavern of Souls), or what spending

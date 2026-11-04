@@ -1352,6 +1352,20 @@ fn hash_rider_situation(
                 h.u8(26);
                 h.u32(*amount);
             }
+            crate::object::Rider::ActivationManaNote {
+                acquisition,
+                mana_types,
+                last_exile,
+            } => {
+                h.u8(92);
+                (acquisition, mana_types).hash(h);
+                h.boolean(last_exile.is_some());
+                if let Some(exile) = last_exile {
+                    h.u32(position(exile.object));
+                    h.u8(moves_since(state.object(exile.object), exile.version));
+                    hash_damage_source(h, state, exile.object, exile.version);
+                }
+            }
             _ => hash_acquired_rider(h, rider),
         }
     }
@@ -2079,6 +2093,14 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
             Rider::NotedCounter(kind, n) => {
                 h.u8(84);
                 (kind, n).hash(h);
+            }
+            Rider::ActivationManaNote {
+                acquisition,
+                mana_types,
+                last_exile,
+            } => {
+                h.u8(92);
+                (acquisition, mana_types, last_exile).hash(h);
             }
             Rider::MergedTop(id) => {
                 h.u8(87);

@@ -318,6 +318,7 @@ fn owned_produced_colors(
         | baylee_cards_dsl::ManaSource::ColorsAmong { .. }
         | baylee_cards_dsl::ManaSource::CircledColors
         | baylee_cards_dsl::ManaSource::ExiledWithSource
+        | baylee_cards_dsl::ManaSource::NotedActivationMana
         | baylee_cards_dsl::ManaSource::LandColor { .. }
         | baylee_cards_dsl::ManaSource::Chosen
         | baylee_cards_dsl::ManaSource::ChosenOr(_) => {

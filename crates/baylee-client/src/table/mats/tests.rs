@@ -28,6 +28,7 @@ fn tower(color: ManaColor) -> PlayerView {
     object.board_mana = Some(BoardMana {
         index: 0,
         colors: vec![color],
+        restricted_to: None,
     });
     ViewBuilder::new(2).with_battlefield(0, [object]).build()
 }

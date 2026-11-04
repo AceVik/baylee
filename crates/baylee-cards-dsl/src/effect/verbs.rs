@@ -1045,6 +1045,7 @@ impl Effect {
             | Effect::Mill { .. }
             | Effect::AddManaUnlessAnyPlayerPays { .. }
             | Effect::AddMana { .. }
+            | Effect::NoteActivationMana
             | Effect::AddManaFor { .. }
             | Effect::ManaForColorsAmong(_)
             | Effect::AddManaLikeEvent { .. }
@@ -1184,6 +1185,7 @@ impl Effect {
             | Effect::Hideaway(_)
             | Effect::ExileTopFaceDownLinked
             | Effect::ExileChosenFromHandWithSource(_)
+            | Effect::ExileChosenFromHandWithSourceAndCast(_)
             | Effect::MayPlayLinkedExile
             | Effect::MayCopyCastLinkedExile
             | Effect::ReturnLinkedExile { .. }

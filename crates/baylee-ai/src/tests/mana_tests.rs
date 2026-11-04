@@ -502,3 +502,47 @@ fn the_house_taps_a_plains_before_a_karakas() {
         "the Plains pays, the Karakas stays up"
     );
 }
+
+#[test]
+fn last_linked_exile_admits_only_that_object_and_only_a_spell() {
+    use baylee_cards_dsl::{ManaRestriction, ManaUse, SpendRider};
+
+    let source = obj(20);
+    let linked = obj(30);
+    let same_name = obj(31);
+    let other = obj(32);
+    let mut cauldron = carded(
+        permanent(source, PlayerId::new(0), 0),
+        "Ice Cauldron",
+        TypeSet::ARTIFACT,
+    );
+    cauldron.board_mana = Some(baylee_view::BoardMana {
+        index: 1,
+        colors: vec![baylee_core::mana::ManaColor::Red; 2],
+        restricted_to: Some(linked),
+    });
+    let exiled = |id, name| carded(permanent(id, PlayerId::new(0), 2), name, TypeSet::CREATURE);
+    let mut v = view(0, &[20, 20], vec![cauldron]);
+    v.exile[0] = vec![
+        exiled(linked, "Grizzly Bears"),
+        exiled(same_name, "Grizzly Bears"),
+        exiled(other, "Gray Ogre"),
+    ];
+    let restriction = ManaRestriction {
+        uses: ManaUse::LastLinkedExile,
+        filter: &baylee_cards_dsl::Filter::Any,
+        ability_filter: None,
+        rider: SpendRider::None,
+        restricts: true,
+        until_end_of_turn: false,
+    };
+    let agent = agent();
+    assert!(agent.admits(&v, &restriction, Some(source), linked));
+    assert!(!agent.admits(&v, &restriction, Some(source), same_name));
+    assert!(!agent.admits(&v, &restriction, Some(source), other));
+    assert!(!agent.admits(&v, &restriction, None, linked));
+    assert!(!agent.admits_activation(&v, &restriction, Some(source), linked));
+
+    v.battlefield[0].board_mana.as_mut().unwrap().restricted_to = None;
+    assert!(!agent.admits(&v, &restriction, Some(source), linked));
+}

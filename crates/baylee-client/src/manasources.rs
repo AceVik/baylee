@@ -599,6 +599,18 @@ fn read_mana_ability_with_restrictions<T>(
     if restricted && !allow_restricted {
         return None;
     }
+    // A noted activation's types are one fixed package, including repetitions,
+    // not an ordinary choice of one colour. Its projected length is its amount.
+    if source == baylee_cards_dsl::ManaSource::NotedActivationMana {
+        let colors = produced_colors(view, id, index, source)?;
+        let amount = u8::try_from(colors.len()).ok()?;
+        return Some(read(
+            Cow::Owned(colors),
+            amount,
+            true,
+            priced(cost, effects),
+        ));
+    }
     // An amount only the board can count is read off the board, where the
     // view shows all of it: Harabaz Druid's X is the Allies its controller
     // has (`baylee_ai::mana_poured`, the house AI's reading too). What the
@@ -667,6 +679,7 @@ fn with_produced_colors<T>(
         | baylee_cards_dsl::ManaSource::CircledColors
         | baylee_cards_dsl::ManaSource::ExiledWithSource
         | baylee_cards_dsl::ManaSource::LandColor { .. }
+        | baylee_cards_dsl::ManaSource::NotedActivationMana
         | baylee_cards_dsl::ManaSource::Chosen
         | baylee_cards_dsl::ManaSource::ChosenOr(_) => {
             let board = view.object(object)?.board_mana.as_ref()?;
@@ -1231,7 +1244,38 @@ mod tests {
         baylee_view::BoardMana {
             index,
             colors: colors.to_vec(),
+            restricted_to: None,
         }
+    }
+
+    #[test]
+    fn a_noted_activation_mana_mixture_is_one_fixed_bundle() {
+        let (mut view, mut legal) = offering("Ice Cauldron", &[1]);
+        let exiled = ObjectId::new(41, 0);
+        view.battlefield[0].board_mana = Some(baylee_view::BoardMana {
+            index: 1,
+            colors: vec![ManaColor::Red, ManaColor::Red, ManaColor::Colorless],
+            restricted_to: Some(exiled),
+        });
+        legal.payable = vec![exiled];
+        view.exile[0] = vec![crate::registry_printed(41, 0, "Gray Ogre")];
+
+        let sources = with_one_restricted(&view, &legal, exiled, false).expect("linked spell");
+        let source = sources
+            .iter()
+            .find(|source| source.id == ObjectId::new(1, 0))
+            .unwrap();
+        assert_eq!(source.amount, 3);
+        assert!(
+            source.bundle,
+            "two red and one colorless, not a colour choice"
+        );
+        assert_eq!(
+            source.colors,
+            vec![ManaColor::Red, ManaColor::Red, ManaColor::Colorless]
+        );
+        assert!(with_one_restricted(&view, &legal, ObjectId::new(42, 0), false).is_none());
+        assert!(with_one_restricted(&view, &legal, exiled, true).is_none());
     }
 
     /// The owner's own game: General Tazri's `{W}{U}{B}{R}{G}` ability puts

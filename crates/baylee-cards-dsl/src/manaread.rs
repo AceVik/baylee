@@ -142,6 +142,7 @@ pub fn mana_made(cost: &Cost, effects: &[Effect]) -> Option<(SimpleMana, bool)> 
         | ManaSource::ExiledWithSource
         | ManaSource::CircledColors
         | ManaSource::LandColor { .. }
+        | ManaSource::NotedActivationMana
         | ManaSource::Chosen
         | ManaSource::ChosenOr(_) => return None,
     };

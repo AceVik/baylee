@@ -274,3 +274,91 @@ fn the_projected_colors_are_the_ones_the_engine_then_offers() {
     }
     panic!("seat 0 never got priority");
 }
+
+#[test]
+fn a_noted_activation_projects_its_fixed_mixture_and_exact_exile() {
+    let cauldron = baylee_core::generated::index::ICE_CAULDRON;
+    let (engine, _) = board(&[cauldron], &[]);
+    let mut state = engine.state().clone();
+    let id = state
+        .zones
+        .list(ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .find(|&id| {
+            state
+                .object(id)
+                .is_some_and(|o| o.card.is_some_and(|c| c.index == cauldron))
+        })
+        .expect("the Cauldron is on the battlefield");
+    let exile = baylee_core::ids::DamageSourceRef {
+        object: ObjectId::new(90, 0),
+        version: 2,
+    };
+    let acquisition = state.object(id).unwrap().rules_acquisition();
+    state
+        .object_mut(id)
+        .unwrap()
+        .riders
+        .push(baylee_engine::object::Rider::ActivationManaNote {
+            acquisition,
+            mana_types: [0, 0, 0, 2, 0, 1],
+            last_exile: Some(exile),
+        });
+    let view = player_view(
+        &state,
+        PlayerId::new(0),
+        1,
+        None,
+        &SeatContext::default(),
+        &[],
+    );
+    let projected = projection(&view, "Ice Cauldron").expect("a non-empty note");
+    assert_eq!(projected.index, 1);
+    assert_eq!(
+        projected.colors,
+        vec![ManaColor::Red, ManaColor::Red, ManaColor::Colorless]
+    );
+    assert_eq!(projected.restricted_to, Some(exile.object));
+
+    state.object_mut(id).unwrap().riders.retain(|rider| {
+        !matches!(
+            rider,
+            baylee_engine::object::Rider::ActivationManaNote { .. }
+        )
+    });
+    let view = player_view(
+        &state,
+        PlayerId::new(0),
+        1,
+        None,
+        &SeatContext::default(),
+        &[],
+    );
+    assert!(
+        projection(&view, "Ice Cauldron").is_none(),
+        "no note, no invented mana"
+    );
+
+    state
+        .object_mut(id)
+        .unwrap()
+        .riders
+        .push(baylee_engine::object::Rider::ActivationManaNote {
+            acquisition,
+            mana_types: [0; 6],
+            last_exile: None,
+        });
+    let view = player_view(
+        &state,
+        PlayerId::new(0),
+        1,
+        None,
+        &SeatContext::default(),
+        &[],
+    );
+    assert!(
+        projection(&view, "Ice Cauldron").is_none(),
+        "an empty note produces nothing"
+    );
+}

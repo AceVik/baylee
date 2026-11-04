@@ -807,6 +807,17 @@ version-aware: the Earthbend event-object case above and the state-trigger
 suppression case below remain separate gaps. Exact target revalidation (#117)
 is described below.
 
+Ice Cauldron's linked abilities keep three identities separate (CR 400.7,
+607.5). `Rider::ActivationManaNote` belongs to the source permanent's exact
+incarnation and rules acquisition: a returned Cauldron has no old note. The
+independent `PlayLifetime::WhileExiled` permission belongs to the exact exiled
+card incarnation and ends when that incarnation leaves exile. Producing mana
+records that exile's version in its provenance; payment accepts that incarnation
+or its immediate stack successor (`version + 1`), never a same-named object or a
+later exile incarnation. Declining a later optional exile replaces the noted
+mana types but retains the previous last-exile reference. Both note halves and
+the permission participate in deterministic state hashing.
+
 ### A triggered mana ability resolves as it triggers (CR 605.4a)
 "Whenever you tap a creature for mana, add an additional {G}" is a mana
 ability (CR 605.1b: no target, triggers from a mana ability, could add mana;

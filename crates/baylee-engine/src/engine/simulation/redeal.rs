@@ -448,6 +448,10 @@ const fn rider_object(rider: &Rider) -> Option<ObjectId> {
             creature: source, ..
         }
         | Rider::LinkedExile { source, .. } => Some(source.object),
+        Rider::ActivationManaNote {
+            last_exile: Some(exile),
+            ..
+        } => Some(exile.object),
         Rider::SourceAttachmentLki(object)
         | Rider::Linked { host: object, .. }
         | Rider::PhasedOutUntilHostLeaves { host: object, .. }
@@ -502,6 +506,7 @@ const fn rider_object(rider: &Rider) -> Option<ObjectId> {
         | Rider::EntryTappingApplied
         | Rider::RevealedInHandCantPlayUntilTurn
         | Rider::NotedCounter(..)
+        | Rider::ActivationManaNote { .. }
         | Rider::Mutating
         | Rider::MergedToken(_) => None,
     }

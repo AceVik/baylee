@@ -532,11 +532,16 @@ pub struct BoardMana {
     /// Sphere prints a sacrifice ability beside it — would otherwise have the
     /// colours read onto the wrong row.
     pub index: u32,
-    /// The colours it may make. More than one means the ability asks.
+    /// The colours it may make. More than one means the ability asks, except
+    /// for a fixed mixture whose repeated entries are all produced together.
     ///
     /// Never empty: an ability that makes nothing right now is reported as no
     /// [`PublicObject::board_mana`] at all.
     pub colors: Vec<baylee_core::mana::ManaColor>,
+    /// The exact card this mana may be spent to cast, when its restriction
+    /// names one object rather than a filter. Object identity, not card name.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub restricted_to: Option<ObjectId>,
 }
 
 impl PublicObject {

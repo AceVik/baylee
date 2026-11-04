@@ -407,6 +407,7 @@ fn every_field_the_key_is_made_of_keeps_two_objects_apart() {
             o.board_mana = Some(BoardMana {
                 index: 0,
                 colors: vec![baylee_core::mana::ManaColor::Red],
+                restricted_to: None,
             });
         }),
     ];

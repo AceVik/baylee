@@ -16,7 +16,8 @@ fn a_mana_row_names_the_ability_it_belongs_to() {
     });
     o.board_mana = Some(BoardMana {
         index: 1,
-        colors: vec![ManaColor::Green],
+        colors: vec![ManaColor::Green, ManaColor::Green],
+        restricted_to: Some(ObjectId::new(42, 0)),
     });
 
     let text = serde_json::to_string(&o).expect("an object serialises");
@@ -31,11 +32,25 @@ fn a_mana_row_names_the_ability_it_belongs_to() {
         2,
         "more than one colour is an ability that asks"
     );
+    let board = back.board_mana.expect("carried");
     assert_eq!(
-        back.board_mana.expect("carried").index,
-        1,
+        board.index, 1,
         "a printed mana ability that is not the card's first — \
          Commander's Sphere prints a sacrifice ability beside it"
+    );
+    assert_eq!(board.colors, vec![ManaColor::Green, ManaColor::Green]);
+    assert_eq!(board.restricted_to, Some(ObjectId::new(42, 0)));
+}
+
+#[test]
+fn an_older_mana_row_without_a_linked_exile_still_decodes() {
+    let text = r#"{"index":1,"colors":["Green"]}"#;
+    let board: BoardMana = serde_json::from_str(text).expect("an old row still reads");
+    assert_eq!(board.restricted_to, None);
+    assert!(
+        !serde_json::to_string(&board)
+            .unwrap()
+            .contains("restricted_to")
     );
 }
 

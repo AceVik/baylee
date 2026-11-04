@@ -802,7 +802,9 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 total: None,
             })
         }
-        Effect::ExileChosenFromHandWithSource(filter) => {
+        Effect::ExileChosenFromHandWithSource(filter)
+        | Effect::ExileChosenFromHandWithSourceAndCast(filter) => {
+            let cast = matches!(op, Effect::ExileChosenFromHandWithSourceAndCast(_));
             let options: Vec<ObjectId> = state
                 .zones
                 .list(ZoneLocation::Hand(you))
@@ -817,7 +819,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             if options.is_empty() {
                 return None;
             }
-            res.awaiting = Some(AwaitingOp::ExileFromHandWithSource);
+            res.awaiting = Some(AwaitingOp::ExileFromHandWithSource { cast });
             Some(Pending::ChooseCards {
                 player: you,
                 options,

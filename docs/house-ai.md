@@ -263,6 +263,12 @@ cast spells pays for no activated ability, so Delighted Halfling's coloured
 mana is never planned for Yawgmoth's proliferate, nor Mishra's Workshop's for
 an artifact's ability (NEW-05).
 
+`ManaUse::LastLinkedExile` is stricter still: the house admits the source only
+for the exact object identity projected in `BoardMana::restricted_to`, never for
+an activated ability, a same-named spell, or a missing projection. Repeated
+colors in a noted activation mixture are one fixed bundle rather than a menu of
+alternatives, so the offer preserves both the amount and distribution of mana.
+
 Searches, bottoming,
 and surveils at the skilled levels evaluate only identities actually visible
 in `PlayerView`, including `looking_at` while a search is open.

@@ -402,6 +402,7 @@ pub(super) fn exec_immediate(
         | Effect::ExileLinked { .. }
         | Effect::ExileTargetsWithSource
         | Effect::ExileChosenFromHandWithSource(_)
+        | Effect::ExileChosenFromHandWithSourceAndCast(_)
         | Effect::RevealLibrarySearch { .. }
         | Effect::SacrificeSelf
         | Effect::SacrificeAll { .. }
@@ -461,6 +462,7 @@ pub(super) fn exec_immediate(
         | Effect::CounterTargetSpellToExile
         | Effect::CounterTargetSpell => zones::exec(state, res, op),
         Effect::DelayedManaAtNextMain { .. }
+        | Effect::NoteActivationMana
         | Effect::AddManaFor { .. }
         | Effect::AddManaAmountFor { .. }
         | Effect::ManaForColorsAmong(_)

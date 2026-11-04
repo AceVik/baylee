@@ -2412,6 +2412,9 @@ pub enum Effect {
         /// What the mana may be spent on, if restricted.
         restriction: Option<ManaRestriction>,
     },
+    /// Note the actual mana types paid for this activation on its source's
+    /// current incarnation, replacing only the mana mixture of this acquisition.
+    NoteActivationMana,
     /// Add a subtype-granting note — placeholder for M2 (changeling etc.).
     GrantSubtype {
         /// Subtype.
@@ -3199,6 +3202,9 @@ pub enum Effect {
     /// Choose a matching card from your hand and exile it with a link to
     /// this source (CR 406.6, 607.2a).
     ExileChosenFromHandWithSource(&'static Filter),
+    /// The same linked exile, and its controller may cast that exact card
+    /// incarnation for as long as it remains exiled (CR 400.7, 607.3).
+    ExileChosenFromHandWithSourceAndCast(&'static Filter),
     /// Return everything exiled with a link to the source to the
     /// battlefield under its owner's control.
     ReturnLinkedToBattlefield,

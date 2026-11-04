@@ -349,7 +349,10 @@ fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
     // `PlayerView::foreign_targets`: additive and omitted while empty, likewise.
     // 85: buyback and multikicker as imported engine prompts, and what a spell
     // on the stack was cast with, additive and omitted when there is none.
-    const RECORDED: (u32, u64) = (85, 14_644_063_972_652_947_199);
+    // `BoardMana::restricted_to` is likewise additive, optional and omitted at
+    // `None`: old payloads acquire the default and old readers ignore the field,
+    // so this addition also leaves VIEW_VERSION at 85.
+    const RECORDED: (u32, u64) = (85, 14_640_216_930_391_420_296);
 
     let samples = core_samples();
     let sampled: std::collections::BTreeSet<String> =

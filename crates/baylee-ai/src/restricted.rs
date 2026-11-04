@@ -54,6 +54,9 @@ impl HeuristicAgent {
         source: Option<ObjectId>,
         spell: ObjectId,
     ) -> bool {
+        if restriction.uses == ManaUse::LastLinkedExile && !linked_exile(view, source, spell) {
+            return false;
+        }
         !matches!(
             restriction.uses,
             ManaUse::Abilities | ManaUse::CumulativeUpkeep
@@ -85,7 +88,9 @@ impl HeuristicAgent {
         let filter = match restriction.uses {
             // Powerstone's: any payment but a nonartifact spell's.
             ManaUse::NonSpellPaymentsOrMatchingSpells => return true,
-            ManaUse::Spells | ManaUse::CumulativeUpkeep => return false,
+            ManaUse::Spells | ManaUse::CumulativeUpkeep | ManaUse::LastLinkedExile => {
+                return false;
+            }
             ManaUse::Abilities | ManaUse::SpellsOrAbilities | ManaUse::CostsFromMatchingSource => {
                 restriction.ability_filter.unwrap_or(restriction.filter)
             }
@@ -105,6 +110,15 @@ impl HeuristicAgent {
             self.filter_matches(filter, view, &object, zone, source) == Some(true)
         })
     }
+}
+
+/// A linked-exile restriction names an object, not a card name or filter.
+/// Without the host's exact link, refusing is safer than stranding a tap.
+fn linked_exile(view: &PlayerView, source: Option<ObjectId>, spell: ObjectId) -> bool {
+    source
+        .and_then(|source| view.object(source))
+        .and_then(|object| object.board_mana.as_ref())
+        .is_some_and(|mana| mana.restricted_to == Some(spell))
 }
 
 /// The spell `id` as a restriction reads it: the card about to be cast.

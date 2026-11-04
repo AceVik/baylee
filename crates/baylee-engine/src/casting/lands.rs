@@ -402,7 +402,9 @@ pub fn play_permission(
     state.play_permissions.iter().copied().find(|p| {
         let controller = match p.window {
             crate::state::PlayLifetime::Prepared(source) => state.prepared_controller(source),
-            crate::state::PlayLifetime::Turns(_) => Some(p.player),
+            crate::state::PlayLifetime::Turns(_) | crate::state::PlayLifetime::WhileExiled => {
+                Some(p.player)
+            }
         };
         controller == Some(player) && p.card == card && p.version == version
     })

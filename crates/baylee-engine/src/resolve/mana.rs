@@ -40,6 +40,10 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             distribution,
             restriction,
         } => add_mana(state, res, source, &amount, distribution, restriction),
+        Effect::NoteActivationMana => {
+            note_activation_mana(state, res);
+            None
+        }
         Effect::ManaForColorsAmong(filter) => {
             let colors = eval::colors_among(state, res.controller, filter, res.rule_context());
             for color in colored(colors) {
@@ -104,6 +108,10 @@ fn add_mana(
     restriction: Option<ManaRestriction>,
 ) -> Option<Pending> {
     let you = res.controller;
+    if source == ManaSource::NotedActivationMana {
+        add_noted_activation_mana(state, res, restriction);
+        return None;
+    }
     if matches!(amount, Amount::DevotionToManaColor) {
         let options = resolving_colors(state, res, source);
         let Some(amounts) = devotion(state, you) else {
@@ -171,6 +179,77 @@ fn add_mana(
         player: you,
         options,
     })
+}
+
+/// Capture the actual payment, not the announced X or the colors left in the pool.
+fn note_activation_mana(state: &mut GameState, res: &Resolution) {
+    let mana_types = state
+        .object(res.on_stack)
+        .and_then(|object| object.paid.as_ref())
+        .map_or([0; 6], |paid| paid.mana_types_spent);
+    let acquisition = super::subjects::acquisition(state, res);
+    let version = super::source_version(state, res);
+    if let Some(source) = state.object_mut(res.source)
+        && version.is_none_or(|version| source.version == version)
+    {
+        source.note_activation_mana(acquisition, mana_types);
+    }
+}
+
+/// The resolving source's note, including after its source incarnation departed.
+fn resolution_note(
+    state: &GameState,
+    res: &Resolution,
+) -> Option<([u32; 6], Option<baylee_core::ids::DamageSourceRef>)> {
+    let acquisition = super::subjects::acquisition(state, res);
+    state
+        .damage_source(res.source, super::source_version(state, res))?
+        .activation_mana_note(acquisition)
+}
+
+fn add_noted_activation_mana(
+    state: &mut GameState,
+    res: &mut Resolution,
+    restriction: Option<ManaRestriction>,
+) {
+    let Some((mana_types, _)) = resolution_note(state, res) else {
+        return;
+    };
+    for color in ManaColor::ALL {
+        let Ok(amount) = u16::try_from(mana_types[color.index()]) else {
+            state.numeric_failure = Some("noted mana production exceeds u16 units per type");
+            return;
+        };
+        add(state, res, color, amount, restriction);
+    }
+}
+
+/// Public, exact note for the desktop and seat projection. Repeated colors
+/// are intentional: they describe one fixed mixture, not choices.
+#[must_use]
+pub fn noted_activation_mana(
+    state: &GameState,
+    from: ObjectId,
+) -> Option<([u32; 6], Option<ObjectId>)> {
+    let source = state.object(from)?;
+    source
+        .activation_mana_note(source.rules_acquisition())
+        .map(|(types, exile)| (types, exile.map(|exile| exile.object)))
+}
+
+/// Expand a noted mana mixture without losing repeated types. The host and
+/// engine share this projection so neither mistakes the mixture for choices.
+#[must_use]
+pub fn noted_colors(mana_types: [u32; 6]) -> Vec<ManaColor> {
+    ManaColor::ALL
+        .into_iter()
+        .flat_map(|color| {
+            std::iter::repeat_n(
+                color,
+                usize::try_from(mana_types[color.index()]).unwrap_or(usize::MAX),
+            )
+        })
+        .collect()
 }
 
 /// Adds the extra mana to the player who tapped the land, with their choice
@@ -348,6 +427,11 @@ pub fn colors_of(
             any_type,
         } => production::land_colors(state, you, from, filter, mine, any_type),
         ManaSource::ExiledWithSource => production::exiled_colors(state, from),
+        ManaSource::NotedActivationMana => state.object(from).map_or_else(Vec::new, |object| {
+            object
+                .activation_mana_note(object.rules_acquisition())
+                .map_or_else(Vec::new, |(types, _)| noted_colors(types))
+        }),
         ManaSource::CircledColors => {
             let colors = state.printed_ability_list(from).map_or(
                 baylee_core::color::ColorSet::EMPTY,

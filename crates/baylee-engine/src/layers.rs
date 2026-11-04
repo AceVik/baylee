@@ -324,6 +324,7 @@ fn update_intrinsic_mana_summary(
                             | ManaSource::ExiledWithSource
                             | ManaSource::CircledColors
                             | ManaSource::LandColor { .. }
+                            | ManaSource::NotedActivationMana
                             | ManaSource::Chosen => {}
                         }
                     }
