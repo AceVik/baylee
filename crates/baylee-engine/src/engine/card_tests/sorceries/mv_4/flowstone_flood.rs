@@ -128,10 +128,12 @@ fn flowstone_flood_that_loses_its_target_goes_to_the_graveyard() {
 /// and nothing is asked.
 #[test]
 fn flowstone_flood_short_of_a_card_or_of_life_is_not_asked() {
-    for mut engine in [
+    for mut engine in vec![
         a_flood_over_a_forest(&[], 20),
         a_flood_over_a_forest(&[gray_ogre()], 2),
-    ] {
+    ]
+    .into_boxed_slice()
+    {
         cast_from_hand(&mut engine, P0, flowstone_flood());
         assert!(
             matches!(engine.pending(), Pending::ChooseTargets { .. }),
