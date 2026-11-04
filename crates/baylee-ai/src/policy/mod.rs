@@ -248,6 +248,37 @@ impl HeuristicAgent {
                 .max_by_key(|&x| (self.life_sweep_value(view, x), std::cmp::Reverse(x)))
                 .unwrap_or(min);
         }
+        let library = seat.library_count;
+        let lower = Self::largest_x(view, min, max, context, |x| {
+            crate::tactics::meaning(context.effects, x).draws(view) < library
+        });
+        if let (Some(source), Some(printed)) = (context.source, context.printed)
+            && context.whole_spell
+            && let Some(values) = self.exact_x_values(view, source, printed.card(), printed.face())
+        {
+            return values
+                .into_iter()
+                .filter(|&x| x >= min && x <= lower)
+                .max()
+                .unwrap_or(min);
+        }
+        lower
+    }
+
+    /// The largest X from `min` to `max` the resource player's mana pays
+    /// for the cost `context` names, among those `allowed` keeps; `min`
+    /// where the cost has no X. `allowed` is monotone the way affordability
+    /// is: a draw that is safe at X is safe below it.
+    pub(crate) fn largest_x(
+        view: &PlayerView,
+        min: u32,
+        max: u32,
+        context: &baylee_engine::engine::DecisionContext<'_>,
+        allowed: impl Fn(u32) -> bool,
+    ) -> u32 {
+        let Some(seat) = view.seat(resource_player(view)) else {
+            return min;
+        };
         let Some(cost) = context
             .cost
             .filter(baylee_core::mana::ManaCost::has_variable)
@@ -276,23 +307,11 @@ impl HeuristicAgent {
             .min(u32::try_from(reachable).unwrap_or(u32::MAX));
         while lower < upper {
             let x = lower + (upper - lower).div_ceil(2);
-            if manaplan::plan(&cost.with_x(x), &seat.mana_pool, &sources).is_some()
-                && crate::tactics::meaning(context.effects, x).draws(view) < seat.library_count
-            {
+            if manaplan::plan(&cost.with_x(x), &seat.mana_pool, &sources).is_some() && allowed(x) {
                 lower = x;
             } else {
                 upper = x - 1;
             }
-        }
-        if let (Some(source), Some(printed)) = (context.source, context.printed)
-            && context.whole_spell
-            && let Some(values) = self.exact_x_values(view, source, printed.card(), printed.face())
-        {
-            return values
-                .into_iter()
-                .filter(|&x| x >= min && x <= lower)
-                .max()
-                .unwrap_or(min);
         }
         lower
     }
@@ -773,11 +792,33 @@ impl HeuristicAgent {
 
     /// Every candidate is paid for before a tap is committed. A five-mana
     /// card beside two lands used to make the agent tap both, then pass.
-    #[allow(clippy::too_many_lines)]
     pub(crate) fn spell_or_mana(
         &self,
         view: &PlayerView,
         legal: &LegalActions,
+    ) -> Option<PlayerAction> {
+        let reserve = self.reserve(view, own_main_phase(view));
+        self.spend_on(view, legal, reserve, |view, id, card, _| {
+            Some(self.spell_score(view, card) + self.noise(view, id))
+        })
+    }
+
+    /// The spell worth casting most by `score`, or the next mana ability
+    /// toward it: [`Self::spell_or_mana`] with the scoring handed in.
+    ///
+    /// `score` is asked of each spell the view could cast, with the mana
+    /// `available` to pay for it (an X comes out of that), and a spell it
+    /// scores at nothing or below — or does not score — stays where it is.
+    /// The rest is the one planner for both scorings: what is affordable,
+    /// what floats first, which source taps next, and the `reserve` a main
+    /// phase keeps up for an instant.
+    #[allow(clippy::too_many_lines)]
+    pub(crate) fn spend_on(
+        &self,
+        view: &PlayerView,
+        legal: &LegalActions,
+        reserve: u32,
+        score: impl Fn(&PlayerView, ObjectId, CardIdentity, u64) -> Option<i64>,
     ) -> Option<PlayerAction> {
         let seat = view.seat(resource_player(view))?;
         let pool = &seat.mana_pool;
@@ -785,7 +826,6 @@ impl HeuristicAgent {
         let plain = usable(view, plain);
         let main = own_main_phase(view);
         let available = pool.total() + plain.iter().map(|s| u64::from(s.amount)).sum::<u64>();
-        let reserve = self.reserve(view, main);
         let mut best: Option<(i64, PlayerAction)> = None;
         for id in own_casts(view).chain(legal.castable.iter().copied()) {
             let Some(card) = identity(view, id) else {
@@ -809,10 +849,9 @@ impl HeuristicAgent {
             if view.sorcery_lock.is_some() && !main {
                 continue;
             }
-            let score = self.spell_score(view, card) + self.noise(view, id);
-            if score <= 0 {
+            let Some(score) = score(view, id, card, available).filter(|score| *score > 0) else {
                 continue;
-            }
+            };
             // What the reserve leaves to spend on this spell.
             let budget = if main && !instant {
                 available.saturating_sub(u64::from(reserve))
