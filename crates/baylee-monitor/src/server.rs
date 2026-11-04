@@ -2,6 +2,7 @@
 
 use crate::{
     admission::Admission,
+    assets,
     history::{History, Recorded},
     types::Facts,
 };
@@ -19,6 +20,7 @@ use axum::{
 };
 use serde::Serialize;
 use std::{
+    collections::BTreeMap,
     sync::{Arc, Mutex},
     time::Duration,
 };
@@ -39,29 +41,18 @@ pub(crate) struct State {
 }
 
 pub(crate) fn router(state: State) -> Router {
-    Router::new()
-        .route(
-            "/",
-            get(|| async { Html(include_str!("../web/index.html")) }),
-        )
-        .route(
-            "/style.css",
-            get(|| async {
-                (
-                    [("content-type", "text/css; charset=utf-8")],
-                    include_str!("../web/style.css"),
-                )
-            }),
-        )
-        .route(
-            "/app.js",
-            get(|| async {
-                (
-                    [("content-type", "text/javascript; charset=utf-8")],
-                    include_str!("../web/app.js"),
-                )
-            }),
-        )
+    let mut router = Router::new().route(
+        "/",
+        get(|| async { Html(include_str!("../web/index.html")) }),
+    );
+    for &(path, text) in assets::WEB {
+        let (url, kind) = assets::served(path);
+        router = router.route(
+            url,
+            get(move || async move { ([("content-type", kind)], text) }),
+        );
+    }
+    router
         .route("/api/snapshot", get(snapshot))
         .route("/ws", get(upgrade))
         .route("/source", get(source))
@@ -175,31 +166,10 @@ async fn stream(mut socket: WebSocket, mut state: State) {
 // downloadable JSON maps relative file paths to UTF-8 contents; no local files
 // or runtime arguments are read by the endpoint.
 async fn source() -> Response {
-    let files = serde_json::json!({
-        "README.md": include_str!("../README.md"),
-        "Cargo.toml": include_str!("../Cargo.toml"),
-        "workspace-Cargo.toml": include_str!("../../../Cargo.toml"),
-        "Cargo.lock": include_str!("../../../Cargo.lock"),
-        "LICENSE": include_str!("../../../LICENSE"),
-        "src/main.rs": include_str!("main.rs"), "src/server.rs": include_str!("server.rs"),
-        "src/sampler.rs": include_str!("sampler.rs"), "src/types.rs": include_str!("types.rs"),
-        "src/gpu.rs": include_str!("gpu.rs"), "src/power.rs": include_str!("power.rs"),
-        "src/listen.rs": include_str!("listen.rs"), "src/admission.rs": include_str!("admission.rs"),
-        "src/background.rs": include_str!("background.rs"),
-        "src/procfs/mod.rs": include_str!("procfs/mod.rs"), "src/procfs/meminfo.rs": include_str!("procfs/meminfo.rs"),
-        "src/procfs/pressure.rs": include_str!("procfs/pressure.rs"), "src/procfs/stat.rs": include_str!("procfs/stat.rs"),
-        "src/procfs/swaps.rs": include_str!("procfs/swaps.rs"), "src/procfs/vmstat.rs": include_str!("procfs/vmstat.rs"),
-        "src/procfs/netdev.rs": include_str!("procfs/netdev.rs"), "src/procfs/sockstat.rs": include_str!("procfs/sockstat.rs"),
-        "src/network.rs": include_str!("network.rs"), "src/sensors.rs": include_str!("sensors.rs"),
-        "src/procfs/diskstats.rs": include_str!("procfs/diskstats.rs"), "src/procfs/mountinfo.rs": include_str!("procfs/mountinfo.rs"),
-        "src/storage/mod.rs": include_str!("storage/mod.rs"), "src/storage/inventory.rs": include_str!("storage/inventory.rs"),
-        "src/storage/rates.rs": include_str!("storage/rates.rs"), "src/storage/udev.rs": include_str!("storage/udev.rs"),
-        "src/storage/usage.rs": include_str!("storage/usage.rs"), "src/processes.rs": include_str!("processes.rs"),
-        "src/procfs/status.rs": include_str!("procfs/status.rs"), "src/history.rs": include_str!("history.rs"),
-        "src/training/mod.rs": include_str!("training/mod.rs"), "src/training/dbus.rs": include_str!("training/dbus.rs"),
-        "src/training/units.rs": include_str!("training/units.rs"), "src/training/pipeline.rs": include_str!("training/pipeline.rs"),
-        "web/index.html": include_str!("../web/index.html"), "web/style.css": include_str!("../web/style.css"), "web/app.js": include_str!("../web/app.js")
-    });
+    let files: BTreeMap<_, _> = assets::source_files().collect();
+    let Ok(files) = serde_json::to_string(&files) else {
+        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+    };
     (
         [
             ("content-type", "application/json"),
@@ -208,7 +178,7 @@ async fn source() -> Response {
                 "attachment; filename=baylee-pulse-source.json",
             ),
         ],
-        files.to_string(),
+        files,
     )
         .into_response()
 }
@@ -236,6 +206,8 @@ mod tests {
             let hello: serde_json::Value = serde_json::from_str(&hello).unwrap();
             assert_eq!(hello["type"], "hello");
             assert_eq!(hello["history"].as_array().unwrap().len(), 1);
+            assert_eq!(hello["minutes"].as_array().unwrap().len(), 0);
+            assert_eq!(hello["facts"]["hostname"], "test");
             assert!(ws.next().await.unwrap().unwrap().into_text().unwrap().contains("\"sequence\":1"));
             sender.send_replace(Arc::new(r#"{"type":"sample","sequence":2}"#.into()));
             assert!(ws.next().await.unwrap().unwrap().into_text().unwrap().contains("\"sequence\":2"));

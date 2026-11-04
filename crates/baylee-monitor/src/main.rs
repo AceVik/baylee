@@ -1,6 +1,7 @@
 //! Read-only workstation monitor. See docs/workstation-monitor.md.
 
 mod admission;
+mod assets;
 mod background;
 mod gpu;
 mod history;
