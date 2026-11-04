@@ -64,6 +64,7 @@
 
 pub mod accounts;
 pub mod auth_mode;
+pub mod banlists;
 pub mod card_blocks;
 pub mod central;
 pub mod confirmations;

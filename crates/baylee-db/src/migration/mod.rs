@@ -38,6 +38,7 @@ mod m20261020_000024_gateway_terms;
 mod m20261030_000025_central_link;
 mod m20261030_000026_end_password_sessions;
 mod m20261030_000027_auth_mode;
+mod m20261104_000028_banlists;
 
 /// The migrator the gateway runs on connect.
 pub struct Migrator;
@@ -78,6 +79,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20261030_000025_central_link::Migration),
             Box::new(m20261030_000026_end_password_sessions::Migration),
             Box::new(m20261030_000027_auth_mode::Migration),
+            Box::new(m20261104_000028_banlists::Migration),
         ]
     }
 }

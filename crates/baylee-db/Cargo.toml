@@ -12,6 +12,7 @@ workspace = true
 anyhow.workspace = true
 # Reads the precon lists it syncs (`precons`), with the reader a player's
 # import uses, so a synced deck is stored exactly as an imported one.
+baylee-cardtext.workspace = true
 baylee-deckio.workspace = true
 baylee-protocol.workspace = true
 sea-orm.workspace = true
