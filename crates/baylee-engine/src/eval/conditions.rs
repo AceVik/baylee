@@ -64,8 +64,6 @@ pub fn condition_holds_with_context(
         Condition::SourceCameUnderYourControlSinceYourLastUpkeep => {
             super::upkeep_history::came_under_your_control(state, you, source, None)
         }
-        // The triggering incarnation is supplied to `condition_with_event`.
-        Condition::EventObjectWasBlockedThisTurn => false,
         Condition::SomeDefendingPlayerControlsNone(filter) => {
             super::defender_conditions::some_defender_controls_none(state, you, context, filter)
         }
@@ -112,6 +110,7 @@ pub fn condition_holds_with_context(
         // resolution (`resolve::immediate::resolution_condition`).
         Condition::ControlCountExceptEvent(_, _)
         | Condition::EventBlockedByOthers { .. }
+        | Condition::EventObjectWasBlockedThisTurn
         | Condition::TargetSpellWouldDestroy(_) => false,
         // "Only after combat": a main or ending phase after this turn's
         // combat (the postcombat main phase or the end phase).
