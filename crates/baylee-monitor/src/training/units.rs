@@ -16,6 +16,7 @@ const UNIT: &str = "org.freedesktop.systemd1.Unit";
 const SERVICE: &str = "org.freedesktop.systemd1.Service";
 const MAX_UNITS: usize = 24;
 const KEEP_FINISHED: usize = 8;
+const MAX_FAILED_NAMES: usize = 16;
 const FINISHED_FOR_MS: u64 = 24 * 3600 * 1000;
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -34,11 +35,42 @@ pub(crate) struct Unit {
     pub gone_ms: Option<u64>,
 }
 
+/// How the machine's services stand, beyond the `baylee-*` units above.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
+pub(crate) struct Services {
+    pub active: u32,
+    pub failed: u32,
+    /// Loaded service units, whatever their state.
+    pub total: u32,
+    /// The failed ones by name, at most `MAX_FAILED_NAMES`.
+    pub failed_names: Vec<String>,
+}
+
+impl Services {
+    fn count(&mut self, unit: &Listed<'_>) {
+        if unit.load_state != "loaded" {
+            return;
+        }
+        self.total += 1;
+        match unit.active_state {
+            "active" => self.active += 1,
+            "failed" => {
+                self.failed += 1;
+                if self.failed_names.len() < MAX_FAILED_NAMES {
+                    self.failed_names.push(unit.name.to_owned());
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
 #[derive(Default)]
 pub(crate) struct Units {
     bus: Option<Bus>,
     current: Vec<Unit>,
     finished: VecDeque<Unit>,
+    services: Option<Services>,
 }
 
 impl Units {
@@ -50,9 +82,16 @@ impl Units {
             None => Bus::connect(Path::new(SYSTEM_BUS))?,
         };
         let listed = query(&mut bus)?;
+        let services = query_services(&mut bus)?;
         self.bus = Some(bus);
         self.update(listed, now_ms);
+        self.services = Some(services);
         Ok(())
+    }
+
+    /// The newest counts; `None` until systemd has answered once.
+    pub fn services(&self) -> Option<Services> {
+        self.services.clone()
     }
 
     fn update(&mut self, listed: Vec<Unit>, now_ms: u64) {
@@ -78,16 +117,25 @@ impl Units {
     }
 }
 
-fn query(bus: &mut Bus) -> io::Result<Vec<Unit>> {
+/// One row of `ListUnitsByPatterns`, without the description: for a
+/// `systemd-run` unit that is its command line.
+struct Listed<'a> {
+    name: &'a str,
+    load_state: &'a str,
+    active_state: &'a str,
+    sub_state: &'a str,
+    path: &'a str,
+}
+
+fn list(bus: &mut Bus, pattern: &str, mut visit: impl FnMut(Listed<'_>)) -> io::Result<()> {
     let reply = bus.call(
         SYSTEMD,
         "/org/freedesktop/systemd1",
         "org.freedesktop.systemd1.Manager",
         "ListUnitsByPatterns",
-        &[Arg::Strs(&[]), Arg::Strs(&[PATTERN])],
+        &[Arg::Strs(&[]), Arg::Strs(&[pattern])],
     )?;
     expect(&reply.signature, "a(ssssssouso)")?;
-    let mut listed = Vec::new();
     reply.reader().array(8, |r| {
         r.begin_struct()?;
         let name = r.string()?;
@@ -100,15 +148,36 @@ fn query(bus: &mut Bus) -> io::Result<Vec<Unit>> {
         r.u32()?; // Job id, type and path.
         r.string()?;
         r.string()?;
-        if load_state != "not-found" && listed.len() < MAX_UNITS {
+        visit(Listed {
+            name,
+            load_state,
+            active_state,
+            sub_state,
+            path,
+        });
+        Ok(())
+    })
+}
+
+/// Counts over the machine's services. Only services: a `.mount` unit's name
+/// is a path, and a path can hold a user name.
+fn query_services(bus: &mut Bus) -> io::Result<Services> {
+    let mut services = Services::default();
+    list(bus, "*.service", |unit| services.count(&unit))?;
+    Ok(services)
+}
+
+fn query(bus: &mut Bus) -> io::Result<Vec<Unit>> {
+    let mut listed = Vec::new();
+    list(bus, PATTERN, |unit| {
+        if unit.load_state != "not-found" && listed.len() < MAX_UNITS {
             listed.push((
-                name.to_owned(),
-                active_state.to_owned(),
-                sub_state.to_owned(),
-                path.to_owned(),
+                unit.name.to_owned(),
+                unit.active_state.to_owned(),
+                unit.sub_state.to_owned(),
+                unit.path.to_owned(),
             ));
         }
-        Ok(())
     })?;
     let mut units = Vec::with_capacity(listed.len());
     for (name, active_state, sub_state, path) in listed {
@@ -263,6 +332,41 @@ mod tests {
             );
         }
         assert_eq!(units.view().len(), 1 + KEEP_FINISHED);
+    }
+
+    #[test]
+    fn services_count_by_state_and_name_only_what_failed() {
+        let row = |name, load_state, active_state| Listed {
+            name,
+            load_state,
+            active_state,
+            sub_state: "x",
+            path: "/x",
+        };
+        let mut services = Services::default();
+        services.count(&row("ssh.service", "loaded", "active"));
+        services.count(&row("cron.service", "loaded", "active"));
+        services.count(&row("late.service", "loaded", "inactive"));
+        services.count(&row("broken.service", "loaded", "failed"));
+        services.count(&row("gone.service", "not-found", "inactive"));
+        assert_eq!(
+            services,
+            Services {
+                active: 2,
+                failed: 1,
+                total: 4,
+                failed_names: vec!["broken.service".into()],
+            }
+        );
+        for n in 0..40 {
+            services.count(&row(
+                Box::leak(format!("f{n}.service").into_boxed_str()),
+                "loaded",
+                "failed",
+            ));
+        }
+        assert_eq!(services.failed, 41);
+        assert_eq!(services.failed_names.len(), MAX_FAILED_NAMES);
     }
 
     #[test]

@@ -14,7 +14,7 @@ use std::{
 };
 
 pub(crate) use pipeline::Pipeline;
-pub(crate) use units::Unit;
+pub(crate) use units::{Services, Unit};
 
 /// Training changes over minutes; five seconds keeps the panel current.
 const REFRESH: Duration = Duration::from_secs(5);
@@ -28,6 +28,8 @@ pub(crate) struct Training {
     pub units: Vec<Unit>,
     /// Why systemd could not be asked, when it could not.
     pub units_problem: Option<String>,
+    /// The machine's other services, for a failed one to stand out.
+    pub services: Option<Services>,
     pub pipelines: Vec<Pipeline>,
 }
 
@@ -73,6 +75,7 @@ fn collect(units: &mut units::Units, pipelines: &[PathBuf]) -> Training {
     Training {
         checked_ms: now_ms,
         units: units.view(),
+        services: units.services(),
         units_problem,
         pipelines: pipelines
             .iter()
