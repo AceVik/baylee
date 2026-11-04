@@ -1244,11 +1244,6 @@ impl<L: CardLookup> Engine<L> {
                 .wrapping_mul(31)
                 .wrapping_add(crate::state::structural_fingerprint(&(object, first)));
         }
-        if let Some(PlanKind::SpellEnding { spell }) = self.pending_plan.as_ref() {
-            extra = extra
-                .wrapping_mul(31)
-                .wrapping_add(crate::state::structural_fingerprint(spell));
-        }
         if let Some(wizard) = &self.cast_wizard {
             extra = extra
                 .wrapping_mul(31)
