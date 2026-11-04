@@ -19,6 +19,116 @@ fn enduring_renewal() -> CardIndex {
 }
 
 #[test]
+fn enduring_renewal_reveals_only_its_controllers_hand() {
+    let mut engine = lk::game(SEED, &[], &[], &[enduring_renewal()], &[]);
+    assert!(!engine.state().hand_revealed(P0));
+    assert!(!engine.state().hand_revealed(P1));
+
+    lk::float(
+        &mut engine,
+        P0,
+        &[(ManaColor::Colorless, 2), (ManaColor::White, 2)],
+    );
+    cast_with_floating(&mut engine, P0, enduring_renewal());
+    pass_until(&mut engine, stack_is_empty);
+    assert!(engine.state().hand_revealed(P0));
+    assert!(!engine.state().hand_revealed(P1));
+
+    let renewal = on_battlefield(&engine, P0, enduring_renewal()).expect("Enduring Renewal");
+    engine
+        .dev_state_mut(P0)
+        .unwrap()
+        .move_object(
+            renewal,
+            ZoneLocation::Graveyard(P0),
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::Setup,
+        )
+        .expect("remove Enduring Renewal");
+    assert!(
+        !engine.state().hand_revealed(P0),
+        "the reveal lasts only while Enduring Renewal remains on the battlefield"
+    );
+}
+
+#[test]
+fn enduring_renewal_reveals_each_draw_and_only_mills_creatures() {
+    let mut engine = lk::game(
+        SEED,
+        &[],
+        &[],
+        &[
+            enduring_renewal(),
+            index::DIVINATION,
+            index::FOREST,
+            index::GRIZZLY_BEARS,
+        ],
+        &[],
+    );
+    let bears = in_hand(&engine, P0, index::GRIZZLY_BEARS).expect("Bears in hand");
+    let forest = in_hand(&engine, P0, index::FOREST).expect("Forest in hand");
+    for card in [bears, forest] {
+        engine
+            .dev_state_mut(P0)
+            .unwrap()
+            .move_object(
+                card,
+                ZoneLocation::Library(P0),
+                crate::zone::ZonePosition::Top,
+                crate::event::Cause::Setup,
+            )
+            .expect("stack the library");
+    }
+    engine.refresh_offer();
+
+    lk::float(
+        &mut engine,
+        P0,
+        &[(ManaColor::Colorless, 2), (ManaColor::White, 2)],
+    );
+    cast_with_floating(&mut engine, P0, enduring_renewal());
+    pass_until(&mut engine, stack_is_empty);
+    let draws_before = engine.state().per_turn.draws[P0.get() as usize];
+
+    // The Forest is above the Bears: Divination draws the Forest, but its
+    // second draw is replaced by revealing and milling the creature card.
+    lk::float(
+        &mut engine,
+        P0,
+        &[(ManaColor::Colorless, 2), (ManaColor::Blue, 1)],
+    );
+    cast_with_floating(&mut engine, P0, index::DIVINATION);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(in_hand(&engine, P0, index::FOREST).is_some());
+    assert!(in_graveyard(&engine, P0, index::GRIZZLY_BEARS).is_some());
+    assert!(
+        in_hand(&engine, P0, index::GRIZZLY_BEARS).is_none(),
+        "a creature milled from the library did not die on the battlefield"
+    );
+    assert_eq!(
+        engine.state().per_turn.draws[P0.get() as usize],
+        draws_before + 1,
+        "the creature replacement does not count as drawing a card"
+    );
+    for card in [forest, bears] {
+        assert!(
+            engine
+                .state()
+                .journal
+                .entries()
+                .iter()
+                .any(|entry| matches!(
+                    &entry.event,
+                    GameEvent::Revealed { player, cards }
+                        if *player == P0 && cards.contains(&card)
+                )),
+            "the would-be draw was publicly revealed before changing zones"
+        );
+    }
+}
+
+#[test]
 fn enduring_renewal_returns_dying_creature_from_your_graveyard_to_your_hand() {
     let mut engine = lk::game(
         SEED,
