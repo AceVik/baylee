@@ -22,6 +22,12 @@
 //! which question it could not answer, rather than wait for a clock that an
 //! untimed table does not have.
 //!
+//! A decision this seat makes for another player whose turn it controls
+//! (Mindslaver, CR 723.5) names that player in the question and this seat in
+//! the view's `awaiting`. The least answer makes it: the narrator speaks for
+//! this seat's own player only, and the controlled player passes, attacks
+//! with nothing and chooses the first it must.
+//!
 //! # Telling questions apart
 //!
 //! The table sends a question again for several reasons. What tells them
@@ -192,6 +198,9 @@ pub struct Stats {
     pub fallbacks: FallbackCounts,
     /// Questions nothing could answer; the seat left at the first.
     pub unanswerable: u32,
+    /// Decisions made for another player whose turn this seat controlled,
+    /// by the least answer (Mindslaver; module docs).
+    pub controlled: u32,
     /// Mind answers that came after their question was gone.
     pub late: u32,
     /// The model time the mind reported, in milliseconds.
@@ -769,7 +778,10 @@ impl SeatCore {
             );
             return Vec::new();
         };
-        if pending.asked() != Some(context.seat) {
+        // A decision for a player whose turn this seat controls names that
+        // player and is sent to this seat alone (module docs).
+        let controlled = pending.asked() != Some(context.seat);
+        if controlled && view.awaiting != Some(context.seat) {
             return Vec::new();
         }
         if let Some(steps) = self.again(seq, &pending, &raw) {
@@ -783,6 +795,24 @@ impl SeatCore {
         self.refused = None;
         self.questions += 1;
         self.stats.questions += 1;
+        if controlled {
+            self.stats.controlled += 1;
+            self.current = Some(Current {
+                question: self.questions,
+                seq,
+                raw,
+                pending,
+                view,
+                tries: 0,
+                wake: false,
+                why: None,
+                continuing: false,
+                resumed: false,
+                state: State::Thinking,
+            });
+            steps.extend(self.fall_back(By::Least));
+            return steps;
+        }
         let verdict = self.wake.judge(&view, &pending, &context.teams);
         self.current = Some(Current {
             question: self.questions,

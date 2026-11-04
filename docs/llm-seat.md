@@ -1316,7 +1316,11 @@ standing answers (a pass with nothing to do), its house fallback (a model
 too slow, refused or out of budget) and its least answer go to the table
 as the seat's answers, like the model's. Which of them made each answer is
 in the bridge's transcript (`--transcripts`: an `answered` event's `by`), and the
-counts in its closing line. A mind taken off the table (`down_after`
+counts in its closing line. A decision the seat makes for another player
+whose turn it controls (Mindslaver, CR 723.5) is the least answer's too,
+never the model's: the narrator speaks for the seat's own player only, so
+the controlled player passes, attacks with nothing and makes the first
+choice it must (`controlled` in the closing counts). A mind taken off the table (`down_after`
 failures) leaves the socket, and the table's own stand-in, recorded as a
 `chair` line, plays until it is back. A limited mind is never taken off
 the table: the bridge declares the house (`kind: house` and its level) and
