@@ -476,6 +476,7 @@ mod tests {
     /// The three shapes a paid mana ability prints, and what stays refused.
     #[test]
     fn a_paid_mana_ability_reads_as_a_trade_and_only_a_plain_one_does() {
+        static GATE: [ManaColor; 2] = [ManaColor::White, ManaColor::Blue];
         let taps: &'static [CostPart] = &[CostPart::TapSelf];
         let grotto = mana_conversion(&paid("{1}", taps), &[Effect::mana_of_any_color()])
             .expect("Shimmering Grotto");
@@ -495,7 +496,6 @@ mod tests {
         assert_eq!(signet.colors, [ManaColor::White, ManaColor::Blue]);
         assert!(signet.bundle);
 
-        static GATE: [ManaColor; 2] = [ManaColor::White, ManaColor::Blue];
         let gate = mana_conversion(
             &paid("{W/U}", taps),
             &[Effect::mana_combination(&GATE, Amount::Fixed(2))],
