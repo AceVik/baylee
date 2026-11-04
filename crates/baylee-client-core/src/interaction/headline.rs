@@ -543,6 +543,9 @@ fn number_line(
         NumberPrompt::Replicate { cost } => {
             Phrase::ReplicateHowOften.fill(lang, &[&cost.to_string(), &min, &max])
         }
+        NumberPrompt::Multikicker { cost } => {
+            Phrase::MultikickerHowOften.fill(lang, &[&cost.to_string(), &min, &max])
+        }
         NumberPrompt::CombatDamage {
             index, of, left, ..
         } => Phrase::CombatDamageShare.fill(
@@ -683,6 +686,27 @@ fn choose_line_of(lang: Lang, noun: &str, min: u32, max: u32) -> String {
     }
 }
 
+/// A buyback cost in full, its mana and then what else it asks, in the order
+/// the cards print them: "{3}", "sacrifice a permanent", "pay 3 life, discard
+/// a card at random". The whole price, because the question is where the
+/// player decides it and nothing after it says the rest.
+pub fn buyback_price(
+    lang: Lang,
+    cost: baylee_core::mana::ManaCost,
+    parts: baylee_engine::choice::BuybackParts,
+) -> String {
+    let counted =
+        |phrase: Phrase, n: u8| (n > 0).then(|| phrase.fill_count(lang, usize::from(n), &[]));
+    let pieces = [
+        (cost != baylee_core::mana::ManaCost::ZERO).then(|| cost.to_string()),
+        (parts.life > 0).then(|| Phrase::BuybackPriceLife.fill(lang, &[&parts.life.to_string()])),
+        counted(Phrase::BuybackPriceSacrifice, parts.sacrifices),
+        counted(Phrase::BuybackPriceDiscard, parts.discards),
+        counted(Phrase::BuybackPriceDiscardRandom, parts.random_discards),
+    ];
+    pieces.into_iter().flatten().collect::<Vec<_>>().join(", ")
+}
+
 /// The roster is taken for the one question that is about another player.
 fn yes_no_line(lang: Lang, question: YesNoPrompt, statics: Option<&GameStatic>) -> String {
     match question {
@@ -706,6 +730,9 @@ fn yes_no_line(lang: Lang, question: YesNoPrompt, statics: Option<&GameStatic>) 
         }
         YesNoPrompt::ManaAnyType => Phrase::UseManaAnyType.text(lang).to_string(),
         YesNoPrompt::Kicker => Phrase::PayAdditionalCost.text(lang).to_string(),
+        YesNoPrompt::Buyback { cost, parts } => {
+            Phrase::BuybackAsk.fill(lang, &[&buyback_price(lang, cost, parts)])
+        }
         YesNoPrompt::PayLife { amount } => Phrase::PayLife.fill(lang, &[&amount.to_string()]),
         YesNoPrompt::PayTax { mana } => Phrase::PayTax.fill(lang, &[&mana.to_string()]),
         YesNoPrompt::PayMana { cost } => Phrase::PayMana.fill(lang, &[&cost.to_string()]),

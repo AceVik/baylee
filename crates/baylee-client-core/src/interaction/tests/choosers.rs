@@ -446,3 +446,20 @@ fn named_custom_counters_remain_distinguishable_in_the_counter_chooser() {
         assert_eq!(unique.len(), names.len());
     }
 }
+
+/// A multikicker's range is capped as an X's is: the engine leaves it open
+/// while a land is untapped, and the player is shown what the lands pay.
+#[test]
+fn a_multikicker_count_is_capped_as_an_x_is() {
+    let mut i = interaction(Pending::ChooseNumber {
+        player: me(),
+        min: 0,
+        max: 50,
+        reason: baylee_engine::choice::NumberPrompt::Multikicker {
+            cost: baylee_core::mana::ManaCost::parse("{1}{G}"),
+        },
+    });
+    i.cap_number(2);
+    assert_eq!(i.set_number(9), 2);
+    assert_eq!(i.confirm(), Some(PlayerAction::ChooseNumber(2)));
+}

@@ -1151,6 +1151,30 @@ DamageShare = Schaden an Ziel { $position } von { $total }, noch { $remaining } 
 CombatDamageShare = Kampfschaden an Kreatur { $position } von { $total }, noch { $remaining } zu verteilen ({ $min }–{ $max })
 CombatDamageShareNamed = Kampfschaden von { $source } an { $recipient } ({ $position } von { $total }), noch { $remaining } zu verteilen ({ $min }–{ $max })
 ReplicateHowOften = Reproduktion { $cost }: wie oft zahlen? ({ $min }–{ $max })
+MultikickerHowOften = Mehrfachbonus { $cost }: wie oft zahlen? ({ $min }–{ $max })
+BuybackAsk = Rückkauf: { $price }? Der Zauberspruch kehrt beim Verrechnen auf deine Hand zurück.
+BuybackPriceLife = { $amount } Lebenspunkte zahlen
+BuybackPriceSacrifice =
+    { $count ->
+        [one] ein Permanent opfern
+       *[other] { $count } Permanents opfern
+    }
+BuybackPriceDiscard =
+    { $count ->
+        [one] eine Karte abwerfen
+       *[other] { $count } Karten abwerfen
+    }
+BuybackPriceDiscardRandom =
+    { $count ->
+        [one] eine zufällige Karte abwerfen
+       *[other] { $count } zufällige Karten abwerfen
+    }
+StackBoughtBack = Rückkauf bezahlt: kehrt beim Verrechnen auf die Hand zurück
+StackKicked =
+    { $count ->
+        [one] Mit Bonus
+       *[other] { $count }-mal mit Bonus
+    }
 ChoosePlayer = Wähle einen Spieler
 ChooseHowToCast = Wähle, wie gewirkt wird
 ChoosePileForHand = Wähle einen Haufen für deine Hand; der andere kommt auf deinen Friedhof

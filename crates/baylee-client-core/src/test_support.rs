@@ -97,6 +97,8 @@ pub fn token(slot: u32, controller: u8, name: &str, power: i16, toughness: i16) 
         attached_to: None,
         targets: Vec::new(),
         stack_item: None,
+        times_kicked: 0,
+        bought_back: false,
         summoning_sick: false,
         ability_mana_spending: baylee_core::mana::ManaSpending::EXACT,
         granted_mana: None,

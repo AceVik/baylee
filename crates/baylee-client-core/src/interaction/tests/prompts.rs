@@ -42,6 +42,7 @@ fn the_bar_says_whose_turn_it_is_over_the_same_two_buttons() {
             cast_ways: vec![],
             spell_increases: vec![],
             spell_reductions: vec![],
+            buyback_less: 0,
             activation_increases: vec![],
             can_pass: true,
             lands: vec![],
@@ -221,6 +222,61 @@ fn prompt_headlines_are_written_for_a_player_not_a_developer() {
     assert_eq!(
         i.prompt().headline(Lang::De, Turn::Mine, None, false),
         "Reproduktion {U}: wie oft zahlen? (0–2)"
+    );
+
+    // Multikicker reads the same way, and buyback names the whole price.
+    let i = interaction(Pending::ChooseNumber {
+        player: me(),
+        min: 0,
+        max: 3,
+        reason: baylee_engine::choice::NumberPrompt::Multikicker {
+            cost: baylee_core::mana::ManaCost::parse("{1}{G}"),
+        },
+    });
+    assert_eq!(
+        i.prompt().headline(Lang::En, Turn::Mine, None, false),
+        "Multikicker {1}{G}: pay it how many times? (0–3)"
+    );
+    assert_eq!(
+        i.prompt().headline(Lang::De, Turn::Mine, None, false),
+        "Mehrfachbonus {1}{G}: wie oft zahlen? (0–3)"
+    );
+    let buyback = |cost: baylee_core::mana::ManaCost, parts| {
+        interaction(Pending::YesNo {
+            player: me(),
+            prompt: YesNoPrompt::Buyback { cost, parts },
+            source: None,
+        })
+    };
+    let none = baylee_engine::choice::BuybackParts::default();
+    assert_eq!(
+        buyback(baylee_core::mana::ManaCost::parse("{3}"), none)
+            .prompt()
+            .headline(Lang::En, Turn::Mine, None, false),
+        "Buyback: {3}? The spell comes back to your hand as it resolves."
+    );
+    let flood = baylee_engine::choice::BuybackParts {
+        life: 3,
+        random_discards: 1,
+        ..none
+    };
+    assert_eq!(
+        buyback(baylee_core::mana::ManaCost::ZERO, flood)
+            .prompt()
+            .headline(Lang::En, Turn::Mine, None, false),
+        "Buyback: pay 3 life, discard a card at random? The spell comes back to your hand as \
+         it resolves."
+    );
+    let forbid = baylee_engine::choice::BuybackParts {
+        discards: 2,
+        ..none
+    };
+    assert_eq!(
+        buyback(baylee_core::mana::ManaCost::ZERO, forbid)
+            .prompt()
+            .headline(Lang::De, Turn::Mine, None, false),
+        "Rückkauf: 2 Karten abwerfen? Der Zauberspruch kehrt beim Verrechnen auf deine Hand \
+         zurück."
     );
 
     let i = interaction(Pending::YesNo {
@@ -811,6 +867,7 @@ fn a_payment_window_says_what_it_is_instead_of_your_move() {
             cast_ways: vec![],
             spell_increases: vec![],
             spell_reductions: vec![],
+            buyback_less: 0,
             activation_increases: vec![],
             can_pass: true,
             lands: vec![],

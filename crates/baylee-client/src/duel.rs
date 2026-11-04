@@ -385,7 +385,12 @@ impl Duel {
     /// plans even X = 0 the sources are ones this client cannot read, and
     /// the engine's range stands.
     ///
+    /// A multikicker's count is open the same way and capped the same way
+    /// ([`manaplan::greatest_repeat`]): the number the player is shown is the
+    /// most their lands pay on top of the spell.
+    ///
     /// [`manaplan::greatest_x`]: baylee_client_core::manaplan::greatest_x
+    /// [`manaplan::greatest_repeat`]: baylee_client_core::manaplan::greatest_repeat
     fn cap_x(&mut self) {
         let Some(cap) = self.x_cap() else {
             return;
@@ -398,13 +403,13 @@ impl Duel {
     fn x_cap(&self) -> Option<u32> {
         let interaction = self.interaction.as_ref()?;
         let view = self.view.as_ref()?;
-        let Pending::ChooseNumber {
-            player,
-            reason: baylee_engine::choice::NumberPrompt::X,
-            ..
-        } = interaction.pending()
-        else {
+        let Pending::ChooseNumber { player, reason, .. } = interaction.pending() else {
             return None;
+        };
+        let kick = match *reason {
+            baylee_engine::choice::NumberPrompt::X => None,
+            baylee_engine::choice::NumberPrompt::Multikicker { cost } => Some(cost),
+            _ => return None,
         };
         // The caster's own pool and lands, which are the controlled player's
         // while this seat casts for them (CR 723.5a).
@@ -421,7 +426,16 @@ impl Duel {
         let pool = view
             .seat(baylee_client_core::decision::resource_player(view))?
             .mana_pool;
-        baylee_client_core::manaplan::greatest_x(&cost, &pool, &manasources::sources(view, legal))
+        let sources = manasources::sources(view, legal);
+        match kick {
+            Some(each) => baylee_client_core::manaplan::greatest_repeat(
+                &cost.with_x(view.announced_x.unwrap_or(0)),
+                &each,
+                &pool,
+                &sources,
+            ),
+            None => baylee_client_core::manaplan::greatest_x(&cost, &pool, &sources),
+        }
     }
 
     /// Works out afresh which lands would settle an open payment window.

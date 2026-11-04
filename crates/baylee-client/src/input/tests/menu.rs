@@ -38,6 +38,7 @@ fn a_draw_is_only_offered_from_this_seats_own_priority() {
                     cast_ways: vec![],
                     spell_increases: vec![],
                     spell_reductions: vec![],
+                    buyback_less: 0,
                     activation_increases: vec![],
                     can_pass: true,
                     lands: vec![],

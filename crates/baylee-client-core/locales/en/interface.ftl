@@ -3361,6 +3361,54 @@ CombatDamageShareNamed = Combat damage from { $source } to { $recipient } ({ $po
 # Arguments: cost, min, max
 ReplicateHowOften = Replicate { $cost }: pay it how many times? ({ $min }–{ $max })
 
+# Multikicker $cost: pay it how many times? ($min–$max)
+# Arguments: cost, min, max
+MultikickerHowOften = Multikicker { $cost }: pay it how many times? ({ $min }–{ $max })
+
+# The buyback question. $price is the whole cost, one or more of the
+# BuybackPrice phrases below joined by commas.
+# Arguments: price
+BuybackAsk = Buyback: { $price }? The spell comes back to your hand as it resolves.
+
+# Part of a buyback price: life.
+# Arguments: amount
+BuybackPriceLife = pay { $amount } life
+
+# Part of a buyback price: permanents to sacrifice.
+# Arguments: count
+BuybackPriceSacrifice =
+    { $count ->
+        [one] sacrifice a permanent
+       *[other] sacrifice { $count } permanents
+    }
+
+# Part of a buyback price: cards the player chooses.
+# Arguments: count
+BuybackPriceDiscard =
+    { $count ->
+        [one] discard a card
+       *[other] discard { $count } cards
+    }
+
+# Part of a buyback price: cards discarded at random.
+# Arguments: count
+BuybackPriceDiscardRandom =
+    { $count ->
+        [one] discard a card at random
+       *[other] discard { $count } cards at random
+    }
+
+# Beside a spell on the stack: its buyback cost was paid.
+StackBoughtBack = Buyback paid: returns to hand as it resolves
+
+# Beside a spell on the stack: how many times it was kicked.
+# Arguments: count
+StackKicked =
+    { $count ->
+        [one] Kicked
+       *[other] Kicked { $count } times
+    }
+
 # Choose a player
 ChoosePlayer = Choose a player
 

@@ -914,3 +914,43 @@ fn the_key_walks_the_chairs() {
     assert_eq!(press(&mut app), Some(THEM));
     assert!(app.world().resource::<Duel>().perspective.by_hand());
 }
+
+/// A multikicker's count is open while a land is untapped, and the player is
+/// shown what their lands pay: three Forests, {G} each, on a spell of {0}.
+#[test]
+fn a_multikicker_is_capped_by_the_lands_as_an_x_is() {
+    let endless = baylee_cards::decks::by_name("Endless One").expect("Endless One");
+    let view = || {
+        let mut view = controlling_view();
+        view.controlled_hands[0].cards[0].card.index = endless;
+        view.battlefield
+            .extend([forest(32, 1), forest(33, 1)].into_iter().map(|mut o| {
+                o.controller = THEM;
+                o.owner = THEM;
+                o
+            }));
+        view
+    };
+    let theirs = LegalActions {
+        can_pass: true,
+        payable: vec![obj(20)],
+        mana_abilities: vec![obj(31), obj(32), obj(33)],
+        ..LegalActions::default()
+    };
+    let mut duel = Duel::default();
+    duel.receive_view(view());
+    duel.receive_choice(their_priority(theirs.clone()));
+    duel.receive_choice(their_priority(theirs));
+    let mut casting = view();
+    casting.casting = Some(obj(20));
+    duel.receive_view(casting);
+    duel.receive_choice(Pending::ChooseNumber {
+        player: THEM,
+        min: 0,
+        max: 50,
+        reason: baylee_engine::choice::NumberPrompt::Multikicker {
+            cost: baylee_core::mana::ManaCost::parse("{G}"),
+        },
+    });
+    assert_eq!(duel.interaction.as_mut().unwrap().set_number(50), 3);
+}

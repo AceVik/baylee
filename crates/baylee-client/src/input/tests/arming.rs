@@ -14,6 +14,7 @@ fn confirming_a_priority_choice_passes() {
                 cast_ways: vec![],
                 spell_increases: vec![],
                 spell_reductions: vec![],
+                buyback_less: 0,
                 activation_increases: vec![],
                 can_pass: true,
                 lands: vec![obj(1)],

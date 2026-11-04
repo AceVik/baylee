@@ -938,6 +938,26 @@ pub struct StackItem {
     /// printed on, and bit `i` for mode `i`. `None` for a spell or ability
     /// with no modes, and until the log has said.
     pub modes: Option<(baylee_view::RulesFace, u8)>,
+    /// How many times this spell was kicked, 0 for none (CR 702.33d).
+    pub times_kicked: u8,
+    /// Whether its buyback cost was paid (CR 702.27a).
+    pub bought_back: bool,
+}
+
+impl StackItem {
+    /// What was announced for this spell that its card cannot say, one line
+    /// each: every player was told it as it was cast (CR 601.2b), and nothing
+    /// on the table shows it afterwards.
+    #[must_use]
+    pub fn announced_costs(&self, lang: crate::Lang) -> Vec<String> {
+        let kicked = (self.times_kicked > 0).then(|| {
+            crate::Phrase::StackKicked.fill_count(lang, usize::from(self.times_kicked), &[])
+        });
+        let bought = self
+            .bought_back
+            .then(|| crate::Phrase::StackBoughtBack.text(lang).to_string());
+        kicked.into_iter().chain(bought).collect()
+    }
 }
 
 /// A card in the local seat's hand.
@@ -1226,6 +1246,8 @@ impl BoardModel {
                     art,
                     depth: depth_base - 1 - i,
                     modes: None,
+                    times_kicked: o.times_kicked,
+                    bought_back: o.bought_back,
                 }
             })
             .rev()

@@ -6149,7 +6149,19 @@ The number stepper answers two questions, and the headline tells them apart.
 `Prompt::ChooseNumber` carries the engine's `reason`: an X reads "Choose a
 number (0–50)", and a replicate cost reads "Replicate {U}: pay it how many
 times? (0–2)" (`Phrase::ReplicateHowOften`), because over a Lose Focus
-"choose a number" did not say what the number bought.
+"choose a number" did not say what the number bought. A multikicker reads the
+same (`Phrase::MultikickerHowOften`), and its top is capped at what the seat's
+own mana pays as an X's is (`Duel::cap_x`, `manaplan::greatest_repeat`): the
+engine leaves it open while a land is untapped.
+
+Buyback is the sheet's yes-or-no, with the whole price in the question:
+"Buyback: {3}? The spell comes back to your hand as it resolves.", or "pay 3
+life, discard a card at random" where the card asks that
+(`headline::buyback_price`, from `YesNoPrompt::Buyback`'s `parts`). A yes the
+pool does not cover opens the payment window, as a kicker's does. What a spell
+was cast with stands under it on the stack, a line each, for every seat
+(`StackItem::announced_costs`): "Kicked 3 times", "Buyback paid: returns to
+hand as it resolves".
 
 The filter forces one thing that is easy to get wrong and silent when you do:
 **a row's position stops being its answer.** Twelve rows out of three hundred

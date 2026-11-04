@@ -582,6 +582,26 @@ pub fn plan_with_life(
     None
 }
 
+/// How many times the floating pool and `sources` pay `each` on top of
+/// `base` (CR 702.33c), or `None` when not even `base` plans here, for the
+/// reason [`greatest_x`] gives. A cost is tried fifty times at most, the
+/// engine's own ceiling for a repeated additional cost.
+#[must_use]
+pub fn greatest_repeat(
+    base: &ManaCost,
+    each: &ManaCost,
+    pool: &ManaPoolView,
+    sources: &[Source],
+) -> Option<u32> {
+    plan(base, pool, sources)?;
+    Some(
+        (1..=50)
+            .take_while(|n| plan(&base.combine_n(each, *n), pool, sources).is_some())
+            .last()
+            .unwrap_or(0),
+    )
+}
+
 /// The largest X the floating pool and `sources` pay `cost` with, or `None`
 /// when `cost` has no X or not even X = 0 plans here.
 ///
@@ -2060,6 +2080,26 @@ mod tests {
         pool.green = 1;
         let forests = [land(1, ManaColor::Green), land(2, ManaColor::Green)];
         assert_eq!(greatest_x(&cost("{X}{G}{G}"), &pool, &forests), Some(1));
+    }
+
+    /// A multikicker on top of a spell: five Forests pay {G}{G} and {1}{G}
+    /// once, and a pip the sources cannot make stops the count at nought.
+    #[test]
+    fn greatest_repeat_is_what_the_sources_pay_beyond_the_spell() {
+        let forests: Vec<Source> = (1..=5).map(|id| land(id, ManaColor::Green)).collect();
+        assert_eq!(
+            greatest_repeat(&cost("{G}{G}"), &cost("{1}{G}"), &empty(), &forests),
+            Some(1)
+        );
+        assert_eq!(
+            greatest_repeat(&cost("{G}{G}"), &cost("{U}"), &empty(), &forests),
+            Some(0)
+        );
+        assert_eq!(
+            greatest_repeat(&cost("{U}"), &cost("{G}"), &empty(), &forests),
+            None,
+            "not even the spell plans: the engine's range stands"
+        );
     }
 
     /// Report 20: a cost with no X has no greatest X.

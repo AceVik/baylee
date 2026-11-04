@@ -50,7 +50,9 @@ pub use ending::{
     Outcome, ending_reason, loss_lines, loss_phrases, outcome, table_losses, verdict,
 };
 mod headline;
-pub use headline::{ballots_line, counter_label, counter_label_counted, payment_line};
+pub use headline::{
+    ballots_line, buyback_price, counter_label, counter_label_counted, payment_line,
+};
 
 /// What a combat declaration is currently pointed at.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
@@ -1569,16 +1571,16 @@ impl Interaction {
         self.number
     }
 
-    /// Lowers the top of an X question (CR 107.3) to `cap`, the most the
-    /// player's own mana pays: the range the question shows and the one
-    /// [`Interaction::set_number`] clamps to. Never below the engine's
-    /// minimum and never above its maximum, and only for `NumberPrompt::X`
-    /// — every other number is the engine's to bound.
+    /// Lowers the top of an X question (CR 107.3) or a multikicker's (CR
+    /// 702.33c) to `cap`, the most the player's own mana pays: the range the
+    /// question shows and the one [`Interaction::set_number`] clamps to.
+    /// Never below the engine's minimum and never above its maximum, and only
+    /// for those two — every other number is the engine's to bound.
     pub fn cap_number(&mut self, cap: u32) {
         let Pending::ChooseNumber {
             min,
             max,
-            reason: NumberPrompt::X,
+            reason: NumberPrompt::X | NumberPrompt::Multikicker { .. },
             ..
         } = &mut self.pending
         else {
