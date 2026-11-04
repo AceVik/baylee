@@ -20,14 +20,16 @@
 //! has shipped before.
 
 use crate::ui_button::UiButton;
+use bevy::input::keyboard::{Key as Pressed, KeyboardInput};
 use bevy::prelude::*;
 
 use baylee_client_core::cardquery::{Colors, Flag, Key, Op, Surface, Term, Value, render};
+use baylee_client_core::cardsearch::Gesture;
 use baylee_client_core::filterdialog::{
     Act, Adding, ColorRule, Control, FLAGS, FilterPanel, FilterPart, OFFERED, SYMBOLS, Typing,
 };
 use baylee_client_core::i18n::{Lang, Phrase};
-use baylee_client_core::textbuf::TextBuffer;
+use baylee_client_core::textbuf::{Dir, Step, TextBuffer};
 
 use crate::ambience::Feel;
 use crate::hud::{UiFonts, glyph, icon_tf, palette, tf, tf_bold};
@@ -90,6 +92,71 @@ impl Register {
         soft: palette::MUTED,
         lit: palette::ACCENT,
     };
+}
+
+/// The chords a search field reads, once for a batch of keys because a key
+/// event carries no modifier state of its own. Which one means what is the
+/// platform's convention rather than a preference: shift extends a selection,
+/// and the reaches past a single character are ⌥/Ctrl for a word and
+/// ⌘/Home-End for the line.
+#[derive(Clone, Copy)]
+pub(crate) struct Chords {
+    shift: bool,
+    reach: Step,
+    command: bool,
+}
+
+impl Chords {
+    /// What is held down now.
+    pub(crate) fn read(codes: &ButtonInput<KeyCode>) -> Self {
+        let word = codes.any_pressed([
+            KeyCode::AltLeft,
+            KeyCode::AltRight,
+            KeyCode::ControlLeft,
+            KeyCode::ControlRight,
+        ]);
+        let line = codes.any_pressed([KeyCode::SuperLeft, KeyCode::SuperRight]);
+        Self {
+            shift: codes.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]),
+            reach: if line {
+                Step::Line
+            } else if word {
+                Step::Word
+            } else {
+                Step::Char
+            },
+            command: line || codes.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]),
+        }
+    }
+}
+
+/// What one pressed key means to a search field, on every surface that has
+/// one: the deck builder, the zone dialog and the name chooser. `None` for a
+/// key that means nothing to it.
+pub(crate) fn gesture(event: &KeyboardInput, chords: Chords) -> Option<Gesture> {
+    let Chords {
+        shift,
+        reach,
+        command,
+    } = chords;
+    Some(match &event.logical_key {
+        Pressed::Backspace => Gesture::Back,
+        Pressed::Delete => Gesture::Forward,
+        Pressed::ArrowLeft => Gesture::Move(reach, Dir::Left, shift),
+        Pressed::ArrowRight => Gesture::Move(reach, Dir::Right, shift),
+        Pressed::Home => Gesture::Move(Step::Line, Dir::Left, shift),
+        Pressed::End => Gesture::Move(Step::Line, Dir::Right, shift),
+        // "Done" rather than "submit": the rows are already narrowed, so
+        // the only thing left to do is hand the keyboard back.
+        Pressed::Enter | Pressed::Escape => Gesture::Done,
+        // ⌘A and Ctrl+A, answered ahead of the text so the "a" stays out.
+        Pressed::Character(text) if command => {
+            return text.eq_ignore_ascii_case("a").then_some(Gesture::SelectAll);
+        }
+        Pressed::Character(text) => Gesture::Insert(text.to_string()),
+        Pressed::Space => Gesture::Insert(" ".to_string()),
+        _ => Gesture::Insert(event.text.as_ref()?.to_string()),
+    })
 }
 
 /// The height every control on the panel stands in.

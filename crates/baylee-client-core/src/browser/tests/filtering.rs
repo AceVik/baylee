@@ -407,7 +407,7 @@ fn a_button_in_the_builder_writes_the_box_and_the_list_follows() {
         .expect("the menu offers a type");
     b.filter_act(crate::filterdialog::Act::Add(at));
     b.filter_act(crate::filterdialog::Act::Edit(0));
-    b.type_into_builder("land");
+    b.in_builder(|panel| panel.type_text("land"));
     assert_eq!(b.filter(), "t:land");
     assert_eq!(
         b.rows(&view, None, Names::projected())

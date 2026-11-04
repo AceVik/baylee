@@ -780,21 +780,17 @@ pub struct Browser {
     /// should be. It is the same [`crate::textbuf::TextBuffer`] those use, so
     /// the client has one answer to what a text field does and both places
     /// give it.
-    filter: crate::textbuf::TextBuffer,
+    ///
+    /// The box and its builder are the deck builder's and the name chooser's
+    /// ([`crate::cardsearch`]). While the builder is open the box has no
+    /// caret, and a tap in it closes the builder and takes the caret back.
+    search: crate::cardsearch::SearchBox,
     sort: SortKey,
     descending: bool,
     /// The sheet went to [`SortKey::Name`] for a question by itself, and
     /// goes back to the zone's order with it (owner, beta.7: a search
     /// read in library order). A key the player picks clears it.
     named_for_choice: bool,
-    /// The filter-string builder, while the gear inside the box is open.
-    ///
-    /// A *mode* of the box and not a second field: the box keeps showing the
-    /// string, and while this is `Some` the box has no caret — a tap in it
-    /// closes the builder and takes the caret back. Two editors of one value
-    /// is exactly the silent rewrite `crate::filterdialog` exists to
-    /// prevent, and it would be no better for being inside this client.
-    builder: Option<crate::filterdialog::FilterPanel>,
     typing: bool,
     typing_epoch: u64,
     /// The cards the engine was showing this seat the last time a view came
@@ -974,7 +970,7 @@ impl Browser {
     /// What is typed in the filter.
     #[must_use]
     pub fn filter(&self) -> &str {
-        self.filter.text()
+        self.search.field.text()
     }
 
     /// The box itself — its text, its caret and its selection.
@@ -984,7 +980,7 @@ impl Browser {
     /// lobby's boxes are drawn through.
     #[must_use]
     pub const fn filter_field(&self) -> &crate::textbuf::TextBuffer {
-        &self.filter
+        &self.search.field
     }
 
     /// Opens the panel on every zone.
@@ -1116,7 +1112,7 @@ impl Browser {
         let mut text: String = text.into();
         text.retain(|c| !c.is_control());
         let end = text.len();
-        self.filter.set(&text, end, None);
+        self.search.field.set(&text, end, None);
     }
 
     /// The same, with the caret and selection the platform reports beside the
@@ -1134,10 +1130,10 @@ impl Browser {
         let mut clean: String = text.to_string();
         clean.retain(|c| !c.is_control());
         if clean.len() == text.len() {
-            self.filter.set(&clean, cursor, anchor);
+            self.search.field.set(&clean, cursor, anchor);
         } else {
             let end = clean.len();
-            self.filter.set(&clean, end, None);
+            self.search.field.set(&clean, end, None);
         }
     }
 
@@ -1150,7 +1146,7 @@ impl Browser {
     /// where the client does its own typing nothing reads it and the bump
     /// costs nothing.
     pub fn clear_filter(&mut self) {
-        self.filter.clear();
+        self.search.field.clear();
         if self.typing {
             self.typing_epoch += 1;
         }
@@ -1218,7 +1214,7 @@ impl Browser {
     /// The builder, while the gear is open.
     #[must_use]
     pub const fn builder(&self) -> Option<&crate::filterdialog::FilterPanel> {
-        self.builder.as_ref()
+        self.search.panel()
     }
 
     /// Opens the builder on what is in the box, or closes it.
@@ -1228,80 +1224,40 @@ impl Browser {
     /// list, not at a blinking bar. The box is clicked to type in it, which
     /// is what it was before the gear existed.
     pub fn toggle_builder(&mut self) {
-        if self.builder.is_some() {
-            self.builder = None;
-            return;
+        if self.search.panel().is_none() {
+            self.typing = false;
         }
-        self.typing = false;
-        self.builder = Some(crate::filterdialog::FilterPanel::open(
-            &crate::cardquery::parse(self.filter.text()),
-        ));
+        self.search.toggle_panel();
     }
 
     /// Shuts the builder, which is what a tap in the box means.
     pub fn close_builder(&mut self) {
-        self.builder = None;
+        self.search.close_panel();
     }
 
     /// Does what a button in the builder means, and writes the box.
-    ///
-    /// The box is written from [`FilterPanel::written`], which answers `None`
-    /// until a row has actually been changed — so opening the builder to look
-    /// at a string leaves the string alone, down to its spelling.
-    ///
-    /// [`FilterPanel::written`]: crate::filterdialog::FilterPanel::written
     pub fn filter_act(&mut self, act: crate::filterdialog::Act) {
-        let Some(builder) = self.builder.as_mut() else {
-            return;
-        };
-        builder.act(act);
-        self.write_the_box();
+        self.search.act(act);
     }
 
-    /// Types into whichever row of the builder holds the caret.
-    ///
-    /// Its own door and not [`Self::type_text`] with a branch, because the
-    /// two are different fields with different carets and a shell that could
-    /// confuse them would be the two editors again.
-    pub fn type_into_builder(&mut self, text: &str) {
-        if let Some(builder) = self.builder.as_mut() {
-            builder.type_text(text);
-            self.write_the_box();
+    /// One key, to whichever field holds the caret; the box being told it is
+    /// done lets the keyboard go.
+    pub fn gesture(&mut self, gesture: crate::cardsearch::Gesture) {
+        if self.search.gesture(gesture) {
+            self.typing = false;
         }
     }
 
     /// One editing gesture in the builder's caret, and the box written after
     /// it.
-    ///
-    /// A closure rather than eight forwarding methods: every gesture a
-    /// [`crate::textbuf::TextBuffer`] has ends the same way here, and a ninth
-    /// one added to the panel would otherwise be a ninth one to remember to
-    /// forward.
     pub fn in_builder(&mut self, edit: impl FnOnce(&mut crate::filterdialog::FilterPanel)) {
-        if let Some(builder) = self.builder.as_mut() {
-            edit(builder);
-            self.write_the_box();
-        }
-    }
-
-    /// Puts what the builder holds into the box.
-    fn write_the_box(&mut self) {
-        let Some(query) = self
-            .builder
-            .as_ref()
-            .and_then(crate::filterdialog::FilterPanel::written)
-        else {
-            return;
-        };
-        let text = crate::cardquery::render(&query);
-        let at = text.len();
-        self.filter.set(&text, at, None);
+        self.search.in_panel(edit);
     }
 
     /// One typed character, at the caret and over the selection.
     pub fn push_filter(&mut self, c: char) {
         if !c.is_control() {
-            self.filter.insert(c.encode_utf8(&mut [0u8; 4]));
+            self.search.field.insert(c.encode_utf8(&mut [0u8; 4]));
         }
     }
 
@@ -1310,21 +1266,21 @@ impl Browser {
         let mut clean: String = text.to_string();
         clean.retain(|c| !c.is_control());
         if !clean.is_empty() {
-            self.filter.insert(&clean);
+            self.search.field.insert(&clean);
         }
     }
 
     /// Rubs out what is selected, or the character before the caret, and says
     /// whether there was anything to rub out.
     pub fn pop_filter(&mut self) -> bool {
-        let before = self.filter.text().len();
-        self.filter.delete_back();
-        self.filter.text().len() != before
+        let before = self.search.field.text().len();
+        self.search.field.delete_back();
+        self.search.field.text().len() != before
     }
 
     /// The same forwards — Delete.
     pub fn delete_forward(&mut self) {
-        self.filter.delete_forward();
+        self.search.field.delete_forward();
     }
 
     /// Moves the caret, extending the selection when `select`.
@@ -1334,18 +1290,18 @@ impl Browser {
         dir: crate::textbuf::Dir,
         select: bool,
     ) {
-        self.filter.move_caret(step, dir, select);
+        self.search.field.move_caret(step, dir, select);
     }
 
     /// Selects the whole box — ⌘A.
     pub fn select_all_filter(&mut self) {
-        self.filter.select_all();
+        self.search.field.select_all();
     }
 
     /// Puts the caret at a byte offset, with `anchor` the other end of a
     /// selection — what a click or a drag in the box asks for.
     pub fn place_filter_caret(&mut self, cursor: usize, anchor: Option<usize>) {
-        self.filter.place(cursor, anchor);
+        self.search.field.place(cursor, anchor);
     }
 
     /// What the rows are sorted by.
@@ -1430,7 +1386,7 @@ impl Browser {
             // arrives and this ran a frame later and wrote that pin away.
             self.locked = Self::sole_zone(view, it);
             self.tabs = self.locked.into_iter().collect();
-            self.filter.clear();
+            self.search.field.clear();
         } else if self.open == Opening::ForChoice {
             self.close();
         } else {
@@ -1626,7 +1582,7 @@ impl Browser {
         // where the builder asks it about 1365 pool cards per keystroke. One
         // parse of one short line per frame is not worth a second field that
         // could disagree with the string it came from.
-        let query = crate::cardquery::parse(self.filter.text().trim());
+        let query = crate::cardquery::parse(self.search.field.text().trim());
         let mut out = Vec::new();
         for zone in self.zones(view) {
             if !self.shows(zone) {

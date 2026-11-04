@@ -51,6 +51,7 @@ pub mod cardcrest;
 pub mod cardplate;
 pub mod cardquery;
 pub mod cardrail;
+pub mod cardsearch;
 pub mod caretspot;
 pub mod combat;
 pub mod combat_auto;

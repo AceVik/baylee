@@ -7,7 +7,6 @@
 
 #[allow(clippy::wildcard_imports)] // the builder's own vocabulary
 use super::*;
-use crate::cardquery::{Colors, Facts, Flag, Surface};
 
 impl DeckBuilder {
     /// An empty builder with no pool yet.
@@ -60,7 +59,7 @@ impl DeckBuilder {
     /// The current search text.
     #[must_use]
     pub fn text(&self) -> &str {
-        self.text.text()
+        self.search.field.text()
     }
 
     /// The deck's name.
@@ -301,9 +300,12 @@ impl DeckBuilder {
             .iter()
             .position(|c| c.english_name == name)
             .or_else(|| {
-                self.pool
-                    .iter()
-                    .position(|c| c.alt_names.iter().any(|alt| alt == name))
+                self.pool.iter().position(|c| {
+                    c.alt_names
+                        .iter()
+                        .chain(&c.foreign_names)
+                        .any(|alt| alt == name)
+                })
             })
             .or_else(|| {
                 self.pool
@@ -316,19 +318,19 @@ impl DeckBuilder {
 
     /// Sets the search text.
     pub fn set_text(&mut self, text: &str) {
-        self.text = crate::textbuf::TextBuffer::new(text);
+        self.search.field = crate::textbuf::TextBuffer::new(text);
         self.retext();
     }
 
     /// Types one character into the search box.
     pub fn type_char(&mut self, ch: char) {
-        self.text.insert(&ch.to_string());
+        self.search.field.insert(&ch.to_string());
         self.retext();
     }
 
     /// Deletes the last character of the search box.
     pub fn backspace(&mut self) {
-        self.text.delete_back();
+        self.search.field.delete_back();
         self.retext();
     }
 
@@ -338,28 +340,24 @@ impl DeckBuilder {
     /// together. Parsing costs one pass over what a player typed; not doing
     /// it here would cost one pass per pool card per keystroke.
     fn retext(&mut self) {
-        self.query = crate::cardquery::parse(self.text.text());
+        self.query = crate::cardquery::parse(self.search.field.text());
         self.refilter();
     }
 
     /// The filter-string builder, while the gear is open.
     #[must_use]
     pub const fn panel(&self) -> Option<&crate::filterdialog::FilterPanel> {
-        self.panel.as_ref()
+        self.search.panel()
     }
 
     /// Opens the builder on what is in the box, or closes it.
     pub fn toggle_panel(&mut self) {
-        self.panel = if self.panel.is_some() {
-            None
-        } else {
-            Some(crate::filterdialog::FilterPanel::open(&self.query))
-        };
+        self.search.toggle_panel();
     }
 
     /// Shuts the builder.
     pub fn close_panel(&mut self) {
-        self.panel = None;
+        self.search.close_panel();
     }
 
     /// Does what a button in the builder means, and writes the box.
@@ -382,18 +380,11 @@ impl DeckBuilder {
     /// same bargain `Browser::in_builder` makes: a gesture added to the panel
     /// would otherwise be one more to remember to forward.
     pub fn in_panel(&mut self, edit: impl FnOnce(&mut crate::filterdialog::FilterPanel)) {
-        let Some(panel) = self.panel.as_mut() else {
-            return;
-        };
-        edit(panel);
-        let Some(query) = panel.written() else {
-            return;
-        };
-        // Through `set_text` and not by writing the field, so the query
-        // beside it is re-read and the results are refiltered — the two are
-        // written together in one place, which is what `retext` is for.
-        let written = crate::cardquery::render(&query);
-        self.set_text(&written);
+        // The query beside the box is re-read and the results are refiltered
+        // with it: the two are written together, which is what `retext` is for.
+        if self.search.in_panel(edit) {
+            self.retext();
+        }
     }
 
     /// What is in the search box, read as a query.
@@ -445,7 +436,7 @@ impl DeckBuilder {
 
     /// Clears every filter, including the text.
     pub fn clear_filters(&mut self) {
-        self.text.clear();
+        self.search.field.clear();
         self.colors.clear();
         self.kind = None;
         self.cmc = None;
@@ -498,7 +489,7 @@ impl DeckBuilder {
     /// Whether anything is narrowing the results.
     #[must_use]
     pub fn filtered(&self) -> bool {
-        !self.text.is_empty()
+        !self.search.field.is_empty()
             || !self.colors.is_empty()
             || self.kind.is_some()
             || self.cmc.is_some()
@@ -561,11 +552,7 @@ impl DeckBuilder {
         if !self.colors.is_empty() && !self.color_match(card) {
             return false;
         }
-        if self.query.is_anything() {
-            return true;
-        }
-        let flags = pool_flags(card);
-        crate::cardquery::matches(&self.query, &pool_facts(card, &flags), Surface::POOL).shown()
+        crate::cardsearch::pool_card_matches(&self.query, card)
     }
 
     /// Whether a card is within the chosen colors.
@@ -1309,7 +1296,7 @@ impl DeckBuilder {
     #[must_use]
     pub fn focused_text(&self) -> &str {
         match self.focus {
-            BuildField::Search => self.text.text(),
+            BuildField::Search => self.search.field.text(),
             BuildField::Name => self.name.text(),
             BuildField::PickerSet => self.buffer(BuildField::PickerSet).text(),
         }
@@ -1331,9 +1318,12 @@ impl DeckBuilder {
     #[must_use]
     pub fn buffer(&self, field: BuildField) -> &crate::textbuf::TextBuffer {
         match field {
-            BuildField::Search => &self.text,
+            BuildField::Search => &self.search.field,
             BuildField::Name => &self.name,
-            BuildField::PickerSet => self.picker.as_ref().map_or(&self.text, |p| &p.set_query),
+            BuildField::PickerSet => self
+                .picker
+                .as_ref()
+                .map_or(&self.search.field, |p| &p.set_query),
         }
     }
 
@@ -1344,7 +1334,7 @@ impl DeckBuilder {
         edit: impl FnOnce(&mut crate::textbuf::TextBuffer),
     ) {
         let buffer = match field {
-            BuildField::Search => &mut self.text,
+            BuildField::Search => &mut self.search.field,
             BuildField::Name => &mut self.name,
             BuildField::PickerSet => {
                 let Some(p) = &mut self.picker else {
@@ -1955,82 +1945,4 @@ fn print_key(print: &PrintChoice) -> (String, String, String, u8) {
             Finish::Galaxy => 5,
         },
     )
-}
-
-/// The flags a pool row carries, for `is:`.
-///
-/// A list and not a set of `bool` fields: [`Facts::flags`] is what a card
-/// *is*, and [`Surface::POOL`] is what may be asked — the pair is how
-/// "this card is not a commander" and "nobody here knows about commanders"
-/// stay two different answers.
-fn pool_flags(card: &PoolCard) -> Vec<Flag> {
-    let mut flags = Vec::with_capacity(4);
-    flags.push(match card.coverage {
-        // Generated is playable too, so `is:playable` finds it;
-        // `is:generated` apart below.
-        Coverage::Implemented | Coverage::Generated => Flag::Playable,
-        Coverage::Partial => Flag::Partial,
-        Coverage::Unimplemented => Flag::Stub,
-    });
-    if card.coverage == Coverage::Generated {
-        flags.push(Flag::Generated);
-    }
-    if card.commander {
-        flags.push(Flag::Commander);
-    }
-    if card.basic_land {
-        flags.push(Flag::Basic);
-    }
-    // The rules question, not the picture one: this filter is printed to the
-    // player as "double-faced" and reached by the alias `transform`, and
-    // CR 715.1 makes an adventurer card a two-part frame rather than a second
-    // side. It asked `two_faced` — the compiled face count — until #115, and
-    // answered with nine Adventures and two Splits.
-    if card.double_faced {
-        flags.push(Flag::Dfc);
-    }
-    flags
-}
-
-/// A pool row, as the query language reads it.
-fn pool_facts<'a>(card: &'a PoolCard, flags: &'a [Flag]) -> Facts<'a> {
-    let (power, toughness, loyalty) = printed_numbers(card.stats.as_deref());
-    Facts {
-        name: &card.name,
-        english_name: &card.english_name,
-        alt_names: &card.alt_names,
-        type_line: &card.type_line,
-        kinds: &card.kinds,
-        oracle: &card.oracle_text,
-        colors: Colors::of_letters(&card.colors),
-        identity: Colors::of_letters(&card.identity),
-        mana_cost: &card.mana_cost,
-        mana_value: card.cmc,
-        power,
-        toughness,
-        loyalty,
-        flags,
-    }
-}
-
-/// The numbers `PoolCard::stats` is holding, told apart by their shape.
-///
-/// `baylee_cards::pool::stats` writes `p/t` for anything with a power and a
-/// toughness and the bare number otherwise, so the slash is the whole of
-/// what distinguishes a creature from a planeswalker here. Reading it back
-/// rather than asking the pool for three fields keeps the wire as it is;
-/// what it costs is that a card printing both — none in this pool — would
-/// be read as a creature, which is what the row already draws it as.
-fn printed_numbers(stats: Option<&str>) -> (Option<i32>, Option<i32>, Option<i32>) {
-    let Some(stats) = stats else {
-        return (None, None, None);
-    };
-    match stats.split_once('/') {
-        Some((power, toughness)) => (
-            power.trim().parse().ok(),
-            toughness.trim().parse().ok(),
-            None,
-        ),
-        None => (None, None, stats.trim().parse().ok()),
-    }
 }

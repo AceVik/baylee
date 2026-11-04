@@ -331,57 +331,16 @@ pub(super) fn keyboard(
             .panel()
             .is_some_and(|it| it.typing().is_some())
         {
-            let shift = codes.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]);
-            let word = codes.any_pressed([
-                KeyCode::AltLeft,
-                KeyCode::AltRight,
-                KeyCode::ControlLeft,
-                KeyCode::ControlRight,
-            ]);
-            let line = codes.any_pressed([KeyCode::SuperLeft, KeyCode::SuperRight]);
-            let command = line || codes.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]);
-            let reach = if line {
-                Reach::Line
-            } else if word {
-                Reach::Word
-            } else {
-                Reach::Char
-            };
+            let chords = crate::filterui::Chords::read(&codes);
             for key in keys.read() {
                 if !key.state.is_pressed() {
                     continue;
                 }
-                let deck = state.lobby.builder_mut();
-                match &key.logical_key {
-                    Key::Backspace => deck.in_panel(|it| {
-                        it.pop_typed();
-                    }),
-                    Key::Delete => deck.in_panel(FilterPanel::delete_typed_forward),
-                    Key::ArrowLeft => {
-                        deck.in_panel(|it| it.move_typing_caret(reach, Dir::Left, shift));
-                    }
-                    Key::ArrowRight => {
-                        deck.in_panel(|it| it.move_typing_caret(reach, Dir::Right, shift));
-                    }
-                    Key::Home => {
-                        deck.in_panel(|it| it.move_typing_caret(Reach::Line, Dir::Left, shift));
-                    }
-                    Key::End => {
-                        deck.in_panel(|it| it.move_typing_caret(Reach::Line, Dir::Right, shift));
-                    }
-                    // Enter hands the row back and leaves the panel open,
-                    // the same way it does in the zone browser.
-                    Key::Enter | Key::Escape => deck.in_panel(FilterPanel::stop_typing),
-                    Key::Character(text) if command => {
-                        if text.eq_ignore_ascii_case("a") {
-                            deck.in_panel(FilterPanel::select_all_typed);
-                        }
-                    }
-                    _ => {
-                        if let Some(text) = key.text.as_ref() {
-                            deck.type_into_panel(text);
-                        }
-                    }
+                if let Some(gesture) = crate::filterui::gesture(key, chords) {
+                    state
+                        .lobby
+                        .builder_mut()
+                        .in_panel(|panel| gesture.on_panel(panel));
                 }
                 // A different filter is a different list; the row that was
                 // halfway down it is not in this one.

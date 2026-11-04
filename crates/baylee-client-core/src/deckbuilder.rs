@@ -167,13 +167,19 @@ pub struct PoolCard {
     /// Rules identity — what `GET /printings` is keyed on.
     #[serde(default)]
     pub oracle_id: String,
-    /// Every other name this card is printed under, across languages.
+    /// The other names this card goes by in the client's language and in
+    /// English: Scryfall's two-face spelling, a printing's own.
     ///
-    /// The pool sends one row per card, not one per printing, so this is how
-    /// a player who knows the card as "Blitzschlag" finds the row a deck
-    /// stores as "Lightning Bolt". Empty when the gateway has no catalog.
+    /// What a search reads beside [`Self::name`] and [`Self::english_name`],
+    /// so it holds those two languages and no third: a search answers in the
+    /// client's language and English and no other (owner, 4.11.2026).
     #[serde(default)]
     pub alt_names: Vec<String>,
+    /// Its names in every other language, which only a pasted deck line is
+    /// read against ([`DeckBuilder::slot_of`]) and no search is. Empty when
+    /// the gateway has no catalog.
+    #[serde(default)]
+    pub foreign_names: Vec<String>,
 }
 
 impl PoolCard {
@@ -907,7 +913,7 @@ pub struct DeckBuilder {
     /// name does not change after it arrives and folding inside the
     /// comparator would fold each name the dozen times a sort reads it.
     keys: Vec<String>,
-    text: crate::textbuf::TextBuffer,
+    search: crate::cardsearch::SearchBox,
     /// [`Self::text`], read as a query.
     ///
     /// Held beside the string rather than parsed where it is used, because
@@ -934,12 +940,6 @@ pub struct DeckBuilder {
     /// marked, never hidden or refused here; the gateway refuses the deck.
     /// Empty offline and from a gateway that does not say.
     blocked: std::collections::BTreeMap<u32, crate::lobby::BlockedCard>,
-    /// The filter-string builder, while the gear inside the box is open.
-    ///
-    /// The same shape as `Browser::builder` and for the same reason: it is a
-    /// *mode* of the search box, not a second field. The box keeps showing
-    /// the string and the gear stays lit while it is open.
-    panel: Option<crate::filterdialog::FilterPanel>,
     sort: Sort,
     main: Vec<Entry>,
     side: Vec<Entry>,

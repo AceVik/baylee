@@ -151,7 +151,9 @@ pub struct Facts<'a> {
     /// a caller holds the two apart and joining them would mean building a
     /// list per card per keystroke.
     pub english_name: &'a str,
-    /// Every other name the card is printed under, in every language.
+    /// The other names the card goes by in those two languages, and none in a
+    /// third: a search answers in the client's language and English
+    /// (`crate::cardsearch`).
     pub alt_names: &'a [String],
     /// The printed type line, in the player's language.
     pub type_line: &'a str,
