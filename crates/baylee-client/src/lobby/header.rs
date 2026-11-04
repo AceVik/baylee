@@ -394,6 +394,9 @@ pub(crate) fn tools(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Ve
         ),
     );
     let mut tools = vec![gear];
+    if crate::settingsui::builds().desktop {
+        tools.insert(0, super::card_fill::mark(commands, kit));
+    }
     if let Some(true) = state.chat_header {
         tools.push(chat_tool(
             commands,

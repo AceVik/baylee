@@ -35,6 +35,8 @@ pub const COMMAND: char = '\u{f521}';
 pub const CROWN: char = '\u{f521}';
 /// Chevron up: open the question's sheet from its pill.
 pub const CHEVRON_UP: char = '\u{f077}';
+/// Download: the card cache filling, in the header.
+pub const DOWNLOAD: char = '\u{f019}';
 /// Chevron down: fold the question's sheet to its pill.
 pub const CHEVRON_DOWN: char = '\u{f078}';
 /// Infinity: a hand no maximum size applies to, the mark alone.

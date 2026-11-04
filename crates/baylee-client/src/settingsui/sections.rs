@@ -622,6 +622,9 @@ pub(crate) fn network(out: &mut Out, view: &View) {
     let text = out.words(&crate::lobby::diagnostics(state), true);
     let both = out.wrap(&[text, copy]);
     out.row(Row::Diagnostics, both);
+    if drawn(view, Row::CardFill) {
+        crate::lobby::card_fill::rows(out, view);
+    }
 }
 
 /// Privacy & Data: the true list of what is kept and sent, report consent,

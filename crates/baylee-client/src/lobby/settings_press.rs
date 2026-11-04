@@ -122,6 +122,8 @@ pub(crate) enum SettingsPress {
     CopyDiagnostics,
     /// Network: the gateway's legal notice (Impressum) in the browser.
     OpenImpressum,
+    /// Network: a control of the card cache's fill.
+    Fill(super::card_fill::FillPress),
     /// Privacy: what a report may carry.
     Consent(baylee_client_core::bugreport::Category),
     /// Privacy: the anonymous offline count on or off.
@@ -306,6 +308,9 @@ impl SettingsPress {
                 s.reports.crashes = crash;
                 differs
             }),
+            SettingsPress::Fill(press) if press.on_device() => {
+                device(settings, |s| press.apply(&mut s.card_fill))
+            }
             _ => return None,
         })
     }
@@ -362,6 +367,7 @@ impl SettingsPress {
             SettingsPress::OpenImpressum => {
                 super::source::open(super::front::FrontPress::OpenImpressum, state);
             }
+            SettingsPress::Fill(press) if !press.on_device() => press.act(state),
             SettingsPress::SwitchGateway => {
                 state.settings = SettingsPane::Closed;
                 if state.lobby.token().is_some() || state.lobby.offline() {
@@ -506,6 +512,7 @@ impl SettingsPress {
             | SettingsPress::CopyHandle
             | SettingsPress::CopyDiagnostics
             | SettingsPress::OpenImpressum
+            | SettingsPress::Fill(_)
             | SettingsPress::SwitchGateway
             | SettingsPress::RebindShell(_)
             | SettingsPress::ResetShell(_)

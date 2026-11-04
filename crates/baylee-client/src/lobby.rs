@@ -432,6 +432,19 @@ impl Plugin for LobbyPlugin {
             // asked for.
             .init_resource::<crate::cardtext::TextGateway>()
             .add_systems(Update, (art_follows_the_session, text_follows_the_session))
+            .init_resource::<card_fill::FillBoard>()
+            .add_systems(
+                Update,
+                (
+                    card_fill::steer.after(art_follows_the_session),
+                    (
+                        card_fill::read,
+                        card_fill::show.after(card_fill::read).after(ui),
+                        card_fill::show_mark.after(card_fill::read).after(ui),
+                    )
+                        .run_if(in_state(DuelPhase::Closed)),
+                ),
+            )
             .add_systems(OnEnter(DuelPhase::Closed), (came_back, spawn_camera))
             .init_resource::<Hovered>()
             .add_message::<PointerOver>()
@@ -668,6 +681,8 @@ pub(crate) struct SettingsView {
     /// (`table_settings`): only the sections `Section::at_table` admits are
     /// offered. Set while the table plays, and put down with it.
     pub(crate) over_table: bool,
+    /// The card cache's block.
+    pub(crate) fill: card_fill::FillView,
 }
 /// The settings overlay's state.
 ///
@@ -1142,6 +1157,7 @@ enum Expect {
 }
 
 mod build_press;
+pub(crate) mod card_fill;
 mod clicks;
 mod confirm;
 mod decks;

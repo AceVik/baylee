@@ -15,6 +15,13 @@ pub(crate) struct Cache {
     order: VecDeque<String>,
 }
 
+/// The address a row asks for: the small rendition of a preview's picture.
+/// The card cache's fill has to file exactly this
+/// (`client_core::cachefill::plan`).
+pub(crate) fn small(url: &str) -> String {
+    url.replace("/normal/", "/small/")
+}
+
 pub(crate) fn spawn(commands: &mut Commands, card: &HoverCard) -> Entity {
     let mut entity = commands.spawn((
         Node {
@@ -28,11 +35,11 @@ pub(crate) fn spawn(commands: &mut Commands, card: &HoverCard) -> Entity {
         Pickable::IGNORE,
     ));
     if let Some(url) = &card.url {
-        entity.insert(Thumbnail(url.replace("/normal/", "/small/"), card.finish));
+        entity.insert(Thumbnail(small(url), card.finish));
     }
     let id = entity.id();
     if let Some(url) = &card.url {
-        let url = url.replace("/normal/", "/small/");
+        let url = small(url);
         let finish = card.finish;
         // Recycled rows get their cached picture or special-finish material
         // before the next layout/render, rather than spending a frame empty.

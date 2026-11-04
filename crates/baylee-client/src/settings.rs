@@ -211,6 +211,12 @@ pub struct ClientSettings {
     /// off; a file from before it reads on.
     #[serde(default = "yes")]
     pub usage_count: bool,
+    /// The card cache's background fill: on or off, its pace, what it keeps
+    /// and how far it may grow (`client_core::cachefill`, `crate::cachefill`).
+    /// This device's, since it is this device's disk and connection. A file
+    /// from before it reads the defaults.
+    #[serde(default, deserialize_with = "baylee_client_core::graphics::lenient")]
+    pub card_fill: baylee_client_core::cachefill::FillChoices,
 }
 
 fn yes() -> bool {
@@ -243,6 +249,7 @@ impl Default for ClientSettings {
             report_attachments_closed: false,
             tours: baylee_client_core::tour::Tours::default(),
             usage_count: true,
+            card_fill: baylee_client_core::cachefill::FillChoices::default(),
         }
     }
 }
@@ -854,9 +861,22 @@ mod tests {
                 ..baylee_client_core::tour::Tours::default()
             },
             usage_count: false,
+            card_fill: baylee_client_core::cachefill::FillChoices {
+                on: false,
+                pace: baylee_client_core::cachefill::Pace::Brisk,
+                reach: baylee_client_core::cachefill::Reach::Thumbnails,
+                budget: baylee_client_core::cachefill::Budget::Five,
+            },
         };
         let text = serde_json::to_string_pretty(&written).expect("serializes");
         let read: ClientSettings = serde_json::from_str(&text).expect("decodes");
+        assert_eq!(read.card_fill, written.card_fill);
+        let unknown: ClientSettings = serde_json::from_str(r#"{"card_fill":{"pace":"warp"}}"#)
+            .expect("a pace it does not know costs the choices and not the file");
+        assert_eq!(
+            unknown.card_fill,
+            baylee_client_core::cachefill::FillChoices::default()
+        );
         assert_eq!(read.graphics, written.graphics);
         assert_eq!(read.audio, written.audio);
         assert_eq!(read.table, written.table);

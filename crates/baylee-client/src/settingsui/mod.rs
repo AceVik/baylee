@@ -628,6 +628,7 @@ fn results(out: &mut Out, view: &View, query: &str) {
 pub(crate) fn show(state: &mut LobbyState, section: Section) {
     if state.settings_section() != section {
         state.set_settings_section(section);
+        state.settings_view.fill.armed = false;
     }
     if state.settings_view.profile_sheet {
         state.settings_view.profile_sheet = false;
