@@ -1575,6 +1575,7 @@ mod event_object;
 mod foretell;
 mod land_triggers;
 mod log_cap;
+mod naming;
 mod owed;
 mod power_surge;
 mod triage;

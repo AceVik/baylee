@@ -265,11 +265,26 @@ impl Builder<'_, '_> {
                 self.list_options();
                 self.answer_pick("pick=[one card type id]");
             }
-            Pending::ChooseCardName { types, .. } => {
+            Pending::ChooseCardName {
+                types,
+                excluded_types,
+                ..
+            } => {
                 if !types.is_empty() {
                     self.line("Only a card name with the required printed card types is eligible.");
                 }
-                self.line("QUESTION: Choose a card name: any card's English name (a single face's name is fine).");
+                if !excluded_types.is_empty() {
+                    let words: Vec<&str> = excluded_types.words().collect();
+                    self.line(format!(
+                        "A card with these printed types is not eligible: {}.",
+                        words.join(", ")
+                    ));
+                }
+                self.line(
+                    "QUESTION: Choose a card name: any card this game has, as in its deckbuilder, \
+                     by its English name (a single face's name is fine). Naming one nobody can \
+                     hold simply misses.",
+                );
                 self.ask = Ask::CardName;
                 self.answer("name=\"<the card's name>\"");
             }

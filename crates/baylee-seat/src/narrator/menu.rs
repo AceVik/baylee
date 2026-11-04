@@ -494,8 +494,7 @@ impl Menu {
             }
             Ask::CardName => {
                 let name = named(decision)?;
-                let (card, face) = card_name(&name)
-                    .ok_or_else(|| format!("«{name}» is not the name of a card this game knows"))?;
+                let (card, face) = card_name(&name).ok_or_else(|| not_a_card_here(&name))?;
                 Ok(now(
                     PlayerAction::ChooseCardName { card, face },
                     format!("name {name}"),
@@ -852,6 +851,23 @@ fn card_name(name: &str) -> Option<(CardIndex, u8)> {
         .position(|f| f.name.eq_ignore_ascii_case(name))
         .unwrap_or(0);
     Some((card, u8::try_from(face).unwrap_or(0)))
+}
+
+/// Why `name` cannot be named here. What may be named is the pool the
+/// deckbuilder shows, which is what the engine takes (owner, 4.11.2026). A
+/// real card without a script is told apart from a name that is no card at
+/// all: no deck here can hold it, so naming it could only ever miss, while
+/// "not a card" would tell a model its true name was wrong (Cabal Therapy
+/// naming Return to Dust).
+fn not_a_card_here(name: &str) -> String {
+    if baylee_cards_index::row_by_name(name).is_some() {
+        format!(
+            "«{name}» exists, but it isn't in this game's pool: name any card this game has, as \
+             in its deckbuilder (naming one nobody can hold simply misses)"
+        )
+    } else {
+        format!("«{name}» is not the name of a card this game has")
+    }
 }
 
 /// One of `among` by its `#` handle.
