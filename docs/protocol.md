@@ -495,9 +495,9 @@ Four properties are load-bearing:
 - **It is a cache keyed by an id, never a proxy.** The only thing a caller may
   name is a printing id; the origin URL is rebuilt from the fixed shape above,
   so there is nothing to point at another host with.
-- **One rate limiter for the whole gateway**, not one per game: `docs/legal.md`
-  §3 allows ten requests a second, and four tables starting at once must not
-  leave at four times that. Inside it each account has a share of its own,
+- **One rate limiter for the whole gateway**, not one per game: ten requests a
+  second by our own courtesy (`docs/legal.md` §3: Scryfall's image hosts have no
+  limit), and four tables starting at once must not leave at four times that. Inside it each account has a share of its own,
   300 trips to the origin a minute (half the gateway's), so one player cannot
   spend all of it; what the mirror already holds costs nothing, and a spent
   share answers 429. Per account and not per session, since a session is one

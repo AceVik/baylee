@@ -23,8 +23,9 @@
 //! finds the picture already local when it does.
 //!
 //! `docs/legal.md` §3 is the other half of the design: caching card images is
-//! encouraged, the rate limit is ten requests a second, and no image is ever
-//! committed to the repo. The limiter below is the whole gateway's, shared by
+//! encouraged, Scryfall's image hosts have no rate limit and this gateway keeps
+//! to ten requests a second anyway, and no image is ever committed to the repo.
+//! The limiter below is the whole gateway's, shared by
 //! the warming task and by live requests, so the cap holds however many games
 //! are running.
 //!
@@ -62,8 +63,9 @@ const BACKS_ORIGIN: &str = "https://backs.scryfall.io";
 
 /// The smallest gap between two requests leaving for Scryfall.
 ///
-/// `docs/legal.md` §3: no more than ten requests a second. One gateway holds
-/// one of these, so the cap is the gateway's and not each game's.
+/// Ten requests a second, our own courtesy: `docs/legal.md` §3 has that limit on
+/// Scryfall's API, and none on the image hosts asked here. One gateway holds one
+/// of these, so the cap is the gateway's and not each game's.
 const MIN_GAP: Duration = Duration::from_millis(100);
 
 /// How long a client may consider a fetched image fresh.
