@@ -51,6 +51,7 @@ impl Show {
                 continuing,
                 retry,
                 budget_ms,
+                controlled,
                 ..
             } => {
                 self.failure = None;
@@ -63,6 +64,10 @@ impl Show {
                     "your turn"
                 };
                 let again = if *retry { " (asked again)" } else { "" };
+                let kind = controlled.map_or_else(
+                    || (*kind).to_string(),
+                    |player| format!("{kind} for P{}", u16::from(player.get()) + 1),
+                );
                 vec![format!(
                     "q{} · turn {} · {whose} · {} · {kind} · {} s{again}",
                     note.question,
@@ -397,6 +402,7 @@ mod tests {
             retry: false,
             budget_ms: 25_000,
             log_lines: 3,
+            controlled: None,
         }
     }
 
