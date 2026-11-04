@@ -158,6 +158,7 @@ impl<'a> ObservableView<'a> {
 }
 
 /// serde hands a field to its skip test by reference.
+#[allow(clippy::trivially_copy_pass_by_ref)] // serde's signature, not ours
 fn no_flash_types(types: &&baylee_core::types::TypeSet) -> bool {
     types.is_empty()
 }
