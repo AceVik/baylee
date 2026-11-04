@@ -106,7 +106,7 @@ impl Sandbox {
     /// Give the schema back.
     async fn close(self) {
         self.admin
-            .execute_unprepared(&format!("DROP SCHEMA \"{}\" CASCADE", self.schema))
+            .execute_unprepared(&baylee_db::drop_schema_statement(&self.schema))
             .await
             .expect("dropping the schema");
     }
@@ -683,7 +683,7 @@ async fn the_standing_answers_go_only_from_the_schema_being_migrated() {
     drop(db);
     sandbox
         .admin
-        .execute_unprepared(&format!("DROP SCHEMA \"{behind}\" CASCADE"))
+        .execute_unprepared(&baylee_db::drop_schema_statement(&behind))
         .await
         .expect("dropping the schema behind");
     sandbox.close().await;

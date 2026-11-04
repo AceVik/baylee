@@ -48,7 +48,7 @@ impl Sandbox {
     /// Give the schema back.
     async fn close(self) {
         self.admin
-            .execute_unprepared(&format!("DROP SCHEMA \"{}\" CASCADE", self.schema))
+            .execute_unprepared(&baylee_db::drop_schema_statement(&self.schema))
             .await
             .expect("dropping the schema");
     }
