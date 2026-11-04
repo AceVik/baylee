@@ -306,6 +306,25 @@ impl ViewBuilder {
         self
     }
 
+    /// This seat makes `player`'s decisions on `player`'s turn (CR 723.5,
+    /// Mindslaver) and is asked one now: the table waits for this seat, the
+    /// question is `player`'s, and `cards` (as [`Self::with_hand`] takes
+    /// them) are the hand it plays from, beside this seat's own.
+    #[must_use]
+    pub fn controlling(mut self, player: u8, cards: Vec<(&str, u32, u32)>) -> Self {
+        let player = PlayerId::new(player);
+        let cards = Self::new(1).with_hand(cards).view.hand;
+        self.view.active = player;
+        self.view.awaiting = Some(self.view.seat);
+        self.view.decision_player = Some(player);
+        self.view.controlled_hands = vec![baylee_view::SharedHand {
+            player,
+            public: false,
+            cards,
+        }];
+        self
+    }
+
     /// Finishes the view.
     #[must_use]
     pub fn build(mut self) -> PlayerView {

@@ -1,5 +1,6 @@
 //! Finish the remaining shares of one explicitly approved damage division.
 use crate::board::keyword_bits;
+use crate::decision::resource_player;
 use baylee_core::ids::ObjectId;
 use baylee_engine::choice::{NumberPrompt, Pending, PlayerAction};
 use baylee_view::{PlayerView, Step};
@@ -28,7 +29,7 @@ impl CombatAuto {
         else {
             return None;
         };
-        (player == view.seat).then_some(Self {
+        (player == resource_player(view)).then_some(Self {
             source,
             turn: view.turn,
             step: view.step,
@@ -47,7 +48,7 @@ impl CombatAuto {
             Pending::ChooseNumber {
                 player,
                 reason: NumberPrompt::CombatDamage { source, index, of, .. }, ..
-            } if *player == view.seat && *source == self.source
+            } if *player == resource_player(view) && *source == self.source
                 && (*index == self.next || (self.sent_at == Some(view.seq)
                     && index.saturating_add(1) == self.next)) && *of == self.of)
     }
@@ -79,7 +80,7 @@ impl CombatAuto {
             u32::try_from(i32::from(target.toughness.unwrap_or(0)) - i32::from(target.damage))
                 .unwrap_or(0)
         };
-        let amount = if target.controller == view.seat {
+        let amount = if target.controller == resource_player(view) {
             max
         } else {
             lethal.clamp(min, max)
@@ -96,8 +97,13 @@ mod tests {
     use crate::test_support::{ViewBuilder, token};
 
     fn pending(index: u8, left: u32) -> Pending {
+        pending_of(0, index, left)
+    }
+
+    /// The share `index` of the attacker's division, asked of `player`.
+    fn pending_of(player: u8, index: u8, left: u32) -> Pending {
         Pending::ChooseNumber {
-            player: baylee_core::ids::PlayerId::new(0),
+            player: baylee_core::ids::PlayerId::new(player),
             min: 0,
             max: left,
             reason: NumberPrompt::CombatDamage {
@@ -173,5 +179,37 @@ mod tests {
         assert_eq!(auto.answer(&view, &p), Some(PlayerAction::ChooseNumber(5)));
         view.turn += 1;
         assert!(!auto.accepts(&view, &pending(1, 0)));
+    }
+
+    /// Mindslaver (CR 723.5): the controlled player's attacker divides its
+    /// damage and this seat answers for it. The shortcut finishes that
+    /// division, lethal to this seat's own blockers, and the controlled
+    /// player's own creatures (banding) are "ours" and take the rest.
+    #[test]
+    fn a_controlled_attackers_division_is_this_seats_to_finish() {
+        let mut view = ViewBuilder::new(2)
+            .controlling(1, vec![])
+            .with_battlefield(1, vec![token(1, 1, "Attacker", 8, 8)])
+            .with_battlefield(0, vec![token(2, 0, "Blocker", 2, 2)])
+            .build();
+        assert!(
+            CombatAuto::begin(&view, &pending_of(0, 0, 8)).is_none(),
+            "this seat's own question is not the one being asked"
+        );
+        let p = pending_of(1, 0, 8);
+        let mut auto = CombatAuto::begin(&view, &p).expect("the controlled division");
+        assert_eq!(
+            auto.answer(&view, &p),
+            Some(PlayerAction::ChooseNumber(2)),
+            "lethal to the blocker that is not the controlled player's"
+        );
+        view.battlefield[1].controller = baylee_core::ids::PlayerId::new(1);
+        let p = pending_of(1, 0, 8);
+        let mut auto = CombatAuto::begin(&view, &p).expect("the controlled division");
+        assert_eq!(
+            auto.answer(&view, &p),
+            Some(PlayerAction::ChooseNumber(8)),
+            "the controlled player's own creature takes it all"
+        );
     }
 }
