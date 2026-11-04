@@ -1190,6 +1190,7 @@ mod library_ui;
 #[cfg(not(target_arch = "wasm32"))]
 mod links;
 pub(crate) mod offline;
+mod poolfacts;
 mod press;
 pub(crate) mod preview;
 mod print_catalog;

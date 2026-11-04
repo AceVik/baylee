@@ -618,6 +618,112 @@ fn the_filter_panel_is_drawn_and_its_buttons_reach_the_builder() {
     );
 }
 
+/// The buttons of a choice row, pressed: drawn from the gateway's table, and
+/// not offered at all without one.
+#[test]
+fn a_choice_row_is_drawn_from_the_table_and_its_words_reach_the_box() {
+    use baylee_client_core::cardquery::{Key, PoolFactsBody, PoolSet};
+    use baylee_client_core::filterdialog::{Act, Adding, ChoiceWord, Control, OFFERED};
+
+    let mut app = headless();
+    stocked(&mut app);
+    sized(&mut app, 1400.0);
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .build_deck();
+    app.update();
+    press(&mut app, Press::Build(BuildPress::ToggleFilterPanel));
+    act(&mut app, Act::AddStep(Adding::Kinds));
+    let drawn = |app: &mut App, wanted: Act| {
+        let mut query = app.world_mut().query::<&crate::filterui::FilterAct>();
+        query.iter(app.world()).any(|act| act.0 == wanted)
+    };
+    let printing = Act::AddStep(Adding::Keys(Control::Choice));
+    assert!(
+        !drawn(&mut app, printing),
+        "a list with no table is not offered what only the table answers"
+    );
+
+    let table = PoolFactsBody::assemble(
+        vec![PoolSet {
+            code: "m21".to_string(),
+            name: "Core Set 2021".to_string(),
+        }],
+        vec![baylee_cardtext::CardLine {
+            index: 1,
+            legalities: [("modern".to_string(), "legal".to_string())].into(),
+            printed: vec![("m21".to_string(), "rare".to_string())],
+        }],
+    );
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .apply(LobbyEvent::PoolFacts(std::sync::Arc::new(table.into())));
+    app.update();
+
+    act(&mut app, printing);
+    let at = |key: Key| {
+        OFFERED
+            .iter()
+            .position(|offered| *offered == key)
+            .expect("the menu offers it")
+    };
+    let word = |text: &str| ChoiceWord::new(text).expect("it fits");
+    let text = |app: &App| {
+        app.world()
+            .resource::<LobbyState>()
+            .lobby
+            .builder()
+            .text()
+            .to_string()
+    };
+
+    act(&mut app, Act::Add(at(Key::Rarity)));
+    assert_eq!(text(&app), "r:\"\"");
+    act(&mut app, Act::Choose(0, word("mythic")));
+    assert_eq!(text(&app), "r:mythic");
+
+    act(&mut app, Act::AddStep(Adding::Kinds));
+    act(&mut app, printing);
+    act(&mut app, Act::Add(at(Key::Format)));
+    act(&mut app, Act::Choose(1, word("modern")));
+    assert_eq!(text(&app), "r:mythic f:modern");
+
+    act(&mut app, Act::AddStep(Adding::Kinds));
+    act(&mut app, printing);
+    act(&mut app, Act::Add(at(Key::Set)));
+    act(&mut app, Act::Choose(2, word("m21")));
+    assert_eq!(text(&app), "r:mythic f:modern s:m21");
+}
+
+/// A table reads what the lobby holds, and stops when the lobby stops.
+#[test]
+fn the_table_of_facts_is_lent_to_the_duel_and_taken_back_with_the_pool() {
+    let mut app = headless();
+    stocked(&mut app);
+    app.insert_resource(crate::Duel::default());
+    app.update();
+    assert!(app.world().resource::<crate::Duel>().pool_facts.is_none());
+
+    let table = std::sync::Arc::new(baylee_client_core::cardquery::PoolFacts::default());
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .apply(LobbyEvent::PoolFacts(std::sync::Arc::clone(&table)));
+    app.update();
+    let lent = app.world().resource::<crate::Duel>().pool_facts.clone();
+    assert!(lent.is_some_and(|lent| std::sync::Arc::ptr_eq(&lent, &table)));
+
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .builder_mut()
+        .forget_pool();
+    app.update();
+    assert!(app.world().resource::<crate::Duel>().pool_facts.is_none());
+}
+
 /// Presses one button of the filter panel by what it means, and panics if
 /// nothing on screen means that.
 ///

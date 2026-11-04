@@ -22,6 +22,7 @@ pub(super) fn lend_the_pool(
     let Some(mut duel) = duel else {
         return;
     };
+    lend_the_facts(&mut state, &mailbox, &mut duel);
     if !duel.naming_a_card() {
         return;
     }
@@ -36,6 +37,33 @@ pub(super) fn lend_the_pool(
     });
     if !same {
         duel.naming.pool = Some(std::sync::Arc::new(pool.to_vec()));
+    }
+}
+
+/// Lends the table the gateway's facts about its cards, the way it lends the
+/// pool, and asks for them when something at the table wants them and nobody
+/// has yet: a player may reach a table without opening the deck builder.
+///
+/// Read through `Deref` until there is something to do, because this runs on
+/// every frame and writing through a `ResMut` tells every reader it changed.
+fn lend_the_facts(
+    state: &mut ResMut<LobbyState>,
+    mailbox: &Mailbox,
+    duel: &mut ResMut<crate::Duel>,
+) {
+    let builder = state.lobby.builder();
+    let held = builder.pool_facts();
+    let same = match (held, duel.pool_facts.as_ref()) {
+        (Some(held), Some(lent)) => std::sync::Arc::ptr_eq(held, lent),
+        (None, None) => true,
+        _ => false,
+    };
+    if !same {
+        duel.pool_facts = held.cloned();
+    }
+    let askable = state.offline.is_none() && state.lobby.token().is_some();
+    if askable && held.is_none() && !builder.pool_facts_asked() && duel.wants_pool_facts() {
+        super::poolfacts::ask(state, mailbox);
     }
 }
 

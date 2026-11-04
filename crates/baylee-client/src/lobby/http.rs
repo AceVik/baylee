@@ -71,6 +71,11 @@ pub(super) fn dispatch(state: &mut LobbyState, mailbox: &Mailbox, request: Optio
             _ => {}
         }
     }
+    // What rarity, set and format read; asked beside the pool for the same
+    // reason as the blocks under it, and answered from a kept copy by version.
+    if pool {
+        super::poolfacts::ask(state, mailbox);
+    }
     let login = crate::social::vault_access::Login::from_request(&state.gateway, &request);
     let token = state.lobby.token();
     // The builder marks the cards this gateway blocked (`GET
