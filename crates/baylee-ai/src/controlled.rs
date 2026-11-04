@@ -28,10 +28,12 @@
 //! nothing that did not have to. That was safe and gave the turn away: a
 //! good controller spends the other player's cards and creatures for them.
 
+mod attack;
+
 use baylee_cards_dsl::{AbilityDef, Effect, Filter, KeywordSet, Modifier, TargetReq};
 use baylee_core::ids::{CardIndex, ObjectId, PlayerId};
 use baylee_core::types::TypeSet;
-use baylee_engine::choice::{LegalActions, Pending, PlayerAction};
+use baylee_engine::choice::{LegalActions, NumberPrompt, Pending, PlayerAction};
 use baylee_engine::engine::DecisionContext;
 use baylee_view::{CardIdentity, Phase, PlayerView, Step};
 
@@ -107,9 +109,40 @@ impl HeuristicAgent {
             Pending::Priority { legal, .. } => {
                 Some(self.priority_against(view, &seen_by(view, subject), legal))
             }
-            // What must attack does, and nothing else, until their attack
-            // has a reading of its own.
-            Pending::ChooseAttackers { .. } => baylee_engine::choice::timeout_answer(pending),
+            Pending::ChooseAttackers {
+                attackers,
+                defenders,
+                required,
+                alone,
+                minimum_required,
+                limits,
+                ..
+            } => Some(PlayerAction::DeclareAttackers {
+                attackers: crate::combat::obey_attack_rules(
+                    self.attack_against(view, subject, attackers, defenders, required, limits),
+                    required,
+                    alone,
+                    *minimum_required,
+                    limits,
+                    defenders,
+                ),
+            }),
+            // Their creatures do not block in their own turn, and the rules
+            // say what any block they owe must be (CR 509.1c).
+            Pending::ChooseBlockers { obeying, .. } => Some(PlayerAction::DeclareBlockers {
+                blockers: obeying.clone(),
+            }),
+            Pending::ChooseNumber {
+                min,
+                max,
+                reason:
+                    NumberPrompt::CombatDamage {
+                        source, recipient, ..
+                    },
+                ..
+            } => self
+                .share_against(view, *source, *recipient, *min, *max)
+                .map(PlayerAction::ChooseNumber),
             _ => None,
         }
     }

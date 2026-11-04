@@ -281,3 +281,165 @@ fn this_seats_own_block_in_their_turn_is_unchanged() {
         }
     );
 }
+
+// Their attack, and the damage it divides.
+use baylee_engine::choice::{AttackLimit, NumberPrompt};
+
+fn their_attack(
+    attackers: Vec<ObjectId>,
+    required: Vec<ObjectId>,
+    defenders: Vec<Defender>,
+) -> Pending {
+    Pending::ChooseAttackers {
+        alone: Vec::new(),
+        minimum_required: None,
+        player: THEM,
+        attackers,
+        defenders,
+        required,
+        limits: Vec::new(),
+    }
+}
+
+fn attacking(action: &PlayerAction) -> Vec<(ObjectId, Defender)> {
+    let PlayerAction::DeclareAttackers { attackers } = action else {
+        panic!("attackers: {action:?}");
+    };
+    attackers.clone()
+}
+
+/// Their 2/2 walks into this seat's untapped 4/4, which blocks and kills it
+/// and lives; their 6/6 stays home, since six is more than this seat takes
+/// for the turn after. Played as their own seat, the house sends the
+/// opposite pair.
+#[test]
+fn their_creatures_attack_where_this_seat_eats_them() {
+    let mut v = controlling(
+        vec![
+            sized(obj(1), THEM, 2, 2),
+            sized(obj(2), THEM, 6, 6),
+            sized(obj(3), HOUSE, 4, 4),
+        ],
+        vec![],
+    );
+    v.phase = baylee_view::Phase::Combat;
+    v.step = baylee_view::Step::DeclareAttackers;
+    let pending = their_attack(vec![obj(1), obj(2)], vec![], vec![Defender::Player(HOUSE)]);
+    let agent = agent();
+    assert_eq!(
+        attacking(&agent.act(&v, &pending)),
+        vec![(obj(1), Defender::Player(HOUSE))]
+    );
+    assert_eq!(agent.fallbacks(), 0);
+
+    let mut own = v.clone();
+    own.seat = THEM;
+    own.awaiting = Some(THEM);
+    own.decision_player = Some(THEM);
+    own.controlled_hands.clear();
+    assert_eq!(
+        attacking(&agent.act(&own, &pending)),
+        vec![(obj(2), Defender::Player(HOUSE))],
+        "their own seat sends the 6/6 nothing blocks well, and keeps the 2/2"
+    );
+}
+
+/// Their 1/4 survives this seat's 3/3, so no block kills it; it attacks all
+/// the same, because tapped it cannot block the 3/3 next turn (CR 502.3),
+/// which lets three through for the one it deals. At ten life this seat
+/// spends nothing, and it stays home; a 3/4 deals as much as it would let
+/// through, and stays home too.
+#[test]
+fn their_blocker_is_tapped_down_while_its_damage_is_cheap() {
+    let mut v = controlling(
+        vec![sized(obj(1), THEM, 1, 4), sized(obj(3), HOUSE, 3, 3)],
+        vec![],
+    );
+    v.phase = baylee_view::Phase::Combat;
+    v.step = baylee_view::Step::DeclareAttackers;
+    let pending = their_attack(vec![obj(1)], vec![], vec![Defender::Player(HOUSE)]);
+    assert_eq!(
+        attacking(&agent().act(&v, &pending)),
+        vec![(obj(1), Defender::Player(HOUSE))]
+    );
+    let mut low = v.clone();
+    low.seats[0].life = 10;
+    assert_eq!(attacking(&agent().act(&low, &pending)), vec![]);
+    v.battlefield[0].power = Some(3);
+    assert_eq!(attacking(&agent().act(&v, &pending)), vec![]);
+}
+
+/// A creature that must attack does (CR 508.1d), at this seat rather than
+/// its planeswalker, and nothing else goes with it.
+#[test]
+fn what_must_attack_attacks_this_seat_and_nothing_else_does() {
+    let mut v = controlling(
+        vec![
+            sized(obj(1), THEM, 5, 5),
+            sized(obj(2), THEM, 5, 5),
+            walker(obj(9), HOUSE, 3),
+        ],
+        vec![],
+    );
+    v.phase = baylee_view::Phase::Combat;
+    v.step = baylee_view::Step::DeclareAttackers;
+    let pending = their_attack(
+        vec![obj(1), obj(2)],
+        vec![obj(2)],
+        vec![Defender::Planeswalker(obj(9)), Defender::Player(HOUSE)],
+    );
+    let agent = agent();
+    assert_eq!(
+        attacking(&agent.act(&v, &pending)),
+        vec![(obj(2), Defender::Player(HOUSE))]
+    );
+    assert_eq!(agent.fallbacks(), 0);
+    // A limit is still the engine's: one that may attack only the walker
+    // goes there.
+    let Pending::ChooseAttackers { mut limits, .. } = pending.clone() else {
+        unreachable!()
+    };
+    limits.push(AttackLimit {
+        creature: obj(2),
+        defenders: vec![Defender::Planeswalker(obj(9))],
+    });
+    let limited = Pending::ChooseAttackers {
+        alone: Vec::new(),
+        minimum_required: None,
+        player: THEM,
+        attackers: vec![obj(1), obj(2)],
+        defenders: vec![Defender::Planeswalker(obj(9)), Defender::Player(HOUSE)],
+        required: vec![obj(2)],
+        limits,
+    };
+    assert_eq!(
+        attacking(&agent.act(&v, &limited)),
+        vec![(obj(2), Defender::Planeswalker(obj(9)))]
+    );
+    assert_eq!(agent.fallbacks(), 0);
+}
+
+/// Their attacker's damage divided among this seat's blockers gives each
+/// what it survives (CR 510.1c–d), so the fewest die.
+#[test]
+fn their_divided_damage_spares_this_seats_blockers() {
+    let mut v = controlling(
+        vec![sized(obj(1), THEM, 5, 5), sized(obj(3), HOUSE, 3, 3)],
+        vec![],
+    );
+    v.phase = baylee_view::Phase::Combat;
+    v.step = baylee_view::Step::DeclareBlockers;
+    let pending = Pending::ChooseNumber {
+        player: THEM,
+        min: 0,
+        max: 5,
+        reason: NumberPrompt::CombatDamage {
+            source: obj(1),
+            recipient: obj(3),
+            index: 0,
+            of: 2,
+            left: 5,
+        },
+    };
+    assert_eq!(agent().act(&v, &pending), PlayerAction::ChooseNumber(2));
+}
