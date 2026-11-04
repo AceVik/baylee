@@ -250,6 +250,7 @@ impl Duel {
             self.follow_pending = None;
         }
         self.follow_the_turn(&view);
+        self.end_a_controlled_decision(&view);
         self.table_mana = manasources::table_mana(&view);
         self.view = Some(view);
         let was_choosing = self.browser.for_choice();
@@ -261,6 +262,40 @@ impl Duel {
         // ever lowers, so asking on both edges is safe.
         self.cap_x();
         self.refresh_owed_plan();
+    }
+
+    /// Lets go of what this seat held for a player it controlled once `next`
+    /// no longer hands it that player's decision: the controlled turn ended
+    /// (CR 723.1), or the decision passed to this seat's own question in it
+    /// (CR 723.8) or to somebody else.
+    ///
+    /// A seat is sent questions only while it is asked one, so nothing else
+    /// would ever replace a controlled question this seat did not answer
+    /// itself (a clock that ran out): it stood as this seat's own, the shelf
+    /// offering to pass a priority the controlled player no longer holds.
+    /// An armed deed goes whenever the deciding player changes, since it
+    /// is that player's card and that player's mana; a game without control
+    /// never changes it, so nothing here touches one.
+    fn end_a_controlled_decision(&mut self, next: &PlayerView) {
+        let now = baylee_client_core::decision::resource_player(next);
+        let before = self
+            .view
+            .as_ref()
+            .map(baylee_client_core::decision::resource_player);
+        if before.is_some_and(|before| before != now) {
+            self.armed = None;
+        }
+        let stale = self
+            .interaction
+            .as_ref()
+            .is_some_and(|i| i.subject() != next.seat && i.subject() != now);
+        if stale {
+            self.interaction = None;
+            self.mana_run = None;
+            self.cast_answer = None;
+            self.cast_menu = None;
+            self.ability_menu = None;
+        }
     }
 
     /// Caps a cast's X question at what this seat's own mana pays (#20).
@@ -296,11 +331,17 @@ impl Duel {
         else {
             return None;
         };
-        if *player != view.seat {
+        // The caster's own pool and lands, which are the controlled player's
+        // while this seat casts for them (CR 723.5a).
+        if *player != baylee_client_core::decision::resource_player(view) {
             return None;
         }
         let card = view.casting?;
-        let legal = self.priority_legal.as_ref()?;
+        let legal = self
+            .priority_legal
+            .as_ref()
+            .filter(|(of, _)| of == player)
+            .map(|(_, legal)| legal)?;
         let cost = spell_cost(view, legal, card)?;
         let pool = view
             .seat(baylee_client_core::decision::resource_player(view))?
@@ -660,13 +701,17 @@ impl Duel {
     /// and returns the attacker the last one was a river label for.
     fn install_question(&mut self, pending: Pending, seat: PlayerId) -> Option<ObjectId> {
         let label_before = self.interaction.as_ref().and_then(river_label);
-        if let Some(legal) = self
+        // The priority this seat answered, for itself or for the player it
+        // controls (`is_mine` reads the player it was installed for), kept
+        // with that player: the lands one player could tap cap no X another
+        // announces.
+        if let Some((player, legal)) = self
             .interaction
             .as_ref()
-            .filter(|i| matches!(i.pending(), Pending::Priority { player, .. } if *player == seat))
-            .and_then(Interaction::legal_actions)
+            .filter(|i| i.is_mine() && matches!(i.pending(), Pending::Priority { .. }))
+            .and_then(|i| Some((i.subject(), i.legal_actions()?)))
         {
-            self.priority_legal = Some(legal.clone());
+            self.priority_legal = Some((player, legal.clone()));
         }
         self.interaction = Some(Interaction::new_keeping(
             pending,
@@ -753,11 +798,15 @@ impl Duel {
         self.leave_armed = false;
         // An armed deed survives this, and that is the point. Only a question
         // that is *not* this seat's priority window takes it — everything
-        // armable is a priority-window action.
-        if !matches!(
-            self.interaction.as_ref().map(Interaction::pending),
-            Some(Pending::Priority { player, .. }) if *player == seat
-        ) {
+        // armable is a priority-window action. This seat's, whoever it
+        // answers for: a controlled player's priority is the window it arms
+        // that player's cards in (CR 723.5), and the deed is dropped when the
+        // decision passes between them (`end_a_controlled_decision`).
+        let my_priority = self
+            .interaction
+            .as_ref()
+            .is_some_and(|i| i.is_mine() && matches!(i.pending(), Pending::Priority { .. }));
+        if !my_priority {
             self.armed = None;
         }
         // A chosen way is owed to exactly one question, and this is where it
@@ -767,13 +816,7 @@ impl Duel {
         // in between fails one of the three — a run's taps come back as
         // priority *with* a run, a `ChooseColor` is not priority at all, and
         // the `ChooseCastMode` this is for is not either.
-        if self.mana_run.is_none()
-            && self.armed.is_none()
-            && matches!(
-                self.interaction.as_ref().map(Interaction::pending),
-                Some(Pending::Priority { player, .. }) if *player == seat
-            )
-        {
+        if self.mana_run.is_none() && self.armed.is_none() && my_priority {
             self.cast_answer = None;
         }
         rebuild_board(self);
@@ -811,6 +854,30 @@ impl Duel {
     #[must_use]
     pub fn seat(&self) -> Option<PlayerId> {
         self.statics.as_ref().map(|s| s.your_seat)
+    }
+
+    /// The player whose decision this seat is making, and whose cards, mana
+    /// and permanents it spends: the local seat, or the player it controls
+    /// while it is asked that player's question (CR 723.5, 723.5a;
+    /// [`baylee_client_core::decision::resource_player`]). Its own questions
+    /// in that turn (CR 723.8) are the local seat's again.
+    ///
+    /// [`Self::seat`] stays the answer wherever the meaning is this client's
+    /// own chair: whose camera, whose cues, whose result.
+    #[must_use]
+    pub fn actor(&self) -> Option<PlayerId> {
+        self.view
+            .as_ref()
+            .map(baylee_client_core::decision::resource_player)
+            .or_else(|| self.seat())
+    }
+
+    /// The other player this seat is deciding for right now, if it is
+    /// (CR 723.5): [`Self::actor`] when that is not the local seat.
+    #[must_use]
+    pub fn deciding_for(&self) -> Option<PlayerId> {
+        let view = self.view.as_ref()?;
+        Some(baylee_client_core::decision::resource_player(view)).filter(|p| *p != view.seat)
     }
 
     /// The follow switch's half of a view arriving (DESIGN-v8 §1.1): a turn
@@ -1101,9 +1168,10 @@ impl Duel {
         self.hand_drawer.toggle(view, pending);
     }
 
-    /// How many cards in my hand are castable now (the tab says so: a
-    /// priority with something castable does not open the drawer by
-    /// itself).
+    /// How many cards in the hand this seat plays from are castable now (the
+    /// tab says so: a priority with something castable does not open the
+    /// drawer by itself). Its own hand, or the controlled player's while it
+    /// decides for them (`decision::hand`, CR 723.5a).
     #[must_use]
     pub fn castable_in_hand(&self) -> usize {
         let (Some(view), Some(legal)) = (
@@ -1114,14 +1182,14 @@ impl Duel {
         ) else {
             return 0;
         };
-        view.hand
+        baylee_client_core::decision::hand(view)
             .iter()
             .filter(|card| legal.castable.contains(&card.id) || legal.lands.contains(&card.id))
             .count()
     }
 
-    /// Whether a spell in my hand can be cast now (a land drop cannot be
-    /// cancelled: the table tour's T8 asks for a cast).
+    /// Whether a spell in the hand this seat plays from can be cast now (a
+    /// land drop cannot be cancelled: the table tour's T8 asks for a cast).
     #[must_use]
     pub fn a_spell_is_castable(&self) -> bool {
         let (Some(view), Some(legal)) = (
@@ -1132,7 +1200,7 @@ impl Duel {
         ) else {
             return false;
         };
-        view.hand
+        baylee_client_core::decision::hand(view)
             .iter()
             .any(|card| legal.castable.contains(&card.id))
     }

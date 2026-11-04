@@ -63,7 +63,18 @@
 //! `baylee-client-core` deliberately links neither.
 
 use baylee_cards_dsl::{AbilityDef, Filter, KeywordSet, PlayerRel, TargetSpec};
+use baylee_core::ids::PlayerId;
 use baylee_view::{CardIdentity, PlayerView, PublicObject, StackItem};
+
+/// The "you" of a card's text: the player who would cast it, which is the
+/// deciding player and not always this seat. While this seat makes another
+/// player's decisions (CR 723.5, Mindslaver) that player casts the spell, so
+/// "creature you control" is that player's and "an opponent" may be this
+/// seat; reading `view.seat` there withheld a removal spell aimed at this
+/// seat's own creatures, which the controlled player may legally cast.
+fn you(view: &PlayerView) -> PlayerId {
+    baylee_client_core::decision::resource_player(view)
+}
 
 /// Whether this client can **prove** the card has no legal target.
 ///
@@ -144,7 +155,7 @@ fn legal_targets(view: &PlayerView, spec: &TargetSpec) -> Option<usize> {
             view,
             view.battlefield
                 .iter()
-                .filter(|o| o.controller != view.seat),
+                .filter(|o| o.controller != you(view)),
             filter,
         ),
         // The stack holds both kinds and these three specs want different
@@ -197,7 +208,7 @@ fn legal_targets(view: &PlayerView, spec: &TargetSpec) -> Option<usize> {
         // still the right set to prove emptiness over, because no choice of
         // opponent can find a card that is in nobody's graveyard.
         TargetSpec::CardInGraveyard(filter, rel) => {
-            let mine = usize::from(view.seat.get());
+            let mine = usize::from(you(view).get());
             let piles: Vec<&PublicObject> = match rel {
                 PlayerRel::You => view.graveyards.get(mine).into_iter().flatten().collect(),
                 PlayerRel::EachPlayer | PlayerRel::Chosen => {
@@ -386,7 +397,7 @@ pub(crate) fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter)
             }
             present != 0
         }
-        Filter::ControlledByYou => object.controller == view.seat,
+        Filter::ControlledByYou => object.controller == you(view),
         // Exact at a duel and refused above it. The engine asks
         // `state.is_opponent`, which knows about teams; a `PlayerView` does
         // not — `SeatIdentity::team` rides in `GameStatic` and never here —
@@ -402,8 +413,8 @@ pub(crate) fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter)
             let opponent = duel_opponent(view, object, view.active)?;
             view.phase == baylee_view::Phase::Combat && opponent
         }
-        Filter::ControlledByOpponent => duel_opponent(view, object, view.seat)?,
-        Filter::OwnedByYou => object.owner == view.seat,
+        Filter::ControlledByOpponent => duel_opponent(view, object, you(view))?,
+        Filter::OwnedByYou => object.owner == you(view),
         Filter::Tapped => object.status.is_tapped(),
         Filter::Untapped => !object.status.is_tapped(),
         Filter::Attacking => view
@@ -552,7 +563,7 @@ fn targets_permanent_you_control(view: &PlayerView, object: &PublicObject) -> Op
             unknown = true;
             continue;
         }
-        if target.controller == view.seat {
+        if target.controller == you(view) {
             return Some(true);
         }
     }
@@ -560,11 +571,7 @@ fn targets_permanent_you_control(view: &PlayerView, object: &PublicObject) -> Op
 }
 
 /// Public seat identities determine opposition only in a two-player game.
-fn duel_opponent(
-    view: &PlayerView,
-    object: &PublicObject,
-    player: baylee_core::ids::PlayerId,
-) -> Option<bool> {
+fn duel_opponent(view: &PlayerView, object: &PublicObject, player: PlayerId) -> Option<bool> {
     (view.seats.len() == 2).then_some(object.controller != player)
 }
 
@@ -658,6 +665,39 @@ mod tests {
         assert!(
             provably_targetless(&view, in_hand("Counterspell")),
             "a creature on the table is not a spell on the stack"
+        );
+    }
+
+    /// Mindslaver (CR 723.5): while this seat casts the controlled player's
+    /// spells, "you" is that player. Its "creature you control" is theirs and
+    /// "an opponent" includes this seat, so their removal may be aimed at
+    /// this seat's creatures and their pump at their own, and no proof here
+    /// withholds either. Its own question again, "you" is this seat.
+    #[test]
+    fn a_controlled_players_you_is_that_player() {
+        let mine = printed(3, 0, "Grizzly Bears", 3);
+        let theirs = printed(4, 1, "Grizzly Bears", 3);
+        let mut view = ViewBuilder::new(2)
+            .controlling(1, vec![])
+            .with_battlefield(0, vec![mine.clone()])
+            .with_battlefield(1, vec![theirs.clone()])
+            .build();
+        let read = |view: &PlayerView, id, filter: &Filter| {
+            let object = view.battlefield.iter().find(|o| o.id == id).unwrap();
+            matches(view, object, filter)
+        };
+        assert_eq!(read(&view, theirs.id, &Filter::ControlledByYou), Some(true));
+        assert_eq!(read(&view, mine.id, &Filter::ControlledByYou), Some(false));
+        assert_eq!(
+            read(&view, mine.id, &Filter::ControlledByOpponent),
+            Some(true)
+        );
+        assert_eq!(read(&view, theirs.id, &Filter::OwnedByYou), Some(true));
+        view.decision_player = Some(view.seat);
+        assert_eq!(read(&view, mine.id, &Filter::ControlledByYou), Some(true));
+        assert_eq!(
+            read(&view, theirs.id, &Filter::ControlledByOpponent),
+            Some(true)
         );
     }
 

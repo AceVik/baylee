@@ -348,10 +348,12 @@ fn hand_refusal(duel: &Duel, object: ObjectId) -> Option<Phrase> {
     if crate::targeting::only_a_dearer_mode_is_left(view, card.card) {
         return Some(Phrase::OnlyDearerModeLeft);
     }
+    // The deciding player's priority: this seat's, or the controlled
+    // player's whose card this is (CR 723.5).
     let priority = duel.interaction.as_ref().is_some_and(|i| {
         matches!(
         i.pending(), baylee_engine::choice::Pending::Priority { player, .. }
-            if *player == view.seat)
+            if *player == baylee_client_core::decision::resource_player(view))
     });
     let flash = baylee_cards::by_index(card.card.index).is_some_and(|def| {
         def.keywords.contains(baylee_cards_dsl::KeywordSet::FLASH)

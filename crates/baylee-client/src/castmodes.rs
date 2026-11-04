@@ -67,6 +67,7 @@
 //! nothing else, so here there is no tax to add rather than one left unread.
 
 use baylee_cards_dsl::{AltCondition, CostPart, Filter};
+use baylee_client_core::decision::resource_player;
 use baylee_client_core::manaplan::Plan;
 use baylee_core::ids::ObjectId;
 use baylee_core::mana::ManaCost;
@@ -123,7 +124,7 @@ pub fn reachable_modes(
         return Vec::new();
     };
     let Some((pool, life)) = view
-        .seat(baylee_client_core::decision::resource_player(view))
+        .seat(resource_player(view))
         .map(|s| (s.mana_pool, s.life))
     else {
         return Vec::new();
@@ -222,7 +223,7 @@ fn foretell_mode(
     face: &baylee_cards_dsl::FaceDef,
     pool: &baylee_view::ManaPoolView,
 ) -> Option<ReachableMode> {
-    if view.active != view.seat || face.foretell.is_none() {
+    if view.active != resource_player(view) || face.foretell.is_none() {
         return None;
     }
     let cost = const { ManaCost::parse("{2}") };
@@ -242,19 +243,17 @@ fn foretell_mode(
 fn condition_holds(view: &PlayerView, condition: AltCondition) -> bool {
     match condition {
         AltCondition::Always => true,
-        AltCondition::NotYourTurn => view.active != view.seat,
+        AltCondition::NotYourTurn => view.active != resource_player(view),
         // `casting::controls_a_commander`, in the words a view has: a
         // commander handle follows its card through every zone (CR 400.7), so
         // the battlefield is asked rather than the handle believed.
-        AltCondition::CommanderControlled => view
-            .seat(baylee_client_core::decision::resource_player(view))
-            .is_some_and(|seat| {
-                seat.commanders.iter().any(|c| {
-                    view.battlefield
-                        .iter()
-                        .any(|o| o.id == c.object && o.controller == view.seat)
-                })
-            }),
+        AltCondition::CommanderControlled => view.seat(resource_player(view)).is_some_and(|seat| {
+            seat.commanders.iter().any(|c| {
+                view.battlefield
+                    .iter()
+                    .any(|o| o.id == c.object && o.controller == seat.player)
+            })
+        }),
     }
 }
 
@@ -272,7 +271,7 @@ fn parts_payable(view: &PlayerView, card: ObjectId, parts: &[CostPart]) -> bool 
     }
     parts.iter().all(|part| match part {
         CostPart::PayLife(n) => view
-            .seat(view.seat)
+            .seat(resource_player(view))
             .is_some_and(|seat| seat.life >= i32::from(*n)),
         // Collective availability, including distinct cards and permanents
         // for repeated parts, was established by the two matchers above.
@@ -332,10 +331,13 @@ fn permanents_payable(view: &PlayerView, parts: &[CostPart]) -> bool {
             _ => {}
         }
     }
+    // The payer's permanents, the controlled player's while this seat casts
+    // for them (CR 723.5a).
+    let payer = resource_player(view);
     let candidates = view
         .battlefield
         .iter()
-        .filter(|object| object.controller == view.seat)
+        .filter(|object| object.controller == payer)
         .collect::<Vec<_>>();
     let mut assigned = vec![None; candidates.len()];
     (0..requirements.len()).all(|part| {

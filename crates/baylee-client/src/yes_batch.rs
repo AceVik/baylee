@@ -1,4 +1,5 @@
 //! One explicit yes for the finite run of identical abilities already stacked.
+use baylee_client_core::decision::resource_player;
 use baylee_core::ids::ObjectId;
 use baylee_engine::choice::{Pending, PlayerAction, YesNoPrompt};
 use baylee_view::{PlayerView, StackItem};
@@ -12,15 +13,19 @@ pub struct YesBatch {
 }
 
 /// Consecutive identical abilities, starting with the current may decision.
+///
+/// The deciding player's: this seat's own, or those of the player it
+/// controls while it answers that player's "may" (CR 723.5).
 pub fn candidates(view: &PlayerView, pending: &Pending) -> Vec<ObjectId> {
+    let deciding = resource_player(view);
     if !matches!(pending, Pending::YesNo {
         player, prompt: YesNoPrompt::MayDo, ..
-    } if *player == view.seat)
+    } if *player == deciding)
     {
         return Vec::new();
     }
     let Some(top) = view.stack.last().filter(|o| {
-        o.controller == view.seat && matches!(o.stack_item, Some(StackItem::Ability { .. }))
+        o.controller == deciding && matches!(o.stack_item, Some(StackItem::Ability { .. }))
     }) else {
         return Vec::new();
     };
@@ -60,11 +65,16 @@ impl YesBatch {
     }
 
     /// Answer once per snapshot and stop at any unrelated decision.
+    ///
+    /// Only for the player whose abilities were approved. While this seat
+    /// controls another player, its own priority in between (CR 723.8) is a
+    /// decision the approval never covered, and it is left to the player.
     pub fn answer(&mut self, view: &PlayerView, pending: &Pending) -> Option<PlayerAction> {
         if self.sent_at == Some(view.seq) {
             return None;
         }
-        let top = view.stack.last()?.id;
+        let top = view.stack.last()?;
+        let (top, approved_for) = (top.id, top.controller);
         if self.answered == Some(top) {
             return None;
         }
@@ -72,12 +82,15 @@ impl YesBatch {
             self.remaining.clear();
             return None;
         }
+        let deciding = resource_player(view);
+        let ours =
+            |player: &baylee_core::ids::PlayerId| *player == deciding && deciding == approved_for;
         let answer = match pending {
             Pending::YesNo {
                 player,
                 prompt: YesNoPrompt::MayDo,
                 ..
-            } if *player == view.seat => {
+            } if ours(player) => {
                 self.remaining.retain(|id| *id != top);
                 self.answered = Some(top);
                 PlayerAction::YesNo(true)
@@ -85,14 +98,12 @@ impl YesBatch {
             // A payment window is a priority this seat owes mana in: passing
             // it refuses the payment (#01), so the batch stops there.
             Pending::Priority { player, .. }
-                if *player == view.seat
-                    && view.owed.is_some()
-                    && view.awaiting == Some(view.seat) =>
+                if ours(player) && view.owed.is_some() && view.awaiting == Some(view.seat) =>
             {
                 self.remaining.clear();
                 return None;
             }
-            Pending::Priority { player, .. } if *player == view.seat => PlayerAction::PassPriority,
+            Pending::Priority { player, .. } if ours(player) => PlayerAction::PassPriority,
             Pending::Priority { .. } => return None,
             _ => {
                 self.remaining.clear();
@@ -244,5 +255,67 @@ mod tests {
         view.awaiting = Some(view.seat);
         assert_eq!(batch.answer(&view, &priority(&view)), None);
         assert!(batch.is_idle(), "and it does not go on after it");
+    }
+
+    /// Mindslaver (CR 723.5): the controlled player's stacked "may"
+    /// abilities are this seat's to answer, so one yes covers their run and
+    /// the controlled player's priority between them is passed. This seat's
+    /// own priority in the same turn (CR 723.8) is its own decision, which
+    /// the approval did not cover.
+    #[test]
+    fn a_controlled_players_run_is_batched_and_the_seats_own_priority_is_not_passed() {
+        let them = PlayerId::new(1);
+        let mut view = ViewBuilder::new(2).controlling(1, vec![]).build();
+        for id in 1..=3 {
+            let mut o = token(id, 1, "Ondu Cleric", 1, 1);
+            o.stack_item = Some(StackItem::Ability {
+                token: None,
+                source: ObjectId::new(500 + id, 0),
+                ability: None,
+                rules: Some(baylee_view::RulesFace {
+                    card: baylee_core::ids::CardIndex::new(12),
+                    face: 0,
+                }),
+                text: Some(baylee_view::StackText {
+                    face: 0,
+                    line: 0,
+                    of: 1,
+                }),
+            });
+            view.stack.push(o);
+        }
+        let may = |player| Pending::YesNo {
+            player,
+            prompt: YesNoPrompt::MayDo,
+            source: None,
+        };
+        assert!(
+            YesBatch::begin(&view, &may(view.seat)).is_none(),
+            "this seat is not the one asked"
+        );
+        let mut batch = YesBatch::begin(&view, &may(them)).expect("their run");
+        assert_eq!(
+            batch.answer(&view, &may(them)),
+            Some(PlayerAction::YesNo(true))
+        );
+        view.stack.pop();
+        view.seq += 1;
+        let priority = |player| Pending::Priority {
+            player,
+            legal: Box::default(),
+        };
+        assert_eq!(
+            batch.answer(&view, &priority(them)),
+            Some(PlayerAction::PassPriority),
+            "the controlled player's priority between the answers"
+        );
+        view.seq += 1;
+        view.decision_player = Some(view.seat);
+        assert_eq!(
+            batch.answer(&view, &priority(view.seat)),
+            None,
+            "this seat's own priority is left to it"
+        );
+        assert!(!batch.is_idle(), "and the run waits for it");
     }
 }

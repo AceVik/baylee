@@ -958,7 +958,10 @@ pub struct Duel {
     /// it for a cast's X question: that question carries no mana abilities
     /// of its own (only priority does), and the mana it is paid with is made
     /// after it is answered (CR 601.2b, 601.2g). See [`Self::cap_x`].
-    priority_legal: Option<baylee_engine::choice::LegalActions>,
+    ///
+    /// Kept with the player that priority was answered for: this seat, or
+    /// the player it controls (CR 723.5a), whose lands are not its own.
+    priority_legal: Option<(PlayerId, baylee_engine::choice::LegalActions)>,
     /// Actions waiting to be sent.
     outbox: Vec<PlayerAction>,
     /// The last thing that went wrong, shown in the prompt bar.
@@ -1281,7 +1284,12 @@ fn run_autopilot(mut duel: ResMut<Duel>, prefs: Res<prefs::Prefs>) {
         let Some(view) = duel.view.as_ref() else {
             return;
         };
-        let active_is_mine = view.active == view.seat;
+        // Read from the deciding player's chair: a turn this seat controls
+        // (CR 723.5) is played as its own, so `skip_opponent_turns` does not
+        // pass the controlled player's whole turn away, and "the other side"
+        // is the controlled player's opponents.
+        let deciding = baylee_client_core::decision::resource_player(view);
+        let active_is_mine = view.active == deciding;
         let Some(interaction) = duel.interaction.as_ref() else {
             return;
         };
@@ -1298,7 +1306,7 @@ fn run_autopilot(mut duel: ResMut<Duel>, prefs: Res<prefs::Prefs>) {
                 opposing_stack: view
                     .stack
                     .iter()
-                    .any(|o| !hud::same_team(duel.statics.as_ref(), o.controller, view.seat)),
+                    .any(|o| !hud::same_team(duel.statics.as_ref(), o.controller, deciding)),
                 // What this client is offering that the engine's list does
                 // not name. Without it `pass_when_nothing_to_do` reads an
                 // empty `castable` over four untapped Forests as an empty
@@ -1736,6 +1744,8 @@ mod owed_tests;
 
 #[cfg(test)]
 mod activation_payment_tests;
+#[cfg(test)]
+mod controlled_turn_tests;
 #[cfg(test)]
 mod reachable_tests;
 
