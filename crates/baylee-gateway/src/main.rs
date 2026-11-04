@@ -29,6 +29,7 @@ mod moderation;
 mod namebook;
 mod openapi;
 mod pool;
+mod poolfacts;
 mod presence;
 mod record;
 mod recordexport;
@@ -163,6 +164,9 @@ struct AppState {
     /// The pool's card text per language, until the catalog's data stamp
     /// moves. See `texts.rs`.
     texts: texts::TextCache,
+    /// The pool's table (`GET /pool/facts`), until the catalog's data stamp
+    /// moves. See `poolfacts.rs`.
+    pool_facts: poolfacts::PoolFactsCache,
     /// The disk mirror of card art (`BAYLEE_ART_PATH`, `off` to disable).
     ///
     /// An `Arc` of its own because the warming task outlives the request that
@@ -422,6 +426,7 @@ async fn main() {
         ),
         catalog,
         texts: texts::TextCache::default(),
+        pool_facts: poolfacts::PoolFactsCache::default(),
         art: Arc::new(art::ArtCache::from_env()),
         deck_images: Arc::new(cosmetics::Store::from_env()),
         feedback: report::Feedback::from_env()
@@ -552,6 +557,7 @@ async fn main() {
         .route("/agent/ws", get(engine::agent_ws))
         .route("/engine/ws", get(engine::engine_ws))
         .route("/pool", get(pool::pool))
+        .route("/pool/facts", get(poolfacts::pool_facts))
         .route("/printings", get(pool::printings))
         .route("/catalog/text", get(catalog_text))
         .route("/catalog/search", get(catalog_search))
