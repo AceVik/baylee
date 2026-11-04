@@ -46,6 +46,10 @@ pub struct CardBody {
     pub cost_reduction: Option<String>,
     /// `entwine` expression for the front face, when present.
     pub entwine: Option<String>,
+    /// `buyback` expression for the front face, when present.
+    pub buyback: Option<String>,
+    /// `multikicker` expression for the front face, when present.
+    pub multikicker: Option<String>,
     /// `KeywordSet` constants to union.
     pub keywords: Vec<String>,
     /// Ability expressions for the card literal.
@@ -64,6 +68,8 @@ impl CardBody {
             && self.foretell.is_none()
             && self.cost_reduction.is_none()
             && self.entwine.is_none()
+            && self.buyback.is_none()
+            && self.multikicker.is_none()
             && self.keywords.is_empty()
     }
 

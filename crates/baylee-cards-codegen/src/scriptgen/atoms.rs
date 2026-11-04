@@ -37,6 +37,11 @@ pub(super) fn amount(raw: &str, svars: &BTreeMap<String, String>, has_x: bool) -
     if svars.get(raw).map(|def| def.trim()) == Some("PlayerCountPropertyYou$DamageThisTurn") {
         return Some("Amount::DamageDealtToYouThisTurn".to_string());
     }
+    // "For each time it was kicked" (CR 702.33d), which the reference writes
+    // under the same letter.
+    if svars.get(raw).map(|def| def.trim()) == Some("Count$TimesKicked") {
+        return Some("Amount::TimesKicked".to_string());
+    }
     if let Some(kind) = svars
         .get(raw)
         .and_then(|def| def.trim().strip_prefix("Count$CardCounters."))

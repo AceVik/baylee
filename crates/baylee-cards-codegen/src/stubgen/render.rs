@@ -189,6 +189,14 @@ fn render_card(
             (Some(body), 0) => body.entwine.as_deref(),
             _ => None,
         };
+        let buyback = match (&land, i) {
+            (Some(body), 0) => body.buyback.as_deref(),
+            _ => None,
+        };
+        let multikicker = match (&land, i) {
+            (Some(body), 0) => body.multikicker.as_deref(),
+            _ => None,
+        };
         face_defs.push_str(&render_face(
             &card.name,
             f,
@@ -198,6 +206,8 @@ fn render_card(
             foretell,
             cost_reduction,
             entwine,
+            buyback,
+            multikicker,
             i > 0,
             card.layout.as_deref(),
         )?);

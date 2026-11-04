@@ -55,6 +55,12 @@ impl Tx<'_> {
             self.body.notes.push("entwine".to_string());
             return Some(());
         }
+        if let Some(rest) = line.strip_prefix("Buyback:") {
+            return self.buyback(rest);
+        }
+        if let Some(rest) = line.strip_prefix("Multikicker:") {
+            return self.multikicker(rest);
+        }
         if let Some(rest) = line.strip_prefix("Affinity:") {
             return self.affinity(rest);
         }
@@ -356,6 +362,43 @@ impl Tx<'_> {
         }
         self.body.flashback = Some(format!("Some(mana!(\"{mana}\"))"));
         self.body.notes.push("flashback".to_string());
+        Some(())
+    }
+
+    /// `K:Buyback:<cost>` (CR 702.27a), mana or parts: "Sacrifice a land",
+    /// "Pay 3 life, Discard a card at random". Only parts the cast pays are
+    /// read: another one written here would be cast for free.
+    pub(super) fn buyback(&mut self, rest: &str) -> Option<()> {
+        if rest.contains(':') {
+            return self.deny(format!("a `Buyback` with extra fields `{rest}`"));
+        }
+        let (mana, parts) = self.cost_pieces(rest)?;
+        let paid = |part: &String| {
+            part.starts_with("PayLife(")
+                || part.starts_with("Sacrifice(")
+                || part.starts_with("Discard(")
+                || part == "DiscardRandom"
+        };
+        if !parts.iter().all(paid) {
+            return self.deny(format!("a `Buyback` cost `{rest}` the cast cannot pay"));
+        }
+        let cost = crate::body::cost_literal(&mana, &parts);
+        self.body.buyback = Some(format!("Some({cost})"));
+        self.body.notes.push("buyback".to_string());
+        Some(())
+    }
+
+    /// `K:Multikicker:<cost>` (CR 702.33c). Every printed one is mana.
+    pub(super) fn multikicker(&mut self, rest: &str) -> Option<()> {
+        if rest.contains(':') {
+            return self.deny(format!("a `Multikicker` with extra fields `{rest}`"));
+        }
+        let (mana, parts) = self.cost_pieces(rest)?;
+        if mana.is_empty() || !parts.is_empty() {
+            return self.deny(format!("a non-mana `Multikicker` cost `{rest}`"));
+        }
+        self.body.multikicker = Some(format!("Some(mana!(\"{mana}\"))"));
+        self.body.notes.push("multikicker".to_string());
         Some(())
     }
 
