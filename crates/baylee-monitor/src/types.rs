@@ -11,39 +11,62 @@ use serde::Serialize;
 pub(crate) struct Facts {
     pub hostname: String,
     pub os: String,
+    pub kernel: Option<String>,
     pub cpu: String,
     pub physical_cores: Option<usize>,
     pub threads: usize,
     pub interval_ms: u64,
 }
 
-#[derive(Clone, Default, Serialize)]
+/// One moment in the graphs. Thousands of these are kept and sent to every new
+/// viewer, so numbers are rounded to what a graph can show: rates to whole
+/// bytes per second, percentages and sensors to a tenth.
+#[derive(Clone, Debug, Default, PartialEq, Serialize)]
 pub(crate) struct Point {
     pub at_ms: u64,
     pub cpu: f32,
-    pub ram: f64,
-    pub gpu: Option<f64>,
-    pub vram: Option<f64>,
-    pub gpu_watts: Option<f64>,
-    pub cpu_watts: Option<f64>,
-    pub net_rx: f64,
-    pub net_tx: f64,
-    pub swap: f64,
-    pub swap_in: u64,
-    pub swap_out: u64,
+    pub ram: f32,
+    pub swap: f32,
     pub iowait: f32,
-    pub disk_read: u64,
-    pub disk_write: u64,
+    pub gpu: Option<f32>,
+    pub vram: Option<f32>,
+    pub gpu_watts: Option<f32>,
+    pub cpu_watts: Option<f32>,
     pub cpu_temp: Option<f32>,
     pub gpu_temp: Option<f32>,
     pub psi_cpu: Option<f32>,
     pub psi_mem: Option<f32>,
     pub psi_io: Option<f32>,
+    pub net_rx: u64,
+    pub net_tx: u64,
+    pub disk_read: u64,
+    pub disk_write: u64,
+    pub swap_in: u64,
+    pub swap_out: u64,
+    pub disks: Vec<DiskPoint>,
+    pub nets: Vec<NetPoint>,
+    pub gpus: Vec<GpuPoint>,
+}
+
+/// Name, read and write rate, busy percentage.
+pub(crate) type DiskPoint = (String, u64, u64, f32);
+/// Name, receive and send rate.
+pub(crate) type NetPoint = (String, u64, u64);
+/// Index, utilization, memory percentage, watts, temperature.
+pub(crate) type GpuPoint = (u32, Option<f32>, Option<f32>, Option<f32>, Option<f32>);
+
+/// Rounds to a tenth, which also keeps the JSON short.
+pub(crate) fn tenths(value: f64) -> f32 {
+    ((value * 10.0).round() / 10.0) as f32
 }
 
 /// Where the CPU's time went and what the scheduler is doing.
-#[derive(Clone, Serialize)]
+#[derive(Clone, Default, Serialize)]
 pub(crate) struct CpuDetail {
+    /// Percent of all logical CPUs.
+    pub usage: f32,
+    /// The package's power, where its energy counter is readable.
+    pub watts: Option<f64>,
     pub shares: CpuShares,
     pub context_switches_per_s: f64,
     pub interrupts_per_s: f64,
@@ -54,7 +77,7 @@ pub(crate) struct CpuDetail {
     pub boot_ms: u64,
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Default, Serialize)]
 pub(crate) struct Memory {
     pub total: u64,
     /// Not available for new work, by the OS's own accounting.
@@ -72,7 +95,7 @@ pub(crate) struct Memory {
     pub oom_kills: u64,
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Default, Serialize)]
 pub(crate) struct Swap {
     pub total: u64,
     pub used: u64,
@@ -84,14 +107,14 @@ pub(crate) struct Swap {
 }
 
 /// Time lost waiting for each resource; `None` where the kernel does not say.
-#[derive(Clone, Copy, Serialize)]
+#[derive(Clone, Copy, Default, Serialize)]
 pub(crate) struct PressureView {
     pub cpu: Option<Pressure>,
     pub memory: Option<Pressure>,
     pub io: Option<Pressure>,
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Default, Serialize)]
 pub(crate) struct Snapshot {
     pub point: Point,
     pub uptime_secs: Option<u64>,
@@ -144,7 +167,7 @@ pub(crate) struct Process {
     pub gpu: Vec<GpuProcess>,
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Default, Serialize)]
 pub(crate) struct GpuProcess {
     pub index: u32,
     pub pid: u32,
@@ -163,7 +186,7 @@ pub(crate) struct PcieLink {
     pub max_width: Option<u32>,
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Default, Serialize)]
 pub(crate) struct Gpu {
     pub index: u32,
     pub name: String,
@@ -214,13 +237,13 @@ pub(crate) struct GpuView {
     pub cuda: Option<String>,
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Default, Serialize)]
 pub(crate) struct Temperature {
     pub label: String,
     pub celsius: f32,
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Default, Serialize)]
 pub(crate) struct Disk {
     pub mount: String,
     pub total: u64,
@@ -308,7 +331,7 @@ pub(crate) struct StorageView {
     pub problem: Option<String>,
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Default, Serialize)]
 pub(crate) struct Network {
     pub name: String,
     /// `ethernet`, `wlan`, `bridge`, `tunnel`, `loopback` or `virtual`.

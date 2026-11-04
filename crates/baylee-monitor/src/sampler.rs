@@ -1,4 +1,6 @@
 //! One shared, blocking sampler. Browser count never changes collection work.
+//! It reads only what cannot block on hardware (`/proc` and the process list)
+//! and takes the rest from the slow sources' threads.
 #![allow(clippy::cast_precision_loss)] // Percentages/rates, not exact byte accounting.
 
 use crate::{
@@ -16,8 +18,8 @@ use crate::{
     sensors::{self, SensorView},
     storage::{self, Storage},
     types::{
-        CpuDetail, Disk, Facts, GpuView, Memory, Point, PressureView, Process, Snapshot,
-        StorageView, Swap, Temperature,
+        CpuDetail, Disk, Facts, Gpu, GpuView, Memory, Point, PressureView, Process, Snapshot,
+        StorageView, Swap, Temperature, tenths,
     },
 };
 use anyhow::Context;
@@ -38,6 +40,8 @@ const SENSORS_EVERY: Duration = Duration::from_secs(2);
 const STORAGE_EVERY: Duration = Duration::from_secs(5);
 /// Threads, swap and sockets per process are details, not a 1 Hz signal.
 const PROCESSES_EVERY: Duration = Duration::from_secs(3);
+/// Interfaces kept per history point. The busiest ones come first in `networks`.
+const MAX_HISTORY_NETS: usize = 12;
 
 pub(crate) struct Sampler {
     system: System,
@@ -104,6 +108,7 @@ impl Sampler {
         Facts {
             hostname: System::host_name().unwrap_or_else(|_| "Workstation".into()),
             os: System::long_os_version().unwrap_or_else(|_| std::env::consts::OS.into()),
+            kernel: System::kernel_version().ok(),
             cpu: self
                 .system
                 .cpus()
@@ -161,10 +166,12 @@ impl Sampler {
         (memory, swap)
     }
 
-    fn read_cpu(&mut self, elapsed: f64) -> CpuDetail {
+    fn read_cpu(&mut self, elapsed: f64, watts: Option<f64>) -> CpuDetail {
         let now = stat::parse(&read_text("/proc/stat"));
         let before = std::mem::replace(&mut self.stat, now);
         CpuDetail {
+            usage: self.system.global_cpu_usage(),
+            watts,
             shares: stat::shares(&before.cpu, &now.cpu),
             context_switches_per_s: per_second(
                 before.context_switches,
@@ -190,75 +197,38 @@ impl Sampler {
         refresh_processes(&mut self.system);
         let gpu = self.fresh_gpu_view();
         let (cpu_watts, cpu_power_status) = self.power.sample();
-        let links = self.links.get();
         let sensors = self.sensors.get();
         let networks = self
             .network
-            .update(&read_text("/proc/net/dev"), &links, elapsed);
-        let (net_rx, net_tx) = network::physical_rates(&networks);
+            .update(&read_text("/proc/net/dev"), &self.links.get(), elapsed);
         let mut storage = (*self.storage.get()).clone();
         let rates = self
             .disk_rates
             .update(&read_text("/proc/diskstats"), elapsed);
         storage::rates::overlay(&mut storage, &rates);
-        let (disk_read, disk_write) = storage::rates::totals(&storage);
         let mut sockets = sockstat::Sockets::default();
         sockstat::add(&mut sockets, &read_text("/proc/net/sockstat"));
         sockstat::add(&mut sockets, &read_text("/proc/net/sockstat6"));
-        let extras = self.extras.get();
-        let processes = collect_processes(&self.system, &gpu.gpus, &extras, elapsed);
-        let primary = gpu.gpus.first();
-        let load = System::load_average()
-            .ok()
-            .map(|load| [load.one, load.five, load.fifteen]);
+        let processes = collect_processes(&self.system, &gpu.gpus, &self.extras.get(), elapsed);
         let (memory, swap) = self.read_memory(elapsed);
-        let cpu = self.read_cpu(elapsed);
-        let pressure = PressureView {
-            cpu: pressure::parse(&read_text("/proc/pressure/cpu")),
-            memory: pressure::parse(&read_text("/proc/pressure/memory")),
-            io: pressure::parse(&read_text("/proc/pressure/io")),
-        };
-        let some10 = |view: Option<pressure::Pressure>| view.map(|p| p.some[0]);
-        Snapshot {
-            point: Point {
-                at_ms: background::now_ms(),
-                cpu: self.system.global_cpu_usage(),
-                ram: percent(memory.used, memory.total),
-                swap: percent(swap.used, swap.total),
-                swap_in: swap.in_bps as u64,
-                swap_out: swap.out_bps as u64,
-                iowait: cpu.shares.iowait,
-                disk_read: disk_read as u64,
-                disk_write: disk_write as u64,
-                cpu_temp: sensors.cpu_temp,
-                gpu_temp: primary.and_then(|g| g.temperature).map(|t| t as f32),
-                psi_cpu: some10(pressure.cpu),
-                psi_mem: some10(pressure.memory),
-                psi_io: some10(pressure.io),
-                gpu: primary.and_then(|g| g.utilization).map(f64::from),
-                vram: primary.and_then(|g| Some(percent(g.memory_used?, g.memory_total?))),
-                gpu_watts: gpu
-                    .gpus
-                    .iter()
-                    .map(|g| g.watts)
-                    .collect::<Option<Vec<_>>>()
-                    .filter(|v| !v.is_empty())
-                    .map(|v| v.iter().sum()),
-                cpu_watts,
-                net_rx,
-                net_tx,
-            },
+        let mut snapshot = Snapshot {
             uptime_secs: System::uptime().ok(),
-            load,
+            load: System::load_average()
+                .ok()
+                .map(|load| [load.one, load.five, load.fifteen]),
             cores: self.system.cpus().iter().map(sysinfo::Cpu::usage).collect(),
             ram_used: memory.used,
             ram_total: memory.total,
             swap_used: swap.used,
             swap_total: swap.total,
-            cpu,
+            cpu: self.read_cpu(elapsed, cpu_watts),
             memory,
             swap,
-            pressure,
+            pressure: PressureView {
+                cpu: pressure::parse(&read_text("/proc/pressure/cpu")),
+                memory: pressure::parse(&read_text("/proc/pressure/memory")),
+                io: pressure::parse(&read_text("/proc/pressure/io")),
+            },
             gpu_driver: gpu.driver,
             gpu_cuda: gpu.cuda,
             gpus: gpu.gpus,
@@ -279,8 +249,11 @@ impl Sampler {
             networks,
             sockets,
             processes,
-            sample_ms: started.elapsed().as_secs_f64() * 1000.0,
-        }
+            ..Snapshot::default()
+        };
+        snapshot.point = history_point(&snapshot, background::now_ms());
+        snapshot.sample_ms = started.elapsed().as_secs_f64() * 1000.0;
+        snapshot
     }
 }
 
@@ -298,6 +271,82 @@ fn mounted_disks(storage: &StorageView) -> Vec<Disk> {
             })
         })
         .collect()
+}
+
+/// What of a snapshot enters the graphs' history.
+fn history_point(snapshot: &Snapshot, at_ms: u64) -> Point {
+    let primary = snapshot.gpus.first();
+    let (net_rx, net_tx) = network::physical_rates(&snapshot.networks);
+    let (disk_read, disk_write) = storage::rates::totals(&snapshot.storage);
+    let some10 = |view: Option<pressure::Pressure>| view.map(|p| tenths(f64::from(p.some[0])));
+    Point {
+        at_ms,
+        cpu: tenths(f64::from(snapshot.cpu.usage)),
+        ram: tenths(percent(snapshot.memory.used, snapshot.memory.total)),
+        swap: tenths(percent(snapshot.swap.used, snapshot.swap.total)),
+        iowait: tenths(f64::from(snapshot.cpu.shares.iowait)),
+        gpu: primary.and_then(|g| g.utilization).map(|v| v as f32),
+        vram: primary.and_then(gpu_memory_percent),
+        // All or nothing: a sum over the GPUs that answered would understate.
+        gpu_watts: snapshot
+            .gpus
+            .iter()
+            .map(|g| g.watts)
+            .sum::<Option<f64>>()
+            .filter(|_| !snapshot.gpus.is_empty())
+            .map(tenths),
+        cpu_watts: snapshot.cpu.watts.map(tenths),
+        cpu_temp: snapshot.sensors.cpu_temp.map(|t| tenths(f64::from(t))),
+        gpu_temp: primary.and_then(|g| g.temperature).map(|t| t as f32),
+        psi_cpu: some10(snapshot.pressure.cpu),
+        psi_mem: some10(snapshot.pressure.memory),
+        psi_io: some10(snapshot.pressure.io),
+        net_rx: net_rx as u64,
+        net_tx: net_tx as u64,
+        disk_read: disk_read as u64,
+        disk_write: disk_write as u64,
+        swap_in: snapshot.swap.in_bps as u64,
+        swap_out: snapshot.swap.out_bps as u64,
+        disks: snapshot
+            .storage
+            .disks
+            .iter()
+            .filter_map(|disk| {
+                let io = disk.io?;
+                Some((
+                    disk.name.clone(),
+                    io.read_bps as u64,
+                    io.write_bps as u64,
+                    tenths(io.busy_pct),
+                ))
+            })
+            .collect(),
+        // An idle interface that is down has nothing to plot.
+        nets: snapshot
+            .networks
+            .iter()
+            .filter(|n| n.state == "up" || n.rx_bps > 0.0 || n.tx_bps > 0.0)
+            .take(MAX_HISTORY_NETS)
+            .map(|n| (n.name.clone(), n.rx_bps as u64, n.tx_bps as u64))
+            .collect(),
+        gpus: snapshot
+            .gpus
+            .iter()
+            .map(|g| {
+                (
+                    g.index,
+                    g.utilization.map(|v| v as f32),
+                    gpu_memory_percent(g),
+                    g.watts.map(tenths),
+                    g.temperature.map(|t| t as f32),
+                )
+            })
+            .collect(),
+    }
+}
+
+fn gpu_memory_percent(gpu: &Gpu) -> Option<f32> {
+    Some(tenths(percent(gpu.memory_used?, gpu.memory_total?)))
 }
 
 /// `/proc` files never block on hardware. A missing one parses as empty.
@@ -340,7 +389,7 @@ fn state_letter(status: ProcessStatus) -> &'static str {
 
 fn collect_processes(
     system: &System,
-    gpus: &[crate::types::Gpu],
+    gpus: &[Gpu],
     extras: &BTreeMap<u32, Extra>,
     elapsed: f64,
 ) -> Vec<Process> {
@@ -395,4 +444,116 @@ fn collect_processes(
     }
     processes.sort_by_key(|p| p.pid);
     processes
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::{DiskIo, Network, PhysicalDisk};
+
+    fn snapshot() -> Snapshot {
+        let network = |name: &str, state: &str, physical, rx_bps| Network {
+            name: name.into(),
+            state: state.into(),
+            physical,
+            rx_bps,
+            ..Network::default()
+        };
+        Snapshot {
+            cpu: CpuDetail {
+                usage: 12.345,
+                watts: Some(65.04),
+                ..CpuDetail::default()
+            },
+            memory: Memory {
+                used: 25,
+                total: 100,
+                ..Memory::default()
+            },
+            swap: Swap {
+                used: 1,
+                total: 3,
+                in_bps: 4096.9,
+                ..Swap::default()
+            },
+            gpus: vec![Gpu {
+                index: 0,
+                utilization: Some(98),
+                memory_used: Some(1),
+                memory_total: Some(4),
+                watts: Some(190.26),
+                temperature: Some(66),
+                ..Gpu::default()
+            }],
+            storage: StorageView {
+                disks: vec![
+                    PhysicalDisk {
+                        name: "nvme1n1".into(),
+                        io: Some(DiskIo {
+                            read_bps: 2000.7,
+                            write_bps: 100.2,
+                            busy_pct: 12.34,
+                            ..DiskIo::default()
+                        }),
+                        ..PhysicalDisk::default()
+                    },
+                    PhysicalDisk {
+                        name: "new-disk".into(),
+                        ..PhysicalDisk::default()
+                    },
+                ],
+                ..StorageView::default()
+            },
+            networks: vec![
+                network("enp5s0", "up", true, 1000.0),
+                network("enp6s0", "down", true, 0.0),
+                network("lo", "unknown", false, 7.0),
+            ],
+            ..Snapshot::default()
+        }
+    }
+
+    #[test]
+    fn a_history_point_rounds_and_keeps_only_what_a_graph_can_use() {
+        let point = history_point(&snapshot(), 42);
+        assert_eq!(point.at_ms, 42);
+        assert!((point.cpu - 12.3).abs() < 0.001);
+        assert!((point.ram - 25.0).abs() < 0.001);
+        assert!((point.swap - 33.3).abs() < 0.001);
+        assert_eq!(point.swap_in, 4096);
+        assert_eq!(point.gpu, Some(98.0));
+        assert_eq!(point.vram, Some(25.0));
+        assert_eq!(point.gpu_watts, Some(190.3));
+        assert_eq!(point.cpu_watts, Some(65.0));
+        assert_eq!(point.net_rx, 1000, "only physical adapters count");
+        assert_eq!(point.disk_read, 2000);
+        assert_eq!(point.disks, [("nvme1n1".to_owned(), 2000, 100, 12.3)]);
+        let nets: Vec<_> = point.nets.iter().map(|n| n.0.as_str()).collect();
+        assert_eq!(
+            nets,
+            ["enp5s0", "lo"],
+            "an idle interface that is down is left out"
+        );
+        assert_eq!(
+            point.gpus,
+            [(0, Some(98.0), Some(25.0), Some(190.3), Some(66.0))]
+        );
+    }
+
+    #[test]
+    fn gpu_power_is_unknown_when_a_card_does_not_say() {
+        let mut snapshot = snapshot();
+        snapshot.gpus.push(Gpu::default());
+        assert_eq!(history_point(&snapshot, 0).gpu_watts, None);
+        snapshot.gpus.clear();
+        assert_eq!(history_point(&snapshot, 0).gpu_watts, None);
+    }
+
+    #[test]
+    fn process_states_keep_the_kernels_letters() {
+        assert_eq!(state_letter(ProcessStatus::Run), "R");
+        assert_eq!(state_letter(ProcessStatus::UninterruptibleDiskSleep), "D");
+        assert_eq!(state_letter(ProcessStatus::Zombie), "Z");
+        assert_eq!(state_letter(ProcessStatus::Unknown(99)), "?");
+    }
 }

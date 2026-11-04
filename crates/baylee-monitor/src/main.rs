@@ -3,6 +3,7 @@
 mod admission;
 mod background;
 mod gpu;
+mod history;
 mod listen;
 mod network;
 mod power;
@@ -19,7 +20,6 @@ mod types;
 
 use clap::Parser;
 use std::{
-    collections::VecDeque,
     net::SocketAddr,
     path::PathBuf,
     sync::{Arc, Mutex, PoisonError},
@@ -72,7 +72,7 @@ async fn main() -> anyhow::Result<()> {
     let (sender, receiver) = watch::channel(Arc::new(String::new()));
     let state = server::State {
         facts,
-        history: Arc::new(Mutex::new(VecDeque::with_capacity(keep))),
+        history: Arc::new(Mutex::new(history::History::new(keep))),
         receiver,
         clients: Arc::new(Semaphore::new(12)),
         admission: admission::Admission::new(options.bind, &options.allow_hosts),
@@ -87,13 +87,10 @@ async fn main() -> anyhow::Result<()> {
             loop {
                 let start = std::time::Instant::now();
                 let snapshot = sampler.sample();
-                {
-                    let mut ring = history.lock().unwrap_or_else(PoisonError::into_inner);
-                    if ring.len() == keep {
-                        ring.pop_front();
-                    }
-                    ring.push_back(snapshot.point.clone());
-                }
+                history
+                    .lock()
+                    .unwrap_or_else(PoisonError::into_inner)
+                    .push(snapshot.point.clone());
                 let json = {
                     let training = latest_training
                         .lock()

@@ -2,7 +2,8 @@
 
 use crate::{
     admission::Admission,
-    types::{Facts, Point},
+    history::{History, Recorded},
+    types::Facts,
 };
 use axum::{
     Router,
@@ -16,17 +17,22 @@ use axum::{
     response::{Html, IntoResponse, Response},
     routing::get,
 };
+use serde::Serialize;
 use std::{
-    collections::VecDeque,
     sync::{Arc, Mutex},
     time::Duration,
 };
 use tokio::sync::{Semaphore, watch};
 
+/// A live update must get through quickly, or the viewer is too slow to follow.
+const SEND_TIMEOUT: Duration = Duration::from_secs(5);
+/// The first message carries the history, a few megabytes on a phone's Wi-Fi.
+const HELLO_TIMEOUT: Duration = Duration::from_secs(30);
+
 #[derive(Clone)]
 pub(crate) struct State {
     pub facts: Facts,
-    pub history: Arc<Mutex<VecDeque<Point>>>,
+    pub history: Arc<Mutex<History>>,
     pub receiver: watch::Receiver<Arc<String>>,
     pub clients: Arc<Semaphore>,
     pub admission: Admission,
@@ -107,30 +113,42 @@ async fn upgrade(Extract(state): Extract<State>, ws: WebSocketUpgrade) -> Respon
         })
 }
 
-async fn send(socket: &mut WebSocket, json: String) -> bool {
+async fn send(socket: &mut WebSocket, json: String, patience: Duration) -> bool {
     matches!(
-        tokio::time::timeout(
-            Duration::from_secs(5),
-            socket.send(Message::Text(json.into()))
-        )
-        .await,
+        tokio::time::timeout(patience, socket.send(Message::Text(json.into()))).await,
         Ok(Ok(()))
     )
 }
 
+/// What a new viewer gets first. Serialized straight from the rings: a JSON
+/// tree of them would cost ten times their size, per connecting viewer.
+#[derive(Serialize)]
+struct Hello<'a> {
+    #[serde(rename = "type")]
+    kind: &'static str,
+    facts: &'a Facts,
+    #[serde(flatten)]
+    recorded: Recorded<'a>,
+}
+
 async fn stream(mut socket: WebSocket, mut state: State) {
     let initial = {
-        let ring = state
+        let history = state
             .history
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        serde_json::json!({"type": "hello", "facts": state.facts, "history": *ring}).to_string()
+        serde_json::to_string(&Hello {
+            kind: "hello",
+            facts: &state.facts,
+            recorded: history.recorded(),
+        })
     };
-    if !send(&mut socket, initial).await {
+    let Ok(initial) = initial else { return };
+    if !send(&mut socket, initial, HELLO_TIMEOUT).await {
         return;
     }
     let latest = state.receiver.borrow_and_update().as_ref().clone();
-    if !latest.is_empty() && !send(&mut socket, latest).await {
+    if !latest.is_empty() && !send(&mut socket, latest, SEND_TIMEOUT).await {
         return;
     }
     loop {
@@ -138,12 +156,12 @@ async fn stream(mut socket: WebSocket, mut state: State) {
             changed = state.receiver.changed() => {
                 if changed.is_err() { break; }
                 let json = state.receiver.borrow_and_update().as_ref().clone();
-                if !send(&mut socket, json).await { break; }
+                if !send(&mut socket, json, SEND_TIMEOUT).await { break; }
             }
             incoming = socket.recv() => {
                 match incoming {
                     Some(Ok(Message::Ping(data))) => {
-                        if !matches!(tokio::time::timeout(Duration::from_secs(5), socket.send(Message::Pong(data))).await, Ok(Ok(()))) { break; }
+                        if !matches!(tokio::time::timeout(SEND_TIMEOUT, socket.send(Message::Pong(data))).await, Ok(Ok(()))) { break; }
                     }
                     Some(Ok(Message::Pong(_))) => {}
                     _ => break, // No commands accepted, including text/binary messages.
@@ -177,7 +195,7 @@ async fn source() -> Response {
         "src/storage/mod.rs": include_str!("storage/mod.rs"), "src/storage/inventory.rs": include_str!("storage/inventory.rs"),
         "src/storage/rates.rs": include_str!("storage/rates.rs"), "src/storage/udev.rs": include_str!("storage/udev.rs"),
         "src/storage/usage.rs": include_str!("storage/usage.rs"), "src/processes.rs": include_str!("processes.rs"),
-        "src/procfs/status.rs": include_str!("procfs/status.rs"),
+        "src/procfs/status.rs": include_str!("procfs/status.rs"), "src/history.rs": include_str!("history.rs"),
         "src/training/mod.rs": include_str!("training/mod.rs"), "src/training/dbus.rs": include_str!("training/dbus.rs"),
         "src/training/units.rs": include_str!("training/units.rs"), "src/training/pipeline.rs": include_str!("training/pipeline.rs"),
         "web/index.html": include_str!("../web/index.html"), "web/style.css": include_str!("../web/style.css"), "web/app.js": include_str!("../web/app.js")
@@ -275,16 +293,19 @@ mod tests {
         receiver: watch::Receiver<Arc<String>>,
         clients: Arc<Semaphore>,
     ) -> State {
+        let mut history = History::new(10);
+        history.push(crate::types::Point::default());
         State {
             facts: Facts {
                 hostname: "test".into(),
                 os: "test".into(),
+                kernel: None,
                 cpu: "test".into(),
                 physical_cores: Some(1),
                 threads: 2,
                 interval_ms: 1000,
             },
-            history: Arc::new(Mutex::new(VecDeque::from([Point::default()]))),
+            history: Arc::new(Mutex::new(history)),
             receiver,
             clients,
             admission: Admission::new(address, &[]),
