@@ -1041,6 +1041,17 @@ pub fn mana_sources(
     policy::sources(view, legal)
 }
 
+/// The paid mana abilities the engine offers, as the planner reads them: a
+/// filter land's, a Signet's. `mana_sources` carries them on its sources, and
+/// this hands them to a planner with a reader of its own (the client's).
+#[must_use]
+pub fn mana_converters(
+    view: &PlayerView,
+    legal: &baylee_engine::choice::LegalActions,
+) -> Vec<(ObjectId, baylee_client_core::manaplan::Converter)> {
+    policy::converters(view, legal)
+}
+
 /// Whether tapping `object` sets off a non-mana triggered ability on the
 /// battlefield (City of Brass, Psychic Venom, Blight, Manabarbs, Lifetap).
 #[must_use]

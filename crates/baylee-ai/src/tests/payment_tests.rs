@@ -660,6 +660,7 @@ fn the_ai_taps_a_painland_for_its_colour_only_when_the_colour_needs_it() {
         source: obj(21),
         tap: Tap::Intrinsic,
         color: None,
+        second: None,
     };
     assert_eq!(plan("{W}"), Some(vec![the_plains]), "the Plains pays white");
     let both = plan("{W}{U}").expect("a Plains and a painland pay {W}{U}");
@@ -669,6 +670,7 @@ fn the_ai_taps_a_painland_for_its_colour_only_when_the_colour_needs_it() {
             source: obj(20),
             tap: Tap::Ability(1),
             color: Some(ManaColor::Blue),
+            second: None,
         }),
         "{both:?}"
     );
@@ -793,10 +795,14 @@ fn inherited_paid_wizard_mana_is_not_estimated_as_free_production() {
     };
     assert!(*mana_ability);
     assert_eq!(cost.mana, ManaCost::from_symbol(ManaSymbol::Blue));
-    // The current planner cannot sequence paid mana conversions. Both real
-    // offers and estimates must omit them rather than count three free mana.
-    assert!(crate::mana_sources(&v, &legal).is_empty());
-    assert!(policy::remaining_sources(&v).is_empty());
+    // A paid conversion is a converter and no free mana: both real offers and
+    // estimates must keep it from counting three mana with no {U} to start it.
+    for source in crate::mana_sources(&v, &legal)
+        .into_iter()
+        .chain(policy::remaining_sources(&v))
+    {
+        assert!(source.colors.is_empty() && source.converter.is_some());
+    }
     assert!(!policy::can_pay(
         &v,
         &ManaCost::from_symbol(ManaSymbol::Generic(3))

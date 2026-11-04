@@ -133,17 +133,15 @@ fn spends_exactly(plan: &Plan, owed: &ManaCost, pool: &ManaPoolView, sources: &[
             _ => 1,
         })
         .sum();
-    let made: u64 = plan
-        .steps
-        .iter()
-        .map(|step| {
-            sources
-                .iter()
-                .find(|s| s.id == step.source)
-                .map_or(1, |s| u64::from(s.amount))
-        })
-        .sum();
-    pool.total() - pool.restricted_total() + made == needed
+    // Walked step by step, because a paid mana ability spends as it makes.
+    let mut floating = *pool;
+    for step in &plan.steps {
+        let Some(after) = manaplan::after_step(&floating, step, sources) else {
+            return false;
+        };
+        floating = after;
+    }
+    floating.total() - floating.restricted_total() == needed
 }
 
 /// The colours (of the five) in the pool and made by `plan`'s taps.
@@ -151,16 +149,8 @@ fn colours(plan: &Plan, pool: &ManaPoolView, sources: &[Source]) -> Vec<Color> {
     let made: Vec<ManaColor> = plan
         .steps
         .iter()
-        .filter_map(|step| {
-            step.color.or_else(|| {
-                let source = sources.iter().find(|s| s.id == step.source)?;
-                let colors = match &source.dear {
-                    Some(dear) if dear.tap == step.tap => &dear.colors,
-                    _ => &source.colors,
-                };
-                (colors.len() == 1).then(|| colors[0])
-            })
-        })
+        .flat_map(|step| manaplan::made_by(step, sources))
+        .map(|(color, _)| color)
         .collect();
     Color::ALL
         .into_iter()
@@ -171,13 +161,17 @@ fn colours(plan: &Plan, pool: &ManaPoolView, sources: &[Source]) -> Vec<Color> {
         .collect()
 }
 
-/// Whether `source` can make `colour`, in either of its modes.
+/// Whether `source` can make `colour`, in any of its modes.
 fn makes(source: &Source, colour: ManaColor) -> bool {
     source.colors.contains(&colour)
         || source
             .dear
             .as_ref()
             .is_some_and(|dear| dear.colors.contains(&colour))
+        || source
+            .converter
+            .as_ref()
+            .is_some_and(|converter| converter.colors.contains(&colour))
 }
 
 /// A plan's taps, as a key: which sources, for which colours.

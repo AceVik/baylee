@@ -122,6 +122,12 @@ pub fn sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
             baylee_ai::apply_triggered_mana_bonus(view, object, source);
         }
     }
+    // A filter land's or a Signet's paid mana, which the planner reaches for
+    // only when nothing pays without it (`manaplan/convert.rs`).
+    baylee_client_core::manaplan::add_converters(
+        &mut sources,
+        baylee_ai::mana_converters(view, legal),
+    );
     let costs: Vec<_> = view
         .hand
         .iter()
@@ -199,6 +205,7 @@ fn restricted_sources(
                 priced,
                 preserve: 0,
                 dear: None,
+                converter: None,
             },
         ) else {
             continue;
@@ -513,6 +520,7 @@ fn mana_ability(
             priced,
             preserve: 0,
             dear: None,
+            converter: None,
         },
     )
 }
@@ -833,6 +841,7 @@ pub fn granted_source(
         priced: false,
         preserve: 0,
         dear: None,
+        converter: None,
     })
 }
 
@@ -1475,6 +1484,7 @@ mod tests {
                 source: id,
                 tap: Tap::Ability(0),
                 color: None,
+                second: None,
             }]),
             "a generic pip is paid the painless way"
         );
@@ -1484,6 +1494,7 @@ mod tests {
                 source: id,
                 tap: Tap::Ability(1),
                 color: Some(baylee_core::mana::ManaColor::Blue),
+                second: None,
             }]),
             "blue only the coloured tap makes, for its damage"
         );

@@ -148,25 +148,27 @@ impl Staging {
     /// not a tap this payment can still make.
     pub fn keep_offered(&mut self, legal: &LegalActions) -> bool {
         let before = self.steps.len() + self.granted.len();
-        self.steps.retain(|step| tap_action(step, legal).is_some());
+        self.steps
+            .retain(|step| staged_action(step, legal).is_some());
         self.granted
             .retain(|g| legal.granted_actions.iter().any(|offer| offer.id == g.id));
         self.steps.len() + self.granted.len() != before
     }
 
     /// The pool as it would stand with every staged tap made: `pool` plus
-    /// what each step is worth by [`worth`].
+    /// what each step is worth by [`worth`], less what a paid mana ability
+    /// spends. One whose cost does not float yet adds nothing.
     #[must_use]
     pub fn pool_with(&self, pool: &ManaPoolView, sources: &[Source]) -> ManaPoolView {
         let mut out = *pool;
         for step in &self.steps {
-            for (color, count) in worth(step, sources) {
-                *slot(&mut out, color) = slot(&mut out, color).saturating_add(count);
+            if let Some(after) = manaplan::after_step(&out, step, sources) {
+                out = after;
             }
         }
         for granted in &self.granted {
-            *slot(&mut out, granted.color) =
-                slot(&mut out, granted.color).saturating_add(u32::from(granted.amount));
+            *manaplan::slot(&mut out, granted.color) =
+                manaplan::slot(&mut out, granted.color).saturating_add(u32::from(granted.amount));
         }
         out
     }
@@ -219,10 +221,13 @@ impl Staging {
     pub fn wire(&self, legal: &LegalActions) -> Option<Vec<PlayerAction>> {
         let mut out = Vec::with_capacity(self.steps.len() * 2);
         for step in &self.steps {
-            out.push(tap_action(step, legal)?);
-            if let Some(color) = step.color {
-                out.push(PlayerAction::ChooseColor(color));
-            }
+            out.push(staged_action(step, legal)?);
+            out.extend(
+                [step.color, step.second]
+                    .into_iter()
+                    .flatten()
+                    .map(PlayerAction::ChooseColor),
+            );
         }
         for granted in &self.granted {
             if !legal
@@ -257,6 +262,26 @@ pub fn tap_action(step: &Step, legal: &LegalActions) -> Option<PlayerAction> {
     }
 }
 
+/// The action for one staged tap: [`tap_action`], or a paid mana ability the
+/// engine lists as a hint because its mana is not floating yet
+/// (`LegalActions::unpaid_abilities`). The taps before it in the payment make
+/// that mana, and the engine stays the judge of the whole.
+fn staged_action(step: &Step, legal: &LegalActions) -> Option<PlayerAction> {
+    tap_action(step, legal).or_else(|| {
+        let Tap::Ability(ability_index) = step.tap else {
+            return None;
+        };
+        legal
+            .unpaid_abilities
+            .iter()
+            .any(|&(source, index, _)| source == step.source && index == ability_index)
+            .then_some(PlayerAction::ActivateAbility {
+                source: step.source,
+                ability_index,
+            })
+    })
+}
+
 /// What one staged tap makes, by the planner's reading of its source: the
 /// colours and counts it adds to the pool.
 ///
@@ -266,42 +291,7 @@ pub fn tap_action(step: &Step, legal: &LegalActions) -> Option<PlayerAction> {
 /// one; the engine still counts what the tap really makes when Go is sent.
 #[must_use]
 pub fn worth(step: &Step, sources: &[Source]) -> Vec<(ManaColor, u32)> {
-    let Some(source) = sources.iter().find(|s| s.id == step.source) else {
-        return Vec::new();
-    };
-    if source.tap == step.tap {
-        if source.bundle {
-            return source.colors.iter().map(|&c| (c, 1)).collect();
-        }
-        let color = match (step.color, source.colors.as_slice()) {
-            (Some(color), colors) if colors.contains(&color) => color,
-            (None, [only]) => *only,
-            _ => return Vec::new(),
-        };
-        return vec![(color, u32::from(source.amount.max(1)))];
-    }
-    match &source.dear {
-        Some(dear) if dear.tap == step.tap => {
-            let color = match (step.color, dear.colors.as_slice()) {
-                (Some(color), colors) if colors.contains(&color) => color,
-                (None, [only]) => *only,
-                _ => return Vec::new(),
-            };
-            vec![(color, 1)]
-        }
-        _ => Vec::new(),
-    }
-}
-
-fn slot(pool: &mut ManaPoolView, color: ManaColor) -> &mut u32 {
-    match color {
-        ManaColor::White => &mut pool.white,
-        ManaColor::Blue => &mut pool.blue,
-        ManaColor::Black => &mut pool.black,
-        ManaColor::Red => &mut pool.red,
-        ManaColor::Green => &mut pool.green,
-        ManaColor::Colorless => &mut pool.colorless,
-    }
+    manaplan::made_by(step, sources)
 }
 
 #[cfg(test)]

@@ -1018,6 +1018,7 @@ fn a_stack_is_lit_by_whichever_of_it_the_deed_touches() {
                     source: forests[1],
                     tap: Tap::Intrinsic,
                     color: None,
+                    second: None,
                 }],
                 ..default()
             },
@@ -1037,6 +1038,7 @@ fn a_stack_is_lit_by_whichever_of_it_the_deed_touches() {
                     source: elsewhere,
                     tap: Tap::Intrinsic,
                     color: None,
+                    second: None,
                 }],
                 ..default()
             },
@@ -1074,6 +1076,7 @@ fn a_card_standing_for_several_lands_lights_when_an_owed_plan_taps_one() {
             source: forests[2],
             tap: Tap::Intrinsic,
             color: None,
+            second: None,
         }],
         ..default()
     };

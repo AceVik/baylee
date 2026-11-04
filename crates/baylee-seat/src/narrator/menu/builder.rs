@@ -624,7 +624,7 @@ impl Builder<'_, '_> {
         let me = baylee_client_core::decision::resource_player(view);
         let steps: Vec<manaplan::Step> = baylee_ai::mana_sources(view, legal)
             .iter()
-            .filter(|source| !source.priced)
+            .filter(|source| !source.priced && !source.colors.is_empty())
             .filter(|source| {
                 view.object(source.id).is_some_and(|o| {
                     o.controller == me && o.types.contains(baylee_core::types::TypeSet::LAND)
@@ -634,6 +634,7 @@ impl Builder<'_, '_> {
                 source: source.id,
                 tap: source.tap,
                 color: (!source.bundle && source.colors.len() > 1).then(|| source.colors[0]),
+                second: None,
             })
             .collect();
         if steps.is_empty() {

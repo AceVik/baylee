@@ -280,6 +280,7 @@ fn owned_mana_ability(
             priced: priced(cost, effects),
             preserve: 0,
             dear: None,
+            converter: None,
         });
     }
     let (source, amount, restricted) = baylee_cards_dsl::mana_with_riders(cost, effects)?;
@@ -299,6 +300,7 @@ fn owned_mana_ability(
         priced: priced(cost, effects),
         preserve: 0,
         dear: None,
+        converter: None,
     })
 }
 

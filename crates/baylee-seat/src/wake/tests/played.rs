@@ -235,3 +235,69 @@ fn a_land_with_two_basic_types_is_a_source_of_either_colour() {
     let bears = reach_of(&reach, "Grizzly Bears").expect("two Swamp Forests pay {1}{G}");
     assert_eq!(bears.plan.steps.len(), 2);
 }
+
+/// The board of the report: Meteor Storm's `{R}{G}` beside Canyon Slough,
+/// Crucible of the Spirit Dragon and Shimmering Grotto. The engine lists the
+/// card (`payable`) and the Crucible pays the Grotto's `{1}`, so the seat
+/// reaches it, the conversion first and the Slough's `{R}` after it, and the
+/// taps, played out at this table, cast the spell.
+#[test]
+fn a_spell_only_a_filter_land_pays_for_is_reached_and_cast() {
+    use baylee_client_core::manaplan::Tap;
+    use baylee_core::mana::ManaColor;
+    let (mut session, view, legal) = position(
+        &[
+            "Canyon Slough",
+            "Crucible of the Spirit Dragon",
+            "Shimmering Grotto",
+        ],
+        &["Meteor Storm"],
+        &[],
+    );
+    let hand = view.hand.first().expect("the Storm in hand").id;
+    assert!(legal.payable.contains(&hand), "the engine lists it");
+    let reach = reachable(&view, &legal);
+    let storm = reach_of(&reach, "Meteor Storm").expect("the three lands pay it");
+    let name = |id| {
+        view.object(id)
+            .map(|object| object.name.clone())
+            .expect("a land of the seat's")
+    };
+    let order: Vec<String> = storm.plan.steps.iter().map(|s| name(s.source)).collect();
+    assert_eq!(
+        order,
+        [
+            "Crucible of the Spirit Dragon",
+            "Shimmering Grotto",
+            "Canyon Slough"
+        ]
+    );
+    assert_eq!(storm.plan.steps[1].tap, Tap::Ability(1), "the paid ability");
+    assert_eq!(storm.plan.steps[1].color, Some(ManaColor::Green));
+    assert_eq!(storm.plan.steps[2].color, Some(ManaColor::Red));
+    for step in &storm.plan.steps {
+        session
+            .act_slice(ME, crate::narrator::tap(step), 0)
+            .expect("each step is offered as it comes");
+        if let Some(color) = step.color {
+            session
+                .act_slice(ME, PlayerAction::ChooseColor(color), 0)
+                .expect("the colour it asks");
+        }
+    }
+    session
+        .act_slice(ME, PlayerAction::CastSpell { card: hand }, 0)
+        .expect("the mana pays the spell");
+    let on_stack = session.observe_view(ME);
+    assert!(
+        on_stack.stack.iter().any(|object| object.id == hand),
+        "the Storm is on the stack"
+    );
+}
+
+/// The Grotto alone pays nothing coloured: it cannot pay for itself.
+#[test]
+fn a_filter_land_alone_reaches_no_coloured_spell() {
+    let (_, view, legal) = position(&["Shimmering Grotto"], &["Llanowar Elves"], &[]);
+    assert!(reach_of(&reachable(&view, &legal), "Llanowar Elves").is_none());
+}

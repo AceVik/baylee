@@ -42,7 +42,9 @@ use baylee_core::ids::ObjectId;
 use baylee_core::mana::{ManaColor, ManaCost, ManaSymbol};
 use baylee_view::ManaPoolView;
 
+mod convert;
 mod remainder;
+pub use convert::{Converter, after_step, made_by};
 pub use remainder::remainder;
 
 /// How the client asks one source for its mana.
@@ -102,6 +104,12 @@ pub struct Source {
     /// `{C}`. [`plan`] reaches for it only when no plan exists without it,
     /// and then only for a pip the free mode cannot pay.
     pub dear: Option<Dear>,
+    /// The permanent's paid mana ability, when it has one a plan can chain:
+    /// Shimmering Grotto's `{1}, {T}: Add one mana of any color` beside its
+    /// free `{C}`, a Signet's with nothing beside it ([`Self::converting`]).
+    /// [`plan`] reaches for it only when no plan exists without it
+    /// (`manaplan/convert.rs`).
+    pub converter: Option<Converter>,
 }
 
 /// A permanent's priced way to make **one** mana, kept beside its free one.
@@ -129,6 +137,24 @@ impl Source {
             priced: false,
             preserve: 0,
             dear: None,
+            converter: None,
+        }
+    }
+
+    /// A permanent whose only mana ability is paid: it makes no mana of its
+    /// own, so it is a source only through `converter`.
+    #[must_use]
+    pub const fn converting(id: ObjectId, converter: Converter) -> Self {
+        Self {
+            id,
+            tap: converter.tap,
+            colors: Vec::new(),
+            amount: 0,
+            bundle: false,
+            priced: false,
+            preserve: 0,
+            dear: None,
+            converter: Some(converter),
         }
     }
 
@@ -183,6 +209,29 @@ pub fn keep_one_per_permanent(sources: &mut Vec<Source>) {
         }
     }
     *sources = kept;
+}
+
+/// Puts each paid mana ability on its permanent's source, or gives the
+/// permanent a source of its own when it has no free mana. Of two on one
+/// permanent the one that makes more mana stays: it taps once either way.
+pub fn add_converters(
+    sources: &mut Vec<Source>,
+    converters: impl IntoIterator<Item = (ObjectId, Converter)>,
+) {
+    for (id, converter) in converters {
+        match sources.iter_mut().find(|source| source.id == id) {
+            Some(source) => {
+                if source
+                    .converter
+                    .as_ref()
+                    .is_none_or(|kept| kept.mana() < converter.mana())
+                {
+                    source.converter = Some(converter);
+                }
+            }
+            None => sources.push(Source::converting(id, converter)),
+        }
+    }
 }
 
 /// Rank taps by the board and colours still needed by cards in hand.
@@ -249,6 +298,10 @@ pub struct Step {
     /// The colour to answer with, when the ability asks. `None` when the
     /// source has only one colour and the engine will not ask.
     pub color: Option<ManaColor>,
+    /// The colour to answer its second question with, when it asks two: a
+    /// Mystic Gate's two mana, each chosen on its own. `None` for every other
+    /// step.
+    pub second: Option<ManaColor>,
 }
 
 /// What one tap of a permanent offers a **mana bubble**.
@@ -347,6 +400,7 @@ pub fn pours(id: ObjectId, offers: &[Offer]) -> Vec<Pour> {
                     source: id,
                     tap: best.tap,
                     color: (best.colors.len() > 1).then_some(color),
+                    second: None,
                 },
             })
         })
@@ -394,8 +448,18 @@ impl Plan {
 /// priced taps, then the fewest taps, then the least worth keeping
 /// untapped is taken; a tie keeps the one-mana reading, which is what
 /// every board without such a permanent plans.
+///
+/// A paid mana ability is reached for last, only when nothing pays without
+/// one ([`Source::converter`]); its plan's steps are in the order they must
+/// be sent, and one that spends a floating mana planned for the spell is not
+/// answered.
 #[must_use]
 pub fn plan(cost: &ManaCost, pool: &ManaPoolView, sources: &[Source]) -> Option<Plan> {
+    plain_plan(cost, pool, sources).or_else(|| convert::plan(cost, pool, sources))
+}
+
+/// [`plan`] with no paid mana ability among its answers.
+fn plain_plan(cost: &ManaCost, pool: &ManaPoolView, sources: &[Source]) -> Option<Plan> {
     let pours: Vec<usize> = sources
         .iter()
         .enumerate()
@@ -547,11 +611,12 @@ pub fn greatest_x(cost: &ManaCost, pool: &ManaPoolView, sources: &[Source]) -> O
     let poured = sources
         .iter()
         .map(|s| {
-            if s.bundle {
+            let free = if s.bundle {
                 s.colors.len()
             } else {
                 usize::from(s.amount)
-            }
+            };
+            free.max(s.converter.as_ref().map_or(0, Converter::mana))
         })
         .fold(0_usize, usize::saturating_add);
     let ceiling = floating.saturating_add(u32::try_from(poured).unwrap_or(u32::MAX));
@@ -837,10 +902,11 @@ fn assign(
     demands.sort_by_key(|&n| needs[n].count());
 
     // `taken[unit]` is the demand holding it.
+    let fits = |demand: usize, unit: usize| needs[demand].overlaps(units[unit].colors);
     let mut taken: Vec<Option<usize>> = vec![None; units.len()];
     for &demand in &demands {
         let mut seen = vec![false; units.len()];
-        if !augment(demand, needs, &units, &order, &mut taken, &mut seen) {
+        if !augment(demand, &fits, &order, &mut taken, &mut seen) {
             return None;
         }
     }
@@ -938,36 +1004,39 @@ fn rehome(
     Some(moves)
 }
 
-/// One augmenting step of Kuhn's algorithm.
-fn augment(
+/// One augmenting step of Kuhn's algorithm; `fits` says which unit a demand
+/// may take.
+fn augment<F: Fn(usize, usize) -> bool>(
     demand: usize,
-    needs: &[ColorMask],
-    units: &[Unit],
+    fits: &F,
     order: &[usize],
     taken: &mut Vec<Option<usize>>,
     seen: &mut Vec<bool>,
 ) -> bool {
     for &unit in order {
-        if seen[unit] || !needs[demand].overlaps(units[unit].colors) {
+        if seen[unit] || !fits(demand, unit) {
             continue;
         }
         seen[unit] = true;
         let free = taken[unit].is_none();
-        if free
-            || augment(
-                taken[unit].expect("occupied"),
-                needs,
-                units,
-                order,
-                taken,
-                seen,
-            )
-        {
+        if free || augment(taken[unit].expect("occupied"), fits, order, taken, seen) {
             taken[unit] = Some(demand);
             return true;
         }
     }
     false
+}
+
+/// The amount of `color` in `pool`, to change.
+pub(crate) const fn slot(pool: &mut ManaPoolView, color: ManaColor) -> &mut u32 {
+    match color {
+        ManaColor::White => &mut pool.white,
+        ManaColor::Blue => &mut pool.blue,
+        ManaColor::Black => &mut pool.black,
+        ManaColor::Red => &mut pool.red,
+        ManaColor::Green => &mut pool.green,
+        ManaColor::Colorless => &mut pool.colorless,
+    }
 }
 
 /// Turns a matching into the taps it calls for.
@@ -1024,6 +1093,7 @@ fn steps(
                         source: source.id,
                         tap: dear.tap,
                         color: (dear.colors.len() > 1).then_some(color),
+                        second: None,
                     };
                 }
                 Step {
@@ -1035,6 +1105,7 @@ fn steps(
                     // engine never asks.
                     color: (!source.bundle && source.colors.len() > 1)
                         .then(|| chosen[index].unwrap_or_else(|| source.colors[0])),
+                    second: None,
                 }
             })
             .collect(),
@@ -1104,6 +1175,7 @@ pub fn intrinsic_source(
         priced: false,
         preserve: 0,
         dear: None,
+        converter: None,
     })
 }
 
@@ -1154,6 +1226,7 @@ mod tests {
             bundle: false,
             priced: false,
             preserve: 0,
+            converter: None,
             dear: None,
         }
     }
@@ -1477,6 +1550,7 @@ mod tests {
             priced: false,
             preserve: 0,
             dear: None,
+            converter: None,
         }];
         assert!(plan(&cost("{W}{U}"), &empty(), &coupled).is_none());
         let found = plan(&cost("{2}"), &empty(), &coupled).expect("two of one colour");
@@ -1492,6 +1566,7 @@ mod tests {
             priced: false,
             preserve: 0,
             dear: None,
+            converter: None,
         }];
         let found = plan(&cost("{2}"), &empty(), &sol_ring).expect("two colourless");
         assert_eq!(found.taps(), 1);
@@ -1519,6 +1594,7 @@ mod tests {
             priced: false,
             preserve: 0,
             dear: None,
+            converter: None,
         }];
         let found = plan(&cost("{W}{U}"), &empty(), &chancery).expect("a Karoo pays {W}{U}");
         assert_eq!(found.taps(), 1, "one permanent is one tap");
@@ -1548,6 +1624,7 @@ mod tests {
             priced: false,
             preserve: 0,
             dear: None,
+            converter: None,
         }
     }
 
@@ -1557,6 +1634,7 @@ mod tests {
             priced: true,
             preserve: 0,
             dear: None,
+            converter: None,
             ..tower(id)
         }
     }
@@ -1569,6 +1647,7 @@ mod tests {
             priced: true,
             preserve: 0,
             dear: None,
+            converter: None,
             ..tower(id)
         }
     }
@@ -1695,6 +1774,7 @@ mod tests {
             priced: false,
             preserve: 0,
             dear: None,
+            converter: None,
         }];
         assert!(plan(&cost("{1}"), &empty(), &five).is_some());
         assert!(plan(&cost("{C}"), &empty(), &five).is_none());
@@ -1880,6 +1960,7 @@ mod tests {
             priced: false,
             preserve: 0,
             dear: None,
+            converter: None,
         }
     }
 

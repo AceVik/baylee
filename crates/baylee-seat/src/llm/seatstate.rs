@@ -63,6 +63,8 @@ pub(crate) struct Plan {
     player: PlayerId,
     /// The colour the last tap makes, for the question it may ask.
     color: Option<ManaColor>,
+    /// The colour for that tap's second question, when it asks two.
+    second: Option<ManaColor>,
 }
 
 /// The steps of a plan the model wrote, still to run, and what it did.
@@ -523,6 +525,7 @@ impl Seat {
                     at: (view.turn, view.phase, view.step),
                     player: decision::resource_player(view),
                     color: first.and_then(|s| s.color),
+                    second: first.and_then(|s| s.second),
                 });
                 if let Some(step) = first {
                     narrator::tap(&step)
@@ -748,6 +751,7 @@ impl Seat {
         match &request.pending {
             Pending::ChooseColor { options, .. } if same => {
                 if let Some(color) = plan.color.take().filter(|c| options.contains(c)) {
+                    plan.color = plan.second.take();
                     return Some(PlayerAction::ChooseColor(color));
                 }
             }
@@ -757,6 +761,7 @@ impl Seat {
                     if offered(legal, &action) {
                         plan.steps.pop_front();
                         plan.color = step.color;
+                        plan.second = step.second;
                         return Some(action);
                     }
                 } else if offered(legal, &plan.then) {

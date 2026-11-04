@@ -22,6 +22,8 @@ pub struct ManaRun {
     pub(super) steps: std::collections::VecDeque<baylee_client_core::manaplan::Step>,
     /// The colour to answer with while an ability is asking for one.
     asking: Option<baylee_core::mana::ManaColor>,
+    /// The colour for the same ability's second question, when it asks two.
+    asking_next: Option<baylee_core::mana::ManaColor>,
     /// The card all of this is for — the spell being paid for, or, under
     /// [`RunEnd::Float`], the permanent whose own mana was asked for.
     card: ObjectId,
@@ -52,6 +54,7 @@ impl ManaRun {
         Self {
             steps: plan.steps.into(),
             asking: None,
+            asking_next: None,
             card,
             then,
             cast_first: None,
@@ -65,6 +68,7 @@ impl ManaRun {
         Self {
             steps: std::collections::VecDeque::new(),
             asking: None,
+            asking_next: None,
             card,
             then: RunEnd::Cast,
             cast_first: Some(CastFirst::Unsent),
@@ -156,7 +160,7 @@ pub fn advance_mana_run(duel: &mut Duel) {
                 Some(color) => {
                     action = Some(PlayerAction::ChooseColor(color));
                     if let Some(run) = duel.mana_run.as_mut() {
-                        run.asking = None;
+                        run.asking = run.asking_next.take();
                     }
                 }
                 None => abort = Some(Phrase::PlanColourGone),
@@ -170,6 +174,7 @@ pub fn advance_mana_run(duel: &mut Duel) {
                     abort = Some(Phrase::PlanLandGone);
                 } else if let Some(run) = duel.mana_run.as_mut() {
                     run.asking = step.color;
+                    run.asking_next = step.second;
                 }
             } else {
                 // Every tap is made; the mana is floating and the engine is

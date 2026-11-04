@@ -270,6 +270,7 @@ fn outside_a_payment_window_paying_does_nothing() {
         source: ObjectId::new(1, 0),
         tap: Tap::Intrinsic,
         color: None,
+        second: None,
     }));
     assert!(duel.pay_staged.is_empty());
     assert!(duel.mana_run.is_none() && duel.take_outbox().is_empty());
@@ -324,6 +325,7 @@ fn forest_tap(source: ObjectId) -> baylee_client_core::manaplan::Step {
         source,
         tap: baylee_client_core::manaplan::Tap::Intrinsic,
         color: None,
+        second: None,
     }
 }
 

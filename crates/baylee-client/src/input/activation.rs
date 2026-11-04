@@ -722,6 +722,7 @@ fn staging_step(
         source: object,
         tap,
         color: None,
+        second: None,
     })
 }
 

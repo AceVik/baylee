@@ -5,7 +5,7 @@ use baylee_cards_dsl::{
     AbilityDef, Effect, FaceDef, Filter, KeywordSet, ManaSource, ReplacementRule,
 };
 use baylee_client_core::decision::{hand, known_cards, resource_player};
-use baylee_client_core::manaplan::{self, Source, Tap};
+use baylee_client_core::manaplan::{self, Converter, Source, Tap};
 use baylee_core::ids::ObjectId;
 use baylee_core::mana::{ManaColor, ManaCost, ManaPayment};
 use baylee_core::preset::HoldUp;
@@ -823,7 +823,7 @@ impl HeuristicAgent {
         let seat = view.seat(resource_player(view))?;
         let pool = &seat.mana_pool;
         let (restricted, plain) = split_restricted(offers(view, legal));
-        let plain = usable(view, plain);
+        let plain = usable(view, legal, plain);
         let main = own_main_phase(view);
         let available = pool.total() + plain.iter().map(|s| u64::from(s.amount)).sum::<u64>();
         let mut best: Option<(i64, PlayerAction)> = None;
@@ -1957,7 +1957,7 @@ pub(crate) fn priced(cost: &baylee_cards_dsl::Cost) -> bool {
 /// Restricted taps are left out: what their mana may pay for is a question
 /// about one spell, which [`HeuristicAgent::paying_for`] asks.
 pub(crate) fn sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
-    usable(view, split_restricted(offers(view, legal)).1)
+    usable(view, legal, split_restricted(offers(view, legal)).1)
 }
 
 /// The restricted taps and the rest. Moved out only when there are any: this
@@ -2068,6 +2068,7 @@ fn offers(view: &PlayerView, legal: &LegalActions) -> Vec<Offer> {
                     priced,
                     preserve: 0,
                     dear: None,
+                    converter: None,
                 },
                 only_for,
             });
@@ -2170,9 +2171,54 @@ fn printed_mana_offer(
     ))
 }
 
+/// The paid mana abilities on offer, each read as the trade it is
+/// (`baylee_cards_dsl::mana_conversion`): the ones the pool pays now
+/// (`legal.abilities`) and the ones waiting on mana that does not float yet
+/// (`legal.unpaid_abilities`), which is where a filter land's stands on an
+/// empty pool. One the seat's life could not survive the tap of is left out,
+/// as [`offers`] leaves out a source.
+pub(crate) fn converters(view: &PlayerView, legal: &LegalActions) -> Vec<(ObjectId, Converter)> {
+    let life = view
+        .seat(resource_player(view))
+        .map_or(i32::MAX, |s| s.life);
+    legal
+        .abilities
+        .iter()
+        .copied()
+        .chain(
+            legal
+                .unpaid_abilities
+                .iter()
+                .map(|&(id, index, _)| (id, index)),
+        )
+        .filter(|&(id, _)| legal.activation_increase(id) == 0)
+        .filter_map(|(id, index)| {
+            let (AbilityDef::Activated { cost, effects, .. }
+            | AbilityDef::ActivatedConditional { cost, effects, .. }) =
+                crate::activate::printed(view, id, index)?
+            else {
+                return None;
+            };
+            let conversion = baylee_cards_dsl::mana_conversion(cost, effects)?;
+            let harm = mana_ability_harm(view, id, Some(index));
+            (harm <= 0 || harm < life).then_some((
+                id,
+                Converter {
+                    tap: Tap::Ability(index),
+                    cost: conversion.cost,
+                    colors: conversion.colors,
+                    bundle: conversion.bundle,
+                    picks: conversion.picks,
+                },
+            ))
+        })
+        .collect()
+}
+
 /// One source per permanent, the mode [`sources`] explains, with its priced
-/// alternative kept beside it (`manaplan::keep_one_per_permanent`).
-fn usable(view: &PlayerView, offers: Vec<Offer>) -> Vec<Source> {
+/// alternative kept beside it (`manaplan::keep_one_per_permanent`) and its
+/// paid mana ability ([`converters`]).
+fn usable(view: &PlayerView, legal: &LegalActions, offers: Vec<Offer>) -> Vec<Source> {
     let mut result: Vec<Source> = offers.into_iter().map(|o| o.source).collect();
     result.sort_by_key(|s| {
         (
@@ -2202,6 +2248,7 @@ fn usable(view: &PlayerView, offers: Vec<Offer>) -> Vec<Source> {
             apply_triggered_mana_bonus(view, object, s);
         }
     }
+    manaplan::add_converters(&mut result, converters(view, legal));
     result
 }
 
@@ -2213,7 +2260,7 @@ pub(crate) fn plan_for_spell(
     spell: ObjectId,
 ) -> Option<manaplan::Plan> {
     let (restricted, plain) = split_restricted(offers(view, legal));
-    let plain = usable(view, plain);
+    let plain = usable(view, legal, plain);
     if let Some(plan) = manaplan::plan(cost, pool, &plain) {
         return Some(plan);
     }
@@ -2239,7 +2286,7 @@ pub(crate) fn plan_for_activation(
     let mut pool = *pool;
     pool.spending = spending;
     let (restricted, plain) = split_restricted(offers(view, legal));
-    let mut plain = usable(view, plain);
+    let mut plain = usable(view, legal, plain);
     if taps_self {
         plain.retain(|s| s.id != source);
     }

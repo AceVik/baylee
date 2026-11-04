@@ -648,6 +648,7 @@ fn the_payment_shelf_follows_what_is_staged() {
         source: forest,
         tap: Tap::Intrinsic,
         color: None,
+        second: None,
     }));
     for lang in [Lang::En, Lang::De] {
         let answers = answers_for(&duel, lang, false, false, false);
