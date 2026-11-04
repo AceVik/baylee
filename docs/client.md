@@ -1622,7 +1622,7 @@ PublicObject.stack_item: Option<StackItem>
 `AbilityRef { card: CardIndex, index: u32 }` is the stable handle. `index` is
 the position in that card's `CardDef::abilities`, so a client that knows the
 card pool can map it to text; the reserved indices (`SPELL`, `ENTERS`,
-`ADDITIONAL_COST`, `MIRACLE`, `UPKEEP_COST`, `SYNTHETIC`, `COMMANDER_ZONE`,
+`ADDITIONAL_COST`, `MIRACLE`, `SYNTHETIC`, `COMMANDER_ZONE`,
 all counting down from `u32::MAX`) name the questions that are not listed on
 the card, and `AbilityRef::is_listed_ability` separates the two.
 
@@ -1667,7 +1667,7 @@ draws the Oracle's line.
 
 It does not reach every ability, and the misses are honest: 485 of the pool's
 500 stack-capable abilities know their sentence, and every one of the fifteen
-that do not is a **trigger** — an evoke or echo trigger printed as a keyword
+that do not is a **trigger** — an evoke trigger printed as a keyword
 line rather than as a sentence, a quoted sub-ability inside a copy sentence, a
 land's "when this enters untapped" beside its own enter condition.
 `cargo run -p xtask -- ability-lines` is the report that names them;
@@ -1681,7 +1681,9 @@ all. A keyword that is a *bit* never does — `Flying (This creature can't be
 blocked except by creatures with flying or reach.)` has no colon anywhere in
 it. Before `lines::reminder_spells_out_an_ability` read that, the two
 Spacecraft in the pool had no sentence for their only activated ability and
-the sheet drew the row as "Ability 1".
+the sheet drew the row as "Ability 1". Echo is the one with a cost on the line
+that is a triggered ability (`Echo {2}{R}{R}`), so its line is read as one and
+not as an activation: on the stack that line is what says what it costs.
 
 **A mana ability is placed and is not counted.** It was neither: a mana
 ability was `LineShape::Other` on both sides of `lines.rs`, so the table held

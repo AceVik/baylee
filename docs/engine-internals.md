@@ -819,25 +819,72 @@ start into the window its wizard opens for the rest
 (`CastWizard::window_start`), so both are given back together
 (`combo_tests::miracle`, `conduit_of_worlds_paid_short_gives_back_the_forest_tapped_for_it`).
 
-### An upkeep payment is asked after the upkeep's priority (CR 503.1a)
-Echo and a pact's "at the beginning of your next upkeep, pay …; if you
-don't, you lose the game" are delayed actions, not stack objects, and they
-used to run as the upkeep began — before anybody held priority, against a
-pool the untap step had just emptied (CR 500.5) and in which nobody could
-have made mana (CR 502.4). A payment that the pool could not cover was then
-a loss or a sacrifice with no question asked: Pact of Negation lost the game
-on eight untapped Islands. An upkeep trigger is put on the stack before the
-active player receives priority and resolves after it (CR 503.1a,
-CR 117.3a), so `queue_upkeep_delayed` now sets these two aside in
-`upkeep_payments`, and `priority_round` answers them where they would have
-resolved: when the upkeep's round closes on an empty stack, before
-`advance_step` empties the pool — `offer_miracle`'s moment, for
-`offer_miracle`'s reason. A player who floats the mana in that window is
-asked and pays; one who does not has not paid.
+### An upkeep payment is a triggered ability on the stack (CR 702.30a, CR 603.7)
+Echo and a pact's "at the beginning of your next upkeep, pay …; if you don't,
+you lose the game" trigger as the upkeep begins and go on the stack before the
+active player receives priority (CR 503.1a, CR 117.3a), in the same APNAP batch
+as everything else that triggered there (CR 603.3b). Priority goes round over
+them, they can be answered, and what they ask is asked as they resolve. A client,
+a language-model seat and the house AI read them as they read any other stack
+object: an ability of that card, at its place in the card's list.
 
-The payment is still not a stack object, so nothing on the board says it is
-coming: a client or the house AI sees an empty upkeep. Making it one — with
-the CR 605.3a window a `PlayerMayPay` tax already opens — is the rest of this.
+**Echo** is a keyword with a cost and no effect list (`AbilityDef::Echo`), and
+three places write out what it means. `trigger::triggered_parts` reads it as a
+step trigger with an intervening `if`, so it fires, doubles and is lost as a
+printed trigger is: a permanent with no echo at the beginning of the upkeep (a
+Humility) has nothing to trigger, and a copy has its own. `intervening_clause`
+gives `intervening_if_failed` the same clause for CR 603.4's second check, and
+`Engine::demand_echo` is its body as it resolves.
+
+The clause is `Condition::SourceCameUnderYourControlSinceYourLastUpkeep`. A
+player's `upkeep_began` is the stamp as their latest upkeep began and
+`last_upkeep_began` the one before it, which is what "your last upkeep" means
+in the step they are in; `GameObject::controlled_since` is compared against the
+second. It restarts at every change of control, so a permanent taken owes at
+its new controller's next upkeep and one handed back owes again, whether or not
+it was paid for before. A player with no last upkeep yet has a stamp of zero, so
+everything came after it, the opening board included. Neither stamp is in the
+state hash: they are read off the turn clock, and a game with no echo in it
+hashes as it always has (§"The replay contract"). As it resolves the clause
+also asks for the incarnation that triggered, on the battlefield, under the
+ability's controller. A permanent gone, blinked or taken in response is removed
+from the stack with nothing asked: the last of those still "came under your
+control", but all the ability could do is ask for mana and sacrifice nothing
+(CR 701.21a).
+
+The body is `Effect::PlayerMayPayManaOr` with `SacrificeSelf`, the tax Phantasmal
+Forces prints, and its CR 605.3a window: the question comes with the pool empty
+and a yes opens the window to make the mana in. One thing is echo's own. A player
+with neither the mana nor anything to make it with is past asking, and the body
+is `SacrificeSelf` alone. Asked of the pool only, the question used to go
+unasked beside untapped lands.
+
+**A pact's price** is the delayed triggered ability its spell creates
+(CR 603.7), and the card lists it as a second ability so that it has a place and
+a sentence: `Effect::AtNextUpkeepPrinted { ability: 1 }` makes a
+`DelayedAction::PrintedTrigger`, and at that upkeep it joins the trigger queue as
+that ability of that face, with the list it needs kept beside it (a copy of the
+spell, which made one too, has ceased to exist by then). The listed ability is a
+`triggered!` on an instant, which functions on the battlefield and so never
+fires on its own. Its body is `Effect::PayManaOrLose`: "pay", so a pool that
+covers it is spent without a word, and anything else is `YesNoPrompt::PayPact`,
+put whatever the board, with `source: None` because a standing "no" would be a
+standing loss. It has the tax's window, and an unpaid close is `Effect::LoseGame`.
+
+Both used to be delayed actions and not stack objects. First they ran as the
+upkeep began, against a pool the untap step had just emptied (CR 500.5) and in
+which nobody could have made mana (CR 502.4), and Pact of Negation lost the game
+on eight untapped Islands. Then they were set aside and answered when the
+upkeep's round closed on an empty stack, which kept that fix and showed nobody
+anything: a language-model seat reported a Keldon Champion's echo missing from
+the stack, and APNAP order against the upkeep's real triggers was wrong. Echo was
+also registered as the permanent entered, so it stayed with the player it entered
+under: a stolen permanent asked its old controller for mana, and one that lost
+its abilities still came due.
+
+Cumulative upkeep (CR 702.24a) never shared any of this. It is written out as a
+printed `triggered!` with `Effect::AddCounter` and `Effect::PlayerMayPayOr`, and
+has been an ordinary stack object all along.
 
 ### The cleanup step checks once, and may give priority (CR 514.3a)
 A cleanup step is its two turn-based actions and then one check. First the
@@ -2076,6 +2123,18 @@ chunk copies it. The bytes, and so every hash a record holds, are exactly the
 ones writing them out gives (`state::tests::the_remembered_hash_is_the_written_hash`,
 `hasher::tests`); a change that alters them breaks every stored record's replay
 and is a decision, not an optimisation.
+
+So a rule that is new writes nothing into a game that never meets it. A field
+the hash reads writes nothing while it is unset, or stays out if it follows from
+what the hash already covers (`Player::upkeep_began`, read off the turn clock).
+`derive(Hash)` writes a variant's number, so a new variant goes at the end of its
+enum and one that leaves must not move the rest: an `Effect` takes its slot, and
+`DelayedAction` says the number of the first variant after its gap
+(`a_delayed_action_keeps_the_number_a_written_record_holds`). A step of
+`Engine::snapshot_hash` that has nothing left to fold in stays, as the
+multiplication it was. `record::seen`'s acceptance record is not refreshed to
+get past any of this: it is the check that a record already written still
+replays, and the fixture is for a rule that changed that game.
 
 `Engine::snapshot_hash` is not a complete comparison: it leaves out the
 journal, the open question and its bookkeeping (`pending`, `pending_plan`, the

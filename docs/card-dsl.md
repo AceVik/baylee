@@ -1925,7 +1925,9 @@ the upkeep trigger sacrifices it only when no fade counter can be removed.
 Also `AddCounter`, `AddCounterFilter`,
 `DrainAllCountersIntoSelf` (Thief of Blood), `AddMana`,
 `DelayedManaAtNextMain` (Mana Drain), `SacrificeSelf`,
-`PayCostOrLoseLater`, `ExileTargetsCreateTokens`.
+`AtNextUpkeepPrinted { ability }` (the delayed triggered ability its card lists
+as a sentence of its own, Pact of Negation), `PayManaOrLose { cost }`,
+`ExileTargetsCreateTokens`.
 Conditional: `IfKicked { then, otherwise }`, `IfEventPowerAtLeast { n, then,
 otherwise }` (Tribute to the World Tree), and four that run `then` or nothing
 — `IfCreaturesDiedAtLeast { n, then }`, `IfNotLostLifeThisTurn { then }`
@@ -4603,7 +4605,9 @@ optional `TargetReq`. The observer ends at combat end when
 
 `Condition::SourceBlockedOrWasBlockedSinceYourLastUpkeep` reads this source
 incarnation's combat history since the controller's previous upkeep.
-`CreatureDamagedBySourceDiedThisTurn` reads the current turn's source-specific
+`SourceCameUnderYourControlSinceYourLastUpkeep` is echo's intervening `if`
+(`docs/engine-internals.md`), which `AbilityDef::Echo` supplies and no card
+writes. `CreatureDamagedBySourceDiedThisTurn` reads the current turn's source-specific
 damage/death history. `SomeDefendingPlayerControlsNone(&Filter)` succeeds
 when an eligible defending player controls no matching permanent.
 `Duration::UntilStartOfAffectedNextUntap` ends before untap determination in

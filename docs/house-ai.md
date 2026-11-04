@@ -151,17 +151,21 @@ in every view and a seat taking one without the other pays for its
 opponent's window. `crates/baylee-gamehost/tests/ai_ward.rs` plays it out
 against the real engine.
 
-**A pact is a counter paid for next turn.** Pact of Negation's
-`Effect::PayCostOrLoseLater` used to refuse the cast outright. `policy::spell_score`
+**A pact is a counter paid for next turn.** Pact of Negation's delayed
+`Effect::PayManaOrLose` used to refuse the cast outright. `policy::spell_score`
 now casts it as a counterspell on two further conditions: every mana source
 this seat has, untapped again, makes the price (`pays_next_turn`, CR 502.3),
 and the best opponent's spell it could counter (its material plus what of this
 seat's it is aimed at) is worth more than the price at 150 a mana, which is
-then taken off the counter's value. The engine asks for the price once a round
-of passes on an empty stack closes the upkeep, from what is still untapped,
-and nothing in the view says a price is coming, so this seat spends nothing in
-its own upkeep on an empty stack (`a_seat_spends_nothing_in_its_own_upkeep`: a
-fetchland is cracked in the draw step instead). Inside the window a dual
+then taken off the counter's value. The price goes on the stack at that upkeep
+and is asked as it resolves, from what is still untapped, so this seat spends
+nothing there while a payment of its own is on the stack: a pact's, echo,
+cumulative upkeep (`tactics::asks_its_controller_for_mana`,
+`a_seat_spends_nothing_over_its_own_echo`). Nor on an empty stack, where
+anything could as well wait a step
+(`a_seat_spends_nothing_in_its_own_upkeep`: a fetchland is cracked in the draw
+step instead). Echo itself is `policy::pays_tax`'s question, like any upkeep
+that sacrifices its permanent unpaid. Inside the window a dual
 land's colour question is answered for the price
 (`a_colour_named_in_a_payment_window_keeps_the_price_payable`). It used to be
 answered for the spells in hand, so under `{3}{U}{U}` owed a Hallowed Fountain
