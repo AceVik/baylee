@@ -9614,3 +9614,90 @@ CreateSpectatorsAllowed = Spectators allowed
 
 # The create-table sheet's spectators badge when they may not.
 CreateNoSpectators = No spectators
+
+# The replay list's sort: newest first.
+ReplaysSortNewest = Newest
+
+# The replay list's sort: longest first.
+ReplaysSortLongest = Longest duration
+
+# The replay list's sort: most turns first.
+ReplaysSortMostTurns = Most turns
+
+# The replay list's table filter: all tables.
+ReplaysFilterAll = All tables
+
+# The replay list's table filter: two players. Also a row's table size.
+ReplaysFilterDuel = 1v1 Duel
+
+# The replay list's table filter: three players or more.
+ReplaysFilterMultiplayer = Multiplayer (3+)
+
+# The replay list's summary tile: the number of recorded matches.
+ReplaysKpiRecorded = Recorded Matches
+
+# Under the recorded matches tile.
+# Arguments: local, online
+ReplaysKpiRecordedSub = { $local } local · { $online } online
+
+# The replay list's summary tile: wins and losses.
+ReplaysKpiRecord = Win Record & Rate
+
+# The wins and losses tile's value.
+# Arguments: wins, losses, rate
+ReplaysKpiRecordValue = { $wins }W – { $losses }L ({ $rate }%)
+
+# Under the wins and losses tile.
+# Arguments: best, current
+ReplaysKpiStreaks = Best streak: { $best } · Current: { $current }
+
+# The replay list's summary tile: duration and turns.
+ReplaysKpiPace = Avg Duration & Tempo
+
+# The duration tile's value.
+# Arguments: minutes, turns
+ReplaysKpiPaceValue = Avg { $minutes }m · Avg { $turns } turns
+
+# Under the duration tile.
+# Arguments: turns, minutes
+ReplaysKpiRecordTurns = Record: { $turns } turns ({ $minutes }m)
+
+# The replay list's summary tile: verification by the engine.
+ReplaysKpiVerification = Engine Verification
+
+# The verification tile's value.
+# Arguments: verified, total
+ReplaysKpiVerified = { $verified }/{ $total } Verified
+
+# Under the verification tile.
+# Arguments: count
+ReplaysKpiAllHands = { $count }× All hands open
+
+# The empty replay list's headline.
+ReplaysNoneYet = No recorded matches yet
+
+# The empty replay list's first perk.
+ReplaysPerkTimeline = Turn-by-turn timeline
+
+# The empty replay list's second perk.
+ReplaysPerkPerspectives = All perspectives & hands
+
+# The empty replay list's third perk.
+ReplaysPerkDeterministic = Deterministic engine check
+
+# The empty replay list's button.
+ReplaysPlayNow = Play a match now
+
+# The replay list's count badge.
+# Arguments: shown, total
+ReplaysCount = { $shown } / { $total } matches
+
+# The replay list's view switch: detailed cards.
+ReplaysViewDetailed = Detailed view
+
+# A replay row's table size for three or more.
+# Arguments: count
+ReplaysPlayers = { $count } players
+
+# A replay row's badge for a replay the engine reproduced exactly.
+ReplaysExact = Exact

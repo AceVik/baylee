@@ -76,15 +76,13 @@ impl ReplaysSort {
         }
     }
 
-    const fn label(self, lang: Lang) -> &'static str {
-        match (self, lang) {
-            (Self::Newest, Lang::De) => "Neueste",
-            (Self::Newest, Lang::En) => "Newest",
-            (Self::Longest, Lang::De) => "Längste Dauer",
-            (Self::Longest, Lang::En) => "Longest duration",
-            (Self::MostTurns, Lang::De) => "Meiste Züge",
-            (Self::MostTurns, Lang::En) => "Most turns",
+    fn label(self, lang: Lang) -> &'static str {
+        match self {
+            Self::Newest => Phrase::ReplaysSortNewest,
+            Self::Longest => Phrase::ReplaysSortLongest,
+            Self::MostTurns => Phrase::ReplaysSortMostTurns,
         }
+        .text(lang)
     }
 }
 
@@ -116,15 +114,13 @@ impl ReplayPlayersFilter {
         }
     }
 
-    const fn label(self, lang: Lang) -> &'static str {
-        match (self, lang) {
-            (Self::All, Lang::De) => "Alle Tische",
-            (Self::All, Lang::En) => "All tables",
-            (Self::Duel, Lang::De) => "1v1 Duell",
-            (Self::Duel, Lang::En) => "1v1 Duel",
-            (Self::Multiplayer, Lang::De) => "Mehrspieler (3+)",
-            (Self::Multiplayer, Lang::En) => "Multiplayer (3+)",
+    fn label(self, lang: Lang) -> &'static str {
+        match self {
+            Self::All => Phrase::ReplaysFilterAll,
+            Self::Duel => Phrase::ReplaysFilterDuel,
+            Self::Multiplayer => Phrase::ReplaysFilterMultiplayer,
         }
+        .text(lang)
     }
 
     fn matches(self, players_len: usize) -> bool {
@@ -716,7 +712,6 @@ fn spawn_replays_stats_bar(
     lang: Lang,
 ) -> Entity {
     use baylee_client_core::replay::library::EntryCheck;
-    let de = lang == Lang::De;
     let total = entries.len();
     let local_count = entries.iter().filter(|e| e.is_local()).count();
     let online_count = total.saturating_sub(local_count);
@@ -798,80 +793,44 @@ fn spawn_replays_stats_bar(
         commands,
         kit,
         '\u{f1da}',
-        if de {
-            "Aufgezeichnete Partien"
-        } else {
-            "Recorded Matches"
-        },
+        Phrase::ReplaysKpiRecorded.text(lang),
         &format!("{total}"),
-        &if de {
-            format!("{local_count} lokal · {online_count} online")
-        } else {
-            format!("{local_count} local · {online_count} online")
-        },
+        &Phrase::ReplaysKpiRecordedSub
+            .fill(lang, &[&local_count.to_string(), &online_count.to_string()]),
         tokens::ACCENT,
     );
     let c2 = spawn_replay_kpi_card(
         commands,
         kit,
         '\u{f091}',
-        if de {
-            "Siegbilanz & Quote"
-        } else {
-            "Win Record & Rate"
-        },
-        &if de {
-            format!("{wins} S – {losses} N ({win_rate}%)")
-        } else {
-            format!("{wins}W – {losses}L ({win_rate}%)")
-        },
-        &if de {
-            format!("Beste Serie: {best_streak} · Aktuell: {cur_streak}")
-        } else {
-            format!("Best streak: {best_streak} · Current: {cur_streak}")
-        },
+        Phrase::ReplaysKpiRecord.text(lang),
+        &Phrase::ReplaysKpiRecordValue.fill(
+            lang,
+            &[
+                &wins.to_string(),
+                &losses.to_string(),
+                &win_rate.to_string(),
+            ],
+        ),
+        &Phrase::ReplaysKpiStreaks.fill(lang, &[&best_streak.to_string(), &cur_streak.to_string()]),
         tokens::GOLD,
     );
     let c3 = spawn_replay_kpi_card(
         commands,
         kit,
         '\u{f252}',
-        if de {
-            "Ø Spieldauer & Tempo"
-        } else {
-            "Avg Duration & Tempo"
-        },
-        &if de {
-            format!("Ø {avg_mins} Min. · Ø {avg_turns} Züge")
-        } else {
-            format!("Avg {avg_mins}m · Avg {avg_turns} turns")
-        },
-        &if de {
-            format!("Rekord: {max_turns} Züge ({max_mins} Min.)")
-        } else {
-            format!("Record: {max_turns} turns ({max_mins}m)")
-        },
+        Phrase::ReplaysKpiPace.text(lang),
+        &Phrase::ReplaysKpiPaceValue.fill(lang, &[&avg_mins.to_string(), &avg_turns.to_string()]),
+        &Phrase::ReplaysKpiRecordTurns.fill(lang, &[&max_turns.to_string(), &max_mins.to_string()]),
         Color::srgb(0.46, 0.78, 0.96),
     );
     let c4 = spawn_replay_kpi_card(
         commands,
         kit,
         '\u{f3ed}',
-        if de {
-            "Engine-Verifikation"
-        } else {
-            "Engine Verification"
-        },
-        &if de {
-            format!("{verified_count}/{total} Geprüft")
-        } else {
-            format!("{verified_count}/{total} Verified")
-        },
-        &if de {
-            format!("{all_hands_count}× Alle Hände offen")
-        } else {
-            format!("{all_hands_count}× All hands open")
-        },
+        Phrase::ReplaysKpiVerification.text(lang),
+        &Phrase::ReplaysKpiVerified.fill(lang, &[&verified_count.to_string(), &total.to_string()]),
+        &Phrase::ReplaysKpiAllHands.fill(lang, &[&all_hands_count.to_string()]),
         Color::srgb(0.36, 0.84, 0.56),
     );
     commands.entity(row).add_children(&[c1, c2, c3, c4]);
@@ -948,7 +907,6 @@ fn spawn_replays_empty_state(
     lang: Lang,
     no_records_at_all: bool,
 ) -> Entity {
-    let de = lang == Lang::De;
     let card = commands
         .spawn((
             Node {
@@ -998,11 +956,7 @@ fn spawn_replays_empty_state(
     let headline = commands
         .spawn((
             Text::new(if no_records_at_all {
-                if de {
-                    "Noch keine Spielaufzeichnungen vorhanden"
-                } else {
-                    "No recorded matches yet"
-                }
+                Phrase::ReplaysNoneYet.text(lang)
             } else {
                 ReplayPhrase::NoMatch.text(lang)
             }),
@@ -1023,33 +977,21 @@ fn spawn_replays_empty_state(
             commands,
             kit,
             '\u{f04b}',
-            if de {
-                "Zug-für-Zug Zeitachse"
-            } else {
-                "Turn-by-turn timeline"
-            },
+            Phrase::ReplaysPerkTimeline.text(lang),
             tokens::ACCENT,
         );
         let p2 = parts::badge_with(
             commands,
             kit,
             '\u{f06e}',
-            if de {
-                "Alle Perspektiven & Hände"
-            } else {
-                "All perspectives & hands"
-            },
+            Phrase::ReplaysPerkPerspectives.text(lang),
             tokens::GOLD,
         );
         let p3 = parts::badge_with(
             commands,
             kit,
             '\u{f3ed}',
-            if de {
-                "Deterministische Engine-Prüfung"
-            } else {
-                "Deterministic engine check"
-            },
+            Phrase::ReplaysPerkDeterministic.text(lang),
             Color::srgb(0.36, 0.84, 0.56),
         );
         commands.entity(perks).add_children(&[p1, p2, p3]);
@@ -1059,11 +1001,7 @@ fn spawn_replays_empty_state(
             commands,
             kit,
             '\u{f04b}',
-            if de {
-                "Jetzt eine Partie starten"
-            } else {
-                "Play a match now"
-            },
+            Phrase::ReplaysPlayNow.text(lang),
             Weight::Primary,
             Live::Yes,
             None,
@@ -1086,7 +1024,6 @@ pub(super) fn draw(
 ) {
     let lobby = &state.lobby;
     let lang = lobby.lang();
-    let de = lang == Lang::De;
     let ui = &state.replays;
     let body = commands
         .spawn((
@@ -1162,11 +1099,13 @@ pub(super) fn draw(
     let count_badge = parts::badge(
         commands,
         kit,
-        &if de {
-            format!("{} / {} Partien", shown.len(), ui.library.entries().len())
-        } else {
-            format!("{} / {} matches", shown.len(), ui.library.entries().len())
-        },
+        &Phrase::ReplaysCount.fill(
+            lang,
+            &[
+                &shown.len().to_string(),
+                &ui.library.entries().len().to_string(),
+            ],
+        ),
         tokens::ACCENT,
     );
     let gap = parts::grow(commands);
@@ -1285,22 +1224,8 @@ pub(super) fn draw(
         commands,
         kit,
         &[
-            (
-                '\u{f009}',
-                if de {
-                    "Detail-Ansicht"
-                } else {
-                    "Detailed view"
-                },
-            ),
-            (
-                '\u{f03a}',
-                if de {
-                    "Kompakt-Ansicht"
-                } else {
-                    "Compact view"
-                },
-            ),
+            ('\u{f009}', Phrase::ReplaysViewDetailed.text(lang)),
+            ('\u{f03a}', Phrase::DecksViewCompact.text(lang)),
         ],
         active_v,
         |i| Press::Replays(ReplaysPress::SetView(view_modes[i])),
@@ -1485,10 +1410,7 @@ fn outcome_style(outcome: Outcome) -> (char, Color) {
 
 /// Spawns a compact 28×28 vertical `⋮` menu button for a replay card.
 fn spawn_replay_more(commands: &mut Commands, kit: Kit, lang: Lang, press: Press) -> Entity {
-    let tip = match lang {
-        Lang::De => "Weitere Aktionen",
-        Lang::En => "More actions",
-    };
+    let tip = Phrase::MoreActions.text(lang);
     let btn = commands
         .spawn((
             crate::shellkit::role::Role::Button,
@@ -1656,7 +1578,6 @@ fn entry_row(
     lang: Lang,
 ) -> Entity {
     use baylee_client_core::replay::library::EntryCheck;
-    let de = lang == Lang::De;
     let clock = local_time(entry.started, offset)
         .map(|at| format!("{:02}:{:02}", at.hour(), at.minute()))
         .unwrap_or_default();
@@ -1811,15 +1732,9 @@ fn entry_row(
             '\u{f500}'
         },
         &if seats_count <= 2 {
-            if de {
-                "1v1 Duell".to_string()
-            } else {
-                "1v1 Duel".to_string()
-            }
-        } else if de {
-            format!("{seats_count} Spieler")
+            Phrase::ReplaysFilterDuel.text(lang).to_string()
         } else {
-            format!("{seats_count} players")
+            Phrase::ReplaysPlayers.fill(lang, &[&seats_count.to_string()])
         },
         tokens::INK.with_alpha(0.85),
     );
@@ -1852,7 +1767,7 @@ fn entry_row(
             commands,
             kit,
             '\u{f058}',
-            if de { "Exakt" } else { "Exact" },
+            Phrase::ReplaysExact.text(lang),
             Color::srgb(0.36, 0.84, 0.56),
         ),
         EntryCheck::Checked => parts::badge_with(
