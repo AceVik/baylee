@@ -270,41 +270,14 @@ pub(super) fn poll(
                     state.replays.forget_visit();
                     state.lobby.say(why);
                 }
-                Reply::AutoSaved {
-                    deck_id,
-                    saved_changes,
-                    archived,
-                } => {
-                    let editing = state.lobby.builder().editing().map(str::to_owned);
-                    let old_key = editing.as_deref().unwrap_or("new");
-                    if let Some(ref new_id) = deck_id {
-                        if old_key != new_id {
-                            if !prefs.all().deck_card_favourites_for(old_key).is_empty() {
-                                prefs.edit().migrate_deck_card_favourites(old_key, new_id);
-                            }
-                            if !prefs.all().variants_for_deck(old_key).is_empty() {
-                                prefs.edit().migrate_deck_variants(old_key, new_id);
-                            }
-                        }
-                        state.lobby.remember_saved_deck(new_id);
-                    }
-                    state.lobby.builder_mut().mark_auto_saved(
-                        deck_id.as_deref(),
-                        saved_changes,
-                        archived,
+                Reply::AutoSaved { deck_id, archived } => {
+                    super::decksave::save_landed(
+                        &mut state, &mut prefs, &mailbox, deck_id, archived,
                     );
-                    state.build.save = crate::buildui::SaveState::Saved {
-                        at: 0.0,
-                        minutes: 0,
-                    };
-                    if !state.lobby.builder().dirty() {
-                        state.drafts.forget(&[editing.as_deref(), None]);
-                    }
-                    if !matches!(state.lobby.screen(), client_core::lobby::Screen::Build) {
-                        dispatch(&mut state, &mailbox, Some(LobbyRequest::ListDecks));
-                    }
                 }
-                Reply::AutoSaveFailed { why } => super::decksave::save_failed(&mut state, why),
+                Reply::AutoSaveFailed { why } => {
+                    super::decksave::save_failed(&mut state, &mailbox, why);
+                }
                 Reply::Clocks(clocks) => {
                     if state.lobby.clocks() != clocks {
                         state.lobby.set_clocks(clocks);

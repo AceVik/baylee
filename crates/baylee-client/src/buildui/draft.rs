@@ -6,9 +6,10 @@
 //! The draft is the deck's rows in the stored form (`DeckBuilder::draft`),
 //! one per deck being edited (`"new"` for a deck never saved), in one small
 //! document beside the client's settings (`settings::store`; `localStorage`
-//! in a browser). It is written a second after the last edit, forgotten
-//! when the deck saves or the player discards it, and taken back when the
-//! same deck is opened again with something the gateway never got.
+//! in a browser). It is written a second after the last edit and at once on
+//! leaving, forgotten when a save of it lands or the player discards it, and
+//! taken back when the same deck is opened again with something the gateway
+//! never got.
 
 use super::SaveState;
 use crate::lobby::LobbyState;
@@ -24,6 +25,10 @@ const FILE: &str = "builder-drafts.json";
 
 /// How long the deck has to stand still before its draft is written.
 const SETTLE_SECS: f64 = 1.0;
+
+/// How long it has to stand still before it is saved: a word typed into the
+/// name, or a burst of cards added, is one save.
+const SAVE_SETTLE_SECS: f64 = 0.4;
 
 /// Every kept draft, by the deck it is a draft of: the document, read the
 /// first time it is asked for and written through from then on.
@@ -96,17 +101,19 @@ pub(crate) struct Keeper {
     pending: Option<(Draft, f64)>,
     /// The draft last written.
     written: Option<Draft>,
-    /// The draft last sent to `auto_save_deck`.
-    auto_saved: Option<Draft>,
+    /// The draft last offered to `auto_save_deck`. A save that failed is not
+    /// sent again by itself: that would loop at the frame rate on a deck the
+    /// gateway refuses. The next edit or Save sends it.
+    offered: Option<Draft>,
 }
 
 fn now(time: Option<&Time<Real>>) -> f64 {
     time.map_or(0.0, Time::elapsed_secs_f64)
 }
 
-/// Keeps the draft: takes it back when its deck is opened again, auto-saves
-/// every change in a live session without versioning, and writes a local draft
-/// fallback a second after the last edit.
+/// Keeps the draft: takes it back when its deck is opened again, saves every
+/// change once it has stood [`SAVE_SETTLE_SECS`], and writes the draft a
+/// second after the last edit for as long as no save has landed.
 pub(crate) fn keep_the_draft(
     mut state: ResMut<LobbyState>,
     mut prefs: Option<ResMut<crate::prefs::Prefs>>,
@@ -172,79 +179,66 @@ pub(crate) fn keep_the_draft(
     if kept.restore {
         return;
     }
-    let can_auto_save = state.saves_decks();
     let deck = state.lobby.builder();
     if !deck.dirty() {
         kept.pending = None;
         kept.written = None;
         return;
     }
-    if can_auto_save
-        && !deck
-            .entries(baylee_client_core::deckbuilder::Zone::Main)
-            .is_empty()
-        && let Some(mailbox) = mailbox.as_deref()
-    {
-        let draft = deck.draft();
-        // Wait for an in-flight initial POST /decks to assign `editing` before sending another save.
-        let creating_in_flight = deck.editing().is_none()
-            && kept.auto_saved.is_some()
-            && state.build.save != SaveState::Failed;
-        if !creating_in_flight && kept.auto_saved.as_ref() != Some(&draft) {
-            let old_key = deck.editing().unwrap_or("new").to_owned();
-            kept.auto_saved = Some(draft);
-            crate::lobby::decksave::auto_save_deck(&mut state, mailbox);
-            if let Some(new_id) = state.lobby.builder().editing().map(str::to_owned)
-                && new_id != old_key
-                && let Some(prefs) = prefs.as_deref_mut()
-            {
-                if !prefs.all().deck_card_favourites_for(&old_key).is_empty() {
-                    prefs.edit().migrate_deck_card_favourites(&old_key, &new_id);
-                }
-                if !prefs.all().variants_for_deck(&old_key).is_empty() {
-                    prefs.edit().migrate_deck_variants(&old_key, &new_id);
-                }
-            }
-            if !state.lobby.builder().dirty() {
-                kept.pending = None;
-                return;
-            }
-        }
-    }
-    let deck = state.lobby.builder();
     let at = now(time.as_deref());
-    if state.is_changed() {
+    if state.is_changed() || kept.pending.is_none() {
         let draft = deck.draft();
-        if kept.written.as_ref() != Some(&draft)
-            && kept.pending.as_ref().is_none_or(|(d, _)| *d != draft)
-        {
+        if kept.pending.as_ref().is_none_or(|(d, _)| *d != draft) {
             kept.pending = Some((draft, at));
         }
     }
-    if let Some((draft, since)) = kept.pending.take() {
-        if at - since >= SETTLE_SECS {
-            state.drafts.keep(&draft);
-            kept.written = Some(draft);
-        } else {
-            kept.pending = Some((draft, since));
-        }
+    let Keeper {
+        pending,
+        written,
+        offered,
+        ..
+    } = &mut *kept;
+    let Some((draft, since)) = pending.as_ref() else {
+        return;
+    };
+    let since = *since;
+    if at - since >= SETTLE_SECS && written.as_ref() != Some(draft) {
+        state.drafts.keep(draft);
+        *written = Some(draft.clone());
     }
+    if at - since < SAVE_SETTLE_SECS || offered.as_ref() == Some(draft) || !state.saves_decks() {
+        return;
+    }
+    let Some(mailbox) = mailbox.as_deref() else {
+        return;
+    };
+    let old_key = state.lobby.builder().editing().unwrap_or("new").to_owned();
+    crate::lobby::decksave::auto_save_deck(&mut state, mailbox);
+    // The device's store gives a deck its id in that call; a gateway's
+    // answer brings it later.
+    if let Some(prefs) = prefs.as_deref_mut()
+        && let Some(new_id) = state.lobby.builder().editing()
+        && new_id != old_key
+    {
+        crate::lobby::decksave::carry_deck_prefs(prefs, &old_key, new_id);
+    }
+    // Saving can name a nameless deck.
+    let holds = state.lobby.builder().draft();
+    *offered = Some(holds.clone());
+    *pending = Some((holds, since));
 }
 
-/// Follows the save the header's Save sent: Saved when the deck is no
-/// longer dirty, Couldn't save when the lobby stopped waiting and it still
-/// is; and the minutes since, once a minute.
+/// Follows the last save: Saved once the deck is no longer dirty, back to
+/// nothing when an edit overtook it (that has a save of its own coming, and a
+/// save that failed says so itself); and the minutes since, once a minute.
 pub(crate) fn follow_the_save(mut state: ResMut<LobbyState>, time: Option<Res<Time<Real>>>) {
     let at = now(time.as_deref());
     match state.build.save {
         SaveState::Saving => {
-            let deck = state.lobby.builder();
-            if !deck.dirty() {
-                let editing = deck.editing().map(str::to_owned);
+            if !state.lobby.builder().dirty() {
                 state.build.save = SaveState::Saved { at, minutes: 0 };
-                state.drafts.forget(&[editing.as_deref(), None]);
-            } else if !state.lobby.busy() {
-                state.build.save = SaveState::Failed;
+            } else if !state.deck_save_out() {
+                state.build.save = SaveState::Idle;
             }
         }
         SaveState::Saved { at: since, minutes } => {

@@ -590,6 +590,8 @@ pub struct LobbyState {
     pub(crate) build: crate::buildui::BuildUi,
     /// The drafts kept on this device (`crate::buildui::draft`).
     pub(crate) drafts: crate::buildui::draft::Drafts,
+    /// The deck saves on their way to the gateway.
+    pub(crate) deck_saves: baylee_client_core::deckbuilder::saves::SaveLine,
     /// What the import and export dialogs asked of the clipboard and the
     /// file system this frame, for `buildui::transfer::act` to carry out.
     pub(crate) transfer_asks: Vec<crate::buildui::transfer::Ask>,
@@ -966,6 +968,7 @@ impl LobbyState {
             link_asked_central: false,
             build: crate::buildui::BuildUi::default(),
             drafts: crate::buildui::draft::Drafts::default(),
+            deck_saves: baylee_client_core::deckbuilder::saves::SaveLine::default(),
             transfer_asks: Vec::new(),
             commander_pick: None,
             hub: Hub::Play,
@@ -1119,6 +1122,11 @@ impl LobbyState {
             || self.central_without_gateway()
     }
 
+    /// Whether a deck save is out to this gateway.
+    pub(crate) fn deck_save_out(&self) -> bool {
+        self.deck_saves.busy(self.gateway_epoch)
+    }
+
     /// Signed in to Baylee Central without an active gateway session.
     pub(crate) fn central_without_gateway(&self) -> bool {
         self.central_ready() && !self.lobby.offline() && self.lobby.token().is_none()
@@ -1241,7 +1249,6 @@ enum Reply {
     /// kept the state it replaced in the deck's history.
     AutoSaved {
         deck_id: Option<String>,
-        saved_changes: u32,
         archived: bool,
     },
     /// An auto-save did not reach the gateway, or was refused; `why` is
