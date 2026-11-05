@@ -114,7 +114,7 @@ secret back in under another spelling.
   "catalog": { "state": "ready", "cards": true, "projection": true },
   "agents": { "connected": 1, "games": 2 },
   "admission": "open",
-  "games": { "running": 2, "local_running": 2, "waiting": 0, "seats_awaiting_engine": 0 },
+  "games": { "players_online": 3, "running": 2, "local_running": 2, "waiting": 0, "seats_awaiting_engine": 0 },
   "version": "0.1.0+build.1057 (257eed7a28)",
   "commit": "257eed7a28df650934f50d4ff2557933d25ad713",
   "built_at": "2026-09-19T15:58:27Z",
