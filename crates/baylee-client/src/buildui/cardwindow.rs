@@ -293,10 +293,8 @@ pub(crate) fn window(
     let deck_key = deck.editing().unwrap_or("new");
     let is_deck_fav = env.prefs.deck_card_favourite(deck_key, &card.english_name);
     let is_global_fav = env.prefs.card_favourite(&card.english_name);
-    let (deck_fav_label, global_fav_label) = match lang {
-        Lang::De => ("\u{2605} Deck-Favorit", "\u{2605} Allgemeiner Favorit"),
-        Lang::En => ("\u{2605} Deck favourite", "\u{2605} General favourite"),
-    };
+    let deck_fav_label = Phrase::BuildCardFavDeckChip.text(lang);
+    let global_fav_label = Phrase::BuildCardFavGlobalChip.text(lang);
     let fav_deck_chip = controls::chip(
         commands,
         kit,

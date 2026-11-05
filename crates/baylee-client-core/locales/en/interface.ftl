@@ -9216,3 +9216,192 @@ GatewayIncompatibleShort = Incompatible
 GatewayEmptyGroup = No gateways in this group.
 GatewayNoMatches = No gateways match your search or filter.
 GatewayClearSearch = Show all gateways
+
+# The deck builder's sort direction, as a tooltip: ascending.
+SortDirAscHint = Order: Ascending (Asc)
+
+# The deck builder's sort direction, as a tooltip: descending.
+SortDirDescHint = Order: Descending (Desc)
+
+# The deck builder's sort direction, as a tooltip: the default order.
+SortDirUnsetHint = Order: Default (Unset)
+
+# A card rarity, as the deck builder's chips, cards and statistics name it.
+BuildRarityCommon = Common
+
+# A card rarity, as the deck builder names it.
+BuildRarityUncommon = Uncommon
+
+# A card rarity, as the deck builder names it.
+BuildRarityRare = Rare
+
+# A card rarity, as the deck builder names it.
+BuildRarityMythic = Mythic
+
+# A special or bonus card rarity, as the deck builder names it.
+BuildRaritySpecial = Special
+
+# A deck's achievement frame, lowest tier: no games recorded.
+DeckTierUnranked = Untested
+
+# A deck's achievement frame, tier 1.
+DeckTierInitiate = Copper Initiate
+
+# A deck's achievement frame, tier 2.
+DeckTierApprentice = Iron Apprentice
+
+# A deck's achievement frame, tier 3.
+DeckTierAdept = Bronze Adept
+
+# A deck's achievement frame, tier 4.
+DeckTierVanguard = Silver Vanguard
+
+# A deck's achievement frame, tier 5.
+DeckTierTactician = Emerald Tactician
+
+# A deck's achievement frame, tier 6.
+DeckTierChampion = Sapphire Champion
+
+# A deck's achievement frame, tier 7.
+DeckTierMaster = Golden Master
+
+# A deck's achievement frame, tier 8.
+DeckTierGrandmaster = Ruby Grandmaster
+
+# A deck's achievement frame, tier 9.
+DeckTierArchmage = Amethyst Archmage
+
+# A deck's achievement frame, tier 10.
+DeckTierMythic = Mythic Spark
+
+# A deck's achievement frame, the top tier.
+DeckTierTranscendent = Aether Eternal
+
+# A deck tile's tooltip: its tier, its record and what the next frame asks for. Three lines.
+# Arguments: level, title, games, wins, rate, next, next_games, next_wins
+DeckTierTooltipNext = Deck Rank Tier { $level }/11: { $title }{"\u000A"}{ $games } games · { $wins } wins ({ $rate }% win rate){"\u000A"}Next frame ({ $next }): at { $next_games } games & { $next_wins } wins
+
+# A deck tile's tooltip at the top tier: its tier and its record. Two lines.
+# Arguments: level, title, games, wins, rate
+DeckTierTooltipMax = Deck Rank Tier { $level }/11: { $title } (Max Tier!){"\u000A"}{ $games } games · { $wins } wins ({ $rate }% win rate)
+
+# The card sheet's chip that marks a card as this deck's favourite.
+BuildCardFavDeckChip = ★ Deck favourite
+
+# The card sheet's chip that marks a card as a general favourite.
+BuildCardFavGlobalChip = ★ General favourite
+
+# A card menu's item that marks a card as this deck's favourite.
+BuildCardFavDeckItem = Favourite (this deck)
+
+# A card menu's item that marks a card as a general favourite.
+BuildCardFavGlobalItem = Favourite (general)
+
+# The short mark on a pool card that is a general favourite.
+BuildFavGlobalShort = Gen.
+
+# The header bell's tooltip.
+HeaderNotifications = Notifications
+
+# The header friends button's tooltip.
+HeaderContacts = Contacts
+
+# The pool's chip tooltip: show only this deck's favourites.
+BuildFavDeckTip = Show only favourites for this deck
+
+# The pool's chip: general favourites.
+BuildFavGlobalChip = ★ General
+
+# The pool's chip tooltip: show only general favourites.
+BuildFavGlobalTip = Show only general card favourites
+
+# The pool's chip that groups the list by card type.
+BuildGroupByType = By type
+
+# The pool's view switch: one card a row.
+BuildViewList = List view
+
+# The pool's view switch: a grid of cards.
+BuildViewGrid = Grid view
+
+# The pool's view switch: a compact list.
+BuildViewCompact = Compact view
+
+# The tooltip of the pool's sort menu button.
+BuildSortCriterionTip = Choose sort criterion
+
+# The tooltip of the pool's sort direction button, ascending.
+BuildSortDirAscTip = Sort direction: Ascending (click for Descending)
+
+# The tooltip of the pool's sort direction button, descending.
+BuildSortDirDescTip = Sort direction: Descending (click to unset)
+
+# The tooltip of the pool's sort direction button, in the default order.
+BuildSortDirUnsetTip = Sort direction: Default order (click for Ascending)
+
+# The heading of the deck's saved format variants.
+BuildVariantsTitle = Format variants of this deck
+
+# The button that saves the deck's state as a variant of the chosen format.
+# Arguments: format
+BuildVariantSave = + Save state as { $format } variant
+
+# What format variants are.
+BuildVariantsNote = Store tailored card lists of this deck for multiple formats at once. Each variant is validated against its format and banlist.
+
+# A saved variant is legal in its format.
+BuildVariantLegal = Legal
+
+# A saved variant has problems in its format.
+# Arguments: count
+BuildVariantIssues = { $count } issues
+
+# A saved variant has not been checked.
+BuildVariantUnchecked = Unchecked
+
+# The button that makes a saved variant the deck in hand.
+BuildVariantActivate = Activate
+
+# The statistics tile: the deck's average mana value.
+BuildStatAvgMana = AVG MANA VALUE
+
+# Under the average mana value: the total and the number of spells.
+# Arguments: total, spells
+BuildStatManaSub = Σ { $total } mana · { $spells } spells
+
+# The statistics tile: the lands' share of the deck.
+BuildStatLandShare = LAND SHARE
+
+# The statistics tile: the instant-speed cards.
+BuildStatInstantSpeed = INSTANT SPEED
+
+# Under the instant-speed tile: the legendary cards.
+# Arguments: count
+BuildStatLegendary = { $count } legendary cards
+
+# The statistics tile: the deck's record and rank.
+BuildStatRecord = RECORD & RANK
+
+# The record tile before any game was played.
+BuildStatNoGames = 0 games
+
+# The note on the colour pips card.
+BuildPipsVsSources = Cost pips vs. mana sources
+
+# One colour's detail on the colour pips card.
+# Arguments: pips, sources
+BuildPipsDetail = { $pips } pips · { $sources } sources
+
+# The statistics heading over the rarity pills.
+BuildRarityDistribution = Rarity distribution
+
+# The statistics heading over the opening hand odds.
+BuildOddsHead = Opening hand odds (7 cards) & simulator
+
+# The opening hand odds.
+# Arguments: two_plus, two_to_four, early
+BuildOddsText = ≥ 2 lands: { $two_plus }% · 2–4 lands: { $two_to_four }% · MV ≤ 2 play: { $early }%
+
+# The simulated hand's summary.
+# Arguments: lands, spells
+BuildHandSummary = Drawn hand: { $lands } lands · { $spells } non-lands

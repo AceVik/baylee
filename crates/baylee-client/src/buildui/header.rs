@@ -313,14 +313,7 @@ pub(super) fn draw(commands: &mut Commands, holder: Entity, env: &Env) {
             gateway: Press::Header(HeaderPress::Gateway),
             bell: (
                 Press::Header(HeaderPress::Bell),
-                crate::lobby::HoverHint(
-                    if lang == Lang::De {
-                        "Benachrichtigungen"
-                    } else {
-                        "Notifications"
-                    }
-                    .to_string(),
-                ),
+                crate::lobby::HoverHint(Phrase::HeaderNotifications.text(lang).to_string()),
             ),
             account: Press::Header(HeaderPress::Account),
             back: Press::Header(HeaderPress::Return),

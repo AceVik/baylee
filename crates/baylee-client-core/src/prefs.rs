@@ -1392,34 +1392,22 @@ impl DeckRankTier {
 
     /// Localized title of this achievement frame tier.
     #[must_use]
-    pub const fn title(self, lang: crate::i18n::Lang) -> &'static str {
-        use crate::i18n::Lang;
-        match (self, lang) {
-            (Self::Unranked, Lang::De) => "Ungeprüft",
-            (Self::Unranked, Lang::En) => "Untested",
-            (Self::Initiate, Lang::De) => "Kupfer-Novize",
-            (Self::Initiate, Lang::En) => "Copper Initiate",
-            (Self::Apprentice, Lang::De) => "Eisen-Lehrling",
-            (Self::Apprentice, Lang::En) => "Iron Apprentice",
-            (Self::Adept, Lang::De) => "Bronze-Adept",
-            (Self::Adept, Lang::En) => "Bronze Adept",
-            (Self::Vanguard, Lang::De) => "Silber-Vorhut",
-            (Self::Vanguard, Lang::En) => "Silver Vanguard",
-            (Self::Tactician, Lang::De) => "Smaragd-Stratege",
-            (Self::Tactician, Lang::En) => "Emerald Tactician",
-            (Self::Champion, Lang::De) => "Saphir-Champion",
-            (Self::Champion, Lang::En) => "Sapphire Champion",
-            (Self::Master, Lang::De) => "Gold-Meister",
-            (Self::Master, Lang::En) => "Golden Master",
-            (Self::Grandmaster, Lang::De) => "Rubin-Großmeister",
-            (Self::Grandmaster, Lang::En) => "Ruby Grandmaster",
-            (Self::Archmage, Lang::De) => "Amethyst-Erzmagier",
-            (Self::Archmage, Lang::En) => "Amethyst Archmage",
-            (Self::Mythic, Lang::De) => "Mythischer Funke",
-            (Self::Mythic, Lang::En) => "Mythic Spark",
-            (Self::Transcendent, Lang::De) => "Äther-Ewiger",
-            (Self::Transcendent, Lang::En) => "Aether Eternal",
+    pub fn title(self, lang: crate::i18n::Lang) -> &'static str {
+        match self {
+            Self::Unranked => Phrase::DeckTierUnranked,
+            Self::Initiate => Phrase::DeckTierInitiate,
+            Self::Apprentice => Phrase::DeckTierApprentice,
+            Self::Adept => Phrase::DeckTierAdept,
+            Self::Vanguard => Phrase::DeckTierVanguard,
+            Self::Tactician => Phrase::DeckTierTactician,
+            Self::Champion => Phrase::DeckTierChampion,
+            Self::Master => Phrase::DeckTierMaster,
+            Self::Grandmaster => Phrase::DeckTierGrandmaster,
+            Self::Archmage => Phrase::DeckTierArchmage,
+            Self::Mythic => Phrase::DeckTierMythic,
+            Self::Transcendent => Phrase::DeckTierTranscendent,
         }
+        .text(lang)
     }
 
     /// Requirement `(games_played, wins)` for the next tier, if any.
@@ -1445,31 +1433,26 @@ impl DeckRankTier {
     /// toward the next tier.
     #[must_use]
     pub fn tooltip(self, stats: DeckPlayStats, lang: crate::i18n::Lang) -> String {
-        use crate::i18n::Lang;
-        let lvl = self.level();
+        let lvl = self.level().to_string();
         let title = self.title(lang);
-        let rate = stats.win_rate_pct().unwrap_or(0);
-        match (self.next_requirement(), lang) {
-            (Some((next, req_g, req_w)), Lang::De) => format!(
-                "Deck-Rang Stufe {lvl}/11: {title}\n{} Spiele · {} Siege ({rate}% Siegrate)\nNächster Rahmen ({}): ab {req_g} Spielen & {req_w} Siegen",
-                stats.games_played,
-                stats.wins,
-                next.title(lang)
+        let rate = stats.win_rate_pct().unwrap_or(0).to_string();
+        let games = stats.games_played.to_string();
+        let wins = stats.wins.to_string();
+        match self.next_requirement() {
+            Some((next, req_g, req_w)) => Phrase::DeckTierTooltipNext.fill(
+                lang,
+                &[
+                    &lvl,
+                    title,
+                    &games,
+                    &wins,
+                    &rate,
+                    next.title(lang),
+                    &req_g.to_string(),
+                    &req_w.to_string(),
+                ],
             ),
-            (Some((next, req_g, req_w)), Lang::En) => format!(
-                "Deck Rank Tier {lvl}/11: {title}\n{} games · {} wins ({rate}% win rate)\nNext frame ({}): at {req_g} games & {req_w} wins",
-                stats.games_played,
-                stats.wins,
-                next.title(lang)
-            ),
-            (None, Lang::De) => format!(
-                "Deck-Rang Stufe {lvl}/11: {title} (Höchste Stufe!)\n{} Spiele · {} Siege ({rate}% Siegrate)",
-                stats.games_played, stats.wins
-            ),
-            (None, Lang::En) => format!(
-                "Deck Rank Tier {lvl}/11: {title} (Max Tier!)\n{} games · {} wins ({rate}% win rate)",
-                stats.games_played, stats.wins
-            ),
+            None => Phrase::DeckTierTooltipMax.fill(lang, &[&lvl, title, &games, &wins, &rate]),
         }
     }
 }
@@ -1508,6 +1491,35 @@ pub fn rail_rows() -> Vec<(RailSide, RailRow)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_deck_tiers_tooltip_reads_the_same_in_both_languages_after_the_move_to_fluent() {
+        use crate::i18n::Lang;
+        let stats = DeckPlayStats {
+            games_played: 5,
+            wins: 3,
+            ..DeckPlayStats::default()
+        };
+        let tier = stats.rank_tier();
+        assert_eq!(tier, DeckRankTier::Adept);
+        assert_eq!(
+            tier.tooltip(stats, Lang::En),
+            "Deck Rank Tier 3/11: Bronze Adept\n5 games · 3 wins (60% win rate)\nNext frame (Silver Vanguard): at 10 games & 5 wins"
+        );
+        assert_eq!(
+            tier.tooltip(stats, Lang::De),
+            "Deck-Rang Stufe 3/11: Bronze-Adept\n5 Spiele · 3 Siege (60% Siegrate)\nNächster Rahmen (Silber-Vorhut): ab 10 Spielen & 5 Siegen"
+        );
+        let top = DeckRankTier::Transcendent;
+        assert_eq!(
+            top.tooltip(stats, Lang::En),
+            "Deck Rank Tier 11/11: Aether Eternal (Max Tier!)\n5 games · 3 wins (60% win rate)"
+        );
+        assert_eq!(
+            top.tooltip(stats, Lang::De),
+            "Deck-Rang Stufe 11/11: Äther-Ewiger (Höchste Stufe!)\n5 Spiele · 3 Siege (60% Siegrate)"
+        );
+    }
 
     #[test]
     fn the_standard_keymap_binds_every_action_exactly_once() {

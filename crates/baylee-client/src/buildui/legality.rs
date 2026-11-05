@@ -374,18 +374,8 @@ pub(super) fn sheet(commands: &mut Commands, env: &Env) -> Entity {
     // 1b. Multi-Format Deck Variants Section Card
     let deck_key = deck.editing().unwrap_or("new");
     let variants = env.prefs.variants_for_deck(deck_key);
-    let var_title = caption(
-        commands,
-        kit,
-        match lang {
-            Lang::De => "Format-Varianten dieses Decks",
-            Lang::En => "Format variants of this deck",
-        },
-    );
-    let save_var_label = match lang {
-        Lang::De => format!("+ Stand als {}-Variante sichern", format_name(chosen, lang)),
-        Lang::En => format!("+ Save state as {} variant", format_name(chosen, lang)),
-    };
+    let var_title = caption(commands, kit, Phrase::BuildVariantsTitle.text(lang));
+    let save_var_label = Phrase::BuildVariantSave.fill(lang, &[format_name(chosen, lang)]);
     let save_var_btn = controls::chip(
         commands,
         kit,
@@ -400,19 +390,7 @@ pub(super) fn sheet(commands: &mut Commands, env: &Env) -> Entity {
     );
     let head_gap = spring(commands);
     let var_head_row = line(commands, kit, &[var_title, head_gap, save_var_btn]);
-    let var_desc = surfaces::prose(
-        commands,
-        kit,
-        match lang {
-            Lang::De => {
-                "Speichere angepasste Kartenlisten dieses Decks für mehrere Formate gleichzeitig. Jede Variante wird gegen ihr Format und ihre Banlist validiert."
-            }
-            Lang::En => {
-                "Store tailored card lists of this deck for multiple formats at once. Each variant is validated against its format and banlist."
-            }
-        },
-        true,
-    );
+    let var_desc = surfaces::prose(commands, kit, Phrase::BuildVariantsNote.text(lang), true);
     let mut var_items = vec![var_head_row, var_desc];
     for (idx, variant) in variants.iter().enumerate() {
         let report = deck.validate_variant(variant);
@@ -429,13 +407,12 @@ pub(super) fn sheet(commands: &mut Commands, env: &Env) -> Entity {
             .filter_map(|r| baylee_core::deckrow::parse(r).ok())
             .map(|r| r.count)
             .sum();
-        let status_word = match (report.standing(), lang) {
-            (Standing::Legal, Lang::De) => "Gültig".to_string(),
-            (Standing::Legal, Lang::En) => "Legal".to_string(),
-            (Standing::Illegal, Lang::De) => format!("{} Probleme", report.problems.len()),
-            (Standing::Illegal, Lang::En) => format!("{} issues", report.problems.len()),
-            (Standing::Unknown, Lang::De) => "Ungeprüft".to_string(),
-            (Standing::Unknown, Lang::En) => "Unchecked".to_string(),
+        let status_word = match report.standing() {
+            Standing::Legal => Phrase::BuildVariantLegal.text(lang).to_string(),
+            Standing::Illegal => {
+                Phrase::BuildVariantIssues.fill(lang, &[&report.problems.len().to_string()])
+            }
+            Standing::Unknown => Phrase::BuildVariantUnchecked.text(lang).to_string(),
         };
         let row_box = commands
             .spawn((
@@ -477,10 +454,7 @@ pub(super) fn sheet(commands: &mut Commands, env: &Env) -> Entity {
         let load_chip = controls::chip(
             commands,
             kit,
-            match lang {
-                Lang::De => "Aktivieren",
-                Lang::En => "Activate",
-            },
+            Phrase::BuildVariantActivate.text(lang),
             variant.format == chosen,
             None,
             false,

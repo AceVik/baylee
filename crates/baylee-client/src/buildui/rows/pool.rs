@@ -25,7 +25,7 @@ pub(crate) fn rarity_dot(
 ) -> Entity {
     let m = kit.m;
     let color = crate::lobby::decks::rarity_dot_color(rarity);
-    let label = rarity_label(rarity, lang == Lang::De);
+    let label = rarity_label(rarity, lang);
     commands
         .spawn((
             Node {
@@ -137,10 +137,7 @@ pub(crate) fn pool_row_at(
         top.extend([star, flag]);
     }
     if is_global_fav {
-        let label = match lang {
-            Lang::De => "Allg.",
-            Lang::En => "Gen.",
-        };
+        let label = Phrase::BuildFavGlobalShort.text(lang);
         let star = commands
             .spawn((
                 Text::new("\u{f005}"),
