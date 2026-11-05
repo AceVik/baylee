@@ -190,17 +190,15 @@ fn coming_back_from_an_offline_duel_leaves_no_table_and_no_refusal() {
 /// skip the system outright in an app that has none — no failure, one
 /// warning — and every other test in this file would keep passing while
 /// `came_back` did nothing at all.
-#[test]
-fn the_lobby_says_which_way_the_game_went_and_not_only_that_it_is_over() {
+/// The duel the shell would be holding when seat 0 lost: the two fields
+/// `came_back` reads, and nothing else. `DuelPlugin` is not in these apps, so
+/// the resource is inserted by hand.
+fn duel_seat_0_lost() -> crate::Duel {
     let result = baylee_engine::win::GameResult {
         winner: Some(baylee_engine::win::Victor::Player(PlayerId::new(1))),
         reason: baylee_engine::win::EndReason::LastPlayerStanding,
     };
-
-    // With the duel the shell would be holding: the two fields `came_back`
-    // reads, and nothing else. `DuelPlugin` is not in this app, so the
-    // resource is inserted by hand — seat 1 outlived seat 0, so seat 0 lost.
-    let mut app = came_back_from_a_duel(Some(crate::Duel {
+    crate::Duel {
         statics: Some(baylee_view::GameStatic {
             decision_secs: None,
             reconnect_secs: None,
@@ -221,7 +219,12 @@ fn the_lobby_says_which_way_the_game_went_and_not_only_that_it_is_over() {
             PlayerId::new(0),
         )),
         ..crate::Duel::default()
-    }));
+    }
+}
+
+#[test]
+fn the_lobby_says_which_way_the_game_went_and_not_only_that_it_is_over() {
+    let mut app = came_back_from_a_duel(Some(duel_seat_0_lost()));
     assert_eq!(
         app.world().resource::<LobbyState>().lobby.status(),
         "You lost. Only one player left in the game",
@@ -264,6 +267,59 @@ fn came_back_from_a_duel(duel: Option<crate::Duel>) -> App {
         app.update();
     }
     app
+}
+
+/// A game counts for the deck that played it. The deck picked for the next
+/// game is something else: a player waiting in a room can pick another
+/// without touching the chair, and it is the chair that plays.
+#[test]
+fn a_finished_game_counts_for_the_deck_in_the_chair() {
+    let mut app = headless();
+    let handover = SeatHandover {
+        game_id: "g".to_string(),
+        seat: 0,
+        seat_token: "st".to_string(),
+        local: false,
+    };
+    seated_at(&mut app, handover);
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.lobby.apply(LobbyEvent::Decks(vec![
+            DeckSummary {
+                id: "picked".to_string(),
+                name: "Picked".to_string(),
+                ..Default::default()
+            },
+            DeckSummary {
+                id: "played".to_string(),
+                name: "Played".to_string(),
+                ..Default::default()
+            },
+        ]));
+        state.lobby.select_deck(0);
+        state
+            .lobby
+            .apply(LobbyEvent::Games(GameListing::of(vec![GameSummary {
+                id: "g".to_string(),
+                seats: vec![GameSeat {
+                    seat: 0,
+                    you: true,
+                    deck: "Played".to_string(),
+                    ..Default::default()
+                }],
+                ..Default::default()
+            }])));
+    }
+    app.world_mut().insert_resource(duel_seat_0_lost());
+    for phase in [DuelPhase::Playing, DuelPhase::Closed] {
+        app.world_mut()
+            .resource_mut::<NextState<DuelPhase>>()
+            .set(phase);
+        app.update();
+    }
+    let prefs = app.world().resource::<crate::prefs::Prefs>().all();
+    assert_eq!(prefs.stats_for_deck("played").games_played, 1);
+    assert_eq!(prefs.stats_for_deck("picked").games_played, 0);
 }
 
 /// A duel against the house offers one way out, and it is the lead answer.

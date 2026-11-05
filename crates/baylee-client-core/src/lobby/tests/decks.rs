@@ -555,6 +555,44 @@ fn the_next_game_deck_follows_its_deck_through_a_reordered_list() {
     assert_eq!(lobby.next_deck().map(|d| d.id.as_str()), Some("b"));
 }
 
+/// A chair at a listed table plays what the table says, whatever is picked
+/// for the next game; a deck the shelf no longer holds is nobody's.
+#[test]
+fn the_deck_played_is_the_one_in_the_chair() {
+    let mut lobby = seated_lobby();
+    two_decks(&mut lobby, "a", "b");
+    lobby.select_deck(0);
+    let chair = |deck: &str| GameSummary {
+        id: "g1".into(),
+        seats: vec![GameSeat {
+            seat: 1,
+            deck: deck.into(),
+            ..Default::default()
+        }],
+        ..Default::default()
+    };
+    let seat = SeatHandover {
+        game_id: "g1".to_string(),
+        seat: 1,
+        seat_token: "t".to_string(),
+        local: false,
+    };
+    assert_eq!(lobby.played_deck(), None, "nobody is sitting anywhere");
+
+    lobby.screen = Screen::Seated(seat.clone());
+    lobby.games = vec![chair("b")];
+    assert_eq!(lobby.played_deck().map(|d| d.id.as_str()), Some("b"));
+    lobby.games = vec![chair("gone")];
+    assert_eq!(lobby.played_deck(), None);
+
+    // The house's table: sat down at with the deck picked.
+    lobby.games = Vec::new();
+    assert_eq!(lobby.played_deck().map(|d| d.id.as_str()), Some("a"));
+    // A chair handed back: sat down at by a client that is gone.
+    lobby.reclaimed.push("g1".to_string());
+    assert_eq!(lobby.played_deck(), None);
+}
+
 /// Delete is an Undo toast, not a confirm (S-10): the deck leaves the shelf
 /// at once, nothing is sent until the Undo runs out, and Undo sends
 /// nothing at all.
