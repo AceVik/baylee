@@ -139,3 +139,56 @@ fn whim_of_volrath_that_loses_its_target_goes_to_the_graveyard() {
 
     assert_not_bought_back(&engine, P0, whim());
 }
+
+/// "…or one basic land type with another until end of turn": the card's other
+/// half. A Forest is an Island for the turn (it is blue's land, and taps for
+/// blue) and a Forest again at the next, and the Forest beside it is
+/// untouched. The colour-word test above never plays this sentence.
+#[test]
+fn whim_of_volrath_changes_a_basic_land_type_until_end_of_turn() {
+    use crate::text_changes::TextReplacement;
+    use baylee_cards_dsl::TextWordKind;
+    use baylee_core::generated::subtypes::land;
+
+    let mut engine = a_knight_and_a_whim(2);
+    let forests = all_on_battlefield(&engine, P0, forest());
+    let (changed, other) = (forests[0], forests[1]);
+    let choice = (0..20)
+        .find(|n| {
+            TextReplacement::from_choice(TextWordKind::BasicLandType, *n)
+                .is_some_and(|r| r.from == 4 && r.to == 1)
+        })
+        .expect("Forest to Island is offered");
+
+    cast_from_hand(&mut engine, P0, whim());
+    answer_buyback(&mut engine, P0, false);
+    aim_at(&mut engine, P0, changed);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCastMode { .. })
+    });
+    engine.apply(P0, PlayerAction::ChooseMode(1)).unwrap();
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseNumber { .. })
+    });
+    engine
+        .apply(P0, PlayerAction::ChooseNumber(choice))
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    let subtypes = |engine: &Engine<RegistryLookup>, id| {
+        engine
+            .state()
+            .object(id)
+            .unwrap()
+            .characteristics()
+            .subtypes
+    };
+    assert!(subtypes(&engine, changed).contains(land::ISLAND));
+    assert!(!subtypes(&engine, changed).contains(land::FOREST));
+    assert!(subtypes(&engine, other).contains(land::FOREST));
+    assert_not_bought_back(&engine, P0, whim());
+
+    reach_their_main_phase(&mut engine, P1);
+    assert!(subtypes(&engine, changed).contains(land::FOREST));
+    assert!(!subtypes(&engine, changed).contains(land::ISLAND));
+}

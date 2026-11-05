@@ -114,3 +114,26 @@ fn searing_touch_that_loses_its_target_goes_to_the_graveyard() {
 
     assert_not_bought_back(&engine, P0, searing_touch());
 }
+
+/// "Any target": a player is one. The Elves beside it are untouched, and the
+/// player is the one named, not the caster.
+#[test]
+fn searing_touch_may_be_aimed_at_a_player() {
+    let mut engine = a_touch_over_the_elves(1);
+
+    cast_from_hand(&mut engine, P0, searing_touch());
+    engine
+        .apply(
+            P0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![P1],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(engine.state().players[1].life, 19);
+    assert_eq!(engine.state().players[0].life, 20);
+    assert!(on_battlefield(&engine, P1, LLANOWAR_ELVES).is_some());
+}

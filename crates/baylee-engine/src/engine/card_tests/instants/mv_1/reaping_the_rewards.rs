@@ -133,3 +133,38 @@ fn reaping_the_rewards_with_no_land_is_not_asked() {
     assert_eq!(engine.state().players[0].life, 22);
     assert_not_bought_back(&engine, P0, reaping_the_rewards());
 }
+
+/// The costs of CR 601.2h come after the mana of CR 601.2g, so the only land
+/// there is may pay the {W} and then be the one sacrificed. The tests above
+/// tap everything first; this one casts off an untapped land, as a player
+/// does, and the sacrifice is named before the land is tapped.
+#[test]
+fn the_only_land_pays_the_mana_and_is_then_sacrificed() {
+    let mut engine = reaping_over(1);
+    let land = on_battlefield(&engine, P0, plains()).unwrap();
+    let spell = in_hand(&engine, P0, reaping_the_rewards()).unwrap();
+
+    engine
+        .apply(P0, PlayerAction::CastSpell { card: spell })
+        .unwrap();
+    answer_buyback(&mut engine, P0, true);
+    assert!(!is_tapped(&engine, land), "nothing has been paid yet");
+    sacrifice(&mut engine, land);
+    engine
+        .apply(
+            P0,
+            PlayerAction::ActivateAbility {
+                source: land,
+                ability_index: 0,
+            },
+        )
+        .unwrap();
+    engine.apply(P0, PlayerAction::PassPriority).unwrap();
+    assert!(on_stack(&engine, reaping_the_rewards()).is_some());
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(engine.state().players[0].life, 22);
+    assert!(all_on_battlefield(&engine, P0, plains()).is_empty());
+    assert!(in_graveyard(&engine, P0, plains()).is_some());
+    assert_bought_back(&engine, P0, reaping_the_rewards());
+}

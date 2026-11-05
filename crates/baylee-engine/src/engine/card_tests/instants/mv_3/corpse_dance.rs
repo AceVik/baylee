@@ -196,3 +196,28 @@ fn the_owner_of_a_pile_that_fell_together_says_which_is_on_top() {
         assert!(on_battlefield(&e, P0, top).is_some(), "{top:?} was on top");
     }
 }
+
+/// "At the beginning of the next end step": cast during an end step, the next
+/// is the following turn's, because this one has already begun (CR 603.7).
+/// The creature stays through p1's turn and goes at p1's end step.
+#[test]
+fn a_dance_in_the_end_step_exiles_at_the_end_step_after_it() {
+    let mut e = over_a_pile(&[index::GRIZZLY_BEARS]);
+    pass_until(&mut e, |e| {
+        e.state().turn.step == crate::turn::Step::End
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == P0)
+    });
+    let turn = e.state().turn.number;
+    dance(&mut e, false);
+    kit::settle(&mut e);
+    assert!(on_battlefield(&e, P0, index::GRIZZLY_BEARS).is_some());
+
+    pass_until(&mut e, |e| e.state().turn.number > turn);
+    assert!(
+        on_battlefield(&e, P0, index::GRIZZLY_BEARS).is_some(),
+        "this end step was already under way when it was cast"
+    );
+    pass_until(&mut e, |e| exiled(e, index::GRIZZLY_BEARS));
+    assert_eq!(e.state().turn.number, turn + 1);
+    assert_eq!(e.state().turn.step, crate::turn::Step::End);
+}
