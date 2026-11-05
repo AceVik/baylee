@@ -1116,10 +1116,13 @@ pub struct DeckBuilder {
     /// Whether a save may update the deck where it stands
     /// ([`DeckBuilder::saves_in_place`]).
     in_place: bool,
+    /// Which opening of a deck this is ([`DeckBuilder::visit`]).
+    visit: u64,
 }
 
 mod builder;
 pub mod legality;
+pub mod saves;
 pub mod statistics;
 pub mod transfer;
 pub mod view;

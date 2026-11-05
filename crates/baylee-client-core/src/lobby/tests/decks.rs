@@ -198,11 +198,11 @@ fn the_builder_refuses_to_save_what_the_gateway_would_reject() {
         }],
         has_text: false,
     });
-    assert_eq!(lobby.save_deck(), None, "nameless and empty");
+    assert_eq!(lobby.builder().save(), None, "nameless and empty");
     lobby.builder_mut().set_name("Trees");
     lobby.builder_mut().add(0, Zone::Main);
     assert_eq!(
-        lobby.save_deck(),
+        lobby.builder().save(),
         Some(LobbyRequest::SaveDeck {
             deck_id: None,
             name: "Trees".to_string(),
@@ -231,7 +231,7 @@ fn the_builder_refuses_to_save_what_the_gateway_would_reject() {
     lobby.apply(LobbyEvent::Games(GameListing::default()));
     lobby.builder_mut().set_name("Trees II");
     assert_eq!(
-        lobby.save_deck(),
+        lobby.builder().save(),
         Some(LobbyRequest::SaveDeck {
             deck_id: Some("d9".to_string()),
             name: "Trees II".to_string(),

@@ -583,10 +583,10 @@ mod tests {
             "a stored deck keeps its state first"
         );
         deck.set_name("Elves");
-        deck.mark_auto_saved(None, deck.changes(), false);
+        deck.mark_auto_saved(&deck.draft(), None, false);
         assert!(!deck.saves_in_place());
         deck.add(2, Zone::Main);
-        deck.mark_auto_saved(None, deck.changes(), true);
+        deck.mark_auto_saved(&deck.draft(), None, true);
         assert!(deck.saves_in_place());
 
         let lists = (deck.rows(Zone::Main), deck.rows(Zone::Side));
@@ -595,6 +595,51 @@ mod tests {
 
         deck.start_new();
         assert!(deck.saves_in_place(), "a new deck has nothing to keep");
+    }
+
+    /// An answer calls the deck saved only if it still holds what was sent.
+    /// The letters of a name count as one change, so a count could not tell.
+    #[test]
+    fn a_save_clears_only_what_it_sent() {
+        let mut deck = deck();
+        deck.type_name('a');
+        let sent = deck.draft();
+        deck.type_name('b');
+        assert_eq!(deck.changes(), 1, "still the one change");
+        deck.mark_auto_saved(&sent, None, false);
+        assert!(deck.dirty(), "the b never left");
+
+        let sent = deck.draft();
+        deck.mark_auto_saved(&sent, None, false);
+        assert!(!deck.dirty());
+        assert_eq!(deck.changes(), 0);
+    }
+
+    /// A deck created by a save holds its id by the time the answer is
+    /// compared with a draft that went out without one.
+    #[test]
+    fn a_created_deck_is_clean_with_the_id_it_was_given() {
+        let mut deck = deck();
+        deck.start_new();
+        deck.set_name("New");
+        deck.add(2, Zone::Main);
+        let sent = deck.draft();
+        deck.mark_auto_saved(&sent, Some("d9"), false);
+        assert_eq!(deck.editing(), Some("d9"));
+        assert!(!deck.dirty());
+    }
+
+    #[test]
+    fn every_opening_is_a_visit_of_its_own() {
+        let mut deck = deck();
+        let first = deck.visit();
+        deck.add(2, Zone::Main);
+        assert_eq!(deck.visit(), first, "an edit is the same visit");
+        deck.start_new();
+        let second = deck.visit();
+        assert_ne!(second, first);
+        deck.load("d", "x", &[], &[], &[]);
+        assert_ne!(deck.visit(), second);
     }
 
     #[test]

@@ -2087,18 +2087,32 @@ impl DeckBuilder {
         self.naming = false;
     }
 
-    /// Marks an in-session auto-save complete for `saved_changes` without
-    /// clobbering edits made while the request was in flight. `archived`:
-    /// the gateway kept the state the save replaced.
-    pub fn mark_auto_saved(&mut self, deck_id: Option<&str>, saved_changes: u32, archived: bool) {
+    /// An auto-save of `sent` landed. The deck is saved only if it still
+    /// holds what was sent: an edit made under the save is not, and the
+    /// change count cannot tell, since a run of letters is one change.
+    /// `archived`: the gateway kept the state the save replaced.
+    pub fn mark_auto_saved(&mut self, sent: &Draft, deck_id: Option<&str>, archived: bool) {
         if let Some(id) = deck_id {
             self.editing = Some(id.to_string());
         }
         self.in_place |= archived || deck_id.is_some();
-        if self.changes == saved_changes {
+        let held = Draft {
+            editing: sent.editing.clone(),
+            ..self.draft()
+        };
+        if held == *sent {
             self.dirty = false;
+            self.changes = 0;
             self.naming = false;
         }
+    }
+
+    /// Which opening of a deck this is: a new number each time the builder
+    /// starts a deck or loads one. A save belongs to the visit it was made
+    /// in, and its answer to nothing opened since.
+    #[must_use]
+    pub const fn visit(&self) -> u64 {
+        self.visit
     }
 
     /// Whether a save may update the deck where it stands: it was created in
@@ -2119,6 +2133,7 @@ impl DeckBuilder {
         self.name.clear();
         self.editing = None;
         self.in_place = true;
+        self.visit = self.visit.wrapping_add(1);
         self.zone = Zone::Main;
         self.dirty = false;
         self.changes = 0;
