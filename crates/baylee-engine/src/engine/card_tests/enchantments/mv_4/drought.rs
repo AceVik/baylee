@@ -198,6 +198,76 @@ fn drought_adds_two_distinct_swamps_to_carrions_printed_creature_sacrifice() {
             .iter()
             .all(|id| lk::zone_of(&engine, *id) == Zone::Graveyard)
     );
+    // "The sacrificed creature" is the printed cost's, not the last Swamp's
+    // (CR 607.2i): the Bears' power of 2, two Insects.
+    let insects = engine
+        .state()
+        .battlefield_seen()
+        .filter(|id| {
+            engine.state().object(*id).is_some_and(|object| {
+                object.controller == P0
+                    && object
+                        .characteristics()
+                        .types
+                        .contains(baylee_core::types::TypeSet::CREATURE)
+            })
+        })
+        .count();
+    assert_eq!(insects, 2);
+}
+
+/// The same receipt on an activation: Starlit Sanctum's {B} is taxed one Swamp,
+/// and the life lost is still the sacrificed Cleric's power (CR 607.2i).
+#[test]
+fn drought_leaves_an_activations_sacrificed_creature_to_its_printed_cost() {
+    let mut engine = lk::game_with(
+        SEED,
+        &[
+            drought(),
+            index::STARLIT_SANCTUM,
+            index::WAR_PRIEST_OF_THUNE,
+            swamp(),
+        ],
+        &[],
+        &[],
+        &[],
+        pay_upkeep,
+    );
+    let sanctum = lk::obj(&engine, P0, index::STARLIT_SANCTUM);
+    let cleric = lk::obj(&engine, P0, index::WAR_PRIEST_OF_THUNE);
+    let sw = lk::obj(&engine, P0, swamp());
+    let power = pt(&engine, cleric).0;
+    assert!(power > 0, "a Cleric whose power can be told from a Swamp's");
+    lk::float(&mut engine, P0, &[(ManaColor::Black, 1)]);
+    let before = engine.state().players[1].life;
+
+    engine
+        .apply(
+            P0,
+            PlayerAction::ActivateAbility {
+                source: sanctum,
+                ability_index: 2,
+            },
+        )
+        .unwrap();
+    engine
+        .apply(
+            P0,
+            PlayerAction::ChooseTargets {
+                objects: Vec::new(),
+                players: vec![P1],
+            },
+        )
+        .unwrap();
+    sacrifice(&mut engine, P0, cleric);
+    sacrifice(&mut engine, P0, sw);
+    lk::settle(&mut engine);
+
+    assert_eq!(
+        engine.state().players[1].life,
+        before - i32::from(power),
+        "the Swamp the rule imposed is no sacrificed creature"
+    );
 }
 
 #[test]
