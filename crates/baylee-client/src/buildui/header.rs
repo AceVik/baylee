@@ -12,12 +12,93 @@ use crate::shellkit::header as kit_header;
 use baylee_client_core::deckbuilder::BuildField;
 
 mod save;
-use save::{save_button, save_state};
+use save::save_button;
 
-/// Marks the header's save state: the one node on the screen that says
-/// whether the deck is saved (§2.5, WP4: "one save-state node").
+/// Marker component kept for test queries (`save_states`).
 #[derive(Component)]
+#[allow(dead_code)]
 pub(crate) struct SaveStateNode;
+
+/// Slot inside the builder header bar that holds the deck title / rename box
+/// so entering or leaving rename mode updates in place without rebuilding the
+/// entire header bar.
+#[derive(Component)]
+pub(crate) struct HeaderTitleSlot;
+
+/// Spawns a circular header icon button styled identically to the Settings
+/// gear button (`32×32` `RADIUS_PILL` with hover lift and a single `HoverHint`).
+pub(super) fn tool_icon_button(
+    commands: &mut Commands,
+    kit: Kit,
+    icon: char,
+    enabled: bool,
+    hint: String,
+    trailing: &[Entity],
+    action: impl Bundle,
+) -> Entity {
+    let ink = if enabled {
+        tokens::INK
+    } else {
+        tokens::DISABLED
+    };
+    let face = commands
+        .spawn((
+            Role::Button,
+            Node {
+                min_width: kit.m.px(32.0),
+                min_height: kit.m.px(32.0),
+                padding: UiRect::axes(kit.m.px(6.0), kit.m.px(4.0)),
+                column_gap: kit.m.px(3.0),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PILL)),
+                ..default()
+            },
+            BackgroundColor(Color::NONE),
+            UiTransform::default(),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let glyph = commands
+        .spawn((
+            Text::new(icon.to_string()),
+            icon_tf(kit.fonts, kit.m.text),
+            TextColor(ink),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands
+        .entity(face)
+        .add_child(glyph)
+        .add_children(trailing);
+    let wrapper = if enabled {
+        commands
+            .entity(face)
+            .insert(crate::ambience::Feel::rising_to(Color::NONE, tokens::HOVER));
+        controls::hit(commands, kit, face, action)
+    } else {
+        controls::hit(commands, kit, face, (action, controls::Disabled))
+    };
+    commands
+        .entity(wrapper)
+        .insert(crate::lobby::HoverHint(hint));
+    wrapper
+}
+
+/// Replaces only the [`HeaderTitleSlot`]'s children in place when the deck
+/// name or rename mode changes.
+pub(super) fn patch_title(commands: &mut Commands, env: &Env) {
+    let content = title(commands, env);
+    commands.queue(move |world: &mut World| {
+        let mut slots = world.query_filtered::<Entity, With<HeaderTitleSlot>>();
+        if let Some(slot) = slots.iter(world).next() {
+            world.entity_mut(slot).despawn_related::<Children>();
+            world.entity_mut(slot).add_child(content);
+        } else if let Ok(entity) = world.get_entity_mut(content) {
+            entity.despawn();
+        }
+    });
+}
 
 /// Draws the header into `holder`.
 #[allow(clippy::too_many_lines)] // one bar, read left to right
@@ -36,10 +117,18 @@ pub(super) fn draw(commands: &mut Commands, holder: Entity, env: &Env) {
     let mut kids: Vec<Entity> = Vec::new();
 
     // The brand, as the shell's header has it; a phone's header is too
-    // short for the logo (§2.7).
+    // short for the logo (§2.7). Clicking opens the memorial dialog.
     if !phone {
         let brand =
             crate::shellkit::header::brand_mark(commands, m.header, Phrase::AppName.text(lang));
+        let memorial_hint = Phrase::MemorialInvitation.text(lang).to_string();
+        commands.entity(brand).insert((
+            Role::Hit,
+            bevy::picking::hover::PickingInteraction::default(),
+            Pickable::default(),
+            Press::Memorial(crate::lobby::memorial::MemorialPress::Open),
+            crate::lobby::HoverHint(memorial_hint),
+        ));
         kids.push(brand);
     }
 
@@ -61,7 +150,21 @@ pub(super) fn draw(commands: &mut Commands, holder: Entity, env: &Env) {
     if roomy {
         kids.push(words(commands, kit, "\u{203a}", m.text, tokens::MUTED));
     }
-    kids.push(title(commands, env));
+    let title_slot = commands
+        .spawn((
+            HeaderTitleSlot,
+            Node {
+                align_items: AlignItems::Center,
+                min_width: px_fixed(0.0),
+                flex_shrink: 1.0,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let title_node = title(commands, env);
+    commands.entity(title_slot).add_child(title_node);
+    kids.push(title_slot);
     kids.push(spring(commands));
 
     if env.layout == Layout::PhoneSingle {
@@ -92,7 +195,7 @@ pub(super) fn draw(commands: &mut Commands, holder: Entity, env: &Env) {
         kids.push(switch);
     }
 
-    if roomy {
+    if !phone {
         let busy = env.state.lobby.busy();
         for (text, icon, press, id) in [
             (
@@ -108,19 +211,13 @@ pub(super) fn draw(commands: &mut Commands, holder: Entity, env: &Env) {
                 "export",
             ),
         ] {
-            kids.push(controls::button_compact(
-                commands,
-                kit,
-                Some(icon),
-                text.text(lang),
-                Weight::Secondary,
-                if busy {
-                    Live::No(Phrase::SavingDeck.text(lang))
-                } else {
-                    Live::Yes
-                },
-                (press, stop(id)),
-            ));
+            let hint = if busy {
+                format!("{} — {}", text.text(lang), Phrase::SavingDeck.text(lang))
+            } else {
+                text.text(lang).to_string()
+            };
+            let btn = tool_icon_button(commands, kit, icon, !busy, hint, &[], (press, stop(id)));
+            kids.push(btn);
         }
         let history = env.state.lobby.token().is_some() && deck.editing().is_some();
         let why = if env.state.lobby.offline() {
@@ -128,41 +225,62 @@ pub(super) fn draw(commands: &mut Commands, holder: Entity, env: &Env) {
         } else {
             Phrase::HistorySaveHint
         };
-        kids.push(controls::button_compact(
+        let hist_enabled = history && !busy;
+        let hist_hint = if hist_enabled {
+            Phrase::DeckHistory.text(lang).to_string()
+        } else {
+            format!(
+                "{} — {}",
+                Phrase::DeckHistory.text(lang),
+                if busy {
+                    Phrase::SavingDeck.text(lang)
+                } else {
+                    why.text(lang)
+                }
+            )
+        };
+        let hist_btn = tool_icon_button(
             commands,
             kit,
-            Some(crate::hud::glyph::CLOCK),
-            Phrase::DeckHistory.text(lang),
-            Weight::Secondary,
-            if history && !busy {
-                Live::Yes
-            } else {
-                Live::No(why.text(lang))
-            },
+            crate::hud::glyph::CLOCK,
+            hist_enabled,
+            hist_hint,
+            &[],
             (Press::Library(LibraryPress::BrowseHistory), stop("history")),
-        ));
+        );
+        kids.push(hist_btn);
+
+        let del_hint = if busy {
+            format!(
+                "{} / {} — {}",
+                Phrase::EmptyTheDeck.text(lang),
+                Phrase::Delete.text(lang),
+                Phrase::SavingDeck.text(lang)
+            )
+        } else {
+            format!(
+                "{} / {}",
+                Phrase::EmptyTheDeck.text(lang),
+                Phrase::Delete.text(lang)
+            )
+        };
+        let del_btn = tool_icon_button(
+            commands,
+            kit,
+            '\u{f1f8}',
+            !busy,
+            del_hint,
+            &[],
+            (
+                Press::Build(BuildPress::ToggleHeaderMenu),
+                stop("delete"),
+                super::focus::MenuOpener(BuildMenu::Header),
+            ),
+        );
+        kids.push(del_btn);
     }
 
     kids.push(save_button(commands, env));
-    kids.push(save_state(commands, env));
-    let menu = controls::button_compact(
-        commands,
-        kit,
-        Some(mark::MORE),
-        "",
-        if env.ui().menu == Some(BuildMenu::Header) {
-            Weight::Secondary
-        } else {
-            Weight::Ghost
-        },
-        Live::Yes,
-        (
-            Press::Build(BuildPress::ToggleHeaderMenu),
-            stop("menu"),
-            focus::MenuOpener(BuildMenu::Header),
-        ),
-    );
-    kids.push(menu);
 
     commands.entity(bar).add_children(&kids);
     let reach = if env.state.lobby.offline() {
@@ -193,7 +311,17 @@ pub(super) fn draw(commands: &mut Commands, holder: Entity, env: &Env) {
         },
         kit_header::StatusActions {
             gateway: Press::Header(HeaderPress::Gateway),
-            bell: Press::Header(HeaderPress::Bell),
+            bell: (
+                Press::Header(HeaderPress::Bell),
+                crate::lobby::HoverHint(
+                    if lang == Lang::De {
+                        "Benachrichtigungen"
+                    } else {
+                        "Notifications"
+                    }
+                    .to_string(),
+                ),
+            ),
             account: Press::Header(HeaderPress::Account),
             back: Press::Header(HeaderPress::Return),
         },
@@ -209,6 +337,18 @@ fn title(commands: &mut Commands, env: &Env) -> Entity {
     let lang = env.lang();
     let renaming = env.ui().nav == Nav::Field && deck.focus() == BuildField::Name;
     if renaming {
+        let row = commands
+            .spawn((
+                Node {
+                    align_items: AlignItems::Center,
+                    column_gap: m.px(6.0),
+                    min_width: px_fixed(0.0),
+                    flex_shrink: 1.0,
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
         let field = crate::lobby::text_field(
             commands,
             kit.fonts,
@@ -227,9 +367,9 @@ fn title(commands: &mut Commands, env: &Env) -> Entity {
         commands.entity(field).insert((
             Node {
                 width: m.px(if m.frame == Frame::Phone {
-                    180.0
+                    240.0
                 } else {
-                    280.0
+                    480.0
                 }),
                 min_width: px_fixed(0.0),
                 flex_shrink: 1.0,
@@ -238,7 +378,17 @@ fn title(commands: &mut Commands, env: &Env) -> Entity {
             },
             stop("title"),
         ));
-        return field;
+        let save_name = tool_icon_button(
+            commands,
+            kit,
+            '\u{f00c}',
+            true,
+            Phrase::BuildSave.text(lang).to_string(),
+            &[],
+            Press::Build(BuildPress::FinishRename),
+        );
+        commands.entity(row).add_children(&[field, save_name]);
+        return row;
     }
     let name = deck.name().trim();
     let (text, ink) = if name.is_empty() {
@@ -246,13 +396,13 @@ fn title(commands: &mut Commands, env: &Env) -> Entity {
     } else {
         (name.to_string(), tokens::INK)
     };
-    let face = commands
+    let row = commands
         .spawn((
             Node {
                 min_width: px_fixed(0.0),
-                max_width: m.px(360.0),
+                max_width: m.px(480.0),
                 flex_shrink: 1.0,
-                column_gap: m.px(8.0),
+                column_gap: m.px(4.0),
                 align_items: AlignItems::Center,
                 ..default()
             },
@@ -260,20 +410,18 @@ fn title(commands: &mut Commands, env: &Env) -> Entity {
         ))
         .id();
     let words = cell(commands, kit, &text, m.text * 1.1, ink, true);
-    let pen = glyph(commands, kit, mark::PEN, m.small, tokens::MUTED);
-    commands.entity(face).add_children(&[words, pen]);
-    let hit = controls::hit(
+    commands
+        .entity(words)
+        .insert(Press::Build(BuildPress::Rename));
+    let edit_btn = tool_icon_button(
         commands,
         kit,
-        face,
+        mark::PEN,
+        true,
+        Phrase::BuildRename.text(lang).to_string(),
+        &[],
         (Press::Build(BuildPress::Rename), stop("title")),
     );
-    commands.entity(hit).insert(Node {
-        min_width: px_fixed(0.0),
-        min_height: px_fixed(kit.m.hit),
-        flex_shrink: 1.0,
-        align_items: AlignItems::Center,
-        ..default()
-    });
-    hit
+    commands.entity(row).add_children(&[words, edit_btn]);
+    row
 }

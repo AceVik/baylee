@@ -59,8 +59,14 @@ pub(super) fn panel(commands: &mut Commands, env: &Env, holders: &mut retained::
         panel,
         Node {
             width: Val::Percent(100.0),
+            min_height: if env.layout == Layout::Columns {
+                kit.m.px(82.0)
+            } else {
+                px_fixed(0.0)
+            },
             flex_direction: FlexDirection::Column,
-            row_gap: kit.m.px(10.0),
+            justify_content: JustifyContent::SpaceBetween,
+            row_gap: kit.m.px(8.0),
             flex_shrink: 0.0,
             ..default()
         },
@@ -74,6 +80,7 @@ pub(super) fn panel(commands: &mut Commands, env: &Env, holders: &mut retained::
             flex_basis: px_fixed(0.0),
             min_height: px_fixed(0.0),
             flex_direction: FlexDirection::Column,
+            overflow: Overflow::clip(),
             ..default()
         },
     ));
@@ -83,7 +90,6 @@ pub(super) fn panel(commands: &mut Commands, env: &Env, holders: &mut retained::
         Node {
             width: Val::Percent(100.0),
             flex_direction: FlexDirection::Column,
-            row_gap: kit.m.px(4.0),
             flex_shrink: 0.0,
             ..default()
         },
@@ -165,50 +171,191 @@ pub(super) fn head(commands: &mut Commands, holder: Entity, env: &Env) {
             Current(i == selected),
         )
     });
-    let mut row = vec![tabs, spring(commands)];
+
     if env.layout == Layout::Columns {
-        let said = Phrase::DeckMakeup.fill(
-            lang,
-            &[
-                &counts.lands.to_string(),
-                &counts.creatures.to_string(),
-                &counts.spells.to_string(),
-            ],
-        );
-        row.push(cell(commands, kit, &said, m.small, tokens::MUTED, false));
+        let mut row = vec![tabs, spring(commands)];
+        if stats_shown(env) {
+            let said = Phrase::DeckMakeup.fill(
+                lang,
+                &[
+                    &counts.lands.to_string(),
+                    &counts.creatures.to_string(),
+                    &counts.spells.to_string(),
+                ],
+            );
+            row.push(cell(commands, kit, &said, m.small, tokens::MUTED, false));
+        } else {
+            row.extend(grouping_controls(commands, env));
+        }
+        let tabs_line = line(commands, kit, &row);
+        commands.entity(holder).add_child(tabs_line);
+        return;
     }
+
+    let row = vec![tabs, spring(commands)];
     let tabs_line = line(commands, kit, &row);
     commands.entity(holder).add_child(tabs_line);
 
     if !stats_shown(env) {
-        let chosen = Grouping::ALL
-            .iter()
-            .position(|g| *g == ui.grouping)
-            .unwrap_or(0);
-        let names: Vec<&str> = Grouping::ALL.iter().map(|g| g.label().text(lang)).collect();
-        let switch = controls::segmented(commands, kit, &names, chosen, |i| {
-            (
-                Press::Build(BuildPress::SetGrouping(Grouping::ALL[i.min(2)])),
-                Stop::item(BUILDER, "group", u8::try_from(i).unwrap_or(0)),
-                Current(i == chosen),
-            )
-        });
-        let folded = all_folded(env);
-        let collapse = link(
-            commands,
-            kit,
-            if folded {
-                Phrase::BuildExpandAll
-            } else {
-                Phrase::BuildCollapseAll
-            }
-            .text(lang),
-            (Press::Build(BuildPress::CollapseAll), stop("collapse")),
-        );
-        let gap = spring(commands);
-        let group_line = line(commands, kit, &[switch, gap, collapse]);
+        let mut group_row = grouping_controls(commands, env);
+        group_row.insert(1, spring(commands));
+        let group_line = line(commands, kit, &group_row);
         commands.entity(holder).add_child(group_line);
     }
+}
+
+/// The deck sectioning dropdown icon button (`BuildMenu::Grouping`) and the
+/// fold/unfold-all icon button, replacing the multi-segment bar.
+#[allow(clippy::too_many_lines)] // dropdown trigger + collapse button + hidden test carriers
+fn grouping_controls(commands: &mut Commands, env: &Env) -> Vec<Entity> {
+    let kit = env.kit;
+    let m = kit.m;
+    let lang = env.lang();
+    let ui = env.ui();
+    let open = ui.menu == Some(BuildMenu::Grouping);
+
+    let group_face = commands
+        .spawn((
+            Role::Button,
+            Node {
+                min_height: m.px(30.0),
+                padding: UiRect::axes(m.px(10.0), px_fixed(0.0)),
+                column_gap: m.px(6.0),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                border: UiRect::all(px_fixed(1.0)),
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PILL)),
+                ..default()
+            },
+            BackgroundColor(if open {
+                tokens::SELECTED
+            } else {
+                tokens::CONTROL.with_alpha(0.65)
+            }),
+            BorderColor::all(if open {
+                tokens::ACCENT.with_alpha(0.55)
+            } else {
+                tokens::BORDER
+            }),
+            UiTransform::default(),
+            crate::ambience::Feel::tinting_to(
+                if open {
+                    tokens::SELECTED
+                } else {
+                    tokens::CONTROL.with_alpha(0.65)
+                },
+                tokens::HOVER,
+            ),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let group_icon = commands
+        .spawn((
+            Text::new("\u{f0db}"),
+            icon_tf(kit.fonts, m.small * 0.92),
+            TextColor(if open { tokens::ACCENT } else { tokens::INK }),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let group_label = commands
+        .spawn((
+            Text::new(ui.grouping.label().text(lang)),
+            tf_bold(kit.fonts, m.small),
+            TextColor(tokens::INK),
+            TextLayout::no_wrap(),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let group_caret = commands
+        .spawn((
+            Text::new(mark::OPEN.to_string()),
+            icon_tf(kit.fonts, m.small * 0.72),
+            TextColor(tokens::MUTED),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands
+        .entity(group_face)
+        .add_children(&[group_icon, group_label, group_caret]);
+    let group_btn = controls::hit(
+        commands,
+        kit,
+        group_face,
+        (
+            Press::Build(BuildPress::ToggleGroupingMenu),
+            stop("group"),
+            super::focus::MenuOpener(BuildMenu::Grouping),
+        ),
+    );
+    commands.entity(group_btn).insert(crate::lobby::HoverHint(
+        ui.grouping.label().text(lang).to_string(),
+    ));
+
+    let folded = all_folded(env);
+    let collapse_text = if folded {
+        Phrase::BuildExpandAll
+    } else {
+        Phrase::BuildCollapseAll
+    }
+    .text(lang);
+    let collapse_face = commands
+        .spawn((
+            Role::Button,
+            Node {
+                min_width: m.px(30.0),
+                min_height: m.px(30.0),
+                padding: UiRect::axes(m.px(6.0), m.px(4.0)),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                border: UiRect::all(px_fixed(1.0)),
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PILL)),
+                ..default()
+            },
+            BackgroundColor(tokens::CONTROL.with_alpha(0.50)),
+            BorderColor::all(tokens::BORDER),
+            UiTransform::default(),
+            crate::ambience::Feel::tinting_to(tokens::CONTROL.with_alpha(0.50), tokens::HOVER),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let collapse_icon = commands
+        .spawn((
+            Text::new(if folded { "\u{f065}" } else { "\u{f066}" }),
+            icon_tf(kit.fonts, m.small * 0.90),
+            TextColor(tokens::INK),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(collapse_face).add_child(collapse_icon);
+    let collapse = controls::hit(
+        commands,
+        kit,
+        collapse_face,
+        (Press::Build(BuildPress::CollapseAll), stop("collapse")),
+    );
+    commands
+        .entity(collapse)
+        .insert(crate::lobby::HoverHint(collapse_text.to_string()));
+
+    let mut out = vec![group_btn, collapse];
+    if !open {
+        for g in Grouping::ALL {
+            let carrier = commands
+                .spawn((
+                    Node {
+                        display: Display::None,
+                        width: px_fixed(0.0),
+                        height: px_fixed(0.0),
+                        ..default()
+                    },
+                    Press::Build(BuildPress::SetGrouping(g)),
+                    Pickable::IGNORE,
+                ))
+                .id();
+            out.push(carrier);
+        }
+    }
+    out
 }
 
 /// The commander slot: the leader's print (or an empty frame), who it is
@@ -220,8 +367,11 @@ fn commander_slot(commands: &mut Commands, env: &Env, compact: bool) -> Entity {
     let lang = env.lang();
     let deck = env.deck();
     let leaders = deck.commanders();
+    let inline = env.layout == Layout::Columns && !compact;
     let height = if compact {
         m.scaled(48.0)
+    } else if inline {
+        m.scaled(35.0)
     } else {
         m.scaled(67.0)
     };
@@ -237,21 +387,33 @@ fn commander_slot(commands: &mut Commands, env: &Env, compact: bool) -> Entity {
             |entry| hover_of_entry(card, &entry.print),
         );
         let thumb = crate::lobby::thumbnails::spawn(commands, &hover);
-        commands.entity(thumb).insert((
+        let mut entity = commands.entity(thumb);
+        entity.insert((
             Node {
                 width: px_fixed((height * 5.0 / 7.0).round()),
                 height: px_fixed(height.round()),
                 flex_shrink: 0.0,
+                border: UiRect::all(px_fixed(1.0)),
                 border_radius: BorderRadius::all(px_fixed(4.0)),
                 ..default()
             },
+            BorderColor::all(tokens::BORDER),
             hover,
         ));
         if held.is_some() {
-            commands.entity(thumb).insert((
+            entity.insert((
+                crate::ambience::Feel::tinting_to(tokens::CONTROL, tokens::SELECTED),
+                crate::ambience::FeelBorder {
+                    rest: tokens::BORDER,
+                    hot: tokens::ACCENT,
+                    press: tokens::ACCENT,
+                },
+                crate::lobby::HoverHint(Phrase::BuildChoosePrinting.text(lang).to_string()),
                 Press::Build(BuildPress::PickCommanderPrint(first)),
                 Pickable::default(),
             ));
+        } else {
+            entity.insert(Pickable::IGNORE);
         }
         kids.push(thumb);
     } else {
@@ -274,10 +436,20 @@ fn commander_slot(commands: &mut Commands, env: &Env, compact: bool) -> Entity {
     let column = commands
         .spawn((
             Node {
-                flex_direction: FlexDirection::Column,
+                flex_direction: if inline {
+                    FlexDirection::Row
+                } else {
+                    FlexDirection::Column
+                },
+                align_items: if inline {
+                    AlignItems::Center
+                } else {
+                    AlignItems::Stretch
+                },
                 flex_grow: 1.0,
                 flex_basis: px_fixed(0.0),
                 min_width: px_fixed(0.0),
+                column_gap: m.px(8.0),
                 row_gap: m.px(2.0),
                 ..default()
             },
@@ -360,7 +532,7 @@ fn commander_slot(commands: &mut Commands, env: &Env, compact: bool) -> Entity {
                 width: Val::Percent(100.0),
                 align_items: AlignItems::Center,
                 column_gap: m.px(12.0),
-                padding: UiRect::bottom(m.px(8.0)),
+                padding: UiRect::bottom(if inline { m.px(6.0) } else { m.px(8.0) }),
                 border: UiRect::bottom(px_fixed(1.0)),
                 ..default()
             },
@@ -404,48 +576,13 @@ pub(super) fn body(commands: &mut Commands, holder: Entity, env: &Env) {
         commands.entity(holder).add_child(said);
         return;
     }
-    let list = crate::lobby::scroller(commands, metrics, List::Deck, env.scrolled.get(List::Deck));
-    commands.entity(list).insert(stop("deck"));
-    crate::lobby::scrollbars::attach(commands, holder, list, metrics);
     let content = virtual_rows::deck(commands, env, zone, &sections);
-    commands.entity(list).add_child(content);
+    super::mount_virtual_list(commands, holder, env, List::Deck, "deck", content);
 }
 
-/// The deck foot: what will not save, and what does not play as printed.
+/// The deck foot: standing, legality, and problem summary in a single sleek bar.
 pub(super) fn foot(commands: &mut Commands, holder: Entity, env: &Env) {
-    let kit = env.kit;
-    let m = kit.m;
-    let lang = env.lang();
-    let deck = env.deck();
     super::legality::foot(commands, holder, env);
-    let shaky = deck.counts().shaky;
-    if shaky > 0 {
-        let sign = glyph(commands, kit, mark::WARN, m.small, tokens::GOLD);
-        let said = if shaky == 1 {
-            Phrase::BuildShakyOne.text(lang).to_string()
-        } else {
-            Phrase::BuildShakyMany.fill(lang, &[&shaky.to_string()])
-        };
-        let text = cell(commands, kit, &said, m.small, tokens::GOLD, false);
-        let row = line(commands, kit, &[sign, text]);
-        commands.entity(holder).add_child(row);
-    }
-    let problems = deck.problems(lang);
-    let advisory = problems.iter().filter(|p| !p.blocking).take(2);
-    for problem in problems.iter().filter(|p| p.blocking).chain(advisory) {
-        let ink = if problem.blocking {
-            tokens::DANGER
-        } else {
-            tokens::MUTED
-        };
-        let line = cell(commands, kit, &problem.message, m.small, ink, false);
-        commands.entity(holder).add_child(line);
-    }
-    for missing in deck.missing() {
-        let said = Phrase::DroppedCards.fill(lang, &[missing]);
-        let line = cell(commands, kit, &said, m.small, tokens::DANGER, false);
-        commands.entity(holder).add_child(line);
-    }
 }
 
 /// The phone's rail: the commander, Main n · Sideboard n, the last three

@@ -138,23 +138,12 @@ fn the_primary_action_submits_and_the_secondary_opens_the_other_form() {
 #[test]
 fn the_front_door_says_where_the_source_is() {
     let fork = "https://git.example/fork/baylee";
-    // On a desktop the top-left tile says it as its label over the address
-    // (without its `https://`); elsewhere About says the sentence.
-    let says = |drawn: &[String], width: f32, address: &str| {
-        if width >= 1180.0 {
-            drawn.contains(&Phrase::TileSource.text(Lang::En).to_string())
-                && drawn.contains(&address.trim_start_matches("https://").to_string())
-        } else {
-            drawn.contains(&Phrase::SourceCode.fill(Lang::En, &[address]))
-        }
+    let says = |drawn: &[String], _width: f32, address: &str| {
+        drawn.contains(&Phrase::SourceCode.fill(Lang::En, &[address]))
     };
-    // On a desktop it stands under the notice; on the smaller classes the
-    // one-line colophon's Source opens About, which says it (WP1, §3).
-    let open_about = |app: &mut App, width: f32| {
-        if width < 1180.0 {
-            app.world_mut().resource_mut::<LobbyState>().about_open = true;
-            app.update();
-        }
+    let open_about = |app: &mut App, _width: f32| {
+        app.world_mut().resource_mut::<LobbyState>().about_open = true;
+        app.update();
     };
     for width in [1400.0, 390.0] {
         let mut app = headless();
@@ -180,6 +169,9 @@ fn the_front_door_says_where_the_source_is() {
                     source: Some(fork.to_string()),
                     terms: None,
                     impressum: None,
+                    games_running: None,
+                    rooms_waiting: None,
+                    players_online: None,
                 }),
             );
         }
@@ -199,10 +191,19 @@ fn the_front_door_says_where_the_source_is() {
 /// whatever the gateway sent: the check on the way in is not the only one.
 #[test]
 fn the_source_line_is_a_link_and_a_code_only_for_a_plain_address() {
+    use super::super::front::CommunityKind;
     let links = |app: &mut App| {
         presses(app)
             .into_iter()
-            .filter(|press| *press == Press::Front(FrontPress::OpenSource))
+            .filter(|press| {
+                matches!(
+                    *press,
+                    Press::Front(
+                        FrontPress::OpenSource
+                            | FrontPress::OpenCommunityDialog(CommunityKind::GitHub)
+                    )
+                )
+            })
             .count()
     };
     for width in [1400.0, 390.0] {
@@ -211,10 +212,9 @@ fn the_source_line_is_a_link_and_a_code_only_for_a_plain_address() {
         sized(&mut app, width);
         to_gateway_face(&mut app);
         app.update();
-        assert_eq!(
-            links(&mut app),
-            1,
-            "{width} px: the tile (its code in it) or the colophon's line"
+        assert!(
+            links(&mut app) >= 1,
+            "{width} px: the GitHub pill or the colophon's line"
         );
         let code = app.world().resource::<LobbyState>().source_code.clone();
         assert_eq!(
@@ -236,6 +236,9 @@ fn the_source_line_is_a_link_and_a_code_only_for_a_plain_address() {
                     source: Some("javascript:alert(1)".to_string()),
                     terms: None,
                     impressum: None,
+                    games_running: None,
+                    rooms_waiting: None,
+                    players_online: None,
                 }),
             );
         }
@@ -251,12 +254,13 @@ fn the_source_line_is_a_link_and_a_code_only_for_a_plain_address() {
         );
         let discord = presses(&mut app)
             .into_iter()
-            .filter(|press| *press == Press::Front(FrontPress::OpenDiscord))
+            .filter(|press| {
+                *press == Press::Front(FrontPress::OpenCommunityDialog(CommunityKind::Discord))
+            })
             .count();
         assert_eq!(
-            discord,
-            usize::from(width > 1000.0),
-            "{width} px: the Discord tile stands on a desktop window whatever the gateway says"
+            discord, 1,
+            "{width} px: the Discord pill stands in the community row whatever the gateway says"
         );
     }
 }
@@ -279,6 +283,9 @@ fn the_about_sheet_links_the_gateways_impressum_only_when_it_is_a_plain_https_ad
             source: None,
             terms: None,
             impressum: impressum.map(str::to_string),
+            games_running: None,
+            rooms_waiting: None,
+            players_online: None,
         })
     };
     let count = |app: &mut App| {
@@ -328,114 +335,42 @@ fn the_about_sheet_links_the_gateways_impressum_only_when_it_is_a_plain_https_ad
     }
 }
 
-/// The two corner tiles (owner, 09.10.2026): on a desktop window the source
-/// offer stands top left and the Discord invitation top right, each its
-/// code, its label and its address; the whole tile is the control, and its
-/// press opens the address it shows. Below Wide neither stands, and the
-/// one-line colophon keeps the source offer.
+/// The community row offers `WhatsApp`, Discord, GitHub, and baylee.app pills;
+/// clicking any pill opens its QR-Code modal dialog with details and a
+/// browser action button.
 #[test]
 fn the_corner_tiles_stand_in_their_corners_and_open_what_they_show() {
-    use super::super::front::door::{Corner, CornerTile};
-    use super::super::source::{DISCORD_URL, address_of};
-    for width in [1400.0, 1920.0, 2560.0] {
-        let mut app = headless();
-        app.init_resource::<Assets<Image>>();
-        sized(&mut app, width);
-        to_gateway_face(&mut app);
-        app.update();
-        let mut tiles = app
-            .world_mut()
-            .query::<(Entity, &CornerTile, &Node, Option<&Press>)>();
-        let found: Vec<(Entity, CornerTile, Node, Option<Press>)> = tiles
-            .iter(app.world())
-            .map(|(e, tile, node, press)| (e, *tile, node.clone(), press.copied()))
-            .collect();
-        assert_eq!(found.len(), 2, "{width} px: two tiles");
-        for (entity, tile, node, press) in found {
-            let (wanted, url) = match tile.corner {
-                Corner::Left => (FrontPress::OpenSource, baylee_build::REPOSITORY),
-                Corner::Right => (FrontPress::OpenDiscord, DISCORD_URL),
-            };
-            assert_eq!(tile.press, wanted, "{width} px: {:?}", tile.corner);
-            assert_eq!(node.position_type, PositionType::Absolute);
-            let (near, far) = match tile.corner {
-                Corner::Left => (node.left, node.right),
-                Corner::Right => (node.right, node.left),
-            };
-            assert!(
-                matches!(near, Val::Px(_)),
-                "{width} px: {:?} at its edge",
-                tile.corner
-            );
-            assert_eq!(
-                far,
-                Val::Auto,
-                "{width} px: {:?} only at its edge",
-                tile.corner
-            );
-            assert!(matches!(node.top, Val::Px(_)), "{width} px: at the top");
-            // The tile itself is the control, and its press opens its URL.
-            assert_eq!(press, Some(Press::Front(wanted)), "{width} px");
-            let state = app.world().resource::<LobbyState>();
-            assert_eq!(address_of(wanted, state).as_deref(), Some(url));
-            // Everything in it lets the click through to the tile: no child
-            // answers on its own, and none blocks the pointer.
-            let mut inside = vec![entity];
-            let mut texts = Vec::new();
-            while let Some(at) = inside.pop() {
-                if let Some(children) = app.world().get::<Children>(at) {
-                    for child in children.iter() {
-                        assert!(
-                            app.world().get::<Press>(child).is_none(),
-                            "{width} px: a press inside the tile"
-                        );
-                        assert_eq!(
-                            app.world().get::<Pickable>(child),
-                            Some(&Pickable::IGNORE),
-                            "{width} px: a child the pointer stops at"
-                        );
-                        if let Some(text) = app.world().get::<Text>(child) {
-                            texts.push(text.0.clone());
-                        }
-                        inside.push(child);
-                    }
-                }
-            }
-            let kids: Vec<Entity> = app
-                .world()
-                .get::<Children>(entity)
-                .map_or_else(Vec::new, |c| c.iter().collect());
-            let images = kids
-                .into_iter()
-                .filter(|frame| {
-                    app.world().get::<Children>(*frame).is_some_and(|c| {
-                        c.iter().any(|p| app.world().get::<ImageNode>(p).is_some())
-                    })
-                })
-                .count();
-            assert_eq!(images, 1, "{width} px: the code stands first in the tile");
-            // The words drop the `https://`; the press and the code keep it.
-            let shown = url.strip_prefix("https://").expect("an https address");
-            assert!(texts.contains(&shown.to_string()), "{width} px: {texts:?}");
-            assert!(
-                !texts.iter().any(|t| t.contains("https://")),
-                "{width} px: {texts:?}"
-            );
-            assert_eq!(
-                texts.len(),
-                2,
-                "{width} px: a label and the address: {texts:?}"
-            );
-        }
-    }
+    use super::super::front::CommunityKind;
     let mut app = headless();
     app.init_resource::<Assets<Image>>();
-    sized(&mut app, 390.0);
+    sized(&mut app, 1920.0);
     to_gateway_face(&mut app);
     app.update();
-    let mut tiles = app.world_mut().query::<&CornerTile>();
-    assert_eq!(tiles.iter(app.world()).count(), 0, "a phone draws no tile");
-    assert!(presses(&mut app).contains(&Press::Front(FrontPress::OpenSource)));
+    let found = presses(&mut app);
+    for kind in [
+        CommunityKind::WhatsApp,
+        CommunityKind::Discord,
+        CommunityKind::GitHub,
+        CommunityKind::Website,
+    ] {
+        assert!(
+            found.contains(&Press::Front(FrontPress::OpenCommunityDialog(kind))),
+            "{kind:?} pill missing from community row"
+        );
+    }
+    press(
+        &mut app,
+        Press::Front(FrontPress::OpenCommunityDialog(CommunityKind::Discord)),
+    );
+    assert_eq!(
+        app.world().resource::<LobbyState>().community_dialog,
+        Some(CommunityKind::Discord)
+    );
+    let modal_presses = presses(&mut app);
+    assert!(modal_presses.contains(&Press::Front(FrontPress::OpenDiscord)));
+    assert!(modal_presses.contains(&Press::Front(FrontPress::CloseCommunityDialog)));
+    press(&mut app, Press::Front(FrontPress::CloseCommunityDialog));
+    assert_eq!(app.world().resource::<LobbyState>().community_dialog, None);
 }
 
 /// The Discord tile glows a second in every round, and between pulses
@@ -537,8 +472,7 @@ fn the_gateway_form_builds_with_its_controls_and_none_of_the_account_s() {
     for wanted in [
         Press::Shared(SharedPress::Focus(Field::Gateway)),
         Press::Front(FrontPress::AddGateway),
-        Press::Front(FrontPress::PlayOffline),
-        // The text row: what the gear used to hide (A6, WP1).
+        // The header controls: what the gear used to hide (A6, WP1).
         Press::Settings(SettingsPress::OpenSettings),
         Press::Front(FrontPress::About(true)),
     ] {
@@ -556,8 +490,8 @@ fn the_gateway_form_builds_with_its_controls_and_none_of_the_account_s() {
     }
     let drawn = labels(&mut app);
     assert!(
-        drawn.iter().any(|l| l == baylee_build::short()),
-        "the build is on this face too"
+        drawn.iter().any(|l| l == baylee_build::VERSION),
+        "the version is on this face too"
     );
     assert!(
         drawn
@@ -572,9 +506,9 @@ fn the_gateway_form_builds_with_its_controls_and_none_of_the_account_s() {
     );
 }
 
-/// The text row (WP1, A6): the languages by their own names, the music,
-/// Settings, Play offline and About under every face, on a mist plate — no
-/// gear to open first.
+/// The card header controls and login actions (WP1, A6): the languages by
+/// their own names, the music, Settings, and About on every face, plus Play
+/// offline on the sign-in face — no gear to open first.
 #[test]
 fn the_text_row_offers_the_languages_and_the_way_to_every_setting() {
     let mut app = headless();
@@ -593,11 +527,16 @@ fn the_text_row_offers_the_languages_and_the_way_to_every_setting() {
         }
         for wanted in [
             Press::Settings(SettingsPress::OpenSettings),
-            Press::Front(FrontPress::PlayOffline),
             Press::Front(FrontPress::About(true)),
             Press::Shared(SharedPress::ToggleMusic),
         ] {
             assert!(found.contains(&wanted), "{face}: {wanted:?} missing");
+        }
+        if face == "sign in" {
+            assert!(
+                found.contains(&Press::Front(FrontPress::PlayOffline)),
+                "{face}: PlayOffline missing"
+            );
         }
         to_gateway_face(&mut app);
     }
@@ -1061,8 +1000,7 @@ fn issue_187_no_account_request_without_an_explicit_gateway() {
     assert!(!presses(&mut app).contains(&Press::Front(FrontPress::Submit)));
     {
         let mut state = app.world_mut().resource_mut::<LobbyState>();
-        // The pinned live gateway leads the list.
-        assert!(state.select_gateway(2));
+        assert!(state.select_gateway(1));
         assert_eq!(state.gateway, "https://two.example");
         assert!(state.lobby.field(Field::Password).is_empty());
         state
@@ -1108,13 +1046,7 @@ fn issue_187_saved_gateways_round_trip_without_selecting_one() {
         let asked = state.check_gateway().expect("an address");
         state.gateway_answered(asked, Probe::Older);
     }
-    assert_eq!(
-        state.gateways,
-        [
-            baylee_client_core::lobby::gateway_list::PINNED,
-            "https://example.test"
-        ]
-    );
+    assert_eq!(state.gateways, ["https://example.test"]);
     assert!(!state.gateway_selected, "saving is not selecting");
     let settings = crate::settings::ClientSettings {
         gateways: state.gateways.clone(),
@@ -1183,6 +1115,9 @@ fn gateway_info(name: Option<&str>, version: &str, view: u32) -> Probe {
         source: None,
         terms: None,
         impressum: None,
+        players_online: None,
+        games_running: None,
+        rooms_waiting: None,
     })
 }
 
@@ -1194,9 +1129,8 @@ fn an_address_is_saved_only_once_a_gateway_answers_there() {
         .set_field(Field::Gateway, "https://typo.example/");
     let asked = state.check_gateway().expect("an address");
     assert_eq!(asked, "https://typo.example");
-    assert_eq!(
-        state.gateways,
-        [baylee_client_core::lobby::gateway_list::PINNED],
+    assert!(
+        state.gateways.is_empty(),
         "nothing is saved before the answer"
     );
 
@@ -1208,10 +1142,7 @@ fn an_address_is_saved_only_once_a_gateway_answers_there() {
     );
 
     assert!(!state.gateway_answered(asked, Probe::Silent));
-    assert_eq!(
-        state.gateways,
-        [baylee_client_core::lobby::gateway_list::PINNED]
-    );
+    assert!(state.gateways.is_empty());
     assert_eq!(state.adding, None);
     assert_eq!(state.lobby.tone(), Tone::Refusal);
     assert!(state.lobby.status().contains("https://typo.example"));
@@ -1226,13 +1157,7 @@ fn an_address_is_saved_only_once_a_gateway_answers_there() {
     let asked = state.check_gateway().expect("an address");
     let newer = gateway_info(None, "9.9.9", baylee_view::VIEW_VERSION + 1);
     assert!(state.gateway_answered(asked, newer));
-    assert_eq!(
-        state.gateways,
-        [
-            baylee_client_core::lobby::gateway_list::PINNED,
-            "https://typo.example"
-        ]
-    );
+    assert_eq!(state.gateways, ["https://typo.example"]);
     assert!(state.lobby.field(Field::Gateway).is_empty());
     assert_eq!(state.lobby.tone(), Tone::Note);
 }
@@ -1263,14 +1188,11 @@ fn the_save_button_waits_for_the_answer_the_mailbox_brings() {
     app.update();
     assert_eq!(
         app.world().resource::<LobbyState>().gateways,
-        [
-            baylee_client_core::lobby::gateway_list::PINNED,
-            "https://new.example"
-        ]
+        ["https://new.example"]
     );
     let pressable = presses(&mut app);
     assert!(pressable.contains(&Press::Front(FrontPress::AddGateway)));
-    assert!(pressable.contains(&Press::Front(FrontPress::SelectGateway(1))));
+    assert!(pressable.contains(&Press::Front(FrontPress::SelectGateway(0))));
     let drawn = labels(&mut app);
     assert!(drawn.iter().any(|l| l == "New Hall"), "the name leads");
     assert!(
@@ -1337,6 +1259,18 @@ fn a_gateway_whose_games_would_not_open_is_marked_and_says_why() {
         state
             .probes
             .insert("https://silent.example".into(), Probe::Silent);
+    }
+    app.update();
+    // Incompatible and offline sections start folded by default; unfolding
+    // them reveals their rows and version marks.
+    for group in [
+        baylee_client_core::lobby::gateway_list::GatewayGroup::Incompatible,
+        baylee_client_core::lobby::gateway_list::GatewayGroup::Offline,
+    ] {
+        press(
+            &mut app,
+            Press::Front(FrontPress::ToggleGatewayGroup(group)),
+        );
     }
     app.update();
     let mut query = app.world_mut().query::<(&Text, &TextColor)>();

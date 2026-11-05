@@ -8,7 +8,7 @@ use super::{
     ToastActions, ToastPlacement, ToastScroll, UpdateToast, fill_width, meter,
 };
 use crate::hud::{UiFonts, icon_tf, palette, tf, tf_bold};
-use crate::shellkit::controls::{self, Kit, Live, Weight};
+use crate::shellkit::controls::{self, Kit, Live};
 use crate::shellkit::role::Role;
 use crate::shellkit::{px_fixed, tokens};
 use baylee_client_core::i18n::{Lang, Phrase};
@@ -18,12 +18,10 @@ use bevy::ui::{percent, px};
 
 /// The accent edge on the card's left, as the lobby's toasts wear it.
 const ACCENT_EDGE: f32 = 3.0;
-/// The card's width at the default text step: the download's line and the
-/// ready card's two actions each on one row, in both languages, and clear
-/// of the front door's language strip at 1280 px, whose German row starts
-/// at 362 (live check of 22.10.2026; at 380 the ready card covered
-/// "English").
-const CARD_WIDTH: f32 = 336.0;
+/// The card's width at the default text step: wide enough for the full
+/// German update title (`Update 0.1.0-beta.9b verfügbar`) to fit on one
+/// line beside the close mark.
+const CARD_WIDTH: f32 = 408.0;
 
 /// The card's elevation over the painting: one soft shadow.
 fn card_shadow() -> BoxShadow {
@@ -258,6 +256,8 @@ fn close_mark(commands: &mut Commands, kit: Kit) -> Entity {
         .spawn((
             Role::Hit,
             UpdateButton::Hide,
+            bevy::picking::hover::PickingInteraction::default(),
+            Pickable::default(),
             Node {
                 position_type: PositionType::Absolute,
                 top: px_fixed(0.0),
@@ -274,8 +274,71 @@ fn close_mark(commands: &mut Commands, kit: Kit) -> Entity {
     hit
 }
 
-/// The card's actions in a row that wraps, the release notes (a ghost) to
-/// the right of the rest.
+/// Full-width, slimmer "Release notes" (`Versionshinweise`) button with icon,
+/// subtle glass border, hover sheen, and compact text size.
+fn release_notes_button(
+    commands: &mut Commands,
+    kit: Kit,
+    label: &str,
+    does: UpdateButton,
+) -> Entity {
+    let bg = Color::srgba(0.08, 0.17, 0.22, 0.88);
+    let hot = Color::srgba(0.12, 0.25, 0.32, 0.96);
+    let rim = tokens::ACCENT.with_alpha(0.48);
+    let face = commands
+        .spawn((
+            Role::Button,
+            Node {
+                width: percent(100),
+                min_height: px_fixed(kit.m.control * 0.78),
+                padding: UiRect::axes(kit.m.px(12.0), px_fixed(0.0)),
+                column_gap: kit.m.px(7.0),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                border: UiRect::all(px_fixed(1.0)),
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL)),
+                ..default()
+            },
+            BackgroundColor(bg),
+            BorderColor::all(rim),
+            crate::ambience::Feel::tinting_to(bg, hot),
+            crate::ambience::FeelBorder {
+                rest: rim,
+                hot: tokens::ACCENT,
+                press: tokens::PRIMARY_EDGE,
+            },
+            crate::shellkit::sheen::Sheen,
+        ))
+        .id();
+    let icon = commands
+        .spawn((
+            Text::new("\u{f0ac}"),
+            icon_tf(kit.fonts, kit.m.small * 0.84),
+            TextColor(tokens::ACCENT),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let words = commands
+        .spawn((
+            Text::new(label),
+            tf_bold(kit.fonts, kit.m.small * 0.92),
+            TextColor(tokens::INK),
+            TextLayout::no_wrap(),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(face).add_children(&[icon, words]);
+    let hit = controls::hit(commands, kit, face, does);
+    commands.entity(hit).entry::<Node>().and_modify(|mut node| {
+        node.width = percent(100);
+        node.min_width = px_fixed(0.0);
+        node.max_width = percent(100);
+    });
+    hit
+}
+
+/// The card's actions in a row that wraps; the release notes button spans
+/// the full width of the card.
 fn action_row(commands: &mut Commands, kit: Kit, actions: Vec<Action>) -> Entity {
     let row = commands
         .spawn((
@@ -293,28 +356,24 @@ fn action_row(commands: &mut Commands, kit: Kit, actions: Vec<Action>) -> Entity
         ))
         .id();
     for action in actions {
-        // The release notes as a ghost go to the right of the choices; a
-        // ghost that is a choice of its own ("Keep it") stays with them.
-        let aside = action.weight == Weight::Ghost && matches!(action.does, UpdateButton::Open(_));
-        let button = controls::button(
-            commands,
-            kit,
-            &action.label,
-            action.weight,
-            Live::Yes,
-            None,
-            action.does,
-        );
-        commands
-            .entity(button)
-            .entry::<Node>()
-            .and_modify(move |mut node| {
+        let button = if matches!(action.does, UpdateButton::Open(_)) {
+            release_notes_button(commands, kit, &action.label, action.does)
+        } else {
+            let btn = controls::button(
+                commands,
+                kit,
+                &action.label,
+                action.weight,
+                Live::Yes,
+                None,
+                action.does,
+            );
+            commands.entity(btn).entry::<Node>().and_modify(|mut node| {
                 node.min_width = px_fixed(0.0);
                 node.max_width = percent(100);
-                if aside {
-                    node.margin.left = Val::Auto;
-                }
             });
+            btn
+        };
         commands.entity(row).add_child(button);
     }
     row
@@ -338,7 +397,7 @@ pub(super) fn spawn_card(commands: &mut Commands, kit: Kit, lang: Lang, card: &C
             Role::Toast,
             Node {
                 position_type: PositionType::Absolute,
-                left: px_fixed(TOAST_GAP),
+                right: px_fixed(TOAST_GAP),
                 bottom: px_fixed(TOAST_GAP),
                 width: px(width),
                 min_width: px_fixed(0.0),

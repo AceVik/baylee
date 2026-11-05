@@ -40,9 +40,12 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
         * gaussian((r - 1.06 - sin(a * 26.0) * 0.035) / max(aa, 0.014));
     let engraving = (edge + band + leaves * 0.7) * smoothstep(0.02, 0.20, p.y) * hover;
     let warm = vec3<f32>(1.0, 0.74, 0.35);
-    let glow = exp(-dot(q, q) * 1.4) * hover * (0.065 + sin(t * 0.45) * 0.005 * feel.z);
-    let light_alpha = clamp(halo * 0.8 + engraving * 0.8 + glow, 0.0, 0.85);
+    let is_logo = feel.y;
+    let glow = exp(-dot(q, q) * mix(1.4, 1.05, is_logo))
+        * hover
+        * (mix(0.065, 0.22, is_logo) + sin(t * 0.45) * 0.005 * feel.z);
+    let light_alpha = clamp(halo * mix(0.8, 1.35, is_logo) + engraving * 0.8 + glow, 0.0, 0.85);
     let alpha = cat.a + light_alpha * (1.0 - cat.a);
-    let rgb = (cat.rgb * (1.0 + hover * 0.045) * cat.a + warm * light_alpha * (1.0 - cat.a)) / max(alpha, 0.0001);
+    let rgb = (cat.rgb * (1.0 + hover * mix(0.045, 0.14, is_logo)) * cat.a + warm * light_alpha * (1.0 - cat.a)) / max(alpha, 0.0001);
     return vec4<f32>(rgb, alpha);
 }

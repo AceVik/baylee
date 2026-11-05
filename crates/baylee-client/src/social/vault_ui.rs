@@ -358,7 +358,7 @@ fn draw(
     for root in &roots {
         commands.entity(root).despawn();
     }
-    if !visible || (host.active() && host.vault.is_central()) {
+    if !visible || host.vault.is_central() {
         return;
     }
     // Unlocked, the chat is locked from its composer, which carries the

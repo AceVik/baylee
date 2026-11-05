@@ -19,6 +19,7 @@ use super::*;
 /// thing to everything above here: no caller has to know which performer it
 /// got, and an offline reply goes round exactly the loop a networked one
 /// does.
+#[allow(clippy::too_many_lines)]
 pub(super) fn dispatch(state: &mut LobbyState, mailbox: &Mailbox, request: Option<LobbyRequest>) {
     let Some(request) = request else {
         return;
@@ -33,9 +34,20 @@ pub(super) fn dispatch(state: &mut LobbyState, mailbox: &Mailbox, request: Optio
     if let LobbyRequest::CreateGame { password, .. } = &request {
         state.llm.remember_password(password);
     }
-    if let Some(offline) = state.offline.as_mut() {
-        let event = offline.perform(request, lang);
-        if let Ok(mut box_) = mailbox.0.lock() {
+    if state.offline.is_some() {
+        let is_sync_build = matches!(
+            request,
+            LobbyRequest::LoadPool | LobbyRequest::LoadDeck { .. }
+        );
+        let event = state
+            .offline
+            .as_mut()
+            .expect("checked above")
+            .perform(request, lang);
+        if is_sync_build {
+            let next = state.lobby.apply(event);
+            dispatch(state, mailbox, next);
+        } else if let Ok(mut box_) = mailbox.0.lock() {
             box_.push(if pool {
                 Reply::PoolLanguage(lang, event)
             } else {
@@ -44,10 +56,65 @@ pub(super) fn dispatch(state: &mut LobbyState, mailbox: &Mailbox, request: Optio
         }
         return;
     }
+    if state.central_without_gateway() {
+        match request {
+            LobbyRequest::ListDecks
+            | LobbyRequest::LoadPool
+            | LobbyRequest::LoadPrintings { .. }
+            | LobbyRequest::LoadDeck { .. }
+            | LobbyRequest::SaveDeck { .. }
+            | LobbyRequest::DeleteDeck { .. }
+            | LobbyRequest::Library(_) => {
+                let is_sync_build = matches!(
+                    request,
+                    LobbyRequest::LoadPool
+                        | LobbyRequest::LoadDeck { .. }
+                        | LobbyRequest::ListDecks
+                );
+                let local = state.local_decks.get_or_insert_with(offline::Offline::load);
+                let event = local.perform(request, lang);
+                if is_sync_build {
+                    let next = state.lobby.apply(event);
+                    dispatch(state, mailbox, next);
+                } else if let Ok(mut box_) = mailbox.0.lock() {
+                    box_.push(if pool {
+                        Reply::PoolLanguage(lang, event)
+                    } else {
+                        Reply::Event(event)
+                    });
+                }
+                return;
+            }
+            LobbyRequest::ListGames(_) => {
+                if let Ok(mut box_) = mailbox.0.lock() {
+                    box_.push(Reply::Event(LobbyEvent::Games(
+                        client_core::lobby::GameListing::default(),
+                    )));
+                }
+                return;
+            }
+            LobbyRequest::ListSeats => {
+                if let Ok(mut box_) = mailbox.0.lock() {
+                    box_.push(Reply::Event(LobbyEvent::Seats(
+                        client_core::lobby::resume::Listing::default(),
+                    )));
+                }
+                return;
+            }
+            LobbyRequest::HostedProfiles => {
+                if let Ok(mut box_) = mailbox.0.lock() {
+                    box_.push(Reply::Event(LobbyEvent::HostedProfiles(Vec::new())));
+                }
+                return;
+            }
+            _ => {}
+        }
+    }
     #[cfg(not(target_arch = "wasm32"))]
     if state.central.is_some() {
         match request {
             LobbyRequest::LogIn { username, password } => {
+                state.lobby.tell(Phrase::CentralSigningIn, &[]);
                 super::central::login(state, mailbox, username, password);
                 return;
             }
@@ -1002,7 +1069,20 @@ pub(super) fn probe_gateway(url: String, mailbox: &Mailbox) {
     let (info, older) = probe_requests(&url);
     crate::transport::fetch(info, move |answer| {
         if let Some(probe) = read_info(&answer) {
-            post_probe(&box_, url, probe);
+            post_probe(&box_, url.clone(), probe.clone());
+            if let Probe::Known(known) = probe
+                && known.games_running.is_none()
+            {
+                let health_url = format!("{}/health", url.trim_end_matches('/'));
+                let req = ehttp::Request::get(health_url).with_timeout(Some(PROBE_TIMEOUT));
+                crate::transport::fetch(req, move |h_ans| {
+                    if let Ok(resp) = h_ans
+                        && let Some(enriched) = known.with_health(&resp.bytes)
+                    {
+                        post_probe(&box_, url, Probe::Known(enriched));
+                    }
+                });
+            }
             return;
         }
         crate::transport::fetch(older, move |answer| {
@@ -1176,6 +1256,244 @@ pub(super) fn ask_aside<T: serde::de::DeserializeOwned + Send + 'static>(
         };
         if let Ok(mut box_) = box_.lock() {
             box_.push(Reply::Remote(epoch, Box::new(said)));
+        }
+    });
+}
+
+/// Immediately saves the deck builder's current state without creating a new
+/// version-history entry (`"versioned": false`).
+#[allow(clippy::too_many_lines)]
+pub(crate) fn auto_save_deck(state: &mut LobbyState, mailbox: &Mailbox) {
+    use baylee_client_core::deckbuilder::Zone;
+
+    let lang = state.lobby.lang();
+    if state.lobby.builder().entries(Zone::Main).is_empty() {
+        return;
+    }
+    if state.lobby.builder().name().trim().is_empty() {
+        let default_name = Phrase::BuildUntitled.text(lang).to_string();
+        state.lobby.builder_mut().set_default_name(&default_name);
+    }
+    let deck = state.lobby.builder();
+    let name: String = deck.name().trim().chars().take(64).collect();
+    let cards = deck.rows(Zone::Main);
+    let sideboard = deck.rows(Zone::Side);
+    let commanders = deck.commander_names();
+    let format = Some(deck.format().to_string());
+    let deck_id = deck.editing().map(str::to_owned);
+    let saved_changes = deck.changes();
+
+    if let Some(offline) = state.offline.as_mut() {
+        let event = offline.perform(
+            LobbyRequest::SaveDeck {
+                deck_id,
+                name,
+                cards,
+                sideboard,
+                commanders,
+                format,
+            },
+            lang,
+        );
+        if let LobbyEvent::DeckSaved { deck_id } = event {
+            let editing = state.lobby.builder().editing().map(str::to_owned);
+            state
+                .lobby
+                .builder_mut()
+                .mark_auto_saved(deck_id.as_deref(), saved_changes);
+            state.build.save = crate::buildui::SaveState::Saved {
+                at: 0.0,
+                minutes: 0,
+            };
+            let select_id = state.lobby.builder().editing().map(str::to_owned);
+            if let Some(offline) = state.offline.as_mut()
+                && let LobbyEvent::Decks(decks) = offline.perform(LobbyRequest::ListDecks, lang)
+            {
+                state
+                    .lobby
+                    .update_decks_in_place(decks, select_id.as_deref());
+            }
+            crate::buildui::draft::forget(&[editing.as_deref(), None]);
+        }
+        return;
+    }
+    if state.central_without_gateway() {
+        let local = state.local_decks.get_or_insert_with(offline::Offline::load);
+        let event = local.perform(
+            LobbyRequest::SaveDeck {
+                deck_id,
+                name,
+                cards,
+                sideboard,
+                commanders,
+                format,
+            },
+            lang,
+        );
+        if let LobbyEvent::DeckSaved { deck_id } = event {
+            let editing = state.lobby.builder().editing().map(str::to_owned);
+            state
+                .lobby
+                .builder_mut()
+                .mark_auto_saved(deck_id.as_deref(), saved_changes);
+            state.build.save = crate::buildui::SaveState::Saved {
+                at: 0.0,
+                minutes: 0,
+            };
+            let select_id = state.lobby.builder().editing().map(str::to_owned);
+            if let Some(local) = state.local_decks.as_mut()
+                && let LobbyEvent::Decks(decks) = local.perform(LobbyRequest::ListDecks, lang)
+            {
+                state
+                    .lobby
+                    .update_decks_in_place(decks, select_id.as_deref());
+            }
+            crate::buildui::draft::forget(&[editing.as_deref(), None]);
+        }
+        return;
+    }
+    let Some(token) = state.lobby.token().map(str::to_owned) else {
+        return;
+    };
+    let base = state.gateway.trim_end_matches('/').to_string();
+    if base.is_empty() {
+        return;
+    }
+    if deck_id.is_some() {
+        state
+            .lobby
+            .builder_mut()
+            .mark_auto_saved(None, saved_changes);
+    }
+    let mut body = serde_json::json!({
+        "name": name,
+        "cards": cards,
+        "sideboard": sideboard,
+        "commanders": commanders,
+        "versioned": false,
+    });
+    if let Some(format) = format {
+        body["format"] = serde_json::Value::String(format);
+    }
+    let request = match deck_id {
+        Some(id) => json_body(ehttp::Method::PUT, &format!("{base}/decks/{id}"), &body),
+        None => json_post(&format!("{base}/decks"), &body),
+    };
+    let request = bearer(request, Some(&token));
+    let epoch = state.gateway_epoch;
+    let box_ = Arc::clone(&mailbox.0);
+    crate::transport::fetch(request, move |result| {
+        #[derive(serde::Deserialize)]
+        struct SavedDeck {
+            deck_id: String,
+        }
+        if let Ok(response) = result
+            && response.ok
+        {
+            let deck_id = response
+                .text()
+                .and_then(|t| serde_json::from_str::<SavedDeck>(t).ok())
+                .map(|d| d.deck_id);
+            if let Ok(mut box_) = box_.lock() {
+                box_.push(Reply::Remote(
+                    epoch,
+                    Box::new(Reply::AutoSaved {
+                        deck_id,
+                        saved_changes,
+                    }),
+                ));
+            }
+        }
+    });
+}
+
+/// Commits all changes made during this deckbuilder session as a single
+/// coalesced version-history entry (`"versioned": true`, `"superseded": baseline`)
+/// when leaving the deckbuilder.
+pub(crate) fn commit_session_version(state: &mut LobbyState, mailbox: &Mailbox) {
+    use baylee_client_core::deckbuilder::Zone;
+
+    let lang = state.lobby.lang();
+    if state.offline.is_some() || state.central_without_gateway() {
+        if state.lobby.builder().dirty() {
+            auto_save_deck(state, mailbox);
+        }
+        let _ = state.lobby.builder_mut().take_session_baseline();
+        return;
+    }
+    let Some(token) = state.lobby.token().map(str::to_owned) else {
+        return;
+    };
+    let base = state.gateway.trim_end_matches('/').to_string();
+    if base.is_empty() {
+        return;
+    }
+    let is_new = state.lobby.builder().is_new_in_session();
+    let changed = state.lobby.builder().session_changed();
+    let baseline = state.lobby.builder_mut().take_session_baseline();
+    if is_new || !changed {
+        if state.lobby.builder().dirty() {
+            auto_save_deck(state, mailbox);
+        }
+        return;
+    }
+    let Some(baseline) = baseline else {
+        return;
+    };
+    let deck = state.lobby.builder();
+    if deck.entries(Zone::Main).is_empty() {
+        return;
+    }
+    let Some(id) = deck.editing().map(str::to_owned) else {
+        return;
+    };
+    let name = if deck.name().trim().is_empty() {
+        Phrase::BuildUntitled.text(lang).to_string()
+    } else {
+        deck.name().trim().chars().take(64).collect()
+    };
+    let cards = deck.rows(Zone::Main);
+    let sideboard = deck.rows(Zone::Side);
+    let commanders = deck.commander_names();
+    let format = Some(deck.format().to_string());
+    let saved_changes = deck.changes();
+    state
+        .lobby
+        .builder_mut()
+        .mark_auto_saved(None, saved_changes);
+    let mut body = serde_json::json!({
+        "name": name,
+        "cards": cards,
+        "sideboard": sideboard,
+        "commanders": commanders,
+        "versioned": true,
+        "superseded": {
+            "cards": baseline.cards,
+            "sideboard": baseline.sideboard,
+            "commanders": baseline.commanders,
+        }
+    });
+    if let Some(format) = format {
+        body["format"] = serde_json::Value::String(format);
+    }
+    let request = bearer(
+        json_body(ehttp::Method::PUT, &format!("{base}/decks/{id}"), &body),
+        Some(&token),
+    );
+    let epoch = state.gateway_epoch;
+    let box_ = Arc::clone(&mailbox.0);
+    crate::transport::fetch(request, move |result| {
+        if let Ok(response) = result
+            && response.ok
+            && let Ok(mut box_) = box_.lock()
+        {
+            box_.push(Reply::Remote(
+                epoch,
+                Box::new(Reply::AutoSaved {
+                    deck_id: None,
+                    saved_changes,
+                }),
+            ));
         }
     });
 }

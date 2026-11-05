@@ -3,12 +3,13 @@
 #[allow(clippy::wildcard_imports)] // the header module's shared vocabulary
 use super::*;
 
-/// Save: the primary, with the unsaved dot and its key.
+/// Save: icon-only header tool button with tooltip and dirty dot.
 pub(super) fn save_button(commands: &mut Commands, env: &Env) -> Entity {
     let kit = env.kit;
     let m = kit.m;
     let deck = env.deck();
-    let live = deck.dirty() && deck.saveable() && !env.state.lobby.busy();
+    let lang = env.lang();
+    let live = deck.saveable() && !env.state.lobby.busy();
     let mut trailing = Vec::new();
     if deck.dirty() {
         trailing.push(glyph(
@@ -19,27 +20,29 @@ pub(super) fn save_button(commands: &mut Commands, env: &Env) -> Entity {
             tokens::GOLD,
         ));
     }
-    if live
-        && let Some(keys) = env.save_keys
-        && let Some(cap) = controls::key_cap(commands, kit, keys)
-    {
-        trailing.push(cap);
-    }
     let reason = if env.state.lobby.busy() {
-        Phrase::SavingDeck.text(env.lang()).to_string()
+        Phrase::SavingDeck.text(lang).to_string()
     } else {
-        deck.problems(env.lang())
+        deck.problems(lang)
             .into_iter()
             .find(|p| p.blocking)
             .map_or_else(|| sentence(env).2, |p| p.message)
     };
-    controls::button_compact_with(
+    let save_base = match env.save_keys {
+        Some(keys) if !keys.is_empty() => format!("{} ({keys})", Phrase::BuildSave.text(lang)),
+        _ => Phrase::BuildSave.text(lang).to_string(),
+    };
+    let save_hint = if live {
+        save_base
+    } else {
+        format!("{save_base} — {reason}")
+    };
+    super::tool_icon_button(
         commands,
         kit,
-        Some('\u{f0c7}'),
-        Phrase::BuildSave.text(env.lang()),
-        Weight::Primary,
-        if live { Live::Yes } else { Live::No(&reason) },
+        '\u{f0c7}',
+        live,
+        save_hint,
         &trailing,
         (
             Press::Build(BuildPress::SaveDeck),
@@ -99,50 +102,4 @@ fn sentence(env: &Env) -> (Option<char>, Color, String, bool) {
             false,
         ),
     }
-}
-
-/// The one save state (§7: "Unsaved · n changes / Saved ✓ · time /
-/// Couldn't save · Retry"); on a narrow header its mark alone.
-pub(super) fn save_state(commands: &mut Commands, env: &Env) -> Entity {
-    let kit = env.kit;
-    let m = kit.m;
-    let (sign_mark, ink, said, retry) = sentence(env);
-    let node = commands
-        .spawn((
-            SaveStateNode,
-            // Its mark never gives way; its sentence may (the cell clips).
-            Node {
-                align_items: AlignItems::Center,
-                column_gap: m.px(6.0),
-                min_width: px_fixed(m.small * 1.2),
-                flex_shrink: 1.0,
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    if let Some(sign_mark) = sign_mark {
-        let size = if sign_mark == mark::DOT {
-            m.small * 0.55
-        } else {
-            m.small
-        };
-        let sign = glyph(commands, kit, sign_mark, size, ink);
-        commands.entity(node).add_child(sign);
-    }
-    let room = matches!(m.frame, Frame::Wide | Frame::Vast | Frame::Narrow);
-    if room {
-        let text = cell(commands, kit, &said, m.small, ink, false);
-        commands.entity(node).add_child(text);
-    }
-    if retry {
-        let again = link(
-            commands,
-            kit,
-            Phrase::ShellRetry.text(env.lang()),
-            (Press::Build(BuildPress::SaveDeck), stop("retry")),
-        );
-        commands.entity(node).add_child(again);
-    }
-    node
 }

@@ -22,10 +22,14 @@ use std::fmt::Write as _;
 pub(crate) enum HeaderMenu {
     /// The gateway pill's: where, which version, how busy.
     Gateway,
+    /// The language pill's: flag selector.
+    Language,
     /// The bell's: what happened that the player may have missed.
     Bell,
     /// The account pill's: shortcuts, a report, signing out.
     Account,
+    /// The card-cache fill indicator's rich progress popover.
+    CardFill,
 }
 
 /// A press on the header or a strip.
@@ -35,10 +39,14 @@ pub(crate) enum HeaderPress {
     Nav(u8),
     /// The gateway pill (or its dot).
     Gateway,
+    /// The language selector pill.
+    Language,
     /// The bell.
     Bell,
     /// The account pill (or its letter).
     Account,
+    /// The card-cache fill indicator pill.
+    CardFill,
     /// The chat tool.
     Chat,
     /// Click outside an open header popover to close it.
@@ -55,6 +63,8 @@ pub(crate) enum HeaderPress {
     Shortcuts,
     /// The account menu: the report form.
     Report,
+    /// Switch gateway while staying signed into Central.
+    SwitchGateway,
     /// The account menu: sign out.
     SignOut,
     /// The friends button: the friends drawer.
@@ -170,6 +180,11 @@ fn active(state: &LobbyState) -> Option<usize> {
             Hub::Decks => NavTab::Decks,
             Hub::Replays => NavTab::Replays,
         },
+        Screen::SignIn { .. } if state.central_ready() => match state.hub {
+            Hub::Play => NavTab::Play,
+            Hub::Decks => NavTab::Decks,
+            Hub::Replays => NavTab::Replays,
+        },
         _ => return None,
     };
     NAV.iter().position(|t| *t == tab)
@@ -181,14 +196,16 @@ pub(super) fn seated(state: &LobbyState) -> Option<Strip> {
         .filter(|_| state.room_away || !strips::in_the_room(&state.lobby, state.settings.is_open()))
 }
 
-/// Whether this screen wears the header: every signed-in screen but the
-/// builder, which has its own (its breadcrumb), and the front door.
+/// Whether this screen wears the header: every signed-in screen (including
+/// Central signed-in before a gateway is chosen) except the builder, which
+/// has its own (its breadcrumb), and the unauthenticated front door.
 pub(super) fn wears_header(state: &LobbyState) -> bool {
-    let signed_in = state.lobby.token().is_some() || state.lobby.offline();
-    signed_in && matches!(state.lobby.screen(), Screen::Table)
+    let signed_in = state.lobby.token().is_some() || state.lobby.offline() || state.central_ready();
+    signed_in && (matches!(state.lobby.screen(), Screen::Table) || state.showing_gateway_hub())
 }
 
-/// The account pill's handle: `GET /me`'s, a kept guest's, else none yet.
+/// The account pill's handle: `GET /me`'s, a kept guest's, Central's profile
+/// handle (`Name#Tag`), else none yet.
 pub(crate) fn handle(state: &LobbyState) -> Option<String> {
     if state.lobby.offline() {
         return None;
@@ -199,6 +216,24 @@ pub(crate) fn handle(state: &LobbyState) -> Option<String> {
         .map(|me| me.handle.clone())
         .filter(|h| !h.is_empty())
         .or_else(|| state.lobby.kept_guest().map(|g| g.handle.clone()))
+        .or_else(|| {
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                state
+                    .central
+                    .as_ref()
+                    .and_then(|c| c.profile_handle.clone())
+                    .filter(|h| !h.is_empty())
+            }
+            #[cfg(target_arch = "wasm32")]
+            {
+                None
+            }
+        })
+        .or_else(|| {
+            let u = state.lobby.field(Field::Username).trim();
+            (!u.is_empty()).then(|| u.to_string())
+        })
         .or_else(|| Some("\u{2026}".to_string()))
 }
 
@@ -216,6 +251,7 @@ pub(super) fn draw(
     if wears_header(state) {
         if let Some(kept) = retained {
             kept.attach(commands, root);
+            sync_retained_nav(commands, active(state));
         } else {
             bar(commands, root, state, kit, seated.is_some());
         }
@@ -234,31 +270,98 @@ pub(super) fn draw(
     }
 }
 
-/// Stable header identity, independent of page requests and open popovers.
+/// Updates the active navigation pill inside a retained header in place so
+/// switching top tabs (`Play`, `Decks`, `Replays`) never despawns the header.
+fn sync_retained_nav(commands: &mut Commands, now: Option<usize>) {
+    commands.queue(move |world: &mut World| {
+        let mut faces = world.query::<(
+            &controls::NavPillFace,
+            &mut BackgroundColor,
+            &mut BorderColor,
+            &mut crate::ambience::Feel,
+        )>();
+        for (pill, mut bg, mut border, mut feel) in faces.iter_mut(world) {
+            let on = now == Some(pill.0);
+            let target_bg = if on { tokens::SELECTED } else { Color::NONE };
+            let target_border = if on {
+                tokens::ACCENT.with_alpha(0.42)
+            } else {
+                Color::NONE
+            };
+            if bg.0 != target_bg {
+                bg.0 = target_bg;
+            }
+            if *border != BorderColor::all(target_border) {
+                *border = BorderColor::all(target_border);
+            }
+            *feel = if on {
+                crate::ambience::Feel {
+                    lift: 0.0,
+                    ..crate::ambience::Feel::new(tokens::SELECTED)
+                }
+            } else {
+                crate::ambience::Feel::tinting_to(Color::NONE, tokens::HOVER)
+            };
+        }
+        let mut icons = world.query::<(&controls::NavPillIcon, &mut TextColor)>();
+        for (pill, mut color) in icons.iter_mut(world) {
+            let target = if now == Some(pill.0) {
+                tokens::ACCENT
+            } else {
+                tokens::MUTED
+            };
+            if color.0 != target {
+                color.0 = target;
+            }
+        }
+        let mut words = world.query::<(&controls::NavPillWords, &mut TextColor)>();
+        for (pill, mut color) in words.iter_mut(world) {
+            let target = if now == Some(pill.0) {
+                tokens::INK
+            } else {
+                tokens::MUTED
+            };
+            if color.0 != target {
+                color.0 = target;
+            }
+        }
+    });
+}
+
+/// Stable header identity, independent of page requests, open popovers, and
+/// the currently active navigation tab.
 #[derive(Component)]
 pub(crate) struct RetainedHeader(pub String);
 
-/// Only visible header facts invalidate it; page requests and menus do not.
+/// Only visible header facts invalidate it; page requests, menus, and active
+/// tab switches do not.
 pub(super) fn identity(state: &LobbyState, kit: Kit) -> String {
     let lobby = &state.lobby;
-    let gateway = state
-        .gateway_name()
-        .unwrap_or_else(|| state.gateway.clone());
-    let counts = if lobby.offline() {
+    let gateway = if state.central_without_gateway() {
+        Phrase::PlayOffline.text(lobby.lang()).to_owned()
+    } else {
+        state
+            .gateway_name()
+            .unwrap_or_else(|| state.gateway.clone())
+    };
+    let counts = if state.central_without_gateway() {
+        String::new()
+    } else if lobby.offline() {
         Phrase::ShellOfflinePill.text(lobby.lang()).to_owned()
     } else {
         strips::pill_words(lobby.stats(), lobby, lobby.lang())
     };
     format!(
-        "{:?}|{}|{}|{}|{}|{:?}|{}|{}|{}|{:?}|{}|{}|{}|{}|{}",
-        active(state),
+        "{}|{}|{}|{}|{}|{:?}|{}|{}|{}|{}|{:?}|{}|{}|{}|{}|{}",
         lobby.offline(),
+        state.central_without_gateway(),
         state.feed_down,
         gateway,
         counts,
         handle(state),
         seated(state).is_some(),
         state.bell.unread(),
+        state.social_unread,
         state.chat_header == Some(true),
         kit.m.frame,
         kit.m.scale,
@@ -284,45 +387,61 @@ fn discard_detached(
 fn bar(commands: &mut Commands, root: Entity, state: &LobbyState, kit: Kit, seated: bool) {
     let lang = state.lobby.lang();
     {
-        let reach = if state.lobby.offline() {
+        let reach = if state.lobby.offline() || state.central_without_gateway() {
             Reach::Offline
         } else if state.feed_down {
             Reach::Down
         } else {
             Reach::Up
         };
-        let gateway = state
-            .gateway_name()
-            .unwrap_or_else(|| state.gateway.clone());
-        let counts = if state.lobby.offline() {
+        let gateway = if state.central_without_gateway() {
+            Phrase::PlayOffline.text(lang).to_string()
+        } else {
+            state
+                .gateway_name()
+                .unwrap_or_else(|| state.gateway.clone())
+        };
+        let counts = if state.central_without_gateway() {
+            String::new()
+        } else if state.lobby.offline() {
             Phrase::ShellOfflinePill.text(lang).to_string()
         } else {
             strips::pill_words(state.lobby.stats(), &state.lobby, lang)
         };
         let handle = handle(state);
-        let tools = tools(commands, state, kit);
+        let mut bar_tools = Vec::new();
+        if matches!(kit.m.frame, ShellFrame::Wide | ShellFrame::Vast) {
+            bar_tools.push(header_lang_pill(commands, state, kit));
+        }
+        bar_tools.extend(tools(commands, state, kit));
+        let nav_labels = NAV
+            .iter()
+            .map(|tab| match tab {
+                NavTab::Play => Phrase::ShellPlay.text(lang),
+                NavTab::Decks => Phrase::ShellDecks.text(lang),
+                NavTab::Replays => {
+                    baylee_client_core::replay::words::ReplayPhrase::NavReplays.text(lang)
+                }
+            })
+            .collect::<Vec<_>>();
         let look = HeaderLook {
             brand: Phrase::AppName.text(lang),
             // The short form (§2.1); the full one is in the gateway popover.
             build: baylee_build::VERSION,
-            nav: &NAV
-                .iter()
-                .map(|tab| match tab {
-                    NavTab::Play => Phrase::ShellPlay.text(lang),
-                    NavTab::Decks => Phrase::ShellDecks.text(lang),
-                    NavTab::Replays => {
-                        baylee_client_core::replay::words::ReplayPhrase::NavReplays.text(lang)
-                    }
-                })
-                .collect::<Vec<_>>(),
+            nav: &nav_labels,
             active: active(state),
             reach,
             gateway: &gateway,
             counts: &counts,
-            unread: state.bell.unread(),
+            unread: state.bell.unread() + state.social_unread,
             handle: handle.as_deref(),
             return_pill: seated.then(|| Phrase::ShellReturn.text(lang)),
-            tools: &tools,
+            tools: &bar_tools,
+        };
+        let gateway_press = if state.central_without_gateway() {
+            Press::Front(FrontPress::PlayOffline)
+        } else {
+            Press::Header(HeaderPress::Gateway)
         };
         let bar = kit_header::header(
             commands,
@@ -330,14 +449,31 @@ fn bar(commands: &mut Commands, root: Entity, state: &LobbyState, kit: Kit, seat
             &look,
             HeaderActions {
                 nav: |i| Press::Header(HeaderPress::Nav(u8::try_from(i).unwrap_or(0))),
-                gateway: Press::Header(HeaderPress::Gateway),
-                bell: Press::Header(HeaderPress::Bell),
+                gateway: gateway_press,
+                bell: (
+                    Press::Header(HeaderPress::Bell),
+                    hint::HoverHint(
+                        if lang == Lang::De {
+                            "Benachrichtigungen"
+                        } else {
+                            "Notifications"
+                        }
+                        .to_string(),
+                    ),
+                ),
                 account: Press::Header(HeaderPress::Account),
                 back: Press::Header(HeaderPress::Return),
             },
         );
-        // Clicking the Baylee brand logo navigates to Lobby just like clicking
-        // the first nav item (`HeaderPress::Nav(0)`).
+        if crate::settingsui::builds().desktop {
+            let fill_mark = super::card_fill::mark(commands, kit);
+            commands
+                .entity(bar)
+                .insert_children(2 + nav_labels.len(), &[fill_mark]);
+        }
+        let memorial_hint = Phrase::MemorialInvitation.text(lang).to_string();
+        let table = super::front::keys::table_of(state).name;
+        // Clicking the top-left Baylee brand logo opens the Memorial album.
         commands.queue(move |world: &mut World| {
             let brand = world.get::<Children>(bar).and_then(|c| {
                 c.iter()
@@ -346,7 +482,12 @@ fn bar(commands: &mut Commands, root: Entity, state: &LobbyState, kit: Kit, seat
             if let Some(brand) = brand
                 && let Ok(mut ent) = world.get_entity_mut(brand)
             {
-                ent.insert(Press::Header(HeaderPress::Nav(0)));
+                ent.insert((
+                    crate::shellkit::role::Role::Button,
+                    crate::shellkit::focus::Stop::new(table, "baylee"),
+                    Press::Memorial(crate::lobby::memorial::MemorialPress::Open),
+                    hint::HoverHint(memorial_hint),
+                ));
             }
         });
         commands
@@ -356,10 +497,70 @@ fn bar(commands: &mut Commands, root: Entity, state: &LobbyState, kit: Kit, seat
     }
 }
 
+/// Compact flag-and-code language pill in the Lobby header bar.
+fn header_lang_pill(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Entity {
+    let lang = state.lobby.lang();
+    let face = commands
+        .spawn((
+            crate::shellkit::role::Role::Button,
+            Node {
+                min_height: kit.m.px(32.0),
+                padding: UiRect::axes(kit.m.px(9.0), kit.m.px(4.0)),
+                column_gap: kit.m.px(6.0),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                border: UiRect::all(px_fixed(1.0)),
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PILL)),
+                ..default()
+            },
+            BackgroundColor(tokens::CONTROL.with_alpha(0.65)),
+            BorderColor::all(tokens::BORDER),
+            UiTransform::default(),
+            crate::ambience::Feel::tinting_to(tokens::CONTROL.with_alpha(0.65), tokens::HOVER),
+            crate::ambience::FeelBorder {
+                rest: tokens::BORDER,
+                hot: tokens::ACCENT.with_alpha(0.65),
+                press: tokens::ACCENT,
+            },
+        ))
+        .id();
+    let flag = super::front::door::flag_icon(commands, lang);
+    let code = commands
+        .spawn((
+            Text::new(lang.code().to_ascii_uppercase()),
+            crate::hud::tf_bold(kit.fonts, kit.m.small),
+            TextColor(tokens::INK),
+            TextLayout::no_wrap(),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let caret = commands
+        .spawn((
+            Text::new("\u{f078}"),
+            crate::hud::icon_tf(kit.fonts, kit.m.small * 0.72),
+            TextColor(tokens::MUTED),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(face).add_children(&[flag, code, caret]);
+    crate::shellkit::controls::hit(
+        commands,
+        kit,
+        face,
+        (
+            Press::Header(HeaderPress::Language),
+            kit_header::HeaderTrigger::Language,
+            hint::HoverHint(Phrase::Language.text(lang).to_string()),
+        ),
+    )
+}
+
 /// The quick settings and social tools shared by the lobby and builder.
 pub(crate) fn tools(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Vec<Entity> {
+    let lang = state.lobby.lang();
     let gear_face = commands
         .spawn((
+            crate::shellkit::role::Role::Button,
             Node {
                 min_width: kit.m.px(32.0),
                 min_height: kit.m.px(32.0),
@@ -391,29 +592,31 @@ pub(crate) fn tools(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Ve
         (
             Press::Front(FrontPress::FrontMenu),
             kit_header::HeaderTrigger::Gear,
+            hint::HoverHint(Phrase::Settings.text(lang).to_string()),
         ),
     );
     let mut tools = vec![gear];
-    if crate::settingsui::builds().desktop {
+    if crate::settingsui::builds().desktop && matches!(state.lobby.screen(), Screen::Build) {
         tools.insert(0, super::card_fill::mark(commands, kit));
     }
     if let Some(true) = state.chat_header {
-        tools.push(chat_tool(
-            commands,
-            kit,
-            crate::hud::glyph::CHAT,
-            Some(Phrase::ShellChat.text(state.lobby.lang())),
-            crate::social::HeaderCount::Chat,
-            Press::Header(HeaderPress::Chat),
-        ));
-        tools.push(chat_tool(
+        let friends = chat_tool(
             commands,
             kit,
             crate::hud::glyph::FRIENDS,
             None,
             crate::social::HeaderCount::Friends,
             Press::Header(HeaderPress::Friends),
+        );
+        commands.entity(friends).insert(hint::HoverHint(
+            if lang == Lang::De {
+                "Kontakte"
+            } else {
+                "Contacts"
+            }
+            .to_string(),
         ));
+        tools.push(friends);
     }
     tools
 }
@@ -432,6 +635,7 @@ fn chat_tool(
     let is_chat_badge = count == crate::social::HeaderCount::Chat;
     let face = commands
         .spawn((
+            crate::shellkit::role::Role::Button,
             Node {
                 min_height: kit.m.px(32.0),
                 padding: UiRect::axes(kit.m.px(8.0), kit.m.px(4.0)),
@@ -444,7 +648,6 @@ fn chat_tool(
             BackgroundColor(Color::NONE),
             UiTransform::default(),
             crate::ambience::Feel::rising_to(Color::NONE, tokens::HOVER),
-            crate::shellkit::sheen::Sheen,
             Pickable::IGNORE,
         ))
         .id();
@@ -726,6 +929,163 @@ fn gateway_popover(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Ent
     commands
         .entity(card)
         .add_children(&[title, addr, grid, client]);
+    if state.central_ready() {
+        let switch = controls::button_compact(
+            commands,
+            kit,
+            Some('\u{f0ec}'),
+            Phrase::ShellSwitchGateway.text(lang),
+            Weight::Secondary,
+            Live::Yes,
+            Press::Header(HeaderPress::SwitchGateway),
+        );
+        commands.entity(card).add_child(switch);
+    }
+    card
+}
+
+/// Builds the flag-and-name language popover card for the Lobby header.
+#[allow(clippy::too_many_lines)]
+fn language_popover(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Entity {
+    let lang = state.lobby.lang();
+    let card = commands
+        .spawn((
+            crate::shellkit::role::Role::Opaque,
+            Node {
+                min_width: kit.m.px(196.0),
+                flex_direction: FlexDirection::Column,
+                row_gap: kit.m.px(4.0),
+                padding: UiRect::all(kit.m.px(8.0)),
+                border: UiRect::all(px_fixed(1.0)),
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PANEL)),
+                ..default()
+            },
+            BackgroundColor(tokens::OPAQUE.with_alpha(0.96)),
+            BackgroundGradient::from(LinearGradient::to_bottom(vec![
+                Color::srgba(0.16, 0.25, 0.34, 0.98).into(),
+                Color::srgba(0.05, 0.08, 0.12, 0.98).into(),
+            ])),
+            BorderColor::all(tokens::PRIMARY_EDGE.with_alpha(0.55)),
+            surfaces::popover_shadow(),
+            GlobalZIndex(tokens::z::POPOVER),
+            Press::Shared(SharedPress::PickerNothing),
+        ))
+        .id();
+    let head = commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                padding: UiRect::axes(kit.m.px(8.0), kit.m.px(4.0)),
+                column_gap: kit.m.px(6.0),
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let head_icon = commands
+        .spawn((
+            Text::new("\u{f0ac}"),
+            crate::hud::icon_tf(kit.fonts, kit.m.small * 0.82),
+            TextColor(tokens::ACCENT),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let head_title = commands
+        .spawn((
+            Text::new(Phrase::Language.text(lang)),
+            crate::hud::tf_bold(kit.fonts, kit.m.small * 0.88),
+            TextColor(tokens::MUTED),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(head).add_children(&[head_icon, head_title]);
+    commands.entity(card).add_child(head);
+    for offered in Lang::ALL {
+        let on = offered == lang;
+        let row_bg = if on {
+            tokens::SELECTED
+        } else {
+            Color::srgba(1.0, 1.0, 1.0, 0.02)
+        };
+        let row_border = if on {
+            tokens::ACCENT.with_alpha(0.45)
+        } else {
+            Color::NONE
+        };
+        let face = commands
+            .spawn((
+                crate::shellkit::role::Role::MenuItem,
+                Node {
+                    width: Val::Percent(100.0),
+                    min_height: px_fixed(kit.m.control * 0.82),
+                    padding: UiRect::axes(kit.m.px(10.0), px_fixed(0.0)),
+                    column_gap: kit.m.px(8.0),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::FlexStart,
+                    border: UiRect::all(px_fixed(1.0)),
+                    border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL)),
+                    ..default()
+                },
+                BackgroundColor(row_bg),
+                BorderColor::all(row_border),
+                crate::ambience::Feel::tinting_to(row_bg, tokens::HOVER),
+                crate::ambience::FeelBorder {
+                    rest: row_border,
+                    hot: tokens::ACCENT.with_alpha(0.60),
+                    press: tokens::ACCENT,
+                },
+            ))
+            .id();
+        let flag = super::front::door::flag_icon(commands, offered);
+        let words = commands
+            .spawn((
+                Text::new(offered.name()),
+                if on {
+                    crate::hud::tf_bold(kit.fonts, kit.m.small)
+                } else {
+                    crate::hud::tf(kit.fonts, kit.m.small)
+                },
+                TextColor(if on { tokens::INK } else { tokens::MUTED }),
+                Node {
+                    flex_grow: 1.0,
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        let code = commands
+            .spawn((
+                Text::new(offered.code().to_ascii_uppercase()),
+                crate::hud::tf(kit.fonts, kit.m.small * 0.78),
+                TextColor(tokens::MUTED.with_alpha(0.75)),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(face).add_children(&[flag, words, code]);
+        if on {
+            let check = commands
+                .spawn((
+                    Text::new("\u{f00c}"),
+                    crate::hud::icon_tf(kit.fonts, kit.m.small * 0.82),
+                    TextColor(tokens::ACCENT),
+                    Pickable::IGNORE,
+                ))
+                .id();
+            commands.entity(face).add_child(check);
+        }
+        let item = controls::hit(
+            commands,
+            kit,
+            face,
+            Press::Shared(SharedPress::PickLang(offered)),
+        );
+        commands
+            .entity(item)
+            .entry::<Node>()
+            .and_modify(|mut node| node.width = Val::Percent(100.0));
+        commands.entity(card).add_child(item);
+    }
     card
 }
 
@@ -736,8 +1096,10 @@ fn popover(commands: &mut Commands, state: &LobbyState, kit: Kit, menu: HeaderMe
     let lang = state.lobby.lang();
     let trigger = match menu {
         HeaderMenu::Gateway => kit_header::HeaderTrigger::Gateway,
+        HeaderMenu::Language => kit_header::HeaderTrigger::Language,
         HeaderMenu::Bell => kit_header::HeaderTrigger::Bell,
         HeaderMenu::Account => kit_header::HeaderTrigger::Account,
+        HeaderMenu::CardFill => kit_header::HeaderTrigger::CardFill,
     };
     let surface = match menu {
         // Offline there is no account to sign out of and no gateway to
@@ -749,12 +1111,55 @@ fn popover(commands: &mut Commands, state: &LobbyState, kit: Kit, menu: HeaderMe
                 text: Phrase::ShellSwitchGateway.text(lang),
                 keys: None,
                 destructive: false,
-                action: Press::Header(HeaderPress::SignOut),
+                action: if state.central_ready() {
+                    Press::Header(HeaderPress::SwitchGateway)
+                } else {
+                    Press::Header(HeaderPress::SignOut)
+                },
+            }],
+        ),
+        HeaderMenu::Gateway if state.central_without_gateway() => surfaces::menu(
+            commands,
+            kit,
+            [MenuItem {
+                text: Phrase::ChooseGateway.text(lang),
+                keys: None,
+                destructive: false,
+                action: Press::Header(HeaderPress::Nav(0)),
             }],
         ),
         HeaderMenu::Gateway => gateway_popover(commands, state, kit),
+        HeaderMenu::Language => language_popover(commands, state, kit),
+        HeaderMenu::CardFill => {
+            let body = super::card_fill::popover(commands, state, kit);
+            let card = commands
+                .spawn((
+                    crate::shellkit::role::Role::Opaque,
+                    Node {
+                        width: kit.m.px(320.0),
+                        flex_direction: FlexDirection::Column,
+                        padding: UiRect::all(px_fixed(kit.m.pad)),
+                        border: UiRect::all(px_fixed(1.0)),
+                        border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PANEL)),
+                        ..default()
+                    },
+                    BackgroundColor(tokens::OPAQUE.with_alpha(0.97)),
+                    BackgroundGradient::from(LinearGradient::to_bottom(vec![
+                        Color::srgba(0.16, 0.25, 0.34, 0.98).into(),
+                        Color::srgba(0.05, 0.08, 0.12, 0.98).into(),
+                    ])),
+                    BorderColor::all(tokens::PRIMARY_EDGE.with_alpha(0.55)),
+                    surfaces::popover_shadow(),
+                    GlobalZIndex(tokens::z::POPOVER),
+                    Press::Shared(SharedPress::PickerNothing),
+                ))
+                .id();
+            commands.entity(card).add_child(body);
+            card
+        }
         HeaderMenu::Bell => {
-            let said: Vec<String> = state.bell.lines(lang);
+            let mut said: Vec<String> = state.social_notices.clone();
+            said.extend(state.bell.lines(lang));
             let lines: Vec<&str> = if said.is_empty() {
                 vec![Phrase::ShellBellEmpty.text(lang)]
             } else {
@@ -766,10 +1171,8 @@ fn popover(commands: &mut Commands, state: &LobbyState, kit: Kit, menu: HeaderMe
                 .insert(Press::Shared(SharedPress::PickerNothing));
             pop
         }
-        HeaderMenu::Account => surfaces::menu(
-            commands,
-            kit,
-            [
+        HeaderMenu::Account => {
+            let mut items = vec![
                 MenuItem {
                     text: Phrase::ShellKeyOverlay.text(lang),
                     keys: Some("?"),
@@ -783,19 +1186,34 @@ fn popover(commands: &mut Commands, state: &LobbyState, kit: Kit, menu: HeaderMe
                     action: Press::Header(HeaderPress::Report),
                 },
                 MenuItem {
-                    text: Phrase::ShellSignOut.text(lang),
+                    text: Phrase::FrontAbout.text(lang),
                     keys: None,
-                    destructive: true,
-                    action: Press::Header(HeaderPress::SignOut),
+                    destructive: false,
+                    action: Press::Front(FrontPress::About(true)),
                 },
-                MenuItem {
-                    text: Phrase::ShellQuit.text(lang),
+            ];
+            if state.central_ready() && !state.central_without_gateway() {
+                items.push(MenuItem {
+                    text: Phrase::ShellSwitchGateway.text(lang),
                     keys: None,
-                    destructive: true,
-                    action: Press::Header(HeaderPress::Quit),
-                },
-            ],
-        ),
+                    destructive: false,
+                    action: Press::Header(HeaderPress::SwitchGateway),
+                });
+            }
+            items.push(MenuItem {
+                text: Phrase::ShellSignOut.text(lang),
+                keys: None,
+                destructive: true,
+                action: Press::Header(HeaderPress::SignOut),
+            });
+            items.push(MenuItem {
+                text: Phrase::ShellQuit.text(lang),
+                keys: None,
+                destructive: true,
+                action: Press::Header(HeaderPress::Quit),
+            });
+            surfaces::menu(commands, kit, items)
+        }
     };
     let root = commands
         .spawn((
@@ -972,7 +1390,9 @@ impl HeaderPress {
     pub(super) fn handle(self, cx: Cx<'_, '_, '_, '_, '_>) {
         match self {
             HeaderPress::Gateway => toggle(cx.state, HeaderMenu::Gateway),
+            HeaderPress::Language => toggle(cx.state, HeaderMenu::Language),
             HeaderPress::Account => toggle(cx.state, HeaderMenu::Account),
+            HeaderPress::CardFill => toggle(cx.state, HeaderMenu::CardFill),
             HeaderPress::Bell => {
                 toggle(cx.state, HeaderMenu::Bell);
                 if cx.state.bell.unread() > 0 {
@@ -993,15 +1413,29 @@ impl HeaderPress {
                 cx.state.shell_asks.push(ShellAsk::Report);
             }
             HeaderPress::Friends | HeaderPress::Chat => {
-                cx.state.header_menu = None;
-                cx.state.front_menu = false;
-                cx.state.shell_asks.push(if self == HeaderPress::Chat {
+                let ask = if self == HeaderPress::Chat {
                     ShellAsk::Chat
                 } else {
                     ShellAsk::Friends
-                });
+                };
+                if cx.state.header_menu.is_none() && !cx.state.front_menu {
+                    cx.state.bypass_change_detection().shell_asks.push(ask);
+                } else {
+                    cx.state.header_menu = None;
+                    cx.state.front_menu = false;
+                    cx.state.shell_asks.push(ask);
+                }
             }
             HeaderPress::ChatPrivacy => cx.state.shell_asks.push(ShellAsk::ChatPrivacy),
+            HeaderPress::SwitchGateway => {
+                cx.state.header_menu = None;
+                #[cfg(not(target_arch = "wasm32"))]
+                if cx.state.central_ready() {
+                    super::central::leave_gateway_to_central(cx.state, cx.mailbox);
+                    return;
+                }
+                HubPress::SignOut.handle(cx);
+            }
             HeaderPress::SignOut => {
                 cx.state.header_menu = None;
                 HubPress::SignOut.handle(cx);
@@ -1287,7 +1721,12 @@ pub(super) struct Toasts {
     rung: u64,
     last_status: String,
     drawn: Vec<(ToastId, ToastKind, String)>,
+    animated: Vec<ToastId>,
 }
+
+/// Smooth arrival motion for newly spawned toast cards (`0.0..=1.0`).
+#[derive(Component)]
+pub(super) struct ToastCardMotion(f32);
 
 impl Toasts {
     /// Gives a toast its number and stands it at `at`.
@@ -1303,6 +1742,26 @@ impl Toasts {
 /// How long a toast stays (15 s), and how many show at once (≤ 4).
 const TOAST_SECS: f32 = 15.0;
 const TOASTS_AT_ONCE: usize = 4;
+
+/// Animates newly spawned toast cards smoothly into place.
+fn animate_toasts(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut cards: Query<(Entity, &mut ToastCardMotion, &mut UiTransform)>,
+) {
+    let dt = time.delta_secs().min(0.05);
+    for (entity, mut motion, mut transform) in &mut cards {
+        motion.0 = (motion.0 + dt / 0.15).min(1.0);
+        let ease = 1.0 - (1.0 - motion.0).powi(3);
+        transform.translation = Val2::px((1.0 - ease) * 18.0, (1.0 - ease) * 6.0);
+        transform.scale = Vec2::splat(0.95 + 0.05 * ease);
+        if motion.0 >= 1.0 {
+            transform.translation = Val2::ZERO;
+            transform.scale = Vec2::ONE;
+            commands.entity(entity).remove::<ToastCardMotion>();
+        }
+    }
+}
 
 /// The unified toast lane at the top-left: lobby status/error notices and
 /// the bell's newest items for 15 seconds each, dismissible via `×`, narrow
@@ -1321,7 +1780,8 @@ pub(super) fn toast_lane(
 ) {
     let toasts = &mut *toasts;
     let lang = state.lobby.lang();
-    let on_shell = matches!(state.lobby.screen(), Screen::Table | Screen::Build);
+    let on_shell = matches!(state.lobby.screen(), Screen::Table | Screen::Build)
+        || (state.showing_gateway_hub() && state.lobby.tone() == Tone::Refusal);
     let current_status = if on_shell { state.lobby.status() } else { "" };
     if current_status.is_empty() {
         toasts.last_status.clear();
@@ -1378,6 +1838,9 @@ pub(super) fn toast_lane(
         commands.entity(lane).despawn();
     }
     toasts.drawn.clone_from(&now);
+    toasts
+        .animated
+        .retain(|id| now.iter().any(|(cur, _, _)| cur == id));
     if now.is_empty() {
         return;
     }
@@ -1454,6 +1917,17 @@ pub(super) fn toast_lane(
             Press::Header(HeaderPress::DismissToast(*id)),
             action,
         );
+        if !toasts.animated.contains(id) {
+            toasts.animated.push(*id);
+            commands.entity(toast).insert((
+                ToastCardMotion(0.0),
+                UiTransform {
+                    translation: Val2::px(18.0, 6.0),
+                    scale: Vec2::splat(0.95),
+                    ..default()
+                },
+            ));
+        }
         commands.entity(lane).add_child(toast);
     }
 }
@@ -1501,7 +1975,8 @@ pub(super) fn carry_out(
         return;
     }
     let mut desk = desk;
-    for ask in std::mem::take(&mut state.shell_asks) {
+    let asks = std::mem::take(&mut state.bypass_change_detection().shell_asks);
+    for ask in asks {
         match ask {
             ShellAsk::Shortcuts => {
                 fired.write(crate::shellkit::keys::ShellFired(
@@ -1522,7 +1997,11 @@ pub(super) fn carry_out(
             ShellAsk::DismissToast(ToastId::Undo) => state.undo = None,
             ShellAsk::Chat | ShellAsk::Friends | ShellAsk::ChatPrivacy => {
                 if let (Some(ui), Some(host)) = (chat.as_deref_mut(), host.as_deref_mut()) {
-                    crate::social::header_ask(host, ui, ask);
+                    if matches!(ask, ShellAsk::Friends) && state.central_ready() && !host.active() {
+                        ui.drawer = !ui.drawer;
+                    } else {
+                        crate::social::header_ask(host, ui, ask);
+                    }
                 }
             }
         }
@@ -1534,6 +2013,7 @@ pub(super) fn carry_out(
 pub(super) fn install(app: &mut App) {
     app.init_resource::<Toasts>()
         .init_resource::<PopoverMotion>()
+        .init_resource::<super::front::faces::StatusBannerMemory>()
         .add_systems(
             Update,
             (
@@ -1541,6 +2021,8 @@ pub(super) fn install(app: &mut App) {
                     follow_the_account,
                     ring_the_bell,
                     toast_lane,
+                    animate_toasts,
+                    super::front::faces::animate_status_banners,
                     super::feed::follow_the_feed.after(super::feed::feed),
                 )
                     .run_if(in_state(DuelPhase::Closed)),

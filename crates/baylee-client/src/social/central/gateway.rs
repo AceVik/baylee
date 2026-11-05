@@ -162,6 +162,9 @@ pub(super) fn register(host: &mut SocialHost, now: u64) {
     let Some(bridge) = host.central.as_mut() else {
         return;
     };
+    if bridge.session.token.is_empty() {
+        return;
+    }
     if !bridge.wanted || !matches!(bridge.game_state, Registration::Waiting(at) if now >= at) {
         return;
     }

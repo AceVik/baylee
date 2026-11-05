@@ -82,6 +82,10 @@ pub(crate) struct CardPreview {
     /// text may run over and is scrolled by a wheel over it. A picture has
     /// nothing to scroll, and stays out of the pointer's way.
     takes_pointer: bool,
+    /// 0.0 (just appeared / fully closed) to 1.0 (fully visible).
+    appear: f32,
+    /// Whether this preview is animating out after the pointer left.
+    closing: bool,
 }
 
 /// Tracks which row the pointer is over, and keeps a text face's preview
@@ -109,8 +113,10 @@ pub(super) fn hovers(
     if state.confirmation.is_some()
         || state.lobby.builder().picker().is_some()
         // A deck's history sheet previews its own diff rows; its scrim
-        // keeps the pointer off whatever stands under it.
-        || state.lobby.library().page == Some(client_core::lobby::library::Page::House)
+        // keeps the pointer off whatever stands under it. On the House
+        // templates tab, only the open template preview sheet previews cards.
+        || (state.lobby.library().page == Some(client_core::lobby::library::Page::House)
+            && state.decks.preview.is_none())
     {
         overs.clear();
         outs.clear();
@@ -152,7 +158,9 @@ pub(super) fn hovers(
     // The preview drawn for the card shown now, if the pointer may go to it.
     let reach = previews
         .iter()
-        .find(|p| p.takes_pointer && p.epoch == hovered.epoch && hovered.card.is_some())
+        .find(|p| {
+            !p.closing && p.takes_pointer && p.epoch == hovered.epoch && hovered.card.is_some()
+        })
         .map(|p| {
             let scale = ui.as_deref().map_or(1.0, |ui| ui.0);
             Rect::from_corners(p.rect.min * scale, p.rect.max * scale)
@@ -342,7 +350,7 @@ impl Reading<'_> {
 pub(super) fn preview(
     mut commands: Commands,
     hovered: Res<Hovered>,
-    existing: Query<(Entity, &CardPreview)>,
+    mut existing: Query<(Entity, &mut CardPreview)>,
     windows: Query<&Window>,
     assets: Option<Res<AssetServer>>,
     ui_materials: Option<ResMut<UiCardMaterials>>,
@@ -357,19 +365,37 @@ pub(super) fn preview(
         .map_or(Vec2::new(1280.0, 800.0), |win| {
             crate::hud::scale::space(win, ui.as_deref())
         });
-    let current = existing.iter().next().map(|(_, p)| (p.epoch, p.canvas));
-    if current == Some((hovered.epoch, canvas)) {
+    let current = existing
+        .iter()
+        .find(|(_, p)| !p.closing)
+        .map(|(_, p)| (p.epoch, p.canvas));
+    if hovered.card.is_some() && current == Some((hovered.epoch, canvas)) {
         return;
     }
-    for (entity, _) in existing {
-        commands.entity(entity).despawn();
-    }
     let (Some(card), Some(assets)) = (hovered.card.as_ref(), assets) else {
+        for (entity, mut p) in &mut existing {
+            if !p.closing {
+                p.closing = true;
+                p.takes_pointer = false;
+                commands.entity(entity).insert(Pickable::IGNORE);
+            }
+        }
         return;
     };
     let text = reading.face(card);
     if text.is_none() && card.url.is_none() {
+        for (entity, mut p) in &mut existing {
+            if !p.closing {
+                p.closing = true;
+                p.takes_pointer = false;
+                commands.entity(entity).insert(Pickable::IGNORE);
+            }
+        }
         return;
+    }
+    let warm = existing.iter().any(|(_, p)| !p.closing);
+    for (entity, _) in &existing {
+        commands.entity(entity).despawn();
     }
     let (Some(mut cache), Some(mut store)) = (ui_materials, material_assets) else {
         return;
@@ -389,6 +415,11 @@ pub(super) fn preview(
         card_box.width(),
         card_box.height(),
     );
+    let initial_appear: f32 = if warm { 0.68 } else { 0.0 };
+    let initial_t = 1.0 - (1.0 - initial_appear).powi(3);
+    let mut initial_transform = crate::flip::rest_transform(turning);
+    initial_transform.scale *= 0.91 + 0.09 * initial_t;
+    initial_transform.translation = Val2::px(0.0, (1.0 - initial_t) * 7.0);
 
     // The frame that turns: it holds the position and the scale, and each
     // face fills it. Two nodes rather than one swapped material, so the back
@@ -400,12 +431,14 @@ pub(super) fn preview(
                 epoch: hovered.epoch,
                 rect,
                 takes_pointer: text.is_some(),
+                appear: initial_appear,
+                closing: false,
             },
             crate::flip::Flip {
                 reading: turning,
                 ..default()
             },
-            crate::flip::rest_transform(turning),
+            initial_transform,
             Node {
                 position_type: PositionType::Absolute,
                 left: px(left),
@@ -415,7 +448,7 @@ pub(super) fn preview(
                 ..default()
             },
             BoxShadow::new(
-                Color::srgba(0.0, 0.0, 0.0, 0.65),
+                Color::srgba(0.0, 0.0, 0.0, 0.65 * initial_t),
                 px(0),
                 px(12),
                 px(3),
@@ -477,6 +510,49 @@ pub(super) fn preview(
             baylee_client_core::images::back_url(baylee_client_core::images::ArtSize::Normal)
         });
         face(&back, crate::flip::Side::Back);
+    }
+}
+
+/// Smoothly animates the card preview's entrance and exit (`appear: 0.0 <-> 1.0`).
+pub(super) fn animate_preview(
+    mut commands: Commands,
+    time: Option<Res<Time>>,
+    prefs: Option<Res<crate::prefs::Prefs>>,
+    mut previews: Query<(
+        Entity,
+        &mut CardPreview,
+        &crate::flip::Flip,
+        &mut UiTransform,
+        &mut BoxShadow,
+    )>,
+) {
+    let dt = time.map_or(0.0, |t| t.delta_secs().min(0.05));
+    let still = prefs.is_some_and(|p| p.all().reduce_motion);
+    for (entity, mut preview, flip, mut transform, mut shadow) in &mut previews {
+        if preview.closing {
+            if still || dt <= 0.0 {
+                commands.entity(entity).despawn();
+                continue;
+            }
+            preview.appear = (preview.appear - dt * 11.5).max(0.0);
+            if preview.appear <= 0.01 {
+                commands.entity(entity).despawn();
+                continue;
+            }
+        } else if still || dt <= 0.0 {
+            preview.appear = 1.0;
+        } else if preview.appear < 1.0 {
+            preview.appear = (preview.appear + dt * 9.5).min(1.0);
+        }
+        let t = 1.0 - (1.0 - preview.appear).powi(3);
+        let (squeeze, _) = crate::flip::faces(flip.turn);
+        let (base_scale, rotation) = crate::flip::pose(flip.reading, flip.turn, squeeze);
+        transform.scale = base_scale * (0.91 + 0.09 * t);
+        transform.rotation = rotation;
+        transform.translation = Val2::px(0.0, (1.0 - t) * 7.0);
+        if let Some(style) = shadow.0.first_mut() {
+            style.color = Color::srgba(0.0, 0.0, 0.0, 0.65 * t);
+        }
     }
 }
 
@@ -835,6 +911,8 @@ mod tests {
                 epoch,
                 rect,
                 takes_pointer,
+                appear: 1.0,
+                closing: false,
             })
             .id()
     }
@@ -970,6 +1048,8 @@ mod tests {
                 epoch: 0,
                 rect: Rect::default(),
                 takes_pointer: true,
+                appear: 1.0,
+                closing: false,
             })
             .id();
         let face = app.world_mut().spawn(ChildOf(preview)).id();

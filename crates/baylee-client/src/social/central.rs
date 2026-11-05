@@ -162,6 +162,15 @@ pub(super) fn attach(host: &mut SocialHost, handle: Option<Handle>) {
     host.central = Some(Bridge::new(handle, session, machine.device_id().into()));
 }
 
+pub(super) fn rebind_session(host: &mut SocialHost, session: Session) {
+    if let Some(bridge) = host.central.as_mut() {
+        bridge.session = session;
+        bridge.game = wire::Snapshot::default();
+        bridge.game_requests.clear();
+        bridge.game_state = gateway::Registration::Waiting(0);
+    }
+}
+
 pub(super) fn request(
     host: &mut SocialHost,
     tag: &HttpTag,

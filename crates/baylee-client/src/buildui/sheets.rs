@@ -9,7 +9,6 @@
 
 #[allow(clippy::wildcard_imports)] // the builder's own vocabulary
 use super::*;
-use crate::lobby::LibraryPress;
 use crate::shellkit::surfaces::{self, MenuItem, SheetWidth};
 
 /// A menu waiting to be placed under the opener that names it.
@@ -34,33 +33,36 @@ pub(super) fn menu(commands: &mut Commands, holder: Entity, env: &Env) {
     };
     match open {
         BuildMenu::Header => {
-            if env.layout != Layout::Columns {
-                items.push(item(Phrase::ImportDeck.text(lang), BuildPress::OpenImport));
-                items.push(item(Phrase::ExportDeck.text(lang), BuildPress::OpenExport));
-                if env.state.lobby.token().is_some() && deck.editing().is_some() {
-                    items.push(MenuItem {
-                        text: Phrase::DeckHistory.text(lang),
-                        keys: None,
-                        destructive: false,
-                        action: (
-                            Press::Library(LibraryPress::BrowseHistory),
-                            sheet_stop("item"),
-                        ),
-                    });
-                }
-            }
-            items.push(MenuItem {
-                keys: Some("F2"),
-                ..item(Phrase::BuildRename.text(lang), BuildPress::Rename)
-            });
-            items.push(item(
-                Phrase::BuildSettings.text(lang),
-                BuildPress::BuilderSettings,
-            ));
             if !deck.entries(Zone::Main).is_empty() || !deck.entries(Zone::Side).is_empty() {
                 items.push(MenuItem {
                     destructive: true,
                     ..item(Phrase::BuildEmptyDeck.text(lang), BuildPress::ClearDeck)
+                });
+            }
+            items.push(MenuItem {
+                destructive: true,
+                ..item(Phrase::Delete.text(lang), BuildPress::DeleteBuildDeck)
+            });
+        }
+        BuildMenu::Grouping => {
+            for g in Grouping::ALL {
+                let active = env.ui().grouping == g;
+                items.push(MenuItem {
+                    text: g.label().text(lang),
+                    keys: active.then_some("\u{2713}"),
+                    destructive: false,
+                    action: (Press::Build(BuildPress::SetGrouping(g)), sheet_stop("item")),
+                });
+            }
+        }
+        BuildMenu::Sort => {
+            for s in Sort::ALL {
+                let active = deck.sort() == s;
+                items.push(MenuItem {
+                    text: s.label().text(lang),
+                    keys: active.then_some("\u{2713}"),
+                    destructive: false,
+                    action: (Press::Build(BuildPress::SelectSort(s)), sheet_stop("item")),
                 });
             }
         }
@@ -81,6 +83,33 @@ pub(super) fn menu(commands: &mut Commands, holder: Entity, env: &Env) {
                 Phrase::BuildOpenCard.text(lang),
                 BuildPress::Inspect(slot),
             ));
+            if let Some(card) = deck.card(slot) {
+                let deck_key = deck.editing().unwrap_or("new");
+                let is_deck_fav = env.prefs.deck_card_favourite(deck_key, &card.english_name);
+                let is_global_fav = env.prefs.card_favourite(&card.english_name);
+                let (deck_fav_label, global_fav_label) = match lang {
+                    Lang::De => ("Favorit (dieses Deck)", "Favorit (allgemein)"),
+                    Lang::En => ("Favourite (this deck)", "Favourite (general)"),
+                };
+                items.push(MenuItem {
+                    text: deck_fav_label,
+                    keys: is_deck_fav.then_some("\u{2713}"),
+                    destructive: false,
+                    action: (
+                        Press::Build(BuildPress::ToggleCardFavDeck(slot)),
+                        sheet_stop("item"),
+                    ),
+                });
+                items.push(MenuItem {
+                    text: global_fav_label,
+                    keys: is_global_fav.then_some("\u{2713}"),
+                    destructive: false,
+                    action: (
+                        Press::Build(BuildPress::ToggleCardFavGlobal(slot)),
+                        sheet_stop("item"),
+                    ),
+                });
+            }
         }
         BuildMenu::Deck(at) => {
             let zone = super::deck::shown_zone(env);
@@ -93,14 +122,42 @@ pub(super) fn menu(commands: &mut Commands, holder: Entity, env: &Env) {
                 Phrase::BuildChoosePrinting.text(lang),
                 BuildPress::PickRowPrint(at),
             ));
-            if let Some(entry) = deck.entries(zone).get(at)
-                && deck.card(entry.slot).is_some_and(|c| c.commander)
-                && !deck.is_commander(entry.slot)
-            {
-                items.push(item(
-                    Phrase::SetCommander.text(lang),
-                    BuildPress::SetCommander(entry.slot),
-                ));
+            if let Some(entry) = deck.entries(zone).get(at) {
+                if deck.card(entry.slot).is_some_and(|c| c.commander)
+                    && !deck.is_commander(entry.slot)
+                {
+                    items.push(item(
+                        Phrase::SetCommander.text(lang),
+                        BuildPress::SetCommander(entry.slot),
+                    ));
+                }
+                if let Some(card) = deck.card(entry.slot) {
+                    let deck_key = deck.editing().unwrap_or("new");
+                    let is_deck_fav = env.prefs.deck_card_favourite(deck_key, &card.english_name);
+                    let is_global_fav = env.prefs.card_favourite(&card.english_name);
+                    let (deck_fav_label, global_fav_label) = match lang {
+                        Lang::De => ("Favorit (dieses Deck)", "Favorit (allgemein)"),
+                        Lang::En => ("Favourite (this deck)", "Favourite (general)"),
+                    };
+                    items.push(MenuItem {
+                        text: deck_fav_label,
+                        keys: is_deck_fav.then_some("\u{2713}"),
+                        destructive: false,
+                        action: (
+                            Press::Build(BuildPress::ToggleCardFavDeck(entry.slot)),
+                            sheet_stop("item"),
+                        ),
+                    });
+                    items.push(MenuItem {
+                        text: global_fav_label,
+                        keys: is_global_fav.then_some("\u{2713}"),
+                        destructive: false,
+                        action: (
+                            Press::Build(BuildPress::ToggleCardFavGlobal(entry.slot)),
+                            sheet_stop("item"),
+                        ),
+                    });
+                }
             }
             items.push(MenuItem {
                 destructive: true,

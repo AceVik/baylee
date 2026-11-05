@@ -27,8 +27,7 @@ fn a_deck_can_be_opened_edited_and_thrown_away_from_the_list() {
     assert!(presses(&mut app).contains(&Press::Decks(DecksPress::Delete(0))));
 }
 
-/// The builder keeps its brand clear of the build version on every frame;
-/// the gateway's popover still names the whole build, narrow headers included.
+/// The builder keeps its brand clear of the build version and omits the gateway dot.
 #[test]
 fn the_builder_keeps_its_build_in_the_gateway_popover() {
     for width in [1400.0, 390.0] {
@@ -45,11 +44,9 @@ fn the_builder_keeps_its_build_in_the_gateway_popover() {
             drawn.iter().all(|l| l != baylee_build::VERSION),
             "{width} px: {drawn:?}"
         );
-        press(&mut app, Press::Header(crate::lobby::HeaderPress::Gateway));
-        let drawn = labels(&mut app);
         assert!(
-            drawn.iter().any(|l| l.contains(baylee_build::short())),
-            "{width} px: {drawn:?}"
+            !presses(&mut app).contains(&Press::Header(crate::lobby::HeaderPress::Gateway)),
+            "{width} px: gateway dot is hidden in the deckbuilder"
         );
     }
 }
@@ -78,6 +75,8 @@ fn the_builder_screen_builds_with_its_controls() {
         Press::Build(BuildPress::TogglePlayable),
         Press::Build(BuildPress::CycleSort),
         Press::Build(BuildPress::ToggleHeaderMenu),
+        Press::Build(BuildPress::TogglePoolGrouped),
+        Press::Build(BuildPress::SetPoolView(crate::buildui::PoolView::Grid)),
         // Both pool rows are offered, so the search does not have to be
         // used to reach a two-card pool — one `+` each (§7).
         Press::Build(BuildPress::AddFromPool(0, false)),
@@ -311,8 +310,8 @@ fn a_swipe_scrolls_the_list_rather_than_adding_the_card_under_it() {
     );
 }
 
-/// Back with unsaved work asks "Discard changes?" (KEYBOARD §2.5): Keep
-/// editing stays, Discard leaves; a saved deck leaves at once.
+/// Back with an unsaveable 0-card deck asks "Discard changes?" (KEYBOARD §2.5);
+/// a deck with cards auto-saves and leaves at once.
 #[test]
 fn leaving_a_deck_with_unsaved_work_asks_first() {
     let mut app = headless();
@@ -330,13 +329,12 @@ fn leaving_a_deck_with_unsaved_work_asks_first() {
             app.world().resource::<LobbyState>().lobby.screen(),
             Screen::Build
         ),
-        "the first press asks rather than leaves"
+        "the first press asks rather than leaves when 0 cards are in the deck"
     );
     assert!(
         labels(&mut app).iter().any(|l| l == "Discard changes?"),
         "and says so"
     );
-    // Keep editing is focused: Enter keeps editing (KEYBOARD §2.5).
     app.update();
     app.world_mut()
         .resource_mut::<Messages<KeyboardInput>>()
@@ -348,8 +346,15 @@ fn leaving_a_deck_with_unsaved_work_asks_first() {
         Screen::Build
     ));
 
+    // Once a card is added, leaving auto-saves and leaves at once.
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .builder_mut()
+        .add(0, Zone::Main);
+    app.update();
     press(&mut app, Press::Build(BuildPress::CloseBuilder));
-    press(&mut app, Press::Build(BuildPress::DiscardAndLeave));
+    assert!(!app.world().resource::<LobbyState>().confirm_leave);
     assert!(matches!(
         app.world().resource::<LobbyState>().lobby.screen(),
         Screen::Table
@@ -1192,6 +1197,8 @@ fn thumbnails_open_printing_and_empty_deck_is_inside_the_menu() {
     {
         let mut state = app.world_mut().resource_mut::<LobbyState>();
         state.lobby.build_deck();
+        state.lobby.builder_mut().set_name("Elves");
+        state.lobby.builder_mut().focus_on(BuildField::Search);
         state.lobby.builder_mut().add(0, Zone::Main);
     }
     app.update();
@@ -1211,6 +1218,7 @@ fn thumbnails_open_printing_and_empty_deck_is_inside_the_menu() {
     assert!((w / h - 5.0 / 7.0).abs() < 0.05, "{w} × {h}");
     press(&mut app, Press::Build(BuildPress::ToggleHeaderMenu));
     assert!(presses(&mut app).contains(&Press::Build(BuildPress::ClearDeck)));
+    assert!(presses(&mut app).contains(&Press::Build(BuildPress::DeleteBuildDeck)));
 }
 
 #[test]
@@ -1321,7 +1329,6 @@ fn offline_play_builds_from_its_own_pool_after_a_sign_out() {
     for round in ["the first visit", "after a sign-out"] {
         app.world_mut().resource_mut::<LobbyState>().offline =
             Some(super::offline::Offline::without_a_file());
-        to_gateway_face(&mut app);
         tap_control(&mut app, "play offline", |p| {
             *p == Press::Front(FrontPress::PlayOffline)
         });
@@ -1557,7 +1564,7 @@ fn the_retained_builder_header_tracks_chat_availability() {
         .lobby
         .build_deck();
     app.update();
-    assert!(!presses(&mut app).contains(&Press::Header(HeaderPress::Chat)));
+    assert!(!presses(&mut app).contains(&Press::Header(HeaderPress::Friends)));
     let (machine, _) = baylee_client_core::social::Social::start(
         baylee_client_core::social::Me {
             tag: "test".into(),
@@ -1577,8 +1584,8 @@ fn the_retained_builder_header_tracks_chat_availability() {
     app.update();
     app.update();
     assert!(
-        presses(&mut app).contains(&Press::Header(HeaderPress::Chat)),
-        "unlocking chat did not update the retained builder header"
+        presses(&mut app).contains(&Press::Header(HeaderPress::Friends)),
+        "unlocking social did not update the retained builder header"
     );
     app.world_mut()
         .resource_mut::<crate::social::SocialHost>()
@@ -1586,8 +1593,8 @@ fn the_retained_builder_header_tracks_chat_availability() {
     app.update();
     app.update();
     assert!(
-        !presses(&mut app).contains(&Press::Header(HeaderPress::Chat)),
-        "locking chat left its old control behind"
+        !presses(&mut app).contains(&Press::Header(HeaderPress::Friends)),
+        "locking social left its old control behind"
     );
 }
 

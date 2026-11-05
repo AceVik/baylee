@@ -418,6 +418,12 @@ fn type_key(
             BuildField::Name => {
                 state.lobby.builder_mut().focus_on(BuildField::Search);
                 crate::buildui::move_nav(state, Nav::Idle);
+                if (!state.gateway.is_empty() && state.lobby.token().is_some())
+                    || state.offline.is_some()
+                    || state.central_without_gateway()
+                {
+                    super::http::auto_save_deck(state, mailbox);
+                }
             }
             BuildField::PickerSet | BuildField::ListName | BuildField::ListSearch => {}
         }

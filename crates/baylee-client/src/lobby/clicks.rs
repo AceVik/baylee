@@ -42,6 +42,11 @@ pub(super) fn sign_out(
         }
     }
     dispatch(state, mailbox, ending);
+    #[cfg(not(target_arch = "wasm32"))]
+    if state.central_ready() {
+        super::central::logout(state, prefs);
+        super::central::enable(state);
+    }
 }
 
 /// A press that outlives the control it landed on.
@@ -173,7 +178,30 @@ pub(super) fn clicks(
         pointer.clear();
         return;
     }
-    let clicked: Vec<Entity> = pointer.read().map(|click| click.entity).collect();
+    let raw_clicked: Vec<Entity> = pointer.read().map(|click| click.entity).collect();
+    // If both a child control (e.g. a button inside a deck tile) and its
+    // ancestor tile received a click event in the same frame, only the most
+    // specific (deepest) entity handles the click — never propagate to the
+    // outer container.
+    let is_strict_ancestor = |ancestor: Entity, child: Entity| -> bool {
+        let mut cur = parents.get(child).ok().map(ChildOf::parent);
+        while let Some(e) = cur {
+            if e == ancestor {
+                return true;
+            }
+            cur = parents.get(e).ok().map(ChildOf::parent);
+        }
+        false
+    };
+    let clicked: Vec<Entity> = raw_clicked
+        .iter()
+        .copied()
+        .filter(|&e| {
+            !raw_clicked
+                .iter()
+                .any(|&other| other != e && is_strict_ancestor(e, other))
+        })
+        .collect();
     for target in clicked.into_iter().chain(eaten) {
         // The builder's buttons first: its rows sit inside the deck builder's
         // own panel, so a `Press` above them would otherwise swallow a click
@@ -271,6 +299,21 @@ pub(super) fn run(press: Press, cx: Cx<'_, '_, '_, '_, '_>) {
                 press,
                 Press::Front(
                     FrontPress::About(_) | FrontPress::OpenSource | FrontPress::OpenImpressum
+                ) | Press::Shared(SharedPress::PickerNothing)
+            )
+        {
+            return;
+        }
+        if state.community_dialog.is_some()
+            && !matches!(
+                press,
+                Press::Front(
+                    FrontPress::OpenCommunityDialog(_)
+                        | FrontPress::CloseCommunityDialog
+                        | FrontPress::OpenWhatsApp
+                        | FrontPress::OpenDiscord
+                        | FrontPress::OpenSource
+                        | FrontPress::OpenWebsite
                 ) | Press::Shared(SharedPress::PickerNothing)
             )
         {

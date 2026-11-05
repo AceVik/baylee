@@ -136,16 +136,28 @@ impl DeckBuilder {
         self.cmc
     }
 
+    /// The rarity the filter is restricted to.
+    #[must_use]
+    pub const fn rarity(&self) -> Option<baylee_cardtext::Rarity> {
+        self.rarity
+    }
+
     /// Whether cards the engine cannot play are hidden.
     #[must_use]
     pub const fn playable_only(&self) -> bool {
         !self.show_unplayable
     }
 
-    /// The result order.
+    /// The result order criterion.
     #[must_use]
     pub fn sort(&self) -> Sort {
         self.sort
+    }
+
+    /// The result order direction (`Asc`, `Desc`, `Unset`).
+    #[must_use]
+    pub const fn sort_dir(&self) -> SortDir {
+        self.sort_dir
     }
 
     /// One zone's rows, in the order a deck list prints them.
@@ -505,6 +517,12 @@ impl DeckBuilder {
         self.refilter();
     }
 
+    /// Restricts to one rarity, or clears the restriction when clicked again.
+    pub fn set_rarity(&mut self, rarity: Option<baylee_cardtext::Rarity>) {
+        self.rarity = if self.rarity == rarity { None } else { rarity };
+        self.refilter();
+    }
+
     /// Shows or hides the cards the engine cannot play.
     pub fn toggle_playable_only(&mut self) {
         self.show_unplayable = !self.show_unplayable;
@@ -517,13 +535,124 @@ impl DeckBuilder {
         self.refilter();
     }
 
+    /// Sets the result sort criterion explicitly.
+    pub fn set_sort(&mut self, sort: Sort) {
+        self.sort = sort;
+        if self.sort_dir == SortDir::Unset {
+            self.sort_dir = SortDir::Asc;
+        }
+        self.refilter();
+    }
+
+    /// Cycles the sort direction (`Asc -> Desc -> Unset -> Asc`).
+    pub fn cycle_sort_dir(&mut self) {
+        self.sort_dir = self.sort_dir.next();
+        self.refilter();
+    }
+
     /// Clears every filter, including the text.
     pub fn clear_filters(&mut self) {
         self.search.field.clear();
         self.colors.clear();
         self.kind = None;
         self.cmc = None;
+        self.rarity = None;
         self.retext();
+    }
+
+    /// Returns the rarity of the pool card at `slot` (from `pool_facts` or
+    /// the compiled Scryfall rarity table when available, with a deterministic
+    /// card-profile fallback for synthetic test cards).
+    #[must_use]
+    pub fn card_rarity(&self, slot: usize) -> baylee_cardtext::Rarity {
+        let Some(card) = self.pool.get(slot) else {
+            return baylee_cardtext::Rarity::Common;
+        };
+        self.card_rarity_of(card)
+    }
+
+    /// Returns the rarity of a deck [`Entry`], honouring its chosen printing's
+    /// rarity when known in the printing cache or `pool_facts`, and falling
+    /// back to [`Self::card_rarity`] otherwise.
+    #[must_use]
+    pub fn entry_rarity(&self, entry: &Entry) -> baylee_cardtext::Rarity {
+        if let Some(card) = self.pool.get(entry.slot) {
+            if let Some(id) = entry.print.scryfall_id.as_deref() {
+                let from_picker = self
+                    .picker
+                    .as_ref()
+                    .filter(|p| p.card == card.index)
+                    .and_then(|p| p.printings.iter().find(|p| p.scryfall_id == id));
+                let from_cache = self
+                    .printings_cache
+                    .get(&card.index)
+                    .and_then(|(prints, _)| prints.iter().find(|p| p.scryfall_id == id));
+                if let Some(printing) = from_picker.or(from_cache)
+                    && let Some(r) = baylee_cardtext::Rarity::of(&printing.rarity)
+                {
+                    return r;
+                }
+            }
+            if let Some(set_code) = entry.print.set.as_deref() {
+                let from_picker = self
+                    .picker
+                    .as_ref()
+                    .filter(|p| p.card == card.index)
+                    .and_then(|p| {
+                        p.printings
+                            .iter()
+                            .find(|p| p.set.eq_ignore_ascii_case(set_code))
+                    });
+                let from_cache = self
+                    .printings_cache
+                    .get(&card.index)
+                    .and_then(|(prints, _)| {
+                        prints.iter().find(|p| p.set.eq_ignore_ascii_case(set_code))
+                    });
+                if let Some(printing) = from_picker.or(from_cache)
+                    && let Some(r) = baylee_cardtext::Rarity::of(&printing.rarity)
+                {
+                    return r;
+                }
+                if let Some(facts) = self.pool_facts.as_ref().filter(|f| !f.is_empty())
+                    && let Some(cf) = facts.of(card.index)
+                    && let Some(r) = cf
+                        .printings()
+                        .find(|p| p.set.eq_ignore_ascii_case(set_code))
+                        .and_then(|p| p.rarity)
+                {
+                    return r;
+                }
+            }
+        }
+        self.card_rarity(entry.slot)
+    }
+
+    /// Returns the rarity of `card`.
+    #[must_use]
+    pub fn card_rarity_of(&self, card: &PoolCard) -> baylee_cardtext::Rarity {
+        if let Some(r) = reference_pool_rarity(card) {
+            return r;
+        }
+        if let Some(facts) = self.pool_facts.as_ref().filter(|f| !f.is_empty())
+            && let Some(cf) = facts.of(card.index)
+            && let Some(r) = cf
+                .printings()
+                .filter_map(|p| p.rarity)
+                .find(|r| {
+                    matches!(
+                        r,
+                        baylee_cardtext::Rarity::Common
+                            | baylee_cardtext::Rarity::Uncommon
+                            | baylee_cardtext::Rarity::Rare
+                            | baylee_cardtext::Rarity::Mythic
+                    )
+                })
+                .or_else(|| cf.printings().find_map(|p| p.rarity))
+        {
+            return r;
+        }
+        fallback_card_rarity(card)
     }
 
     /// The chips narrowing the list, beside whatever the query says.
@@ -576,6 +705,7 @@ impl DeckBuilder {
             || !self.colors.is_empty()
             || self.kind.is_some()
             || self.cmc.is_some()
+            || self.rarity.is_some()
     }
 
     /// Recomputes the result list.
@@ -584,6 +714,7 @@ impl DeckBuilder {
             .filter(|slot| self.matches(&self.pool[*slot]))
             .collect();
         let sort = self.sort;
+        let dir = self.sort_dir;
         // The name every order ends in is the *folded* one: `str::cmp` is
         // byte order, which files every accented letter above `z`, so a
         // German pool alphabetised on `name` put Ätherfluss after Zombie.
@@ -592,16 +723,31 @@ impl DeckBuilder {
         // the name, so the order is total, but a stable sort keeps it obvious
         // that two runs of the same filter cannot disagree.
         hits.sort_by(|a, b| {
-            let (x, y) = (&self.pool[*a], &self.pool[*b]);
-            match sort {
-                Sort::Name => key(a).cmp(key(b)),
-                Sort::Cost => x.cmc.cmp(&y.cmc).then_with(|| key(a).cmp(key(b))),
-                Sort::Type => x
-                    .group()
-                    .cmp(&y.group())
-                    .then_with(|| x.cmc.cmp(&y.cmc))
-                    .then_with(|| key(a).cmp(key(b))),
+            if dir == SortDir::Unset {
+                return key(a).cmp(key(b));
             }
+            let (x, y) = (&self.pool[*a], &self.pool[*b]);
+            let primary = match sort {
+                Sort::Name => key(a).cmp(key(b)),
+                Sort::Cost => x.cmc.cmp(&y.cmc),
+                Sort::Type => x.group().cmp(&y.group()).then_with(|| x.cmc.cmp(&y.cmc)),
+                Sort::Color => colour_sort_rank(&x.identity)
+                    .cmp(&colour_sort_rank(&y.identity))
+                    .then_with(|| x.cmc.cmp(&y.cmc)),
+                Sort::Rarity => self
+                    .card_rarity_of(x)
+                    .cmp(&self.card_rarity_of(y))
+                    .then_with(|| x.cmc.cmp(&y.cmc)),
+                Sort::Power => power_sort_key(x)
+                    .cmp(&power_sort_key(y))
+                    .then_with(|| x.cmc.cmp(&y.cmc)),
+            };
+            let ordered = if dir == SortDir::Desc {
+                primary.reverse()
+            } else {
+                primary
+            };
+            ordered.then_with(|| key(a).cmp(key(b)))
         });
         self.results = hits;
     }
@@ -632,10 +778,29 @@ impl DeckBuilder {
         {
             return false;
         }
+        if let Some(want_rarity) = self.rarity
+            && !self.card_matches_rarity(card, want_rarity)
+        {
+            return false;
+        }
         if !self.colors.is_empty() && !self.color_match(card) {
             return false;
         }
         crate::cardsearch::pool_card_matches(&self.query, card, self.surface())
+    }
+
+    fn card_matches_rarity(&self, card: &PoolCard, want: baylee_cardtext::Rarity) -> bool {
+        let r = self.card_rarity_of(card);
+        if want == baylee_cardtext::Rarity::Mythic {
+            matches!(
+                r,
+                baylee_cardtext::Rarity::Mythic
+                    | baylee_cardtext::Rarity::Special
+                    | baylee_cardtext::Rarity::Bonus
+            )
+        } else {
+            r == want
+        }
     }
 
     /// Whether a card is within the chosen colors.
@@ -1190,6 +1355,18 @@ impl DeckBuilder {
     pub fn set_name(&mut self, name: &str) {
         self.name = crate::textbuf::TextBuffer::new(name);
         self.touch_name();
+    }
+
+    /// Seeds a default name on a brand-new deck without marking it dirty or
+    /// entering rename mode, and selects the text so typing replaces it.
+    pub fn set_default_name(&mut self, default_name: &str) {
+        if self.name.text().trim().is_empty() {
+            let mut buf = crate::textbuf::TextBuffer::new(default_name);
+            buf.select_all();
+            self.name = buf;
+            self.naming = false;
+            self.recheck();
+        }
     }
 
     /// Types one character into the name.
@@ -1902,6 +2079,53 @@ impl DeckBuilder {
         }
     }
 
+    /// Marks an in-session auto-save complete for `saved_changes` without
+    /// clobbering edits made while the request was in flight.
+    pub fn mark_auto_saved(&mut self, deck_id: Option<&str>, saved_changes: u32) {
+        if let Some(id) = deck_id {
+            self.editing = Some(id.to_string());
+        }
+        if self.changes == saved_changes {
+            self.dirty = false;
+            self.naming = false;
+        }
+    }
+
+    /// The baseline captured when this builder session opened an existing deck.
+    #[must_use]
+    pub const fn session_baseline(&self) -> Option<&SessionBaseline> {
+        self.session_baseline.as_ref()
+    }
+
+    /// Whether this deck was created from scratch in the current builder visit.
+    #[must_use]
+    pub const fn is_new_in_session(&self) -> bool {
+        self.new_in_session
+    }
+
+    /// Whether the deck's card lists differ from the baseline captured when the
+    /// builder opened it (or whether unsaved edits remain).
+    #[must_use]
+    pub fn session_changed(&self) -> bool {
+        if self.dirty {
+            return true;
+        }
+        let Some(base) = &self.session_baseline else {
+            return false;
+        };
+        self.rows(Zone::Main) != base.cards
+            || self.rows(Zone::Side) != base.sideboard
+            || self.commander_names() != base.commanders
+            || (!base.name.is_empty() && self.name.text().trim() != base.name.trim())
+            || (!base.format.is_empty() && self.format() != base.format)
+    }
+
+    /// Takes the session baseline when leaving the builder so the final save
+    /// archives it as a single history entry.
+    pub fn take_session_baseline(&mut self) -> Option<SessionBaseline> {
+        self.session_baseline.take()
+    }
+
     /// Starts a new, empty deck.
     pub fn start_new(&mut self) {
         self.main.clear();
@@ -1911,6 +2135,8 @@ impl DeckBuilder {
         self.missing.clear();
         self.name.clear();
         self.editing = None;
+        self.session_baseline = None;
+        self.new_in_session = true;
         self.zone = Zone::Main;
         self.dirty = false;
         self.changes = 0;
@@ -1943,6 +2169,7 @@ impl DeckBuilder {
         commanders: &[String],
     ) {
         self.start_new();
+        self.new_in_session = false;
         self.editing = Some(id.to_string());
         self.name = crate::textbuf::TextBuffer::new(name);
         // A commander is a name too, and races the pool the same way its
@@ -1966,14 +2193,78 @@ impl DeckBuilder {
         self.dirty = false;
         self.changes = 0;
         self.naming = false;
+        self.session_baseline = Some(SessionBaseline {
+            deck_id: id.to_string(),
+            name: name.trim().to_string(),
+            format: self.format().to_string(),
+            cards: if self.pending.is_empty() {
+                self.rows(Zone::Main)
+            } else {
+                cards.to_vec()
+            },
+            sideboard: if self.pending.is_empty() {
+                self.rows(Zone::Side)
+            } else {
+                sideboard.to_vec()
+            },
+            commanders: if self.pending_commander.is_empty() {
+                self.commander_names()
+            } else {
+                commanders.to_vec()
+            },
+        });
         // This one already has a name; what is wanted is the next card.
         self.focus_on(BuildField::Search);
+    }
+
+    /// Replaces the working deck's format, main deck, sideboard, and commanders
+    /// with a saved format variant while keeping the deck's ID, name, and
+    /// session baseline.
+    pub fn apply_variant(
+        &mut self,
+        format: &str,
+        cards: &[String],
+        sideboard: &[String],
+        commanders: &[String],
+    ) {
+        self.main.clear();
+        self.side.clear();
+        self.commanders.clear();
+        self.pending.clear();
+        self.missing.clear();
+        self.pending_commander = commanders.to_vec();
+        for (rows, zone) in [(cards, Zone::Main), (sideboard, Zone::Side)] {
+            for row in rows {
+                match baylee_core::deckrow::parse(row) {
+                    Ok(parsed) => self.hold_rows(vec![parsed], zone),
+                    Err(_) => self.missing.push(row.clone()),
+                }
+            }
+        }
+        self.resolve_rows();
+        self.format = format.to_string();
+        self.touch();
     }
 
     /// Turns held rows into deck entries, as far as the pool allows, and
     /// asks the deck's standing again.
     pub(super) fn resolve_pending(&mut self) {
         self.resolve_rows();
+        if !self.dirty
+            && self.changes == 0
+            && self.pending.is_empty()
+            && self.pending_commander.is_empty()
+            && self.session_baseline.is_some()
+        {
+            let cards = self.rows(Zone::Main);
+            let sideboard = self.rows(Zone::Side);
+            let commanders = self.commander_names();
+            if let Some(base) = &mut self.session_baseline {
+                base.cards = cards;
+                base.sideboard = sideboard;
+                base.commanders = commanders;
+            }
+        }
         self.recheck();
     }
 
@@ -2004,48 +2295,65 @@ impl DeckBuilder {
                 self.stale_commander = Some(name);
             }
         }
-        if self.pending.is_empty() {
-            return;
-        }
-        let held = std::mem::take(&mut self.pending);
-        for Held {
-            count,
-            name,
-            zone,
-            print,
-            note,
-        } in held
-        {
-            match self.slot_of(&name) {
-                Some(slot) => {
-                    let entries = match zone {
-                        Zone::Main => &mut self.main,
-                        Zone::Side => &mut self.side,
-                    };
-                    // Rows merge only when they name the same printing; two
-                    // that do not are two lines in the list they came from.
-                    match entries
-                        .iter_mut()
-                        .find(|e| e.slot == slot && e.print == print)
-                    {
-                        Some(entry) => entry.count = entry.count.saturating_add(count),
-                        None => entries.push(Entry {
-                            slot,
-                            count,
-                            print,
-                            note,
-                        }),
+        if !self.pending.is_empty() {
+            let held = std::mem::take(&mut self.pending);
+            for Held {
+                count,
+                name,
+                zone,
+                print,
+                note,
+            } in held
+            {
+                match self.slot_of(&name) {
+                    Some(slot) => {
+                        let entries = match zone {
+                            Zone::Main => &mut self.main,
+                            Zone::Side => &mut self.side,
+                        };
+                        // Rows merge only when they name the same printing; two
+                        // that do not are two lines in the list they came from.
+                        match entries
+                            .iter_mut()
+                            .find(|e| e.slot == slot && e.print == print)
+                        {
+                            Some(entry) => entry.count = entry.count.saturating_add(count),
+                            None => entries.push(Entry {
+                                slot,
+                                count,
+                                print,
+                                note,
+                            }),
+                        }
                     }
+                    None if self.loaded() => self.missing.push(name),
+                    // No pool yet: keep holding it.
+                    None => self.pending.push(Held {
+                        count,
+                        name,
+                        zone,
+                        print,
+                        note,
+                    }),
                 }
-                None if self.loaded() => self.missing.push(name),
-                // No pool yet: keep holding it.
-                None => self.pending.push(Held {
-                    count,
-                    name,
-                    zone,
-                    print,
-                    note,
-                }),
+            }
+        }
+        // Repair stored or built-in decks that recorded their commander in
+        // `commanders` without duplicating it in `cards`: the builder seats
+        // the commander among the rows of `Zone::Main` so its printing can be
+        // chosen and the 100-card total is accurate.
+        if self.pending.is_empty() && self.loaded() {
+            for &slot in &self.commanders {
+                if self.main.iter().all(|e| e.slot != slot)
+                    && self.side.iter().all(|e| e.slot != slot)
+                {
+                    self.main.push(Entry {
+                        slot,
+                        count: 1,
+                        print: PrintChoice::default(),
+                        note: None,
+                    });
+                }
             }
         }
         self.sort_zone(Zone::Main);
@@ -2071,4 +2379,84 @@ fn print_key(print: &PrintChoice) -> (String, String, String, u8) {
             Finish::Galaxy => 5,
         },
     )
+}
+
+/// Returns the verified Scryfall reference rarity for a compiled pool card when `card`
+/// matches the compiled registry entry by `oracle_id` or printed name.
+fn reference_pool_rarity(card: &PoolCard) -> Option<baylee_cardtext::Rarity> {
+    let idx = baylee_core::ids::CardIndex::new(card.index);
+    if let Some(def) = baylee_cards::by_index(idx)
+        && ((!card.oracle_id.is_empty() && card.oracle_id == def.oracle_id)
+            || (!card.english_name.is_empty() && card.english_name == def.name())
+            || (!card.name.is_empty() && card.name == def.name()))
+        && let Some(r) = baylee_cards::sides::rarity(idx)
+    {
+        return Some(r);
+    }
+    if !card.english_name.is_empty()
+        && let Some(by_name_idx) = baylee_cards::decks::by_name(&card.english_name)
+        && let Some(r) = baylee_cards::sides::rarity(by_name_idx)
+    {
+        return Some(r);
+    }
+    if !card.name.is_empty()
+        && let Some(by_name_idx) = baylee_cards::decks::by_name(&card.name)
+        && let Some(r) = baylee_cards::sides::rarity(by_name_idx)
+    {
+        return Some(r);
+    }
+    None
+}
+
+/// Deterministic fallback rarity when the card isn't in the compiled pool
+/// (e.g. a minimal test pool card): basic lands are `Common`, Planeswalkers are `Mythic`,
+/// Legendary cards are `Rare`, higher CMC cards are `Uncommon` / `Rare`, otherwise `Common`.
+fn fallback_card_rarity(card: &PoolCard) -> baylee_cardtext::Rarity {
+    if let Some(r) = reference_pool_rarity(card) {
+        return r;
+    }
+    if card.type_line.contains("Basic") {
+        baylee_cardtext::Rarity::Common
+    } else if card.type_line.contains("Planeswalker") {
+        baylee_cardtext::Rarity::Mythic
+    } else if card.type_line.contains("Legendary") || card.commander || card.cmc >= 6 {
+        baylee_cardtext::Rarity::Rare
+    } else if card.cmc >= 4 {
+        baylee_cardtext::Rarity::Uncommon
+    } else {
+        baylee_cardtext::Rarity::Common
+    }
+}
+
+/// WUBRG + Multicolour + Colourless sort bucket.
+fn colour_sort_rank(identity: &str) -> u8 {
+    match identity {
+        "W" => 0,
+        "U" => 1,
+        "B" => 2,
+        "R" => 3,
+        "G" => 4,
+        "" => 6,
+        _ => 5,
+    }
+}
+
+/// Parses `stats` (`"power/toughness"` or loyalty) into a sortable `(power, toughness)` integer pair.
+fn power_sort_key(card: &PoolCard) -> (i32, i32) {
+    let parse_stat = |s: &str| -> i32 {
+        let s = s.trim();
+        if s == "*" {
+            0
+        } else {
+            s.parse::<i32>().unwrap_or(0)
+        }
+    };
+    let Some(stats) = card.stats.as_deref() else {
+        return (-100, -100);
+    };
+    if let Some((p, t)) = stats.split_once('/') {
+        (parse_stat(p), parse_stat(t))
+    } else {
+        (parse_stat(stats), 0)
+    }
 }

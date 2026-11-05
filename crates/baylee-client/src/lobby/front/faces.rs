@@ -197,6 +197,62 @@ fn help<'t>(kit: Kit, text: &'t str) -> Option<&'t str> {
     (kit.m.frame != Frame::Phone).then_some(text)
 }
 
+/// Tracks the active status banner's entrance progress across UI rebuilds so
+/// that background state updates never restart its animation or cause flicker.
+#[derive(Resource, Default)]
+pub(crate) struct StatusBannerMemory {
+    text: String,
+    progress: f32,
+}
+
+/// Smooth entrance motion (`0.0..=1.0`) for an inline status or error banner.
+#[derive(Component)]
+pub(crate) struct StatusBannerMotion {
+    base_bg: Color,
+    base_border: Color,
+}
+
+/// Animates inline status/refusal banners smoothly into view.
+pub(crate) fn animate_status_banners(
+    time: Res<Time>,
+    state: Res<LobbyState>,
+    mut memory: ResMut<StatusBannerMemory>,
+    mut banners: Query<(
+        &StatusBannerMotion,
+        &mut UiTransform,
+        &mut BackgroundColor,
+        &mut BorderColor,
+    )>,
+) {
+    let said = state.lobby.status();
+    if said.is_empty() {
+        if !memory.text.is_empty() {
+            memory.text.clear();
+            memory.progress = 0.0;
+        }
+        return;
+    }
+    if memory.text != said {
+        memory.text = said.to_string();
+        memory.progress = 0.0;
+    }
+    let dt = time.delta_secs().min(0.05);
+    if memory.progress < 1.0 {
+        memory.progress = (memory.progress + dt / 0.14).min(1.0);
+    }
+    let ease = 1.0 - (1.0 - memory.progress).powi(3);
+    for (motion, mut transform, mut bg, mut border) in &mut banners {
+        transform.translation = Val2::new(px_fixed(0.0), px_fixed((1.0 - ease) * -6.0));
+        transform.scale = Vec2::new(0.98 + 0.02 * ease, 0.92 + 0.08 * ease);
+        bg.0 = motion.base_bg.with_alpha(motion.base_bg.alpha() * ease);
+        *border = BorderColor::all(
+            motion
+                .base_border
+                .with_alpha(motion.base_border.alpha() * ease),
+        );
+    }
+}
+
 /// The status line (a refusal, verbatim; a note), only while it says
 /// something: no reserved hole under the button (A12).
 fn status(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Option<Entity> {
@@ -204,20 +260,94 @@ fn status(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Option<Entit
     if said.is_empty() {
         return None;
     }
-    let ink = match state.lobby.tone() {
-        Tone::Refusal => tokens::DANGER,
-        Tone::Note => tokens::MUTED,
+    let is_refusal = state.lobby.tone() == Tone::Refusal;
+    let ink = if is_refusal {
+        Color::srgba(0.98, 0.56, 0.56, 1.0)
+    } else {
+        tokens::MUTED
     };
-    Some(
-        commands
-            .spawn((
-                Text::new(said),
-                crate::hud::tf(kit.fonts, kit.m.small),
-                TextColor(ink),
-                Pickable::IGNORE,
-            ))
-            .id(),
-    )
+    let bg = if is_refusal {
+        Color::srgba(0.32, 0.08, 0.10, 0.52)
+    } else {
+        Color::srgba(0.06, 0.11, 0.17, 0.55)
+    };
+    let border = if is_refusal {
+        tokens::DANGER.with_alpha(0.42)
+    } else {
+        tokens::BORDER.with_alpha(0.45)
+    };
+    let banner = commands
+        .spawn((
+            StatusBannerMotion {
+                base_bg: bg,
+                base_border: border,
+            },
+            Node {
+                width: Val::Percent(100.0),
+                padding: UiRect::axes(kit.m.px(11.0), kit.m.px(7.0)),
+                column_gap: kit.m.px(8.0),
+                align_items: AlignItems::Center,
+                border: UiRect::all(px_fixed(1.0)),
+                border_radius: BorderRadius::all(px_fixed(8.0)),
+                ..default()
+            },
+            UiTransform::default(),
+            BackgroundColor(bg),
+            BorderColor::all(border),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let said_owned = said.to_string();
+    commands.queue(move |world: &mut World| {
+        let ease = world
+            .get_resource::<StatusBannerMemory>()
+            .map_or(1.0, |mem| {
+                if mem.text == said_owned {
+                    1.0 - (1.0 - mem.progress).powi(3)
+                } else {
+                    0.0
+                }
+            });
+        if ease < 1.0
+            && let Ok(mut ent) = world.get_entity_mut(banner)
+        {
+            if let Some(mut transform) = ent.get_mut::<UiTransform>() {
+                transform.translation = Val2::new(px_fixed(0.0), px_fixed((1.0 - ease) * -6.0));
+                transform.scale = Vec2::new(0.98 + 0.02 * ease, 0.92 + 0.08 * ease);
+            }
+            if let Some(mut bg_col) = ent.get_mut::<BackgroundColor>() {
+                bg_col.0 = bg.with_alpha(bg.alpha() * ease);
+            }
+            if let Some(mut border_col) = ent.get_mut::<BorderColor>() {
+                *border_col = BorderColor::all(border.with_alpha(border.alpha() * ease));
+            }
+        }
+    });
+    let glyph = if is_refusal { "\u{f06a}" } else { "\u{f05a}" };
+    let icon = commands
+        .spawn((
+            Text::new(glyph),
+            crate::hud::icon_tf(kit.fonts, kit.m.small * 0.86),
+            TextColor(ink),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let words = commands
+        .spawn((
+            Text::new(said),
+            crate::hud::tf_bold(kit.fonts, kit.m.small * 0.88),
+            TextColor(ink),
+            Node {
+                flex_grow: 1.0,
+                flex_shrink: 1.0,
+                min_width: px_fixed(0.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(banner).add_children(&[icon, words]);
+    Some(banner)
 }
 
 /// An icon-only control in the kit's hit area: `‹`, the back chevron.
@@ -299,51 +429,68 @@ fn dot(commands: &mut Commands, kit: Kit, colour: Color) -> Entity {
         .id()
 }
 
-#[allow(clippy::too_many_lines)] // one head: the way back, the name over its address, the version
-/// The sign-in face's head: `‹` back to the gateways, the reach dot, the
-/// gateway's name (and the closed-beta badge), its address under it; on the
-/// right its version with the verdict, and this client's (A2, A3: the name
-/// at row size, the version whole and right-aligned).
-fn gateway_head(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Entity {
+fn is_central_login_face(state: &LobbyState) -> bool {
     let leaving_central = !state.lobby.gateway_chosen() && state.left_central_bound;
-    if state.central_pending() || leaving_central {
-        let label = controls::label(
-            commands,
-            kit,
-            "Baylee Central · central.baylee.app",
-            kit.m.text,
-            tokens::INK,
-        );
-        if !state.central_bound() && !leaving_central {
-            return label;
-        }
-        // A gateway asked for Central: `‹` goes back to the device's own.
-        let back = glyph_button(
-            commands,
-            kit,
-            '\u{f053}',
-            Phrase::ChooseGateway.text(state.lobby.lang()),
-            (
-                Press::Front(if state.lobby.busy() {
-                    FrontPress::Nothing
-                } else {
-                    FrontPress::LeaveGateway
-                }),
-                keys::stop(state, "back"),
-            ),
-        );
+    state.central_pending()
+        || leaving_central
+        || (!state.lobby.gateway_chosen() && state.central_ready())
+}
+
+#[allow(clippy::too_many_lines)] // one head: the way back, the name over its address, the version
+/// The sign-in face's head: on Central, the `Baylee Authentifizierung` title
+/// lockup and the top-right utility bar (`Music`, `About`, `Language`,
+/// `Settings`); at a direct gateway, `‹` back to the gateways, the reach dot,
+/// the gateway's name + version, and the top-right utility bar.
+fn gateway_head(commands: &mut Commands, state: &LobbyState, kit: Kit, _music_on: bool) -> Entity {
+    let leaving_central = !state.lobby.gateway_chosen() && state.left_central_bound;
+    if is_central_login_face(state) {
+        let lang = state.lobby.lang();
+        let auth_title = match lang {
+            Lang::De => "Baylee Authentifizierung",
+            Lang::En => "Baylee Authentication",
+        };
+        let title = super::door::card_title_lockup(commands, kit, '\u{f3ed}', auth_title);
+        commands
+            .entity(title)
+            .entry::<Node>()
+            .and_modify(|mut node| {
+                node.flex_grow = 1.0;
+                node.min_width = px_fixed(0.0);
+            });
         let head = commands
             .spawn((
                 Node {
                     width: Val::Percent(100.0),
                     column_gap: kit.m.px(10.0),
+                    row_gap: kit.m.px(6.0),
                     align_items: AlignItems::Center,
+                    justify_content: JustifyContent::SpaceBetween,
+                    flex_wrap: FlexWrap::Wrap,
                     ..default()
                 },
                 Pickable::IGNORE,
             ))
             .id();
-        commands.entity(head).add_children(&[back, label]);
+        if state.central_bound() || leaving_central {
+            // A gateway asked for Central: `‹` goes back to the device's own.
+            let back = glyph_button(
+                commands,
+                kit,
+                '\u{f053}',
+                Phrase::ChooseGateway.text(lang),
+                (
+                    Press::Front(if state.lobby.busy() {
+                        FrontPress::Nothing
+                    } else {
+                        FrontPress::LeaveGateway
+                    }),
+                    keys::stop(state, "back"),
+                ),
+            );
+            commands.entity(head).add_children(&[back, title]);
+        } else {
+            commands.entity(head).add_child(title);
+        }
         return head;
     }
     let lang = state.lobby.lang();
@@ -355,7 +502,9 @@ fn gateway_head(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Entity
             Node {
                 width: Val::Percent(100.0),
                 column_gap: kit.m.px(10.0),
+                row_gap: kit.m.px(6.0),
                 align_items: AlignItems::Center,
+                flex_wrap: FlexWrap::Wrap,
                 ..default()
             },
             Pickable::IGNORE,
@@ -432,10 +581,9 @@ fn gateway_head(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Entity
             Node {
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::FlexEnd,
-                flex_shrink: 1.0,
+                flex_shrink: 0.0,
                 min_width: px_fixed(0.0),
-                max_width: Val::Percent(45.0),
-                row_gap: kit.m.px(2.0),
+                row_gap: kit.m.px(4.0),
                 ..default()
             },
             super::super::hint::HoverHint(words.version_in_full.clone()),
@@ -448,24 +596,25 @@ fn gateway_head(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Entity
             } else {
                 format!("{} \u{b7} {verdict}", words.version)
             }),
-            crate::hud::tf(kit.fonts, kit.m.small),
+            crate::hud::tf(kit.fonts, kit.m.small * 0.90),
             TextColor(words.ink),
             TextLayout::justify(Justify::Right),
             Pickable::IGNORE,
         ))
         .id();
-    // This client's own build stands under the text row (owner,
-    // 09.10.2026), where every face shows it.
     commands.entity(right).add_child(version);
     commands.entity(head).add_children(&[back, names, right]);
     head
 }
 
-/// A second face's head: `‹ Back`, the face's title, and the gateway as a
-/// chip on the right — or, where the three do not fit on one line, the chip
-/// on a line of its own under them (owner, 09.10.2026: the title ran into
-/// the gateway's name and was cut).
-fn face_head(commands: &mut Commands, state: &LobbyState, kit: Kit, title: &str) -> Entity {
+/// A second face's head: `‹ Back`, the face's title, and the gateway chip.
+fn face_head(
+    commands: &mut Commands,
+    state: &LobbyState,
+    kit: Kit,
+    title: &str,
+    _music_on: bool,
+) -> Entity {
     let lang = state.lobby.lang();
     let head = commands
         .spawn((
@@ -496,7 +645,7 @@ fn face_head(commands: &mut Commands, state: &LobbyState, kit: Kit, title: &str)
     let words = commands
         .spawn((
             Text::new(title),
-            crate::hud::tf(kit.fonts, kit.m.head),
+            crate::hud::tf_bold(kit.fonts, kit.m.head),
             TextColor(tokens::INK),
             Node {
                 flex_shrink: 1.0,
@@ -512,7 +661,7 @@ fn face_head(commands: &mut Commands, state: &LobbyState, kit: Kit, title: &str)
     let chip = commands
         .spawn((
             Node {
-                column_gap: kit.m.px(6.0),
+                column_gap: kit.m.px(8.0),
                 align_items: AlignItems::Center,
                 flex_shrink: 1.0,
                 flex_wrap: FlexWrap::Wrap,
@@ -578,7 +727,7 @@ fn submit(commands: &mut Commands, state: &LobbyState, kit: Kit, text: &str) -> 
     let lobby = &state.lobby;
     // A busy form says why in the status line under it already; a gateway
     // not chosen explicitly signs nothing in (#187).
-    let live = if lobby.busy() || (!state.gateway_selected && !state.central_pending()) {
+    let live = if lobby.busy() || (!state.gateway_selected && !is_central_login_face(state)) {
         Live::No("")
     } else {
         Live::Yes
@@ -599,16 +748,23 @@ fn submit(commands: &mut Commands, state: &LobbyState, kit: Kit, text: &str) -> 
     button
 }
 
-/// The sign-in face: the gateway, username and password, Sign in; Create
-/// account and Play as guest under a rule, the key hint under them.
+/// The sign-in face: the gateway/Central header, username and password,
+/// Sign in; under a rule, Register + Play offline (or Create account +
+/// Play as guest + Play offline).
 #[allow(clippy::too_many_lines)] // one face, read top to bottom
-pub(super) fn sign_in(commands: &mut Commands, card: Entity, state: &LobbyState, kit: Kit) {
+pub(super) fn sign_in(
+    commands: &mut Commands,
+    card: Entity,
+    state: &LobbyState,
+    kit: Kit,
+    music_on: bool,
+) {
     let lobby = &state.lobby;
     let lang = lobby.lang();
-    let head = gateway_head(commands, state, kit);
+    let head = gateway_head(commands, state, kit, music_on);
     let line = rule(commands);
     commands.entity(card).add_children(&[head, line]);
-    if state.central_ready() {
+    if state.central_ready() && lobby.gateway_chosen() {
         if let Some(said) = status(commands, state, kit) {
             commands.entity(card).add_child(said);
         }
@@ -683,76 +839,97 @@ pub(super) fn sign_in(commands: &mut Commands, card: Entity, state: &LobbyState,
             ),
         )
     });
-    let guest = lobby.guest_offered().then(|| {
-        let text = lobby.kept_guest().map_or_else(
-            || Phrase::FrontGuestTitle.text(lang).to_string(),
-            |kept| Phrase::ContinueAsGuest.fill(lang, &[&kept.handle]),
-        );
-        controls::wide_button(
-            commands,
-            kit,
-            &text,
-            Weight::Secondary,
-            if lobby.busy() || !(state.gateway_selected || state.central_bound()) {
-                Live::No("")
-            } else {
-                Live::Yes
-            },
-            None,
-            (
-                Press::Front(FrontPress::GuestFace),
-                keys::stop(state, "guest"),
-                super::super::hint::HoverHint(Phrase::GuestNotice.text(lang).to_string()),
-            ),
-        )
-    });
+    let guest = (lobby.guest_offered() && (!is_central_login_face(state) || state.central_bound()))
+        .then(|| {
+            let text = lobby.kept_guest().map_or_else(
+                || Phrase::FrontGuestTitle.text(lang).to_string(),
+                |kept| Phrase::ContinueAsGuest.fill(lang, &[&kept.handle]),
+            );
+            controls::wide_button(
+                commands,
+                kit,
+                &text,
+                Weight::Secondary,
+                if lobby.busy() || !(state.gateway_selected || state.central_bound()) {
+                    Live::No("")
+                } else {
+                    Live::Yes
+                },
+                None,
+                (
+                    Press::Front(FrontPress::GuestFace),
+                    keys::stop(state, "guest"),
+                    super::super::hint::HoverHint(Phrase::GuestNotice.text(lang).to_string()),
+                ),
+            )
+        });
     // Central's sign-in has no sign-up of its own yet: an account is made on
     // the website (baylee-central `docs/web-accounts.md`).
-    let leaving_central = !lobby.gateway_chosen() && state.left_central_bound;
-    let register = (state.central_pending() || leaving_central).then(|| {
-        controls::wide_button(
+    let register = is_central_login_face(state).then(|| {
+        super::door::register_cta(
             commands,
             kit,
             Phrase::CentralRegister.text(lang),
-            Weight::Secondary,
-            Live::Yes,
-            None,
             (
                 Press::Front(FrontPress::OpenCentralRegister),
                 keys::stop(state, "register"),
+                super::super::hint::HoverHint(Phrase::CentralRegisterHint.text(lang).to_string()),
             ),
         )
     });
-    let doors: Vec<Entity> = create.into_iter().chain(guest).chain(register).collect();
-    if !doors.is_empty() {
-        let line = rule(commands);
-        let row = pair_if(
-            commands,
-            kit,
-            doors_side_by_side(kit),
-            doors[0],
-            doors.get(1).copied(),
-        );
-        commands.entity(row).insert(TourAnchor(Anchor::FrontGuest));
-        commands.entity(card).add_children(&[line, row]);
-        let new_one =
-            lobby.registration_enabled() || (lobby.guest_offered() && lobby.kept_guest().is_none());
-        if lobby.registration() == Registration::Invite && new_one {
-            let hint = surfaces::prose(commands, kit, Phrase::FrontKeyHint.text(lang), true);
-            commands
-                .entity(hint)
-                .insert(TextLayout::justify(Justify::Center));
-            commands.entity(card).add_child(hint);
-        }
+    let offline = super::door::offline_cta(
+        commands,
+        kit,
+        Phrase::PlayOffline.text(lang),
+        (
+            Press::Front(FrontPress::PlayOffline),
+            keys::stop(state, "offline"),
+        ),
+    );
+    let mut doors: Vec<Entity> = create.into_iter().chain(guest).chain(register).collect();
+    doors.push(offline);
+    let line = rule(commands);
+    let row = pair_if(
+        commands,
+        kit,
+        doors_side_by_side(kit),
+        doors[0],
+        doors.get(1).copied(),
+    );
+    commands.entity(row).insert(TourAnchor(Anchor::FrontGuest));
+    commands.entity(card).add_children(&[line, row]);
+    if let Some(&third) = doors.get(2) {
+        commands.entity(card).add_child(third);
+    }
+    let new_one =
+        lobby.registration_enabled() || (lobby.guest_offered() && lobby.kept_guest().is_none());
+    if lobby.registration() == Registration::Invite && new_one {
+        let hint = surfaces::prose(commands, kit, Phrase::FrontKeyHint.text(lang), true);
+        commands
+            .entity(hint)
+            .insert(TextLayout::justify(Justify::Center));
+        commands.entity(card).add_child(hint);
     }
 }
 
 /// The create-account face: username and display name, the password twice,
 /// the key on a closed beta, Create account.
-pub(super) fn create(commands: &mut Commands, card: Entity, state: &LobbyState, kit: Kit) {
+pub(super) fn create(
+    commands: &mut Commands,
+    card: Entity,
+    state: &LobbyState,
+    kit: Kit,
+    music_on: bool,
+) {
     let lobby = &state.lobby;
     let lang = lobby.lang();
-    let head = face_head(commands, state, kit, Phrase::CreateAccount.text(lang));
+    let head = face_head(
+        commands,
+        state,
+        kit,
+        Phrase::CreateAccount.text(lang),
+        music_on,
+    );
     let line = rule(commands);
     commands.entity(card).add_children(&[head, line]);
     let username = field(
@@ -831,10 +1008,22 @@ pub(super) fn create(commands: &mut Commands, card: Entity, state: &LobbyState, 
 
 /// The guest's face: a display name, the key on a closed beta, what a
 /// guest is, Play as guest.
-pub(super) fn guest(commands: &mut Commands, card: Entity, state: &LobbyState, kit: Kit) {
+pub(super) fn guest(
+    commands: &mut Commands,
+    card: Entity,
+    state: &LobbyState,
+    kit: Kit,
+    music_on: bool,
+) {
     let lobby = &state.lobby;
     let lang = lobby.lang();
-    let head = face_head(commands, state, kit, Phrase::FrontGuestTitle.text(lang));
+    let head = face_head(
+        commands,
+        state,
+        kit,
+        Phrase::FrontGuestTitle.text(lang),
+        music_on,
+    );
     let line = rule(commands);
     commands.entity(card).add_children(&[head, line]);
     let name = field(
@@ -872,10 +1061,22 @@ pub(super) fn guest(commands: &mut Commands, card: Entity, state: &LobbyState, k
 /// The new-password face (beta.8): an admin reset the password, and the
 /// player chooses their own, twice, before anything else. `‹ Back` gives
 /// up and returns to the sign-in face.
-pub(super) fn new_password(commands: &mut Commands, card: Entity, state: &LobbyState, kit: Kit) {
+pub(super) fn new_password(
+    commands: &mut Commands,
+    card: Entity,
+    state: &LobbyState,
+    kit: Kit,
+    music_on: bool,
+) {
     let lobby = &state.lobby;
     let lang = lobby.lang();
-    let head = face_head(commands, state, kit, Phrase::ChooseNewPassword.text(lang));
+    let head = face_head(
+        commands,
+        state,
+        kit,
+        Phrase::ChooseNewPassword.text(lang),
+        music_on,
+    );
     let line = rule(commands);
     let why = surfaces::prose(commands, kit, Phrase::PasswordWasReset.text(lang), true);
     commands.entity(card).add_children(&[head, line, why]);
@@ -908,64 +1109,78 @@ pub(super) fn new_password(commands: &mut Commands, card: Entity, state: &LobbyS
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-fn central_sign_out(commands: &mut Commands, card: Entity, state: &LobbyState, kit: Kit) {
-    if !state.central_ready() {
-        return;
-    }
-    let text = Phrase::CentralSignOut.text(state.lobby.lang());
-    let logout = controls::button(
-        commands,
-        kit,
-        text,
-        Weight::Secondary,
-        Live::Yes,
-        None,
-        (
-            Press::Front(FrontPress::CentralSignOut),
-            keys::stop(state, "central-sign-out"),
-        ),
-    );
-    commands.entity(card).add_child(logout);
+fn gateway_title_row(
+    commands: &mut Commands,
+    state: &LobbyState,
+    kit: Kit,
+    _music_on: bool,
+) -> Entity {
+    let lang = state.lobby.lang();
+    let title =
+        super::door::card_title_lockup(commands, kit, '\u{f1eb}', Phrase::ChooseGateway.text(lang));
+    let head = commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::SpaceBetween,
+                column_gap: kit.m.px(12.0),
+                flex_wrap: FlexWrap::Wrap,
+                row_gap: kit.m.px(6.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(head).add_child(title);
+    head
 }
 
-/// The gateway picker: the saved gateways, the address with Check / Save
-/// beside it, and the status line.
+/// The gateway picker: the saved gateways, a separated "Add Gateway" section
+/// with address input + Add button, and the status line.
 pub(super) fn gateway(
     commands: &mut Commands,
     card: Entity,
     state: &LobbyState,
     kit: Kit,
     scrolled_to: &Scrolled,
+    music_on: bool,
 ) {
     let lang = state.lobby.lang();
-    let title = commands
+    let head = gateway_title_row(commands, state, kit, music_on);
+    let explanation = if state.central_ready() {
+        Phrase::GatewayHintCentral
+    } else {
+        Phrase::GatewayHint
+    };
+    let hint = surfaces::prose(commands, kit, explanation.text(lang), true);
+    commands.entity(card).add_children(&[head, hint]);
+    if !state.displayed_gateways().is_empty() {
+        let toolbar = super::super::gateway::toolbar(commands, state, kit);
+        commands.entity(card).add_child(toolbar);
+    }
+    let list =
+        super::super::gateway::list(commands, state, kit.fonts, field_metrics(kit), scrolled_to);
+    commands.entity(card).add_child(list);
+
+    let add_box = commands
         .spawn((
-            Text::new(Phrase::ChooseGateway.text(lang)),
-            crate::hud::tf(kit.fonts, kit.m.head),
-            TextColor(tokens::INK),
+            Node {
+                width: Val::Percent(100.0),
+                flex_direction: FlexDirection::Column,
+                padding: UiRect::all(kit.m.px(12.0)),
+                row_gap: kit.m.px(8.0),
+                margin: UiRect::top(kit.m.px(14.0)),
+                border: UiRect::all(px_fixed(1.0)),
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PANEL)),
+                ..default()
+            },
+            BackgroundColor(Color::srgba(0.05, 0.08, 0.13, 0.72)),
+            BorderColor::all(tokens::BORDER.with_alpha(0.85)),
             Pickable::IGNORE,
         ))
         .id();
-    let explanation = if state.central_ready() {
-        Phrase::GatewayHintCentral.text(lang)
-    } else {
-        Phrase::GatewayHint.text(lang)
-    };
-    let hint = surfaces::prose(commands, kit, explanation, true);
-    commands.entity(card).add_children(&[title, hint]);
-    #[cfg(not(target_arch = "wasm32"))]
-    central_sign_out(commands, card, state, kit);
-    if !state.displayed_gateways().is_empty() {
-        let list = super::super::gateway::list(
-            commands,
-            state,
-            kit.fonts,
-            field_metrics(kit),
-            scrolled_to,
-        );
-        commands.entity(card).add_child(list);
-    }
+
     let address = field(
         commands,
         state,
@@ -976,12 +1191,18 @@ pub(super) fn gateway(
         None,
         None,
     );
-    let save = controls::button(
+    let busy = if state.central_ready() {
+        state.central_admitting()
+    } else {
+        state.lobby.busy()
+    };
+    let save = controls::button_with_icon(
         commands,
         kit,
+        '\u{f067}',
         Phrase::SaveGateway.text(lang),
         Weight::Primary,
-        if !state.lobby.busy() && state.adding.is_none() {
+        if !busy && state.adding.is_none() {
             Live::Yes
         } else {
             Live::No("")
@@ -997,8 +1218,8 @@ pub(super) fn gateway(
             Node {
                 width: Val::Percent(100.0),
                 align_items: AlignItems::FlexEnd,
-                column_gap: kit.m.px(12.0),
-                row_gap: kit.m.px(10.0),
+                column_gap: kit.m.px(10.0),
+                row_gap: kit.m.px(8.0),
                 flex_direction: if kit.m.frame == Frame::Compact {
                     FlexDirection::Column
                 } else {
@@ -1017,8 +1238,11 @@ pub(super) fn gateway(
             node.min_width = px_fixed(0.0);
         });
     commands.entity(row).add_children(&[address, save]);
-    commands.entity(card).add_child(row);
-    if let Some(said) = status(commands, state, kit) {
-        commands.entity(card).add_child(said);
+    commands.entity(add_box).add_child(row);
+    if !state.central_admitting()
+        && let Some(said) = status(commands, state, kit)
+    {
+        commands.entity(add_box).add_child(said);
     }
+    commands.entity(card).add_child(add_box);
 }

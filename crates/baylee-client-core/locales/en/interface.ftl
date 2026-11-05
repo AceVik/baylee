@@ -415,7 +415,7 @@ ChooseGatewayFirst = Select a gateway to sign in or register.
 GatewayAddress = GATEWAY ADDRESS
 
 # Gateway selection.
-SaveGateway = Save gateway
+SaveGateway = Add
 
 # Gateway selection.
 GatewayUrlInvalid = Enter an http:// or https:// address without credentials, query parameters or a fragment.
@@ -460,6 +460,12 @@ TileSource = Source code (AGPL-3.0)
 # The front door's Discord tile (Wide and Vast): its label, over the
 # invitation it opens.
 TileDiscord = Community on Discord
+
+# The front door's `WhatsApp` tile and button: its label, over the
+# invitation it opens.
+TileWhatsApp = Community on WhatsApp
+WhatsAppCommunity = WhatsApp Community
+DiscordCommunity = Discord Community
 
 # Scryfall's attribution, which its terms ask of every client that
 # shows its data or images (`docs/legal.md` §3, #325). Under the Fan
@@ -8612,10 +8618,10 @@ GatewayInLobby = In lobby
 GatewayInGames = Playing
 
 # Gateway popover: waiting tables.
-GatewayWaitingTables = Open tables
+GatewayWaitingTables = Tables
 
 # Gateway popover: running games.
-GatewayRunningGames = Active games
+GatewayRunningGames = Games
 
 # Gateway popover: server version.
 GatewayServerVersion = Server version
@@ -8651,7 +8657,7 @@ HandOrderColor = Color
 
 # The Central sign-in form's link to the website, where a Baylee account is
 # made (registration is not in the client yet).
-CentralRegister = No account yet? Create one at baylee.app
+CentralRegister = Register
 
 # Central sign-in or a restored Central session failed.
 CentralSignInFailed = Sign-in or restore failed. Please check your credentials and connection.
@@ -8660,7 +8666,7 @@ CentralSignInFailed = Sign-in or restore failed. Please check your credentials a
 CentralSyncFailed = Account synchronization failed. Your local changes are retained; please sign in again.
 
 # The front door's button that signs out of the Baylee (Central) account.
-CentralSignOut = Sign out of Baylee account
+CentralSignOut = Sign out
 
 # The gateway list's hint while signed in to Central.
 GatewayHintCentral = Choose a gateway for your games. Your account is managed centrally.
@@ -9174,3 +9180,31 @@ FilterNoLists = Ban lists come from the gateway, and none are here. The list sta
 
 # Syntax help: `list:`.
 BuildSyntaxList = on this ban list
+
+# Central login and gateway list controls.
+CentralSigningIn = Signing in to Baylee Central …
+GatewayConnecting = Connecting to gateway …
+CentralWebsite = baylee.app
+CentralWebsiteHint = Open baylee.app in your browser
+CentralRegisterDirect = Create account
+CentralRegisterHint = Create your Baylee account at baylee.app/register
+GatewaySearchPlaceholder = Search gateways by name, address or version…
+GatewayGroupCompatible = Online · Compatible
+GatewayGroupIncompatible = Online · Version incompatible
+GatewayGroupOffline = Offline
+GatewayFilterAll = All
+GatewayFilterCompatible = Compatible
+GatewayFilterIncompatible = Incompatible
+GatewayFilterOffline = Offline
+GatewaySortLastUsed = Sort: Last used
+GatewaySortName = Sort: Name
+GatewaySortAddress = Sort: Address
+GatewaySortVersion = Sort: Version
+GatewayRefresh = Refresh gateways
+GatewayOfficialBadge = Official
+GatewayLastUsedBadge = Last used
+GatewayCompatibleShort = Compatible
+GatewayIncompatibleShort = Incompatible
+GatewayEmptyGroup = No gateways in this group.
+GatewayNoMatches = No gateways match your search or filter.
+GatewayClearSearch = Show all gateways

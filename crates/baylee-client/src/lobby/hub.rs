@@ -207,6 +207,9 @@ impl HubPress {
                 if state.hub != hub {
                     state.hub = hub;
                     scrolled.set(List::Table, 0.0);
+                    if hub != Hub::Play {
+                        state.ensure_central_lobby(mailbox);
+                    }
                     // The list is read again on every visit: a game just
                     // played, a record deleted elsewhere.
                     if hub == Hub::Replays {

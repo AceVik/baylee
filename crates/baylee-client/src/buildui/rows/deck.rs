@@ -4,11 +4,12 @@
 use super::*;
 
 /// One deck row: print, name (and its printing), pips, `− n +`, `⋯`.
-#[allow(clippy::too_many_arguments)] // one row: where, which, and what it reads
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)] // one row: where, which, and what it reads
 pub(crate) fn deck_row(
     commands: &mut Commands,
     kit: Kit,
     state: &LobbyState,
+    prefs: Option<&baylee_client_core::prefs::Preferences>,
     zone: Zone,
     at: usize,
     order: usize,
@@ -18,6 +19,7 @@ pub(crate) fn deck_row(
     let deck = state.lobby.builder();
     let entry = deck.entries(zone).get(at)?;
     let card = deck.card(entry.slot)?;
+    let (is_deck_fav, is_global_fav) = super::pool::fav_flags(state, prefs, &card.english_name);
     let m = kit.m;
     let height = pitch - m.scaled(4.0);
     let hover = hover_of_entry(card, &entry.print);
@@ -49,6 +51,8 @@ pub(crate) fn deck_row(
     } else {
         tokens::MUTED
     };
+    let r_dot =
+        super::pool::rarity_dot(commands, kit, deck.entry_rarity(entry), state.lobby.lang());
     let name = cell(commands, kit, &card.name, m.text, ink, false);
     commands.entity(name).insert(Node {
         min_width: px_fixed(0.0),
@@ -58,7 +62,27 @@ pub(crate) fn deck_row(
         overflow: Overflow::clip_x(),
         ..default()
     });
-    let mut kids = vec![thumb, name];
+    let mut kids = vec![thumb, r_dot, name];
+    if is_deck_fav || is_global_fav {
+        let star = commands
+            .spawn((
+                Text::new("\u{f005}"),
+                icon_tf(kit.fonts, m.small * 0.88),
+                TextColor(if is_deck_fav {
+                    tokens::ACCENT
+                } else {
+                    tokens::GOLD
+                }),
+                TextLayout::no_wrap(),
+                Node {
+                    flex_shrink: 0.0,
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        kids.push(star);
+    }
     // What the check has against this card, in a word; the sentence is the
     // overview's and the card's.
     if let Some(word) = deck.badge(entry.slot) {

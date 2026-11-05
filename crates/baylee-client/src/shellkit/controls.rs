@@ -13,6 +13,7 @@ use super::metrics::{ShellMetrics, px_fixed};
 use super::role::Role;
 use super::tokens::{self, RADIUS_CONTROL, RADIUS_PILL};
 use crate::hud::{UiFonts, icon_tf, tf, tf_bold};
+use crate::lobby::HoverHint;
 use bevy::picking::hover::PickingInteraction;
 use bevy::prelude::*;
 
@@ -102,6 +103,8 @@ pub fn hit(commands: &mut Commands, kit: Kit, visual: Entity, action: impl Bundl
     let wrapper = commands
         .spawn((
             Role::Hit,
+            PickingInteraction::default(),
+            Pickable::default(),
             Node {
                 min_width: px_fixed(kit.m.hit),
                 min_height: px_fixed(kit.m.hit),
@@ -178,7 +181,32 @@ pub fn button(
     keys: Option<&str>,
     action: impl Bundle,
 ) -> Entity {
-    shaped(commands, kit, text, weight, live, keys, action, false)
+    shaped(commands, kit, None, text, weight, live, keys, action, false)
+}
+
+/// A [`button`] with a leading Font Awesome icon glyph before the text.
+#[allow(clippy::too_many_arguments)]
+pub fn button_with_icon(
+    commands: &mut Commands,
+    kit: Kit,
+    icon: char,
+    text: &str,
+    weight: Weight,
+    live: Live,
+    keys: Option<&str>,
+    action: impl Bundle,
+) -> Entity {
+    shaped(
+        commands,
+        kit,
+        Some(icon),
+        text,
+        weight,
+        live,
+        keys,
+        action,
+        false,
+    )
 }
 
 /// A [`button`] as wide as its row: a form's submit (the front door's Sign
@@ -192,13 +220,14 @@ pub fn wide_button(
     keys: Option<&str>,
     action: impl Bundle,
 ) -> Entity {
-    shaped(commands, kit, text, weight, live, keys, action, true)
+    shaped(commands, kit, None, text, weight, live, keys, action, true)
 }
 
 #[allow(clippy::too_many_arguments, clippy::fn_params_excessive_bools)] // the two makers' one body
 fn shaped(
     commands: &mut Commands,
     kit: Kit,
+    lead_icon: Option<char>,
     text: &str,
     weight: Weight,
     live: Live,
@@ -223,6 +252,7 @@ fn shaped(
                 // wrapper of its own size, the whole width where a screen
                 // stretches the wrapper (a full-width primary).
                 flex_grow: 1.0,
+                column_gap: kit.m.px(7.0),
                 padding: UiRect::axes(kit.m.px(side), px_fixed(0.0)),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
@@ -234,6 +264,17 @@ fn shaped(
             BorderColor::all(if dead { tokens::BORDER } else { weight.rim() }),
         ))
         .id();
+    if let Some(glyph) = lead_icon {
+        let icon_node = commands
+            .spawn((
+                Text::new(glyph.to_string()),
+                crate::hud::icon_tf(kit.fonts, kit.m.small),
+                TextColor(ink),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(face).add_child(icon_node);
+    }
     let words = commands
         .spawn((
             Text::new(text),
@@ -260,17 +301,7 @@ fn shaped(
         wrapper
     };
     if !dead {
-        // A ghost has no ground to lighten: it rises out of nothing to the
-        // hover ground, as a tab does.
-        let feel = if ground.alpha() < 0.01 {
-            crate::ambience::Feel::rising_to(ground, tokens::HOVER)
-        } else {
-            crate::ambience::Feel::new(ground)
-        };
-        commands.entity(face).insert(feel);
-        if matches!(weight, Weight::Primary | Weight::Gold | Weight::Danger) {
-            commands.entity(face).insert(super::sheen::Sheen);
-        }
+        attach_live_feel(commands, face, ground, weight);
         let wrapper = hit(commands, kit, face, action);
         return widen(commands, wrapper);
     }
@@ -308,6 +339,34 @@ fn shaped(
     let tip = tooltip(commands, kit, reason);
     commands.entity(wrapper).add_child(tip).insert(Tooltip(tip));
     wrapper
+}
+
+fn attach_live_feel(commands: &mut Commands, face: Entity, ground: Color, weight: Weight) {
+    // A ghost has no ground to lighten: it rises out of nothing to the
+    // hover ground, as a tab does.
+    let feel = if ground.alpha() < 0.01 {
+        crate::ambience::Feel::rising_to(ground, tokens::HOVER)
+    } else {
+        crate::ambience::Feel::new(ground)
+    };
+    let rim = weight.rim();
+    let fb = crate::ambience::FeelBorder {
+        rest: rim,
+        hot: if rim.alpha() < 0.01 {
+            tokens::BORDER
+        } else {
+            crate::ambience::lighter(rim, 0.35)
+        },
+        press: if rim.alpha() < 0.01 {
+            tokens::BORDER
+        } else {
+            crate::ambience::lighter(rim, -0.15)
+        },
+    };
+    commands.entity(face).insert((feel, fb));
+    if matches!(weight, Weight::Primary | Weight::Gold | Weight::Danger) {
+        commands.entity(face).insert(super::sheen::Sheen);
+    }
 }
 
 /// Shows a tooltip while the pointer rests on its owner.
@@ -351,7 +410,6 @@ pub fn pill(
             BorderColor::all(tokens::BORDER),
             UiTransform::default(),
             crate::ambience::Feel::new(tokens::CONTROL),
-            super::sheen::Sheen,
         ))
         .id();
     if let Some(colour) = dot {
@@ -395,11 +453,36 @@ fn nav_glyph(text: &str) -> Option<char> {
     }
 }
 
+/// Identifies a top navigation pill face by its index so its active state can
+/// be updated in place without rebuilding the retained header.
+#[derive(Component, Clone, Copy, PartialEq, Eq, Debug)]
+pub struct NavPillFace(pub usize);
+
+/// Identifies a top navigation pill's prefix icon by its index.
+#[derive(Component, Clone, Copy, PartialEq, Eq, Debug)]
+pub struct NavPillIcon(pub usize);
+
+/// Identifies a top navigation pill's text label by its index.
+#[derive(Component, Clone, Copy, PartialEq, Eq, Debug)]
+pub struct NavPillWords(pub usize);
+
 /// A navigation pill in the header: filled when it is the screen shown, with
 /// a larger prefix icon and bold label for Lobby, Decks, and Replays.
 pub fn nav(
     commands: &mut Commands,
     kit: Kit,
+    text: &str,
+    active: bool,
+    action: impl Bundle,
+) -> Entity {
+    nav_indexed(commands, kit, None, text, active, action)
+}
+
+/// A navigation pill in the header tagged with its optional tab index `index`.
+pub fn nav_indexed(
+    commands: &mut Commands,
+    kit: Kit,
+    index: Option<usize>,
     text: &str,
     active: bool,
     action: impl Bundle,
@@ -430,12 +513,18 @@ pub fn nav(
             }),
             UiTransform::default(),
             if active {
-                crate::ambience::Feel::new(tokens::SELECTED)
+                crate::ambience::Feel {
+                    lift: 0.0,
+                    ..crate::ambience::Feel::new(tokens::SELECTED)
+                }
             } else {
                 crate::ambience::Feel::tinting_to(Color::NONE, tokens::HOVER)
             },
         ))
         .id();
+    if let Some(i) = index {
+        commands.entity(face).insert(NavPillFace(i));
+    }
     let ink = if active { tokens::INK } else { tokens::MUTED };
     if let Some(glyph) = icon {
         let mark = commands
@@ -446,6 +535,9 @@ pub fn nav(
                 Pickable::IGNORE,
             ))
             .id();
+        if let Some(i) = index {
+            commands.entity(mark).insert(NavPillIcon(i));
+        }
         commands.entity(face).add_child(mark);
     }
     let words = commands
@@ -457,6 +549,9 @@ pub fn nav(
             Pickable::IGNORE,
         ))
         .id();
+    if let Some(i) = index {
+        commands.entity(words).insert(NavPillWords(i));
+    }
     commands.entity(face).add_child(words);
     hit(commands, kit, face, action)
 }
@@ -503,7 +598,20 @@ pub fn chip(
             }),
         ))
         .id();
-    let words = label(commands, kit, text, kit.m.small, tokens::INK);
+    let words = if let Some(rest) = text.strip_prefix("\u{2605} ") {
+        let star = commands
+            .spawn((
+                Text::new("\u{f005}"),
+                icon_tf(kit.fonts, kit.m.small * 0.88),
+                TextColor(if on { tokens::ACCENT } else { tokens::GOLD }),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(face).add_child(star);
+        label(commands, kit, rest, kit.m.small, tokens::INK)
+    } else {
+        label(commands, kit, text, kit.m.small, tokens::INK)
+    };
     commands.entity(face).add_child(words);
     if let Some(n) = count {
         let badge = label(commands, kit, &n.to_string(), kit.m.small, tokens::MUTED);
@@ -651,6 +759,81 @@ pub fn segmented<B: Bundle>(
         );
         commands.entity(face).add_child(words);
         let wrapper = hit(commands, kit, face, action(i));
+        commands.entity(group).add_child(wrapper);
+    }
+    group
+}
+
+/// An icon-only segmented control (e.g. view switcher: List / Grid / Compact),
+/// styled as a single unified pill with distinct clickable icon segments and
+/// tooltips on each segment.
+pub fn segmented_icons<B: Bundle>(
+    commands: &mut Commands,
+    kit: Kit,
+    items: &[(char, &str)],
+    selected: usize,
+    action: impl Fn(usize) -> B,
+) -> Entity {
+    let group = commands
+        .spawn((
+            Node {
+                padding: UiRect::all(px_fixed(2.0)),
+                column_gap: px_fixed(2.0),
+                align_items: AlignItems::Center,
+                border: UiRect::all(px_fixed(1.0)),
+                border_radius: BorderRadius::all(px_fixed(RADIUS_CONTROL)),
+                ..default()
+            },
+            BackgroundColor(tokens::CONTROL),
+            BorderColor::all(tokens::BORDER),
+            Pickable::IGNORE,
+        ))
+        .id();
+    for (i, (glyph, tip)) in items.iter().enumerate() {
+        let on = i == selected;
+        let size = if kit.m.touch() {
+            34.0
+        } else {
+            kit.m.scaled(28.0)
+        };
+        let face = commands
+            .spawn((
+                Role::Segment,
+                Node {
+                    width: px_fixed(kit.m.scaled(32.0)),
+                    min_height: px_fixed(size),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    border_radius: BorderRadius::all(px_fixed(RADIUS_CONTROL - 2.0)),
+                    ..default()
+                },
+                BackgroundColor(if on { tokens::SELECTED } else { Color::NONE }),
+                if on {
+                    crate::ambience::Feel::lifting(
+                        tokens::SELECTED,
+                        crate::ambience::lighter(tokens::SELECTED, 0.12),
+                        SEGMENT_LIFT,
+                    )
+                } else {
+                    crate::ambience::Feel::lifting(Color::NONE, tokens::HOVER, SEGMENT_LIFT)
+                },
+            ))
+            .id();
+        let icon_node = commands
+            .spawn((
+                Text::new(glyph.to_string()),
+                crate::hud::icon_tf(kit.fonts, kit.m.small),
+                TextColor(if on { tokens::INK } else { tokens::MUTED }),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(face).add_child(icon_node);
+        let wrapper = hit(
+            commands,
+            kit,
+            face,
+            (action(i), HoverHint((*tip).to_owned())),
+        );
         commands.entity(group).add_child(wrapper);
     }
     group

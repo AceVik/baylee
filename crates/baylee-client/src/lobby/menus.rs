@@ -17,6 +17,8 @@ use crate::shellkit::{Role, tokens};
 pub(crate) enum ShellMenu {
     /// The Decks screen's sort.
     DeckSort,
+    /// The Decks screen's format filter dropdown.
+    DeckFormat,
     /// A deck tile's `⋯`, by its index in the deck list.
     Deck(usize),
     /// A house tile's `⋯`, by its index in the house list.
@@ -44,7 +46,7 @@ pub(crate) struct MenuAnchor(pub Entity);
 pub(crate) struct Unplaced;
 
 #[derive(Component, Default)]
-pub(super) struct Opening(f32);
+pub(crate) struct Opening(pub(super) f32);
 
 /// Remembers the open menu's animation progress across UI rebuilds so that
 /// keyboard navigation or background updates do not restart its arrival motion.

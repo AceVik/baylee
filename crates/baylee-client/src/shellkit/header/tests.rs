@@ -435,6 +435,7 @@ fn builder_header_keeps_contextual_actions_inside_the_shared_frame() {
                 state.lobby.builder_mut().type_name(ch);
             }
             let m = ShellMetrics::of(Viewport::desktop(width, 800.0), TextSize::M);
+            let prefs = baylee_client_core::prefs::Preferences::default();
             let env = Env {
                 kit: Kit {
                     fonts: &fonts,
@@ -442,6 +443,7 @@ fn builder_header_keeps_contextual_actions_inside_the_shared_frame() {
                     german: lang == Lang::De,
                 },
                 state: &state,
+                prefs: &prefs,
                 scrolled: &scrolled,
                 layout: Layout::of(m.frame, width),
                 save_keys: Some("Cmd+S"),
@@ -483,11 +485,9 @@ fn builder_header_keeps_contextual_actions_inside_the_shared_frame() {
                 Press::Build(BuildPress::OpenImport),
                 Press::Build(BuildPress::OpenExport),
                 Press::Library(LibraryPress::BrowseHistory),
-                Press::Build(BuildPress::SaveDeck),
                 Press::Build(BuildPress::ToggleHeaderMenu),
-                Press::Header(HeaderPress::Gateway),
+                Press::Build(BuildPress::SaveDeck),
                 Press::Front(FrontPress::FrontMenu),
-                Press::Header(HeaderPress::Chat),
                 Press::Header(HeaderPress::Friends),
                 Press::Header(HeaderPress::Bell),
                 Press::Header(HeaderPress::Account),

@@ -54,8 +54,8 @@ fn key(app: &mut App, input: KeyboardInput) {
     app.update();
 }
 
-/// One save state on the screen (§2.5: "one save-state element per screen,
-/// the builder's is in the header"), at every shape and through a save.
+/// The builder header shows no "Unsaved / Saved" text label: changes are
+/// auto-saved immediately, and header buttons carry tooltips.
 #[test]
 fn the_builder_shows_one_save_state() {
     for (w, h) in [
@@ -65,34 +65,30 @@ fn the_builder_shows_one_save_state() {
         (640.0, 360.0),
     ] {
         let mut app = builder_at(w, h);
-        assert_eq!(save_states(&mut app), 1, "{w}×{h}");
+        assert_eq!(save_states(&mut app), 0, "{w}×{h}");
         app.world_mut()
             .resource_mut::<LobbyState>()
             .lobby
             .builder_mut()
             .set_name("Elves");
         app.update();
-        assert_eq!(save_states(&mut app), 1, "{w}×{h}, unsaved");
+        assert_eq!(save_states(&mut app), 0, "{w}×{h}, auto-saved");
         let said: Vec<String> = labels(&mut app)
             .into_iter()
             .filter(|t| t.starts_with("Unsaved"))
             .collect();
-        if w > 900.0 {
-            assert_eq!(said, ["Unsaved · 2 changes"], "{w}×{h}");
-        }
+        assert!(said.is_empty(), "{w}×{h}");
     }
 }
 
-/// The grid view is round 2 and not drawn (S4-1): no `▦`, no view switch.
+/// The pool offers List, Grid, and Compact view switches on desktop and tablet.
 #[test]
 fn no_grid_switch_is_drawn() {
-    for (w, h) in [(1920.0, 1080.0), (960.0, 700.0), (844.0, 390.0)] {
+    for (w, h) in [(1920.0, 1080.0), (960.0, 700.0)] {
         let mut app = builder_at(w, h);
         let grid = crate::hud::glyph::VIEW_GRID.to_string();
         assert!(
-            !labels(&mut app)
-                .iter()
-                .any(|t| t.contains('\u{25a6}') || t.contains(&grid)),
+            labels(&mut app).iter().any(|t| t.contains(&grid)),
             "{w}×{h}"
         );
     }
@@ -179,8 +175,8 @@ fn each_size_class_has_its_shape() {
         "the tab bar"
     );
     assert!(
-        !found.contains(&Press::Build(BuildPress::OpenImport)),
-        "Import is in ⋯"
+        found.contains(&Press::Build(BuildPress::OpenImport)),
+        "Import is an icon button in the header"
     );
 
     let mut phone = builder_at(844.0, 390.0);

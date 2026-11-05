@@ -852,6 +852,23 @@ pub async fn create_deck(db: &DatabaseConnection, new: NewDeck) -> Result<Option
 ///
 /// If the database refuses.
 pub async fn put_deck(db: &DatabaseConnection, saved: Deck, summary: Option<String>) -> Result<()> {
+    put_deck_versioned(db, saved, summary, true, None).await
+}
+
+/// Write a deck, optionally updating the current version in place (`versioned
+/// == false`) or archiving `superseded` (when given) so an entire deckbuilder
+/// session records a single history entry when the player leaves.
+///
+/// # Errors
+///
+/// If the database refuses.
+pub async fn put_deck_versioned(
+    db: &DatabaseConnection,
+    saved: Deck,
+    summary: Option<String>,
+    versioned: bool,
+    superseded: Option<(Vec<String>, Vec<String>, Vec<String>)>,
+) -> Result<()> {
     let Some(id) = uuid(&saved.id) else {
         return Ok(());
     };
@@ -863,17 +880,37 @@ pub async fn put_deck(db: &DatabaseConnection, saved: Deck, summary: Option<Stri
 
     let tx = db.begin().await?;
     let before = Decks::find_by_id(id).one(&tx).await?;
-    let version = match &before {
-        Some(row) if row.same_cards(&saved.cards, &saved.sideboard, &saved.commanders) => {
-            row.version
-        }
-        Some(row) => {
+    let archive =
+        match (&before, versioned, superseded) {
+            (None, _, _) | (Some(_), false, _) => None,
+            (Some(row), true, Some((cards, sideboard, commanders))) => {
+                let baseline = deck::Model {
+                    cards,
+                    sideboard,
+                    commanders,
+                    ..row.clone()
+                };
+                (!baseline.same_cards(&saved.cards, &saved.sideboard, &saved.commanders))
+                    .then_some((baseline.cards, baseline.sideboard, baseline.commanders))
+            }
+            (Some(row), true, None) => {
+                (!row.same_cards(&saved.cards, &saved.sideboard, &saved.commanders)).then(|| {
+                    (
+                        row.cards.clone(),
+                        row.sideboard.clone(),
+                        row.commanders.clone(),
+                    )
+                })
+            }
+        };
+    let version = match (&before, archive) {
+        (Some(row), Some((cards, sideboard, commanders))) => {
             DeckVersions::insert(deck_version::ActiveModel {
                 deck_id: Set(id),
                 version: Set(row.version),
-                cards: Set(row.cards.clone()),
-                sideboard: Set(row.sideboard.clone()),
-                commanders: Set(row.commanders.clone()),
+                cards: Set(cards),
+                sideboard: Set(sideboard),
+                commanders: Set(commanders),
                 summary: Set(summary),
                 superseded_at: Set(at(saved.updated_at)),
             })
@@ -884,7 +921,8 @@ pub async fn put_deck(db: &DatabaseConnection, saved: Deck, summary: Option<Stri
             // rather than quietly writing a second past for the same number.
             row.version + 1
         }
-        None => 1,
+        (Some(row), None) => row.version,
+        (None, _) => 1,
     };
 
     Decks::insert(deck::ActiveModel {

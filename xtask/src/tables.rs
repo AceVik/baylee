@@ -258,6 +258,11 @@ pub(crate) fn render_sides_table(root: &Path) -> anyhow::Result<String> {
 
     let mut back = Vec::new();
     let mut dfc = Vec::new();
+    let mut uncommon = Vec::new();
+    let mut rare = Vec::new();
+    let mut mythic = Vec::new();
+    let mut special = Vec::new();
+    let mut bonus = Vec::new();
     let mut facts = BTreeMap::new();
     let mut turned = BTreeMap::new();
     let mut walked = 0usize;
@@ -270,10 +275,17 @@ pub(crate) fn render_sides_table(root: &Path) -> anyhow::Result<String> {
             .with_context(|| format!("{name}: no cached printing, so its sides cannot be read"))?;
         let card: scryfall::ScryfallCard = serde_json::from_value(payload)
             .with_context(|| format!("{name}: cached printing unreadable"))?;
-        facts.insert(
-            def.index.get(),
-            reference_print_facts(root, name, def, &card)?,
-        );
+        let (print_facts, rarity) = reference_print_facts(root, name, def, &card)?;
+        facts.insert(def.index.get(), print_facts);
+        match rarity.as_str() {
+            "common" => {}
+            "uncommon" => uncommon.push(def.index.get()),
+            "rare" => rare.push(def.index.get()),
+            "mythic" => mythic.push(def.index.get()),
+            "special" => special.push(def.index.get()),
+            "bonus" => bonus.push(def.index.get()),
+            other => anyhow::bail!("{name}: unexpected Scryfall rarity {other:?}"),
+        }
         let sides = card.sides().map_err(anyhow::Error::msg)?;
         let turns = card.quarter_turns();
         if turns.iter().any(|turn| *turn != 0) {
@@ -307,6 +319,11 @@ pub(crate) fn render_sides_table(root: &Path) -> anyhow::Result<String> {
     );
     back.sort_unstable();
     dfc.sort_unstable();
+    uncommon.sort_unstable();
+    rare.sort_unstable();
+    mythic.sort_unstable();
+    special.sort_unstable();
+    bonus.sort_unstable();
     // Fire // Ice, the Room and the battle were in the pool when this table
     // was first written, and the pool only grows; a few hundred would be a
     // reader turning ordinary cards.
@@ -353,6 +370,31 @@ pub(crate) fn render_sides_table(root: &Path) -> anyhow::Result<String> {
             "DOUBLE_FACED",
             "/// Cards that are double-faced cards under CR 712.1.\n",
             &dfc,
+        ),
+        (
+            "UNCOMMON",
+            "/// Cards whose reference printing is uncommon.\n",
+            &uncommon,
+        ),
+        (
+            "RARE",
+            "/// Cards whose reference printing is rare.\n",
+            &rare,
+        ),
+        (
+            "MYTHIC",
+            "/// Cards whose reference printing is mythic rare.\n",
+            &mythic,
+        ),
+        (
+            "SPECIAL",
+            "/// Cards whose reference printing has special rarity.\n",
+            &special,
+        ),
+        (
+            "BONUS",
+            "/// Cards whose reference printing has bonus rarity.\n",
+            &bonus,
         ),
     ] {
         out.push_str(doc);
@@ -484,13 +526,13 @@ pub(crate) fn check_no_name_is_claimed_twice(problems: &mut usize) {
     }
 }
 
-/// Formats verified physical facts from the pinned reference printing.
+/// Formats verified physical facts and reference rarity from the pinned reference printing.
 fn reference_print_facts(
     root: &Path,
     name: &str,
     def: &baylee_cards::dsl::CardDef,
     card: &scryfall::ScryfallCard,
-) -> anyhow::Result<(String, bool)> {
+) -> anyhow::Result<((String, bool), String)> {
     use anyhow::Context as _;
     // Physical rules facts must come from the pinned printing, never a
     // name lookup whose default changes when a new edition appears.
@@ -524,5 +566,12 @@ fn reference_print_facts(
         .join(", ");
     let is_un = pinned.border_color.as_deref() == Some("silver")
         || pinned.security_stamp.as_deref() == Some("acorn");
-    Ok((marks, is_un))
+    let rarity = match (pinned.rarity.as_deref(), card.rarity.as_deref()) {
+        (Some(r @ ("common" | "uncommon" | "rare" | "mythic")), _) => r,
+        (_, Some(r @ ("common" | "uncommon" | "rare" | "mythic"))) => r,
+        (Some(r), _) => r,
+        (None, Some(r)) => r,
+        (None, None) => anyhow::bail!("{name}: cached printing has no rarity"),
+    };
+    Ok(((marks, is_un), rarity.to_string()))
 }

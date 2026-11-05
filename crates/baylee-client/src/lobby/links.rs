@@ -221,6 +221,10 @@ mod tests {
         app.world_mut()
             .resource_mut::<LobbyState>()
             .link_asked_central = true;
+        app.world_mut()
+            .resource_mut::<LobbyState>()
+            .gateways
+            .push(gateway_list::PINNED.into());
         send(&mut app, Link::AddGateway(gateway_list::KEYED.into()));
         assert_eq!(asking(&app), None);
         assert!(app.world().resource::<Arrived>().0.is_none());

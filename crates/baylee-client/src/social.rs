@@ -219,6 +219,26 @@ impl SocialHost {
         self.asks.clear();
     }
 
+    /// Updates only the game gateway and token while keeping Central's account
+    /// chat machine, vault, and polling bridge intact.
+    fn rebind_central_gateway(&mut self, wanted: Option<&Session>) -> bool {
+        let (Some(old), Some(next)) = (self.session.as_ref(), wanted) else {
+            return false;
+        };
+        if old.guest || next.guest || old.tag != next.tag || old.handle != next.handle {
+            return false;
+        }
+        self.socket.hang();
+        self.socket = Socket::default();
+        self.info = InfoState::Unknown;
+        self.mailbox = Mailbox::default();
+        self.table = None;
+        self.session = Some(next.clone());
+        #[cfg(not(target_arch = "wasm32"))]
+        central::rebind_session(self, next.clone());
+        true
+    }
+
     fn flush_save(&mut self) {
         if let (Some((_, bytes)), Some(disk)) = (self.save.take(), self.disk.as_mut())
             && let Err(why) = disk.write(social::disk::STATE_FILE, &bytes)
@@ -460,7 +480,7 @@ pub(crate) fn header_ask(host: &mut SocialHost, ui: &mut ChatUi, ask: crate::lob
 
 /// The lobby's side of the chat: whether the header draws its buttons, the
 /// counts on them, and the shell's `f` and `Enter`.
-#[allow(clippy::too_many_arguments)] // a Bevy system: what it reads and writes
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)] // a Bevy system: what it reads and writes
 fn lobby_side(
     mut lobby: ResMut<LobbyState>,
     mut host: ResMut<SocialHost>,
@@ -474,11 +494,16 @@ fn lobby_side(
     phase: Option<Res<State<crate::DuelPhase>>>,
 ) {
     use baylee_client_core::shellkeys::ShellAction;
-    let header = host.machine().map(|m| !m.me().guest);
+    let header = if lobby.central_ready() || lobby.lobby.offline() {
+        Some(true)
+    } else {
+        host.machine().map(|m| !m.me().guest)
+    };
     if lobby.chat_header != header {
         // The friends list stands open from the start of a session (owner,
-        // 13.10.); a guest has none.
-        if lobby.chat_header.is_none() && header == Some(true) {
+        // 13.10.); a guest or pure-offline session starts with it closed until
+        // the player clicks the header button.
+        if lobby.chat_header != Some(true) && header == Some(true) && !lobby.lobby.offline() {
             ui.drawer = true;
         }
         lobby.chat_header = header;
@@ -511,9 +536,62 @@ fn lobby_side(
         }
     }
     let Some(machine) = host.machine() else {
+        if lobby.social_unread != 0 || !lobby.social_notices.is_empty() {
+            lobby.social_unread = 0;
+            lobby.social_notices.clear();
+        }
         return;
     };
+    let lang = lobby.lobby.lang();
+    let de = lang == baylee_client_core::i18n::Lang::De;
     let (unread, _) = machine.unread_where(&social::TabFilter::standard(ChatTab::All));
+    let view = machine.friends();
+    let req_count = view.incoming.len() + view.invites.len() + view.group_invites.len();
+    let total_social_unread = (unread as usize) + req_count;
+    let mut notices = Vec::new();
+    if unread > 0 {
+        let msg = if de {
+            if unread == 1 {
+                "1 ungelesene Chat-Nachricht".to_string()
+            } else {
+                format!("{unread} ungelesene Chat-Nachrichten")
+            }
+        } else if unread == 1 {
+            "1 unread chat message".to_string()
+        } else {
+            format!("{unread} unread chat messages")
+        };
+        notices.push(msg);
+    }
+    for person in view.incoming {
+        notices.push(if de {
+            format!("Freundschaftsanfrage von {}", person.handle)
+        } else {
+            format!("Friend request from {}", person.handle)
+        });
+    }
+    for held in view.invites {
+        let invite = &held.invite;
+        let phrase = match invite.kind {
+            baylee_protocol::social::InviteKind::Join => {
+                baylee_client_core::i18n::ChatPhrase::ToastJoinInvite
+            }
+            baylee_protocol::social::InviteKind::Watch => {
+                baylee_client_core::i18n::ChatPhrase::ToastWatchInvite
+            }
+        };
+        notices.push(phrase.fill(lang, &[&invite.from.handle, &invite.table.name]));
+    }
+    for invite in view.group_invites {
+        notices.push(
+            baylee_client_core::i18n::ChatPhrase::GroupInviteFrom
+                .fill(lang, &[&invite.name, &invite.inviter.handle]),
+        );
+    }
+    if lobby.social_unread != total_social_unread || lobby.social_notices != notices {
+        lobby.social_unread = total_social_unread;
+        lobby.social_notices = notices;
+    }
     let chat = crate::shellkit::header::format_badge_count(unread as usize);
     let online = machine.contacts().online_count();
     let friends = if machine.contacts().waiting() {

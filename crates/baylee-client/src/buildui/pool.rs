@@ -60,7 +60,13 @@ pub(super) fn panel(commands: &mut Commands, env: &Env, holders: &mut retained::
         panel,
         Node {
             width: Val::Percent(100.0),
+            min_height: if env.layout == Layout::Columns {
+                kit.m.px(95.0)
+            } else {
+                px_fixed(0.0)
+            },
             flex_direction: FlexDirection::Column,
+            justify_content: JustifyContent::SpaceBetween,
             row_gap: kit.m.px(8.0),
             flex_shrink: 0.0,
             ..default()
@@ -75,14 +81,10 @@ pub(super) fn panel(commands: &mut Commands, env: &Env, holders: &mut retained::
             flex_basis: px_fixed(0.0),
             min_height: px_fixed(0.0),
             flex_direction: FlexDirection::Column,
+            row_gap: px_fixed(kit.m.gap),
             ..default()
         },
     ));
-    // The key hints, where a pointer is the input and there is room (§2.7).
-    if env.layout == Layout::Columns && !kit.m.touch() {
-        let hints = hints(commands, env);
-        commands.entity(panel).add_child(hints);
-    }
     holders.pool_over = Some(holder(
         commands,
         panel,
@@ -106,10 +108,10 @@ fn hints(commands: &mut Commands, env: &Env) -> Entity {
     let row = commands
         .spawn((
             Node {
-                width: Val::Percent(100.0),
                 align_items: AlignItems::Center,
                 column_gap: kit.m.px(6.0),
-                flex_shrink: 0.0,
+                flex_shrink: 1.0,
+                min_width: px_fixed(0.0),
                 overflow: Overflow::clip_x(),
                 ..default()
             },
@@ -138,7 +140,7 @@ fn hints(commands: &mut Commands, env: &Env) -> Entity {
     row
 }
 
-/// The toolbar: the search, the chip row, the count line.
+/// The toolbar: the search and the chip row.
 #[allow(clippy::too_many_lines)] // the pool's controls, read left to right, top to bottom
 pub(super) fn toolbar(commands: &mut Commands, holder: Entity, env: &Env) {
     let kit = env.kit;
@@ -161,7 +163,7 @@ pub(super) fn toolbar(commands: &mut Commands, holder: Entity, env: &Env) {
             lead: Some(crate::hud::glyph::MAGNIFIER),
             hint: Some(Phrase::SearchCards.text(lang)),
             tail: Some(FieldTail {
-                glyph: mark::HELP,
+                glyph: '\u{f1de}',
                 press: Press::Build(BuildPress::ToggleSyntax),
                 lit: ui.syntax,
             }),
@@ -242,52 +244,15 @@ pub(super) fn toolbar(commands: &mut Commands, holder: Entity, env: &Env) {
         let row = line(commands, kit, &[hint, done]);
         commands.entity(holder).add_child(row);
     }
-
-    // ---- the count line
-    let said = count_line(env);
-    let count = cell(commands, kit, &said, m.small, tokens::MUTED, false);
-    commands.entity(count).insert(crate::tour::TourAnchor(
-        baylee_client_core::tour::Anchor::BuildCount,
-    ));
-    commands.entity(holder).add_child(count);
-}
-
-/// "412 of 3322 cards · also narrowing: colour identity ≤ WUG" — on a phone
-/// with every chip's words, since there is no chip row to read them on.
-fn count_line(env: &Env) -> String {
-    let deck = env.deck();
-    let lang = env.lang();
-    if !deck.loaded() {
-        return Phrase::LoadingPool.text(lang).to_string();
-    }
-    let shown = shown(env).len();
-    let mut said = Phrase::PoolTally.fill(
-        lang,
-        &[
-            &deck.results().len().to_string(),
-            &deck.pool().len().to_string(),
-            &if shown < deck.results().len() {
-                Phrase::PoolNarrow.fill(lang, &[&shown.to_string()])
-            } else {
-                String::new()
-            },
-        ],
-    );
-    if let Some(also) = chips_in_words(deck, lang) {
-        said.push_str(" \u{b7} ");
-        if compact(env) {
-            said.push_str(&also);
-        } else {
-            said.push_str(&Phrase::BuildAlsoNarrowing.fill(lang, &[&also]));
-        }
-    }
-    said
 }
 
 /// The results the list shows: all of them, or while a commander is being
-/// chosen the ones who may lead.
+/// chosen the ones who may lead, filtered by active card-favourite filters.
 pub(crate) fn shown(env: &Env) -> Vec<usize> {
     let deck = env.deck();
+    let ui = env.ui();
+    let deck_key = deck.editing().unwrap_or("new");
+    let fav_filter = ui.fav_deck || ui.fav_global;
     deck.results()
         .iter()
         .copied()
@@ -296,11 +261,22 @@ pub(crate) fn shown(env: &Env) -> Vec<usize> {
             Some(false) => deck.card(*slot).is_some_and(|card| card.commander),
             None => true,
         })
+        .filter(|slot| {
+            if !fav_filter {
+                return true;
+            }
+            let Some(card) = deck.card(*slot) else {
+                return false;
+            };
+            (ui.fav_deck && env.prefs.deck_card_favourite(deck_key, &card.english_name))
+                || (ui.fav_global && env.prefs.card_favourite(&card.english_name))
+        })
         .collect()
 }
 
-/// The chip row: colours · the active chips · Filters · Playable only ·
+/// The chip row: colours · the active chips · Filters · Favourites · Playable only ·
 /// Sort · Clear.
+#[allow(clippy::too_many_lines)] // filter chips, grouping toggle, sort, and view switcher in one row
 fn chip_row(commands: &mut Commands, env: &Env) -> Entity {
     let kit = env.kit;
     let m = kit.m;
@@ -319,7 +295,20 @@ fn chip_row(commands: &mut Commands, env: &Env) -> Entity {
             Pickable::IGNORE,
         ))
         .id();
-    let mut kids = colour_toggles(commands, env);
+    let colour_discs = colour_toggles(commands, env);
+    let colour_group = commands
+        .spawn((
+            Node {
+                align_items: AlignItems::Center,
+                column_gap: m.px(2.0),
+                flex_shrink: 0.0,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(colour_group).add_children(&colour_discs);
+    let mut kids = vec![colour_group];
     if let Some(kind) = deck.kind() {
         let name = KINDS
             .iter()
@@ -352,7 +341,62 @@ fn chip_row(commands: &mut Commands, env: &Env) -> Entity {
             ),
         ));
     }
+    if let Some(rarity) = deck.rarity() {
+        kids.push(controls::chip(
+            commands,
+            kit,
+            rarity_label(rarity, lang == Lang::De),
+            true,
+            None,
+            true,
+            (
+                Press::Build(BuildPress::SetRarity(None)),
+                Stop::item(BUILDER, "chips", 2),
+            ),
+        ));
+    }
     kids.push(filters_button(commands, env));
+    let deck_key = deck.editing().unwrap_or("new");
+    let deck_fav_count =
+        u32::try_from(env.prefs.deck_card_favourites_for(deck_key).len()).unwrap_or(0);
+    let global_fav_count = u32::try_from(env.prefs.card_favourites.len()).unwrap_or(0);
+    let fav_deck_tip = match lang {
+        Lang::De => "Nur Favoriten dieses Decks anzeigen",
+        Lang::En => "Show only favourites for this deck",
+    };
+    kids.push(controls::chip(
+        commands,
+        kit,
+        "\u{2605} Deck",
+        env.ui().fav_deck,
+        (deck_fav_count > 0).then_some(deck_fav_count),
+        false,
+        (
+            Press::Build(BuildPress::ToggleFilterFavDeck),
+            stop("fav-deck"),
+            crate::lobby::HoverHint(fav_deck_tip.to_string()),
+        ),
+    ));
+    let (fav_global_label, fav_global_tip) = match lang {
+        Lang::De => (
+            "\u{2605} Allgemein",
+            "Nur allgemeine Karten-Favoriten anzeigen",
+        ),
+        Lang::En => ("\u{2605} General", "Show only general card favourites"),
+    };
+    kids.push(controls::chip(
+        commands,
+        kit,
+        fav_global_label,
+        env.ui().fav_global,
+        (global_fav_count > 0).then_some(global_fav_count),
+        false,
+        (
+            Press::Build(BuildPress::ToggleFilterFavGlobal),
+            stop("fav-global"),
+            crate::lobby::HoverHint(fav_global_tip.to_string()),
+        ),
+    ));
     kids.push(spring(commands));
     kids.push(controls::chip(
         commands,
@@ -363,8 +407,58 @@ fn chip_row(commands: &mut Commands, env: &Env) -> Entity {
         false,
         (Press::Build(BuildPress::TogglePlayable), stop("playable")),
     ));
-    kids.push(sort_chip(commands, env));
-    if deck.filtered() {
+    let group_label = match lang {
+        Lang::De => "Nach Typ",
+        Lang::En => "By type",
+    };
+    kids.push(controls::chip(
+        commands,
+        kit,
+        group_label,
+        env.ui().pool_grouped,
+        None,
+        false,
+        (
+            Press::Build(BuildPress::TogglePoolGrouped),
+            stop("pool-group"),
+        ),
+    ));
+    kids.push(sort_controls(commands, env));
+    let views = [PoolView::List, PoolView::Grid, PoolView::Compact];
+    let selected_view = views
+        .iter()
+        .position(|&v| v == env.ui().pool_view)
+        .unwrap_or(0);
+    kids.push(controls::segmented_icons(
+        commands,
+        kit,
+        &[
+            (
+                crate::hud::glyph::VIEW_ROWS,
+                match lang {
+                    Lang::De => "Listenansicht",
+                    Lang::En => "List view",
+                },
+            ),
+            (
+                crate::hud::glyph::VIEW_GRID,
+                match lang {
+                    Lang::De => "Rasteransicht",
+                    Lang::En => "Grid view",
+                },
+            ),
+            (
+                crate::hud::glyph::VIEW_BIG,
+                match lang {
+                    Lang::De => "Kompaktansicht",
+                    Lang::En => "Compact view",
+                },
+            ),
+        ],
+        selected_view,
+        |i| Press::Build(BuildPress::SetPoolView(views[i])),
+    ));
+    if deck.filtered() || env.ui().fav_deck || env.ui().fav_global {
         kids.push(link(
             commands,
             kit,
@@ -442,7 +536,11 @@ fn colour_toggles(commands: &mut Commands, env: &Env) -> Vec<Entity> {
 fn filters_button(commands: &mut Commands, env: &Env) -> Entity {
     let kit = env.kit;
     let deck = env.deck();
-    let active = u32::from(deck.kind().is_some()) + u32::from(deck.cmc().is_some());
+    let active = u32::from(deck.kind().is_some())
+        + u32::from(deck.cmc().is_some())
+        + u32::from(deck.rarity().is_some())
+        + u32::from(env.ui().fav_deck)
+        + u32::from(env.ui().fav_global);
     controls::chip(
         commands,
         kit,
@@ -454,55 +552,157 @@ fn filters_button(commands: &mut Commands, env: &Env) -> Entity {
     )
 }
 
-/// The sort chip: the order's glyph and its name; a press takes the next.
-fn sort_chip(commands: &mut Commands, env: &Env) -> Entity {
+/// The sort dropdown (criterion) and its adjacent sort-direction toggle button (`Asc` / `Desc` / `Unset`).
+#[allow(clippy::too_many_lines)] // dropdown pill + direction icon button + test carriers
+fn sort_controls(commands: &mut Commands, env: &Env) -> Entity {
     let kit = env.kit;
     let m = kit.m;
+    let lang = env.lang();
+    let deck = env.deck();
+    let menu_open = env.ui().menu == Some(BuildMenu::Sort);
     let height = if m.touch() { 40.0 } else { m.scaled(32.0) };
+
+    let sort_glyph = deck.sort().icon();
     let face = commands
         .spawn((
             Role::Chip,
             Node {
                 min_height: px_fixed(height),
-                padding: UiRect::axes(m.px(12.0), px_fixed(0.0)),
+                padding: UiRect::axes(m.px(10.0), px_fixed(0.0)),
                 column_gap: m.px(6.0),
                 align_items: AlignItems::Center,
                 border: UiRect::all(px_fixed(1.0)),
                 border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PILL)),
                 ..default()
             },
-            BackgroundColor(tokens::CONTROL),
-            BorderColor::all(tokens::BORDER),
+            BackgroundColor(if menu_open {
+                tokens::SELECTED
+            } else {
+                tokens::CONTROL
+            }),
+            BorderColor::all(if menu_open {
+                tokens::ACCENT
+            } else {
+                tokens::BORDER
+            }),
         ))
         .id();
-    let sign = glyph(commands, kit, mark::SORT, m.small * 0.9, tokens::MUTED);
+    let sign = glyph(commands, kit, sort_glyph, m.small * 0.9, tokens::ACCENT);
     let said = words(
         commands,
         kit,
-        env.deck().sort().label().text(env.lang()),
+        deck.sort().label().text(lang),
         m.small,
         tokens::INK,
     );
-    commands.entity(face).add_children(&[sign, said]);
-    controls::hit(
+    let caret = glyph(commands, kit, mark::OPEN, m.small * 0.78, tokens::MUTED);
+    commands.entity(face).add_children(&[sign, said, caret]);
+    let dropdown = controls::hit(
         commands,
         kit,
         face,
-        (Press::Build(BuildPress::CycleSort), stop("sort")),
-    )
+        (
+            Press::Build(BuildPress::ToggleSortMenu),
+            stop("sort-menu"),
+            focus::MenuOpener(BuildMenu::Sort),
+            crate::lobby::HoverHint(
+                match lang {
+                    Lang::De => "Sortierkriterium wählen",
+                    Lang::En => "Choose sort criterion",
+                }
+                .to_string(),
+            ),
+        ),
+    );
+
+    let (dir_glyph, dir_tip, dir_lit) = match (deck.sort_dir(), lang) {
+        (baylee_client_core::deckbuilder::SortDir::Asc, Lang::De) => (
+            '\u{f160}',
+            "Sortierung: Aufsteigend (klicken für Absteigend)",
+            true,
+        ),
+        (baylee_client_core::deckbuilder::SortDir::Asc, Lang::En) => (
+            '\u{f160}',
+            "Sort direction: Ascending (click for Descending)",
+            true,
+        ),
+        (baylee_client_core::deckbuilder::SortDir::Desc, Lang::De) => (
+            '\u{f161}',
+            "Sortierung: Absteigend (klicken für Zurücksetzen)",
+            true,
+        ),
+        (baylee_client_core::deckbuilder::SortDir::Desc, Lang::En) => (
+            '\u{f161}',
+            "Sort direction: Descending (click to unset)",
+            true,
+        ),
+        (baylee_client_core::deckbuilder::SortDir::Unset, Lang::De) => (
+            '\u{f0dc}',
+            "Sortierung: Standardreihenfolge (klicken für Aufsteigend)",
+            false,
+        ),
+        (baylee_client_core::deckbuilder::SortDir::Unset, Lang::En) => (
+            '\u{f0dc}',
+            "Sort direction: Default order (click for Ascending)",
+            false,
+        ),
+    };
+    let dir_btn = icon_button(
+        commands,
+        kit,
+        dir_glyph,
+        dir_lit,
+        (
+            Press::Build(BuildPress::CycleSort),
+            stop("sort"),
+            crate::lobby::HoverHint(dir_tip.to_string()),
+        ),
+    );
+
+    let group = commands
+        .spawn((
+            Node {
+                align_items: AlignItems::Center,
+                column_gap: m.px(3.0),
+                flex_shrink: 0.0,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(group).add_children(&[dropdown, dir_btn]);
+    group
 }
 
-/// The list: skeleton rows while the pool is on its way, then the rows.
+/// The list: skeleton rows while the pool is on its way, then the rows,
+/// and the footer bar with key hints on the left and `"X von Y Karten"` on the right.
 pub(super) fn list(commands: &mut Commands, holder: Entity, env: &Env) {
     let kit = env.kit;
+    let m = kit.m;
+    let lang = env.lang();
     let deck = env.deck();
+    let list_box = commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                flex_grow: 1.0,
+                flex_basis: px_fixed(0.0),
+                min_height: px_fixed(0.0),
+                flex_direction: FlexDirection::Column,
+                overflow: Overflow::clip(),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(holder).add_child(list_box);
+
+    let results = shown(env);
+    let shown_count = results.len();
     if !deck.loaded() {
         let rows = crate::shellkit::states::skeleton(commands, kit, 6);
-        commands.entity(holder).add_child(rows);
-        return;
-    }
-    let results = shown(env);
-    if results.is_empty() {
+        commands.entity(list_box).add_child(rows);
+    } else if results.is_empty() {
         let said = crate::shellkit::states::empty(
             commands,
             kit,
@@ -511,18 +711,58 @@ pub(super) fn list(commands: &mut Commands, holder: Entity, env: &Env) {
             // different thing to be told.
             deck.search_lacking()
                 .unwrap_or(Phrase::NothingMatches)
-                .text(env.lang()),
+                .text(lang),
             None,
         );
-        commands.entity(holder).add_child(said);
-        return;
+        commands.entity(list_box).add_child(said);
+    } else {
+        let content = virtual_rows::pool(commands, env, results);
+        super::mount_virtual_list(commands, list_box, env, List::Pool, "pool", content);
     }
-    let metrics = env.lobby_metrics();
-    let list = crate::lobby::scroller(commands, metrics, List::Pool, env.scrolled.get(List::Pool));
-    commands.entity(list).insert(stop("pool"));
-    crate::lobby::scrollbars::attach(commands, holder, list, metrics);
-    let content = virtual_rows::pool(commands, env, results);
-    commands.entity(list).add_child(content);
+
+    let foot = commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                height: m.px(38.0),
+                flex_shrink: 0.0,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::SpaceBetween,
+                column_gap: m.px(10.0),
+                padding: UiRect::axes(m.px(12.0), px_fixed(0.0)),
+                border: UiRect::all(px_fixed(1.0)),
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL)),
+                ..default()
+            },
+            BackgroundColor(tokens::CONTROL.with_alpha(0.45)),
+            BorderColor::all(tokens::BORDER.with_alpha(0.65)),
+            Pickable::IGNORE,
+        ))
+        .id();
+    if env.layout == Layout::Columns && !kit.m.touch() {
+        let hint_row = hints(commands, env);
+        commands.entity(foot).add_child(hint_row);
+    }
+    let gap = spring(commands);
+    commands.entity(foot).add_child(gap);
+    let tally = if deck.loaded() {
+        Phrase::PoolTally.fill(
+            lang,
+            &[&shown_count.to_string(), &deck.pool().len().to_string(), ""],
+        )
+    } else {
+        Phrase::LoadingPool.text(lang).to_string()
+    };
+    let count = cell(commands, kit, &tally, m.small, tokens::INK, true);
+    commands.entity(count).insert((
+        Node {
+            flex_shrink: 0.0,
+            ..default()
+        },
+        crate::tour::TourAnchor(baylee_client_core::tour::Anchor::BuildCount),
+    ));
+    commands.entity(foot).add_child(count);
+    commands.entity(holder).add_child(foot);
 }
 
 /// The pool's overlays: the Filters rail over its left edge, the syntax
@@ -630,6 +870,7 @@ pub(crate) fn rail_head(commands: &mut Commands, env: &Env) -> Entity {
 /// The rail's sections: colour, card type, mana value, what to show, and
 /// Clear. The pool carries no rarity, set or keyword facts, so the rail
 /// offers none (principle 5; they are round 2, §15).
+#[allow(clippy::too_many_lines)] // filter sections: colour, type, mana value, playable/favourites, clear
 pub(crate) fn filters_body(commands: &mut Commands, env: &Env) -> Vec<Entity> {
     let kit = env.kit;
     let lang = env.lang();
@@ -694,6 +935,34 @@ pub(crate) fn filters_body(commands: &mut Commands, env: &Env) -> Vec<Entity> {
         })
         .collect();
     out.push(wrap(commands, &values));
+    out.push(caption(
+        commands,
+        kit,
+        match lang {
+            Lang::De => "Seltenheit",
+            Lang::En => "Rarity",
+        },
+    ));
+    let rarities: Vec<Entity> = [
+        baylee_client_core::deckbuilder::Rarity::Common,
+        baylee_client_core::deckbuilder::Rarity::Uncommon,
+        baylee_client_core::deckbuilder::Rarity::Rare,
+        baylee_client_core::deckbuilder::Rarity::Mythic,
+    ]
+    .into_iter()
+    .map(|rarity| {
+        controls::chip(
+            commands,
+            kit,
+            rarity_label(rarity, lang == Lang::De),
+            deck.rarity() == Some(rarity),
+            None,
+            false,
+            Press::Build(BuildPress::SetRarity(Some(rarity))),
+        )
+    })
+    .collect();
+    out.push(wrap(commands, &rarities));
     out.push(caption(commands, kit, Phrase::BuildRailShow.text(lang)));
     let playable = controls::chip(
         commands,
@@ -704,8 +973,29 @@ pub(crate) fn filters_body(commands: &mut Commands, env: &Env) -> Vec<Entity> {
         false,
         Press::Build(BuildPress::TogglePlayable),
     );
-    out.push(wrap(commands, &[playable]));
-    if deck.filtered() {
+    let fav_deck = controls::chip(
+        commands,
+        kit,
+        "\u{2605} Deck",
+        env.ui().fav_deck,
+        None,
+        false,
+        Press::Build(BuildPress::ToggleFilterFavDeck),
+    );
+    let fav_global = controls::chip(
+        commands,
+        kit,
+        match lang {
+            Lang::De => "\u{2605} Allgemein",
+            Lang::En => "\u{2605} General",
+        },
+        env.ui().fav_global,
+        None,
+        false,
+        Press::Build(BuildPress::ToggleFilterFavGlobal),
+    );
+    out.push(wrap(commands, &[playable, fav_deck, fav_global]));
+    if deck.filtered() || env.ui().fav_deck || env.ui().fav_global {
         let clear = link(
             commands,
             kit,

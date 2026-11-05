@@ -3,10 +3,15 @@
 //! on a stranger's word (`links`).
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use crate::ambience::{Feel, FeelBorder};
+use crate::hud::tf_bold;
+use crate::shellkit::{Role, px_fixed, sheen::Sheen, tokens};
 
 #[derive(Clone, Debug)]
 pub(crate) enum Destructive {
     Clear(Option<String>),
+    /// Delete the deck currently open in the deckbuilder.
+    DeleteBuildDeck(Option<String>),
     /// A saved gateway leaving this device's list, by address.
     ForgetGateway(String),
     /// A guest signing out, which is the end of it (#269). Carried out by
@@ -29,6 +34,7 @@ impl Destructive {
     pub(crate) fn kind(&self) -> &'static str {
         match self {
             Destructive::Clear(_) => "clear-deck",
+            Destructive::DeleteBuildDeck(_) => "delete-deck",
             Destructive::ForgetGateway(_) => "forget-gateway",
             Destructive::SignOutGuest => "sign-out-guest",
             Destructive::LeaveHosting(_) => "leave-hosting",
@@ -45,6 +51,27 @@ pub(super) fn accept(state: &mut LobbyState) -> Option<LobbyRequest> {
             }
             None
         }
+        Destructive::DeleteBuildDeck(id) => {
+            crate::buildui::draft::forget(&[id.as_deref(), None]);
+            let _ = state.lobby.builder_mut().take_session_baseline();
+            state.confirm_leave = false;
+            state.hub = Hub::Decks;
+            let refresh = state.lobby.close_builder();
+            if let Some(id) = id {
+                if let Some(index) = state.lobby.decks().iter().position(|d| d.id == id) {
+                    let _ = state.lobby.stage_delete(index);
+                    state.undo = Some(super::decks::Undo {
+                        kind: super::decks::UndoKind::Delete,
+                        left: super::decks::UNDO_SECS,
+                    });
+                    refresh
+                } else {
+                    Some(LobbyRequest::DeleteDeck { deck_id: id })
+                }
+            } else {
+                refresh
+            }
+        }
         Destructive::ForgetGateway(url) => {
             state.forget_gateway(&url);
             None
@@ -54,6 +81,7 @@ pub(super) fn accept(state: &mut LobbyState) -> Option<LobbyRequest> {
     }
 }
 
+#[allow(clippy::too_many_lines)]
 pub(super) fn draw(
     commands: &mut Commands,
     root: Entity,
@@ -69,11 +97,24 @@ pub(super) fn draw(
         draw_proposal(commands, root, state, fonts, metrics, url);
         return;
     }
-    let chosen;
+    let mut chosen = String::new();
+    let deck_title = {
+        let trimmed = state.lobby.builder().name().trim();
+        if trimmed.is_empty() {
+            Phrase::BuildUntitled.text(lang)
+        } else {
+            trimmed
+        }
+    };
     let (phrase, name, said) = match action {
         Destructive::Clear(_) => (
             Phrase::ClearDeckQuestion,
-            state.lobby.builder().name(),
+            deck_title,
+            Phrase::DestructiveHint,
+        ),
+        Destructive::DeleteBuildDeck(_) => (
+            Phrase::DeleteDeckQuestion,
+            deck_title,
             Phrase::DestructiveHint,
         ),
         Destructive::ForgetGateway(url) => {
@@ -108,30 +149,47 @@ pub(super) fn draw(
         commands,
         metrics,
         Press::Shared(SharedPress::CancelDestructive),
+        true,
     );
-    let title = heading(commands, fonts, metrics, &phrase.fill(lang, &[name]));
-    let hint = note(commands, fonts, metrics, said.text(lang));
-    let actions = row(commands, metrics, true);
-    let cancel = button(
+    let subtitle = match action {
+        Destructive::ForgetGateway(url) if chosen != *url => Some(url.as_str()),
+        _ => None,
+    };
+    let head = dialog_header(
+        commands,
+        fonts,
+        metrics,
+        &phrase.fill(lang, &[name]),
+        subtitle,
+        true,
+    );
+    let hint = dialog_body(commands, fonts, metrics, said.text(lang));
+    let actions = action_row(commands);
+    let cancel = split_button(
         commands,
         fonts,
         metrics,
         Phrase::ActCancel.text(lang),
         Press::Shared(SharedPress::CancelDestructive),
-        palette::PANEL_LIT,
+        SplitTone::Neutral,
         true,
     );
-    let yes = button(
+    let yes_phrase = match action {
+        Destructive::ForgetGateway(_) => Phrase::SeatRemove,
+        Destructive::DeleteBuildDeck(_) => Phrase::Delete,
+        _ => Phrase::ConfirmOk,
+    };
+    let yes = split_button(
         commands,
         fonts,
         metrics,
-        Phrase::ConfirmOk.text(lang),
+        yes_phrase.text(lang),
         Press::Shared(SharedPress::ConfirmDestructive),
-        palette::DANGER,
+        SplitTone::Danger,
         !state.lobby.busy(),
     );
     commands.entity(actions).add_children(&[cancel, yes]);
-    commands.entity(panel).add_children(&[title, hint, actions]);
+    commands.entity(panel).add_children(&[head, hint, actions]);
     commands.entity(shade).add_child(panel);
     commands.entity(root).add_child(shade);
 }
@@ -152,43 +210,46 @@ fn draw_proposal(
         commands,
         metrics,
         Press::Shared(SharedPress::CancelDestructive),
+        false,
     );
-    let title = heading(
+    let head = dialog_header(
         commands,
         fonts,
         metrics,
         &Phrase::LinkGatewayQuestion.fill(lang, &[url]),
+        None,
+        false,
     );
-    let hint = note(commands, fonts, metrics, Phrase::LinkGatewayHint.text(lang));
+    let hint = dialog_body(commands, fonts, metrics, Phrase::LinkGatewayHint.text(lang));
     let joins = if state.central_ready() {
         Phrase::LinkGatewayJoinsAccount
     } else {
         Phrase::LinkGatewayJoinsDevice
     };
     let list = note(commands, fonts, metrics, joins.text(lang));
-    let actions = row(commands, metrics, true);
-    let not_now = button(
+    let actions = action_row(commands);
+    let not_now = split_button(
         commands,
         fonts,
         metrics,
         Phrase::LinkNotNow.text(lang),
         Press::Shared(SharedPress::CancelDestructive),
-        palette::PANEL_LIT,
+        SplitTone::Neutral,
         true,
     );
-    let add = button(
+    let add = split_button(
         commands,
         fonts,
         metrics,
         Phrase::LinkGatewayAdd.text(lang),
         Press::Shared(SharedPress::ConfirmDestructive),
-        palette::ACCENT,
+        SplitTone::Accent,
         !state.lobby.busy() && state.adding.is_none(),
     );
     commands.entity(actions).add_children(&[not_now, add]);
     commands
         .entity(panel)
-        .add_children(&[title, hint, list, actions]);
+        .add_children(&[head, hint, list, actions]);
     commands.entity(shade).add_child(panel);
     commands.entity(root).add_child(shade);
 }
@@ -207,7 +268,12 @@ pub(super) fn draw_refusal(
         return;
     };
     let lang = state.lobby.lang();
-    let (shade, panel) = modal(commands, metrics, Press::Shared(SharedPress::CloseRefusal));
+    let (shade, panel) = modal(
+        commands,
+        metrics,
+        Press::Shared(SharedPress::CloseRefusal),
+        false,
+    );
     let name = baylee_client_core::deckcheck::format_name(&refusal.list, lang);
     let title = heading(
         commands,
@@ -236,9 +302,21 @@ pub(super) fn draw_refusal(
     commands.entity(root).add_child(shade);
 }
 
+#[derive(Clone, Copy)]
+enum SplitTone {
+    Neutral,
+    Danger,
+    Accent,
+}
+
 /// A confirmation's shade over the whole screen, which cancels when it is
 /// tapped, and the panel on it.
-fn modal(commands: &mut Commands, metrics: Metrics, cancel: Press) -> (Entity, Entity) {
+fn modal(
+    commands: &mut Commands,
+    metrics: Metrics,
+    cancel: Press,
+    destructive: bool,
+) -> (Entity, Entity) {
     let shade = commands
         .spawn((
             Node {
@@ -250,21 +328,273 @@ fn modal(commands: &mut Commands, metrics: Metrics, cancel: Press) -> (Entity, E
                 padding: UiRect::all(px(metrics.pad)),
                 ..default()
             },
-            BackgroundColor(Color::BLACK.with_alpha(0.8)),
+            BackgroundColor(Color::BLACK.with_alpha(0.78)),
             GlobalZIndex(800),
             cancel,
         ))
         .id();
-    let panel = super::surface(commands, metrics);
-    commands
-        .entity(panel)
-        .entry::<Node>()
-        .and_modify(|mut n| n.max_width = px(520));
-    commands.entity(panel).insert((
-        Press::Shared(SharedPress::PickerNothing),
-        BackgroundColor(palette::PANEL.with_alpha(0.98)),
-    ));
+    let border_col = if destructive {
+        Color::srgba(0.82, 0.30, 0.38, 0.42)
+    } else {
+        Color::srgba(0.36, 0.56, 0.88, 0.42)
+    };
+    let panel = commands
+        .spawn((
+            Node {
+                width: percent(100),
+                max_width: px(460),
+                flex_direction: FlexDirection::Column,
+                row_gap: px(14),
+                padding: UiRect::all(px(22)),
+                border: UiRect::all(px_fixed(1.0)),
+                border_radius: BorderRadius::all(px(16)),
+                ..default()
+            },
+            BackgroundColor(Color::srgba(0.06, 0.07, 0.11, 0.98)),
+            BorderColor::all(border_col),
+            BoxShadow::new(
+                Color::BLACK.with_alpha(0.68),
+                Val::ZERO,
+                px_fixed(16.0),
+                px_fixed(2.0),
+                px_fixed(36.0),
+            ),
+            Press::Shared(SharedPress::PickerNothing),
+        ))
+        .id();
     (shade, panel)
+}
+
+fn dialog_header(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    metrics: Metrics,
+    title_text: &str,
+    subtitle: Option<&str>,
+    destructive: bool,
+) -> Entity {
+    let (badge_bg, badge_border, badge_fg, glyph) = if destructive {
+        (
+            Color::srgba(0.86, 0.22, 0.30, 0.16),
+            Color::srgba(0.94, 0.34, 0.42, 0.38),
+            Color::srgb(0.96, 0.42, 0.48),
+            "\u{f2ed}",
+        )
+    } else {
+        (
+            Color::srgba(0.24, 0.52, 0.92, 0.18),
+            Color::srgba(0.38, 0.66, 0.98, 0.40),
+            Color::srgb(0.56, 0.80, 0.99),
+            "\u{f0c1}",
+        )
+    };
+    let head = commands
+        .spawn((
+            Node {
+                width: percent(100),
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                column_gap: px(12),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let badge = commands
+        .spawn((
+            Node {
+                width: px(38),
+                height: px(38),
+                flex_shrink: 0.0,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                border: UiRect::all(px_fixed(1.0)),
+                border_radius: BorderRadius::all(px(10)),
+                ..default()
+            },
+            BackgroundColor(badge_bg),
+            BorderColor::all(badge_border),
+            Pickable::IGNORE,
+        ))
+        .with_child((
+            Text::new(glyph),
+            crate::hud::icon_tf(fonts, (metrics.head - 1.0).max(14.0)),
+            TextColor(badge_fg),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let col = commands
+        .spawn((
+            Node {
+                flex_grow: 1.0,
+                flex_basis: px(0),
+                flex_direction: FlexDirection::Column,
+                row_gap: px(3),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let title = commands
+        .spawn((
+            Text::new(title_text),
+            tf_bold(fonts, metrics.head),
+            TextColor(palette::INK),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(col).add_child(title);
+    if let Some(sub) = subtitle {
+        let sub_node = commands
+            .spawn((
+                Text::new(sub),
+                tf(fonts, (metrics.small - 1.0).max(11.0)),
+                TextColor(palette::MUTED),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(col).add_child(sub_node);
+    }
+    commands.entity(head).add_children(&[badge, col]);
+    head
+}
+
+fn dialog_body(commands: &mut Commands, fonts: &UiFonts, metrics: Metrics, text: &str) -> Entity {
+    commands
+        .spawn((
+            Node {
+                width: percent(100),
+                padding: UiRect::axes(px(14), px(12)),
+                border: UiRect::all(px_fixed(1.0)),
+                border_radius: BorderRadius::all(px(10)),
+                ..default()
+            },
+            BackgroundColor(Color::srgba(0.09, 0.11, 0.16, 0.72)),
+            BorderColor::all(Color::srgba(0.32, 0.38, 0.54, 0.24)),
+            Pickable::IGNORE,
+        ))
+        .with_child((
+            Text::new(text),
+            tf(fonts, metrics.text),
+            TextColor(palette::MUTED),
+            Pickable::IGNORE,
+        ))
+        .id()
+}
+
+fn action_row(commands: &mut Commands) -> Entity {
+    commands
+        .spawn((
+            Node {
+                width: percent(100),
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                column_gap: px(10),
+                margin: UiRect::top(px(4)),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id()
+}
+
+fn split_button(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    metrics: Metrics,
+    label: &str,
+    press: Press,
+    tone: SplitTone,
+    enabled: bool,
+) -> Entity {
+    let (bg, hover_bg, border, hover_border, fg) = match tone {
+        SplitTone::Neutral => (
+            Color::srgba(0.13, 0.15, 0.22, 0.94),
+            Color::srgba(0.19, 0.22, 0.31, 0.98),
+            Color::srgba(0.42, 0.48, 0.68, 0.36),
+            Color::srgba(0.56, 0.64, 0.86, 0.62),
+            palette::INK,
+        ),
+        SplitTone::Danger => (
+            if enabled {
+                palette::DANGER
+            } else {
+                tokens::CONTROL
+            },
+            Color::srgba(0.92, 0.28, 0.36, 0.98),
+            if enabled {
+                Color::srgba(0.98, 0.46, 0.52, 0.58)
+            } else {
+                tokens::BORDER
+            },
+            Color::srgba(1.0, 0.58, 0.64, 0.85),
+            if enabled {
+                palette::INK
+            } else {
+                palette::MUTED
+            },
+        ),
+        SplitTone::Accent => (
+            if enabled {
+                palette::ACCENT
+            } else {
+                tokens::CONTROL
+            },
+            Color::srgba(0.32, 0.62, 0.96, 0.98),
+            if enabled {
+                Color::srgba(0.45, 0.72, 0.98, 0.58)
+            } else {
+                tokens::BORDER
+            },
+            Color::srgba(0.60, 0.82, 1.0, 0.85),
+            if enabled {
+                palette::INK
+            } else {
+                palette::MUTED
+            },
+        ),
+    };
+    let mut node = commands.spawn((
+        Node {
+            flex_grow: 1.0,
+            flex_basis: px(0),
+            width: percent(50),
+            height: px(40),
+            padding: UiRect::axes(px(14), px(8)),
+            column_gap: px(8),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            border: UiRect::all(px_fixed(1.0)),
+            border_radius: BorderRadius::all(px(10)),
+            overflow: Overflow::clip(),
+            ..default()
+        },
+        BackgroundColor(bg),
+        BorderColor::all(border),
+    ));
+    if enabled {
+        node.insert((
+            press,
+            Role::Button,
+            Feel::tinting_to(bg, hover_bg),
+            FeelBorder {
+                rest: border,
+                hot: hover_border,
+                press: hover_border,
+            },
+            Sheen,
+        ));
+    }
+    let id = node
+        .with_child((
+            Text::new(label),
+            tf_bold(fonts, metrics.text),
+            TextColor(fg),
+            Pickable::IGNORE,
+        ))
+        .id();
+    super::button_style::icon(commands, fonts, id, press, metrics.small);
+    id
 }
 
 /// The account's deletion (#292), over the settings screen: the question,
@@ -290,9 +620,10 @@ pub(super) fn draw_deletion(
         commands,
         metrics,
         Press::Settings(SettingsPress::CancelAccountDeletion),
+        true,
     );
     let question = Phrase::DeleteAccountQuestion.fill(lang, &[lobby.account_name()]);
-    let title = heading(commands, fonts, metrics, &question);
+    let title = dialog_header(commands, fonts, metrics, &question, None, true);
     let said = if lobby.guest() {
         Phrase::DeleteGuestHint
     } else if lobby.central_bound() {
@@ -300,7 +631,7 @@ pub(super) fn draw_deletion(
     } else {
         Phrase::DeleteAccountHint
     };
-    let hint = note(commands, fonts, metrics, said.text(lang));
+    let hint = dialog_body(commands, fonts, metrics, said.text(lang));
     commands.entity(panel).add_children(&[title, hint]);
     if lobby.deletion_needs_password() {
         let field = Field::AccountPassword;
@@ -335,23 +666,23 @@ pub(super) fn draw_deletion(
             .id();
         commands.entity(panel).add_child(refusal);
     }
-    let actions = row(commands, metrics, true);
-    let cancel = button(
+    let actions = action_row(commands);
+    let cancel = split_button(
         commands,
         fonts,
         metrics,
         Phrase::ActCancel.text(lang),
         Press::Settings(SettingsPress::CancelAccountDeletion),
-        palette::PANEL_LIT,
+        SplitTone::Neutral,
         true,
     );
-    let yes = button(
+    let yes = split_button(
         commands,
         fonts,
         metrics,
         Phrase::DeleteAccountConfirm.text(lang),
         Press::Settings(SettingsPress::ConfirmAccountDeletion),
-        palette::DANGER,
+        SplitTone::Danger,
         !lobby.busy(),
     );
     commands.entity(actions).add_children(&[cancel, yes]);

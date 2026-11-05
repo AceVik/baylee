@@ -1100,6 +1100,7 @@ impl Plugin for CardMaterialPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "shaders/card.wesl");
         embedded_asset!(app, "shaders/card_ui.wesl");
+        embedded_asset!(app, "shaders/deck_frame.wesl");
         // The file both of them import, and the keyword strip's two shaders
         // (`marksmat`) besides. It is not a shader in its own right: nothing
         // sets it on a pipeline. Since bevy 0.20 an import names a module
@@ -1110,6 +1111,9 @@ impl Plugin for CardMaterialPlugin {
         bevy::shader::load_shader_library!(app, "shaders/card_common.wesl");
         app.add_plugins(MaterialPlugin::<CardMaterial>::default())
             .add_plugins(UiMaterialPlugin::<CardUiMaterial>::default())
+            .add_plugins(UiMaterialPlugin::<
+                crate::lobby::deck_frame::DeckFrameUiMaterial,
+            >::default())
             .init_resource::<UiCardMaterials>()
             .add_systems(
                 Update,

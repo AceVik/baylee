@@ -55,6 +55,87 @@ pub(crate) enum Online {
     Read,
 }
 
+/// Sort order for the Replays list.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub(crate) enum ReplaysSort {
+    /// Newest matches first (grouped by day).
+    #[default]
+    Newest,
+    /// Longest duration first.
+    Longest,
+    /// Highest turn count first.
+    MostTurns,
+}
+
+impl ReplaysSort {
+    const fn next(self) -> Self {
+        match self {
+            Self::Newest => Self::Longest,
+            Self::Longest => Self::MostTurns,
+            Self::MostTurns => Self::Newest,
+        }
+    }
+
+    const fn label(self, lang: Lang) -> &'static str {
+        match (self, lang) {
+            (Self::Newest, Lang::De) => "Neueste",
+            (Self::Newest, Lang::En) => "Newest",
+            (Self::Longest, Lang::De) => "Längste Dauer",
+            (Self::Longest, Lang::En) => "Longest duration",
+            (Self::MostTurns, Lang::De) => "Meiste Züge",
+            (Self::MostTurns, Lang::En) => "Most turns",
+        }
+    }
+}
+
+/// Display density for the Replays list.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub(crate) enum ReplaysView {
+    /// Detailed match cards with player/commander pills & mana discs.
+    #[default]
+    Detailed,
+    /// Compact single-line rows for scanning large match histories.
+    Compact,
+}
+
+/// Filter by table size (1v1 Duel vs 3+ Multiplayer).
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub(crate) enum ReplayPlayersFilter {
+    #[default]
+    All,
+    Duel,
+    Multiplayer,
+}
+
+impl ReplayPlayersFilter {
+    const fn next(self) -> Self {
+        match self {
+            Self::All => Self::Duel,
+            Self::Duel => Self::Multiplayer,
+            Self::Multiplayer => Self::All,
+        }
+    }
+
+    const fn label(self, lang: Lang) -> &'static str {
+        match (self, lang) {
+            (Self::All, Lang::De) => "Alle Tische",
+            (Self::All, Lang::En) => "All tables",
+            (Self::Duel, Lang::De) => "1v1 Duell",
+            (Self::Duel, Lang::En) => "1v1 Duel",
+            (Self::Multiplayer, Lang::De) => "Mehrspieler (3+)",
+            (Self::Multiplayer, Lang::En) => "Multiplayer (3+)",
+        }
+    }
+
+    fn matches(self, players_len: usize) -> bool {
+        match self {
+            Self::All => true,
+            Self::Duel => players_len <= 2,
+            Self::Multiplayer => players_len >= 3,
+        }
+    }
+}
+
 /// The Replays tab's state, and what a replay being opened needs.
 #[derive(Default)]
 pub(crate) struct ReplaysUi {
@@ -62,6 +143,12 @@ pub(crate) struct ReplaysUi {
     pub(crate) library: Library,
     /// Which source and result are shown (the query is the search field's).
     pub(crate) filters: Filters,
+    /// Active sort order.
+    pub(crate) sort: ReplaysSort,
+    /// Active display mode (Detailed cards vs Compact rows).
+    pub(crate) view: ReplaysView,
+    /// Active table-size filter.
+    pub(crate) players_filter: ReplayPlayersFilter,
     /// Whether this visit has read the kept records.
     pub(crate) local_read: bool,
     /// How far the online list is read.
@@ -98,6 +185,16 @@ pub(crate) enum ReplaysPress {
     Source(SourceFilter),
     /// Show this result (`None`: any).
     Result(Option<Outcome>),
+    /// Cycle the sort order (`Newest` -> `Longest` -> `MostTurns`).
+    CycleSort,
+    /// Switch between `Detailed` and `Compact` view modes.
+    SetView(ReplaysView),
+    /// Cycle the player-count filter (`All` -> `Duel` -> `Multiplayer`).
+    CyclePlayers,
+    /// Clear the replay search input.
+    ClearSearch,
+    /// Jump to `Hub::Play` to start a game.
+    GoPlay,
     /// Watch entry `i` from its default perspective.
     Watch(usize),
     /// Watch entry `i` from this perspective.
@@ -131,6 +228,23 @@ impl ReplaysPress {
             }
             Self::Result(result) => {
                 state.replays.filters.result = result.map_or(ResultFilter::Any, ResultFilter::Only);
+            }
+            Self::CycleSort => {
+                state.replays.sort = state.replays.sort.next();
+                cx.scrolled.set(List::Replays, 0.0);
+            }
+            Self::SetView(view) => {
+                state.replays.view = view;
+            }
+            Self::CyclePlayers => {
+                state.replays.players_filter = state.replays.players_filter.next();
+                cx.scrolled.set(List::Replays, 0.0);
+            }
+            Self::ClearSearch => {
+                state.lobby.set_field(Field::ReplaySearch, "");
+            }
+            Self::GoPlay => {
+                state.hub = Hub::Play;
             }
             Self::Watch(i) => watch(state, i, None),
             Self::WatchFrom(i, perspective) => watch(state, i, Some(perspective)),
@@ -492,6 +606,474 @@ pub(super) fn card_name(index: u32) -> Option<String> {
 
 // ------------------------------------------------------------ drawing
 
+/// Spawns one KPI statistic card in the Replays overview banner.
+fn spawn_replay_kpi_card(
+    commands: &mut Commands,
+    kit: Kit,
+    icon: char,
+    label: &str,
+    value: &str,
+    sub: &str,
+    accent: Color,
+) -> Entity {
+    let card = commands
+        .spawn((
+            Node {
+                flex_grow: 1.0,
+                flex_basis: kit.m.px(195.0),
+                min_width: kit.m.px(175.0),
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                column_gap: kit.m.px(12.0),
+                padding: UiRect::axes(kit.m.px(14.0), kit.m.px(10.0)),
+                border: UiRect::all(px_fixed(1.0)),
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL)),
+                ..default()
+            },
+            BackgroundColor(tokens::CONTROL.with_alpha(0.45)),
+            BorderColor::all(tokens::BORDER.with_alpha(0.75)),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let badge = commands
+        .spawn((
+            Node {
+                width: kit.m.px(38.0),
+                height: kit.m.px(38.0),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PILL)),
+                border: UiRect::all(px_fixed(1.0)),
+                flex_shrink: 0.0,
+                ..default()
+            },
+            BackgroundColor(accent.with_alpha(0.14)),
+            BorderColor::all(accent.with_alpha(0.38)),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let glyph = commands
+        .spawn((
+            Text::new(icon.to_string()),
+            crate::hud::icon_tf(kit.fonts, kit.m.text * 1.05),
+            TextColor(accent),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(badge).add_child(glyph);
+
+    let col = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Column,
+                flex_grow: 1.0,
+                flex_shrink: 1.0,
+                min_width: px(0),
+                row_gap: kit.m.px(2.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let lbl = commands
+        .spawn((
+            Text::new(label),
+            crate::hud::tf(kit.fonts, kit.m.small * 0.90),
+            TextColor(tokens::MUTED),
+            TextLayout::no_wrap(),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let val = commands
+        .spawn((
+            Text::new(value),
+            crate::hud::tf_bold(kit.fonts, kit.m.text * 1.08),
+            TextColor(tokens::INK),
+            TextLayout::no_wrap(),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let sub_node = commands
+        .spawn((
+            Text::new(sub),
+            crate::hud::tf(kit.fonts, kit.m.small * 0.88),
+            TextColor(accent.with_alpha(0.92)),
+            TextLayout::no_wrap(),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(col).add_children(&[lbl, val, sub_node]);
+    commands.entity(card).add_children(&[badge, col]);
+    card
+}
+
+/// Computes and spawns the 4-card Replay Analytics & Statistics row.
+#[allow(clippy::too_many_lines)]
+fn spawn_replays_stats_bar(
+    commands: &mut Commands,
+    kit: Kit,
+    entries: &[Entry],
+    lang: Lang,
+) -> Entity {
+    use baylee_client_core::replay::library::EntryCheck;
+    let de = lang == Lang::De;
+    let total = entries.len();
+    let local_count = entries.iter().filter(|e| e.is_local()).count();
+    let online_count = total.saturating_sub(local_count);
+
+    let wins = entries.iter().filter(|e| e.result == Outcome::Won).count();
+    let losses = entries.iter().filter(|e| e.result == Outcome::Lost).count();
+    let draws = entries.iter().filter(|e| e.result == Outcome::Draw).count();
+    let decided = wins + losses + draws;
+    let win_rate = (wins * 100).checked_div(decided).unwrap_or(0);
+
+    // Compute current and best win streak (entries are newest-first)
+    let mut cur_streak = 0usize;
+    for e in entries {
+        if e.result == Outcome::Won {
+            cur_streak += 1;
+        } else if matches!(e.result, Outcome::Lost | Outcome::Draw) {
+            break;
+        }
+    }
+    let mut best_streak = 0usize;
+    let mut run = 0usize;
+    for e in entries.iter().rev() {
+        if e.result == Outcome::Won {
+            run += 1;
+            best_streak = best_streak.max(run);
+        } else if matches!(e.result, Outcome::Lost | Outcome::Draw) {
+            run = 0;
+        }
+    }
+
+    let mut sum_mins = 0u64;
+    let mut count_mins = 0u64;
+    let mut max_mins = 0u64;
+    let mut sum_turns = 0u64;
+    let mut count_turns = 0u64;
+    let mut max_turns = 0u32;
+    for e in entries {
+        if let Some(m) = e.minutes() {
+            sum_mins += m;
+            count_mins += 1;
+            max_mins = max_mins.max(m);
+        }
+        if let Some(t) = e.turns {
+            sum_turns += u64::from(t);
+            count_turns += 1;
+            max_turns = max_turns.max(t);
+        }
+    }
+    let avg_mins = sum_mins.checked_div(count_mins).unwrap_or(0);
+    let avg_turns = sum_turns.checked_div(count_turns).unwrap_or(0);
+
+    let verified_count = entries
+        .iter()
+        .filter(|e| matches!(e.check, EntryCheck::Exact | EntryCheck::Checked))
+        .count();
+    let all_hands_count = entries
+        .iter()
+        .filter(|e| {
+            let seat = baylee_core::ids::PlayerId::new(e.seat);
+            e.can.offers(Perspective::AllHands(seat))
+        })
+        .count();
+
+    let row = commands
+        .spawn((
+            Node {
+                width: percent(100),
+                flex_direction: FlexDirection::Row,
+                flex_wrap: FlexWrap::Wrap,
+                column_gap: kit.m.px(10.0),
+                row_gap: kit.m.px(8.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+
+    let c1 = spawn_replay_kpi_card(
+        commands,
+        kit,
+        '\u{f1da}',
+        if de {
+            "Aufgezeichnete Partien"
+        } else {
+            "Recorded Matches"
+        },
+        &format!("{total}"),
+        &if de {
+            format!("{local_count} lokal · {online_count} online")
+        } else {
+            format!("{local_count} local · {online_count} online")
+        },
+        tokens::ACCENT,
+    );
+    let c2 = spawn_replay_kpi_card(
+        commands,
+        kit,
+        '\u{f091}',
+        if de {
+            "Siegbilanz & Quote"
+        } else {
+            "Win Record & Rate"
+        },
+        &if de {
+            format!("{wins} S – {losses} N ({win_rate}%)")
+        } else {
+            format!("{wins}W – {losses}L ({win_rate}%)")
+        },
+        &if de {
+            format!("Beste Serie: {best_streak} · Aktuell: {cur_streak}")
+        } else {
+            format!("Best streak: {best_streak} · Current: {cur_streak}")
+        },
+        tokens::GOLD,
+    );
+    let c3 = spawn_replay_kpi_card(
+        commands,
+        kit,
+        '\u{f252}',
+        if de {
+            "Ø Spieldauer & Tempo"
+        } else {
+            "Avg Duration & Tempo"
+        },
+        &if de {
+            format!("Ø {avg_mins} Min. · Ø {avg_turns} Züge")
+        } else {
+            format!("Avg {avg_mins}m · Avg {avg_turns} turns")
+        },
+        &if de {
+            format!("Rekord: {max_turns} Züge ({max_mins} Min.)")
+        } else {
+            format!("Record: {max_turns} turns ({max_mins}m)")
+        },
+        Color::srgb(0.46, 0.78, 0.96),
+    );
+    let c4 = spawn_replay_kpi_card(
+        commands,
+        kit,
+        '\u{f3ed}',
+        if de {
+            "Engine-Verifikation"
+        } else {
+            "Engine Verification"
+        },
+        &if de {
+            format!("{verified_count}/{total} Geprüft")
+        } else {
+            format!("{verified_count}/{total} Verified")
+        },
+        &if de {
+            format!("{all_hands_count}× Alle Hände offen")
+        } else {
+            format!("{all_hands_count}× All hands open")
+        },
+        Color::srgb(0.36, 0.84, 0.56),
+    );
+    commands.entity(row).add_children(&[c1, c2, c3, c4]);
+    row
+}
+
+/// Interactive pill button with a leading Font Awesome icon for the Replays toolbar.
+fn replay_filter_pill(
+    commands: &mut Commands,
+    kit: Kit,
+    icon: char,
+    label: &str,
+    active: bool,
+    press: Press,
+) -> Entity {
+    let bg = if active {
+        tokens::ACCENT.with_alpha(0.20)
+    } else {
+        tokens::CONTROL.with_alpha(0.55)
+    };
+    let border = if active {
+        tokens::ACCENT
+    } else {
+        tokens::BORDER
+    };
+    let ink = if active { tokens::INK } else { tokens::MUTED };
+    let pill = commands
+        .spawn((
+            crate::shellkit::role::Role::Button,
+            Node {
+                min_height: kit.m.px(32.0),
+                padding: UiRect::axes(kit.m.px(11.0), kit.m.px(4.0)),
+                column_gap: kit.m.px(6.0),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                border: UiRect::all(px_fixed(1.0)),
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PILL)),
+                flex_shrink: 0.0,
+                ..default()
+            },
+            BackgroundColor(bg),
+            BorderColor::all(border),
+            UiTransform::default(),
+            crate::ambience::Feel::rising_to(bg, tokens::HOVER),
+            press,
+        ))
+        .id();
+    let glyph = commands
+        .spawn((
+            Text::new(icon.to_string()),
+            crate::hud::icon_tf(kit.fonts, kit.m.small * 0.94),
+            TextColor(if active { tokens::ACCENT } else { ink }),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let txt = commands
+        .spawn((
+            Text::new(label),
+            crate::hud::tf_bold(kit.fonts, kit.m.small * 0.94),
+            TextColor(ink),
+            TextLayout::no_wrap(),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(pill).add_children(&[glyph, txt]);
+    pill
+}
+
+/// Rich empty state when no replays exist yet or no replay matches the active filters.
+#[allow(clippy::too_many_lines)] // icon disc + headline + prose + 3 feature badges + primary CTA button
+fn spawn_replays_empty_state(
+    commands: &mut Commands,
+    kit: Kit,
+    lang: Lang,
+    no_records_at_all: bool,
+) -> Entity {
+    let de = lang == Lang::De;
+    let card = commands
+        .spawn((
+            Node {
+                width: percent(100),
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                row_gap: kit.m.px(12.0),
+                padding: UiRect::axes(kit.m.px(24.0), kit.m.px(32.0)),
+                margin: UiRect::top(kit.m.px(6.0)),
+                border: UiRect::all(px_fixed(1.0)),
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PANEL)),
+                ..default()
+            },
+            BackgroundColor(tokens::CONTROL.with_alpha(0.32)),
+            BorderColor::all(tokens::BORDER.with_alpha(0.65)),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let disc = commands
+        .spawn((
+            Node {
+                width: kit.m.px(56.0),
+                height: kit.m.px(56.0),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PILL)),
+                border: UiRect::all(px_fixed(1.5)),
+                ..default()
+            },
+            BackgroundColor(tokens::ACCENT.with_alpha(0.14)),
+            BorderColor::all(tokens::ACCENT.with_alpha(0.45)),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let icon = commands
+        .spawn((
+            Text::new('\u{f1da}'.to_string()),
+            crate::hud::icon_tf(kit.fonts, kit.m.head * 1.15),
+            TextColor(tokens::ACCENT),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(disc).add_child(icon);
+    commands.entity(card).add_child(disc);
+
+    let headline = commands
+        .spawn((
+            Text::new(if no_records_at_all {
+                if de {
+                    "Noch keine Spielaufzeichnungen vorhanden"
+                } else {
+                    "No recorded matches yet"
+                }
+            } else {
+                ReplayPhrase::NoMatch.text(lang)
+            }),
+            crate::hud::tf_bold(kit.fonts, kit.m.text * 1.15),
+            TextColor(tokens::INK),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(card).add_child(headline);
+
+    if no_records_at_all {
+        let sub =
+            crate::shellkit::surfaces::prose(commands, kit, ReplayPhrase::Empty.text(lang), true);
+        commands.entity(card).add_child(sub);
+
+        let perks = parts::row(commands, kit, true);
+        let p1 = parts::badge_with(
+            commands,
+            kit,
+            '\u{f04b}',
+            if de {
+                "Zug-für-Zug Zeitachse"
+            } else {
+                "Turn-by-turn timeline"
+            },
+            tokens::ACCENT,
+        );
+        let p2 = parts::badge_with(
+            commands,
+            kit,
+            '\u{f06e}',
+            if de {
+                "Alle Perspektiven & Hände"
+            } else {
+                "All perspectives & hands"
+            },
+            tokens::GOLD,
+        );
+        let p3 = parts::badge_with(
+            commands,
+            kit,
+            '\u{f3ed}',
+            if de {
+                "Deterministische Engine-Prüfung"
+            } else {
+                "Deterministic engine check"
+            },
+            Color::srgb(0.36, 0.84, 0.56),
+        );
+        commands.entity(perks).add_children(&[p1, p2, p3]);
+        commands.entity(card).add_child(perks);
+
+        let cta = controls::button_with_icon(
+            commands,
+            kit,
+            '\u{f04b}',
+            if de {
+                "Jetzt eine Partie starten"
+            } else {
+                "Play a match now"
+            },
+            Weight::Primary,
+            Live::Yes,
+            None,
+            Press::Replays(ReplaysPress::GoPlay),
+        );
+        commands.entity(card).add_child(cta);
+    }
+    card
+}
+
 /// The Replays screen under the header.
 #[allow(clippy::too_many_lines)] // one screen, read top to bottom
 pub(super) fn draw(
@@ -504,6 +1086,7 @@ pub(super) fn draw(
 ) {
     let lobby = &state.lobby;
     let lang = lobby.lang();
+    let de = lang == Lang::De;
     let ui = &state.replays;
     let body = commands
         .spawn((
@@ -530,7 +1113,7 @@ pub(super) fn draw(
                 min_height: px(0),
                 flex_direction: FlexDirection::Column,
                 padding: UiRect::all(px_fixed(kit.m.pad)),
-                row_gap: px_fixed(kit.m.gap),
+                row_gap: px_fixed(kit.m.gap * 0.85),
                 border: UiRect::all(px_fixed(1.0)),
                 border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PANEL)),
                 ..default()
@@ -541,26 +1124,65 @@ pub(super) fn draw(
         .id();
     commands.entity(body).add_child(panel);
 
-    // ---- the heading and the search
+    let mut filters = ui.filters.clone();
+    filters.query = lobby.field(Field::ReplaySearch).to_string();
+    let names = |index: u32| card_name(index);
+    let mut shown: Vec<(usize, &Entry)> = ui
+        .library
+        .entries()
+        .iter()
+        .enumerate()
+        .filter(|(_, e)| filters.pass(e, &names) && ui.players_filter.matches(e.players.len()))
+        .collect();
+    match ui.sort {
+        ReplaysSort::Newest => {}
+        ReplaysSort::Longest => {
+            shown.sort_by_key(|(_, e)| std::cmp::Reverse(e.minutes().unwrap_or(0)));
+        }
+        ReplaysSort::MostTurns => {
+            shown.sort_by_key(|(_, e)| std::cmp::Reverse(e.turns.unwrap_or(0)));
+        }
+    }
+
+    // ---- 1. Heading, live count badge, and search box
     let head = parts::row(commands, kit, true);
     commands
         .entity(head)
         .entry::<Node>()
         .and_modify(|mut n| n.width = percent(100));
+    let head_icon = commands
+        .spawn((
+            Text::new('\u{f1da}'.to_string()),
+            crate::hud::icon_tf(kit.fonts, kit.m.head * 0.92),
+            TextColor(tokens::ACCENT),
+            Pickable::IGNORE,
+        ))
+        .id();
     let title = crate::shellkit::surfaces::heading(commands, kit, ReplayPhrase::Replays.text(lang));
+    let count_badge = parts::badge(
+        commands,
+        kit,
+        &if de {
+            format!("{} / {} Partien", shown.len(), ui.library.entries().len())
+        } else {
+            format!("{} / {} matches", shown.len(), ui.library.entries().len())
+        },
+        tokens::ACCENT,
+    );
     let gap = parts::grow(commands);
     let hunt = commands
         .spawn((
             Node {
-                width: kit.m.px(300.0),
+                width: kit.m.px(320.0),
                 flex_shrink: 1.0,
-                min_width: px(120),
+                min_width: px(140),
                 ..default()
             },
             Pickable::IGNORE,
         ))
         .id();
     let typing = lobby.focus() == Field::ReplaySearch && lobby.typing_here();
+    let typed = !lobby.field(Field::ReplaySearch).is_empty();
     let field = text_field(
         commands,
         kit.fonts,
@@ -573,15 +1195,28 @@ pub(super) fn draw(
             press: Press::Shared(SharedPress::Focus(Field::ReplaySearch)),
             lead: Some(crate::hud::glyph::MAGNIFIER),
             hint: Some(ReplayPhrase::SearchHint.text(lang)),
-            tail: None,
+            tail: typed.then_some(FieldTail {
+                glyph: crate::hud::glyph::CLOSE,
+                press: Press::Replays(ReplaysPress::ClearSearch),
+                lit: false,
+            }),
         },
     );
     commands.entity(hunt).add_child(field);
-    commands.entity(head).add_children(&[title, gap, hunt]);
+    commands
+        .entity(head)
+        .add_children(&[head_icon, title, count_badge, gap, hunt]);
     commands.entity(panel).add_child(head);
 
-    // ---- the filters
+    // ---- 2. Analytics & KPI Dashboard Strip
+    let stats_bar = spawn_replays_stats_bar(commands, kit, ui.library.entries(), lang);
+    commands.entity(panel).add_child(stats_bar);
+
+    // ---- 3. Filter, Sort & View Toolbar
     let bar = parts::row(commands, kit, true);
+    commands.entity(bar).entry::<Node>().and_modify(|mut n| {
+        n.width = percent(100);
+    });
     let sources = [
         (SourceFilter::All, ReplayPhrase::FilterAll),
         (SourceFilter::House, ReplayPhrase::FilterHouse),
@@ -598,32 +1233,84 @@ pub(super) fn draw(
     });
     commands.entity(bar).add_child(segments);
     let results = [
-        None,
-        Some(Outcome::Won),
-        Some(Outcome::Lost),
-        Some(Outcome::Draw),
-        Some(Outcome::Unfinished),
+        (None, '\u{f00a}'),
+        (Some(Outcome::Won), '\u{f091}'),
+        (Some(Outcome::Lost), '\u{f714}'),
+        (Some(Outcome::Draw), '\u{f2b5}'),
+        (Some(Outcome::Unfinished), '\u{f252}'),
     ];
-    for result in results {
+    for (result, icon) in results {
         let on = match ui.filters.result {
             ResultFilter::Any => result.is_none(),
             ResultFilter::Only(o) => result == Some(o),
         };
         let words = result.map_or(ReplayPhrase::AnyResult, ReplayPhrase::outcome);
-        let chip = controls::chip(
+        let pill = replay_filter_pill(
             commands,
             kit,
+            icon,
             words.text(lang),
             on,
-            None,
-            false,
             Press::Replays(ReplaysPress::Result(result)),
         );
-        commands.entity(bar).add_child(chip);
+        commands.entity(bar).add_child(pill);
     }
+
+    let bar_gap = parts::grow(commands);
+    commands.entity(bar).add_child(bar_gap);
+
+    let players_pill = replay_filter_pill(
+        commands,
+        kit,
+        match ui.players_filter {
+            ReplayPlayersFilter::All => '\u{f0c0}',
+            ReplayPlayersFilter::Duel => '\u{f6de}',
+            ReplayPlayersFilter::Multiplayer => '\u{f500}',
+        },
+        ui.players_filter.label(lang),
+        ui.players_filter != ReplayPlayersFilter::All,
+        Press::Replays(ReplaysPress::CyclePlayers),
+    );
+    let sort_pill = replay_filter_pill(
+        commands,
+        kit,
+        '\u{f0dc}',
+        ui.sort.label(lang),
+        ui.sort != ReplaysSort::Newest,
+        Press::Replays(ReplaysPress::CycleSort),
+    );
+    let view_modes = [ReplaysView::Detailed, ReplaysView::Compact];
+    let active_v = view_modes.iter().position(|&v| v == ui.view).unwrap_or(0);
+    let view_seg = controls::segmented_icons(
+        commands,
+        kit,
+        &[
+            (
+                '\u{f009}',
+                if de {
+                    "Detail-Ansicht"
+                } else {
+                    "Detailed view"
+                },
+            ),
+            (
+                '\u{f03a}',
+                if de {
+                    "Kompakt-Ansicht"
+                } else {
+                    "Compact view"
+                },
+            ),
+        ],
+        active_v,
+        |i| Press::Replays(ReplaysPress::SetView(view_modes[i])),
+    );
+    commands
+        .entity(bar)
+        .add_children(&[players_pill, sort_pill, view_seg]);
     commands.entity(panel).add_child(bar);
 
-    // ---- the list
+    // ---- 4. Scrollable Replay List
     let scroll = commands
         .spawn((
             Node {
@@ -631,7 +1318,7 @@ pub(super) fn draw(
                 flex_grow: 1.0,
                 min_height: px(0),
                 flex_direction: FlexDirection::Column,
-                row_gap: px_fixed(kit.m.gap * 0.5),
+                row_gap: px_fixed(kit.m.gap * 0.55),
                 overflow: Overflow::scroll_y(),
                 ..default()
             },
@@ -640,48 +1327,46 @@ pub(super) fn draw(
         ))
         .id();
     commands.entity(panel).add_child(scroll);
-    let mut filters = ui.filters.clone();
-    filters.query = lobby.field(Field::ReplaySearch).to_string();
-    let names = |index: u32| card_name(index);
-    let shown: Vec<(usize, &Entry)> = ui
-        .library
-        .entries()
-        .iter()
-        .enumerate()
-        .filter(|(_, e)| filters.pass(e, &names))
-        .collect();
+
     if ui.library.entries().is_empty() {
-        let empty =
-            crate::shellkit::surfaces::prose(commands, kit, ReplayPhrase::Empty.text(lang), true);
+        let empty = spawn_replays_empty_state(commands, kit, lang, true);
         commands.entity(scroll).add_child(empty);
     } else if shown.is_empty() {
-        let none = parts::line(
-            commands,
-            kit,
-            ReplayPhrase::NoMatch.text(lang),
-            kit.m.text,
-            tokens::MUTED,
-        );
+        let none = spawn_replays_empty_state(commands, kit, lang, false);
         commands.entity(scroll).add_child(none);
     }
+
     let offset = local_offset();
     let today = baylee_client_core::replay::library::day_of(parts::now_secs() * 1000, offset);
     let mut last_day = None;
     for (i, entry) in shown {
-        let day = baylee_client_core::replay::library::day_of(entry.started, offset);
-        if last_day != Some(day) {
-            last_day = Some(day);
-            let heading = day_heading(day, today, entry.started, offset, lang);
-            let line = parts::line(commands, kit, &heading, kit.m.small, tokens::MUTED);
-            commands.entity(scroll).add_child(line);
+        if ui.sort == ReplaysSort::Newest {
+            let day = baylee_client_core::replay::library::day_of(entry.started, offset);
+            if last_day != Some(day) {
+                last_day = Some(day);
+                let heading = day_heading(day, today, entry.started, offset, lang);
+                let day_row = parts::row(commands, kit, false);
+                let cal_icon = commands
+                    .spawn((
+                        Text::new('\u{f133}'.to_string()),
+                        crate::hud::icon_tf(kit.fonts, kit.m.small * 0.92),
+                        TextColor(tokens::ACCENT),
+                        Pickable::IGNORE,
+                    ))
+                    .id();
+                let line = parts::line(commands, kit, &heading, kit.m.small, tokens::MUTED);
+                commands.entity(day_row).add_children(&[cal_icon, line]);
+                commands.entity(scroll).add_child(day_row);
+            }
         }
         let row = entry_row(commands, root, kit, state, i, entry, offset, lang);
         commands.entity(scroll).add_child(row);
     }
     if ui.library.more_online() && ui.filters.source != SourceFilter::House {
-        let older = controls::button(
+        let older = controls::button_with_icon(
             commands,
             kit,
+            '\u{f017}',
             ReplayPhrase::OlderOnline.text(lang),
             Weight::Secondary,
             if matches!(ui.online, Online::Asking(_)) {
@@ -788,8 +1473,178 @@ pub(super) fn players_line(entry: &Entry, lang: Lang) -> String {
         .join(" \u{b7} ")
 }
 
-/// One row: when, where, who, how it went, how long; Watch and `⋯`.
-#[allow(clippy::too_many_arguments)]
+/// Returns `(icon, accent_color)` for a replay `Outcome`.
+fn outcome_style(outcome: Outcome) -> (char, Color) {
+    match outcome {
+        Outcome::Won => ('\u{f091}', Color::srgb(0.32, 0.84, 0.52)),
+        Outcome::Lost => ('\u{f714}', tokens::DANGER),
+        Outcome::Draw => ('\u{f2b5}', tokens::GOLD),
+        Outcome::Unfinished | Outcome::Unknown => ('\u{f252}', tokens::MUTED),
+    }
+}
+
+/// Spawns a compact 28×28 vertical `⋮` menu button for a replay card.
+fn spawn_replay_more(commands: &mut Commands, kit: Kit, lang: Lang, press: Press) -> Entity {
+    let tip = match lang {
+        Lang::De => "Weitere Aktionen",
+        Lang::En => "More actions",
+    };
+    let btn = commands
+        .spawn((
+            crate::shellkit::role::Role::Button,
+            Node {
+                width: kit.m.px(28.0),
+                height: kit.m.px(28.0),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PILL)),
+                flex_shrink: 0.0,
+                ..default()
+            },
+            BackgroundColor(Color::NONE),
+            UiTransform::default(),
+            crate::ambience::Feel::rising_to(Color::NONE, tokens::HOVER),
+            super::hint::HoverHint(tip.to_string()),
+            press,
+        ))
+        .id();
+    let icon = commands
+        .spawn((
+            Text::new(parts::ELLIPSIS.to_string()),
+            crate::hud::icon_tf(kit.fonts, kit.m.text * 0.92),
+            TextColor(tokens::MUTED.with_alpha(0.85)),
+            UiTransform {
+                rotation: Rot2::radians(std::f32::consts::FRAC_PI_2),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(btn).add_child(icon);
+    btn
+}
+
+/// Spawns a seat/player pill showing the seat icon, player name, commander name,
+/// and mana colour identity discs.
+#[allow(clippy::too_many_lines)] // seat icon + name + commander badge + mana discs + shared eye
+fn spawn_seat_pill(
+    commands: &mut Commands,
+    kit: Kit,
+    player: &baylee_client_core::replay::library::Player,
+    entry: &Entry,
+    lang: Lang,
+) -> Entity {
+    let name = if player.you {
+        ReplayPhrase::You.text(lang).to_string()
+    } else if let Some(level) = &player.house {
+        if level.is_empty() {
+            ReplayPhrase::House.text(lang).to_string()
+        } else {
+            ReplayPhrase::HouseLevel.fill(lang, &[level])
+        }
+    } else if player.model {
+        ReplayPhrase::LanguageModel.text(lang).to_string()
+    } else if player.former {
+        ReplayPhrase::FormerPlayer.text(lang).to_string()
+    } else {
+        player.name.clone()
+    };
+    let seat_icon = if player.you {
+        '\u{f007}'
+    } else if player.house.is_some() || player.model {
+        '\u{f544}'
+    } else {
+        '\u{f007}'
+    };
+    let deck_mark = entry.decks.iter().find(|d| d.seat == player.seat);
+    let commander_name = deck_mark.and_then(|d| d.commander).and_then(card_name);
+    let colours = deck_mark
+        .and_then(|d| d.colours.as_deref())
+        .filter(|c| !c.is_empty() && (player.you || entry.is_local()));
+
+    let pill = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                column_gap: kit.m.px(6.0),
+                padding: UiRect::axes(kit.m.px(9.0), kit.m.px(4.0)),
+                border: UiRect::all(px_fixed(1.0)),
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PILL)),
+                ..default()
+            },
+            BackgroundColor(if player.you {
+                tokens::ACCENT.with_alpha(0.14)
+            } else {
+                tokens::CONTROL.with_alpha(0.55)
+            }),
+            BorderColor::all(if player.you {
+                tokens::ACCENT.with_alpha(0.50)
+            } else {
+                tokens::BORDER.with_alpha(0.75)
+            }),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let icon_node = commands
+        .spawn((
+            Text::new(seat_icon.to_string()),
+            crate::hud::icon_tf(kit.fonts, kit.m.small * 0.88),
+            TextColor(if player.you {
+                tokens::ACCENT
+            } else {
+                tokens::MUTED
+            }),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let name_node = commands
+        .spawn((
+            Text::new(name),
+            crate::hud::tf_bold(kit.fonts, kit.m.small * 0.92),
+            TextColor(if player.you {
+                tokens::INK
+            } else {
+                tokens::INK.with_alpha(0.88)
+            }),
+            TextLayout::no_wrap(),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(pill).add_children(&[icon_node, name_node]);
+
+    if let Some(cmd) = commander_name {
+        let cmd_node = commands
+            .spawn((
+                Text::new(format!("\u{f521} {cmd}")),
+                crate::hud::tf(kit.fonts, kit.m.small * 0.88),
+                TextColor(tokens::GOLD),
+                TextLayout::no_wrap(),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(pill).add_child(cmd_node);
+    }
+    if let Some(cols) = colours {
+        let discs = parts::identity_discs(commands, kit, cols);
+        commands.entity(pill).add_child(discs);
+    }
+    if player.shared {
+        let shared_icon = commands
+            .spawn((
+                Text::new('\u{f06e}'.to_string()),
+                crate::hud::icon_tf(kit.fonts, kit.m.small * 0.82),
+                TextColor(tokens::MUTED.with_alpha(0.75)),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(pill).add_child(shared_icon);
+    }
+    pill
+}
+
+/// One row: when, where, who, how it went, how long; Watch and `⋮`.
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
 fn entry_row(
     commands: &mut Commands,
     root: Entity,
@@ -801,10 +1656,11 @@ fn entry_row(
     lang: Lang,
 ) -> Entity {
     use baylee_client_core::replay::library::EntryCheck;
+    let de = lang == Lang::De;
     let clock = local_time(entry.started, offset)
         .map(|at| format!("{:02}:{:02}", at.hour(), at.minute()))
         .unwrap_or_default();
-    let place = match &entry.source {
+    let (source_icon, place) = match &entry.source {
         EntrySource::Local { .. } => {
             let house = entry
                 .house
@@ -812,45 +1668,38 @@ fn entry_row(
                 .and_then(|level| baylee_client_core::i18n::ai_name(lang, level))
                 .or(entry.house.as_deref())
                 .unwrap_or_else(|| ReplayPhrase::House.text(lang));
-            format!(
-                "{} \u{b7} {}",
-                ReplayPhrase::ThisComputer.text(lang),
-                ReplayPhrase::VsHouse.fill(lang, &[house])
+            (
+                '\u{f108}',
+                format!(
+                    "{} \u{b7} {}",
+                    ReplayPhrase::ThisComputer.text(lang),
+                    ReplayPhrase::VsHouse.fill(lang, &[house])
+                ),
             )
         }
-        EntrySource::Hosted { .. } => state
-            .gateway_name()
-            .unwrap_or_else(|| state.gateway.clone()),
+        EntrySource::Hosted { .. } => (
+            '\u{f0ac}',
+            state
+                .gateway_name()
+                .unwrap_or_else(|| state.gateway.clone()),
+        ),
     };
-    let title = format!("{clock}  {place}");
-    let mut meta = vec![players_line(entry, lang)];
-    meta.push(ReplayPhrase::outcome(entry.result).text(lang).to_string());
-    if let Some(turn) = entry.turns {
-        meta.push(ReplayPhrase::TurnShort.fill(lang, &[&turn.to_string()]));
-    }
-    if let Some(minutes) = entry.minutes() {
-        meta.push(ReplayPhrase::Minutes.fill(lang, &[&minutes.to_string()]));
-    }
-    match entry.check {
-        EntryCheck::Exact => {}
-        EntryCheck::Checked => meta.push(format!("\u{25d0} {}", ReplayPhrase::Checked.text(lang))),
-        EntryCheck::Unverified => {
-            meta.push(format!("\u{25cc} {}", ReplayPhrase::Unverified.text(lang)));
-        }
-    }
-    let watch = controls::button(
+    let (outcome_icon, outcome_color) = outcome_style(entry.result);
+    let outcome_word = ReplayPhrase::outcome(entry.result).text(lang);
+
+    let watch = controls::button_compact(
         commands,
         kit,
+        Some('\u{f04b}'),
         ReplayPhrase::Watch.text(lang),
-        Weight::Secondary,
+        Weight::Primary,
         Live::Yes,
-        None,
         Press::Replays(ReplaysPress::Watch(i)),
     );
-    let more = parts::icon_button(
+    let more = spawn_replay_more(
         commands,
         kit,
-        parts::ELLIPSIS,
+        lang,
         Press::Shared(SharedPress::OpenMenu(ShellMenu::Replay(i))),
     );
     if state.menu == Some(ShellMenu::Replay(i)) {
@@ -870,17 +1719,185 @@ fn entry_row(
             }),
         );
     }
-    crate::shellkit::surfaces::list_row(
+
+    if state.replays.view == ReplaysView::Compact {
+        let title = format!("{clock}  {place}");
+        let mut meta = vec![players_line(entry, lang), outcome_word.to_string()];
+        if let Some(turn) = entry.turns {
+            meta.push(ReplayPhrase::TurnShort.fill(lang, &[&turn.to_string()]));
+        }
+        if let Some(minutes) = entry.minutes() {
+            meta.push(ReplayPhrase::Minutes.fill(lang, &[&minutes.to_string()]));
+        }
+        return crate::shellkit::surfaces::list_row(
+            commands,
+            kit,
+            &title,
+            &meta.join(" \u{b7} "),
+            &[watch, more],
+            (
+                Press::Replays(ReplaysPress::Watch(i)),
+                crate::ambience::Feel::tinting_to(Color::NONE, tokens::HOVER),
+            ),
+        );
+    }
+
+    // Detailed card view
+    let card = commands
+        .spawn((
+            crate::shellkit::role::Role::Row,
+            Node {
+                width: percent(100),
+                flex_direction: FlexDirection::Column,
+                row_gap: kit.m.px(8.0),
+                padding: UiRect::axes(kit.m.px(14.0), kit.m.px(11.0)),
+                border: UiRect {
+                    left: px_fixed(3.0),
+                    top: px_fixed(1.0),
+                    right: px_fixed(1.0),
+                    bottom: px_fixed(1.0),
+                },
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PANEL)),
+                ..default()
+            },
+            BackgroundColor(tokens::CONTROL.with_alpha(0.36)),
+            BorderColor {
+                left: outcome_color,
+                top: tokens::BORDER.with_alpha(0.75),
+                right: tokens::BORDER.with_alpha(0.75),
+                bottom: tokens::BORDER.with_alpha(0.75),
+            },
+            UiTransform::default(),
+            crate::ambience::Feel::tinting_to(tokens::CONTROL.with_alpha(0.36), tokens::HOVER),
+            Press::Replays(ReplaysPress::Watch(i)),
+        ))
+        .id();
+
+    // Top row: outcome badge, clock + source, format/turns/minutes/check badges, and Watch + ⋮
+    let top_row = commands
+        .spawn((
+            Node {
+                width: percent(100),
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::SpaceBetween,
+                column_gap: kit.m.px(10.0),
+                row_gap: kit.m.px(6.0),
+                flex_wrap: FlexWrap::Wrap,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let left_badges = parts::row(commands, kit, true);
+    commands
+        .entity(left_badges)
+        .entry::<Node>()
+        .and_modify(|mut n| {
+            n.flex_grow = 1.0;
+            n.flex_shrink = 1.0;
+            n.min_width = px(0);
+        });
+    let out_pill = parts::badge_with(commands, kit, outcome_icon, outcome_word, outcome_color);
+    let time_pill = parts::badge_with(commands, kit, '\u{f017}', &clock, tokens::INK);
+    let place_pill = parts::badge_with(commands, kit, source_icon, &place, tokens::ACCENT);
+    let seats_count = entry.players.len().max(2);
+    let table_pill = parts::badge_with(
         commands,
         kit,
-        &title,
-        &meta.join(" \u{b7} "),
-        &[watch, more],
-        (
-            Press::Replays(ReplaysPress::Watch(i)),
-            crate::ambience::Feel::tinting_to(Color::NONE, tokens::HOVER),
+        if seats_count <= 2 {
+            '\u{f6de}'
+        } else {
+            '\u{f500}'
+        },
+        &if seats_count <= 2 {
+            if de {
+                "1v1 Duell".to_string()
+            } else {
+                "1v1 Duel".to_string()
+            }
+        } else if de {
+            format!("{seats_count} Spieler")
+        } else {
+            format!("{seats_count} players")
+        },
+        tokens::INK.with_alpha(0.85),
+    );
+    commands
+        .entity(left_badges)
+        .add_children(&[out_pill, time_pill, place_pill, table_pill]);
+
+    if let Some(turn) = entry.turns {
+        let turn_pill = parts::badge_with(
+            commands,
+            kit,
+            '\u{f132}',
+            &ReplayPhrase::TurnShort.fill(lang, &[&turn.to_string()]),
+            tokens::GOLD,
+        );
+        commands.entity(left_badges).add_child(turn_pill);
+    }
+    if let Some(minutes) = entry.minutes() {
+        let min_pill = parts::badge_with(
+            commands,
+            kit,
+            '\u{f252}',
+            &ReplayPhrase::Minutes.fill(lang, &[&minutes.to_string()]),
+            tokens::MUTED,
+        );
+        commands.entity(left_badges).add_child(min_pill);
+    }
+    let check_pill = match entry.check {
+        EntryCheck::Exact => parts::badge_with(
+            commands,
+            kit,
+            '\u{f058}',
+            if de { "Exakt" } else { "Exact" },
+            Color::srgb(0.36, 0.84, 0.56),
         ),
-    )
+        EntryCheck::Checked => parts::badge_with(
+            commands,
+            kit,
+            '\u{f3ed}',
+            ReplayPhrase::Checked.text(lang),
+            tokens::ACCENT,
+        ),
+        EntryCheck::Unverified => parts::badge_with(
+            commands,
+            kit,
+            '\u{f071}',
+            ReplayPhrase::Unverified.text(lang),
+            tokens::GOLD,
+        ),
+    };
+    commands.entity(left_badges).add_child(check_pill);
+
+    let actions_row = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                column_gap: kit.m.px(6.0),
+                flex_shrink: 0.0,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(actions_row).add_children(&[watch, more]);
+    commands
+        .entity(top_row)
+        .add_children(&[left_badges, actions_row]);
+    commands.entity(card).add_child(top_row);
+
+    // Bottom row: Player & Commander Roster Pills
+    let roster = parts::row(commands, kit, true);
+    for player in &entry.players {
+        let seat_pill = spawn_seat_pill(commands, kit, player, entry, lang);
+        commands.entity(roster).add_child(seat_pill);
+    }
+    commands.entity(card).add_child(roster);
+    card
 }
 
 /// A row's `⋯` menu: Watch, Watch from each perspective the entry

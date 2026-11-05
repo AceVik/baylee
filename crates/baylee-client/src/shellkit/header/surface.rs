@@ -15,74 +15,81 @@ pub struct HeaderSurface(pub bool);
 #[derive(Component)]
 pub struct HeaderSurfaceDressed;
 
+/// Attaches the silk-aurora shader child to `bar` in `world` if `AmbienceMaterial`
+/// assets are available and `bar` has not yet been dressed.
+pub(super) fn dress_bar_world(world: &mut World, bar: Entity, is_strip: bool) {
+    if world.get::<HeaderSurfaceDressed>(bar).is_some() || world.get_entity(bar).is_err() {
+        return;
+    }
+    let still = crate::quality::ambient_still(
+        world
+            .get_resource::<crate::prefs::Prefs>()
+            .is_some_and(|p| p.all().reduce_motion),
+        world.get_resource::<crate::quality::InUse>(),
+    );
+    let Some(mut materials) = world.get_resource_mut::<Assets<crate::ambience::AmbienceMaterial>>()
+    else {
+        return;
+    };
+    let (low, high, pad, seed) = if is_strip {
+        (
+            Color::srgba(0.08, 0.13, 0.19, OPACITY),
+            Color::srgba(0.19, 0.32, 0.43, OPACITY),
+            2.2,
+            2.1,
+        )
+    } else {
+        (
+            Color::srgba(0.08, 0.12, 0.17, OPACITY),
+            Color::srgba(0.18, 0.31, 0.42, OPACITY),
+            2.0,
+            1.7,
+        )
+    };
+    let energy = if still { 0.0 } else { 1.0 };
+    let handle = materials.add(crate::ambience::AmbienceMaterial {
+        params: crate::ambience::AmbienceParams {
+            low: LinearRgba::from(low).to_f32_array().into(),
+            high: LinearRgba::from(high).to_f32_array().into(),
+            energy,
+            seed,
+            aspect: 12.0,
+            pad,
+        },
+    });
+    let surface = world
+        .spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                left: px_fixed(0.0),
+                right: px_fixed(0.0),
+                top: px_fixed(0.0),
+                bottom: px_fixed(0.0),
+                ..default()
+            },
+            MaterialNode(handle),
+            crate::ambience::Ambient { energy: 1.0 },
+            Pickable::IGNORE,
+        ))
+        .id();
+    if let Ok(mut bar_ent) = world.get_entity_mut(bar) {
+        bar_ent
+            .insert((HeaderSurfaceDressed, BackgroundColor(Color::NONE)))
+            .insert_children(0, &[surface]);
+    }
+}
+
 /// Attaches the continuous silk-aurora ambient material to any newly spawned
 /// [`HeaderSurface`] (top navigation bar or seated strip).
 fn dress_header_surfaces(
     mut commands: Commands,
     bars: Query<(Entity, &HeaderSurface), Without<HeaderSurfaceDressed>>,
-    materials: Option<ResMut<Assets<crate::ambience::AmbienceMaterial>>>,
-    prefs: Option<Res<crate::prefs::Prefs>>,
-    quality: Option<Res<crate::quality::InUse>>,
 ) {
-    let Some(mut materials) = materials else {
-        return;
-    };
-    let still = crate::quality::ambient_still(
-        prefs.is_some_and(|p| p.all().reduce_motion),
-        quality.as_deref(),
-    );
     for (bar, kind) in &bars {
         let is_strip = kind.0;
-        let (low, high, pad, seed) = if is_strip {
-            (
-                Color::srgba(0.08, 0.13, 0.19, OPACITY),
-                Color::srgba(0.19, 0.32, 0.43, OPACITY),
-                2.2,
-                2.1,
-            )
-        } else {
-            (
-                Color::srgba(0.08, 0.12, 0.17, OPACITY),
-                Color::srgba(0.18, 0.31, 0.42, OPACITY),
-                2.0,
-                1.7,
-            )
-        };
-        let energy = if still { 0.0 } else { 1.0 };
-        let handle = materials.add(crate::ambience::AmbienceMaterial {
-            params: crate::ambience::AmbienceParams {
-                low: LinearRgba::from(low).to_f32_array().into(),
-                high: LinearRgba::from(high).to_f32_array().into(),
-                energy,
-                seed,
-                aspect: 12.0,
-                pad,
-            },
+        commands.queue(move |world: &mut World| {
+            dress_bar_world(world, bar, is_strip);
         });
-        commands
-            .entity(bar)
-            .queue_silenced(move |mut bar_ent: EntityWorldMut| {
-                let surface = bar_ent.world_scope(|world| {
-                    world
-                        .spawn((
-                            Node {
-                                position_type: PositionType::Absolute,
-                                left: px_fixed(0.0),
-                                right: px_fixed(0.0),
-                                top: px_fixed(0.0),
-                                bottom: px_fixed(0.0),
-                                ..default()
-                            },
-                            MaterialNode(handle),
-                            crate::ambience::Ambient { energy: 1.0 },
-                            Pickable::IGNORE,
-                        ))
-                        .id()
-                });
-                bar_ent
-                    .insert((HeaderSurfaceDressed, BackgroundColor(Color::NONE)))
-                    .insert_children(0, &[surface]);
-            });
     }
 }
 

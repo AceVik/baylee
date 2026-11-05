@@ -204,6 +204,9 @@ impl Lobby {
             }
             LobbyEvent::DeckSaved { deck_id } => {
                 self.note(Phrase::DeckSaved);
+                if let Some(ref id) = deck_id {
+                    self.use_once_listed = Some(id.clone());
+                }
                 self.builder.saved(deck_id.as_deref());
                 self.busy = true;
                 Some(LobbyRequest::ListDecks)

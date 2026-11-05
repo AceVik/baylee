@@ -99,6 +99,8 @@ impl Default for Screen {
 pub enum Field {
     /// A gateway URL, edited before account sign-in.
     Gateway,
+    /// What the saved gateway list is being searched for.
+    GatewaySearch,
     /// The name to play under as a guest (#269), on the sign-in form above
     /// its tabs. Optional: the gateway calls a guest `Guest` when it is
     /// left empty. Not drawn while a guest is kept for this gateway, whose
@@ -1154,6 +1156,9 @@ enum Performer {
     Guest(String),
     /// This process, with no account behind it.
     Offline,
+    /// Signed in to Baylee Central before a gateway is chosen: local decks
+    /// and builder work while the Play tab shows the gateway list.
+    Central,
 }
 
 /// Who may make an account on a gateway, as its `GET /auth/config` (and
@@ -1242,6 +1247,7 @@ pub struct Lobby {
     guest_name: TextBuffer,
     invite_key: TextBuffer,
     gateway_url: TextBuffer,
+    gateway_search: TextBuffer,
     gateway_selection: GatewaySelection,
     display_name: TextBuffer,
     password: TextBuffer,
@@ -1517,6 +1523,7 @@ impl Lobby {
             Field::DisplayName
             | Field::GuestName
             | Field::InviteKey
+            | Field::GatewaySearch
             | Field::Search
             | Field::DeckSearch
             | Field::ReplaySearch
@@ -1546,6 +1553,7 @@ impl Lobby {
     pub fn buffer(&self, field: Field) -> &TextBuffer {
         match field {
             Field::Gateway => &self.gateway_url,
+            Field::GatewaySearch => &self.gateway_search,
             Field::Username => &self.username,
             Field::GuestName => &self.guest_name,
             Field::InviteKey => &self.invite_key,
@@ -1569,7 +1577,7 @@ impl Lobby {
     pub fn token(&self) -> Option<&str> {
         match &self.performer {
             Performer::Gateway(token) | Performer::Guest(token) => Some(token),
-            Performer::Nobody | Performer::Offline => None,
+            Performer::Nobody | Performer::Offline | Performer::Central => None,
         }
     }
 
@@ -1616,6 +1624,56 @@ impl Lobby {
     #[must_use]
     pub fn decks(&self) -> &[DeckSummary] {
         &self.decks
+    }
+
+    /// Visits every picture on `decks` and `library.house` whose `artist` is
+    /// still blank, without mutating `self`.
+    pub fn visit_missing_artists(&self, mut visit: impl FnMut(&str, &str)) {
+        for deck in &self.decks {
+            for picture in deck.leaders.iter().chain(deck.signature.iter()) {
+                if picture.artist.trim().is_empty() {
+                    visit(&picture.name, &picture.scryfall_id);
+                }
+            }
+        }
+        for deck in &self.library.house {
+            for picture in deck.leaders.iter().chain(deck.signature.iter()) {
+                if picture.artist.trim().is_empty() {
+                    visit(&picture.name, &picture.scryfall_id);
+                }
+            }
+        }
+    }
+
+    /// Fills any missing artist credits on `decks` and `library.house` from a
+    /// local/cached artist lookup (`(name, scryfall_id) -> Option<String>`).
+    /// Returns `true` if any deck's picture artist was filled in.
+    pub fn fill_missing_artists(
+        &mut self,
+        mut lookup: impl FnMut(&str, &str) -> Option<String>,
+    ) -> bool {
+        let mut changed = false;
+        for deck in &mut self.decks {
+            for picture in deck.leaders.iter_mut().chain(deck.signature.as_mut()) {
+                if picture.artist.trim().is_empty()
+                    && let Some(artist) = lookup(&picture.name, &picture.scryfall_id)
+                {
+                    picture.artist = artist;
+                    changed = true;
+                }
+            }
+        }
+        for deck in &mut self.library.house {
+            for picture in deck.leaders.iter_mut().chain(deck.signature.as_mut()) {
+                if picture.artist.trim().is_empty()
+                    && let Some(artist) = lookup(&picture.name, &picture.scryfall_id)
+                {
+                    picture.artist = artist;
+                    changed = true;
+                }
+            }
+        }
+        changed
     }
 
     /// The tables that are open.
@@ -1981,6 +2039,9 @@ impl Lobby {
         self.focus = field;
         self.caret_parked = false;
         self.focus_epoch += 1;
+        if matches!(field, Field::Gateway | Field::GatewaySearch) {
+            self.buffer_mut(field).select_all();
+        }
     }
 
     /// Whether a masked field is being shown in the clear.
@@ -2133,7 +2194,7 @@ impl Lobby {
             // One form at a time: the address without a gateway, the
             // account's fields with one.
             Screen::SignIn { registering } => match self.focus {
-                Field::Gateway => !self.gateway_chosen(),
+                Field::Gateway | Field::GatewaySearch => !self.gateway_chosen(),
                 Field::GuestName => self.guest_name_offered(),
                 Field::InviteKey => self.invite_key_offered(),
                 Field::Username => {
@@ -2527,7 +2588,30 @@ impl Lobby {
     /// Leaves the builder for the tables.
     pub fn close_builder(&mut self) -> Option<LobbyRequest> {
         self.screen = Screen::Table;
+        self.busy = false;
         self.refresh()
+    }
+
+    /// Updates the in-memory deck list and selected deck without clearing
+    /// `busy` or triggering side-effect requests (`ListSeats` / `ListGames`).
+    pub fn update_decks_in_place(&mut self, decks: Vec<DeckSummary>, select_id: Option<&str>) {
+        let chosen = select_id.map(str::to_owned).or_else(|| {
+            self.deck
+                .and_then(|i| self.decks.get(i))
+                .map(|d| d.id.clone())
+        });
+        self.decks = decks;
+        let at = |id: &str| self.decks.iter().position(|d| d.id == id);
+        self.deck = chosen
+            .as_deref()
+            .and_then(at)
+            .or_else(|| self.use_once_listed.take().and_then(|id| at(&id)))
+            .or_else(|| (!self.decks.is_empty()).then_some(0));
+    }
+
+    /// Selects `deck_id` the next time `ListDecks` refreshes the deck list.
+    pub fn remember_saved_deck(&mut self, deck_id: &str) {
+        self.use_once_listed = Some(deck_id.to_string());
     }
 
     /// Saves whatever the builder holds.
@@ -2577,6 +2661,7 @@ impl Lobby {
     fn buffer_mut(&mut self, field: Field) -> &mut TextBuffer {
         match field {
             Field::Gateway => &mut self.gateway_url,
+            Field::GatewaySearch => &mut self.gateway_search,
             Field::Username => &mut self.username,
             Field::GuestName => &mut self.guest_name,
             Field::InviteKey => &mut self.invite_key,

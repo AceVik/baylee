@@ -109,19 +109,23 @@ pub(crate) fn install(app: &mut App) {
 }
 
 /// Shows the drawer's scrollbar track only when its list overflows vertically.
+/// Uses `Visibility` rather than `Display` so toggling the scrollbar never
+/// changes the list's horizontal width or triggers a layout oscillation.
 fn show_drawer_scrollbar(
-    mut bars: Query<(&DrawerScrollbar, &mut Node)>,
+    mut bars: Query<(&DrawerScrollbar, &mut Visibility)>,
     lists: Query<&ComputedNode>,
 ) {
-    for (bar, mut node) in &mut bars {
+    for (bar, mut vis) in &mut bars {
         let Ok(list) = lists.get(bar.0) else {
             continue;
         };
         let needed = list.content_size.y > list.size.y + 1.0;
-        let want = if needed { Display::Flex } else { Display::None };
-        if node.display != want {
-            node.display = want;
-        }
+        let want = if needed {
+            Visibility::Inherited
+        } else {
+            Visibility::Hidden
+        };
+        vis.set_if_neq(want);
     }
 }
 
@@ -132,9 +136,7 @@ pub(crate) struct DrawerSlide(pub f32);
 impl DrawerSlide {
     /// The room it takes from the right edge now, in UI pixels at `zoom`.
     pub(crate) fn room(self, zoom: f32) -> f32 {
-        let t = self.0.clamp(0.0, 1.0);
-        let eased = 1.0 - (1.0 - t).powi(3);
-        eased * WIDTH * zoom
+        (self.0.clamp(0.0, 1.0) * WIDTH * zoom).round()
     }
 }
 
@@ -252,8 +254,8 @@ fn clear_the_lane(
     }
 }
 
-/// How long the drawer takes to slide in or out.
-const SLIDE_SECS: f32 = 0.18;
+/// Exponential damping rate for the drawer's slide-in and slide-out motion.
+const SLIDE_RATE: f32 = 22.0;
 
 /// The drawer slides in from the right edge under the header and the
 /// lobby's content gives it the room, reflowing as it comes (owner,
@@ -273,8 +275,9 @@ fn slide_the_drawer(
     phase: Option<Res<State<crate::DuelPhase>>>,
     lobby: Option<Res<crate::lobby::LobbyState>>,
     zoom: Res<super::zoom::Zoom>,
+    (windows, scale): (Query<&Window>, Option<Res<UiScale>>),
     mut slide: ResMut<DrawerSlide>,
-    mut drawers: Query<(&mut Node, &mut Visibility), With<Drawer>>,
+    mut drawers: Query<(&mut Node, &mut UiTransform, &mut Visibility), With<Drawer>>,
     headers: Query<(
         Entity,
         &crate::shellkit::role::Role,
@@ -282,7 +285,15 @@ fn slide_the_drawer(
         &ChildOf,
     )>,
     kids: Query<&Children>,
-    mut content: Query<(&mut Node, Option<&Squeezed>), Without<Drawer>>,
+    parents: Query<&ChildOf>,
+    mut content: Query<
+        (
+            &mut Node,
+            Option<&Squeezed>,
+            Option<&crate::lobby::front::door::InfoPill>,
+        ),
+        Without<Drawer>,
+    >,
     mut commands: Commands,
     mut wide: Local<f32>,
 ) {
@@ -308,18 +319,20 @@ fn slide_the_drawer(
     let t = if still {
         target
     } else {
-        let step = time.delta_secs() / SLIDE_SECS;
-        if slide.0 < target {
-            (slide.0 + step).min(target)
+        let dt = time.delta_secs().clamp(0.0, 0.05);
+        let alpha = 1.0 - (-SLIDE_RATE * dt).exp();
+        let next = slide.0 + (target - slide.0) * alpha;
+        if (target - next).abs() < 0.002 {
+            target
         } else {
-            (slide.0 - step).max(target)
+            next
         }
     };
     if (slide.0 - t).abs() > f32::EPSILON {
         slide.0 = t;
     }
     let room = slide.room(zoom.0);
-    let width = WIDTH * zoom.0;
+    let width = (WIDTH * zoom.0).round();
     let header = if at_table {
         0.0
     } else {
@@ -334,17 +347,22 @@ fn slide_the_drawer(
             .unwrap_or_else(|| {
                 drawers
                     .iter()
-                    .find_map(|(node, _)| match node.top {
+                    .find_map(|(node, _, _)| match node.top {
                         Val::Px(top) => Some(top),
                         _ => None,
                     })
                     .unwrap_or(0.0)
             })
     };
-    for (mut node, mut seen) in &mut drawers {
-        let right = Val::Px(room - width);
-        if node.right != right {
-            node.right = right;
+    for (mut node, mut transform, mut seen) in &mut drawers {
+        let want_right = zpx(0.0);
+        if node.right != want_right {
+            node.right = want_right;
+        }
+        let offset_x = (width - room).max(0.0);
+        let want_translation = Val2::px(offset_x, 0.0);
+        if transform.translation != want_translation {
+            transform.translation = want_translation;
         }
         if node.top != Val::Px(header) {
             node.top = Val::Px(header);
@@ -358,6 +376,11 @@ fn slide_the_drawer(
             Visibility::Hidden
         });
     }
+    if *wide <= 0.0
+        && let Some(w) = windows.iter().next()
+    {
+        *wide = crate::hud::scale::desktop_space(w, scale.as_deref()).x;
+    }
     // The lobby's content beside the header (the header keeps the whole
     // width) gives the drawer its room. A sibling written at a percentage of
     // the width gets that share of what is left, in pixels (a width let go
@@ -365,6 +388,14 @@ fn slide_the_drawer(
     // lay over the deck); any other keeps its width and takes a margin.
     // Each gets its own back when the drawer is in again.
     let margin = if at_table { 0.0 } else { room };
+    for (mut node, _, info_pill) in &mut content {
+        if info_pill.is_some() && node.position_type == PositionType::Absolute {
+            let want_right = crate::shellkit::px_fixed(16.0 + margin);
+            if node.right != want_right {
+                node.right = want_right;
+            }
+        }
+    }
     for (header, role, computed, parent) in &headers {
         if *role != crate::shellkit::role::Role::Header {
             continue;
@@ -373,14 +404,23 @@ fn slide_the_drawer(
         if measured > 0.0 {
             *wide = measured;
         }
-        let Ok(siblings) = kids.get(parent.parent()) else {
+        let mut container = parent.parent();
+        let mut exclude = header;
+        if let Ok(direct) = kids.get(container)
+            && direct.len() <= 1
+            && let Ok(grandparent) = parents.get(container)
+        {
+            exclude = container;
+            container = grandparent.parent();
+        }
+        let Ok(siblings) = kids.get(container) else {
             continue;
         };
         for kid in siblings {
-            if *kid == header {
+            if *kid == exclude {
                 continue;
             }
-            let Ok((mut node, squeezed)) = content.get_mut(*kid) else {
+            let Ok((mut node, squeezed, _)) = content.get_mut(*kid) else {
                 continue;
             };
             if node.position_type == PositionType::Absolute {
@@ -659,14 +699,10 @@ fn sync_door(
                 baylee_client_core::lobby::Screen::Seated(_)
             )
         });
-    // The header has the friends button; the deck builder and the loading
-    // screen do not, so there the button floats bottom-right.
-    let shell = lobby.as_ref().is_some_and(|l| {
-        matches!(
-            l.lobby.screen(),
-            baylee_client_core::lobby::Screen::Build | baylee_client_core::lobby::Screen::Seated(_)
-        )
-    }) || loading;
+    // The header has the friends button (including the deck builder's
+    // header); only the loading screen has none, so there the button floats
+    // bottom-right.
+    let shell = loading;
     // The panel's head has the friends button while the panel stands.
     let panel = ui.open && !ui.minimised;
     let machine = host
@@ -1101,15 +1137,32 @@ fn sync_drawer(
                     position_type: PositionType::Absolute,
                     top: zpx(0.0),
                     bottom: zpx(0.0),
-                    right: zpx(-WIDTH),
+                    right: zpx(0.0),
                     width: zpx(WIDTH),
                     flex_direction: FlexDirection::Column,
                     border: UiRect::left(zpx(1.0)),
                     ..default()
                 },
+                UiTransform::from_translation(Val2::px(WIDTH * zoom.0, 0.0)),
                 // A hair translucent over the painting (owner, 13.10.).
-                BackgroundColor(super::rows::LOBBY_GROUND.with_alpha(0.92)),
+                BackgroundColor(super::rows::LOBBY_GROUND.with_alpha(0.95)),
                 BorderColor::all(tokens::BORDER),
+                BoxShadow(vec![
+                    ShadowStyle {
+                        color: Color::srgba(0.0, 0.0, 0.0, 0.65),
+                        x_offset: zpx(-10.0),
+                        y_offset: zpx(0.0),
+                        spread_radius: zpx(2.0),
+                        blur_radius: zpx(28.0),
+                    },
+                    ShadowStyle {
+                        color: Color::srgba(0.0, 0.0, 0.0, 0.38),
+                        x_offset: zpx(-3.0),
+                        y_offset: zpx(0.0),
+                        spread_radius: zpx(0.0),
+                        blur_radius: zpx(8.0),
+                    },
+                ]),
                 super::window::stacked(10),
                 Visibility::Hidden,
             ))
@@ -1703,10 +1756,9 @@ fn sync_drawer(
         ),
         crate::hud::logpanel::at_rest,
     );
-    commands.entity(track).insert((
-        DrawerScrollbar(list),
-        crate::lobby::scrollbars::OnlyWhenNeeded,
-    ));
+    commands
+        .entity(track)
+        .insert((DrawerScrollbar(list), Visibility::Hidden));
     let middle = commands
         .spawn((
             Node {
@@ -1721,7 +1773,8 @@ fn sync_drawer(
         ))
         .add_children(&[list, track])
         .id();
-    // The foot.
+    // The foot: symmetrical 2-row action bar (Status + Privacy 50/50 on top,
+    // full-width New Group button below).
     let status = match machine.status() {
         Status::Online => ChatPhrase::StatusOnline,
         Status::Away => ChatPhrase::StatusAway,
@@ -1731,19 +1784,66 @@ fn sync_drawer(
     let foot = commands
         .spawn((
             Node {
-                flex_direction: FlexDirection::Row,
-                align_items: AlignItems::Center,
-                flex_wrap: FlexWrap::Wrap,
-                column_gap: zpx(6.0),
+                width: Val::Percent(100.0),
+                flex_direction: FlexDirection::Column,
                 row_gap: zpx(6.0),
-                padding: UiRect::axes(zpx(14.0), zpx(10.0)),
+                padding: UiRect::axes(zpx(12.0), zpx(10.0)),
                 border: UiRect::top(zpx(1.0)),
                 flex_shrink: 0.0,
                 ..default()
             },
+            BackgroundColor(Color::srgba(0.03, 0.06, 0.09, 0.55)),
             BorderColor::all(tokens::BORDER),
         ))
         .id();
+    let top_row = commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                column_gap: zpx(6.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let status_btn = small_button(
+        &mut commands,
+        &fonts,
+        &ChatPhrase::StatusLabel.fill(lang, &[status.text(lang)]),
+        DrawerPress::Status,
+    );
+    commands
+        .entity(status_btn)
+        .entry::<Node>()
+        .and_modify(|mut n| {
+            n.flex_grow = 1.0;
+            n.flex_basis = zpx(0.0);
+            n.min_height = zpx(30.0);
+            n.align_items = AlignItems::Center;
+            n.justify_content = JustifyContent::Center;
+        });
+    let privacy_btn = small_button(
+        &mut commands,
+        &fonts,
+        ChatPhrase::PrivacyButton.text(lang),
+        DrawerPress::Privacy,
+    );
+    commands
+        .entity(privacy_btn)
+        .entry::<Node>()
+        .and_modify(|mut n| {
+            n.flex_grow = 1.0;
+            n.flex_basis = zpx(0.0);
+            n.min_height = zpx(30.0);
+            n.align_items = AlignItems::Center;
+            n.justify_content = JustifyContent::Center;
+        });
+    commands
+        .entity(top_row)
+        .add_children(&[status_btn, privacy_btn]);
+    commands.entity(foot).add_child(top_row);
     if !me.guest {
         let new = small_button(
             &mut commands,
@@ -1751,21 +1851,14 @@ fn sync_drawer(
             ChatPhrase::NewGroupButton.text(lang),
             DrawerPress::NewGroup,
         );
+        commands.entity(new).entry::<Node>().and_modify(|mut n| {
+            n.width = Val::Percent(100.0);
+            n.min_height = zpx(30.0);
+            n.align_items = AlignItems::Center;
+            n.justify_content = JustifyContent::Center;
+        });
         commands.entity(foot).add_child(new);
     }
-    let status = small_button(
-        &mut commands,
-        &fonts,
-        &ChatPhrase::StatusLabel.fill(lang, &[status.text(lang)]),
-        DrawerPress::Status,
-    );
-    let privacy = small_button(
-        &mut commands,
-        &fonts,
-        ChatPhrase::PrivacyButton.text(lang),
-        DrawerPress::Privacy,
-    );
-    commands.entity(foot).add_children(&[status, privacy]);
     commands.entity(root).add_children(&[head, middle, foot]);
 }
 

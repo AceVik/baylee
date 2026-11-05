@@ -17,7 +17,7 @@ layers. Both new logos include sleeping Baylee. No external game art was used.
 | `scenes/baylees-world.png` | Generated city/world, 1672 × 941 |
 | `brand/baylee-logo.png` | Generated transparent wordmark with Baylee, 1942 × 809 |
 | `brand/baylee-logo-{48,96,192}.png` | Mechanical downsamples at the named heights |
-| `brand/baylee-icon.png` | Generated sleeping Baylee icon, 1254 × 1254 |
+| `brand/baylee-icon.png` | Seated Baylee crescent-moon icon master, 1254 × 1254 (`painterly-revision.md`) |
 | Native/browser icons | `baylee-tools installers art`; browser downsamples 32/180 px |
 | `memorial/baylee-{1..5}.jpg` | Owner-supplied photographs, max 1400 px; location/date metadata removed |
 

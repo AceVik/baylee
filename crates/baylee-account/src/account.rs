@@ -123,6 +123,21 @@ impl Account {
         &self.data
     }
 
+    /// Public `Name#Tag` handle (or username) for the native lobby header,
+    /// read after sign-in without requiring accepted terms.
+    #[must_use]
+    pub fn profile_handle(&self) -> Option<String> {
+        let export = self.session.export(&self.http).ok()?;
+        let name = export
+            .display_name
+            .filter(|name| !name.trim().is_empty())
+            .unwrap_or(export.username);
+        Some(match export.tag {
+            Some(tag) => format!("{name}#{tag:04}"),
+            None => name,
+        })
+    }
+
     fn resume_migration(&mut self) -> Result<(), Error> {
         let Some(legacy) = &self.data.legacy else {
             return Ok(());

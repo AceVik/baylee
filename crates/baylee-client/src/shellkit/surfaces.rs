@@ -299,42 +299,7 @@ fn sheet_box_parts(
         .id();
     commands.entity(scroller).add_children(body);
     let band = if bar {
-        let track = crate::lobby::scrollbars::track(commands, scroller, phone);
-        commands.entity(track).insert((
-            crate::lobby::scrollbars::OnlyWhenNeeded,
-            // Shown once the list is laid out and found to run over.
-            Node {
-                width: px_fixed(if phone { 16.0 } else { 12.0 }),
-                height: Val::Percent(100.0),
-                flex_shrink: 0.0,
-                display: Display::None,
-                border_radius: BorderRadius::all(px_fixed(6.0)),
-                ..default()
-            },
-        ));
-        commands
-            .entity(scroller)
-            .entry::<Node>()
-            .and_modify(|mut node| {
-                node.flex_grow = 1.0;
-                node.flex_basis = px_fixed(0.0);
-                node.min_width = px_fixed(0.0);
-            });
-        let host = commands
-            .spawn((
-                Node {
-                    flex_direction: FlexDirection::Row,
-                    flex_shrink: 1.0,
-                    min_height: px_fixed(0.0),
-                    column_gap: px_fixed(6.0),
-                    padding: UiRect::right(px_fixed(6.0)),
-                    ..default()
-                },
-                Pickable::IGNORE,
-            ))
-            .id();
-        commands.entity(host).add_children(&[scroller, track]);
-        host
+        crate::lobby::scrollbars::band_when_needed(commands, scroller, phone)
     } else {
         scroller
     };
@@ -418,7 +383,7 @@ pub fn popover_shadow() -> BoxShadow {
 
 /// Prefix glyph for a dropdown menu item based on its label or destructive flag.
 fn menu_item_glyph(text: &str, destructive: bool) -> char {
-    let lower = text.to_ascii_lowercase();
+    let lower = text.to_lowercase();
     if lower.contains("profil") || lower.contains("profile") {
         '\u{f007}'
     } else if lower.contains("tasten") || lower.contains("shortcut") || lower.contains("key") {
@@ -453,7 +418,72 @@ fn menu_item_glyph(text: &str, destructive: bool) -> char {
         || lower.contains("edit")
     {
         '\u{f304}'
-    } else if destructive || lower.contains("lösch") || lower.contains("delete") {
+    } else if lower.contains("leeren") || lower.contains("empty") || lower.contains("clear") {
+        '\u{f12d}'
+    } else if lower.contains("commander") {
+        '\u{f521}'
+    } else if lower.contains("highlander") {
+        '\u{f3ed}'
+    } else if lower.contains("standard") {
+        '\u{f091}'
+    } else if lower.contains("pioneer") {
+        '\u{f14e}'
+    } else if lower.contains("modern") {
+        '\u{f0e7}'
+    } else if lower.contains("legacy") {
+        '\u{f02d}'
+    } else if lower.contains("vintage") || lower.contains("selten") || lower.contains("rarity") {
+        '\u{f3a5}'
+    } else if lower.contains("pauper") {
+        '\u{f51e}'
+    } else if lower.contains("freiform") || lower.contains("freeform") {
+        '\u{f534}'
+    } else if lower.contains("alle formate") || lower.contains("all formats") {
+        '\u{f5fd}'
+    } else if lower.contains("druck") || lower.contains("print") {
+        '\u{f03e}'
+    } else if lower.contains("sideboard") {
+        '\u{f0ec}'
+    } else if lower.contains("hauptdeck")
+        || lower.contains("main deck")
+        || lower.contains("hinzuf")
+        || lower.contains("add")
+    {
+        '\u{f067}'
+    } else if lower.contains("historie") || lower.contains("history") {
+        '\u{f1da}'
+    } else if lower.contains("ansehen")
+        || lower.contains("preview")
+        || lower.contains("karte öffnen")
+        || lower.contains("open card")
+    {
+        '\u{f06e}'
+    } else if lower.contains("speicherdatum") || lower.contains("saved") {
+        '\u{f017}'
+    } else if lower.contains("name") {
+        '\u{f15d}'
+    } else if lower.contains("stärke") || lower.contains("power") {
+        '\u{f6de}'
+    } else if lower.contains("zuklapp") || lower.contains("collapse") {
+        '\u{f066}'
+    } else if lower.contains("aufklapp") || lower.contains("expand") {
+        '\u{f065}'
+    } else if lower.contains("typ") || lower.contains("type") {
+        '\u{f0db}'
+    } else if lower.contains("mana") {
+        '\u{f51e}'
+    } else if lower.contains("farb") || lower.contains("color") || lower.contains("colour") {
+        '\u{f53f}'
+    } else if lower.contains("format") {
+        '\u{f091}'
+    } else if lower.contains("favorit") || lower.contains("favourite") {
+        '\u{f005}'
+    } else if destructive
+        || lower.contains("lösch")
+        || lower.contains("delete")
+        || lower.contains("entfern")
+        || lower.contains("remove")
+    {
         '\u{f1f8}'
     } else {
         '\u{f0da}'
@@ -517,6 +547,7 @@ pub struct MenuItem<'a, B: Bundle> {
 /// A menu from a `⋯` or a caret: items in order, the destructive one last
 /// after a rule. Placement (measured, flipped at the window edge, N-3) is
 /// the opener's.
+#[allow(clippy::too_many_lines)] // one menu surface and its rows
 pub fn menu<'a, B: Bundle>(
     commands: &mut Commands,
     kit: Kit,
@@ -609,10 +640,20 @@ pub fn menu<'a, B: Bundle>(
         let words = label(commands, kit, item.text, kit.m.text, ink);
         commands.entity(lead).add_children(&[glyph, words]);
         commands.entity(row).add_child(lead);
-        if let Some(keys) = item.keys
-            && let Some(cap) = super::controls::key_cap(commands, kit, keys)
-        {
-            commands.entity(row).add_child(cap);
+        if let Some(keys) = item.keys {
+            if keys == "\u{2713}" || keys == "\u{f00c}" {
+                let check = commands
+                    .spawn((
+                        Text::new("\u{f00c}"),
+                        icon_tf(kit.fonts, kit.m.small),
+                        TextColor(tokens::ACCENT),
+                        Pickable::IGNORE,
+                    ))
+                    .id();
+                commands.entity(row).add_child(check);
+            } else if let Some(cap) = super::controls::key_cap(commands, kit, keys) {
+                commands.entity(row).add_child(cap);
+            }
         }
         commands.entity(surface).add_child(row);
     }

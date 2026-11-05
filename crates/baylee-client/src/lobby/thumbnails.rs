@@ -22,13 +22,25 @@ pub(crate) fn small(url: &str) -> String {
     url.replace("/normal/", "/small/")
 }
 
+const THUMB_CACHED: usize = 4096;
+
 pub(crate) fn spawn(commands: &mut Commands, card: &HoverCard) -> Entity {
+    spawn_sized(commands, card, px(38), px(53), px(4))
+}
+
+pub(crate) fn spawn_sized(
+    commands: &mut Commands,
+    card: &HoverCard,
+    width: Val,
+    height: Val,
+    radius: Val,
+) -> Entity {
     let mut entity = commands.spawn((
         Node {
-            width: px(38),
-            height: px(53),
+            width,
+            height,
             flex_shrink: 0.0,
-            border_radius: BorderRadius::all(px(4)),
+            border_radius: BorderRadius::all(radius),
             ..default()
         },
         BackgroundColor(crate::hud::palette::PANEL),
@@ -41,8 +53,10 @@ pub(crate) fn spawn(commands: &mut Commands, card: &HoverCard) -> Entity {
     if let Some(url) = &card.url {
         let url = small(url);
         let finish = card.finish;
-        // Recycled rows get their cached picture or special-finish material
-        // before the next layout/render, rather than spending a frame empty.
+        // Recycled and newly mounted rows get their picture or special-finish
+        // material before the next layout/render when already cached in memory,
+        // while uncached rows wait for `thumbnails::load` once inside the
+        // visible viewport so fast scrollbar drags never flood AssetServer.
         commands.queue(move |world: &mut World| {
             let handle = world
                 .get_resource::<Cache>()
@@ -101,7 +115,7 @@ pub(super) fn load(
     };
     let mut materials = materials;
     let mut store = store;
-    let mut budget = 4;
+    let mut budget = 64;
     for (entity, thumb, node, transform, clip) in &rows {
         if node.size.min_element() <= 0.0 {
             continue;
@@ -121,7 +135,7 @@ pub(super) fn load(
             }
             budget -= 1;
             let handle = assets.load(thumb.0.clone());
-            if cache.images.len() >= 256
+            if cache.images.len() >= THUMB_CACHED
                 && let Some(old) = cache.order.pop_front()
             {
                 cache.images.remove(&old);
@@ -180,7 +194,7 @@ pub(crate) const ART_CACHED: usize = 1024;
 
 /// How many new pictures are asked for per frame, so a shelf of forty decks
 /// does not ask forty at once.
-const ART_PER_FRAME: usize = 4;
+const ART_PER_FRAME: usize = 32;
 
 /// How long a first showing takes to fade in.
 const ART_FADE_SECS: f32 = 0.25;
@@ -343,14 +357,153 @@ pub(super) fn fade_art(
     }
 }
 
+/// Known artist credits for built-in starter / iconic signature cards so
+/// starter decks and Vorlagen have their credited illustration immediately.
+pub(crate) fn known_artist(name: &str, _scryfall_id: &str) -> Option<&'static str> {
+    match name {
+        "General Tazri" | "Sheoldred, the Apocalypse" | "Cyclonic Rift" | "Llanowar Elves" => {
+            Some("Chris Rahn")
+        }
+        "Aminatou, the Fateshifter" => Some("Seb McKinnon"),
+        "Aang and Katara" => Some("Fajareka Setiawan"),
+        "Jace, the Mind Sculptor" => Some("Jason Chan"),
+        "Elesh Norn, Mother of Machines" => Some("Martina Fačková"),
+        "Darksteel Forge" => Some("Martina Pilcerova"),
+        "Mycosynth Lattice" => Some("Anthony Francisco"),
+        "Jin-Gitaxias, Progress Tyrant" => Some("Kotakan"),
+        "Sol Ring" => Some("Mike Bierek"),
+        "Force of Will" | "Swords to Plowshares" => Some("Terese Nielsen"),
+        "Demonic Tutor" => Some("Scott Chou"),
+        "Teferi, Time Raveler" => Some("Chris Rallis"),
+        "Sun Titan" => Some("Todd Lockwood"),
+        "Counterspell" => Some("Zack Stella"),
+        "Lightning Bolt" => Some("Christopher Moeller"),
+        "Wrath of God" => Some("Kev Walker"),
+        "Birds of Paradise" => Some("Marcelo Vignali"),
+        _ => None,
+    }
+}
+
+const ARTISTS_FILE: &str = "artists.json";
+
+/// In-flight Scryfall artist lookup `(scryfall_id, result_slot)`.
+type PendingArtist = (String, std::sync::Arc<std::sync::Mutex<Option<String>>>);
+
+/// Reads cached `scryfall_id -> artist` credits from disk.
+pub(crate) fn cached_artists() -> BTreeMap<String, String> {
+    crate::settings::store::read_named(ARTISTS_FILE)
+        .and_then(|text| serde_json::from_str(&text).ok())
+        .unwrap_or_default()
+}
+
 /// Queues every deck's picture once a deck list lands (§10 #5: the shelf
-/// and Play's hero are a press away from it).
+/// and Play's hero are a press away from it), and resolves any missing
+/// artist credit from the local cache or Scryfall so `art_crop` + `Illustrator`
+/// can be shown (`docs/legal.md` Principle 4).
+#[allow(clippy::too_many_lines)] // artist resolution + thumbnail prefetching in one system
 pub(super) fn prefetch_art(
-    state: Res<LobbyState>,
+    mut state: ResMut<LobbyState>,
     mut cache: ResMut<ArtCache>,
     mut asked: Local<Vec<String>>,
+    mut artist_map: Local<Option<BTreeMap<String, String>>>,
+    mut pending_artist: Local<Option<PendingArtist>>,
+    #[cfg_attr(test, allow(unused_mut))] mut tried_ids: Local<std::collections::BTreeSet<String>>,
 ) {
-    if !state.is_changed() {
+    let map = artist_map.get_or_insert_with(cached_artists);
+
+    // 1. Poll any in-flight Scryfall artist lookup.
+    let mut newly_resolved = false;
+    let mut clear_pending = false;
+    if let Some((id, slot)) = pending_artist.as_ref()
+        && let Ok(mut guard) = slot.lock()
+        && let Some(artist) = guard.take()
+    {
+        if !artist.is_empty() {
+            map.insert(id.clone(), artist);
+            if let Ok(json) = serde_json::to_string(&*map) {
+                crate::settings::store::write_named(ARTISTS_FILE, &json);
+            }
+            newly_resolved = true;
+        }
+        clear_pending = true;
+    }
+    if clear_pending {
+        *pending_artist = None;
+    }
+
+    if !state.is_changed() && !newly_resolved {
+        return;
+    }
+
+    // 2. First check read-only whether any deck/house-deck has a missing artist
+    // that we can fill from memory, so we never mutably dereference `state`
+    // unless an artist is actually going to be filled.
+    let mut missing_id: Option<String> = None;
+    let mut can_fill = false;
+    state.lobby.visit_missing_artists(|name, scryfall_id| {
+        if known_artist(name, scryfall_id).is_some() || map.contains_key(scryfall_id) {
+            can_fill = true;
+        } else if !scryfall_id.is_empty()
+            && !tried_ids.contains(scryfall_id)
+            && missing_id.is_none()
+        {
+            missing_id = Some(scryfall_id.to_string());
+        }
+    });
+
+    let filled = if can_fill {
+        state.lobby.fill_missing_artists(|name, scryfall_id| {
+            if let Some(a) = known_artist(name, scryfall_id) {
+                return Some(a.to_string());
+            }
+            if let Some(a) = map.get(scryfall_id) {
+                return Some(a.clone());
+            }
+            if !scryfall_id.is_empty() && !tried_ids.contains(scryfall_id) && missing_id.is_none() {
+                missing_id = Some(scryfall_id.to_string());
+            }
+            None
+        })
+    } else {
+        false
+    };
+
+    // 3. Kick off one Scryfall `/cards/{id}` lookup if an artist is still unknown.
+    #[cfg(not(test))]
+    if pending_artist.is_none()
+        && let Some(id) = missing_id
+    {
+        tried_ids.insert(id.clone());
+        let slot = std::sync::Arc::new(std::sync::Mutex::new(None));
+        let slot_clone = std::sync::Arc::clone(&slot);
+        let req = ehttp::Request::get(format!("https://api.scryfall.com/cards/{id}"));
+        ehttp::fetch(req, move |res| {
+            let artist = res
+                .ok()
+                .filter(|r| r.status == 200)
+                .and_then(|r| serde_json::from_slice::<serde_json::Value>(&r.bytes).ok())
+                .and_then(|v| {
+                    v.get("artist")
+                        .and_then(serde_json::Value::as_str)
+                        .map(str::to_string)
+                        .or_else(|| {
+                            v.get("card_faces")
+                                .and_then(serde_json::Value::as_array)
+                                .and_then(|faces| faces.first())
+                                .and_then(|f| f.get("artist"))
+                                .and_then(serde_json::Value::as_str)
+                                .map(str::to_string)
+                        })
+                })
+                .unwrap_or_default();
+            if let Ok(mut g) = slot_clone.lock() {
+                *g = Some(artist);
+            }
+        });
+        *pending_artist = Some((id, slot));
+    }
+
+    if !state.is_changed() && !filled {
         return;
     }
     let lobby = &state.lobby;

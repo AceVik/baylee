@@ -49,8 +49,10 @@ use super::systems::keep_gateways;
 use super::*;
 use crate::frontal::FrontalMaterial;
 use crate::shellkit::controls::Kit;
+use crate::shellkit::focus::Stop;
 use crate::shellkit::metrics::px_fixed;
 use crate::shellkit::role::Role;
+use crate::ui_button::UiButton;
 use bevy::ui::{UiTransform, Val2};
 
 /// How long the panels take to move, in either motion.
@@ -112,6 +114,15 @@ fn card_width(kit: Kit) -> (Val, Val) {
 /// The card's width on a desktop at the default step.
 pub(super) const CARD_WIDTH: f32 = 720.0;
 
+/// Which community or web destination a front-door pill opens in the QR modal.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) enum CommunityKind {
+    WhatsApp,
+    Discord,
+    GitHub,
+    Website,
+}
+
 /// The four panels.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub(super) enum Panel {
@@ -131,6 +142,9 @@ pub(super) enum Panel {
 impl Panel {
     /// The panel the lobby asks for.
     fn of(state: &LobbyState) -> Self {
+        if state.central_ready() {
+            return Self::Gateway;
+        }
         if state.lobby.gateway_chosen() {
             match state.lobby.face() {
                 baylee_client_core::lobby::Face::SignIn => Self::SignIn,
@@ -170,7 +184,14 @@ pub(crate) struct FrontMotion {
 
 impl Default for FrontMotion {
     fn default() -> Self {
-        Self::at_rest(Panel::Gateway)
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            Self::at_rest(Panel::SignIn)
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            Self::at_rest(Panel::Gateway)
+        }
     }
 }
 
@@ -265,7 +286,9 @@ pub(super) fn move_front(
     let target = Panel::of(&state);
     // Anywhere but the front door there is nothing to move, and coming back
     // to it (signing out) should find it already standing.
-    let still = prefs.all().reduce_motion || !matches!(state.lobby.screen(), Screen::SignIn { .. });
+    let on_front =
+        matches!(state.lobby.screen(), Screen::SignIn { .. }) || state.showing_gateway_hub();
+    let still = prefs.all().reduce_motion || !on_front;
     let mut next = *motion;
     if still {
         next = FrontMotion::at_rest(target);
@@ -329,7 +352,9 @@ pub(super) fn show_scene(
         } else {
             crate::vista::passage(motion.progress(), peak)
         },
-        shown: matches!(state.lobby.screen(), Screen::SignIn { .. }) || entrance.active(),
+        shown: matches!(state.lobby.screen(), Screen::SignIn { .. })
+            || state.showing_gateway_hub()
+            || entrance.active(),
         entering: entrance.active(),
         portal: entrance.progress(),
     });
@@ -700,6 +725,7 @@ pub(super) fn stage(
     cast: &FrontCast,
     kit: Kit,
     scrolled_to: &Scrolled,
+    music_on: bool,
 ) -> Entity {
     let (width, max_width) = card_width(kit);
     let room = commands
@@ -734,7 +760,7 @@ pub(super) fn stage(
     commands.entity(room).add_child(stage);
     let panels = [Some(cast.shown), cast.going];
     for panel in panels.into_iter().flatten() {
-        let card = card(commands, state, panel, kit, scrolled_to);
+        let card = card(commands, state, panel, kit, scrolled_to, music_on);
         commands.entity(stage).add_child(card);
     }
     room
@@ -772,6 +798,7 @@ fn card(
     panel: Panel,
     kit: Kit,
     scrolled_to: &Scrolled,
+    music_on: bool,
 ) -> Entity {
     let side = kit.m.pad * 1.2;
     let card = commands
@@ -784,7 +811,9 @@ fn card(
                 width: Val::Percent(100.0),
                 align_self: AlignSelf::Center,
                 flex_direction: FlexDirection::Column,
-                row_gap: kit.m.px(if kit.m.frame == Frame::Phone {
+                row_gap: kit.m.px(if panel == Panel::Gateway {
+                    6.0
+                } else if kit.m.frame == Frame::Phone {
                     8.0
                 } else {
                     14.0
@@ -794,8 +823,11 @@ fn card(
                 padding: UiRect {
                     left: px_fixed(side),
                     right: px_fixed(side),
-                    top: px_fixed(side * 0.8),
-                    bottom: px_fixed(side + super::dock::INLAY_LIFT),
+                    top: px_fixed(side * if panel == Panel::Gateway { 0.45 } else { 0.8 }),
+                    bottom: px_fixed(
+                        side * if panel == Panel::Gateway { 0.5 } else { 1.0 }
+                            + super::dock::INLAY_LIFT,
+                    ),
                 },
                 border: UiRect::all(px_fixed(1.0)),
                 border_radius: BorderRadius::all(px_fixed(CARD_RADIUS)),
@@ -813,11 +845,11 @@ fn card(
         ))
         .id();
     match panel {
-        Panel::Gateway => faces::gateway(commands, card, state, kit, scrolled_to),
-        Panel::SignIn => faces::sign_in(commands, card, state, kit),
-        Panel::Create => faces::create(commands, card, state, kit),
-        Panel::Guest => faces::guest(commands, card, state, kit),
-        Panel::NewPassword => faces::new_password(commands, card, state, kit),
+        Panel::Gateway => faces::gateway(commands, card, state, kit, scrolled_to, music_on),
+        Panel::SignIn => faces::sign_in(commands, card, state, kit, music_on),
+        Panel::Create => faces::create(commands, card, state, kit, music_on),
+        Panel::Guest => faces::guest(commands, card, state, kit, music_on),
+        Panel::NewPassword => faces::new_password(commands, card, state, kit, music_on),
     }
     let shade = commands
         .spawn((
@@ -888,20 +920,20 @@ pub(super) fn gear_menu(
                 position_type: PositionType::Absolute,
                 top: px(HEADER_TOP + HEADER_HEIGHT + 6.0),
                 right: px(side - 6.0),
-                width: px_fixed(296.0),
+                width: px_fixed(312.0),
                 flex_direction: FlexDirection::Column,
-                row_gap: px(metrics.gap),
-                padding: UiRect::all(px(metrics.pad * 0.9)),
+                row_gap: px_fixed(12.0),
+                padding: UiRect::all(px_fixed(16.0)),
                 border: UiRect::all(px_fixed(1.0)),
-                border_radius: BorderRadius::all(px_fixed(12.0)),
+                border_radius: BorderRadius::all(px_fixed(14.0)),
                 ..default()
             },
-            BackgroundColor(palette::PANEL_LIT.with_alpha(0.97)),
+            BackgroundColor(Color::srgba(0.05, 0.08, 0.13, 0.98)),
             BackgroundGradient::from(LinearGradient::to_bottom(vec![
-                Color::srgba(0.16, 0.25, 0.34, 0.98).into(),
-                Color::srgba(0.05, 0.08, 0.12, 0.98).into(),
+                Color::srgba(0.10, 0.16, 0.24, 0.99).into(),
+                Color::srgba(0.04, 0.07, 0.11, 0.99).into(),
             ])),
-            BorderColor::all(crate::shellkit::tokens::PRIMARY_EDGE.with_alpha(0.55)),
+            BorderColor::all(crate::shellkit::tokens::ACCENT.with_alpha(0.32)),
             crate::shellkit::surfaces::popover_shadow(),
             UiTransform::default(),
             GlobalZIndex(600),
@@ -923,8 +955,11 @@ pub(super) fn gear_menu(
                 width: Val::Percent(100.0),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::SpaceBetween,
+                padding: UiRect::bottom(px_fixed(4.0)),
+                border: UiRect::bottom(px_fixed(1.0)),
                 ..default()
             },
+            BorderColor::all(palette::DOCK_EDGE.with_alpha(0.35)),
             Pickable::IGNORE,
         ))
         .id();
@@ -932,9 +967,25 @@ pub(super) fn gear_menu(
         .spawn((
             Node {
                 align_items: AlignItems::Center,
-                column_gap: px_fixed(8.0),
+                column_gap: px_fixed(10.0),
                 ..default()
             },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let head_badge = commands
+        .spawn((
+            Node {
+                width: px_fixed(28.0),
+                height: px_fixed(28.0),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                border: UiRect::all(px_fixed(1.0)),
+                border_radius: BorderRadius::all(px_fixed(8.0)),
+                ..default()
+            },
+            BackgroundColor(crate::shellkit::tokens::ACCENT.with_alpha(0.14)),
+            BorderColor::all(crate::shellkit::tokens::ACCENT.with_alpha(0.38)),
             Pickable::IGNORE,
         ))
         .id();
@@ -946,6 +997,7 @@ pub(super) fn gear_menu(
             Pickable::IGNORE,
         ))
         .id();
+    commands.entity(head_badge).add_child(head_icon);
     let head_title = commands
         .spawn((
             Text::new(Phrase::SettingsQuickTitle.text(lang)),
@@ -956,20 +1008,25 @@ pub(super) fn gear_menu(
         .id();
     commands
         .entity(head_left)
-        .add_children(&[head_icon, head_title]);
+        .add_children(&[head_badge, head_title]);
     let close_btn = commands
         .spawn((
+            Role::Button,
             Node {
-                width: px_fixed(26.0),
-                height: px_fixed(26.0),
+                width: px_fixed(28.0),
+                height: px_fixed(28.0),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
-                border_radius: BorderRadius::all(px_fixed(6.0)),
+                border: UiRect::all(px_fixed(1.0)),
+                border_radius: BorderRadius::all(px_fixed(8.0)),
                 ..default()
             },
-            BackgroundColor(Color::NONE),
-            crate::ambience::Feel::rising_to(Color::NONE, crate::shellkit::tokens::HOVER),
-            crate::shellkit::sheen::Sheen,
+            BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.04)),
+            BorderColor::all(palette::DOCK_EDGE.with_alpha(0.35)),
+            crate::ambience::Feel::tinting_to(
+                Color::srgba(1.0, 1.0, 1.0, 0.04),
+                crate::shellkit::tokens::HOVER,
+            ),
             UiTransform::default(),
             Press::Front(FrontPress::FrontMenu),
         ))
@@ -985,28 +1042,56 @@ pub(super) fn gear_menu(
     commands.entity(close_btn).add_child(close_icon);
     commands.entity(head).add_children(&[head_left, close_btn]);
 
+    let lang_box = commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                flex_direction: FlexDirection::Column,
+                padding: UiRect::all(px_fixed(10.0)),
+                row_gap: px_fixed(8.0),
+                border: UiRect::all(px_fixed(1.0)),
+                border_radius: BorderRadius::all(px_fixed(10.0)),
+                ..default()
+            },
+            BackgroundColor(Color::srgba(0.03, 0.06, 0.10, 0.72)),
+            BorderColor::all(palette::DOCK_EDGE.with_alpha(0.32)),
+            Pickable::IGNORE,
+        ))
+        .id();
     let caption = note(commands, fonts, metrics, Phrase::Language.text(lang));
     let mut chips = Vec::new();
     for offered in Lang::ALL {
+        let active = offered == lang;
+        let bg = if active {
+            Color::srgba(0.09, 0.22, 0.26, 0.92)
+        } else {
+            Color::srgba(0.06, 0.10, 0.16, 0.88)
+        };
         let chip = button(
             commands,
             fonts,
             metrics,
             offered.name(),
             Press::Shared(SharedPress::PickLang(offered)),
-            palette::PANEL,
+            bg,
             true,
         );
-        if offered == lang {
+        let flag = door::flag_icon(commands, offered);
+        commands.entity(chip).insert_children(0, &[flag]);
+        if active {
             commands.entity(chip).insert((
-                BackgroundColor(palette::PANEL_HOT),
-                BorderColor::all(crate::shellkit::tokens::ACCENT.with_alpha(0.6)),
-                crate::ambience::Feel::new(palette::PANEL_HOT),
+                BackgroundColor(bg),
+                BorderColor::all(crate::shellkit::tokens::ACCENT.with_alpha(0.65)),
+                crate::ambience::Feel::tinting_to(bg, crate::shellkit::tokens::HOVER),
             ));
         }
         chips.push(chip);
     }
     let languages = halves(commands, metrics, &chips);
+    commands
+        .entity(lang_box)
+        .add_children(&[caption, languages]);
+
     let audio_box = commands
         .spawn((
             Node {
@@ -1015,18 +1100,28 @@ pub(super) fn gear_menu(
                 padding: UiRect::all(px_fixed(10.0)),
                 row_gap: px_fixed(6.0),
                 border: UiRect::all(px_fixed(1.0)),
-                border_radius: BorderRadius::all(px_fixed(8.0)),
+                border_radius: BorderRadius::all(px_fixed(10.0)),
                 ..default()
             },
-            BackgroundColor(palette::PANEL.with_alpha(0.75)),
-            BorderColor::all(palette::DOCK_EDGE.with_alpha(0.35)),
+            BackgroundColor(Color::srgba(0.03, 0.06, 0.10, 0.72)),
+            BorderColor::all(palette::DOCK_EDGE.with_alpha(0.32)),
             Pickable::IGNORE,
         ))
         .id();
     let music = crate::music::controls(commands, fonts, metrics, lang);
     commands.entity(audio_box).add_child(music);
 
-    let rule = rule(commands);
+    let actions_col = commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                flex_direction: FlexDirection::Column,
+                row_gap: px_fixed(8.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
     let all = button(
         commands,
         fonts,
@@ -1045,27 +1140,12 @@ pub(super) fn gear_menu(
         node.justify_content = JustifyContent::Center;
     });
     let report = crate::report::button(commands, fonts, metrics, lang);
-    commands.entity(menu).add_children(&[
-        nipple, head, caption, languages, audio_box, rule, report, all,
-    ]);
+    commands.entity(actions_col).add_children(&[all, report]);
+    commands
+        .entity(menu)
+        .add_children(&[nipple, head, lang_box, audio_box, actions_col]);
     commands.entity(holder).add_children(&[veil, menu]);
     holder
-}
-
-/// A hairline across a panel.
-fn rule(commands: &mut Commands) -> Entity {
-    commands
-        .spawn((
-            Node {
-                width: percent(100),
-                height: px_fixed(1.0),
-                flex_shrink: 0.0,
-                ..default()
-            },
-            BackgroundColor(palette::DOCK_EDGE.with_alpha(0.30)),
-            Pickable::IGNORE,
-        ))
-        .id()
 }
 
 /// Where the source is, for the colophon.
@@ -1136,10 +1216,12 @@ pub(super) fn front_door(
     kit: Kit,
     scrolled_to: &Scrolled,
     assets: Option<&AssetServer>,
+    cloud: Option<&super::memorial::CloudArt>,
     music_on: bool,
     height: f32,
 ) {
     let phone = kit.m.frame == Frame::Phone;
+    let full = door::full_colophon(kit, height);
     let page = commands
         .spawn((
             Node {
@@ -1150,8 +1232,11 @@ pub(super) fn front_door(
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::FlexStart,
-                padding: UiRect::all(px_fixed(kit.m.body)),
-                row_gap: px_fixed(kit.m.gap),
+                padding: UiRect::axes(
+                    px_fixed(kit.m.body),
+                    px_fixed(if full { kit.m.body } else { 4.0 }),
+                ),
+                row_gap: px_fixed(if full { kit.m.gap } else { kit.m.gap * 0.4 }),
                 ..default()
             },
             Scrollable(List::Table),
@@ -1178,32 +1263,56 @@ pub(super) fn front_door(
         .and_modify(|mut node| node.display = Display::None);
     let logo = assets.map_or_else(Handle::default, |a| a.load("brand/baylee-logo.png"));
     let logo_width = match kit.m.frame {
-        Frame::Phone => 120.0,
-        Frame::Compact | Frame::Narrow => 180.0,
-        Frame::Wide | Frame::Vast => 300.0,
+        Frame::Phone => 185.0,
+        Frame::Compact | Frame::Narrow => 350.0,
+        Frame::Wide => 520.0,
+        Frame::Vast => 580.0,
     };
+    let name = Phrase::MemorialOpen.text(state.lobby.lang());
+    let mut a11y = accesskit::Node::new(accesskit::Role::Button);
+    a11y.set_label(name);
     let brand = commands
         .spawn((
-            ImageNode::new(logo),
+            super::memorial::Cloud { front: true },
+            UiButton,
+            Role::Hit,
+            Name::new(name.to_owned()),
+            super::hint::HoverHint(name.to_owned()),
+            bevy::a11y::AccessibilityNode(a11y),
+            Press::Memorial(super::memorial::MemorialPress::Open),
+            Stop::new(keys::table_of(state).name, "baylee"),
+            UiTransform::default(),
             Node {
                 width: px_fixed(logo_width),
                 max_width: Val::Percent(100.0),
-                // Never more than a sixth of a short window's height: the
-                // card and the notices come first.
-                max_height: Val::Vh(if phone { 30.0 } else { 15.0 }),
+                max_height: Val::Vh(if phone {
+                    32.0
+                } else if full {
+                    28.0
+                } else {
+                    23.5
+                }),
                 aspect_ratio: Some(1942.0 / 809.0),
                 flex_shrink: 0.0,
                 ..default()
             },
-            Pickable::IGNORE,
         ))
         .id();
-    let stage = stage(commands, state, cast, kit, scrolled_to);
-    let text_row = door::text_row(commands, state, kit, music_on);
+    if let Some(art) = cloud {
+        commands
+            .entity(brand)
+            .insert(MaterialNode(art.logo.clone()));
+    } else {
+        commands.entity(brand).insert(ImageNode::new(logo));
+    }
+    let stage = stage(commands, state, cast, kit, scrolled_to, music_on);
+    let community = door::community_row(commands, state, kit, full);
     let version = door::version_line(commands, state, kit);
+    let info = door::info_line(commands, state, kit);
+    let in_lobby = state.central_ready();
     if phone {
         // Two panes, width the plentiful axis: the logo at the left, the
-        // card at the right, the text row under the logo.
+        // card at the right, the community links under the logo.
         let panes = commands
             .spawn((
                 Node {
@@ -1228,9 +1337,17 @@ pub(super) fn front_door(
                 Pickable::IGNORE,
             ))
             .id();
-        commands
-            .entity(left)
-            .add_children(&[brand, text_row, version]);
+        if in_lobby {
+            commands.entity(brand).despawn();
+            commands
+                .entity(left)
+                .add_children(&[community, version, info]);
+        } else {
+            let controls = door::header_controls(commands, state, kit, music_on, false);
+            commands
+                .entity(left)
+                .add_children(&[brand, controls, community, version, info]);
+        }
         commands
             .entity(stage)
             .entry::<Node>()
@@ -1242,10 +1359,10 @@ pub(super) fn front_door(
         commands.entity(panes).add_children(&[left, stage]);
         commands.entity(page).add_child(panes);
     } else {
-        let tagline = door::tagline(commands, state, kit);
         // Auto margins consume spare height, but collapse to zero when the
         // form needs to scroll; `justify-content: center` would hide its top
-        // on overflow.
+        // on overflow. Bottom padding shifts the centered composition slightly
+        // higher on screen.
         let composition = commands
             .spawn((
                 Node {
@@ -1253,7 +1370,14 @@ pub(super) fn front_door(
                     flex_direction: FlexDirection::Column,
                     align_items: AlignItems::Center,
                     flex_shrink: 0.0,
-                    row_gap: px_fixed(kit.m.gap),
+                    row_gap: px_fixed(kit.m.gap * if full { 0.72 } else { 0.4 }),
+                    padding: UiRect::bottom(px_fixed(if in_lobby {
+                        12.0
+                    } else if full {
+                        38.0
+                    } else {
+                        8.0
+                    })),
                     margin: UiRect::vertical(if kit.m.frame == Frame::Compact {
                         px_fixed(0.0)
                     } else {
@@ -1264,16 +1388,23 @@ pub(super) fn front_door(
                 Pickable::IGNORE,
             ))
             .id();
-        commands
-            .entity(composition)
-            .add_children(&[brand, tagline, stage, text_row, version]);
+        if in_lobby {
+            commands.entity(brand).despawn();
+            commands
+                .entity(composition)
+                .add_children(&[stage, community]);
+        } else {
+            let tagline = door::tagline(commands, state, kit);
+            commands
+                .entity(composition)
+                .add_children(&[brand, tagline, stage, community]);
+            let top_right = door::top_right_controls(commands, state, kit, music_on);
+            commands.entity(root).add_child(top_right);
+        }
         commands.entity(page).add_child(composition);
+        commands.entity(root).add_children(&[version, info]);
     }
-    let colophon = if door::full_colophon(kit, height) {
-        // The source offer stands in the top-left corner and the Discord
-        // tile in the top-right, each with its QR.
-        let tiles = door::corner_tiles(commands, state, kit);
-        commands.entity(root).add_children(&tiles);
+    let colophon = if full {
         door::full(commands, state, kit)
     } else {
         let line = door::one_line(commands, state, kit);
@@ -1283,7 +1414,12 @@ pub(super) fn front_door(
                     width: Val::Percent(100.0),
                     flex_shrink: 0.0,
                     justify_content: JustifyContent::Center,
-                    padding: UiRect::axes(px_fixed(kit.m.body), kit.m.px(4.0)),
+                    padding: UiRect {
+                        left: px_fixed(kit.m.body),
+                        right: px_fixed(kit.m.body),
+                        top: px_fixed(2.0),
+                        bottom: px_fixed(if phone { 4.0 } else { door::FOOTER_BOTTOM }),
+                    },
                     ..default()
                 },
                 Pickable::IGNORE,
@@ -1293,6 +1429,25 @@ pub(super) fn front_door(
         holder
     };
     commands.entity(root).add_child(colophon);
+    if state.front_menu {
+        let veil = commands
+            .spawn((
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: px_fixed(0.0),
+                    top: px_fixed(0.0),
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    ..default()
+                },
+                BackgroundColor(Color::NONE),
+                GlobalZIndex(crate::shellkit::tokens::z::POPOVER - 2),
+                Press::Front(FrontPress::FrontMenu),
+            ))
+            .id();
+        commands.entity(root).add_child(veil);
+    }
+    door::community_dialog(commands, root, state, kit);
 }
 
 /// A control of the front door: the saved gateways, the account form,
@@ -1309,6 +1464,10 @@ pub(crate) enum FrontPress {
     LeaveGateway,
     /// Opens or closes the front door's gear menu.
     FrontMenu,
+    /// Opens the QR-code modal dialog for one of the four community/web pills.
+    OpenCommunityDialog(CommunityKind),
+    /// Closes the QR-code modal dialog.
+    CloseCommunityDialog,
     /// Swap the form between log-in and sign-up.
     ToggleRegistering,
     /// Send the sign-in form.
@@ -1319,11 +1478,25 @@ pub(crate) enum FrontPress {
     OpenSource,
     /// Open the community's Discord invitation in the browser.
     OpenDiscord,
+    /// Open the community's `WhatsApp` invitation in the browser.
+    OpenWhatsApp,
     /// Open the website's registration page, from Central's sign-in form.
     OpenCentralRegister,
+    /// Open `https://baylee.app` in the browser, from Central's sign-in form.
+    OpenWebsite,
+    /// Open the GitHub releases changelog in the browser.
+    OpenChangelog,
     /// Open the gateway's legal notice (Impressum, `/info` `impressum`) in
     /// the browser.
     OpenImpressum,
+    /// Fold or unfold one of the three gateway compatibility groups.
+    ToggleGatewayGroup(baylee_client_core::lobby::gateway_list::GatewayGroup),
+    /// Step through the gateway sort orders (`LastUsed`, `Name`, `Address`, `Version`).
+    CycleGatewaySort,
+    /// Clear the gateway search box.
+    ClearGatewaySearch,
+    /// Re-probe every gateway in the list.
+    RefreshGateways,
     /// Nothing (a control drawn while the form is busy).
     Nothing,
     /// `‹ Back` on the create-account and guest faces.
@@ -1348,6 +1521,7 @@ pub(crate) enum FrontPress {
 
 impl FrontPress {
     /// What a click on this control does.
+    #[allow(clippy::too_many_lines)]
     pub(super) fn handle(self, cx: Cx<'_, '_, '_, '_, '_>) {
         let Cx {
             state,
@@ -1358,7 +1532,10 @@ impl FrontPress {
         } = cx;
         match self {
             #[cfg(not(target_arch = "wasm32"))]
-            FrontPress::CentralSignOut => super::central::logout(state, prefs),
+            FrontPress::CentralSignOut => {
+                super::central::logout(state, prefs);
+                super::central::enable(state);
+            }
             FrontPress::AddGateway => {
                 if let Some(url) = state.check_gateway() {
                     http::probe_gateway(url, mailbox);
@@ -1374,6 +1551,13 @@ impl FrontPress {
             FrontPress::FrontMenu => {
                 state.header_menu = None;
                 state.front_menu = !state.front_menu;
+            }
+            FrontPress::OpenCommunityDialog(kind) => {
+                state.front_menu = false;
+                state.community_dialog = Some(kind);
+            }
+            FrontPress::CloseCommunityDialog => {
+                state.community_dialog = None;
             }
             FrontPress::Nothing => {}
             FrontPress::BackToSignIn => {
@@ -1425,9 +1609,40 @@ impl FrontPress {
             }
             press @ (FrontPress::OpenSource
             | FrontPress::OpenDiscord
+            | FrontPress::OpenWhatsApp
             | FrontPress::OpenCentralRegister
+            | FrontPress::OpenWebsite
+            | FrontPress::OpenChangelog
             | FrontPress::OpenImpressum) => {
+                state.community_dialog = None;
                 super::source::open(press, state);
+            }
+            FrontPress::ToggleGatewayGroup(group) => {
+                let slot = &mut state.gateway_collapsed[group.index()];
+                *slot = !*slot;
+                let visible = state.visible_gateway_indices();
+                if state
+                    .gateway_cursor
+                    .is_some_and(|at| !visible.contains(&at))
+                {
+                    state.gateway_cursor = visible.first().copied();
+                }
+            }
+            FrontPress::CycleGatewaySort => {
+                state.gateway_sort = state.gateway_sort.next();
+                scrolled.set(List::Gateways, 0.0);
+                state.gateway_cursor = state.visible_gateway_indices().first().copied();
+            }
+            FrontPress::ClearGatewaySearch => {
+                state.lobby.set_field(Field::GatewaySearch, "");
+                scrolled.set(List::Gateways, 0.0);
+                state.gateway_cursor = state.visible_gateway_indices().first().copied();
+            }
+            FrontPress::RefreshGateways => {
+                for url in state.displayed_gateways().to_vec() {
+                    state.probes.entry(url.clone()).or_insert(Probe::Asking);
+                    http::probe_gateway(url, mailbox);
+                }
             }
             FrontPress::ToggleRegistering => state.lobby.toggle_registering(),
             FrontPress::Submit => {

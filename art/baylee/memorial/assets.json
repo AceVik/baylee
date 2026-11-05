@@ -16,8 +16,8 @@
   },
   {
     "asset": "brand/baylee-icon.png",
-    "sha256": "4ccd85a3f33e4b40c3f0295350c837247d52ac29c716cde10d7478e43a091d82",
-    "generation": "66a3d3f2-8ba9-4c5f-81fa-d382f5dfe483"
+    "sha256": "157712c992ddfdc9cd7112f7820a9e566eced07dff9c5b4f627cefaec5e1ade6",
+    "source": "4fcd41de1^:crates/baylee-client/assets/brand/baylee-icon.png"
   },
   {
     "asset": "memorial/baylee-1.jpg",

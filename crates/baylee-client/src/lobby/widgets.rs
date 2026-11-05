@@ -243,24 +243,3 @@ pub(crate) fn spacer() -> Node {
         ..default()
     }
 }
-
-/// A shared HUD surface used by the front door and account library.
-pub(super) fn surface(commands: &mut Commands, metrics: Metrics) -> Entity {
-    commands
-        .spawn((
-            Node {
-                width: percent(100),
-                flex_shrink: 0.0,
-                flex_direction: FlexDirection::Column,
-                row_gap: px(metrics.gap),
-                padding: UiRect::all(px(metrics.pad)),
-                border: UiRect::all(px(1)),
-                border_radius: BorderRadius::all(px(14)),
-                ..default()
-            },
-            BackgroundColor(palette::PANEL),
-            BorderColor::all(palette::DOCK_EDGE.with_alpha(0.45)),
-            Pickable::IGNORE,
-        ))
-        .id()
-}

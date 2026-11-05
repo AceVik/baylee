@@ -132,3 +132,195 @@ fn a_mixed_gateway_offers_its_guest_door_beside_centrals_sign_in() {
     assert_eq!(state.lobby.face(), baylee_client_core::lobby::Face::Guest);
     assert_eq!(state.gateways, device, "the device's own gateways are back");
 }
+
+#[test]
+fn launch_starts_at_central_sign_in_with_website_and_register_links() {
+    let mut app = headless();
+    *app.world_mut().resource_mut::<LobbyState>() = LobbyState::new();
+    settle(&mut app);
+    let state = app.world().resource::<LobbyState>();
+    assert!(state.central_pending(), "launch begins at Central sign-in");
+    assert!(state.lobby.gateway_chosen());
+    assert_eq!(
+        crate::lobby::source::address_of(FrontPress::OpenWebsite, state).as_deref(),
+        Some("https://baylee.app")
+    );
+    assert_eq!(
+        crate::lobby::source::address_of(FrontPress::OpenCentralRegister, state).as_deref(),
+        Some("https://baylee.app/register")
+    );
+    let found = presses(&mut app);
+    assert!(
+        found.contains(&Press::Front(FrontPress::OpenCommunityDialog(
+            super::super::front::CommunityKind::Website
+        )))
+    );
+    assert!(found.contains(&Press::Front(FrontPress::OpenCentralRegister)));
+    press(
+        &mut app,
+        Press::Front(FrontPress::OpenCommunityDialog(
+            super::super::front::CommunityKind::Website,
+        )),
+    );
+    app.update();
+    assert!(presses(&mut app).contains(&Press::Front(FrontPress::OpenWebsite)));
+}
+
+#[test]
+fn central_gateway_selection_stays_on_gateway_panel_with_note_tone_and_lazy_groups() {
+    use baylee_client_core::lobby::gateway_info::GatewayInfo;
+    use baylee_client_core::lobby::gateway_list::GatewayGroup;
+    let gateway_info = |name: &str, version: &str, view: u32| {
+        Probe::Known(GatewayInfo {
+            name: Some(name.to_string()),
+            version: version.to_string(),
+            protocol_version: baylee_protocol::PROTOCOL_VERSION,
+            view_version: view,
+            ..GatewayInfo::default()
+        })
+    };
+    let mut app = headless();
+    let (handle, _jobs) = super::super::central::Handle::queued_for_test();
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        let mut urls = vec![
+            "https://compat.example".to_string(),
+            "https://incompat.example".to_string(),
+            "https://offline.example".to_string(),
+        ];
+        urls.extend((0..16).map(|i| format!("https://extra-{i:02}.example")));
+        super::super::central::restored_for_test(&mut state, urls);
+        state.central.as_mut().expect("Central on").handle = Some(handle);
+        let v = baylee_view::VIEW_VERSION;
+        state.probes.insert(
+            "https://compat.example".into(),
+            gateway_info("Alpha Hall", "0.1.0", v),
+        );
+        state.probes.insert(
+            "https://incompat.example".into(),
+            gateway_info("Old Hall", "0.0.1", v + 1),
+        );
+        state
+            .probes
+            .insert("https://offline.example".into(), Probe::Silent);
+        for i in 0..16 {
+            state.probes.insert(
+                format!("https://extra-{i:02}.example"),
+                gateway_info(&format!("Extra {i:02}"), "0.1.0", v),
+            );
+        }
+    }
+    settle(&mut app);
+
+    let found = presses(&mut app);
+    assert!(found.contains(&Press::Front(FrontPress::SelectGateway(0))));
+    assert!(!found.contains(&Press::Front(FrontPress::SelectGateway(1))));
+    assert!(!found.contains(&Press::Front(FrontPress::SelectGateway(2))));
+    assert!(!found.contains(&Press::Front(FrontPress::SelectGateway(18))));
+
+    press(
+        &mut app,
+        Press::Front(FrontPress::ToggleGatewayGroup(GatewayGroup::Compatible)),
+    );
+    app.update();
+    press(
+        &mut app,
+        Press::Front(FrontPress::ToggleGatewayGroup(GatewayGroup::Offline)),
+    );
+    app.update();
+    assert!(presses(&mut app).contains(&Press::Front(FrontPress::SelectGateway(2))));
+
+    press(
+        &mut app,
+        Press::Front(FrontPress::ToggleGatewayGroup(GatewayGroup::Offline)),
+    );
+    press(
+        &mut app,
+        Press::Front(FrontPress::ToggleGatewayGroup(GatewayGroup::Compatible)),
+    );
+    app.update();
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .set_field(Field::GatewaySearch, "Alpha");
+    app.update();
+    assert_eq!(
+        app.world()
+            .resource::<LobbyState>()
+            .visible_gateway_indices(),
+        vec![0]
+    );
+    press(&mut app, Press::Front(FrontPress::ClearGatewaySearch));
+    app.update();
+    assert_eq!(
+        app.world().resource::<LobbyState>().gateway_collapsed,
+        [false, true, true]
+    );
+
+    press(&mut app, Press::Front(FrontPress::SelectGateway(0)));
+    app.update();
+    let state = app.world().resource::<LobbyState>();
+    assert!(state.central_admitting());
+    assert_eq!(state.lobby.tone(), Tone::Note);
+    assert!(!presses(&mut app).contains(&Press::Front(FrontPress::Submit)));
+}
+
+#[test]
+fn central_sign_in_wears_lobby_header_allows_decks_before_gateway_and_refreshes_without_flicker() {
+    use baylee_client_core::lobby::gateway_info::GatewayInfo;
+    let mut app = headless();
+    let (handle, _jobs) = super::super::central::Handle::queued_for_test();
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        let urls = vec!["https://compat.example".to_string()];
+        super::super::central::restored_for_test(&mut state, urls);
+        let central = state.central.as_mut().expect("Central on");
+        central.handle = Some(handle);
+        central.profile_handle = Some("AceVik#0007".to_string());
+        state.probes.insert(
+            "https://compat.example".into(),
+            Probe::Known(GatewayInfo {
+                name: Some("Alpha Hall".to_string()),
+                version: "0.1.0".to_string(),
+                protocol_version: baylee_protocol::PROTOCOL_VERSION,
+                view_version: baylee_view::VIEW_VERSION,
+                ..GatewayInfo::default()
+            }),
+        );
+    }
+    settle(&mut app);
+
+    let found = presses(&mut app);
+    assert!(found.contains(&Press::Header(HeaderPress::Nav(0))));
+    assert!(found.contains(&Press::Header(HeaderPress::Nav(1))));
+    assert!(found.contains(&Press::Header(HeaderPress::Account)));
+    assert!(found.contains(&Press::Front(FrontPress::SelectGateway(0))));
+    assert!(labels(&mut app).iter().any(|l| l == "AceVik#0007"));
+
+    // Switching to Decks in the Lobby header works before any gateway is chosen.
+    press(&mut app, Press::Header(HeaderPress::Nav(1)));
+    app.update();
+    assert_eq!(app.world().resource::<LobbyState>().hub, Hub::Decks);
+    assert_eq!(
+        *app.world().resource::<LobbyState>().lobby.screen(),
+        Screen::Table
+    );
+
+    // Switching back to Play returns to the Gateway Selection view in the Lobby.
+    press(&mut app, Press::Header(HeaderPress::Nav(0)));
+    app.update();
+    assert!(app.world().resource::<LobbyState>().showing_gateway_hub());
+    assert!(presses(&mut app).contains(&Press::Front(FrontPress::SelectGateway(0))));
+
+    // Refreshing gateways must preserve known probes on the refresh frame so rows
+    // do not flicker into Offline while background probes are in flight.
+    press(&mut app, Press::Front(FrontPress::RefreshGateways));
+    assert!(matches!(
+        app.world()
+            .resource::<LobbyState>()
+            .probes
+            .get("https://compat.example"),
+        Some(Probe::Known(_))
+    ));
+    assert!(presses(&mut app).contains(&Press::Front(FrontPress::SelectGateway(0))));
+}

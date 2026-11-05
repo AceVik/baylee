@@ -541,7 +541,7 @@ impl Lobby {
     /// Duplicates one of the account's own decks (the tile's `⋯`): the same
     /// `POST /decks/{id}/copy` a house deck takes, kept on the shelf.
     pub fn duplicate_deck(&mut self, index: usize) -> Option<LobbyRequest> {
-        if self.library.loading || self.busy || self.token().is_none() {
+        if self.library.loading || self.busy || !self.has_a_performer() {
             return None;
         }
         let id = self.decks.get(index)?.id.clone();

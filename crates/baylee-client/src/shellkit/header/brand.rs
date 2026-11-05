@@ -42,7 +42,7 @@ pub fn brand_mark(commands: &mut Commands, header: f32, name: &str) -> Entity {
     let height = (header * LOGO_SHARE).round();
     let mut node = accesskit::Node::new(accesskit::Role::Image);
     node.set_label(name);
-    commands
+    let mark = commands
         .spawn((
             BrandMark,
             Name::new(name.to_string()),
@@ -62,7 +62,19 @@ pub fn brand_mark(commands: &mut Commands, header: f32, name: &str) -> Entity {
             UiTransform::default(),
             crate::ambience::Feel::rising_to(Color::NONE, tokens::HOVER),
         ))
-        .id()
+        .id();
+    commands.queue(move |world: &mut World| {
+        let Some(art) = world.get_resource::<BrandArt>().cloned() else {
+            return;
+        };
+        if let Ok(mut ent) = world.get_entity_mut(mark)
+            && let Some(mut image) = ent.get_mut::<ImageNode>()
+        {
+            image.image = art.0[cut_for(height * 2.0)].clone();
+            image.color = Color::WHITE;
+        }
+    });
+    mark
 }
 
 /// Gives each brand mark the cut its drawn height asks for, after layout and

@@ -141,7 +141,7 @@ impl Handle {
     }
 
     fn start(mut account: Account) -> Result<Self, Error> {
-        let (send, receive) = mpsc::sync_channel::<Job>(4);
+        let (send, receive) = mpsc::sync_channel::<Job>(64);
         let active = Arc::new(AtomicBool::new(true));
         let worker_active = active.clone();
         std::thread::Builder::new()
@@ -199,7 +199,8 @@ impl Handle {
     }
 }
 
-pub(super) struct State {
+#[allow(clippy::struct_excessive_bools)]
+pub(crate) struct State {
     endpoint: Result<Endpoint, Error>,
     pub(super) local_gateways: Vec<String>,
     pub(super) handle: Option<Handle>,
@@ -220,6 +221,11 @@ pub(super) struct State {
     /// up before any gateway, nothing is admitted or synced (Central
     /// refuses tickets and writes until they are accepted).
     pub(super) terms_pending: bool,
+    /// A Central ticket is being exchanged with the chosen gateway.
+    pub(super) admitting: bool,
+    /// The Central account's `DisplayName#Tag` (or username), shown in the
+    /// Lobby profile pill even before a gateway is selected.
+    pub(crate) profile_handle: Option<String>,
 }
 
 pub(super) struct Restored {
@@ -229,6 +235,7 @@ pub(super) struct Restored {
     /// The sign-in found Central's terms in force unaccepted (and a gateway
     /// account's move, if any, waiting for them).
     terms_pending: bool,
+    profile_handle: Option<String>,
 }
 
 pub(super) fn enable(state: &mut LobbyState) {
@@ -244,8 +251,11 @@ pub(super) fn enable(state: &mut LobbyState) {
         guest_door: None,
         linked: false,
         terms_pending: false,
+        admitting: false,
+        profile_handle: None,
     });
     state.gateway_selected = false;
+    state.left_central_bound = false;
     state.gateway_cursor = None;
     state.probes.clear();
     state.lobby.set_gateway_ready(true);
@@ -386,8 +396,12 @@ pub(super) fn login(state: &mut LobbyState, mailbox: &Mailbox, username: String,
                     .key;
                 let endpoint = endpoint?;
                 let live = endpoint == Endpoint::live();
-                let account =
-                    Account::login(endpoint.clone(), username, password.to_string(), gateways)?;
+                let account = Account::login(
+                    endpoint.clone(),
+                    username.clone(),
+                    password.to_string(),
+                    gateways,
+                )?;
                 // The password's last use: every old local chat vault it
                 // opens gains the account's wrapper, so no later chat start
                 // needs it (`docs/password-vault.md` §"The account key").
@@ -411,11 +425,13 @@ pub(super) fn login(state: &mut LobbyState, mailbox: &Mailbox, username: String,
                 // Central's own terms come before any gateway: a sign-in
                 // that finds them unaccepted shows them first.
                 let terms_pending = account.central_terms_open();
+                let profile_handle = account.profile_handle().or_else(|| Some(username.clone()));
                 Ok(Restored {
                     handle: Handle::start(account)?,
                     gateways,
                     preferences,
                     terms_pending,
+                    profile_handle,
                 })
             })();
             if let Ok(mut messages) = target.0.lock() {
@@ -447,18 +463,36 @@ pub(super) fn receive(
             central.saved_gateways.clone_from(&restored.gateways);
             central.handle = Some(restored.handle.clone());
             central.terms_pending = restored.terms_pending;
+            central.profile_handle.clone_from(&restored.profile_handle);
             prefs.attach_central(restored.handle, restored.preferences);
             let lang = state.lobby.lang();
             let username = state.lobby.field(Field::Username).to_string();
+            let me_handle = restored.profile_handle.or_else(|| {
+                let trimmed = username.trim();
+                (!trimmed.is_empty()).then(|| trimmed.to_string())
+            });
             state.lobby = Lobby::new();
             state.lobby.set_lang(lang);
             state.lobby.set_field(Field::Username, &username);
+            if let Some(handle) = me_handle {
+                state.lobby.set_me(baylee_client_core::lobby::strips::Me {
+                    handle,
+                    guest: false,
+                });
+            }
             state.lobby.set_gateway_ready(false);
+            state.lobby.set_registration(Registration::Off);
+            state.lobby.set_guests_enabled(false);
             state.gateway_selected = false;
+            state.left_central_bound = false;
+            state.gateway_filter = baylee_client_core::lobby::gateway_list::GatewayFilter::All;
+            state.gateway_sort = baylee_client_core::lobby::gateway_list::GatewaySort::LastUsed;
+            state.gateway_collapsed = [false, true, true];
             // The document names the live gateway by its first address
             // (`gateway_list::filed`); this client shows it by today's.
             state.gateways = gateway_list::renamed(restored.gateways);
-            state.gateway_cursor = (!state.gateways.is_empty()).then_some(0);
+            let visible = state.visible_gateway_indices();
+            state.gateway_cursor = visible.first().copied();
             for url in state.unasked_gateways() {
                 http::probe_gateway(url, mailbox);
             }
@@ -491,19 +525,189 @@ pub(super) fn receive(
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+fn accept_guest_terms_if_needed(base: &str, token: &str) {
+    #[derive(serde::Deserialize)]
+    struct TermsDoc {
+        version: String,
+    }
+    let get = ehttp::Request::get(format!("{base}/terms"));
+    let Ok(resp) = crate::transport::fetch_blocking(&get) else {
+        return;
+    };
+    if !(200..300).contains(&resp.status) {
+        return;
+    }
+    let Ok(doc) = serde_json::from_slice::<TermsDoc>(&resp.bytes) else {
+        return;
+    };
+    let Ok(body) = serde_json::to_vec(&serde_json::json!({ "terms_version": doc.version })) else {
+        return;
+    };
+    let mut post = ehttp::Request::post(format!("{base}/account/terms"), body);
+    post.headers.insert("Content-Type", "application/json");
+    post.headers
+        .insert("Authorization", format!("Bearer {token}"));
+    let _ = crate::transport::fetch_blocking(&post);
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn sanitize_guest_display_name(raw: &str) -> String {
+    let filtered: String = raw
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric() || *c == '_' || *c == '-')
+        .take(16)
+        .collect();
+    let trimmed = filtered.trim_matches(['_', '-']);
+    if (3..=16).contains(&trimmed.len()) {
+        trimmed.to_string()
+    } else {
+        "Player".to_string()
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+enum GuestFallbackError {
+    NoGuests,
+    Unreachable,
+    Other,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn admit_guest_fallback(
+    gateway: &str,
+    display_name: &str,
+    lang: &str,
+    kept: Option<baylee_client_core::lobby::KeptGuest>,
+) -> Result<baylee_client_core::lobby::KeptGuest, GuestFallbackError> {
+    #[derive(serde::Deserialize)]
+    struct GuestBody {
+        token: String,
+        handle: String,
+        #[serde(default)]
+        terms_stale: Option<bool>,
+    }
+    let base = gateway.trim_end_matches('/');
+    if base.is_empty() {
+        return Err(GuestFallbackError::Unreachable);
+    }
+    if let Some(kept) = kept {
+        let mut check = ehttp::Request::get(format!("{base}/me"));
+        check
+            .headers
+            .insert("Authorization", format!("Bearer {}", kept.token));
+        if let Ok(resp) = crate::transport::fetch_blocking(&check) {
+            if (200..300).contains(&resp.status) {
+                return Ok(kept);
+            }
+            if resp.status == 403 {
+                accept_guest_terms_if_needed(base, &kept.token);
+                if let Ok(retry) = crate::transport::fetch_blocking(&check)
+                    && (200..300).contains(&retry.status)
+                {
+                    return Ok(kept);
+                }
+            }
+        }
+    }
+    let clean_name = sanitize_guest_display_name(display_name);
+    let post_guest = |payload: serde_json::Value| -> Result<ehttp::Response, GuestFallbackError> {
+        let bytes = serde_json::to_vec(&payload).map_err(|_| GuestFallbackError::Other)?;
+        let mut req = ehttp::Request::post(format!("{base}/auth/guest"), bytes);
+        req.headers.insert("Content-Type", "application/json");
+        crate::transport::fetch_blocking(&req).map_err(|_| GuestFallbackError::Unreachable)
+    };
+    let mut response = post_guest(serde_json::json!({
+        "display_name": clean_name,
+        "lang": lang,
+    }))?;
+    if response.status == 400 {
+        response = post_guest(serde_json::json!({ "lang": lang }))?;
+    }
+    if !(200..300).contains(&response.status) {
+        if response.status == 403
+            && response
+                .text()
+                .is_some_and(|t| t.contains("takes no guests"))
+        {
+            return Err(GuestFallbackError::NoGuests);
+        }
+        return Err(GuestFallbackError::Other);
+    }
+    let guest: GuestBody =
+        serde_json::from_slice(&response.bytes).map_err(|_| GuestFallbackError::Other)?;
+    if guest.terms_stale == Some(true) {
+        accept_guest_terms_if_needed(base, &guest.token);
+    }
+    Ok(baylee_client_core::lobby::KeptGuest {
+        token: guest.token,
+        handle: guest.handle,
+    })
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn gateway_reachable(gateway: &str) -> bool {
+    let base = gateway.trim_end_matches('/');
+    if base.is_empty() {
+        return false;
+    }
+    let req = ehttp::Request::get(format!("{base}/info"));
+    crate::transport::fetch_blocking(&req).is_ok_and(|resp| (200..500).contains(&resp.status))
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn fallback_event(
+    gateway: &str,
+    display_name: &str,
+    lang_code: &str,
+    lang: Lang,
+    kept_guest: Option<baylee_client_core::lobby::KeptGuest>,
+) -> LobbyEvent {
+    match admit_guest_fallback(gateway, display_name, lang_code, kept_guest) {
+        Ok(guest) => LobbyEvent::GuestIn(guest),
+        Err(GuestFallbackError::NoGuests) => LobbyEvent::Failed(Phrase::NoGuests.text(lang).into()),
+        Err(GuestFallbackError::Unreachable) => {
+            LobbyEvent::Failed(Phrase::GatewayNotAnswering.text(lang).into())
+        }
+        Err(GuestFallbackError::Other) => {
+            if gateway_reachable(gateway) {
+                LobbyEvent::Failed(message(lang).into())
+            } else {
+                LobbyEvent::Failed(Phrase::GatewayNotAnswering.text(lang).into())
+            }
+        }
+    }
+}
+
 pub(super) fn admit(state: &mut LobbyState, mailbox: &Mailbox) {
     let Some(handle) = state.central.as_ref().and_then(|s| s.handle.clone()) else {
         return;
     };
+    if let Some(central) = &mut state.central {
+        central.admitting = true;
+    }
     let gateway = state.gateway.clone();
     let epoch = state.gateway_epoch;
     let target = mailbox.clone();
     let lang = state.lobby.lang();
-    state.lobby.say(if lang == Lang::De {
-        "Verbindung zum Gateway wird hergestellt …"
-    } else {
-        "Connecting to gateway …"
-    });
+    let lang_code = state.lang.clone();
+    let kept_guest = state.guests.get(&gateway).cloned();
+    let display_name = state
+        .central
+        .as_ref()
+        .and_then(|c| c.profile_handle.as_deref())
+        .or_else(|| state.lobby.me().map(|m| m.handle.as_str()))
+        .and_then(|h| h.split('#').next())
+        .map(str::trim)
+        .filter(|s| s.len() >= 2)
+        .unwrap_or("Player")
+        .to_string();
+    state.lobby.tell(Phrase::GatewayConnecting, &[]);
+    let fallback_gateway = gateway.clone();
+    let fallback_name = display_name.clone();
+    let fallback_lang = lang_code.clone();
+    let fallback_kept = kept_guest.clone();
+    let fallback_target = target.clone();
     let accepted = handle
         .send
         .try_send(Box::new(move |account| {
@@ -519,7 +723,7 @@ pub(super) fn admit(state: &mut LobbyState, mailbox: &Mailbox) {
                     token: std::mem::take(&mut value.token),
                     username: value.username.take(),
                 },
-                Err(_) => LobbyEvent::Failed(message(lang).into()),
+                Err(_) => fallback_event(&gateway, &display_name, &lang_code, lang, kept_guest),
             };
             if let Ok(mut messages) = target.0.lock() {
                 if let Some(stale) = stale {
@@ -536,9 +740,9 @@ pub(super) fn admit(state: &mut LobbyState, mailbox: &Mailbox) {
                         Box::new(Reply::Terms(super::front::terms::TermsReply::CentralStale)),
                     ));
                 }
-                let landed = matches!(event, LobbyEvent::LoggedIn { .. });
+                let central_bound = matches!(event, LobbyEvent::LoggedIn { .. });
                 messages.push(Reply::Remote(epoch, Box::new(Reply::Event(event))));
-                if landed {
+                if central_bound {
                     messages.push(Reply::Remote(
                         epoch,
                         Box::new(Reply::Terms(super::front::terms::TermsReply::CentralBound)),
@@ -548,7 +752,20 @@ pub(super) fn admit(state: &mut LobbyState, mailbox: &Mailbox) {
         }))
         .is_ok();
     if !accepted {
-        state.lobby.apply(LobbyEvent::Failed(message(lang).into()));
+        let _ = std::thread::Builder::new()
+            .name("baylee-guest-admit".into())
+            .spawn(move || {
+                let event = fallback_event(
+                    &fallback_gateway,
+                    &fallback_name,
+                    &fallback_lang,
+                    lang,
+                    fallback_kept,
+                );
+                if let Ok(mut messages) = fallback_target.0.lock() {
+                    messages.push(Reply::Remote(epoch, Box::new(Reply::Event(event))));
+                }
+            });
     }
 }
 
@@ -662,12 +879,44 @@ pub(super) fn migration_failed(state: &mut LobbyState, prefs: &mut crate::prefs:
         .apply(LobbyEvent::Failed(message(state.lobby.lang()).into()));
 }
 
+pub(super) fn leave_gateway_to_central(state: &mut LobbyState, mailbox: &Mailbox) {
+    let flush = state.lobby.flush_delete();
+    super::http::dispatch(state, mailbox, flush);
+    state.offline = None;
+    let out = state.lobby.sign_out();
+    super::http::dispatch(state, mailbox, out);
+    state.gateway_epoch = state.gateway_epoch.wrapping_add(1);
+    state.gateway_selected = false;
+    state.left_central_bound = false;
+    state.hub = super::Hub::Play;
+    state.lobby.set_gateway_ready(false);
+    state.lobby.set_registration(Registration::Off);
+    state.lobby.set_guests_enabled(false);
+    if let Some(handle) = state
+        .central
+        .as_ref()
+        .and_then(|c| c.profile_handle.clone())
+        .or_else(|| {
+            let u = state.lobby.field(Field::Username).trim();
+            (!u.is_empty()).then(|| u.to_string())
+        })
+    {
+        state.lobby.set_me(baylee_client_core::lobby::strips::Me {
+            handle,
+            guest: false,
+        });
+    }
+    let visible = state.visible_gateway_indices();
+    state.gateway_cursor = visible.first().copied();
+}
+
 pub(super) fn logout(state: &mut LobbyState, prefs: &mut crate::prefs::Prefs) {
     state.gateway_epoch = state.gateway_epoch.wrapping_add(1);
     let lang = state.lobby.lang();
     state.lobby = Lobby::new();
     state.lobby.set_lang(lang);
     state.offline = None;
+    state.local_decks = None;
     prefs.detach_central();
     close(state);
 }
@@ -688,6 +937,78 @@ pub(super) fn restored_for_test(state: &mut LobbyState, gateways: Vec<String>) {
         gateways,
         preferences: Preferences::default(),
         terms_pending: false,
+        profile_handle: None,
+    };
+    receive(
+        state,
+        &mut crate::prefs::Prefs::default(),
+        &Mailbox::default(),
+        Ok(Box::new(restored)),
+    );
+}
+
+/// Dev-control helper to inspect the post-sign-in Central Lobby & Gateway Hub
+/// without requiring live Central credentials.
+#[cfg(feature = "dev-control")]
+pub(crate) fn demo_central_lobby(state: &mut LobbyState) {
+    use baylee_client_core::lobby::gateway_info::{GatewayInfo, Probe};
+    if state.central.is_none() {
+        enable(state);
+    }
+    let urls = vec![
+        "http://127.0.0.1:28766".to_string(),
+        "https://sanctuary.baylee.app".to_string(),
+        "https://legacy.community.example".to_string(),
+    ];
+    state.probes.insert(
+        "http://127.0.0.1:28766".into(),
+        Probe::Known(GatewayInfo {
+            name: Some("Local Dev Gateway".into()),
+            version: "0.1.0-beta.9c".into(),
+            protocol_version: baylee_protocol::PROTOCOL_VERSION,
+            view_version: baylee_view::VIEW_VERSION,
+            games_running: Some(0),
+            rooms_waiting: Some(1),
+            players_online: Some(3),
+            ..GatewayInfo::default()
+        }),
+    );
+    state.probes.insert(
+        "https://sanctuary.baylee.app".into(),
+        Probe::Known(GatewayInfo {
+            name: Some("Baylee Sanctuary".into()),
+            version: "0.1.0-beta.9c".into(),
+            protocol_version: baylee_protocol::PROTOCOL_VERSION,
+            view_version: baylee_view::VIEW_VERSION,
+            games_running: Some(5),
+            rooms_waiting: Some(3),
+            players_online: Some(14),
+            ..GatewayInfo::default()
+        }),
+    );
+    state.probes.insert(
+        "https://legacy.community.example".into(),
+        Probe::Known(GatewayInfo {
+            name: Some("Old Guard Arena".into()),
+            version: "0.1.0-beta.3b".into(),
+            protocol_version: baylee_protocol::PROTOCOL_VERSION.saturating_sub(1),
+            view_version: baylee_view::VIEW_VERSION.saturating_sub(1),
+            games_running: Some(2),
+            rooms_waiting: Some(1),
+            players_online: Some(4),
+            ..GatewayInfo::default()
+        }),
+    );
+    let (send, _receive) = mpsc::sync_channel::<Job>(4);
+    let restored = Restored {
+        handle: Handle {
+            send,
+            active: Arc::new(AtomicBool::new(true)),
+        },
+        gateways: urls,
+        preferences: Preferences::default(),
+        terms_pending: false,
+        profile_handle: Some("AceVik#0007".to_string()),
     };
     receive(
         state,
@@ -765,6 +1086,7 @@ mod tests {
             gateways: vec![source.clone()],
             preferences: Preferences::default(),
             terms_pending: false,
+            profile_handle: None,
         };
         receive(
             &mut state,
@@ -813,6 +1135,7 @@ mod tests {
             gateways: vec![other.clone()],
             preferences: Preferences::default(),
             terms_pending: false,
+            profile_handle: None,
         };
         receive(
             &mut state,
@@ -847,6 +1170,7 @@ mod tests {
             gateways: Vec::new(),
             preferences: Preferences::default(),
             terms_pending: true,
+            profile_handle: None,
         };
         let mailbox = Mailbox::default();
         let mut prefs = crate::prefs::Prefs::default();
@@ -895,6 +1219,7 @@ mod tests {
             gateways: vec![gateway_list::KEYED.into(), other.clone()],
             preferences: Preferences::default(),
             terms_pending: false,
+            profile_handle: None,
         };
         let mailbox = Mailbox::default();
         let mut prefs = crate::prefs::Prefs::default();
