@@ -24679,7 +24679,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         stackable: 0,
         lines: &[None],
         modes: &[],
-        alternatives: &[],
+        alternatives: &[Some(0)],
     }],
     &[],
     // Crenellated Wall
