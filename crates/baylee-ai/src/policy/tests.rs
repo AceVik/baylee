@@ -588,6 +588,44 @@ fn pays_tax_reads_an_any_player_payments_unpaid_effects() {
     );
 }
 
+/// Icy Prison's upkeep asks every seat, and refusing costs a card only for its
+/// controller: the mana is spent to keep this seat's own Prison, never an
+/// opponent's, which may well be holding this seat's creature.
+#[test]
+fn pays_tax_keeps_only_its_own_permanent_when_any_player_may_pay() {
+    use baylee_cards_dsl::Effect;
+    use baylee_core::mana::ManaCost;
+
+    static UPKEEP: &[Effect] = &[Effect::AnyPlayerMayPayManaOr {
+        cost: ManaCost::parse("{3}"),
+        effects: &[Effect::SacrificeSelf],
+    }];
+    let prison = test_public_object(4, "Icy Prison", 1, None);
+    let source = prison.id;
+    let mut view = base_view();
+    view.battlefield = vec![
+        test_public_object(1, "Forest", 0, None),
+        test_public_object(2, "Forest", 0, None),
+        test_public_object(3, "Forest", 0, None),
+        prison,
+    ];
+    let context = baylee_engine::engine::DecisionContext {
+        source: Some(source),
+        effects: UPKEEP,
+        ..Default::default()
+    };
+    assert!(
+        !super::pays_tax(&view, ManaCost::parse("{3}"), &context),
+        "an opponent's Prison is not this seat's to keep"
+    );
+
+    view.battlefield[3].controller = baylee_core::ids::PlayerId::new(0);
+    assert!(
+        super::pays_tax(&view, ManaCost::parse("{3}"), &context),
+        "the same payment keeps this seat's own Prison"
+    );
+}
+
 /// Power Sink's "unless" carries a sequence that starts with the counter, and
 /// refusing it loses the spell: paid when it can be, `{0}` included (NEW-15).
 /// The effects are the card's own, read from the registry.
