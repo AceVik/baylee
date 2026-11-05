@@ -247,11 +247,18 @@ pub(crate) fn draw(commands: &mut Commands, env: &Env) -> Entity {
         },
         Phrase::BuildStatRecord.text(lang),
         &if record.games_played > 0 {
-            format!("{}S / {}Sp ({win_pct}%)", record.wins, record.games_played)
+            Phrase::BuildStatRecordLine.fill(
+                lang,
+                &[
+                    &record.wins.to_string(),
+                    &record.games_played.to_string(),
+                    &win_pct.to_string(),
+                ],
+            )
         } else {
             Phrase::BuildStatNoGames.text(lang).to_string()
         },
-        &format!("Stufe {tier_lvl}/11 \u{b7} {tier_title}"),
+        &Phrase::BuildStatTierLine.fill(lang, &[&tier_lvl.to_string(), tier_title]),
     );
     commands
         .entity(kpi_row)
