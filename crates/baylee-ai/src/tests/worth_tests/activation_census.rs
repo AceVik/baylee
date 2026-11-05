@@ -481,7 +481,9 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // drawn-only discard effect: one more readable row and one more activation.
     // Orcish Farmer's targeted land-type change adds one activation; its value
     // depends on the affected land and stays contextual rather than guessed.
-    assert_eq!((read, of), (2996, 3785), "activated/loyalty reader census");
+    // Orcish Librarian's seeded exile and private order add one activation;
+    // exiling the controller's own cards is not unconditionally valuable.
+    assert_eq!((read, of), (2996, 3786), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

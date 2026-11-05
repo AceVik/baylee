@@ -6614,3 +6614,24 @@ got wrong was in the tests, not in the cards:
   AI leaves the land-type change's contextual value unread rather than guessing,
   with the activation census now at 2,996 readable rows out of 3,785. Its full
   363-test suite passes without a card-specific policy.
+
+## 2026-11-05 — Orcish Librarian's seeded top-eight exile
+
+- Reuse `Effect::LookAtTopExileRandom { count: 8, exile: 4 }` for the ordinary
+  {R}, {T} activation. The existing resolver privately inspects up to eight top
+  cards, exiles a seeded random subset into their owner's public exile and asks
+  only the controller to order the remainder on top. No new engine or DSL
+  mechanic is needed.
+- Two played tests cover the printed body and the complete activation. The
+  ability test pays both cost parts, uses eight distinct top cards above a
+  two-card suffix, distinguishes the seeded sample from simply exiling the top
+  four, and compares two independently built games with the same seed. It also
+  verifies the chosen top-to-bottom order, the untouched suffix and refusal of
+  the opponent's answer. The ability test was red against the old stub; all six
+  general private-library tests remain green.
+- Desktop and LLM seats reuse the existing private `Pending::Arrange` flow and
+  its order-on-top presentation; no new pending shape or hidden information is
+  introduced. Their combined 2,977-test suite passes. The house AI leaves this
+  self-exiling activation's contextual value unread rather than guessing, with
+  the census now at 2,996 readable rows out of 3,786; its full 363-test suite
+  passes without a card-specific policy.
