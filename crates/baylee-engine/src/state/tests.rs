@@ -1226,17 +1226,11 @@ fn second_target_player_changes_the_snapshot_hash() {
     assert_ne!(first.snapshot_hash(), second.snapshot_hash());
 }
 
-/// `derive(Hash)` writes a variant's number before anything else, and a
-/// written record holds what that hashed to. Echo and a pact's price left the
-/// middle of `DelayedAction` when they went on the stack, and these are the
-/// numbers everything after them already had: the two that left stay unused,
-/// and the type stays `isize`, which is what `write_isize` is asked for.
-#[test]
-fn a_delayed_action_keeps_the_number_a_written_record_holds() {
-    use std::hash::{Hash, Hasher};
+/// The variant number `derive(Hash)` writes before anything else.
+fn first_number(value: &impl std::hash::Hash) -> Option<isize> {
     #[derive(Default)]
     struct FirstNumber(Option<isize>);
-    impl Hasher for FirstNumber {
+    impl std::hash::Hasher for FirstNumber {
         fn finish(&self) -> u64 {
             0
         }
@@ -1245,6 +1239,68 @@ fn a_delayed_action_keeps_the_number_a_written_record_holds() {
             self.0.get_or_insert(value);
         }
     }
+    let mut first = FirstNumber::default();
+    value.hash(&mut first);
+    first.0
+}
+
+/// The DSL enums a record's hash reads through an ability list or a continuous
+/// effect, each by the last variant it had when this test was written. Whatever
+/// is inserted before one moves its number, and with it every record of a game
+/// that met a variant after the insertion; a new variant goes after these.
+#[test]
+fn a_dsl_variant_keeps_the_number_a_written_record_holds() {
+    use baylee_cards_dsl::{Condition, Effect, Filter, Modifier, Trigger};
+    let numbers = [
+        first_number(&Modifier::BuybackCostsLess(0)),
+        first_number(&Effect::TopOfYourGraveyard {
+            filter: &Filter::Any,
+        }),
+        first_number(&Trigger::Mutates),
+        first_number(&Condition::SourceCameUnderYourControlSinceYourLastUpkeep),
+    ];
+    assert_eq!(numbers, [Some(187), Some(484), Some(72), Some(80)]);
+}
+
+/// A suspended exile from hand held this value before it could also grant a
+/// cast; a written record of one still does.
+#[test]
+fn the_plain_hand_exile_keeps_the_fingerprint_a_written_record_holds() {
+    use crate::resolve::AwaitingOp;
+    let plain = AwaitingOp::ExileFromHandWithSource { cast: false }.search_fingerprint();
+    assert_eq!(plain, structural_fingerprint(&81u8));
+    assert_ne!(
+        plain,
+        AwaitingOp::ExileFromHandWithSource { cast: true }.search_fingerprint()
+    );
+}
+
+/// The exile a unit of linked mana may pay for decides what that mana can
+/// cast, so it moves the hash, and mana of any other kind writes nothing.
+#[test]
+fn the_exile_linked_mana_pays_for_moves_the_snapshot_hash() {
+    use baylee_cards_dsl::{Filter, SpendRider};
+    let (mut state, id) = hash_fixture();
+    let provenance: crate::mana_provenance::ManaProvenance =
+        (id, &Filter::Any, SpendRider::None).into();
+    state.restriction_info.insert(1, provenance);
+    let unlinked = state.snapshot_hash();
+    let mut linked = provenance;
+    linked.last_linked_exile = Some(baylee_core::ids::DamageSourceRef {
+        object: id,
+        version: 3,
+    });
+    state.restriction_info.insert(1, linked);
+    assert_ne!(state.snapshot_hash(), unlinked);
+}
+
+/// `derive(Hash)` writes a variant's number before anything else, and a
+/// written record holds what that hashed to. Echo and a pact's price left the
+/// middle of `DelayedAction` when they went on the stack, and these are the
+/// numbers everything after them already had: the two that left stay unused,
+/// and the type stays `isize`, which is what `write_isize` is asked for.
+#[test]
+fn a_delayed_action_keeps_the_number_a_written_record_holds() {
     let card = ObjectId::new(1, 0);
     let text = crate::text_changes::TextChangeMap::IDENTITY;
     let actions = [
@@ -1298,9 +1354,7 @@ fn a_delayed_action_keeps_the_number_a_written_record_holds() {
         ),
     ];
     for (number, action) in actions {
-        let mut first = FirstNumber::default();
-        action.hash(&mut first);
-        assert_eq!(first.0, Some(number), "{action:?}");
+        assert_eq!(first_number(&action), Some(number), "{action:?}");
     }
 }
 

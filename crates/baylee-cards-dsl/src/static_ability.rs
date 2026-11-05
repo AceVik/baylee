@@ -417,14 +417,6 @@ pub enum Modifier {
         /// Whose gains are replaced, relative to the effect's controller.
         who: crate::effect::PlayerRel,
     },
-    /// "If a player would gain life, that player gains no life instead"
-    /// (Sulfuric Vortex): a replacement of the whole gain, not a restriction
-    /// on changing the life total (CR 614.1a, 119.10). With another complete
-    /// replacement such as Lich's, the affected player chooses one (CR 616.1).
-    LifeGainNoLifeInstead {
-        /// Whose gains are replaced, relative to the effect's controller.
-        who: crate::effect::PlayerRel,
-    },
     /// "You can't be attacked except by creatures with …" (Island
     /// Sanctuary): a restriction on declaring attackers (CR 508.1c) that
     /// shuts out every creature not matching `by` from attacking these
@@ -465,12 +457,6 @@ pub enum Modifier {
     /// declaration of blockers, CR 509.1b, read against each blocker as it
     /// stands; the filter's "you" is the effect's controller.
     CantBeBlockedBy(&'static crate::Filter),
-    /// If the affected creature is blocked, at least this many creatures
-    /// must block it (Gorilla Berserkers: three or more). A restriction on
-    /// the whole declaration of blockers (CR 509.1b), not on any one pair;
-    /// zero blockers remains legal. Independent minimums, including
-    /// menace's two, combine by taking the greatest.
-    MinimumBlockers(u8),
     /// The affected creature can't be blocked by creatures `player`
     /// controls. Written only by the engine, from
     /// `Effect::CantBeBlockedByPlayerThisTurn` (The Black Gate), with the
@@ -1046,8 +1032,28 @@ pub enum Modifier {
     /// permanent matching the filter (Orgg: "can't attack if defending player
     /// controls an untapped creature with power 3 or greater").
     CantAttackIfDefenderControls(&'static Filter),
+    /// The buyback cost of a matching spell costs this much less generic
+    /// mana. Only the buyback cost's own generic part (CR 118.7a), so it does
+    /// nothing for a spell whose buyback was not announced and nothing for
+    /// "Buyback—Sacrifice a land", and the mana part of a smaller cost is
+    /// {0} rather than less (CR 118.7).
+    BuybackCostsLess(u32),
     // Hash-compatible extensions stay at the end: derived Hash assigns enum
     // discriminants by declaration order, and replay records pin the old ones.
+    /// "If a player would gain life, that player gains no life instead"
+    /// (Sulfuric Vortex): a replacement of the whole gain, not a restriction
+    /// on changing the life total (CR 614.1a, 119.10). With another complete
+    /// replacement such as Lich's, the affected player chooses one (CR 616.1).
+    LifeGainNoLifeInstead {
+        /// Whose gains are replaced, relative to the effect's controller.
+        who: crate::effect::PlayerRel,
+    },
+    /// If the affected creature is blocked, at least this many creatures
+    /// must block it (Gorilla Berserkers: three or more). A restriction on
+    /// the whole declaration of blockers (CR 509.1b), not on any one pair;
+    /// zero blockers remains legal. Independent minimums, including
+    /// menace's two, combine by taking the greatest.
+    MinimumBlockers(u8),
     /// Treat damage from sources sharing any of these colors as coming from a
     /// colorless source, without changing the source's actual characteristics.
     /// Protection still sees the real colors except when damage is dealt (CR 702.16b).
@@ -1077,12 +1083,6 @@ pub enum Modifier {
         /// Generic mana paid per matching block declaration.
         mana: u32,
     },
-    /// The buyback cost of a matching spell costs this much less generic
-    /// mana. Only the buyback cost's own generic part (CR 118.7a), so it does
-    /// nothing for a spell whose buyback was not announced and nothing for
-    /// "Buyback—Sacrifice a land", and the mana part of a smaller cost is
-    /// {0} rather than less (CR 118.7).
-    BuybackCostsLess(u32),
 }
 
 /// What a [`Modifier::CharacteristicPT`] counts.

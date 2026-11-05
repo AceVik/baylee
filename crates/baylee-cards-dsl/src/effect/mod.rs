@@ -2425,9 +2425,6 @@ pub enum Effect {
         /// What the mana may be spent on, if restricted.
         restriction: Option<ManaRestriction>,
     },
-    /// Note the actual mana types paid for this activation on its source's
-    /// current incarnation, replacing only the mana mixture of this acquisition.
-    NoteActivationMana,
     /// Add a subtype-granting note — placeholder for M2 (changeling etc.).
     GrantSubtype {
         /// Subtype.
@@ -3215,9 +3212,6 @@ pub enum Effect {
     /// Choose a matching card from your hand and exile it with a link to
     /// this source (CR 406.6, 607.2a).
     ExileChosenFromHandWithSource(&'static Filter),
-    /// The same linked exile, and its controller may cast that exact card
-    /// incarnation for as long as it remains exiled (CR 400.7, 607.3).
-    ExileChosenFromHandWithSourceAndCast(&'static Filter),
     /// Return everything exiled with a link to the source to the
     /// battlefield under its owner's control.
     ReturnLinkedToBattlefield,
@@ -3459,18 +3453,6 @@ pub enum Effect {
         /// for a plain pump).
         keywords: KeywordSet,
         /// How long.
-        duration: crate::static_ability::Duration,
-    },
-    /// The exact permanent that caused the trigger gets P/T modifiers, and
-    /// optionally keywords, without becoming a target (Battle Cry's "it").
-    PumpEventObject {
-        /// Power modifier (may be negative/X-driven).
-        power: Amount,
-        /// Toughness modifier (may be negative/X-driven).
-        toughness: Amount,
-        /// Keywords granted for the same duration.
-        keywords: KeywordSet,
-        /// How long the changes last.
         duration: crate::static_ability::Duration,
     },
     /// Apply a pump to one explicit target instance, preserving its binding
@@ -4171,6 +4153,24 @@ pub enum Effect {
     TopOfYourGraveyard {
         /// What the card must be.
         filter: &'static Filter,
+    },
+    /// Note the actual mana types paid for this activation on its source's
+    /// current incarnation, replacing only the mana mixture of this acquisition.
+    NoteActivationMana,
+    /// The same linked exile, and its controller may cast that exact card
+    /// incarnation for as long as it remains exiled (CR 400.7, 607.3).
+    ExileChosenFromHandWithSourceAndCast(&'static Filter),
+    /// The exact permanent that caused the trigger gets P/T modifiers, and
+    /// optionally keywords, without becoming a target (Battle Cry's "it").
+    PumpEventObject {
+        /// Power modifier (may be negative/X-driven).
+        power: Amount,
+        /// Toughness modifier (may be negative/X-driven).
+        toughness: Amount,
+        /// Keywords granted for the same duration.
+        keywords: KeywordSet,
+        /// How long the changes last.
+        duration: crate::static_ability::Duration,
     },
 }
 

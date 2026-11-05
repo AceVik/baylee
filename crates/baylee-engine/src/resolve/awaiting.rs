@@ -1291,8 +1291,12 @@ impl AwaitingOp {
             Self::TapGroup(selection) => crate::state::structural_fingerprint(&(13u8, selection)),
             Self::EmpowerJace { amount } => crate::state::structural_fingerprint(&(11u8, amount)),
             Self::Hideaway { looked } => crate::state::structural_fingerprint(&(7u8, looked)),
-            Self::ExileFromHandWithSource { cast } => {
-                crate::state::structural_fingerprint(&(81u8, cast))
+            // The plain exile keeps the value a written record holds.
+            Self::ExileFromHandWithSource { cast: false } => {
+                crate::state::structural_fingerprint(&81u8)
+            }
+            Self::ExileFromHandWithSource { cast: true } => {
+                crate::state::structural_fingerprint(&(81u8, true))
             }
             Self::LinkedPlay { cards, copy } => {
                 crate::state::structural_fingerprint(&(8u8, cards, copy))

@@ -276,15 +276,26 @@ impl PaymentContinuation {
                 life,
                 cost,
                 opened,
-            } => crate::state::structural_fingerprint(attackers)
-                .wrapping_mul(31)
-                .wrapping_add(attack_sacrifice::payments_fingerprint(sacrifices))
-                .wrapping_mul(31)
-                .wrapping_add(crate::state::structural_fingerprint(life))
-                .wrapping_mul(31)
-                .wrapping_add(crate::state::mana_cost_fingerprint(cost))
-                .wrapping_mul(31)
-                .wrapping_add(opened.fingerprint()),
+            } => {
+                // A declaration without sacrifices hashes as it always did: its
+                // life tax follows from the attackers and the board the state
+                // hash covers. Only the permanents chosen are new.
+                let declared = crate::state::structural_fingerprint(attackers);
+                let declared = if sacrifices.is_empty() {
+                    declared
+                } else {
+                    declared
+                        .wrapping_mul(31)
+                        .wrapping_add(attack_sacrifice::payments_fingerprint(sacrifices))
+                        .wrapping_mul(31)
+                        .wrapping_add(crate::state::structural_fingerprint(life))
+                };
+                declared
+                    .wrapping_mul(31)
+                    .wrapping_add(crate::state::mana_cost_fingerprint(cost))
+                    .wrapping_mul(31)
+                    .wrapping_add(opened.fingerprint())
+            }
             Self::BlockTax {
                 defending,
                 blockers,
@@ -1372,9 +1383,11 @@ impl<L: CardLookup> Engine<L> {
         if let Some(work) = &self.combat_damage {
             extra = extra.wrapping_mul(31).wrapping_add(work.fingerprint());
         }
-        extra = extra
-            .wrapping_mul(31)
-            .wrapping_add(self.attack_sacrifice_fingerprint());
+        // Only while a declaration waits on its sacrifices, as `combat_damage`
+        // above: a game that never meets one keeps every hash a record holds.
+        if let Some(work) = &self.attack_sacrifice {
+            extra = extra.wrapping_mul(31).wrapping_add(work.fingerprint());
+        }
         extra = extra
             .wrapping_mul(31)
             .wrapping_add(crate::state::structural_fingerprint(&self.player_control));
