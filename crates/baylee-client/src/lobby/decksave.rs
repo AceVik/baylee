@@ -17,6 +17,7 @@ use super::http::{bearer, json_body, json_post};
 #[allow(clippy::wildcard_imports)] // the lobby's own vocabulary
 use super::*;
 use crate::buildui::SaveState;
+use baylee_client_core::deckbuilder::Draft;
 use baylee_client_core::deckbuilder::saves::{Answered, DeckSave};
 
 /// Gives a nameless deck that holds cards the default name: an auto-save
@@ -133,7 +134,8 @@ fn send_save(state: &LobbyState, mailbox: &Mailbox, save: &DeckSave) {
     });
 }
 
-/// The gateway took the save that was out.
+/// The gateway took the save that was out. An answer is about the deck it
+/// was sent for: what the builder has opened since is not touched.
 pub(super) fn save_landed(
     state: &mut LobbyState,
     prefs: &mut crate::prefs::Prefs,
@@ -141,27 +143,28 @@ pub(super) fn save_landed(
     deck_id: Option<String>,
     archived: bool,
 ) {
-    let Some(Answered { sent, next }) = state.deck_saves.landed(deck_id.as_deref(), archived)
+    let Some(Answered {
+        sent,
+        next,
+        thrown_away,
+    }) = state.deck_saves.landed(deck_id.as_deref(), archived)
     else {
         return;
     };
-    if let Some(id) = &deck_id {
-        carry_deck_prefs(prefs, "new", id);
-        state.lobby.remember_saved_deck(id);
-    }
-    let asked = state.build.save == SaveState::Saving;
-    state
-        .lobby
-        .builder_mut()
-        .mark_auto_saved(&sent.draft, deck_id.as_deref(), archived);
-    let deck = state.lobby.builder();
-    if !deck.dirty() {
-        let editing = deck.editing().map(str::to_owned);
-        state.drafts.forget(&[editing.as_deref(), None]);
-        // `follow_the_save` has the clock.
-        state.build.save = SaveState::Saving;
-        if asked {
-            state.lobby.tell(Phrase::DeckSaved, &[]);
+    let mut asked = false;
+    if thrown_away {
+        if let Some(deck_id) = deck_id {
+            dispatch(state, mailbox, Some(LobbyRequest::DeleteDeck { deck_id }));
+        }
+    } else {
+        // What was marked on a deck before it had an id stands under "new".
+        if let Some(id) = &deck_id {
+            carry_deck_prefs(prefs, "new", id);
+        }
+        if state.lobby.builder().visit() == sent.visit {
+            asked = landed_on_the_open_deck(state, &sent.draft, deck_id.as_deref(), archived);
+        } else {
+            state.drafts.forget_landed(&sent.draft);
         }
     }
     if let Some(next) = next {
@@ -172,14 +175,48 @@ pub(super) fn save_landed(
     }
 }
 
+/// [`save_landed`] for the deck the builder still holds, open or just left.
+/// Answers whether the player had asked for this save.
+fn landed_on_the_open_deck(
+    state: &mut LobbyState,
+    sent: &Draft,
+    deck_id: Option<&str>,
+    archived: bool,
+) -> bool {
+    let asked = state.build.save == SaveState::Saving;
+    if let Some(id) = deck_id {
+        state.lobby.remember_saved_deck(id);
+        // The deck is drafted under its id from here on.
+        state.drafts.forget(&[None]);
+    }
+    state
+        .lobby
+        .builder_mut()
+        .mark_auto_saved(sent, deck_id, archived);
+    let deck = state.lobby.builder();
+    if deck.dirty() {
+        return false;
+    }
+    let editing = deck.editing().map(str::to_owned);
+    state.drafts.forget(&[editing.as_deref()]);
+    // `follow_the_save` has the clock.
+    state.build.save = SaveState::Saving;
+    if asked {
+        state.lobby.tell(Phrase::DeckSaved, &[]);
+    }
+    asked
+}
+
 /// The save that was out did not reach the gateway: the deck stays unsaved,
 /// its draft stays on the device, and the player is told. `why` is `None`
 /// where another reply says what happened.
 pub(super) fn save_failed(state: &mut LobbyState, mailbox: &Mailbox, why: Option<String>) {
-    let Some(Answered { next, .. }) = state.deck_saves.failed() else {
+    let Some(Answered { sent, next, .. }) = state.deck_saves.failed() else {
         return;
     };
-    state.build.save = SaveState::Failed;
+    if state.lobby.builder().visit() == sent.visit {
+        state.build.save = SaveState::Failed;
+    }
     if let Some(why) = why {
         let failed = Phrase::BuildSaveFailed.text(state.lobby.lang());
         state.lobby.say(format!("{failed}: {why}"));
@@ -222,7 +259,7 @@ fn save_on_the_device(state: &mut LobbyState, request: LobbyRequest) {
         let select = state.lobby.builder().editing().map(str::to_owned);
         state.lobby.update_decks_in_place(decks, select.as_deref());
     }
-    state.drafts.forget(&[sent.editing.as_deref(), None]);
+    state.drafts.forget(&[sent.editing.as_deref()]);
 }
 
 /// Saves what the builder holds: at once on the device, through the line to

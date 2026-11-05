@@ -88,6 +88,26 @@ impl Drafts {
             self.write();
         }
     }
+
+    /// Forgets `sent` wherever it stands, for a save that landed after its
+    /// deck left the builder, and nothing else: the deck's place may hold a
+    /// newer edit by now, and "new" the next new deck. A deck created on its
+    /// way out left its draft under "new" and landed under its id.
+    pub(crate) fn forget_landed(&mut self, sent: &Draft) {
+        let same = |kept: &Draft| {
+            Draft {
+                editing: sent.editing.clone(),
+                ..kept.clone()
+            } == *sent
+        };
+        let places = [key(sent.editing.as_deref()), key(None)];
+        let before = self.decks().len();
+        self.decks
+            .retain(|place, kept| !(places.contains(place) && same(kept)));
+        if self.decks.len() != before {
+            self.write();
+        }
+    }
 }
 
 /// What [`keep_the_draft`] remembers between frames.

@@ -32,6 +32,8 @@ pub struct DeckSave {
 struct Out {
     save: DeckSave,
     epoch: u64,
+    /// The player deleted the deck this save is creating.
+    thrown_away: bool,
 }
 
 /// What an answer leaves to do.
@@ -41,6 +43,9 @@ pub struct Answered {
     pub sent: DeckSave,
     /// The save to send now, already out as far as the line goes.
     pub next: Option<DeckSave>,
+    /// The deck this save created was deleted while it was out, and is to
+    /// go as soon as it has an id.
+    pub thrown_away: bool,
 }
 
 /// One save out, and the rest waiting their turn.
@@ -59,10 +64,7 @@ impl SaveLine {
             *self = Self::default();
         }
         let Some(out) = &self.out else {
-            self.out = Some(Out {
-                save: save.clone(),
-                epoch,
-            });
+            self.send(save.clone(), epoch);
             return Some(save);
         };
         if let Some(waiting) = self.waiting.iter_mut().find(|w| w.visit == save.visit) {
@@ -77,32 +79,60 @@ impl SaveLine {
     /// answer knows, and the next save goes out. `deck_id` is the deck it
     /// created; `archived` that the gateway kept the state it replaced.
     pub fn landed(&mut self, deck_id: Option<&str>, archived: bool) -> Option<Answered> {
-        let Out { save: sent, epoch } = self.out.take()?;
-        for waiting in self.waiting.iter_mut().filter(|w| w.visit == sent.visit) {
+        let out = self.out.take()?;
+        for waiting in self
+            .waiting
+            .iter_mut()
+            .filter(|w| w.visit == out.save.visit)
+        {
             if let Some(id) = deck_id {
                 waiting.draft.editing = Some(id.to_string());
             }
             waiting.versioned &= !(archived || deck_id.is_some());
         }
-        let next = self.next(epoch);
-        Some(Answered { sent, next })
+        Some(self.answer(out))
     }
 
     /// The save out failed. What waits still goes: it is a later edit, and
     /// the gateway may take it.
     pub fn failed(&mut self) -> Option<Answered> {
-        let Out { save: sent, epoch } = self.out.take()?;
-        let next = self.next(epoch);
-        Some(Answered { sent, next })
+        let out = self.out.take()?;
+        Some(self.answer(out))
     }
 
-    fn next(&mut self, epoch: u64) -> Option<DeckSave> {
-        let save = self.waiting.pop_front()?;
+    /// Takes back what waits for `visit`: the player discarded it. What is
+    /// out cannot be called back.
+    pub fn withdraw(&mut self, visit: u64) {
+        self.waiting.retain(|waiting| waiting.visit != visit);
+    }
+
+    /// The deck `visit` is creating was deleted. A `POST` out cannot be
+    /// called back, so its answer is told to delete what it made.
+    pub fn throw_away(&mut self, visit: u64) {
+        self.withdraw(visit);
+        if let Some(out) = self.out.as_mut().filter(|out| out.save.visit == visit) {
+            out.thrown_away = out.save.draft.editing.is_none();
+        }
+    }
+
+    fn send(&mut self, save: DeckSave, epoch: u64) {
         self.out = Some(Out {
-            save: save.clone(),
+            save,
             epoch,
+            thrown_away: false,
         });
-        Some(save)
+    }
+
+    fn answer(&mut self, out: Out) -> Answered {
+        let next = self.waiting.pop_front();
+        if let Some(next) = &next {
+            self.send(next.clone(), out.epoch);
+        }
+        Answered {
+            sent: out.save,
+            next,
+            thrown_away: out.thrown_away,
+        }
     }
 
     /// Whether a save is out to the gateway of `epoch`.
@@ -222,6 +252,38 @@ mod tests {
         assert!(!line.busy(1));
         assert_eq!(line.offer(save(2, "c"), 1), Some(save(2, "c")));
         assert_eq!(line.landed(None, false).expect("out").next, None);
+    }
+
+    #[test]
+    fn withdrawing_takes_back_one_decks_waiting_save() {
+        let mut line = SaveLine::default();
+        line.offer(save(1, "a"), 0);
+        line.offer(save(1, "b"), 0);
+        line.offer(save(2, "other"), 0);
+        line.withdraw(1);
+        let next = line.landed(None, false).expect("out").next;
+        assert_eq!(next, Some(save(2, "other")));
+    }
+
+    #[test]
+    fn a_deck_deleted_under_its_post_is_told_on_the_answer() {
+        let mut line = SaveLine::default();
+        line.offer(save(1, "a"), 0);
+        line.offer(save(1, "b"), 0);
+        line.throw_away(1);
+        let answered = line.landed(Some("d9"), false).expect("out");
+        assert!(answered.thrown_away);
+        assert_eq!(answered.next, None, "what waited went with it");
+    }
+
+    #[test]
+    fn a_stored_deck_needs_no_answer_to_be_deleted() {
+        let mut line = SaveLine::default();
+        let mut stored = save(1, "a");
+        stored.draft.editing = Some("d1".into());
+        line.offer(stored, 0);
+        line.throw_away(1);
+        assert!(!line.landed(None, false).expect("out").thrown_away);
     }
 
     #[test]
