@@ -19,7 +19,9 @@ card!(
         alternative_costs = &[AlternativeCost {
             cost: Cost {
                 mana: ManaCost::ZERO,
-                parts: &[CostPart::Sacrifice(&Filter::HasSubtype(subtypes::land::MOUNTAIN))],
+                parts: &[CostPart::Sacrifice(&Filter::HasSubtype(
+                    subtypes::land::MOUNTAIN
+                ))],
             },
             condition: AltCondition::Always,
         }],
