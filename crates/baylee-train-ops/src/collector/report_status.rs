@@ -1,8 +1,9 @@
 //! The language-model seats' reports in the feedback service, read and
 //! given a status by one of its admins over the service's own UI routes
 //! (`docs/feedback.md` §"The web UI", `docs/llm-seat.md` §"Reports and
-//! lookups"). A seat files one `bug` a game with every claim of its model
-//! in `client.reports`; triage decides per report what became of them.
+//! lookups"). A seat files one `bug` a report, its claim in `client.report`,
+//! and a game's reports over the host's route in one `bug`, in
+//! `client.reports`; triage decides per report what became of them.
 
 use anyhow::{Context, Result, bail};
 use serde_json::{Value, json};
@@ -116,8 +117,7 @@ pub fn facets(session: &Session, filter: &str) -> Result<Value> {
 /// Every report `filter` matches outside the trash (`source=llm-seat` for
 /// the language-model seats'), oldest first, one line each in `out`: its
 /// id, status, revision, labels, game, text, model and profile, and a
-/// seat's claims (`client.reports`). A game log is left out. Returns how
-/// many.
+/// seat's claims ([`claims`]). A game log is left out. Returns how many.
 ///
 /// # Errors
 /// A failed request, or `out` already there.
@@ -154,7 +154,7 @@ pub fn pull(session: &Session, filter: &str, out: &Path) -> Result<u64> {
                 "text": report["text"],
                 "model": client["model"],
                 "profile": client["profile"],
-                "reports": client["reports"],
+                "reports": claims(client),
             });
             writeln!(file, "{line}")?;
         }
@@ -164,6 +164,17 @@ pub fn pull(session: &Session, filter: &str, out: &Path) -> Result<u64> {
         }
     }
     Ok(offset)
+}
+
+/// A seat's claims in a report's `client`, always as a list: its
+/// `client.reports`, or its one `client.report`. Null in a report no seat
+/// filed.
+fn claims(client: &Value) -> Value {
+    match (&client["reports"], &client["report"]) {
+        (Value::Null, Value::Null) => Value::Null,
+        (Value::Null, one) => json!([one]),
+        (many, _) => many.clone(),
+    }
 }
 
 /// One change of a plan: a report's new status and its whole label set,
@@ -234,7 +245,21 @@ pub fn apply(session: Option<&Session>, plan: &Path, write: bool) -> Result<Appl
 
 #[cfg(test)]
 mod tests {
-    use super::session_cookie;
+    use super::{claims, session_cookie};
+    use serde_json::{Value, json};
+
+    /// A seat's report over the account's route carries one claim, the
+    /// host's route a game's: both come out as the list triage reads.
+    #[test]
+    fn a_seats_claims_are_a_list_whichever_route_filed_them() {
+        let claim = json!({"kind": "rules", "summary": "wrong"});
+        assert_eq!(claims(&json!({"report": claim})), json!([claim]));
+        assert_eq!(
+            claims(&json!({"reports": [claim, claim]})),
+            json!([claim, claim])
+        );
+        assert_eq!(claims(&json!({"model": "a person's"})), Value::Null);
+    }
 
     #[test]
     fn the_session_cookie_is_read_out_of_its_header() {

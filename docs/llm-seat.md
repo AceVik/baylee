@@ -1012,7 +1012,8 @@ reports there (`docs/feedback.md` §"The web UI"):
   under the list's filters, as a query string (`status=new`, `source=llm-seat`).
 - `pull --filter q --out f.jsonl` writes every report the filter matches,
   oldest first, one line each: id, status, revision, labels, game, text,
-  model, profile and the seat's claims (`client.reports`), never the log.
+  model, profile and the seat's claims (`client.reports`, or `client.report`
+  as a list of one), never the log.
 - `apply --plan p.jsonl` counts a plan's changes, one
   `{"id", "status", "labels", "revision"}` a line, and makes them only with
   `--write`, each against the revision it was decided on (`409`
