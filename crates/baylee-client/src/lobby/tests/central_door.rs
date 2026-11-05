@@ -680,6 +680,28 @@ fn a_central_player_as_a_guest() -> App {
     app
 }
 
+/// A guest this device keeps for that gateway is offered by its handle, and
+/// is not taken up until the player presses it. No request goes first: the
+/// session is the whole of a guest (`Lobby::play_as_guest`), and terms are
+/// the sheet's, by `/info` against this device's copy.
+#[test]
+fn a_kept_guest_comes_through_that_door_only_when_pressed() {
+    let mut app = headless();
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .guests
+        .insert(String::new(), casper());
+    let _jobs = admitting(&mut app);
+    turned_away_by(&mut app, false, true);
+    assert!(labels(&mut app).contains(&"Continue as Casper#0007".to_string()));
+    assert_eq!(app.world().resource::<LobbyState>().lobby.token(), None);
+
+    press(&mut app, Press::Front(FrontPress::GuestFace));
+    let state = app.world().resource::<LobbyState>();
+    assert_eq!(state.lobby.token(), Some("guest-tok"));
+    assert!(state.central_ready(), "Central stays signed in");
+}
+
 /// Switch gateway, from the header's gateway card.
 fn switch_gateway(app: &mut App) {
     press(app, Press::Header(HeaderPress::Gateway));
