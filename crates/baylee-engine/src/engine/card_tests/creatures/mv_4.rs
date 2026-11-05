@@ -158,6 +158,7 @@ mod glowing_anemone;
 mod goblin_berserker;
 mod goblin_clearcutter;
 mod goblin_gardener;
+mod goblin_goon;
 mod goblin_grenadiers;
 mod goblin_mutant;
 mod goblin_pyromancer;

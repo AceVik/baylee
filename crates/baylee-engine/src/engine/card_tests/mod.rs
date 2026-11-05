@@ -46,6 +46,7 @@ mod battles;
 mod counted_activation_costs;
 mod counter_movement;
 mod counter_resources;
+mod creature_count_combat;
 mod creatures;
 mod draw_kit;
 mod enchantments;
