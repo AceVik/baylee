@@ -6093,3 +6093,37 @@ fixtures must settle characteristics before measuring a no-new-events boundary.
   record first diverged at an innocent `PlayLand`, 46 inputs in. Do not
   re-capture the fixture to silence that: `capture_acceptance_record` is for a
   rule that changed, and a green test would hide every real record now broken.
+
+## 2026-11-05 — Review of the buyback and multikicker batch
+
+Twenty-nine buyback cards read sentence by sentence against the cached
+Scryfall oracle text (every `//! Oracle:` header equals it); all 29 are right as
+written. The engine rules (`b58b4279a`, `a931801e8`, `00d097a09`, `36d97ecc6`)
+hold against CR 702.27a, 702.33c–d, 616.1e, 702.34a and 702.88a. What the author
+got wrong was in the tests, not in the cards:
+
+- **A test helper that did the setup hid a rule.** `cast_from_hand` taps every
+  land into the pool before the cast, so all the "sacrifice a land" buyback tests
+  met a land that was already tapped. The cast a player makes, off untapped
+  lands, puts the sacrifice question before the mana and pays the cost after the
+  payment window (CR 601.2g then 601.2h); nothing played that. When a cost names
+  a permanent that also makes mana, cast with `cast_with_floating` after tapping
+  by hand, or not at all, and sacrifice the land that is still untapped.
+- **A card with two branches was played at one.** Whim of Volrath has "one color
+  word … or one basic land type"; only the colour word was driven. Searing Touch
+  says "any target" and was aimed at a creature. Read a "or" in the oracle text
+  as two tests.
+- **A delayed "next end step" has a case where the current step is the one.**
+  Corpse Dance can be cast in an end step; the exile then belongs to the
+  following turn's. It was right, and unplayed.
+- **Five copies of the same engine test per card.** Each of the 28 buyback files
+  carries a countered, a lost-target and a declined test that prove the engine's
+  rule (`buyback_tests`, `spell_endings`) again with that card's name on it. They
+  pass for the rule and would pass for a wrong card; the sentence of the card is
+  what a card file is for (§4 "Test the card, not its neighbours").
+- **A client string that is shorter than the cost.** `BuybackParts` carries a
+  count of sacrifices and not what is sacrificed, so the question for Reaping the
+  Rewards, Constant Mists and Pegasus Stampede reads "sacrifice a permanent" for
+  a printed "sacrifice a land". The sacrifice question that follows offers only
+  lands, so no wrong play is possible, but the price is misnamed. Not changed
+  here: it widens a wire struct and `VIEW_VERSION`.
