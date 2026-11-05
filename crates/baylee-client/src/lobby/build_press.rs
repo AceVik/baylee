@@ -285,15 +285,7 @@ impl BuildPress {
             // Back asks first when there is something unsaved: "Discard
             // changes?", the builder's one confirm (KEYBOARD §2.5).
             BuildPress::CloseBuilder => {
-                let auto_saves = (state.lobby.token().is_some()
-                    || state.offline.is_some()
-                    || state.central_without_gateway())
-                    && !state
-                        .lobby
-                        .builder()
-                        .entries(baylee_client_core::deckbuilder::Zone::Main)
-                        .is_empty();
-                if state.lobby.builder().dirty() && !auto_saves {
+                if state.lobby.builder().dirty() && !super::decksave::leaving_saves(state) {
                     if !state.confirm_leave {
                         state.confirm_leave = true;
                     }
@@ -311,7 +303,11 @@ impl BuildPress {
                 if editing.is_none() && !prefs.all().deck_card_favourites_for("new").is_empty() {
                     prefs.edit().remove_deck_card_favourites("new");
                 }
-                crate::buildui::draft::forget(&[editing.as_deref()]);
+                state.drafts.forget(&[editing.as_deref()]);
+                // Discarded is discarded: leaving must not save it after all.
+                let builder = state.lobby.builder_mut();
+                let _ = builder.take_session_baseline();
+                builder.discard_edits();
                 leave_the_builder(state, mailbox);
             }
             BuildPress::SaveDeck => {

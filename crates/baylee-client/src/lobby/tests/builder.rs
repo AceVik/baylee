@@ -310,8 +310,8 @@ fn a_swipe_scrolls_the_list_rather_than_adding_the_card_under_it() {
     );
 }
 
-/// Back with an unsaveable 0-card deck asks "Discard changes?" (KEYBOARD §2.5);
-/// a deck with cards auto-saves and leaves at once.
+/// Back with an unsaveable 0-card deck asks "Discard changes?" (KEYBOARD §2.5).
+/// A deck with cards saves and leaves at once (`deck_saves`).
 #[test]
 fn leaving_a_deck_with_unsaved_work_asks_first() {
     let mut app = headless();
@@ -344,20 +344,6 @@ fn leaving_a_deck_with_unsaved_work_asks_first() {
     assert!(matches!(
         app.world().resource::<LobbyState>().lobby.screen(),
         Screen::Build
-    ));
-
-    // Once a card is added, leaving auto-saves and leaves at once.
-    app.world_mut()
-        .resource_mut::<LobbyState>()
-        .lobby
-        .builder_mut()
-        .add(0, Zone::Main);
-    app.update();
-    press(&mut app, Press::Build(BuildPress::CloseBuilder));
-    assert!(!app.world().resource::<LobbyState>().confirm_leave);
-    assert!(matches!(
-        app.world().resource::<LobbyState>().lobby.screen(),
-        Screen::Table
     ));
 }
 
