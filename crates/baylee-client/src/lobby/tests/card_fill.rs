@@ -350,6 +350,8 @@ fn the_mark_stands_while_pictures_are_on_their_way() {
     assert_eq!(shown(&mut app), Display::None, "resting");
     board(&mut app, running());
     app.update();
+    press(&mut app, Press::Header(HeaderPress::CardFill));
+    app.update();
     press(&mut app, fill_press(FillPress::Show));
     let state = app.world().resource::<LobbyState>();
     assert!(state.settings.is_open());

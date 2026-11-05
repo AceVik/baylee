@@ -21,6 +21,7 @@ impl fmt::Debug for Performer {
             Self::Gateway(_) => "Gateway(<redacted>)",
             Self::Guest(_) => "Guest(<redacted>)",
             Self::Offline => "Offline",
+            Self::Central => "Central",
         })
     }
 }

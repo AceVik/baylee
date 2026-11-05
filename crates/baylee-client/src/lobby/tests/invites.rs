@@ -201,7 +201,7 @@ fn the_gateways_refusals_are_said_as_sentences() {
     );
     assert_eq!(
         gateway_error(Lang::De, &invalid),
-        "dieser Beta-Schlüssel ist nicht gültig – prüf ihn oder frag nach einem neuen"
+        "Dieser Beta-Schlüssel ist ungültig. Bitte überprüfe deine Eingabe."
     );
     assert_eq!(
         gateway_error(Lang::En, &needed),

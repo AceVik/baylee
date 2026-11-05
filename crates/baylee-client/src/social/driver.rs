@@ -5,19 +5,80 @@ use super::*;
 
 /// The session the lobby is signed in to, if any.
 fn wanted_session(lobby: &LobbyState) -> Option<Session> {
-    let token = lobby.lobby.token()?;
+    if lobby.central_ready() {
+        let raw_handle = {
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                lobby
+                    .central
+                    .as_ref()
+                    .and_then(|c| c.profile_handle.clone())
+                    .filter(|h| !h.trim().is_empty())
+            }
+            #[cfg(target_arch = "wasm32")]
+            {
+                None
+            }
+        }
+        .or_else(|| {
+            lobby
+                .lobby
+                .me()
+                .filter(|m| !m.guest)
+                .map(|m| m.handle.clone())
+        })
+        .or_else(|| lobby.lobby.me().map(|m| m.handle.clone()))
+        .unwrap_or_else(|| "Player#0000".to_string());
+        let (handle, tag) = if let Some(tag) = social::tag_of(&raw_handle) {
+            (raw_handle.clone(), tag.to_string())
+        } else {
+            (format!("{raw_handle}#0000"), "0000".to_string())
+        };
+        let (gateway, token) = match lobby.lobby.token() {
+            Some(tok)
+                if !lobby.lobby.offline()
+                    && !lobby.lobby.guest()
+                    && !lobby.gateway.trim().is_empty() =>
+            {
+                (
+                    lobby.gateway.trim_end_matches('/').to_string(),
+                    tok.to_string(),
+                )
+            }
+            _ => (
+                baylee_client_core::lobby::gateway_list::PINNED.to_string(),
+                String::new(),
+            ),
+        };
+        return Some(Session {
+            gateway,
+            token,
+            handle,
+            tag,
+            guest: false,
+        });
+    }
     if lobby.lobby.offline() {
-        return None;
+        return Some(Session {
+            gateway: String::new(),
+            token: String::new(),
+            handle: "Guest#0000".to_string(),
+            tag: "0000".to_string(),
+            guest: true,
+        });
     }
     let me = lobby.lobby.me()?;
     let tag = social::tag_of(&me.handle)?.to_string();
-    Some(Session {
-        gateway: lobby.gateway.trim_end_matches('/').to_string(),
-        token: token.to_string(),
-        handle: me.handle.clone(),
-        tag,
-        guest: me.guest,
-    })
+    if let Some(token) = lobby.lobby.token() {
+        return Some(Session {
+            gateway: lobby.gateway.trim_end_matches('/').to_string(),
+            token: token.to_string(),
+            handle: me.handle.clone(),
+            tag,
+            guest: me.guest,
+        });
+    }
+    None
 }
 
 /// Drives the machine: the session, the gateway's answers, the socket, the
@@ -34,7 +95,9 @@ pub(super) fn drive(
 ) {
     let host = &mut *host;
     let wanted = wanted_session(&lobby);
-    if host.session != wanted {
+    if host.session != wanted
+        && (!lobby.central_ready() || !host.rebind_central_gateway(wanted.as_ref()))
+    {
         if host.session.is_some() {
             host.end();
         }
@@ -50,8 +113,23 @@ pub(super) fn drive(
         return;
     };
     if host.info == InfoState::Unknown {
-        host.info = InfoState::Asking;
-        transport::ask_info(&host.mailbox, &session.gateway);
+        if session.token.is_empty() {
+            let social = Some((baylee_protocol::social::SOCIAL_VERSION, 30));
+            host.info = InfoState::Known(social);
+            if host.machine.is_none() {
+                let mut chat = prefs
+                    .as_deref()
+                    .map(|p| p.all().chat.clone())
+                    .unwrap_or_default();
+                if session.guest {
+                    chat.notice_seen = true;
+                }
+                host.start(30, chat);
+            }
+        } else {
+            host.info = InfoState::Asking;
+            transport::ask_info(&host.mailbox, &session.gateway);
+        }
     }
     let dt = time.delta_secs();
     let now = now_ms();
@@ -62,6 +140,7 @@ pub(super) fn drive(
                 host.info = InfoState::Known(social);
                 if let Some((version, keep)) = social
                     && version == baylee_protocol::social::SOCIAL_VERSION
+                    && host.machine.is_none()
                 {
                     let chat = prefs
                         .as_deref()
@@ -96,13 +175,15 @@ pub(super) fn drive(
     if host.machine.is_none() {
         return;
     }
-    host.socket.pump(
-        dt,
-        &session.gateway,
-        &session.token,
-        &host.mailbox,
-        &mut news,
-    );
+    if !session.token.is_empty() {
+        host.socket.pump(
+            dt,
+            &session.gateway,
+            &session.token,
+            &host.mailbox,
+            &mut news,
+        );
+    }
     #[cfg(not(target_arch = "wasm32"))]
     central::tick(host, now);
     for item in news {

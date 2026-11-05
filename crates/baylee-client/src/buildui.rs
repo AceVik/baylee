@@ -34,7 +34,7 @@ use crate::shellkit::controls::{self, Kit, Live, Weight};
 use crate::shellkit::focus::{Stop, TabOrder};
 use crate::shellkit::{Frame, Role, px_fixed, tokens};
 use baylee_client_core::deckbuilder::{
-    CURVE_BUCKETS, Coverage, DeckBuilder, Group, Grouping, SectionKey, Zone,
+    CURVE_BUCKETS, Coverage, DeckBuilder, Group, Grouping, SectionKey, Sort, Zone, rarity_label,
 };
 use baylee_client_core::i18n::{Lang, Phrase};
 use baylee_client_core::images::FinishTreatment;
@@ -79,6 +79,7 @@ pub(crate) const BUILDER_ORDER: TabOrder = TabOrder {
         "history",
         "save",
         "retry",
+        "delete",
         "menu",
         "panes",
         "search",
@@ -88,6 +89,8 @@ pub(crate) const BUILDER_ORDER: TabOrder = TabOrder {
         "chips",
         "filters",
         "playable",
+        "pool-group",
+        "sort-menu",
         "sort",
         "clear",
         "pool",
@@ -122,6 +125,7 @@ pub(crate) const BUILDER_SHEET_ORDER: TabOrder = TabOrder {
         "commander",
         "item",
         "format",
+        "save-variant",
         "list",
         "sheet-problem",
         "gear",
@@ -174,11 +178,27 @@ pub(crate) enum Pane {
     Stats,
 }
 
+/// How the searchable card pool is presented.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub(crate) enum PoolView {
+    /// Detailed list rows with art thumbnail, type line, mana cost, and P/T.
+    #[default]
+    List,
+    /// Visual card-art grid (3–4 cards per row).
+    Grid,
+    /// High-density compact rows (name + mana cost + `+`).
+    Compact,
+}
+
 /// A builder menu that is open.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) enum BuildMenu {
-    /// The header's `⋯`.
+    /// The header's deck actions (`Deck leeren`, `Deck löschen`, and on narrow screens Import/Export/History).
     Header,
+    /// The deck head's grouping selector (`Nach Typ`, `Nach Manabetrag`, `Nach Farbe`).
+    Grouping,
+    /// The pool toolbar's sort criterion selector (`Name`, `Mana-Wert`, `Typ`, `Farbe`, `Seltenheit`, `Stärke/Widerstand`).
+    Sort,
     /// A pool row's `⋯`, by pool slot.
     Pool(usize),
     /// A deck row's `⋯`, by its index in the shown list.
@@ -237,6 +257,16 @@ pub(crate) struct BuildUi {
     pub(crate) grouping: Grouping,
     /// The deck list's folded sections.
     pub(crate) collapsed: Vec<SectionKey>,
+    /// How the pool is displayed (list, grid, or compact).
+    pub(crate) pool_view: PoolView,
+    /// Whether the pool is sectioned by card type.
+    pub(crate) pool_grouped: bool,
+    /// The pool's folded sections when sectioned by type.
+    pub(crate) pool_collapsed: Vec<SectionKey>,
+    /// Show only cards marked as favourites for the current deck (`★ Deck`).
+    pub(crate) fav_deck: bool,
+    /// Show only cards marked as general/global favourites (`★ Allgemein`).
+    pub(crate) fav_global: bool,
     /// Whether the Filters rail (a sheet on a phone) is open.
     pub(crate) rail: bool,
     /// Whether the search syntax popover is open.
@@ -269,6 +299,8 @@ pub(crate) struct BuildUi {
     /// The kit's focus is on the card window's printing strip, where ← →
     /// step the printings rather than the cards (`focus::follow`).
     pub(crate) on_strip: bool,
+    /// When opened via `Neues Deck`, keeps the deck name field focused initially.
+    pub(crate) naming_new: bool,
 }
 
 impl BuildUi {
@@ -359,6 +391,8 @@ pub(crate) struct Env<'a> {
     pub(crate) kit: Kit<'a>,
     /// The lobby, the deck builder inside it, and [`BuildUi`].
     pub(crate) state: &'a LobbyState,
+    /// The account's preferences (including per-deck and global card favourites).
+    pub(crate) prefs: &'a baylee_client_core::prefs::Preferences,
     /// Where each list was left.
     pub(crate) scrolled: &'a Scrolled,
     /// The shape.
@@ -724,6 +758,67 @@ pub(crate) fn caption(commands: &mut Commands, kit: Kit, text: &str) -> Entity {
         .id()
 }
 
+/// Attaches soft top and bottom gradient fade overlays to a list container so
+/// scrolled cards transition smoothly at the top and bottom edges.
+pub(crate) fn attach_soft_list_edges(commands: &mut Commands, wrapper: Entity) {
+    let base = tokens::PANEL.to_srgba();
+    for is_top in [true, false] {
+        let fade = commands
+            .spawn((
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: px_fixed(0.0),
+                    right: px_fixed(12.0),
+                    top: if is_top { px_fixed(0.0) } else { Val::Auto },
+                    bottom: if is_top { Val::Auto } else { px_fixed(0.0) },
+                    height: px_fixed(12.0),
+                    flex_direction: if is_top {
+                        FlexDirection::Column
+                    } else {
+                        FlexDirection::ColumnReverse
+                    },
+                    ..default()
+                },
+                ZIndex(3),
+                Pickable::IGNORE,
+            ))
+            .id();
+        for alpha in [0.78_f32, 0.45, 0.18, 0.04] {
+            let strip = commands
+                .spawn((
+                    Node {
+                        width: Val::Percent(100.0),
+                        height: px_fixed(3.0),
+                        ..default()
+                    },
+                    BackgroundColor(Color::srgba(base.red, base.green, base.blue, alpha)),
+                    Pickable::IGNORE,
+                ))
+                .id();
+            commands.entity(fade).add_child(strip);
+        }
+        commands.entity(wrapper).add_child(fade);
+    }
+}
+
+/// Mounts a scrollable virtual list with unified scrollbar and soft fade edges
+/// inside `wrapper` (shared by both the Pool list and the Deck list).
+pub(crate) fn mount_virtual_list(
+    commands: &mut Commands,
+    wrapper: Entity,
+    env: &Env,
+    which: crate::lobby::List,
+    stop_id: &'static str,
+    content: Entity,
+) {
+    let metrics = env.lobby_metrics();
+    let list = crate::lobby::scroller(commands, metrics, which, env.scrolled.get(which));
+    commands.entity(list).insert(stop(stop_id));
+    crate::lobby::scrollbars::attach(commands, wrapper, list, metrics);
+    commands.entity(list).add_child(content);
+    attach_soft_list_edges(commands, wrapper);
+}
+
 /// The builder's panel: translucent over the painting, its contents a column
 /// that may not grow past the window.
 pub(crate) fn panel(commands: &mut Commands, kit: Kit, grow: f32, width: Option<f32>) -> Entity {
@@ -876,8 +971,6 @@ pub(crate) mod mark {
     pub(crate) const WARN: char = '\u{f071}';
     /// `circle-question`: the search syntax, and a deck nobody could check.
     pub(crate) const HELP: char = '\u{f059}';
-    /// `sort`: the pool's order.
-    pub(crate) const SORT: char = '\u{f0dc}';
     /// `angle-left`: back.
     pub(crate) const BACK: char = '\u{f104}';
     /// `xmark`: remove, close.

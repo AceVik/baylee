@@ -4,6 +4,11 @@ use bevy::prelude::*;
 use bevy::ui::{percent, px};
 use bevy::ui_widgets::{ControlOrientation, Scrollbar, ScrollbarThumb};
 
+/// Standard scrollbar track width on desktop vs touch/compact frames.
+pub(crate) const fn bar_width(wide: bool) -> f32 {
+    if wide { 12.0 } else { 8.0 }
+}
+
 /// Puts `list` and a scrollbar for it side by side in `parent`; returns the
 /// bar's track.
 pub(crate) fn attach(
@@ -19,7 +24,7 @@ pub(crate) fn attach(
                 flex_grow: 1.0,
                 flex_basis: px(0),
                 min_height: px(0),
-                column_gap: px(10),
+                column_gap: px(8),
                 ..default()
             },
             Pickable::IGNORE,
@@ -27,6 +32,7 @@ pub(crate) fn attach(
         .id();
     commands.entity(list).entry::<Node>().and_modify(|mut n| {
         n.width = Val::Auto;
+        n.flex_grow = 1.0;
         n.flex_basis = px(0);
         n.min_width = px(0);
     });
@@ -36,30 +42,83 @@ pub(crate) fn attach(
     track
 }
 
+/// Wraps `scroller` and an [`OnlyWhenNeeded`] scrollbar in a horizontal band
+/// and returns that band entity (used by sheets and dialogs).
+pub(crate) fn band_when_needed(commands: &mut Commands, scroller: Entity, wide: bool) -> Entity {
+    let w = bar_width(wide);
+    let track = track(commands, scroller, wide);
+    commands.entity(track).insert((
+        OnlyWhenNeeded,
+        Node {
+            width: px(w),
+            height: percent(100),
+            flex_shrink: 0.0,
+            display: Display::None,
+            border_radius: BorderRadius::all(px(w * 0.5)),
+            ..default()
+        },
+    ));
+    commands
+        .entity(scroller)
+        .entry::<Node>()
+        .and_modify(|mut node| {
+            node.flex_grow = 1.0;
+            node.flex_basis = px(0);
+            node.min_width = px(0);
+        });
+    let host = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Row,
+                flex_shrink: 1.0,
+                min_height: px(0),
+                column_gap: px(6),
+                padding: UiRect::right(px(6)),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(host).add_children(&[scroller, track]);
+    host
+}
+
 /// The bar itself for `list`, a track with its thumb, wider for a finger
 /// (`wide`); the caller stands it beside the list.
 pub(crate) fn track(commands: &mut Commands, list: Entity, wide: bool) -> Entity {
+    let w = bar_width(wide);
+    let radius = w * 0.5;
     let track = commands
         .spawn((
             Node {
-                width: px(if wide { 16 } else { 12 }),
+                width: px(w),
                 height: percent(100),
                 flex_shrink: 0.0,
-                border_radius: BorderRadius::all(px(6)),
+                border_radius: BorderRadius::all(px(radius)),
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.08, 0.12, 0.18, 0.8)),
-            Scrollbar::new(list, ControlOrientation::Vertical, 30.0),
+            BackgroundColor(Color::srgba(0.08, 0.12, 0.18, 0.72)),
+            Scrollbar::new(list, ControlOrientation::Vertical, 44.0),
         ))
         .id();
     let thumb = commands
         .spawn((
             ScrollbarThumb {
-                border_radius: BorderRadius::all(px(6)),
+                border_radius: BorderRadius::all(px(radius)),
                 border: UiRect::all(px(1)),
             },
-            BackgroundColor(Color::srgb(0.42, 0.47, 0.55)),
-            BorderColor::all(Color::srgb(0.57, 0.58, 0.55)),
+            Node {
+                width: percent(100),
+                border_radius: BorderRadius::all(px(radius)),
+                ..default()
+            },
+            BackgroundColor(Color::srgb(0.42, 0.49, 0.60)),
+            BorderColor::all(Color::srgb(0.56, 0.64, 0.75)),
+            UiTransform::default(),
+            crate::ambience::Feel::tinting_to(
+                Color::srgb(0.42, 0.49, 0.60),
+                Color::srgb(0.58, 0.68, 0.82),
+            ),
             Pickable::default(),
         ))
         .id();

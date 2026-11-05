@@ -61,6 +61,7 @@ pub(crate) struct Marks {
     slider: Has<Slider>,
     button: Has<UiButton>,
     brand: Has<super::header::BrandMark>,
+    update: Has<crate::update::UpdateButton>,
 }
 
 /// The table's own buttons, which answer through their own components.
@@ -118,7 +119,8 @@ impl MarksItem<'_, '_> {
             || self.clickable
             || self.slider
             || self.button
-            || self.brand;
+            || self.brand
+            || self.update;
         acts.then_some(Shape::Hand)
     }
 }

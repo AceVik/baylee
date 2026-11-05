@@ -208,7 +208,6 @@ fn offline_play_can_be_pressed_all_the_way_to_a_table() {
     app.world_mut().resource_mut::<LobbyState>().offline =
         Some(super::offline::Offline::without_a_file());
 
-    to_gateway_face(&mut app);
     tap_control(&mut app, "play offline", |p| {
         *p == Press::Front(FrontPress::PlayOffline)
     });
@@ -263,7 +262,6 @@ fn room_tab_visits_only_expanded_inputs_in_both_directions() {
     hold_the_clock(&mut app);
     app.world_mut().resource_mut::<LobbyState>().offline =
         Some(super::offline::Offline::without_a_file());
-    to_gateway_face(&mut app);
     tap_control(&mut app, "play offline", |p| {
         *p == Press::Front(FrontPress::PlayOffline)
     });
@@ -362,7 +360,6 @@ fn starting_cards_expand_per_seat_without_losing_the_draft_or_hidden_focus() {
     hold_the_clock(&mut app);
     app.world_mut().resource_mut::<LobbyState>().offline =
         Some(super::offline::Offline::without_a_file());
-    to_gateway_face(&mut app);
     tap_control(&mut app, "play offline", |p| {
         *p == Press::Front(FrontPress::PlayOffline)
     });
@@ -416,7 +413,6 @@ fn playing_the_house_offline_is_still_one_press() {
     app.world_mut().resource_mut::<LobbyState>().offline =
         Some(super::offline::Offline::without_a_file());
 
-    to_gateway_face(&mut app);
     tap_control(&mut app, "play offline", |p| {
         *p == Press::Front(FrontPress::PlayOffline)
     });
@@ -460,7 +456,6 @@ fn the_offline_lobby_draws_none_of_the_gateways_controls() {
     app.world_mut().resource_mut::<LobbyState>().offline =
         Some(super::offline::Offline::without_a_file());
 
-    to_gateway_face(&mut app);
     tap_control(&mut app, "play offline", |p| {
         *p == Press::Front(FrontPress::PlayOffline)
     });
@@ -651,7 +646,6 @@ fn the_room_opens_on_its_first_seat() {
     let mut app = headless();
     app.world_mut().resource_mut::<LobbyState>().offline =
         Some(super::offline::Offline::without_a_file());
-    to_gateway_face(&mut app);
     tap_control(&mut app, "play offline", |p| {
         *p == Press::Front(FrontPress::PlayOffline)
     });
@@ -674,7 +668,6 @@ fn seated_in_a_room() -> App {
     app.insert_resource(crate::settings::ClientSettings::default());
     app.world_mut().resource_mut::<LobbyState>().offline =
         Some(super::offline::Offline::without_a_file());
-    to_gateway_face(&mut app);
     tap_control(&mut app, "play offline", |p| {
         *p == Press::Front(FrontPress::PlayOffline)
     });

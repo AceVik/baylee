@@ -73,22 +73,30 @@ pub(crate) struct Keeper {
     pending: Option<(Draft, f64)>,
     /// The draft last written.
     written: Option<Draft>,
+    /// The draft last sent to `auto_save_deck`.
+    auto_saved: Option<Draft>,
 }
 
 fn now(time: Option<&Time<Real>>) -> f64 {
     time.map_or(0.0, Time::elapsed_secs_f64)
 }
 
-/// Keeps the draft: takes it back when its deck is opened again, writes it a
-/// second after the last edit.
+/// Keeps the draft: takes it back when its deck is opened again, auto-saves
+/// every change in a live session without versioning, and writes a local draft
+/// fallback a second after the last edit.
 pub(crate) fn keep_the_draft(
     mut state: ResMut<LobbyState>,
+    mut prefs: Option<ResMut<crate::prefs::Prefs>>,
+    mailbox: Option<Res<crate::lobby::Mailbox>>,
     time: Option<Res<Time<Real>>>,
     mut kept: Local<Keeper>,
 ) {
     let on_screen = matches!(state.lobby.screen(), Screen::Build);
     if !on_screen {
         if kept.visiting {
+            if let Some(mailbox) = mailbox.as_deref() {
+                crate::lobby::http::commit_session_version(&mut state, mailbox);
+            }
             *kept = Keeper::default();
         }
         return;
@@ -99,12 +107,15 @@ pub(crate) fn keep_the_draft(
         // A builder opens with the caret in the pool's search (KEYBOARD W4:
         // "builder with an empty deck, focus in pool search"); a new deck is
         // named with F2 or the pen.
-        if state.lobby.builder().focus() == baylee_client_core::deckbuilder::BuildField::Name {
+        if !state.build.naming_new
+            && state.lobby.builder().focus() == baylee_client_core::deckbuilder::BuildField::Name
+        {
             state
                 .lobby
                 .builder_mut()
                 .focus_on(baylee_client_core::deckbuilder::BuildField::Search);
         }
+        state.build.naming_new = false;
     }
     let deck = state.lobby.builder();
     if kept.restore && deck.loaded() && !state.lobby.busy() {
@@ -126,11 +137,45 @@ pub(crate) fn keep_the_draft(
     if kept.restore {
         return;
     }
+    let can_auto_save = (!state.gateway.is_empty() && state.lobby.token().is_some())
+        || state.offline.is_some()
+        || state.central_without_gateway();
     let deck = state.lobby.builder();
     if !deck.dirty() {
         kept.pending = None;
         return;
     }
+    if can_auto_save
+        && !deck
+            .entries(baylee_client_core::deckbuilder::Zone::Main)
+            .is_empty()
+        && let Some(mailbox) = mailbox.as_deref()
+    {
+        let draft = deck.draft();
+        // Wait for an in-flight initial POST /decks to assign `editing` before sending another save.
+        let creating_in_flight = deck.editing().is_none() && kept.auto_saved.is_some();
+        if !creating_in_flight && kept.auto_saved.as_ref() != Some(&draft) {
+            let old_key = deck.editing().unwrap_or("new").to_owned();
+            kept.auto_saved = Some(draft);
+            crate::lobby::http::auto_save_deck(&mut state, mailbox);
+            if let Some(new_id) = state.lobby.builder().editing().map(str::to_owned)
+                && new_id != old_key
+                && let Some(prefs) = prefs.as_deref_mut()
+            {
+                if !prefs.all().deck_card_favourites_for(&old_key).is_empty() {
+                    prefs.edit().migrate_deck_card_favourites(&old_key, &new_id);
+                }
+                if !prefs.all().variants_for_deck(&old_key).is_empty() {
+                    prefs.edit().migrate_deck_variants(&old_key, &new_id);
+                }
+            }
+            if !state.lobby.builder().dirty() {
+                kept.pending = None;
+                return;
+            }
+        }
+    }
+    let deck = state.lobby.builder();
     let at = now(time.as_deref());
     if state.is_changed() {
         let draft = deck.draft();

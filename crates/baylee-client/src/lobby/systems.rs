@@ -87,182 +87,271 @@ pub(super) fn poll(
     // Absent in a headless test, which has no settings file to write to.
     mut settings: Option<ResMut<crate::settings::ClientSettings>>,
 ) {
-    let replies = {
-        let Ok(mut box_) = mailbox.0.lock() else {
-            return;
-        };
-        // A seat waiting for its host is taken up on the next frame even
-        // with nothing in the mailbox: a watch the chat started (a friend's
-        // Watch, beta.8) arrives with no reply behind it, and the feed that
-        // would have brought one hangs up once a seat is held.
-        let seat_waiting = matches!(state.lobby.screen(), Screen::Seated(_)) && !state.connected;
-        if box_.is_empty() && !seat_waiting {
-            return;
-        }
-        std::mem::take(&mut *box_)
-    };
-    for reply in replies {
-        let reply = match reply {
-            Reply::Remote(epoch, reply) if epoch == state.gateway_epoch => *reply,
-            Reply::Remote(_, _) => continue,
-            reply => reply,
-        };
-        if let Reply::Event(LobbyEvent::Printings {
-            card,
-            printings,
-            from_catalog: false,
-        }) = &reply
-        {
-            let oracle = state
-                .lobby
-                .builder()
-                .pool()
-                .iter()
-                .find(|c| c.index == *card)
-                .map(|c| c.oracle_id.as_str());
-            if let Some(oracle) = oracle.filter(|id| widens(id)) {
-                super::print_catalog::fetch(
-                    *card,
-                    oracle,
-                    printings.clone(),
-                    state.gateway_epoch,
-                    &mailbox,
-                );
-                // The gateway's one printing is shown at once, the row's own
-                // beside it, and the window says it is looking for more: a
-                // window that waited on Scryfall showed a spinner for as long
-                // as Scryfall took, which behind a rate limit was minutes.
-                let card = *card;
-                if let Reply::Event(event) = reply {
-                    let next = state.lobby.apply(event);
-                    dispatch(&mut state, &mailbox, next);
+    for pass in 0..8 {
+        let replies = {
+            let Ok(mut box_) = mailbox.0.lock() else {
+                return;
+            };
+            // A seat waiting for its host is taken up on the next frame even
+            // with nothing in the mailbox: a watch the chat started (a friend's
+            // Watch, beta.8) arrives with no reply behind it, and the feed that
+            // would have brought one hangs up once a seat is held.
+            let seat_waiting =
+                matches!(state.lobby.screen(), Screen::Seated(_)) && !state.connected;
+            if box_.is_empty() {
+                if pass == 0 && seat_waiting {
+                    Vec::new()
+                } else if pass == 0 {
+                    return;
+                } else {
+                    break;
                 }
-                state.lobby.builder_mut().widen_printings(card);
-                continue;
+            } else {
+                std::mem::take(&mut *box_)
             }
-        }
-        let reply = match reply {
-            Reply::PrintingCatalog(event) => Reply::Event(event),
-            Reply::PoolLanguage(lang, event) if lang == state.lobby.lang() => Reply::Event(event),
-            Reply::PoolLanguage(_, _) => continue,
-            other => other,
         };
-        match reply {
-            #[cfg(not(target_arch = "wasm32"))]
-            Reply::Central(result) => {
-                super::central::receive(&mut state, &mut prefs, &mailbox, result);
-            }
-            Reply::Remote(_, _) | Reply::PrintingCatalog(_) | Reply::PoolLanguage(_, _) => {}
-            Reply::VaultLogin(login) => state.vault_login = Some(login),
-            Reply::Event(event) => {
-                if let LobbyEvent::Games(listing) = &event
-                    && !state.lobby.busy()
-                    && state.lobby.awaiting().is_none()
-                    && listing.games == state.lobby.games()
-                    && listing.total == state.lobby.total()
-                    && listing.offset == state.lobby.offset()
-                {
+        for reply in replies {
+            let reply = match reply {
+                Reply::Remote(epoch, reply) if epoch == state.gateway_epoch => *reply,
+                Reply::Remote(_, _) => continue,
+                reply => reply,
+            };
+            if let Reply::Event(LobbyEvent::Printings {
+                card,
+                printings,
+                from_catalog: false,
+            }) = &reply
+            {
+                let oracle = state
+                    .lobby
+                    .builder()
+                    .pool()
+                    .iter()
+                    .find(|c| c.index == *card)
+                    .map(|c| c.oracle_id.as_str());
+                if let Some(oracle) = oracle.filter(|id| widens(id)) {
+                    super::print_catalog::fetch(
+                        *card,
+                        oracle,
+                        printings.clone(),
+                        state.gateway_epoch,
+                        &mailbox,
+                    );
+                    // The gateway's one printing is shown at once, the row's own
+                    // beside it, and the window says it is looking for more: a
+                    // window that waited on Scryfall showed a spinner for as long
+                    // as Scryfall took, which behind a rate limit was minutes.
+                    let card = *card;
+                    if let Reply::Event(event) = reply {
+                        if let LobbyEvent::DeckSaved {
+                            deck_id: Some(ref new_id),
+                        } = event
+                        {
+                            let old_key =
+                                state.lobby.builder().editing().unwrap_or("new").to_owned();
+                            if old_key != *new_id {
+                                if !prefs.all().deck_card_favourites_for(&old_key).is_empty() {
+                                    prefs.edit().migrate_deck_card_favourites(&old_key, new_id);
+                                }
+                                if !prefs.all().variants_for_deck(&old_key).is_empty() {
+                                    prefs.edit().migrate_deck_variants(&old_key, new_id);
+                                }
+                            }
+                        }
+                        let next = state.lobby.apply(event);
+                        dispatch(&mut state, &mailbox, next);
+                    }
+                    state.lobby.builder_mut().widen_printings(card);
                     continue;
                 }
+            }
+            let reply = match reply {
+                Reply::PrintingCatalog(event) => Reply::Event(event),
+                Reply::PoolLanguage(lang, event) if lang == state.lobby.lang() => {
+                    Reply::Event(event)
+                }
+                Reply::PoolLanguage(_, _) => continue,
+                other => other,
+            };
+            match reply {
+                #[cfg(not(target_arch = "wasm32"))]
+                Reply::Central(result) => {
+                    super::central::receive(&mut state, &mut prefs, &mailbox, result);
+                }
+                Reply::Remote(_, _) | Reply::PrintingCatalog(_) | Reply::PoolLanguage(_, _) => {}
+                Reply::VaultLogin(login) => state.vault_login = Some(login),
+                Reply::Event(event) => {
+                    if let LobbyEvent::Games(listing) = &event
+                        && !state.lobby.busy()
+                        && state.lobby.awaiting().is_none()
+                        && listing.games == state.lobby.games()
+                        && listing.total == state.lobby.total()
+                        && listing.offset == state.lobby.offset()
+                    {
+                        continue;
+                    }
 
-                // A sign-in that worked is the one moment this client knows
-                // a name is a real one, so it is the only moment worth
-                // writing it down. Read off the field rather than out of the
-                // request: after the sign-in the field holds the username the
-                // gateway answered, which is the name to offer next time even
-                // when an address was typed (#269).
-                let worked = matches!(event, LobbyEvent::LoggedIn { .. });
-                // A new guest is kept for this gateway, the only way back to
-                // it (#269), and is a use of the gateway like a sign-in.
-                let guest_in = match &event {
-                    LobbyEvent::GuestIn(kept) => Some(kept.clone()),
-                    _ => None,
-                };
-                let next = state.lobby.apply(event);
-                if let Some(kept) = guest_in {
-                    let gateway = state.gateway.clone();
-                    state.uses.record(&gateway);
-                    state.guests.insert(gateway, kept);
-                    if let Some(settings) = settings.as_mut() {
+                    // A sign-in that worked is the one moment this client knows
+                    // a name is a real one, so it is the only moment worth
+                    // writing it down. Read off the field rather than out of the
+                    // request: after the sign-in the field holds the username the
+                    // gateway answered, which is the name to offer next time even
+                    // when an address was typed (#269).
+                    #[cfg(not(target_arch = "wasm32"))]
+                    if matches!(
+                        event,
+                        LobbyEvent::LoggedIn { .. }
+                            | LobbyEvent::GuestIn(_)
+                            | LobbyEvent::Failed(_)
+                    ) {
+                        if let Some(central) = &mut state.central {
+                            central.admitting = false;
+                        }
+                        if matches!(event, LobbyEvent::Failed(_)) && state.central_ready() {
+                            state.gateway_selected = false;
+                            state.lobby.set_gateway_ready(false);
+                        }
+                    }
+                    let worked = matches!(event, LobbyEvent::LoggedIn { .. });
+                    // A new guest is kept for this gateway, the only way back to
+                    // it (#269), and is a use of the gateway like a sign-in.
+                    let guest_in = match &event {
+                        LobbyEvent::GuestIn(kept) => Some(kept.clone()),
+                        _ => None,
+                    };
+                    if let LobbyEvent::DeckSaved {
+                        deck_id: Some(ref new_id),
+                    } = event
+                    {
+                        let old_key = state.lobby.builder().editing().unwrap_or("new").to_owned();
+                        if old_key != *new_id {
+                            if !prefs.all().deck_card_favourites_for(&old_key).is_empty() {
+                                prefs.edit().migrate_deck_card_favourites(&old_key, new_id);
+                            }
+                            if !prefs.all().variants_for_deck(&old_key).is_empty() {
+                                prefs.edit().migrate_deck_variants(&old_key, new_id);
+                            }
+                        }
+                    }
+                    let next = state.lobby.apply(event);
+                    if let Some(kept) = guest_in {
+                        let gateway = state.gateway.clone();
+                        state.uses.record(&gateway);
+                        state.guests.insert(gateway, kept);
+                        if let Some(settings) = settings.as_mut() {
+                            keep_gateways(&state, settings);
+                        }
+                    }
+                    if worked {
+                        // The use is counted before anything is written, so
+                        // that the name and the use go out in one save.
+                        let gateway = state.gateway.clone();
+                        state.uses.record(&gateway);
+                        if let Some(settings) = settings.as_mut() {
+                            settings.last_username = state.lobby.field(Field::Username).to_string();
+                            keep_gateways(&state, settings);
+                        }
+                    }
+                    dispatch(&mut state, &mailbox, next);
+                    // The Create-table sheet's rules, once its room is open.
+                    let setup = state.lobby.take_pending_setup();
+                    dispatch(&mut state, &mailbox, setup);
+                }
+                Reply::Replays(page) => super::replays::online_page(&mut state, &page),
+                Reply::ReplaysArchived(page) => super::replays::archived_page(&mut state, &page),
+                Reply::ReplayRefused(why) => {
+                    // Read again: what the list shows came from this client's
+                    // own guess at the answer.
+                    state.replays.forget_visit();
+                    state.lobby.say(why);
+                }
+                Reply::AutoSaved {
+                    deck_id,
+                    saved_changes,
+                } => {
+                    let editing = state.lobby.builder().editing().map(str::to_owned);
+                    let old_key = editing.as_deref().unwrap_or("new");
+                    if let Some(ref new_id) = deck_id {
+                        if old_key != new_id {
+                            if !prefs.all().deck_card_favourites_for(old_key).is_empty() {
+                                prefs.edit().migrate_deck_card_favourites(old_key, new_id);
+                            }
+                            if !prefs.all().variants_for_deck(old_key).is_empty() {
+                                prefs.edit().migrate_deck_variants(old_key, new_id);
+                            }
+                        }
+                        state.lobby.remember_saved_deck(new_id);
+                    }
+                    state
+                        .lobby
+                        .builder_mut()
+                        .mark_auto_saved(deck_id.as_deref(), saved_changes);
+                    state.build.save = crate::buildui::SaveState::Saved {
+                        at: 0.0,
+                        minutes: 0,
+                    };
+                    crate::buildui::draft::forget(&[editing.as_deref(), None]);
+                    if !matches!(state.lobby.screen(), client_core::lobby::Screen::Build) {
+                        dispatch(&mut state, &mailbox, Some(LobbyRequest::ListDecks));
+                    }
+                }
+                Reply::Clocks(clocks) => {
+                    if state.lobby.clocks() != clocks {
+                        state.lobby.set_clocks(clocks);
+                    }
+                }
+                Reply::Registration {
+                    registration,
+                    art_cache,
+                    guests,
+                    central,
+                } => state.auth_config(registration, art_cache, guests, central),
+                Reply::Expired => {
+                    state.gateway_epoch = state.gateway_epoch.wrapping_add(1);
+                    // A guest the gateway no longer knows is gone for good, and
+                    // so is this device's way back to it.
+                    let guest = state.lobby.guest();
+                    state.lobby.session_ended();
+                    if guest {
+                        let gateway = state.gateway.clone();
+                        state.guests.remove(&gateway);
+                        if let Some(settings) = settings.as_mut() {
+                            keep_gateways(&state, settings);
+                        }
+                    }
+                }
+                // Written only when they change: the pill reads them, and a
+                // write is a rebuild (§10 #1).
+                Reply::Me(me) => {
+                    if state.lobby.me() != Some(&me) {
+                        state.lobby.set_me(me);
+                    }
+                }
+                Reply::Stats(stats) => {
+                    if state.lobby.stats() != Some(&stats) {
+                        state.lobby.set_stats(stats);
+                    }
+                }
+                Reply::Terms(reply) => {
+                    super::front::terms::receive(
+                        reply,
+                        &mut state,
+                        &mut prefs,
+                        &mailbox,
+                        &mut settings,
+                    );
+                }
+                Reply::Gateway { url, probe } => {
+                    if state.gateway_answered(url, probe)
+                        && let Some(settings) = settings.as_mut()
+                    {
                         keep_gateways(&state, settings);
                     }
                 }
-                if worked {
-                    // The use is counted before anything is written, so
-                    // that the name and the use go out in one save.
-                    let gateway = state.gateway.clone();
-                    state.uses.record(&gateway);
-                    if let Some(settings) = settings.as_mut() {
-                        settings.last_username = state.lobby.field(Field::Username).to_string();
-                        keep_gateways(&state, settings);
-                    }
-                }
-                dispatch(&mut state, &mailbox, next);
-                // The Create-table sheet's rules, once its room is open.
-                let setup = state.lobby.take_pending_setup();
-                dispatch(&mut state, &mailbox, setup);
             }
-            Reply::Replays(page) => super::replays::online_page(&mut state, &page),
-            Reply::ReplaysArchived(page) => super::replays::archived_page(&mut state, &page),
-            Reply::ReplayRefused(why) => {
-                // Read again: what the list shows came from this client's
-                // own guess at the answer.
-                state.replays.forget_visit();
-                state.lobby.say(why);
-            }
-            Reply::Clocks(clocks) => {
-                if state.lobby.clocks() != clocks {
-                    state.lobby.set_clocks(clocks);
-                }
-            }
-            Reply::Registration {
-                registration,
-                art_cache,
-                guests,
-                central,
-            } => state.auth_config(registration, art_cache, guests, central),
-            Reply::Expired => {
-                state.gateway_epoch = state.gateway_epoch.wrapping_add(1);
-                // A guest the gateway no longer knows is gone for good, and
-                // so is this device's way back to it.
-                let guest = state.lobby.guest();
-                state.lobby.session_ended();
-                if guest {
-                    let gateway = state.gateway.clone();
-                    state.guests.remove(&gateway);
-                    if let Some(settings) = settings.as_mut() {
-                        keep_gateways(&state, settings);
-                    }
-                }
-            }
-            // Written only when they change: the pill reads them, and a
-            // write is a rebuild (§10 #1).
-            Reply::Me(me) => {
-                if state.lobby.me() != Some(&me) {
-                    state.lobby.set_me(me);
-                }
-            }
-            Reply::Stats(stats) => {
-                if state.lobby.stats() != Some(&stats) {
-                    state.lobby.set_stats(stats);
-                }
-            }
-            Reply::Terms(reply) => {
-                super::front::terms::receive(
-                    reply,
-                    &mut state,
-                    &mut prefs,
-                    &mailbox,
-                    &mut settings,
-                );
-            }
-            Reply::Gateway { url, probe } => {
-                if state.gateway_answered(url, probe)
-                    && let Some(settings) = settings.as_mut()
-                {
-                    keep_gateways(&state, settings);
-                }
-            }
+        }
+        if matches!(state.lobby.screen(), Screen::Seated(_)) {
+            break;
         }
     }
     // Keys and standing orders belong to the account, so signing in is what
@@ -753,6 +842,7 @@ pub(super) fn came_back(
     mut state: ResMut<LobbyState>,
     mailbox: Res<Mailbox>,
     duel: Option<Res<crate::Duel>>,
+    mut prefs: Option<ResMut<crate::prefs::Prefs>>,
 ) {
     // Drops the socket (or the in-process engine) with it: a stale host would
     // keep a dead table's messages queued behind the next game's.
@@ -800,6 +890,14 @@ pub(super) fn came_back(
         Some((result, seat, team, own)) => {
             // Play's Recent games (this session), before the seat goes.
             super::play::remember(&mut state, duel.as_deref(), result, seat, team);
+            if let Some(prefs) = prefs.as_mut()
+                && let Some(deck) = state.lobby.next_deck().cloned()
+            {
+                let won = client_core::interaction::outcome(&result, seat, team)
+                    .won()
+                    .unwrap_or(false);
+                prefs.edit().record_deck_game(&deck.id, won);
+            }
             state
                 .lobby
                 .stand_up_after(&result, seat, team, own.as_ref());
@@ -872,6 +970,8 @@ pub(super) fn waiting(state: Res<LobbyState>, mut loading: ResMut<crate::loading
         // engine, and a veil claiming a conversation with a gateway would
         // be naming a machine that was never dialled.
         _ if state.lobby.busy() && state.lobby.offline() => Some(Phrase::VeilWorking),
+        _ if state.lobby.busy() && state.central_pending() => Some(Phrase::CentralSigningIn),
+        _ if state.central_admitting() => Some(Phrase::GatewayConnecting),
         _ if state.lobby.busy() => Some(Phrase::VeilTalking),
         _ => None,
     }

@@ -45,6 +45,63 @@ pub(crate) struct UiRebuilds {
     pub(crate) frame: u64,
 }
 
+/// Tracks smooth navigation transitions between main Lobby screens/tabs
+/// (`Play` ↔ `Decks` ↔ `Replays` ↔ `Build` ↔ `Settings`) so the content body
+/// glides into place while the top `RetainedHeader` remains stationary.
+#[derive(Resource, Default)]
+pub(crate) struct ScreenTransition {
+    key: Option<(std::mem::Discriminant<Screen>, super::Hub, bool)>,
+    progress: f32,
+}
+
+/// Animates the main screen body under [`LobbyRoot`] when navigating between
+/// tabs or screens (`Play`, `Decks`, `Replays`, `Build`, `Settings`).
+#[allow(clippy::type_complexity)]
+pub(super) fn animate_screen_transition(
+    time: Res<Time>,
+    state: Res<LobbyState>,
+    mut transition: ResMut<ScreenTransition>,
+    roots: Query<&Children, With<LobbyRoot>>,
+    headers: Query<
+        (),
+        Or<(
+            With<super::header::RetainedHeader>,
+            With<super::front::door::InfoPill>,
+        )>,
+    >,
+    roles: Query<&crate::shellkit::Role>,
+    mut transforms: Query<&mut UiTransform>,
+) {
+    let now = (
+        std::mem::discriminant(state.lobby.screen()),
+        state.hub,
+        state.settings.is_open(),
+    );
+    if transition.key != Some(now) {
+        let had_prev = transition.key.is_some();
+        transition.key = Some(now);
+        transition.progress = if had_prev && !cfg!(test) { 0.0 } else { 1.0 };
+    }
+    if transition.progress >= 1.0 {
+        return;
+    }
+    let dt = time.delta_secs().min(0.05);
+    if dt > 0.0 {
+        transition.progress = (transition.progress + dt / 0.11).min(1.0);
+    }
+    for children in &roots {
+        for child in children.iter() {
+            if headers.contains(child) || roles.get(child) == Ok(&crate::shellkit::Role::Header) {
+                continue;
+            }
+            if let Ok(mut transform) = transforms.get_mut(child) {
+                transform.translation = Val2::ZERO;
+                transform.scale = Vec2::ONE;
+            }
+        }
+    }
+}
+
 /// How much room there is: the shell's five size classes (§2.7), one enum
 /// for the lobby and the kit.
 ///
@@ -382,6 +439,7 @@ pub(super) fn ui(
     let build_env = crate::buildui::Env {
         kit,
         state: &state,
+        prefs: prefs.all(),
         scrolled: &scrolled_to,
         layout: crate::buildui::Layout::of(shell_m.frame, width),
         save_keys: save_keys.as_deref(),
@@ -390,7 +448,6 @@ pub(super) fn ui(
         && !state.settings.is_open()
         && state.lobby.library().page.is_none()
         && state.confirmation.is_none()
-        && !prefs.is_changed()
         && drawn.0 == Some(metrics.frame)
         && kit_same
         && !root.is_empty()
@@ -516,6 +573,16 @@ pub(super) fn ui(
                 Scrollable(List::Table),
                 ScrollPosition(Vec2::new(0.0, scrolled_to.get(List::Table))),
             ));
+            if state.central_ready() {
+                super::header::draw(
+                    &mut commands,
+                    root,
+                    &state,
+                    kit,
+                    metrics,
+                    retained_header.as_ref(),
+                );
+            }
             let music_on = kit_inputs.1.as_deref().is_none_or(|s| s.music.gain() > 0.0);
             super::front::front_door(
                 &mut commands,
@@ -525,22 +592,59 @@ pub(super) fn ui(
                 kit,
                 &scrolled_to,
                 assets.as_deref(),
+                cloud.as_deref(),
                 music_on,
                 height,
             );
             super::front::door::about(&mut commands, root, &state, kit, &scrolled_to);
         }
-        Screen::Table => table(
-            &mut commands,
-            root,
-            &state,
-            &fonts,
-            metrics,
-            &scrolled_to,
-            kit,
-            prefs.all(),
-            retained_header.as_ref(),
-        ),
+        Screen::Table if state.showing_gateway_hub() => {
+            commands.entity(root).insert((
+                Scrollable(List::Table),
+                ScrollPosition(Vec2::new(0.0, scrolled_to.get(List::Table))),
+            ));
+            super::header::draw(
+                &mut commands,
+                root,
+                &state,
+                kit,
+                metrics,
+                retained_header.as_ref(),
+            );
+            let music_on = kit_inputs.1.as_deref().is_none_or(|s| s.music.gain() > 0.0);
+            super::front::front_door(
+                &mut commands,
+                root,
+                &state,
+                &cast,
+                kit,
+                &scrolled_to,
+                assets.as_deref(),
+                cloud.as_deref(),
+                music_on,
+                height,
+            );
+            super::front::door::about(&mut commands, root, &state, kit, &scrolled_to);
+        }
+        Screen::Table => {
+            table(
+                &mut commands,
+                root,
+                &state,
+                &fonts,
+                metrics,
+                &scrolled_to,
+                kit,
+                prefs.all(),
+                retained_header.as_ref(),
+            );
+            if kit.m.frame != crate::shellkit::Frame::Phone {
+                let ver = super::front::door::version_line(&mut commands, &state, kit);
+                let info = super::front::door::info_line(&mut commands, &state, kit);
+                commands.entity(root).add_children(&[ver, info]);
+            }
+            super::front::door::about(&mut commands, root, &state, kit, &scrolled_to);
+        }
         Screen::Build => {
             // The builder keeps its own header; the seated strip stands
             // above it.

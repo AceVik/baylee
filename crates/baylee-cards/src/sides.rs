@@ -34,7 +34,9 @@
 //! component. That is the whole of the difference in this pool, and it is why
 //! one predicate could not have served both.
 
-use crate::generated_sides::{BACK_IMAGE, DOUBLE_FACED, TURNS};
+use crate::generated_sides::{
+    BACK_IMAGE, BONUS, DOUBLE_FACED, MYTHIC, RARE, SPECIAL, TURNS, UNCOMMON,
+};
 use baylee_core::ids::CardIndex;
 
 /// Whether Scryfall serves a second picture for this card's pinned printing.
@@ -70,10 +72,32 @@ pub fn quarter_turns(index: CardIndex) -> &'static [u8] {
         .map_or(&[], |at| TURNS[at].1)
 }
 
+/// The rarity of this card's reference printing, if the card is in the compiled pool.
+#[must_use]
+pub fn rarity(index: CardIndex) -> Option<baylee_cardtext::Rarity> {
+    if MYTHIC.binary_search(&index).is_ok() {
+        Some(baylee_cardtext::Rarity::Mythic)
+    } else if RARE.binary_search(&index).is_ok() {
+        Some(baylee_cardtext::Rarity::Rare)
+    } else if UNCOMMON.binary_search(&index).is_ok() {
+        Some(baylee_cardtext::Rarity::Uncommon)
+    } else if SPECIAL.binary_search(&index).is_ok() {
+        Some(baylee_cardtext::Rarity::Special)
+    } else if BONUS.binary_search(&index).is_ok() {
+        Some(baylee_cardtext::Rarity::Bonus)
+    } else if crate::by_index(index).is_some() {
+        Some(baylee_cardtext::Rarity::Common)
+    } else {
+        None
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{CardIndex, double_faced, has_back_image, quarter_turns};
-    use crate::generated_sides::{BACK_IMAGE, DOUBLE_FACED, TURNS};
+    use super::{CardIndex, double_faced, has_back_image, quarter_turns, rarity};
+    use crate::generated_sides::{
+        BACK_IMAGE, BONUS, DOUBLE_FACED, MYTHIC, RARE, SPECIAL, TURNS, UNCOMMON,
+    };
 
     /// Both tables are sorted, which is what the reader's binary search
     /// assumes and nothing else would notice being wrong: an unsorted table
@@ -83,12 +107,38 @@ mod tests {
         for (name, rows) in [
             ("BACK_IMAGE", &BACK_IMAGE[..]),
             ("DOUBLE_FACED", &DOUBLE_FACED[..]),
+            ("UNCOMMON", &UNCOMMON[..]),
+            ("RARE", &RARE[..]),
+            ("MYTHIC", &MYTHIC[..]),
+            ("SPECIAL", &SPECIAL[..]),
+            ("BONUS", &BONUS[..]),
         ] {
             assert!(
                 rows.windows(2).all(|pair| pair[0] < pair[1]),
                 "{name} is not strictly ascending, so its binary search is a coin toss"
             );
         }
+    }
+
+    #[test]
+    fn reference_rarity_matches_printed_cards() {
+        use baylee_cardtext::Rarity;
+        let forest = crate::decks::by_name("Forest").expect("in the pool");
+        let ondu_cleric = crate::decks::by_name("Ondu Cleric").expect("in the pool");
+        let sol_ring = crate::decks::by_name("Sol Ring").expect("in the pool");
+        let swords = crate::decks::by_name("Swords to Plowshares").expect("in the pool");
+        let badlands = crate::decks::by_name("Badlands").expect("in the pool");
+        let padeem = crate::decks::by_name("Padeem, Consul of Innovation").expect("in the pool");
+        let mox_opal = crate::decks::by_name("Mox Opal").expect("in the pool");
+        let breya = crate::decks::by_name("Breya, Etherium Shaper").expect("in the pool");
+        assert_eq!(rarity(forest), Some(Rarity::Common));
+        assert_eq!(rarity(ondu_cleric), Some(Rarity::Common));
+        assert_eq!(rarity(sol_ring), Some(Rarity::Uncommon));
+        assert_eq!(rarity(swords), Some(Rarity::Uncommon));
+        assert_eq!(rarity(badlands), Some(Rarity::Rare));
+        assert_eq!(rarity(padeem), Some(Rarity::Uncommon));
+        assert_eq!(rarity(mox_opal), Some(Rarity::Mythic));
+        assert_eq!(rarity(breya), Some(Rarity::Mythic));
     }
 
     /// Every row of both tables is a card this build actually compiled.

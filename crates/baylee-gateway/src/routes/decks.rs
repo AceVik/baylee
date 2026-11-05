@@ -454,7 +454,7 @@ pub(crate) async fn update_deck(
         Some(text) => Some(text),
         None => deck.description.clone(),
     };
-    store::put_deck(
+    store::put_deck_versioned(
         &state.db,
         Deck {
             name: body.name,
@@ -469,6 +469,9 @@ pub(crate) async fn update_deck(
             ..deck
         },
         body.summary.filter(|s| !s.is_empty()),
+        body.versioned,
+        body.superseded
+            .map(|s| (s.cards, s.sideboard, s.commanders)),
     )
     .await
     .map_err(|e| db_down(&e))?;

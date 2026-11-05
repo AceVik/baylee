@@ -57,6 +57,10 @@ pub(crate) fn follow(host: &mut SocialHost, lobby: &mut LobbyState) {
         sync.queue(false);
     }
     host.vault.central = lobby.central_handle();
+    if matches!(host.vault.error, Some(Error::Busy)) && !WORKER_BUSY.load(Ordering::Acquire) {
+        host.vault.error = None;
+        host.vault.attempted = false;
+    }
     let central_start = host.vault.central.is_some()
         && !host.vault.attempted
         && host.machine.is_none()
@@ -77,6 +81,7 @@ pub(crate) fn follow(host: &mut SocialHost, lobby: &mut LobbyState) {
 
 // Inject the I/O boundary so lifecycle tests cannot accidentally use the real
 // process configuration directory when another test has opened Settings.
+#[allow(clippy::too_many_lines)]
 fn follow_with(
     host: &mut SocialHost,
     lobby: &mut LobbyState,
@@ -129,7 +134,42 @@ fn follow_with(
                     crate::social::central::attach(host, host.vault.central.clone());
                     host.carry_out(ready.effects);
                 }
-                Err(error) => host.vault.error = Some(error),
+                Err(Error::Busy) => {
+                    host.vault.error = Some(Error::Busy);
+                    host.vault.attempted = false;
+                }
+                Err(error) => {
+                    if host.vault.central.is_some()
+                        && let Some(session) = host.session.clone()
+                    {
+                        let disk: ChatHome = Box::new(social::disk::MemoryDisk::new());
+                        let store = Box::new(social::vault::MemorySecrets::new());
+                        let me = Me {
+                            tag: session.tag,
+                            handle: session.handle,
+                            guest: false,
+                            gateway: session.gateway,
+                        };
+                        let (mut machine, effects) = Social::start(
+                            me,
+                            None,
+                            None,
+                            host.vault.prefs.clone(),
+                            now_ms(),
+                            &mut OsEntropy,
+                        );
+                        machine.set_key_home(social::KeyHome::Memory);
+                        machine.set_keep_days(host.keep_days);
+                        host.store = Some(store);
+                        host.disk = Some(disk);
+                        host.machine = Some(machine);
+                        host.vault.error = None;
+                        crate::social::central::attach(host, host.vault.central.clone());
+                        host.carry_out(effects);
+                    } else {
+                        host.vault.error = Some(error);
+                    }
+                }
             }
         }
     }

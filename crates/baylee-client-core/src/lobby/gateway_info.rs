@@ -59,6 +59,27 @@ pub struct GatewayInfo {
     /// host is kept ([`legal_address`]); the client draws it as a link
     /// with that host in sight ([`address_host`]).
     pub impressum: Option<String>,
+    /// Distinct players currently online on this gateway, when reported.
+    pub players_online: Option<u32>,
+    /// Games currently running on this gateway, when reported.
+    pub games_running: Option<u32>,
+    /// Rooms waiting for players on this gateway, when reported.
+    pub rooms_waiting: Option<u32>,
+}
+
+/// Live lobby game counts from `GET /info` or `GET /health`.
+#[derive(Deserialize)]
+struct WireGames {
+    #[serde(default)]
+    players_online: Option<u32>,
+    running: u32,
+    waiting: u32,
+}
+
+/// `GET /health`'s game counts.
+#[derive(Deserialize)]
+struct WireHealth {
+    games: WireGames,
 }
 
 /// `GET /info` as it arrives.
@@ -80,6 +101,8 @@ struct Wire {
     terms: Option<String>,
     #[serde(default)]
     impressum: Option<String>,
+    #[serde(default)]
+    games: Option<WireGames>,
 }
 
 impl GatewayInfo {
@@ -87,6 +110,14 @@ impl GatewayInfo {
     #[must_use]
     pub fn read(body: &[u8]) -> Option<Self> {
         let wire: Wire = serde_json::from_slice(body).ok()?;
+        let (players_online, games_running, rooms_waiting) = match wire.games {
+            Some(games) => (
+                Some(games.players_online.unwrap_or(0)),
+                Some(games.running),
+                Some(games.waiting),
+            ),
+            None => (None, None, None),
+        };
         Some(Self {
             name: wire
                 .name
@@ -100,7 +131,21 @@ impl GatewayInfo {
                 !t.is_empty() && t.chars().count() <= 64 && !t.chars().any(char::is_control)
             }),
             impressum: wire.impressum.as_deref().and_then(legal_address),
+            players_online,
+            games_running,
+            rooms_waiting,
         })
+    }
+
+    /// Enriches this info with live game and room counts from `GET /health`.
+    #[must_use]
+    pub fn with_health(&self, body: &[u8]) -> Option<Self> {
+        let health: WireHealth = serde_json::from_slice(body).ok()?;
+        let mut out = self.clone();
+        out.players_online = Some(health.games.players_online.unwrap_or(0));
+        out.games_running = Some(health.games.running);
+        out.rooms_waiting = Some(health.games.waiting);
+        Some(out)
     }
 
     /// The version as a row has room for: the release alone, `v0.1.0`, with
@@ -129,7 +174,7 @@ impl GatewayInfo {
 }
 
 /// The most characters of a short version a row draws.
-pub const SHORT_VERSION_CHARS: usize = 12;
+pub const SHORT_VERSION_CHARS: usize = 24;
 
 /// A string a gateway sent, as this client draws it.
 ///
@@ -324,6 +369,9 @@ mod tests {
             source: None,
             terms: None,
             impressum: None,
+            players_online: None,
+            games_running: None,
+            rooms_waiting: None,
         })
     }
 
@@ -549,12 +597,16 @@ mod tests {
             .short_version()
         };
         assert_eq!(short("0.1.0+build.1492 (a6e3cd527c-dirty)"), "v0.1.0");
+        assert_eq!(
+            short("0.1.1-beta.3b+build.1492 (a6e3cd527c)"),
+            "v0.1.1-beta.3b"
+        );
         assert_eq!(short("0.2.0 (abc)"), "v0.2.0");
         assert_eq!(short("v1.4.2"), "v1.4.2", "no second v");
         assert_eq!(short("V1.4.2+x"), "v1.4.2");
         assert_eq!(short(""), "v?");
         assert_eq!(short("+build.7"), "v?");
-        let long = short("123456789012345678");
+        let long = short("123456789012345678901234567890");
         assert_eq!(long.chars().count(), SHORT_VERSION_CHARS);
         assert!(long.ends_with('…'));
     }

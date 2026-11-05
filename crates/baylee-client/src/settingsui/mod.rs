@@ -189,7 +189,7 @@ fn nav(commands: &mut Commands, view: &View, kit: Kit, side: bool) -> Entity {
     // The way back to where the screen was opened over (the builder, the
     // front door, Play): before sign-in no header stands over it at all.
     {
-        let back = controls::button(
+        let back = controls::wide_button(
             commands,
             kit,
             &format!("\u{2039} {}", Phrase::Back.text(lang)),
@@ -331,7 +331,9 @@ fn nav_holder(
         let bar = crate::lobby::scrollbars::attach(commands, panel, list, metrics);
         commands
             .entity(bar)
-            .insert(crate::lobby::scrollbars::OnlyWhenNeeded);
+            .insert(crate::lobby::scrollbars::OnlyWhenNeeded)
+            .entry::<Node>()
+            .and_modify(|mut node| node.display = Display::None);
     } else {
         commands.entity(panel).add_child(list);
     }

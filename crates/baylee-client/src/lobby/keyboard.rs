@@ -118,6 +118,13 @@ pub(super) fn keyboard(
         }
         return;
     }
+    if state.community_dialog.is_some() {
+        keys.clear();
+        if codes.just_pressed(KeyCode::Escape) {
+            state.community_dialog = None;
+        }
+        return;
+    }
     if state.confirmation.is_some() {
         keys.clear();
         if codes.just_pressed(KeyCode::Escape) {
@@ -378,13 +385,18 @@ pub(super) fn keyboard(
     if keys.is_empty() {
         return;
     }
+    let form = if table && !state.showing_gateway_hub() {
+        Form::Table
+    } else {
+        Form::Door
+    };
     text_field_keys(
         &mut keys,
         &codes,
         &mut state,
         &mut prefs,
         &mailbox,
-        if table { Form::Table } else { Form::Door },
+        form,
         clipboard.as_deref_mut(),
         &mut form_paste,
     );
@@ -492,7 +504,7 @@ pub(super) fn choose_gateway(
         // was upgraded, and choosing it is the moment that answer is about to
         // matter.
         let url = state.gateway.clone();
-        state.probes.insert(url.clone(), Probe::Asking);
+        state.probes.entry(url.clone()).or_insert(Probe::Asking);
         http::probe_gateway(url, mailbox);
         #[cfg(not(target_arch = "wasm32"))]
         if state.central_ready() {
@@ -710,9 +722,21 @@ fn text_field_keys(
             // has no sign-in form to submit.
             // The settings search filters as it is typed: Enter asks nothing.
             Key::Enter | Key::ArrowUp | Key::ArrowDown | Key::Escape if form == Form::Settings => {}
+            Key::Escape
+                if door
+                    && state.lobby.focus() == Field::GatewaySearch
+                    && !state.lobby.field(Field::GatewaySearch).is_empty() =>
+            {
+                state.lobby.set_field(Field::GatewaySearch, "");
+                state.gateway_cursor = state.visible_gateway_indices().first().copied();
+            }
             Key::Enter if door && !state.lobby.gateway_chosen() => {
                 if let Some(index) = state.gateway_cursor {
                     choose_gateway(state, prefs, mailbox, index);
+                } else if state.lobby.focus() == Field::GatewaySearch {
+                    if let Some(index) = state.visible_gateway_indices().first().copied() {
+                        choose_gateway(state, prefs, mailbox, index);
+                    }
                 } else if let Some(url) = state.check_gateway() {
                     http::probe_gateway(url, mailbox);
                 }

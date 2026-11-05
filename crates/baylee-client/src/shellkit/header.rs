@@ -107,6 +107,8 @@ pub struct HeaderActions<N, G, B, A, R> {
 /// beneath it with a speech-bubble pointer (`Sprechblasen-Nippel`).
 #[derive(Component, Clone, Copy, PartialEq, Eq, Debug)]
 pub enum HeaderTrigger {
+    /// The language selector pill.
+    Language,
     /// The quick-settings gear button.
     Gear,
     /// The notifications bell button.
@@ -115,6 +117,8 @@ pub enum HeaderTrigger {
     Account,
     /// The gateway status pill.
     Gateway,
+    /// The card-cache fill indicator pill.
+    CardFill,
 }
 
 /// The shared navigation frame: spacing, wrapping, surface and elevation.
@@ -123,7 +127,7 @@ pub fn frame(commands: &mut Commands, kit: Kit) -> Entity {
     let m = kit.m;
     let roomy = matches!(m.frame, Frame::Wide | Frame::Vast);
     let desktop = super::Platform::current() == super::Platform::Desktop;
-    commands
+    let bar = commands
         .spawn((
             Role::Header,
             HeaderSurface(false),
@@ -159,7 +163,11 @@ pub fn frame(commands: &mut Commands, kit: Kit) -> Entity {
                 blur_radius: px_fixed(12.0),
             }]),
         ))
-        .id()
+        .id();
+    commands.queue(move |world: &mut World| {
+        surface::dress_bar_world(world, bar, false);
+    });
+    bar
 }
 
 /// The header bar.
@@ -184,9 +192,10 @@ where
     let brand = brand_mark(commands, m.header, look.brand);
     commands.entity(bar).add_child(brand);
     for (i, text) in look.nav.iter().enumerate() {
-        let pill = controls::nav(
+        let pill = controls::nav_indexed(
             commands,
             kit,
+            Some(i),
             text,
             look.active == Some(i),
             (actions.nav)(i),
@@ -235,9 +244,54 @@ fn gateway_pill(
     action: impl Bundle,
 ) -> Entity {
     let desktop = super::Platform::current() == super::Platform::Desktop;
+    if look.reach == Reach::Offline && look.counts.is_empty() {
+        let face = commands
+            .spawn((
+                Role::Button,
+                Node {
+                    min_height: kit.m.px(34.0),
+                    padding: UiRect::axes(kit.m.px(13.0), px_fixed(0.0)),
+                    column_gap: kit.m.px(7.0),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    border: UiRect::all(px_fixed(1.0)),
+                    border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PILL)),
+                    ..default()
+                },
+                BackgroundColor(tokens::CONTROL.with_alpha(0.82)),
+                BorderColor::all(tokens::BORDER),
+                UiTransform::default(),
+                crate::ambience::Feel::tinting_to(tokens::CONTROL.with_alpha(0.82), tokens::HOVER),
+                crate::ambience::FeelBorder {
+                    rest: tokens::BORDER,
+                    hot: tokens::ACCENT.with_alpha(0.65),
+                    press: tokens::ACCENT,
+                },
+            ))
+            .id();
+        let icon = commands
+            .spawn((
+                Text::new(crate::hud::glyph::HOUSE.to_string()),
+                icon_tf(kit.fonts, kit.m.small * 0.90),
+                TextColor(tokens::ACCENT),
+                Pickable::IGNORE,
+            ))
+            .id();
+        let text = commands
+            .spawn((
+                Text::new(look.gateway.to_owned()),
+                tf_bold(kit.fonts, kit.m.small),
+                TextColor(tokens::INK),
+                TextLayout::no_wrap(),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(face).add_children(&[icon, text]);
+        return hit(commands, kit, face, action);
+    }
     let face = commands
         .spawn((
-            Role::Pill,
+            Role::Button,
             Node {
                 min_height: kit.m.px(34.0),
                 padding: UiRect::axes(kit.m.px(12.0), px_fixed(0.0)),
@@ -507,6 +561,9 @@ pub fn strip(commands: &mut Commands, kit: Kit, sentence: &str, actions: &[Entit
         .id();
     commands.entity(bar).add_children(&[dot, words]);
     commands.entity(bar).add_children(actions);
+    commands.queue(move |world: &mut World| {
+        surface::dress_bar_world(world, bar, true);
+    });
     bar
 }
 

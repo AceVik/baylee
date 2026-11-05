@@ -156,6 +156,31 @@ impl DeckBuilder {
         out
     }
 
+    /// The pool's filtered results in sections, sections in their printed
+    /// order and results in `self.results()` order inside each.
+    #[must_use]
+    pub fn pool_sections(&self, grouping: Grouping) -> Vec<Section> {
+        let mut out: Vec<Section> = Vec::new();
+        for &slot in &self.results {
+            let Some(card) = self.pool.get(slot) else {
+                continue;
+            };
+            let key = section_of(card, grouping);
+            if let Some(section) = out.iter_mut().find(|s| s.key == key) {
+                section.cards += 1;
+                section.rows.push(slot);
+            } else {
+                out.push(Section {
+                    key,
+                    cards: 1,
+                    rows: vec![slot],
+                });
+            }
+        }
+        out.sort_by_key(|s| s.key);
+        out
+    }
+
     /// The main deck's curve, each bucket as (all nonland cards, those of
     /// `lit`'s type): the Stats tab's bars with one type lit.
     #[must_use]

@@ -175,6 +175,17 @@ impl Feel {
     }
 }
 
+/// Optional border color interpolation paired with [`Feel`].
+#[derive(Component, Clone, Copy, Debug)]
+pub struct FeelBorder {
+    /// Resting border color.
+    pub rest: Color,
+    /// Hovered border color.
+    pub hot: Color,
+    /// Pressed border color.
+    pub press: Color,
+}
+
 /// Registers the material, ships its shader inside the binary, and runs the
 /// two animations.
 ///
@@ -280,6 +291,7 @@ pub(crate) fn feel(
         Option<&ChildOf>,
         &mut BackgroundColor,
         &mut UiTransform,
+        Option<(&FeelBorder, &mut BorderColor)>,
     )>,
     held: Query<&PickingInteraction>,
 ) {
@@ -289,7 +301,7 @@ pub(crate) fn feel(
     } else {
         1.0 - (-FEEL_RATE * time.delta_secs()).exp()
     };
-    for (mut feel, own, pickable, parent, mut colour, mut transform) in &mut buttons {
+    for (mut feel, own, pickable, parent, mut colour, mut transform, border_opt) in &mut buttons {
         let ignored = pickable.is_some_and(|p| !p.is_hoverable && !p.should_block_lower);
         let interaction = if ignored {
             parent.and_then(|p| held.get(p.parent()).ok())
@@ -333,6 +345,14 @@ pub(crate) fn feel(
         let next = shade(resting, -PRESS_SINK * cold);
         if colour.0 != next {
             colour.0 = next;
+        }
+        if let Some((fb, mut border)) = border_opt {
+            let b_hover = blend(fb.rest, fb.hot, hot);
+            let b_next = blend(b_hover, fb.press, cold);
+            let next_border = BorderColor::all(b_next);
+            if *border != next_border {
+                *border = next_border;
+            }
         }
     }
 }

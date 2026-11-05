@@ -36,6 +36,17 @@ use super::super::{LobbyState, Mailbox, Press, Scrolled};
 
 const GATEWAY_STOPS: &[&str] = &[
     "central-sign-out",
+    "gateway-search",
+    "gateway-clear",
+    "gateway-sort",
+    "gateway-refresh",
+    "filter-all",
+    "filter-compatible",
+    "filter-incompatible",
+    "filter-offline",
+    "group-compatible",
+    "group-incompatible",
+    "group-offline",
     "address",
     "save",
     "lang",
@@ -44,13 +55,37 @@ const GATEWAY_STOPS: &[&str] = &[
     "offline",
     "about",
     "baylee",
-    "source",
+    "whatsapp",
     "discord",
+    "github",
+    "website",
+    "changelog",
+    "source",
     "notice",
 ];
 const SIGN_IN_STOPS: &[&str] = &[
-    "back", "retry", "username", "password", "eye", "submit", "create", "guest", "lang", "music",
-    "settings", "offline", "about", "baylee", "source", "discord", "notice",
+    "back",
+    "retry",
+    "username",
+    "password",
+    "eye",
+    "submit",
+    "create",
+    "register",
+    "guest",
+    "offline",
+    "lang",
+    "music",
+    "settings",
+    "about",
+    "baylee",
+    "whatsapp",
+    "discord",
+    "github",
+    "website",
+    "changelog",
+    "source",
+    "notice",
 ];
 const CREATE_STOPS: &[&str] = &[
     "back",
@@ -68,8 +103,12 @@ const CREATE_STOPS: &[&str] = &[
     "offline",
     "about",
     "baylee",
-    "source",
+    "whatsapp",
     "discord",
+    "github",
+    "website",
+    "changelog",
+    "source",
     "notice",
 ];
 const GUEST_STOPS: &[&str] = &[
@@ -83,8 +122,12 @@ const GUEST_STOPS: &[&str] = &[
     "offline",
     "about",
     "baylee",
-    "source",
+    "whatsapp",
     "discord",
+    "github",
+    "website",
+    "changelog",
+    "source",
     "notice",
 ];
 
@@ -101,8 +144,12 @@ const NEW_PASSWORD_STOPS: &[&str] = &[
     "offline",
     "about",
     "baylee",
-    "source",
+    "whatsapp",
     "discord",
+    "github",
+    "website",
+    "changelog",
+    "source",
     "notice",
 ];
 
@@ -154,7 +201,7 @@ pub(crate) const ABOUT: TabOrder = TabOrder {
 /// The table of the face on show.
 #[must_use]
 pub(crate) fn table_of(state: &LobbyState) -> &'static TabOrder {
-    if !state.lobby.gateway_chosen() {
+    if state.central_ready() || !state.lobby.gateway_chosen() {
         return &GATEWAY;
     }
     match state.lobby.face() {
@@ -176,6 +223,7 @@ pub(crate) fn stop(state: &LobbyState, id: &'static str) -> Stop {
 pub(crate) fn field_stop(state: &LobbyState, field: Field) -> Option<Stop> {
     let id = match field {
         Field::Gateway => "address",
+        Field::GatewaySearch => "gateway-search",
         Field::Username => "username",
         Field::Password => "password",
         Field::DisplayName => "display",
@@ -194,7 +242,7 @@ pub(crate) struct LobbyField(pub(crate) Field);
 /// Whether the lobby's front door is the screen on show (and nothing
 /// stands over it that owns the keys).
 fn at_the_door(state: &LobbyState) -> bool {
-    matches!(state.lobby.screen(), Screen::SignIn { .. })
+    (matches!(state.lobby.screen(), Screen::SignIn { .. }) || state.showing_gateway_hub())
         && !state.settings.is_open()
         && state.confirmation.is_none()
 }

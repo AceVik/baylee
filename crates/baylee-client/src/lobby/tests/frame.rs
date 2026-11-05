@@ -214,7 +214,6 @@ fn issue_186_the_house_tab_offers_copies_and_never_an_edit_on_every_frame() {
             Press::Decks(DecksPress::Tab(super::decks::DecksTab::Mine)),
             Press::Decks(DecksPress::Preview(0)),
             Press::Decks(DecksPress::Add(0)),
-            Press::Decks(DecksPress::AddAndUse(0)),
         ] {
             assert!(controls.contains(&wanted), "{wanted:?} missing at {width}");
         }

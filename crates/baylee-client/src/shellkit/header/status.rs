@@ -44,7 +44,7 @@ pub fn status<G: Bundle, B: Bundle, A: Bundle, R: Bundle>(
         let pill = gateway_pill(commands, kit, look, actions.gateway);
         commands.entity(pill).insert(HeaderTrigger::Gateway);
         commands.entity(bar).add_child(pill);
-    } else {
+    } else if !(compact && look.gateway.is_empty()) {
         let dot = commands
             .spawn((
                 Node {

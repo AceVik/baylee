@@ -27,7 +27,7 @@ pub(super) fn header(
     if let Some(art) = art {
         let cloud = c
             .spawn((
-                MaterialNode(art.0.clone()),
+                MaterialNode(art.cloud.clone()),
                 Node {
                     width: kit.m.px(126.0),
                     height: kit.m.px(84.0),

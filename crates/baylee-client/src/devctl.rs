@@ -208,6 +208,13 @@ fn shell_knobs(
             gallery.open = open == "true";
             said.push(format!("\"gallery\":{}", gallery.open));
         }
+        #[cfg(not(target_arch = "wasm32"))]
+        if field(body, "central_lobby") == Some("true")
+            && let Some(lobby) = lobby.as_mut()
+        {
+            crate::lobby::central::demo_central_lobby(lobby);
+            said.push("\"central_lobby\":true".to_string());
+        }
         // A ready update, faked for the restart's live check: the notice
         // offers "Restart now" as a verified, staged release would. A
         // development build installs nothing on the way out, so the restart

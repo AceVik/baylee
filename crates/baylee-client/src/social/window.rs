@@ -1198,7 +1198,9 @@ fn chat_pill(
         .spawn((
             UiButton,
             ChatPress::Restore,
+            Visibility::Hidden,
             Node {
+                display: Display::None,
                 flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,
                 column_gap: zpx(8.0),

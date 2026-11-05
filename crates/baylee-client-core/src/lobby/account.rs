@@ -25,6 +25,19 @@ impl Lobby {
         Some(LobbyRequest::ListDecks)
     }
 
+    /// Enters the lobby hub for a Baylee Central session before a gateway is
+    /// chosen: decks and builder are available locally while the Play tab
+    /// offers the gateway list.
+    pub fn enter_central(&mut self) -> Option<LobbyRequest> {
+        self.performer = Performer::Central;
+        self.screen = Screen::Table;
+        self.password_change = None;
+        self.password.clear();
+        self.password_again.clear();
+        self.busy = true;
+        Some(LobbyRequest::ListDecks)
+    }
+
     /// Signs out: the account is forgotten here, and the request that ends
     /// its session on the gateway is handed back — for a guest, the end of
     /// the guest (#269), which the shell asks the player about first. Offline
@@ -34,7 +47,7 @@ impl Lobby {
             Performer::Gateway(token) | Performer::Guest(token) => Some(LobbyRequest::LogOut {
                 token: token.clone(),
             }),
-            Performer::Nobody | Performer::Offline => None,
+            Performer::Nobody | Performer::Offline | Performer::Central => None,
         };
         if self.guest() {
             self.kept_guest = None;
@@ -52,7 +65,7 @@ impl Lobby {
             Performer::Gateway(token) | Performer::Guest(token) => Some(LobbyRequest::Depart {
                 token: token.clone(),
             }),
-            Performer::Nobody | Performer::Offline => None,
+            Performer::Nobody | Performer::Offline | Performer::Central => None,
         }
     }
 
@@ -147,7 +160,7 @@ impl Lobby {
             }
             Performer::Gateway(_) => Some(self.account_password.text().to_string()),
             Performer::Guest(_) => None,
-            Performer::Nobody | Performer::Offline => return None,
+            Performer::Nobody | Performer::Offline | Performer::Central => return None,
         };
         deletion.refusal = None;
         deletion.sent = true;

@@ -4,20 +4,17 @@ mod cloud;
 mod motion;
 mod paper;
 mod preview;
+pub(super) use cloud::Cloud;
 pub(crate) use cloud::{CloudArt, CloudPlugin};
 pub(super) use paper::BookPlugin;
 
-/// The hub leaves this strip of sky free, including the cloud's caption.
-pub(super) const CLOUD_FOOTER: f32 = 180.0;
+/// The hub leaves this strip of sky free at the bottom for the unified footer pills.
+pub(super) const CLOUD_FOOTER: f32 = 44.0;
 
 use super::press::Cx;
-use super::{LobbyState, Press, Screen};
+use super::{LobbyState, Screen};
 use crate::shellkit::controls::Kit;
 use crate::shellkit::focus::{Stop, TabOrder};
-use crate::shellkit::metrics::px_fixed;
-use crate::shellkit::role::Role;
-use crate::ui_button::UiButton;
-use baylee_client_core::i18n::Phrase;
 use bevy::prelude::*;
 
 /// The invitation's caption under the cloud, which the lobby's chat pill
@@ -125,78 +122,6 @@ pub(super) fn draw(
     {
         return;
     }
-    let front = matches!(state.lobby.screen(), Screen::SignIn { .. });
-    let table = if front {
-        super::front::keys::table_of(state).name
-    } else if state.lobby.awaiting().is_some() && !state.room_away {
-        "room"
-    } else if state.hub == super::Hub::Decks {
-        "decks"
-    } else {
-        "play"
-    };
-    let name = Phrase::MemorialOpen.text(state.lobby.lang());
-    let mut a11y = accesskit::Node::new(accesskit::Role::Button);
-    a11y.set_label(name);
-    let cloud = commands
-        .spawn((
-            cloud::Cloud { front },
-            if art.is_some() {
-                Visibility::Hidden
-            } else {
-                Visibility::Inherited
-            },
-            UiButton,
-            Role::Hit,
-            Name::new(name.to_owned()),
-            bevy::a11y::AccessibilityNode(a11y),
-            Press::Memorial(MemorialPress::Open),
-            Stop::new(table, "baylee"),
-            Node {
-                position_type: PositionType::Absolute,
-                left: Val::Percent(1.0),
-                top: Val::Percent(if front { 37.0 } else { 70.0 }),
-                width: Val::Percent(25.0),
-                max_width: px_fixed(600.0),
-                aspect_ratio: Some(1.5),
-                flex_direction: FlexDirection::Column,
-                justify_content: JustifyContent::FlexEnd,
-                align_items: AlignItems::Center,
-                ..default()
-            },
-            // The front's empty left margin; the lobby draws its controls above it.
-            GlobalZIndex(if front { 1 } else { -1 }),
-        ))
-        .id();
-    cloud::restore_layout(commands, cloud, front);
-    if let Some(art) = art {
-        commands.entity(cloud).insert(MaterialNode(art.0.clone()));
-    }
-    let caption = commands
-        .spawn((
-            MemorialCaption,
-            Text::new(Phrase::MemorialInvitation.text(state.lobby.lang())),
-            crate::hud::tf(kit.fonts, kit.m.small),
-            TextColor(Color::srgb(0.96, 0.92, 0.82)),
-            if front {
-                TextLayout::justify(Justify::Center)
-            } else {
-                TextLayout::new(Justify::Center, bevy::text::LineBreak::NoWrap)
-            },
-            Node {
-                position_type: PositionType::Absolute,
-                top: Val::Percent(100.0),
-                left: if front { Val::Auto } else { px_fixed(0.0) },
-                padding: UiRect::axes(px_fixed(14.0), px_fixed(6.0)),
-                border_radius: BorderRadius::all(px_fixed(20.0)),
-                ..default()
-            },
-            BackgroundColor(Color::srgba(0.07, 0.13, 0.18, 0.87)),
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands.entity(cloud).add_child(caption);
-    commands.entity(root).add_child(cloud);
     if state.memorial.open {
         album::draw(commands, root, state, kit, assets, art, scrolled);
     }
@@ -276,7 +201,11 @@ pub(super) fn return_focus(
         return;
     }
     *was_open = false;
-    if let Some((entity, stop)) = clouds.iter().next() {
+    if let Some((entity, stop)) = clouds
+        .iter()
+        .next()
+        .or_else(|| stops.iter().find(|(_, s)| s.id == "baylee"))
+    {
         focus.set(entity, bevy::input_focus::FocusCause::Navigated);
         remembered.0 = Some(*stop);
         kept.keep(*stop);

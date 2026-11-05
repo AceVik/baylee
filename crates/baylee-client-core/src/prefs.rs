@@ -962,6 +962,21 @@ pub struct Preferences {
     /// per top-level key, so leaving it out when the last star goes would
     /// keep the stored list.
     pub favourites: Vec<String>,
+    /// Cards marked as general/global favourites across all decks, by
+    /// canonical English card name: synced with the account in Baylee Central
+    /// and over `GET`/`PUT /settings`.
+    pub card_favourites: Vec<String>,
+    /// Cards marked as favourites for a specific deck (`deck_id` -> canonical
+    /// English card names; `"new"` while a brand-new deck is unsaved), synced
+    /// with the account in Baylee Central and over `GET`/`PUT /settings`.
+    pub deck_card_favourites: BTreeMap<String, Vec<String>>,
+    /// Per-deck match statistics (`deck_id` -> games played, wins, streaks),
+    /// synced with the account in Baylee Central and over `GET`/`PUT /settings`.
+    pub deck_stats: BTreeMap<String, DeckPlayStats>,
+    /// Multi-format deck variants (`deck_id` -> saved format variants such as
+    /// Commander vs. Highlander with their own banlist and card swaps), synced
+    /// with the account in Baylee Central and over `GET`/`PUT /settings`.
+    pub deck_variants: BTreeMap<String, Vec<DeckFormatVariant>>,
     /// The chat's settings that follow the account (the beta.8 chat window
     /// design §3.5): each tab's filter, the history length, the sounds.
     /// A top-level key of its own, so an old blob keeps loading and the
@@ -1055,12 +1070,430 @@ impl Preferences {
         }
     }
 
+    /// Whether a card is marked as a general/global favourite across all decks.
+    #[must_use]
+    pub fn card_favourite(&self, card_name: &str) -> bool {
+        let trimmed = card_name.trim();
+        !trimmed.is_empty()
+            && self
+                .card_favourites
+                .iter()
+                .any(|name| name.eq_ignore_ascii_case(trimmed))
+    }
+
+    /// Toggles a card in the general/global favourites list; returns `true` if now favourited.
+    pub fn toggle_card_favourite(&mut self, card_name: &str) -> bool {
+        let trimmed = card_name.trim();
+        if trimmed.is_empty() {
+            return false;
+        }
+        if self.card_favourite(trimmed) {
+            self.card_favourites
+                .retain(|name| !name.eq_ignore_ascii_case(trimmed));
+            false
+        } else {
+            self.card_favourites.push(trimmed.to_string());
+            true
+        }
+    }
+
+    /// Whether a card is marked as a favourite for a specific deck (`deck_key`).
+    #[must_use]
+    pub fn deck_card_favourite(&self, deck_key: &str, card_name: &str) -> bool {
+        let trimmed = card_name.trim();
+        !trimmed.is_empty()
+            && self
+                .deck_card_favourites
+                .get(deck_key)
+                .is_some_and(|list| list.iter().any(|name| name.eq_ignore_ascii_case(trimmed)))
+    }
+
+    /// The cards marked as favourites for `deck_key`.
+    #[must_use]
+    pub fn deck_card_favourites_for(&self, deck_key: &str) -> &[String] {
+        self.deck_card_favourites
+            .get(deck_key)
+            .map_or(&[], Vec::as_slice)
+    }
+
+    /// Toggles a card in a specific deck's favourites list; returns `true` if now favourited.
+    pub fn toggle_deck_card_favourite(&mut self, deck_key: &str, card_name: &str) -> bool {
+        let trimmed = card_name.trim();
+        if trimmed.is_empty() || deck_key.trim().is_empty() {
+            return false;
+        }
+        if self.deck_card_favourite(deck_key, trimmed) {
+            if let Some(list) = self.deck_card_favourites.get_mut(deck_key) {
+                list.retain(|name| !name.eq_ignore_ascii_case(trimmed));
+                if list.is_empty() {
+                    self.deck_card_favourites.remove(deck_key);
+                }
+            }
+            false
+        } else {
+            self.deck_card_favourites
+                .entry(deck_key.to_string())
+                .or_default()
+                .push(trimmed.to_string());
+            true
+        }
+    }
+
+    /// Moves per-deck card favourites from `from_key` (e.g. `"new"`) to `to_key`
+    /// when a newly created deck receives its persistent `deck_id`.
+    pub fn migrate_deck_card_favourites(&mut self, from_key: &str, to_key: &str) {
+        if from_key == to_key || to_key.trim().is_empty() {
+            return;
+        }
+        let Some(moved) = self.deck_card_favourites.remove(from_key) else {
+            return;
+        };
+        let target = self
+            .deck_card_favourites
+            .entry(to_key.to_string())
+            .or_default();
+        for card in moved {
+            if !target
+                .iter()
+                .any(|existing| existing.eq_ignore_ascii_case(&card))
+            {
+                target.push(card);
+            }
+        }
+        if target.is_empty() {
+            self.deck_card_favourites.remove(to_key);
+        }
+    }
+
+    /// Removes all per-deck card favourites stored for `deck_key`.
+    pub fn remove_deck_card_favourites(&mut self, deck_key: &str) {
+        self.deck_card_favourites.remove(deck_key);
+    }
+
+    /// Returns the play/win statistics for `deck_id`.
+    #[must_use]
+    pub fn stats_for_deck(&self, deck_id: &str) -> DeckPlayStats {
+        self.deck_stats.get(deck_id).copied().unwrap_or_default()
+    }
+
+    /// Records the outcome of a finished game played with `deck_id`.
+    pub fn record_deck_game(&mut self, deck_id: &str, won: bool) {
+        let trimmed = deck_id.trim();
+        if trimmed.is_empty() {
+            return;
+        }
+        self.deck_stats
+            .entry(trimmed.to_string())
+            .or_default()
+            .record_game(won);
+    }
+
+    /// Returns the saved format variants for `deck_key`.
+    #[must_use]
+    pub fn variants_for_deck(&self, deck_key: &str) -> &[DeckFormatVariant] {
+        self.deck_variants.get(deck_key).map_or(&[], Vec::as_slice)
+    }
+
+    /// Saves or updates a format variant (matched by `format` + `label`) for `deck_key`.
+    pub fn upsert_deck_variant(&mut self, deck_key: &str, variant: DeckFormatVariant) {
+        if deck_key.trim().is_empty() {
+            return;
+        }
+        let list = self.deck_variants.entry(deck_key.to_string()).or_default();
+        if let Some(existing) = list.iter_mut().find(|v| {
+            v.format.eq_ignore_ascii_case(&variant.format)
+                && v.label.eq_ignore_ascii_case(&variant.label)
+        }) {
+            *existing = variant;
+        } else {
+            list.push(variant);
+        }
+    }
+
+    /// Removes the variant at `index` for `deck_key`.
+    pub fn remove_deck_variant(
+        &mut self,
+        deck_key: &str,
+        index: usize,
+    ) -> Option<DeckFormatVariant> {
+        let list = self.deck_variants.get_mut(deck_key)?;
+        if index >= list.len() {
+            return None;
+        }
+        let removed = list.remove(index);
+        if list.is_empty() {
+            self.deck_variants.remove(deck_key);
+        }
+        Some(removed)
+    }
+
+    /// Migrates per-deck variants from `from_key` (e.g. `"new"`) to `to_key`
+    /// when a newly created deck receives its persistent `deck_id`.
+    pub fn migrate_deck_variants(&mut self, from_key: &str, to_key: &str) {
+        if from_key == to_key || to_key.trim().is_empty() {
+            return;
+        }
+        let Some(moved) = self.deck_variants.remove(from_key) else {
+            return;
+        };
+        let target = self.deck_variants.entry(to_key.to_string()).or_default();
+        for variant in moved {
+            if !target.iter().any(|v| {
+                v.format.eq_ignore_ascii_case(&variant.format)
+                    && v.label.eq_ignore_ascii_case(&variant.label)
+            }) {
+                target.push(variant);
+            }
+        }
+        if target.is_empty() {
+            self.deck_variants.remove(to_key);
+        }
+    }
+
     /// Whether these are still exactly the defaults, so a client can avoid
     /// writing a row for a player who has changed nothing.
     #[must_use]
     pub fn is_default(&self) -> bool {
         self == &Self::default()
     }
+}
+
+/// Per-deck match statistics stored with the player's account in Baylee Central.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default, serde::Serialize, serde::Deserialize)]
+pub struct DeckPlayStats {
+    /// Total games played with this deck.
+    #[serde(default)]
+    pub games_played: u32,
+    /// Total games won with this deck.
+    #[serde(default)]
+    pub wins: u32,
+    /// Current consecutive win streak with this deck.
+    #[serde(default)]
+    pub current_streak: u32,
+    /// Best consecutive win streak achieved with this deck.
+    #[serde(default)]
+    pub best_streak: u32,
+}
+
+impl DeckPlayStats {
+    /// Win percentage rounded to the nearest integer (`0..=100`), or `None` if unplayed.
+    #[must_use]
+    pub const fn win_rate_pct(self) -> Option<u32> {
+        let num = self
+            .wins
+            .saturating_mul(100)
+            .saturating_add(self.games_played / 2);
+        let Some(pct) = num.checked_div(self.games_played) else {
+            return None;
+        };
+        Some(if pct > 100 { 100 } else { pct })
+    }
+
+    /// Updates statistics after a finished game.
+    pub fn record_game(&mut self, won: bool) {
+        self.games_played = self.games_played.saturating_add(1);
+        if won {
+            self.wins = self.wins.saturating_add(1);
+            self.current_streak = self.current_streak.saturating_add(1);
+            if self.current_streak > self.best_streak {
+                self.best_streak = self.current_streak;
+            }
+        } else {
+            self.current_streak = 0;
+        }
+    }
+
+    /// Computes the earned gamified achievement frame tier (`0..=11`) from
+    /// games played and wins. Cannot be set manually; must be earned by playing
+    /// and winning with the deck.
+    #[must_use]
+    pub const fn rank_tier(self) -> DeckRankTier {
+        let g = self.games_played;
+        let w = self.wins;
+        if g >= 175 && w >= 110 {
+            DeckRankTier::Transcendent
+        } else if g >= 120 && w >= 75 {
+            DeckRankTier::Mythic
+        } else if g >= 85 && w >= 50 {
+            DeckRankTier::Archmage
+        } else if g >= 60 && w >= 35 {
+            DeckRankTier::Grandmaster
+        } else if g >= 40 && w >= 22 {
+            DeckRankTier::Master
+        } else if g >= 28 && w >= 15 {
+            DeckRankTier::Champion
+        } else if g >= 18 && w >= 9 {
+            DeckRankTier::Tactician
+        } else if g >= 10 && w >= 5 {
+            DeckRankTier::Vanguard
+        } else if g >= 5 && w >= 2 {
+            DeckRankTier::Adept
+        } else if g >= 3 && w >= 1 {
+            DeckRankTier::Apprentice
+        } else if g >= 1 {
+            DeckRankTier::Initiate
+        } else {
+            DeckRankTier::Unranked
+        }
+    }
+}
+
+/// Gamified 12-stage achievement frame tier (`Stufe 0` .. `Stufe 11`) earned by
+/// playing and winning games with a deck. Rendered on deck tiles via an
+/// animated WGSL shader (`deck_frame.wgsl`) with increasing ornamentation.
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Default)]
+pub enum DeckRankTier {
+    /// Stufe 0: 0 games played.
+    #[default]
+    Unranked,
+    /// Stufe 1: >= 1 game played.
+    Initiate,
+    /// Stufe 2: >= 3 games & >= 1 win.
+    Apprentice,
+    /// Stufe 3: >= 5 games & >= 2 wins.
+    Adept,
+    /// Stufe 4: >= 10 games & >= 5 wins.
+    Vanguard,
+    /// Stufe 5: >= 18 games & >= 9 wins.
+    Tactician,
+    /// Stufe 6: >= 28 games & >= 15 wins.
+    Champion,
+    /// Stufe 7: >= 40 games & >= 22 wins.
+    Master,
+    /// Stufe 8: >= 60 games & >= 35 wins.
+    Grandmaster,
+    /// Stufe 9: >= 85 games & >= 50 wins.
+    Archmage,
+    /// Stufe 10: >= 120 games & >= 75 wins.
+    Mythic,
+    /// Stufe 11: >= 175 games & >= 110 wins.
+    Transcendent,
+}
+
+impl DeckRankTier {
+    /// Numeric tier level (`0..=11`).
+    #[must_use]
+    pub const fn level(self) -> u8 {
+        match self {
+            Self::Unranked => 0,
+            Self::Initiate => 1,
+            Self::Apprentice => 2,
+            Self::Adept => 3,
+            Self::Vanguard => 4,
+            Self::Tactician => 5,
+            Self::Champion => 6,
+            Self::Master => 7,
+            Self::Grandmaster => 8,
+            Self::Archmage => 9,
+            Self::Mythic => 10,
+            Self::Transcendent => 11,
+        }
+    }
+
+    /// Localized title of this achievement frame tier.
+    #[must_use]
+    pub const fn title(self, lang: crate::i18n::Lang) -> &'static str {
+        use crate::i18n::Lang;
+        match (self, lang) {
+            (Self::Unranked, Lang::De) => "Ungeprüft",
+            (Self::Unranked, Lang::En) => "Untested",
+            (Self::Initiate, Lang::De) => "Kupfer-Novize",
+            (Self::Initiate, Lang::En) => "Copper Initiate",
+            (Self::Apprentice, Lang::De) => "Eisen-Lehrling",
+            (Self::Apprentice, Lang::En) => "Iron Apprentice",
+            (Self::Adept, Lang::De) => "Bronze-Adept",
+            (Self::Adept, Lang::En) => "Bronze Adept",
+            (Self::Vanguard, Lang::De) => "Silber-Vorhut",
+            (Self::Vanguard, Lang::En) => "Silver Vanguard",
+            (Self::Tactician, Lang::De) => "Smaragd-Stratege",
+            (Self::Tactician, Lang::En) => "Emerald Tactician",
+            (Self::Champion, Lang::De) => "Saphir-Champion",
+            (Self::Champion, Lang::En) => "Sapphire Champion",
+            (Self::Master, Lang::De) => "Gold-Meister",
+            (Self::Master, Lang::En) => "Golden Master",
+            (Self::Grandmaster, Lang::De) => "Rubin-Großmeister",
+            (Self::Grandmaster, Lang::En) => "Ruby Grandmaster",
+            (Self::Archmage, Lang::De) => "Amethyst-Erzmagier",
+            (Self::Archmage, Lang::En) => "Amethyst Archmage",
+            (Self::Mythic, Lang::De) => "Mythischer Funke",
+            (Self::Mythic, Lang::En) => "Mythic Spark",
+            (Self::Transcendent, Lang::De) => "Äther-Ewiger",
+            (Self::Transcendent, Lang::En) => "Aether Eternal",
+        }
+    }
+
+    /// Requirement `(games_played, wins)` for the next tier, if any.
+    #[must_use]
+    pub const fn next_requirement(self) -> Option<(DeckRankTier, u32, u32)> {
+        match self {
+            Self::Unranked => Some((Self::Initiate, 1, 0)),
+            Self::Initiate => Some((Self::Apprentice, 3, 1)),
+            Self::Apprentice => Some((Self::Adept, 5, 2)),
+            Self::Adept => Some((Self::Vanguard, 10, 5)),
+            Self::Vanguard => Some((Self::Tactician, 18, 9)),
+            Self::Tactician => Some((Self::Champion, 28, 15)),
+            Self::Champion => Some((Self::Master, 40, 22)),
+            Self::Master => Some((Self::Grandmaster, 60, 35)),
+            Self::Grandmaster => Some((Self::Archmage, 85, 50)),
+            Self::Archmage => Some((Self::Mythic, 120, 75)),
+            Self::Mythic => Some((Self::Transcendent, 175, 110)),
+            Self::Transcendent => None,
+        }
+    }
+
+    /// Detailed tooltip describing the current achievement frame and progress
+    /// toward the next tier.
+    #[must_use]
+    pub fn tooltip(self, stats: DeckPlayStats, lang: crate::i18n::Lang) -> String {
+        use crate::i18n::Lang;
+        let lvl = self.level();
+        let title = self.title(lang);
+        let rate = stats.win_rate_pct().unwrap_or(0);
+        match (self.next_requirement(), lang) {
+            (Some((next, req_g, req_w)), Lang::De) => format!(
+                "Deck-Rang Stufe {lvl}/11: {title}\n{} Spiele · {} Siege ({rate}% Siegrate)\nNächster Rahmen ({}): ab {req_g} Spielen & {req_w} Siegen",
+                stats.games_played,
+                stats.wins,
+                next.title(lang)
+            ),
+            (Some((next, req_g, req_w)), Lang::En) => format!(
+                "Deck Rank Tier {lvl}/11: {title}\n{} games · {} wins ({rate}% win rate)\nNext frame ({}): at {req_g} games & {req_w} wins",
+                stats.games_played,
+                stats.wins,
+                next.title(lang)
+            ),
+            (None, Lang::De) => format!(
+                "Deck-Rang Stufe {lvl}/11: {title} (Höchste Stufe!)\n{} Spiele · {} Siege ({rate}% Siegrate)",
+                stats.games_played, stats.wins
+            ),
+            (None, Lang::En) => format!(
+                "Deck Rank Tier {lvl}/11: {title} (Max Tier!)\n{} games · {} wins ({rate}% win rate)",
+                stats.games_played, stats.wins
+            ),
+        }
+    }
+}
+
+/// A saved format-specific variant of a deck (e.g. Commander vs. Highlander
+/// configuration of the same deck, validated against its own format & banlist).
+#[derive(Clone, PartialEq, Eq, Debug, serde::Serialize, serde::Deserialize)]
+pub struct DeckFormatVariant {
+    /// Human-readable variant label (e.g. `"Highlander"`, `"Commander"`).
+    pub label: String,
+    /// Wire format key (`"commander"`, `"highlander"`, `"modern"`, etc.).
+    pub format: String,
+    /// Optional custom banlist id associated with this variant.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub banlist_id: Option<String>,
+    /// Main deck rows (`"1 Card Name"`).
+    #[serde(default)]
+    pub cards: Vec<String>,
+    /// Sideboard rows (`"1 Card Name"`).
+    #[serde(default)]
+    pub sideboard: Vec<String>,
+    /// Commander names (`Vec<String>`).
+    #[serde(default)]
+    pub commanders: Vec<String>,
 }
 
 /// The rail rows, as a settings screen lists them: both sides, in turn order.
@@ -1757,5 +2190,25 @@ mod tests {
         let read = Preferences::from_json(bad_inside);
         assert_eq!(read.chat, crate::social::ChatPrefs::default());
         assert!(read.reduce_motion);
+    }
+
+    #[test]
+    fn card_favourites_and_per_deck_card_favourites_round_trip_and_migrate() {
+        let mut prefs = Preferences::default();
+        assert!(!prefs.card_favourite("Lightning Bolt"));
+        assert!(prefs.toggle_card_favourite("Lightning Bolt"));
+        assert!(prefs.card_favourite("Lightning Bolt"));
+
+        assert!(!prefs.deck_card_favourite("new", "Counterspell"));
+        assert!(prefs.toggle_deck_card_favourite("new", "Counterspell"));
+        assert!(prefs.deck_card_favourite("new", "Counterspell"));
+        prefs.migrate_deck_card_favourites("new", "deck-42");
+        assert!(!prefs.deck_card_favourite("new", "Counterspell"));
+        assert!(prefs.deck_card_favourite("deck-42", "Counterspell"));
+
+        let round_tripped = Preferences::from_json(&prefs.to_json());
+        assert_eq!(round_tripped, prefs);
+        assert!(round_tripped.card_favourite("Lightning Bolt"));
+        assert!(round_tripped.deck_card_favourite("deck-42", "Counterspell"));
     }
 }

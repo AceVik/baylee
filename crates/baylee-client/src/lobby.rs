@@ -138,6 +138,7 @@ impl Plugin for LobbyPlugin {
             .init_resource::<Scrolled>()
             .init_resource::<focusing::Kept>()
             .init_resource::<UiRebuilds>()
+            .init_resource::<shell::ScreenTransition>()
             .insert_resource(LobbyState::new())
             .init_resource::<hint::Hinted>()
             .init_resource::<front::FrontMotion>()
@@ -198,6 +199,7 @@ impl Plugin for LobbyPlugin {
                         front::move_front,
                         front::show_scene.before(crate::vista::paint),
                         ui,
+                        shell::animate_screen_transition,
                         retrace_runs,
                         front::pose_front,
                         // After the rebuild, so a tile just stood up glows
@@ -218,8 +220,14 @@ impl Plugin for LobbyPlugin {
                     // The duel's own runs only while there is a duel, and a
                     // text face in the deckbuilder shows its scrollbar too.
                     (
-                        (preview, hint::hint_panel, crate::face::show_scrollbars),
                         (
+                            preview,
+                            preview::animate_preview,
+                            hint::hint_panel,
+                            crate::face::show_scrollbars,
+                        ),
+                        (
+                            gateway::sync_virtual_rows,
                             crate::buildui::virtual_rows::update,
                             crate::buildui::virtual_rows::in_deck,
                             crate::buildui::focus::light_the_cursor,
@@ -231,6 +239,7 @@ impl Plugin for LobbyPlugin {
                             thumbnails::prefetch_art,
                             thumbnails::load_art,
                             thumbnails::fade_art,
+                            deck_frame::animate_deck_frames,
                         ),
                         thumbnails::quantities,
                         waiting,
@@ -500,7 +509,7 @@ fn install_builder(app: &mut App) {
 #[allow(clippy::struct_excessive_bools)] // independent UI toggles and transport/selection state
 pub struct LobbyState {
     #[cfg(not(target_arch = "wasm32"))]
-    central: Option<central::State>,
+    pub(crate) central: Option<central::State>,
     /// The renderer-free state machine.
     pub lobby: Lobby,
     /// Explicitly selected gateway base URL for this session.
@@ -527,6 +536,13 @@ pub struct LobbyState {
     pub(crate) guests: std::collections::BTreeMap<String, client_core::lobby::KeptGuest>,
     /// The saved gateway the arrow keys are on, if they have been used.
     pub(crate) gateway_cursor: Option<usize>,
+    /// Which compatibility/online slice of the gateway list is shown.
+    pub(crate) gateway_filter: baylee_client_core::lobby::gateway_list::GatewayFilter,
+    /// How each compatibility group of the gateway list is ordered.
+    pub(crate) gateway_sort: baylee_client_core::lobby::gateway_list::GatewaySort,
+    /// Which gateway compatibility groups are folded (`Compatible`,
+    /// `Incompatible`, `Offline`). The lower two start folded.
+    pub(crate) gateway_collapsed: [bool; 3],
     /// Whether the front door's gear menu is open.
     pub(crate) front_menu: bool,
     /// The source address as a QR code, for the front door's colophon
@@ -536,6 +552,13 @@ pub struct LobbyState {
     /// The Discord invitation as a QR code, for the front door's top-right
     /// tile; made once, `None` until then.
     pub(crate) discord_code: Option<source::Code>,
+    /// The `WhatsApp` community invitation as a QR code, for the front door's
+    /// top-right tile; made once, `None` until then.
+    pub(crate) whatsapp_code: Option<source::Code>,
+    /// Baylee's website (`https://baylee.app`) as a QR code; made once.
+    pub(crate) website_code: Option<source::Code>,
+    /// Which community QR dialog is open over the front door.
+    pub(crate) community_dialog: Option<front::CommunityKind>,
     /// Whether the chosen gateway mirrors card art, as its `/auth/config`
     /// said. Used only while signed in there (`systems::art_follows_the_session`).
     pub(crate) art_cache: bool,
@@ -589,6 +612,9 @@ pub struct LobbyState {
     /// eventually grants is marked local so the shell installs an in-process
     /// engine rather than dialling a socket.
     pub(crate) offline: Option<offline::Offline>,
+    /// Local deck store used when signed in to Baylee Central before a gateway
+    /// is selected, so Decks and the Deckbuilder work immediately in the lobby.
+    pub(crate) local_decks: Option<offline::Offline>,
     /// The header popover that is open (WP0b-3).
     pub(crate) header_menu: Option<header::HeaderMenu>,
     /// The lobby feed was live and is being dialled again: the reconnecting
@@ -598,6 +624,12 @@ pub struct LobbyState {
     pub(crate) retry_feed: bool,
     /// What the player may have missed (`strips::Bell`).
     pub(crate) bell: client_core::lobby::strips::Bell,
+    /// Unread social items (chat messages + incoming friend/table/group requests)
+    /// routed into the header notification bell.
+    pub(crate) social_unread: usize,
+    /// Notice lines from social (unread messages, friend requests, table invites)
+    /// shown inside the notification bell popover.
+    pub(crate) social_notices: Vec<String>,
     /// Asks a header press made of systems it cannot reach (the overlay,
     /// the report form), carried out by `header::carry_out`.
     pub(crate) shell_asks: Vec<header::ShellAsk>,
@@ -834,14 +866,14 @@ impl LobbyState {
         }
     }
 
-    /// A signed-out lobby pointed at the configured gateway.
+    /// A signed-out lobby starting at Baylee Central sign-in on native
+    /// builds, so the account's gateways load once signed in.
     #[must_use]
-    ///
-    /// Central sign-in starts only once a chosen gateway says it takes it
-    /// (`central::bound`); every other gateway signs people in itself, with
-    /// registration and guests where it offers them.
     pub fn new() -> Self {
-        Self::from_settings(crate::settings::ClientSettings::load())
+        let mut state = Self::from_settings(crate::settings::ClientSettings::load());
+        #[cfg(not(target_arch = "wasm32"))]
+        central::enable(&mut state);
+        state
     }
 
     /// The same, from settings a caller already has.
@@ -851,6 +883,7 @@ impl LobbyState {
     /// fail on whose machine it runs — and what the stored settings *do* to
     /// this screen is then exactly what no test could reach.
     #[must_use]
+    #[allow(clippy::too_many_lines)]
     pub fn from_settings(stored: crate::settings::ClientSettings) -> Self {
         let lang = stored.lang;
         let mut lobby = Lobby::new();
@@ -905,9 +938,15 @@ impl LobbyState {
             uses: stored.gateway_uses,
             guests: stored.guests,
             gateway_cursor,
+            gateway_filter: baylee_client_core::lobby::gateway_list::GatewayFilter::All,
+            gateway_sort: baylee_client_core::lobby::gateway_list::GatewaySort::LastUsed,
+            gateway_collapsed: [false, true, true],
             front_menu: false,
             source_code: None,
             discord_code: None,
+            whatsapp_code: None,
+            website_code: None,
+            community_dialog: None,
             art_cache: false,
             gateway_selected: false,
             left_central_bound: false,
@@ -934,10 +973,13 @@ impl LobbyState {
             seat: crate::seatpanel::SeatDesk::default(),
             llm: crate::tableseats::TableSeats::default(),
             offline: None,
+            local_decks: None,
             header_menu: None,
             feed_down: false,
             retry_feed: false,
             bell: client_core::lobby::strips::Bell::default(),
+            social_unread: 0,
+            social_notices: Vec::new(),
             shell_asks: Vec::new(),
             chat_header: None,
             vault_login: None,
@@ -1041,6 +1083,62 @@ impl LobbyState {
             false
         }
     }
+
+    pub(crate) fn central_admitting(&self) -> bool {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            self.central.as_ref().is_some_and(|state| state.admitting)
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            false
+        }
+    }
+
+    /// Signed in to Baylee Central without an active gateway session.
+    pub(crate) fn central_without_gateway(&self) -> bool {
+        self.central_ready() && !self.lobby.offline() && self.lobby.token().is_none()
+    }
+
+    /// Signed in to Baylee Central without an active gateway session, on the
+    /// Play tab: the lobby header stands at the top and the Play body shows
+    /// the gateway picker until a gateway is chosen.
+    pub(crate) fn showing_gateway_hub(&self) -> bool {
+        self.central_without_gateway()
+            && self.hub == Hub::Play
+            && matches!(self.lobby.screen(), Screen::SignIn { .. } | Screen::Table)
+    }
+
+    /// Transitions the lobby state machine to [`Screen::Table`] for a Central
+    /// session before a gateway is selected, loading local decks.
+    fn ensure_central_lobby(&mut self, mailbox: &Mailbox) {
+        if self.central_without_gateway() && matches!(self.lobby.screen(), Screen::SignIn { .. }) {
+            self.local_decks.get_or_insert_with(offline::Offline::load);
+            let lang = self.lobby.lang();
+            let mut request = self.lobby.enter_central();
+            while let Some(req) = request {
+                if let Some(local) = self.local_decks.as_mut() {
+                    let event = local.perform(req, lang);
+                    request = self.lobby.apply(event);
+                } else {
+                    http::dispatch(self, mailbox, Some(req));
+                    break;
+                }
+            }
+            if self.lobby.decks().is_empty()
+                && self.lobby.library().house.is_empty()
+                && let Some(req) = self.lobby.browse_house()
+            {
+                if let Some(local) = self.local_decks.as_mut() {
+                    let event = local.perform(req, lang);
+                    let next = self.lobby.apply(event);
+                    http::dispatch(self, mailbox, next);
+                } else {
+                    http::dispatch(self, mailbox, Some(req));
+                }
+            }
+        }
+    }
 }
 
 /// Where a finished HTTP call leaves its answer for the next frame.
@@ -1048,7 +1146,7 @@ impl LobbyState {
 /// Separate from [`LobbyState`] on purpose: touching it must not count as a
 /// change to the lobby, or the UI would rebuild itself every frame.
 #[derive(Resource, Clone, Default)]
-struct Mailbox(Arc<Mutex<Vec<Reply>>>);
+pub(crate) struct Mailbox(Arc<Mutex<Vec<Reply>>>);
 
 /// Tables the chat asked to sit down at: a friend's invite's Join (the
 /// beta.8 social design §11.7), with the invite that stands in for the
@@ -1115,6 +1213,11 @@ enum Reply {
     ReplaysArchived(client_core::replay::library::ReplayPage),
     /// A replay change the gateway refused (archive, share), in its words.
     ReplayRefused(String),
+    /// An unversioned auto-save in the deck builder finished.
+    AutoSaved {
+        deck_id: Option<String>,
+        saved_changes: u32,
+    },
 }
 
 /// What the shell should make of a successful response body.
@@ -1171,7 +1274,7 @@ mod build_press;
 pub(crate) mod card_fill;
 mod clicks;
 mod confirm;
-mod decks;
+pub(crate) mod decks;
 pub(crate) mod dock;
 mod editing;
 mod end_screen;
@@ -1194,7 +1297,7 @@ pub(crate) fn diagnostics(state: &LobbyState) -> String {
 mod gateway;
 mod hint;
 mod history;
-mod http;
+pub(crate) mod http;
 mod hub;
 mod keyboard;
 mod library_ui;
@@ -1231,7 +1334,7 @@ use field::*;
 use hub::*;
 #[allow(clippy::wildcard_imports)] // the lobby's own vocabulary
 use shell::*;
-#[allow(clippy::wildcard_imports)] // the lobby's own vocabulary
+#[allow(clippy::wildcard_imports, unused_imports)] // the lobby's own vocabulary
 use widgets::*;
 
 /// The end screen's keyboard marker, for the probe and for nothing else.
@@ -1255,7 +1358,7 @@ use widgets::*;
 #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
 pub(crate) use end_screen::DuelExit;
 pub(crate) use field::caret_lit;
-// The update notice measures the lobby root in ordinary client builds too.
+#[cfg(any(test, all(feature = "dev-control", not(target_arch = "wasm32"))))]
 pub(crate) use shell::LobbyRoot;
 #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
 pub(crate) use shell::UiRebuilds;
@@ -1286,6 +1389,7 @@ pub(crate) use front::FrontPress;
 /// the chat window (`social::drawer::clear_the_lane`).
 pub(crate) use header::ToastLane;
 pub(crate) use header::{HeaderPress, ShellAsk, handle, tools};
+pub(crate) use hint::HoverHint;
 pub(crate) use hub::HubPress;
 pub(crate) use library_ui::LibraryPress;
 pub(crate) use press::{Press, SharedPress};
@@ -1297,6 +1401,7 @@ pub(crate) use settings_press::SettingsPress;
 pub(crate) use shell::{Frame, Metrics};
 pub(crate) use widgets::{button, chip, heading, note, panel, print_mark, row, scroller, spacer};
 
+pub(crate) mod deck_frame;
 pub(crate) mod scrollbars;
 
 pub(crate) mod button_style;

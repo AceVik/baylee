@@ -76,6 +76,7 @@ pub(crate) struct WindowKey {
     picker: Picker,
     held: (u16, u16),
     commander: bool,
+    fav: (bool, bool),
     card: Option<(String, String, String)>,
     back: bool,
     lang: Lang,
@@ -87,6 +88,13 @@ pub(crate) fn key(env: &Env) -> Option<WindowKey> {
     let deck = env.deck();
     let picker = deck.picker()?;
     let slot = picker.slot();
+    let deck_key = deck.editing().unwrap_or("new");
+    let fav = deck.card(slot).map_or((false, false), |c| {
+        (
+            env.prefs.deck_card_favourite(deck_key, &c.english_name),
+            env.prefs.card_favourite(&c.english_name),
+        )
+    });
     Some(WindowKey {
         picker: picker.clone(),
         held: (
@@ -94,6 +102,7 @@ pub(crate) fn key(env: &Env) -> Option<WindowKey> {
             deck.count_of(slot, Zone::Side),
         ),
         commander: deck.is_commander(slot),
+        fav,
         card: deck
             .card(slot)
             .map(|c| (c.name.clone(), c.type_line.clone(), c.oracle_text.clone())),
@@ -166,12 +175,12 @@ pub(crate) fn window(
         commands.entity(left).add_child(sets);
     }
 
-    // ---- the right column: cost, type, text, the sections
+    // ---- the right column: oracle card, printing & finish card, deck & favourites card
     let right = commands
         .spawn((
             Node {
                 flex_direction: FlexDirection::Column,
-                row_gap: m.px(8.0),
+                row_gap: m.px(10.0),
                 flex_grow: 1.0,
                 flex_shrink: 1.0,
                 flex_basis: px_fixed(0.0),
@@ -181,26 +190,54 @@ pub(crate) fn window(
             Pickable::IGNORE,
         ))
         .id();
+
+    let oracle_box = commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                flex_direction: FlexDirection::Column,
+                row_gap: m.px(8.0),
+                padding: UiRect::all(m.px(12.0)),
+                border: UiRect::all(px_fixed(1.0)),
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL)),
+                ..default()
+            },
+            BackgroundColor(tokens::CONTROL.with_alpha(0.42)),
+            BorderColor::all(tokens::BORDER.with_alpha(0.75)),
+            Pickable::IGNORE,
+        ))
+        .id();
     let mut top = Vec::new();
     if let Some(cost) =
         crate::manaui::spawn_cost_or_text(commands, kit.fonts, &card.mana_cost, m.text * 1.1)
     {
         top.push(cost);
     }
-    let type_line = match &card.stats {
-        Some(stats) if !stats.is_empty() => format!("{} \u{b7} {stats}", card.type_line),
-        _ => card.type_line.clone(),
-    };
-    top.push(cell(
-        commands,
-        kit,
-        &type_line,
-        m.small,
-        tokens::MUTED,
-        false,
-    ));
+    let type_node = cell(commands, kit, &card.type_line, m.small, tokens::INK, true);
+    top.push(type_node);
+    top.push(spring(commands));
+    if let Some(stats) = card.stats.as_deref().filter(|s| !s.is_empty()) {
+        let stat_pill = commands
+            .spawn((
+                Node {
+                    padding: UiRect::axes(m.px(7.0), m.px(2.0)),
+                    border: UiRect::all(px_fixed(1.0)),
+                    border_radius: BorderRadius::all(px_fixed(6.0)),
+                    flex_shrink: 0.0,
+                    ..default()
+                },
+                BackgroundColor(tokens::CONTROL),
+                BorderColor::all(tokens::BORDER),
+                Pickable::IGNORE,
+            ))
+            .id();
+        let stat_txt = cell(commands, kit, stats, m.small * 0.92, tokens::INK, true);
+        commands.entity(stat_pill).add_child(stat_txt);
+        top.push(stat_pill);
+    }
     let top = line(commands, kit, &top);
-    commands.entity(right).add_child(top);
+    commands.entity(oracle_box).add_child(top);
+
     let (text, english) = rules_text(card, lang);
     // The rules with their symbols in the Mana font, each a span the door
     // may fall back from (owner, beta.6): `{T}: Add {W}` was set as braces.
@@ -218,7 +255,7 @@ pub(crate) fn window(
         ))
         .id();
     crate::manaui::spawn_inline_spans(commands, kit.fonts, rules, &text, &serif, tokens::INK);
-    commands.entity(right).add_child(rules);
+    commands.entity(oracle_box).add_child(rules);
     if english {
         let tag = cell(
             commands,
@@ -228,12 +265,59 @@ pub(crate) fn window(
             tokens::MUTED,
             false,
         );
-        commands.entity(right).add_child(tag);
+        commands.entity(oracle_box).add_child(tag);
     }
+    commands.entity(right).add_child(oracle_box);
+
     let printing = printing(commands, env, picker);
     commands.entity(right).add_child(printing);
+
+    let deck_box = commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                flex_direction: FlexDirection::Column,
+                row_gap: m.px(8.0),
+                padding: UiRect::all(m.px(12.0)),
+                border: UiRect::all(px_fixed(1.0)),
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL)),
+                ..default()
+            },
+            BackgroundColor(tokens::CONTROL.with_alpha(0.42)),
+            BorderColor::all(tokens::BORDER.with_alpha(0.75)),
+            Pickable::IGNORE,
+        ))
+        .id();
     let counts = counts(commands, env, slot);
-    commands.entity(right).add_child(counts);
+    commands.entity(deck_box).add_child(counts);
+    let deck_key = deck.editing().unwrap_or("new");
+    let is_deck_fav = env.prefs.deck_card_favourite(deck_key, &card.english_name);
+    let is_global_fav = env.prefs.card_favourite(&card.english_name);
+    let (deck_fav_label, global_fav_label) = match lang {
+        Lang::De => ("\u{2605} Deck-Favorit", "\u{2605} Allgemeiner Favorit"),
+        Lang::En => ("\u{2605} Deck favourite", "\u{2605} General favourite"),
+    };
+    let fav_deck_chip = controls::chip(
+        commands,
+        kit,
+        deck_fav_label,
+        is_deck_fav,
+        None,
+        false,
+        Press::Build(BuildPress::ToggleCardFavDeck(slot)),
+    );
+    let fav_global_chip = controls::chip(
+        commands,
+        kit,
+        global_fav_label,
+        is_global_fav,
+        None,
+        false,
+        Press::Build(BuildPress::ToggleCardFavGlobal(slot)),
+    );
+    let fav_row = line(commands, kit, &[fav_deck_chip, fav_global_chip]);
+    commands.entity(deck_box).add_child(fav_row);
+    commands.entity(right).add_child(deck_box);
     if let Some((mark, ink)) = coverage_mark(card.coverage) {
         let said = mark.text(lang);
         let why = match &card.note {
@@ -611,51 +695,84 @@ fn printing(commands: &mut Commands, env: &Env, picker: &Picker) -> Entity {
     let section = commands
         .spawn((
             Node {
+                width: Val::Percent(100.0),
                 flex_direction: FlexDirection::Column,
-                row_gap: m.px(6.0),
-                border: UiRect::top(px_fixed(1.0)),
-                padding: UiRect::top(m.px(8.0)),
+                row_gap: m.px(8.0),
+                padding: UiRect::all(m.px(12.0)),
+                border: UiRect::all(px_fixed(1.0)),
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL)),
                 ..default()
             },
-            BorderColor::all(tokens::BORDER),
+            BackgroundColor(tokens::CONTROL.with_alpha(0.48)),
+            BorderColor::all(tokens::PRIMARY_EDGE.with_alpha(0.45)),
             Pickable::IGNORE,
         ))
         .id();
+    let head_icon = glyph(commands, kit, '\u{f03e}', m.small, tokens::ACCENT);
     let head = cell(
         commands,
         kit,
         Phrase::CardHeadPrinting.text(lang),
         m.small,
-        tokens::MUTED,
+        tokens::INK,
         true,
     );
-    commands.entity(section).add_child(head);
+    let mut head_items = vec![head_icon, head, spring(commands)];
     if let Some(current) = picker.current() {
-        let mut words = Vec::new();
         if !current.set.is_empty() {
-            let mut set = current.set.to_uppercase();
+            let mut set_str = current.set.to_uppercase();
             if !current.collector_number.is_empty() {
-                set = format!("{set} #{}", current.collector_number);
+                set_str = format!("{set_str} #{}", current.collector_number);
             }
-            words.push(set);
+            let set_pill = commands
+                .spawn((
+                    Node {
+                        padding: UiRect::axes(m.px(8.0), m.px(2.0)),
+                        border: UiRect::all(px_fixed(1.0)),
+                        border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PILL)),
+                        flex_shrink: 0.0,
+                        ..default()
+                    },
+                    BackgroundColor(tokens::SELECTED),
+                    BorderColor::all(tokens::ACCENT.with_alpha(0.55)),
+                    Pickable::IGNORE,
+                ))
+                .id();
+            let set_txt = cell(
+                commands,
+                kit,
+                &set_str,
+                m.small * 0.88,
+                tokens::ACCENT,
+                true,
+            );
+            commands.entity(set_pill).add_child(set_txt);
+            head_items.push(set_pill);
         }
+        let head_row = line(commands, kit, &head_items);
+        commands.entity(section).add_child(head_row);
+
+        let mut meta_words = Vec::new();
         if !current.artist.is_empty() {
-            words.push(current.artist.clone());
+            meta_words.push(format!("\u{f1fc} {}", current.artist));
         }
         if !current.released_at.is_empty() {
-            words.push(current.released_at.clone());
+            meta_words.push(current.released_at.clone());
         }
-        if !words.is_empty() {
+        if !meta_words.is_empty() {
             let said = cell(
                 commands,
                 kit,
-                &words.join(" \u{b7} "),
-                m.small,
-                tokens::INK,
+                &meta_words.join(" \u{b7} "),
+                m.small * 0.92,
+                tokens::MUTED,
                 false,
             );
             commands.entity(section).add_child(said);
         }
+    } else {
+        let head_row = line(commands, kit, &head_items);
+        commands.entity(section).add_child(head_row);
     }
     // A language with no printing is not a chip; one language is no choice.
     if picker.from_catalog() && picker.langs().len() > 1 {

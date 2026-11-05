@@ -84,6 +84,22 @@ impl StoredDeck {
             .clone()
             .unwrap_or_else(|| baylee_cards::decks::format_of(&self.commanders).to_string())
     }
+
+    /// The save timestamp for sorting (`Sort::LastSaved`). If `updated_at` was
+    /// not yet recorded on disk, a v7 UUID deck id still carries its creation
+    /// timestamp, whereas built-in decks (`builtin:*`) stay at `0`.
+    fn effective_updated_at(&self) -> u64 {
+        if self.updated_at > 0 {
+            return self.updated_at;
+        }
+        if !self.id.starts_with(BUILTIN)
+            && let Ok(parsed) = uuid::Uuid::parse_str(&self.id)
+            && let Some(ts) = parsed.get_timestamp()
+        {
+            return ts.to_unix().0;
+        }
+        0
+    }
 }
 
 /// The offline deck file.
@@ -252,11 +268,18 @@ impl Offline {
             LobbyRequest::ListDecks => LobbyEvent::Decks(
                 self.decks
                     .iter()
+                    .filter(|d| {
+                        !d.id.starts_with(BUILTIN)
+                            || !self.decks.iter().any(|u| {
+                                !u.id.starts_with(BUILTIN) && u.name.eq_ignore_ascii_case(&d.name)
+                            })
+                    })
                     .map(|d| {
                         // The same reading the gateway lists, so a deck says
                         // the same thing here as it would there.
-                        let digest =
+                        let mut digest =
                             baylee_cards::digest::digest(&d.cards, &d.sideboard, &d.commanders);
+                        credit_known_artists(&mut digest);
                         DeckSummary {
                             legality: client_core::lobby::DeckLegality::default(),
                             id: d.id.clone(),
@@ -271,8 +294,7 @@ impl Offline {
                             leaders: digest.leaders,
                             signature: digest.signature,
                             unplayable: digest.unplayable,
-                            // The offline file keeps no save times.
-                            updated_at: 0,
+                            updated_at: d.effective_updated_at(),
                             // Nothing is blocked where no gateway is asked.
                             blocked: Vec::new(),
                         }
@@ -453,7 +475,9 @@ impl Offline {
         // there — which is worse than plainly making a copy.
         let existing = deck_id.filter(|id| !id.starts_with(BUILTIN));
         let fresh = existing.is_none();
-        let id = existing.unwrap_or_else(|| uuid::Uuid::now_v7().to_string());
+        let now_id = uuid::Uuid::now_v7();
+        let now_secs = now_id.get_timestamp().map_or(1, |ts| ts.to_unix().0);
+        let id = existing.unwrap_or_else(|| now_id.to_string());
         let deck = StoredDeck {
             id: id.clone(),
             account_id: "offline".to_string(),
@@ -464,7 +488,7 @@ impl Offline {
             format,
             sleeve: None,
             playmat: None,
-            updated_at: 0,
+            updated_at: now_secs,
         };
         match self.decks.iter_mut().find(|d| d.id == id) {
             Some(slot) => *slot = deck,
@@ -485,16 +509,26 @@ impl Offline {
                 self.decks
                     .iter()
                     .filter(|d| d.id.starts_with(BUILTIN))
-                    .map(|d| HouseDeck {
-                        id: d.id.clone(),
-                        name: d.name.clone(),
-                        format: String::new(),
-                        description: String::new(),
-                        version: 1,
-                        cards: d.cards.len(),
-                        sideboard: d.sideboard.len(),
-                        commanders: d.commanders.clone(),
-                        ..Default::default()
+                    .map(|d| {
+                        let mut digest =
+                            baylee_cards::digest::digest(&d.cards, &d.sideboard, &d.commanders);
+                        credit_known_artists(&mut digest);
+                        HouseDeck {
+                            id: d.id.clone(),
+                            name: d.name.clone(),
+                            format: d.format(),
+                            description: String::new(),
+                            version: 1,
+                            cards: d.cards.len(),
+                            sideboard: d.sideboard.len(),
+                            commanders: d.commanders.clone(),
+                            copies: digest.copies,
+                            identity: digest.identity,
+                            leaders: digest.leaders,
+                            signature: digest.signature,
+                            unplayable: digest.unplayable,
+                            blocked: Vec::new(),
+                        }
                     })
                     .collect(),
             ),
@@ -512,7 +546,7 @@ impl Offline {
                     )
                 },
             ),
-            Request::Copy(id) if id.starts_with(BUILTIN) => {
+            Request::Copy(id) => {
                 if let Some(d) = self.deck(&id).cloned() {
                     match self.save_deck(None, d.name, d.cards, d.sideboard, d.commanders, d.format)
                     {
@@ -789,11 +823,13 @@ fn builtin_decks() -> Vec<StoredDeck> {
             // built: it lists, it loads into the builder, and saving it makes
             // a copy of the player's own.
             let deck = baylee_cards::decks::load_acceptance(&text, &name).ok()?;
+            let mut main_cards = deck.commanders.clone();
+            main_cards.extend_from_slice(&deck.main);
             Some(StoredDeck {
                 id: format!("{BUILTIN}{name}"),
                 account_id: "offline".to_string(),
                 name,
-                cards: rows_of(&deck.main),
+                cards: rows_of(&main_cards),
                 sideboard: rows_of(&deck.sideboard),
                 commanders: deck
                     .commanders
@@ -879,9 +915,13 @@ pub(crate) fn pool_row(card: &baylee_cards::pool::PoolCard) -> client_core::deck
 /// their card will be drawn as.
 fn reference_printing(card: u32) -> Option<client_core::deckbuilder::Printing> {
     let def = baylee_cards::all().find(|d| d.index.get() == card)?;
+    let rarity = baylee_cards::sides::rarity(def.index)
+        .map(|r| r.word().to_string())
+        .unwrap_or_default();
     Some(client_core::deckbuilder::Printing {
         scryfall_id: def.scryfall_id.to_string(),
         oracle_id: def.oracle_id.to_string(),
+        rarity,
         layout: if baylee_cards::pool::rows()
             .iter()
             .any(|c| c.index == card && c.has_back_image)
@@ -893,6 +933,23 @@ fn reference_printing(card: u32) -> Option<client_core::deckbuilder::Printing> {
         lang: "en".to_string(),
         ..Default::default()
     })
+}
+
+/// Fills known artist credits on a digest's `leaders` and `signature` so
+/// offline and Central-mode decks and Vorlagen have their credited illustration
+/// immediately (`docs/legal.md` Principle 4).
+pub(crate) fn credit_known_artists(digest: &mut baylee_core::deckdigest::Digest) {
+    let cached = super::thumbnails::cached_artists();
+    for picture in digest.leaders.iter_mut().chain(digest.signature.as_mut()) {
+        if !picture.artist.trim().is_empty() {
+            continue;
+        }
+        if let Some(artist) = super::thumbnails::known_artist(&picture.name, &picture.scryfall_id)
+            .or_else(|| cached.get(&picture.scryfall_id).map(String::as_str))
+        {
+            picture.artist = artist.to_string();
+        }
+    }
 }
 
 /// One of `AIProfile::NAMED`, or the default when the name is not one.

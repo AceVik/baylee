@@ -64,11 +64,13 @@ pub(crate) enum List {
 #[derive(Resource, Default)]
 pub(crate) struct Scrolled {
     pool: f32,
+    check: f32,
     deck: f32,
     table: f32,
     gateways: f32,
     discovery: f32,
     games: f32,
+    room_cards: f32,
     library: f32,
     picker_panel: f32,
     settings: f32,
@@ -86,12 +88,14 @@ impl Scrolled {
     pub(crate) fn get(&self, list: List) -> f32 {
         match list {
             List::Pool => self.pool,
+            List::Check => self.check,
             List::Deck => self.deck,
             List::Table => self.table,
             List::Gateways => self.gateways,
             List::Discovery => self.discovery,
             List::Games => self.games,
-            List::RoomCards | List::PickerSets | List::Check => 0.0,
+            List::RoomCards => self.room_cards,
+            List::PickerSets => 0.0,
             List::Library => self.library,
             List::PickerPanel => self.picker_panel,
             List::Settings => self.settings,
@@ -109,12 +113,14 @@ impl Scrolled {
     pub(crate) fn set(&mut self, list: List, at: f32) {
         match list {
             List::Pool => self.pool = at,
+            List::Check => self.check = at,
             List::Deck => self.deck = at,
             List::Table => self.table = at,
             List::Gateways => self.gateways = at,
             List::Discovery => self.discovery = at,
             List::Games => self.games = at,
-            List::RoomCards | List::PickerSets | List::Check => {}
+            List::RoomCards => self.room_cards = at,
+            List::PickerSets => {}
             List::Library => self.library = at,
             List::PickerPanel => self.picker_panel = at,
             List::Settings => self.settings = at,
@@ -131,10 +137,12 @@ impl Scrolled {
 }
 
 /// Turns a wheel or a swipe into scrolling on the list under the pointer.
+#[allow(clippy::too_many_arguments)]
 pub(super) fn scrolls(
     mut wheels: MessageReader<PointerScroll>,
     mut drags: MessageReader<PointerDrag>,
     parents: Query<&ChildOf>,
+    scrollbars: Query<&bevy::ui_widgets::Scrollbar>,
     mut lists: Query<(&mut ScrollPosition, &ComputedNode, &Scrollable)>,
     mut memory: ResMut<Scrolled>,
     entrance: Res<super::entrance::Entrance>,
@@ -156,6 +164,9 @@ pub(super) fn scrolls(
         scroll_lineage(wheel.entity, -travel, &parents, &mut lists, &mut memory);
     }
     for drag in drags.read() {
+        if in_scrollbar(drag.entity, &scrollbars, &parents) {
+            continue;
+        }
         // A finger drags the content itself, so it goes the other way again.
         scroll_lineage(
             drag.entity,
@@ -165,6 +176,21 @@ pub(super) fn scrolls(
             &mut memory,
         );
     }
+}
+
+fn in_scrollbar(
+    entity: Entity,
+    scrollbars: &Query<&bevy::ui_widgets::Scrollbar>,
+    parents: &Query<&ChildOf>,
+) -> bool {
+    let mut current = Some(entity);
+    while let Some(e) = current {
+        if scrollbars.contains(e) {
+            return true;
+        }
+        current = parents.get(e).ok().map(ChildOf::parent);
+    }
+    false
 }
 
 /// Scrolls the nearest list at or above an entity, so a gesture over a row

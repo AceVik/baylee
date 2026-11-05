@@ -122,6 +122,9 @@ impl SocialHost {
         if central::request(self, &tag, method, path, body) {
             return;
         }
+        if session.token.is_empty() {
+            return;
+        }
         transport::request(
             &self.mailbox,
             &session.gateway,

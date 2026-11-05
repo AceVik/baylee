@@ -297,6 +297,7 @@ fn bootstrap(migrator: &str, runtime: &str, legacy: &str) -> String {
 pub fn client(monitor: i64) -> Result<i32> {
     let run_dir = PathBuf::from("target").join(format!("central-ui-{}", crate::secret::hex(5)?));
     fs::create_dir_all(&run_dir)?;
+    let run_dir = fs::canonicalize(&run_dir)?;
     let ready = run_dir.join("fixture.json");
     let exe = PathBuf::from("target/debug")
         .join(format!("baylee-client{}", std::env::consts::EXE_SUFFIX));
@@ -439,8 +440,8 @@ fn scenario(devctl: &Devctl, client: &mut Owned, monitor: i64, run_dir: &Path) -
         .filter(|m| m["index"] == monitor)
         .collect();
     ensure!(
-        chosen.len() == 1 && chosen[0]["x"].as_i64().is_some_and(|x| x < 0),
-        "the selected monitor is not the additional left display"
+        chosen.len() == 1 && chosen[0]["index"].as_i64().is_some_and(|index| index > 0),
+        "the selected monitor is not an additional non-primary display"
     );
     let deadline = Instant::now() + Duration::from_secs(40);
     while state(devctl)?["loading"]["destination"] != "hidden" {
@@ -461,6 +462,21 @@ fn scenario(devctl: &Devctl, client: &mut Owned, monitor: i64, run_dir: &Path) -
         "screenshot",
         &json!({ "path": run_dir.join("01-login.png") }),
     )?;
+    hover(devctl, "Front(OpenWhatsApp)")?;
+    hover(devctl, "Memorial(Open)")?;
+    std::thread::sleep(Duration::from_millis(450));
+    devctl.post(
+        "screenshot",
+        &json!({ "path": run_dir.join("01b-logo-hover.png") }),
+    )?;
+    click(devctl, "Memorial(Open)")?;
+    wait_control(devctl, client, "Memorial(Close)")?;
+    devctl.post(
+        "screenshot",
+        &json!({ "path": run_dir.join("01c-memorial.png") }),
+    )?;
+    click(devctl, "Memorial(Close)")?;
+    wait_control(devctl, client, "Front(Submit)")?;
     sign_in(devctl)?;
     wait_account(devctl, client, run_dir, restored)?;
     devctl.post(
@@ -492,7 +508,7 @@ fn sign_in(devctl: &Devctl) -> Result<()> {
     click(devctl, "Shared(Focus(Username))")?;
     devctl.post("text", &json!({ "text": "synthetic" }))?;
     click(devctl, "Shared(Focus(Password))")?;
-    devctl.post("text", &json!({ "text": "a-very-fine-password" }))?;
+    devctl.post("text", &json!({ "text": "synthetic legacy password" }))?;
     click(devctl, "Front(Submit)")
 }
 
@@ -500,8 +516,8 @@ fn state(devctl: &Devctl) -> Result<Value> {
     devctl.get("state", Duration::from_secs(12))
 }
 
-/// Presses the one visible lobby control with this `press` name.
-fn click(devctl: &Devctl, press: &str) -> Result<()> {
+/// Moves the pointer over the one visible lobby control with this `press` name.
+fn hover(devctl: &Devctl, press: &str) -> Result<()> {
     let state = state(devctl)?;
     let controls: Vec<&Value> = state["lobby_controls"]
         .as_array()
@@ -510,8 +526,50 @@ fn click(devctl: &Devctl, press: &str) -> Result<()> {
         .filter(|c| c["press"] == press)
         .collect();
     ensure!(controls.len() == 1, "expected one visible control: {press}");
+    devctl.post(
+        "pointer",
+        &json!({ "x": controls[0]["at_x"], "y": controls[0]["at_y"], "button": "left", "press": false }),
+    )?;
+    Ok(())
+}
+
+/// Presses the visible lobby control with this `press` name (if a backdrop
+/// scrim shares the same press, chooses the smaller button).
+fn click(devctl: &Devctl, press: &str) -> Result<()> {
+    let state = state(devctl)?;
+    let mut controls: Vec<&Value> = state["lobby_controls"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|c| c["press"] == press)
+        .collect();
+    ensure!(!controls.is_empty(), "expected visible control: {press}");
+    controls.sort_by(|a, b| {
+        let aw = a["w"].as_f64().unwrap_or(f64::MAX);
+        let bw = b["w"].as_f64().unwrap_or(f64::MAX);
+        aw.total_cmp(&bw)
+    });
     devctl.post("pointer", &json!({ "x": controls[0]["at_x"], "y": controls[0]["at_y"], "button": "left", "press": true }))?;
     Ok(())
+}
+
+/// Waits until a visible lobby control with this `press` name is present.
+fn wait_control(devctl: &Devctl, client: &mut Owned, press: &str) -> Result<()> {
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while Instant::now() < deadline && !client.exited() {
+        let state = state(devctl)?;
+        let count = state["lobby_controls"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter(|c| c["press"] == press)
+            .count();
+        if count >= 1 {
+            return Ok(());
+        }
+        std::thread::sleep(Duration::from_millis(150));
+    }
+    bail!("the expected control did not appear: {press}")
 }
 
 /// The account state once it holds on two reads in a row with the front

@@ -424,9 +424,25 @@ pub enum Sort {
     Cost,
     /// Grouped by card type, then by cost.
     Type,
+    /// Ordered by colour identity (`W U B R G`, multicolour, colourless).
+    Color,
+    /// Ordered by rarity (`Common` -> `Uncommon` -> `Rare` -> `Mythic`).
+    Rarity,
+    /// Ordered by creature power / toughness.
+    Power,
 }
 
 impl Sort {
+    /// All sort criteria offered in the pool's sort dropdown.
+    pub const ALL: [Self; 6] = [
+        Self::Name,
+        Self::Cost,
+        Self::Type,
+        Self::Color,
+        Self::Rarity,
+        Self::Power,
+    ];
+
     /// The label on the control that cycles the order.
     #[must_use]
     pub fn label(self) -> Phrase {
@@ -434,16 +450,83 @@ impl Sort {
             Self::Name => Phrase::SortName,
             Self::Cost => Phrase::SortCost,
             Self::Type => Phrase::SortType,
+            Self::Color => Phrase::FilterKeyColor,
+            Self::Rarity => Phrase::FilterKeyRarity,
+            Self::Power => Phrase::FilterKeyPower,
         }
     }
 
-    /// The next order, so one control can cycle all three.
+    /// `FontAwesome` glyph representing this sort criterion.
     #[must_use]
-    pub fn next(self) -> Self {
+    pub const fn icon(self) -> char {
+        match self {
+            Self::Name => '\u{f0dc}',
+            Self::Cost => '\u{f0e7}',
+            Self::Type => '\u{f5fd}',
+            Self::Color => '\u{f53f}',
+            Self::Rarity => '\u{f3a5}',
+            Self::Power => '\u{f132}',
+        }
+    }
+
+    /// The next order, so one control can cycle all criteria.
+    #[must_use]
+    pub const fn next(self) -> Self {
         match self {
             Self::Name => Self::Cost,
             Self::Cost => Self::Type,
-            Self::Type => Self::Name,
+            Self::Type => Self::Color,
+            Self::Color => Self::Rarity,
+            Self::Rarity => Self::Power,
+            Self::Power => Self::Name,
+        }
+    }
+}
+
+/// Direction of the pool sort (`Asc`, `Desc`, `Unset`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum SortDir {
+    /// Ascending order (`A–Z`, `0–9`).
+    #[default]
+    Asc,
+    /// Descending order (`Z–A`, `9–0`).
+    Desc,
+    /// Default / unset order (alphabetical baseline).
+    Unset,
+}
+
+impl SortDir {
+    /// Cycles `Asc -> Desc -> Unset -> Asc`.
+    #[must_use]
+    pub const fn next(self) -> Self {
+        match self {
+            Self::Asc => Self::Desc,
+            Self::Desc => Self::Unset,
+            Self::Unset => Self::Asc,
+        }
+    }
+
+    /// `FontAwesome` glyph for the direction icon button.
+    #[must_use]
+    pub const fn icon(self) -> char {
+        match self {
+            Self::Asc => '\u{f160}',
+            Self::Desc => '\u{f161}',
+            Self::Unset => '\u{f0dc}',
+        }
+    }
+
+    /// Tooltip explaining the current sort direction.
+    #[must_use]
+    pub const fn hint(self, lang: crate::i18n::Lang) -> &'static str {
+        use crate::i18n::Lang;
+        match (self, lang) {
+            (Self::Asc, Lang::De) => "Reihenfolge: Aufsteigend (Asc)",
+            (Self::Asc, Lang::En) => "Order: Ascending (Asc)",
+            (Self::Desc, Lang::De) => "Reihenfolge: Absteigend (Desc)",
+            (Self::Desc, Lang::En) => "Order: Descending (Desc)",
+            (Self::Unset, Lang::De) => "Reihenfolge: Standard (Unset)",
+            (Self::Unset, Lang::En) => "Order: Default (Unset)",
         }
     }
 }
@@ -900,6 +983,27 @@ impl BuildField {
     }
 }
 
+/// The card lists a deck held when the current builder session opened it,
+/// so in-place auto-saves during the session collapse into a single history
+/// entry when leaving the builder.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SessionBaseline {
+    /// The deck's id.
+    pub deck_id: String,
+    /// Deck name when the session began.
+    #[serde(default)]
+    pub name: String,
+    /// Format when the session began.
+    #[serde(default)]
+    pub format: String,
+    /// Main-deck rows when the session began.
+    pub cards: Vec<String>,
+    /// Sideboard rows when the session began.
+    pub sideboard: Vec<String>,
+    /// Commander names when the session began.
+    pub commanders: Vec<String>,
+}
+
 /// The deck builder's whole state.
 #[derive(Clone, Debug, Default)]
 #[allow(clippy::struct_excessive_bools)] // independent facts: unsaved, naming, rules text, stubs shown
@@ -931,6 +1035,7 @@ pub struct DeckBuilder {
     colors: Vec<char>,
     kind: Option<String>,
     cmc: Option<u32>,
+    rarity: Option<baylee_cardtext::Rarity>,
     /// Whether cards the engine cannot play as printed are shown.
     ///
     /// Stored **inverted**, because the switch a player sees is "playable
@@ -972,6 +1077,7 @@ pub struct DeckBuilder {
     /// drawn. Written by [`Self::recheck`] alone.
     report: baylee_cardtext::Report,
     sort: Sort,
+    sort_dir: SortDir,
     main: Vec<Entry>,
     side: Vec<Entry>,
     zone: Zone,
@@ -1028,6 +1134,11 @@ pub struct DeckBuilder {
     /// A saved version the export dialog writes instead of the deck in hand
     /// (History's Export…, windows-b6 §C.3).
     export_version: Option<transfer::VersionRows>,
+    /// The card lists the deck held when this builder visit opened it, so
+    /// in-session auto-saves coalesce into one history version on leave.
+    session_baseline: Option<SessionBaseline>,
+    /// Whether the deck was started from scratch in this builder visit.
+    new_in_session: bool,
 }
 
 mod builder;
@@ -1035,7 +1146,25 @@ pub mod legality;
 pub mod statistics;
 pub mod transfer;
 pub mod view;
+pub use baylee_cardtext::Rarity;
 pub use view::{Draft, Grouping, STAT_GROUPS, Section, SectionKey};
+
+/// Localized display label for a card [`Rarity`].
+#[must_use]
+pub const fn rarity_label(rarity: Rarity, german: bool) -> &'static str {
+    match (rarity, german) {
+        (Rarity::Common, true) => "Gewöhnlich",
+        (Rarity::Common, false) => "Common",
+        (Rarity::Uncommon, true) => "Ungewöhnlich",
+        (Rarity::Uncommon, false) => "Uncommon",
+        (Rarity::Rare, true) => "Selten",
+        (Rarity::Rare, false) => "Rare",
+        (Rarity::Mythic, true) => "Mythisch",
+        (Rarity::Mythic, false) => "Mythic",
+        (Rarity::Special | Rarity::Bonus, true) => "Spezial",
+        (Rarity::Special | Rarity::Bonus, false) => "Special",
+    }
+}
 
 #[cfg(test)]
 mod legality_tests;

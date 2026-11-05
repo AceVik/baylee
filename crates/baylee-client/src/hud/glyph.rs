@@ -14,14 +14,7 @@ pub const SKULL: char = '\u{f54c}';
 pub const EXILE: char = '\u{f05e}';
 /// Battery half (charge counters on a permanent).
 pub const CHARGE: char = '\u{f242}';
-/// Bolt (energy counters).
-///
-/// Drawn by nothing since the commit that took the seat tab off the top
-/// of the window: energy is one of the things the seat sheet will say
-/// and neither the bar nor a player's button has room for.
-// Used by `hud::tests`, which is where the icon face is read, so the
-// expectation only holds in a build that is not the test one.
-#[cfg_attr(not(test), expect(dead_code, reason = "the seat sheet says it next"))]
+/// Bolt (energy counters / speed).
 pub const ENERGY: char = '\u{f0e7}';
 /// Caret down (speech-bubble tail).
 pub const CARET_DOWN: char = '\u{f0d7}';

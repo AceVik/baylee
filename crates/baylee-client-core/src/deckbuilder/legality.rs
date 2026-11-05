@@ -94,6 +94,9 @@ impl DeckBuilder {
     /// Takes the format a stored deck says. Not an edit.
     pub fn keep_format(&mut self, format: &str) {
         self.format = format.to_string();
+        if let Some(base) = &mut self.session_baseline {
+            base.format = format.to_string();
+        }
         self.recheck();
     }
 
@@ -457,5 +460,54 @@ impl DeckBuilder {
             problems,
             notices,
         }
+    }
+
+    /// Validates a saved [`crate::prefs::DeckFormatVariant`] against its format
+    /// and the currently available pool facts / active banlist.
+    #[must_use]
+    pub fn validate_variant(&self, variant: &crate::prefs::DeckFormatVariant) -> Report {
+        let parse_copies = |rows: &[String]| -> Vec<CardIndex> {
+            rows.iter()
+                .filter_map(|row| baylee_core::deckrow::parse(row).ok())
+                .filter_map(|row| {
+                    self.slot_of(&row.name)
+                        .and_then(|slot| self.pool.get(slot))
+                        .map(|card| (CardIndex::new(card.index), row.count))
+                })
+                .flat_map(|(card, count)| {
+                    std::iter::repeat_n(card, usize::try_from(count).unwrap_or(0))
+                })
+                .collect()
+        };
+        let mut main = parse_copies(&variant.cards);
+        let side = parse_copies(&variant.sideboard);
+        let leaders: Vec<CardIndex> = variant
+            .commanders
+            .iter()
+            .filter_map(|name| self.slot_of(name).and_then(|s| self.pool.get(s)))
+            .map(|card| CardIndex::new(card.index))
+            .collect();
+        for leader in &leaders {
+            if let Some(at) = main.iter().position(|card| card == leader) {
+                main.swap_remove(at);
+            }
+        }
+        let list_rules = variant
+            .banlist_id
+            .as_deref()
+            .and_then(|id| self.list.as_ref().filter(|l| l.id == id))
+            .map(|l| &*l.rules);
+        formats::validate(
+            DeckCards {
+                main: &main,
+                side: &side,
+                leaders: &leaders,
+            },
+            Rules {
+                format: &variant.format,
+                facts: self.pool_facts.as_deref(),
+                list: list_rules,
+            },
+        )
     }
 }

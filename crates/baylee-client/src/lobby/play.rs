@@ -589,6 +589,73 @@ fn picker(
             .insert(crate::shellkit::focus::Current(chosen));
         commands.entity(grid).add_child(tile);
     }
+    let mut sheet_body = vec![grid];
+    let house = &lobby.library().house;
+    if !house.is_empty() {
+        let head = parts::caption(commands, kit, Phrase::ShellHouseDecks.text(lang));
+        let house_grid = commands
+            .spawn((
+                Node {
+                    display: Display::Grid,
+                    grid_template_columns: vec![RepeatedGridTrack::minmax(
+                        GridTrackRepetition::AutoFill,
+                        MinTrackSizingFunction::Px(kit.m.scaled(200.0)),
+                        MaxTrackSizingFunction::Fraction(1.0),
+                    )],
+                    column_gap: px_fixed(kit.m.gap),
+                    row_gap: px_fixed(kit.m.gap),
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        for (h_idx, deck) in house.iter().enumerate() {
+            let tile = commands
+                .spawn((
+                    Role::Tile,
+                    Node {
+                        column_gap: kit.m.px(10.0),
+                        align_items: AlignItems::Center,
+                        padding: UiRect::all(px_fixed(kit.m.scaled(8.0))),
+                        border: UiRect::all(px_fixed(1.0)),
+                        border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL)),
+                        ..default()
+                    },
+                    BorderColor::all(tokens::BORDER),
+                    parts::identity_gradient(&deck.identity),
+                    Press::Decks(super::decks::DecksPress::AddAndUse(h_idx)),
+                    crate::ambience::Feel::new(Color::NONE),
+                ))
+                .id();
+            if let Some(art) = deck.art() {
+                let picture = parts::art_with_credit(commands, kit, lang, &art, 78.0);
+                commands.entity(tile).add_child(picture);
+            }
+            let words = commands
+                .spawn((
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        min_width: px(0),
+                        ..default()
+                    },
+                    Pickable::IGNORE,
+                ))
+                .id();
+            let name = parts::line(commands, kit, &deck.name, kit.m.text, tokens::INK);
+            let format = parts::line(
+                commands,
+                kit,
+                &shelf::format_label(lang, &deck.format),
+                kit.m.small,
+                tokens::MUTED,
+            );
+            commands.entity(words).add_children(&[name, format]);
+            commands.entity(tile).add_child(words);
+            commands.entity(house_grid).add_child(tile);
+        }
+        sheet_body.push(head);
+        sheet_body.push(house_grid);
+    }
     let cancel = controls::button(
         commands,
         kit,
@@ -605,7 +672,7 @@ fn picker(
         kit,
         SheetWidth::Medium,
         Phrase::PlayChangeDeck.text(lang),
-        &[grid],
+        &sheet_body,
         &[cancel],
         (
             Scrollable(List::DeckPicker),
@@ -880,7 +947,9 @@ pub(super) fn ask_for_house(
         && !lobby.busy()
         && lobby.library().page.is_none()
         && lobby.library().house.is_empty()
-        && (lobby.decks().is_empty() || state.decks.tab == super::decks::DecksTab::House);
+        && (lobby.decks().is_empty()
+            || state.decks.tab == super::decks::DecksTab::House
+            || state.play.picker);
     if want && !*asked {
         *asked = true;
         let request = state.lobby.browse_house();

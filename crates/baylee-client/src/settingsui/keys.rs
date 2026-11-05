@@ -123,6 +123,12 @@ pub(crate) fn settings_over(mut state: ResMut<LobbyState>) {
         return;
     }
     state.lobby.set_settings_open(open);
+    if open
+        && state.lobby.focus() != baylee_client_core::lobby::Field::SettingsSearch
+        && !state.lobby.caret_parked()
+    {
+        state.lobby.park_caret();
+    }
     if !open && state.lobby.focus() == baylee_client_core::lobby::Field::SettingsSearch {
         state.lobby.park_caret();
     }

@@ -395,7 +395,7 @@ pub(crate) async fn health(State(state): State<Shared>) -> (StatusCode, Json<Hea
     // disagree in the one case worth seeing: a game the gateway has ordered
     // but whose engine has not dialled back yet is on an agent's list and has
     // no `EngineLink`. That gap is what `seats_awaiting_engine` is.
-    let (games_running, games_local, games_waiting, seats_awaiting_engine) = {
+    let (games_running, games_local, games_waiting, seats_awaiting_engine, mut online) = {
         let lobby = state.lobby.lock();
         let playing = lobby.running();
         (
@@ -409,8 +409,11 @@ pub(crate) async fn health(State(state): State<Shared>) -> (StatusCode, Json<Hea
                 .filter(|game| game.engine.is_none())
                 .map(|game| game.seats.len())
                 .sum::<usize>(),
+            lobby.bridging_accounts(),
         )
     };
+    online.extend(state.presence.accounts());
+    let players_online = online.len();
 
     let code = if database {
         StatusCode::OK
@@ -447,6 +450,7 @@ pub(crate) async fn health(State(state): State<Shared>) -> (StatusCode, Json<Hea
         // drains every agent's games checks before it relies on the hold.
         admission: state.admission.admission(),
         games: Games {
+            players_online,
             running: games_running,
             local_running: games_local,
             waiting: games_waiting,
@@ -506,6 +510,9 @@ pub(crate) struct Counted {
 /// @openapi
 #[derive(Serialize)]
 pub(crate) struct Games {
+    /// @description Distinct accounts currently online (in the lobby or seated
+    /// at a running game).
+    players_online: usize,
     /// @description Games being played.
     running: usize,
     /// @description Of those, games whose engine runs on this machine (an

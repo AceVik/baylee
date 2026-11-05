@@ -45,6 +45,7 @@ pub fn digest(cards: &[String], sideboard: &[String], commanders: &[String]) -> 
         .filter_map(|r| deckrow::parse(r).ok())
         .fold(0u32, |n, r| n.saturating_add(r.count));
 
+    let mut missing_leaders = 0u32;
     let leaders = commanders
         .iter()
         .map(|name| {
@@ -59,9 +60,13 @@ pub fn digest(cards: &[String], sideboard: &[String], commanders: &[String]) -> 
                         || card.is_some_and(|c| named(&r.name).is_some_and(|n| n.index == c.index))
                 })
                 .map(|r| &r.print);
+            if chosen.is_none() {
+                missing_leaders = missing_leaders.saturating_add(1);
+            }
             picture(name, card, chosen)
         })
         .collect();
+    let copies = copies.saturating_add(missing_leaders);
 
     // Copies, as the deck counts them: four stubs are four cards that will
     // not play.
@@ -70,15 +75,16 @@ pub fn digest(cards: &[String], sideboard: &[String], commanders: &[String]) -> 
         .filter(|r| named(&r.name).is_none_or(|c| c.coverage == Coverage::Unimplemented))
         .fold(0u32, |n, r| n.saturating_add(r.count));
 
-    // A commander is a deck's picture; without one, its most expensive
-    // spell. `max_by_key` keeps the last of equals, so the rows are walked
+    // A commander is a deck's picture; without one, its signature spell
+    // (weighting mana value, planeswalker/legendary status, and playset copy
+    // count). `max_by_key` keeps the last of equals, so the rows are walked
     // backwards to keep the first.
     let signature = if commanders.is_empty() {
         main.iter()
             .rev()
             .filter_map(|r| named(&r.name).map(|card| (r, card)))
             .filter(|(_, card)| !is_land(card))
-            .max_by_key(|(_, card)| mana_value(card))
+            .max_by_key(|(r, card)| signature_score(r, card))
             .map(|(r, card)| picture(&r.name, Some(card), Some(&r.print)))
     } else {
         None
@@ -130,6 +136,25 @@ fn is_land(card: &CardDef) -> bool {
 /// A card's mana value, by its front face's printed cost.
 fn mana_value(card: &CardDef) -> u32 {
     card.faces.first().map_or(0, |face| face.mana_cost.cmc())
+}
+
+/// Scores a non-land main-deck row as the deck's signature illustration when
+/// the deck has no commander: curves toward centrepiece spells while giving
+/// Planeswalkers, Legendary cards, and 4-of build-around playsets a boost over
+/// 1-of utility cards.
+fn signature_score(row: &deckrow::Row, card: &CardDef) -> u32 {
+    let cmc = mana_value(card);
+    let face = card.faces.first();
+    let legendary = face.is_some_and(|f| {
+        f.supertypes
+            .contains(baylee_core::types::SupertypeSet::LEGENDARY)
+    });
+    let planeswalker = face.is_some_and(|f| f.types.contains(TypeSet::PLANESWALKER));
+    let copies = row.count.min(4);
+    cmc.saturating_mul(20)
+        + if planeswalker { 18 } else { 0 }
+        + if legendary { 14 } else { 0 }
+        + copies.saturating_mul(3)
 }
 
 #[cfg(test)]

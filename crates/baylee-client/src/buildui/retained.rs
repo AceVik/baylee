@@ -15,7 +15,7 @@
 use super::{BuildMenu, BuildUi, DeckTab, Env, Layout, Nav, Pane, SaveState};
 use crate::cardmat::UiCards;
 use baylee_client_core::deckbuilder::{
-    BuildField, Entry, Grouping, SectionKey, Sort, Zone, transfer::Transfer,
+    BuildField, Entry, Grouping, Rarity, SectionKey, Sort, SortDir, Zone, transfer::Transfer,
 };
 use baylee_client_core::filterdialog::FilterPanel;
 use baylee_client_core::i18n::Lang;
@@ -78,20 +78,17 @@ impl Whole {
             lang: env.lang(),
             layout: env.layout,
             pane: env.layout.one_pane().then_some(env.ui().pane),
-            popover: format!("{:?}", env.state.header_menu),
+            popover: format!("{:?}|{}", env.state.header_menu, env.state.front_menu),
         }
     }
 }
 
-/// The header's key.
+/// The header bar's key (excluding the title slot, which updates in place).
 #[derive(Clone, PartialEq)]
 #[allow(clippy::struct_excessive_bools)] // independent facts the bar shows
 struct HeaderKey {
-    name: TextBuffer,
-    renaming: bool,
     editing: Option<String>,
     dirty: bool,
-    changes: u32,
     saveable: bool,
     first_problem: Option<String>,
     busy: bool,
@@ -100,10 +97,18 @@ struct HeaderKey {
     offline: bool,
     feed_down: bool,
     unread: usize,
+    social_unread: usize,
     handle: Option<String>,
     chat_header: Option<bool>,
     menu: bool,
     pane: Pane,
+}
+
+/// The header title slot's key, updated in place inside [`super::header::HeaderTitleSlot`].
+#[derive(Clone, PartialEq)]
+struct TitleKey {
+    name: TextBuffer,
+    renaming: bool,
 }
 
 /// The pool toolbar's key.
@@ -116,13 +121,19 @@ struct ToolbarKey {
     colors: Vec<char>,
     kind: Option<String>,
     cmc: Option<u32>,
+    rarity: Option<Rarity>,
     playable: bool,
+    fav_deck: bool,
+    fav_global: bool,
+    fav_counts: (usize, usize),
     sort: Sort,
+    sort_dir: SortDir,
+    sort_menu: bool,
     filtered: bool,
     rail: bool,
     syntax: bool,
-    results: usize,
-    pool: usize,
+    pool_view: super::PoolView,
+    pool_grouped: bool,
     /// Whether the gateway's table has arrived: what the builder offers.
     facts: bool,
     loaded: bool,
@@ -131,12 +142,21 @@ struct ToolbarKey {
 
 /// The pool list's key.
 #[derive(Clone, PartialEq)]
+#[allow(clippy::struct_excessive_bools)] // independent flags that affect the pool list
 struct ListKey {
     revision: u64,
     results: Vec<usize>,
+    pool_len: usize,
     commander_pick: Option<bool>,
     loaded: bool,
     has_text: bool,
+    pool_view: super::PoolView,
+    pool_grouped: bool,
+    pool_collapsed: Vec<SectionKey>,
+    fav_deck: bool,
+    fav_global: bool,
+    deck_favs: Vec<String>,
+    global_favs: Vec<String>,
 }
 
 /// The pool's overlays: the Filters rail and the syntax popover.
@@ -147,7 +167,10 @@ struct OverKey {
     syntax: bool,
     kind: Option<String>,
     cmc: Option<u32>,
+    rarity: Option<Rarity>,
     playable: bool,
+    fav_deck: bool,
+    fav_global: bool,
     colors: Vec<char>,
     filtered: bool,
 }
@@ -160,6 +183,7 @@ struct HeadKey {
     counts: (u32, u32, u32, u32, u32),
     tab: DeckTab,
     grouping: Grouping,
+    grouping_menu: bool,
     all_folded: bool,
     revision: u64,
     pick: Option<bool>,
@@ -179,6 +203,8 @@ struct BodyKey {
     commanders: Vec<usize>,
     /// What the check found, because a row wears it.
     faults: Vec<baylee_cardtext::Problem>,
+    deck_favs: Vec<String>,
+    global_favs: Vec<String>,
 }
 
 /// What the check said, as far as anything drawn depends on it.
@@ -191,7 +217,8 @@ struct CheckKey {
     pending: bool,
     lists: Vec<baylee_cardtext::ListRow>,
     editor: Option<baylee_client_core::banlist::ListEditor>,
-    focus: BuildField,
+    focus: Option<BuildField>,
+    variants: Vec<baylee_client_core::prefs::DeckFormatVariant>,
 }
 
 /// The deck foot's key.
@@ -225,11 +252,15 @@ struct TabbarKey {
 #[derive(Clone, PartialEq)]
 struct MenuKey {
     menu: Option<BuildMenu>,
+    grouping: Grouping,
+    sort: Sort,
     zone: Zone,
     entries: Vec<Entry>,
     commanders: Vec<usize>,
     busy: bool,
     history: bool,
+    deck_favs: Vec<String>,
+    global_favs: Vec<String>,
 }
 
 /// The open sheet's key.
@@ -248,7 +279,10 @@ struct SheetKey {
     hand: Vec<usize>,
     kind: Option<String>,
     cmc: Option<u32>,
+    rarity: Option<Rarity>,
     playable: bool,
+    fav_deck: bool,
+    fav_global: bool,
     colors: Vec<char>,
     commanders: Vec<usize>,
 }
@@ -267,6 +301,7 @@ struct TransferKey {
 #[allow(clippy::option_option)] // not drawn yet, or drawn from no dialog
 struct Keys {
     header: Option<HeaderKey>,
+    title: Option<TitleKey>,
     toolbar: Option<ToolbarKey>,
     list: Option<ListKey>,
     over: Option<OverKey>,
@@ -324,7 +359,7 @@ impl Retained {
         let mut drawn = 0;
         let h = &self.holders;
         let k = &mut self.keys;
-        drawn += redraw(
+        let header_redrawn = redraw(
             commands,
             Some(h.header),
             &mut k.header,
@@ -333,6 +368,15 @@ impl Retained {
                 super::header::draw(c, at, env);
             },
         );
+        drawn += header_redrawn;
+        let now_title = title_key(env);
+        if header_redrawn > 0 {
+            k.title = Some(now_title);
+        } else if k.title.as_ref() != Some(&now_title) {
+            super::header::patch_title(commands, env);
+            k.title = Some(now_title);
+            drawn += 1;
+        }
         drawn += redraw(
             commands,
             h.toolbar,
@@ -466,11 +510,8 @@ fn header_key(env: &Env) -> HeaderKey {
     let deck = env.deck();
     let state = env.state;
     HeaderKey {
-        name: deck.buffer(BuildField::Name).clone(),
-        renaming: env.ui().nav == Nav::Field && deck.focus() == BuildField::Name,
         editing: deck.editing().map(str::to_owned),
         dirty: deck.dirty(),
-        changes: deck.changes(),
         saveable: deck.saveable(),
         first_problem: deck
             .problems(env.lang())
@@ -483,6 +524,7 @@ fn header_key(env: &Env) -> HeaderKey {
         offline: state.lobby.offline(),
         feed_down: state.feed_down,
         unread: state.bell.unread(),
+        social_unread: state.social_unread,
         handle: crate::lobby::handle(state),
         chat_header: state.chat_header,
         menu: env.ui().menu == Some(BuildMenu::Header),
@@ -490,9 +532,18 @@ fn header_key(env: &Env) -> HeaderKey {
     }
 }
 
+fn title_key(env: &Env) -> TitleKey {
+    let deck = env.deck();
+    TitleKey {
+        name: deck.buffer(BuildField::Name).clone(),
+        renaming: env.ui().nav == Nav::Field && deck.focus() == BuildField::Name,
+    }
+}
+
 fn toolbar_key(env: &Env) -> ToolbarKey {
     let deck = env.deck();
     let state = env.state;
+    let deck_key = deck.editing().unwrap_or("new");
     ToolbarKey {
         text: deck.buffer(BuildField::Search).clone(),
         typing: super::pool::search_has_caret(env),
@@ -500,13 +551,22 @@ fn toolbar_key(env: &Env) -> ToolbarKey {
         colors: deck.colors().to_vec(),
         kind: deck.kind().map(str::to_owned),
         cmc: deck.cmc(),
+        rarity: deck.rarity(),
         playable: deck.playable_only(),
+        fav_deck: env.ui().fav_deck,
+        fav_global: env.ui().fav_global,
+        fav_counts: (
+            env.prefs.deck_card_favourites_for(deck_key).len(),
+            env.prefs.card_favourites.len(),
+        ),
         sort: deck.sort(),
+        sort_dir: deck.sort_dir(),
+        sort_menu: env.ui().menu == Some(BuildMenu::Sort),
         filtered: deck.filtered(),
         rail: env.ui().rail,
         syntax: env.ui().syntax,
-        results: deck.results().len(),
-        pool: deck.pool().len(),
+        pool_view: env.ui().pool_view,
+        pool_grouped: env.ui().pool_grouped,
         facts: deck.pool_facts().is_some(),
         loaded: deck.loaded(),
         commander_pick: state.commander_pick,
@@ -515,12 +575,21 @@ fn toolbar_key(env: &Env) -> ToolbarKey {
 
 fn list_key(env: &Env) -> ListKey {
     let deck = env.deck();
+    let deck_key = deck.editing().unwrap_or("new");
     ListKey {
         revision: deck.pool_revision(),
         results: deck.results().to_vec(),
+        pool_len: deck.pool().len(),
         commander_pick: env.state.commander_pick,
         loaded: deck.loaded(),
         has_text: deck.has_text(),
+        pool_view: env.ui().pool_view,
+        pool_grouped: env.ui().pool_grouped,
+        pool_collapsed: env.ui().pool_collapsed.clone(),
+        fav_deck: env.ui().fav_deck,
+        fav_global: env.ui().fav_global,
+        deck_favs: env.prefs.deck_card_favourites_for(deck_key).to_vec(),
+        global_favs: env.prefs.card_favourites.clone(),
     }
 }
 
@@ -531,7 +600,10 @@ fn over_key(env: &Env) -> OverKey {
         syntax: env.ui().syntax,
         kind: deck.kind().map(str::to_owned),
         cmc: deck.cmc(),
+        rarity: deck.rarity(),
         playable: deck.playable_only(),
+        fav_deck: env.ui().fav_deck,
+        fav_global: env.ui().fav_global,
         colors: deck.colors().to_vec(),
         filtered: deck.filtered(),
     }
@@ -558,6 +630,7 @@ fn head_key(env: &Env) -> HeadKey {
         counts: counts(env),
         tab: ui.tab,
         grouping: ui.grouping,
+        grouping_menu: ui.menu == Some(BuildMenu::Grouping),
         all_folded: super::deck::all_folded(env),
         revision: deck.pool_revision(),
         pick: env.state.commander_pick,
@@ -568,6 +641,7 @@ fn body_key(env: &Env) -> BodyKey {
     let deck = env.deck();
     let ui: &BuildUi = env.ui();
     let shown = super::deck::shown_zone(env);
+    let deck_key = deck.editing().unwrap_or("new");
     BodyKey {
         tab: if env.layout.one_pane() && ui.pane == Pane::Stats {
             DeckTab::Stats
@@ -583,11 +657,15 @@ fn body_key(env: &Env) -> BodyKey {
         revision: deck.pool_revision(),
         commanders: deck.commanders().to_vec(),
         faults: deck.report().problems.clone(),
+        deck_favs: env.prefs.deck_card_favourites_for(deck_key).to_vec(),
+        global_favs: env.prefs.card_favourites.clone(),
     }
 }
 
 fn check_key(env: &Env) -> CheckKey {
     let deck = env.deck();
+    let focus = deck.focus();
+    let deck_key = deck.editing().unwrap_or("new");
     CheckKey {
         report: deck.report().clone(),
         format: deck.format().to_string(),
@@ -596,7 +674,8 @@ fn check_key(env: &Env) -> CheckKey {
         pending: deck.standing() != deck.report().standing(),
         lists: deck.lists().to_vec(),
         editor: deck.list_editor().cloned(),
-        focus: deck.focus(),
+        focus: matches!(focus, BuildField::ListName | BuildField::ListSearch).then_some(focus),
+        variants: env.prefs.variants_for_deck(deck_key).to_vec(),
     }
 }
 
@@ -637,13 +716,18 @@ fn tabbar_key(env: &Env) -> TabbarKey {
 fn menu_key(env: &Env) -> MenuKey {
     let deck = env.deck();
     let zone = super::deck::shown_zone(env);
+    let deck_key = deck.editing().unwrap_or("new");
     MenuKey {
         menu: env.ui().menu,
+        grouping: env.ui().grouping,
+        sort: deck.sort(),
         zone,
         entries: deck.entries(zone).to_vec(),
         commanders: deck.commanders().to_vec(),
         busy: env.state.lobby.busy(),
         history: env.state.lobby.token().is_some() && deck.editing().is_some(),
+        deck_favs: env.prefs.deck_card_favourites_for(deck_key).to_vec(),
+        global_favs: env.prefs.card_favourites.clone(),
     }
 }
 
@@ -673,7 +757,10 @@ fn sheet_key(env: &Env) -> SheetKey {
         hand: ui.hand.clone(),
         kind: deck.kind().map(str::to_owned),
         cmc: deck.cmc(),
+        rarity: deck.rarity(),
         playable: deck.playable_only(),
+        fav_deck: ui.fav_deck,
+        fav_global: ui.fav_global,
         colors: deck.colors().to_vec(),
         commanders: deck.commanders().to_vec(),
     }

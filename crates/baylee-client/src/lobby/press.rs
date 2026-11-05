@@ -95,8 +95,13 @@ impl SharedPress {
                 // The text row says which; the lobby is drawn from its state.
                 state.set_changed();
             }
-            SharedPress::PickLang(lang) if lang == state.lobby.lang() => {}
+            SharedPress::PickLang(lang) if lang == state.lobby.lang() => {
+                if state.front_menu {
+                    state.front_menu = false;
+                }
+            }
             SharedPress::PickLang(lang) => {
+                state.front_menu = false;
                 state.lobby.set_lang(lang);
                 // One setting, two readers: the interface draws itself in
                 // this language and the catalog is asked for card text in

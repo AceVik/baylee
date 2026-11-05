@@ -9,10 +9,10 @@ use crate::lobby::{hover_of_card, hover_of_entry, print_mark};
 use baylee_client_core::deckbuilder::PoolCard;
 
 mod deck;
-mod pool;
+pub(crate) mod pool;
 pub(super) mod quantity;
 pub(crate) use deck::deck_row;
-pub(crate) use pool::pool_row;
+pub(crate) use pool::{pool_compact_row, pool_grid_row, pool_row_at};
 
 /// A pool row's place in the shown results, for the cursor's highlight.
 #[derive(Component, Clone, Copy, PartialEq, Eq, Debug)]
@@ -100,10 +100,10 @@ fn print(commands: &mut Commands, hover: &crate::lobby::HoverCard, height: f32) 
     thumb
 }
 
-/// A deck section's heading: its caret, its name and count; a press folds
-/// it or opens it again.
-#[allow(clippy::too_many_arguments)] // one heading: where, which, and what it says
-pub(crate) fn section_head(
+/// A section's heading (shared by deck sections and pool type sections):
+/// its caret, its name and count; a press folds it or opens it again.
+#[allow(clippy::too_many_arguments)]
+fn spawn_section_head(
     commands: &mut Commands,
     kit: Kit,
     lang: Lang,
@@ -112,6 +112,7 @@ pub(crate) fn section_head(
     folded: bool,
     top: f32,
     height: f32,
+    press: BuildPress,
 ) -> Entity {
     let m = kit.m;
     let row = commands
@@ -129,7 +130,7 @@ pub(crate) fn section_head(
                 ..default()
             },
             BackgroundColor(Color::NONE),
-            Press::Build(BuildPress::ToggleSection(key)),
+            Press::Build(press),
         ))
         .id();
     let caret = glyph(
@@ -146,6 +147,57 @@ pub(crate) fn section_head(
     );
     commands.entity(row).add_children(&[caret, name]);
     row
+}
+
+/// A deck section's heading: its caret, its name and count; a press folds
+/// it or opens it again.
+#[allow(clippy::too_many_arguments)] // one heading: where, which, and what it says
+pub(crate) fn section_head(
+    commands: &mut Commands,
+    kit: Kit,
+    lang: Lang,
+    key: SectionKey,
+    cards: u32,
+    folded: bool,
+    top: f32,
+    height: f32,
+) -> Entity {
+    spawn_section_head(
+        commands,
+        kit,
+        lang,
+        key,
+        cards,
+        folded,
+        top,
+        height,
+        BuildPress::ToggleSection(key),
+    )
+}
+
+/// A pool section's heading when the pool is grouped by card type.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn pool_section_head(
+    commands: &mut Commands,
+    kit: Kit,
+    lang: Lang,
+    key: SectionKey,
+    cards: u32,
+    folded: bool,
+    top: f32,
+    height: f32,
+) -> Entity {
+    spawn_section_head(
+        commands,
+        kit,
+        lang,
+        key,
+        cards,
+        folded,
+        top,
+        height,
+        BuildPress::TogglePoolSection(key),
+    )
 }
 
 #[cfg(test)]
@@ -174,8 +226,19 @@ mod tests {
         );
         assert!(state.lobby.builder_mut().add(0, Zone::Main));
         let mut commands = world.commands();
-        let pool = pool_row(&mut commands, kit, &state, 0, 0, 72.0).unwrap();
-        let deck = deck_row(&mut commands, kit, &state, Zone::Main, 0, 0, 0.0, 72.0).unwrap();
+        let pool = pool_row_at(&mut commands, kit, &state, None, 0, 0, 0.0, 72.0).unwrap();
+        let deck = deck_row(
+            &mut commands,
+            kit,
+            &state,
+            None,
+            Zone::Main,
+            0,
+            0,
+            0.0,
+            72.0,
+        )
+        .unwrap();
         world.flush();
         for row in [pool, deck] {
             let cost = world

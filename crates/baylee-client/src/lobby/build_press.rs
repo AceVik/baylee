@@ -45,10 +45,22 @@ pub(crate) enum BuildPress {
     /// Show only one mana value, or all of them again. Doubles as the click
     /// target on a curve bar.
     SetCmc(u32),
+    /// Show only one rarity, or all of them again.
+    SetRarity(Option<baylee_client_core::deckbuilder::Rarity>),
     /// Hide the cards the engine does not play properly, or stop hiding them.
     TogglePlayable,
-    /// Change what the results are sorted by.
+    /// Cycle the sort direction (`Asc -> Desc -> Unset -> Asc`).
     CycleSort,
+    /// Open or close the sort-criterion dropdown menu.
+    ToggleSortMenu,
+    /// Choose a specific sort criterion from the sort dropdown menu.
+    SelectSort(baylee_client_core::deckbuilder::Sort),
+    /// Save the current deck state and format as a format variant (`DeckFormatVariant`).
+    SaveFormatVariant,
+    /// Switch the deck to the saved format variant at index `usize`.
+    LoadFormatVariant(usize),
+    /// Delete the saved format variant at index `usize`.
+    DeleteFormatVariant(usize),
     /// Drop every filter at once.
     ClearFilters,
     /// Empty both zones.
@@ -70,6 +82,8 @@ pub(crate) enum BuildPress {
     RemoveAll(usize),
     /// Open the header's menu, or shut it.
     ToggleHeaderMenu,
+    /// Open the deck head's grouping menu, or shut it.
+    ToggleGroupingMenu,
     /// Open a pool row's menu, by its card's slot.
     PoolMenu(usize),
     /// Open a deck row's menu, by its index in the shown list.
@@ -78,8 +92,24 @@ pub(crate) enum BuildPress {
     CloseMenu,
     /// Rename the deck: the title becomes its box (F2, the pen).
     Rename,
-    /// The settings screen, from the header's menu.
-    BuilderSettings,
+    /// Finish renaming the deck and return focus from the name input.
+    FinishRename,
+    /// Delete the deck currently open in the builder and return to Decks.
+    DeleteBuildDeck,
+    /// Switch the pool's view mode (List, Grid, Compact).
+    SetPoolView(crate::buildui::PoolView),
+    /// Toggle sectioning the pool by card type.
+    TogglePoolGrouped,
+    /// Fold or unfold one section of the sectioned pool list.
+    TogglePoolSection(baylee_client_core::deckbuilder::SectionKey),
+    /// Toggle marking a pool card (`slot`) as a favourite for the current deck.
+    ToggleCardFavDeck(usize),
+    /// Toggle marking a pool card (`slot`) as a general/global favourite across all decks.
+    ToggleCardFavGlobal(usize),
+    /// Toggle filtering the pool to cards marked as favourites for the current deck (`★ Deck`).
+    ToggleFilterFavDeck,
+    /// Toggle filtering the pool to cards marked as general/global favourites (`★ Allgemein`).
+    ToggleFilterFavGlobal,
     /// Open the Filters rail (a sheet on a phone), or shut it.
     ToggleRail,
     /// Open the search syntax popover, or shut it.
@@ -192,6 +222,7 @@ fn leave_the_builder(state: &mut ResMut<LobbyState>, mailbox: &Mailbox) {
     if state.confirm_leave {
         state.confirm_leave = false;
     }
+    super::http::commit_session_version(state, mailbox);
     state.hub = Hub::Decks;
     let request = state.lobby.close_builder();
     dispatch(state, mailbox, request);
@@ -203,17 +234,21 @@ impl BuildPress {
     pub(super) fn handle(self, cx: Cx<'_, '_, '_, '_, '_>) {
         let Cx {
             state,
-            prefs: cx_prefs,
+            prefs,
             scrolled,
             mailbox,
-            settings: cx_settings,
+            settings: _,
         } = cx;
         // A press on anything but a menu's own opener puts the open menu
         // away; the item pressed then does what it says.
         if state.build.menu.is_some()
             && !matches!(
                 self,
-                BuildPress::ToggleHeaderMenu | BuildPress::PoolMenu(_) | BuildPress::DeckMenu(_)
+                BuildPress::ToggleHeaderMenu
+                    | BuildPress::ToggleGroupingMenu
+                    | BuildPress::ToggleSortMenu
+                    | BuildPress::PoolMenu(_)
+                    | BuildPress::DeckMenu(_)
             )
         {
             state.build.menu = None;
@@ -250,7 +285,15 @@ impl BuildPress {
             // Back asks first when there is something unsaved: "Discard
             // changes?", the builder's one confirm (KEYBOARD §2.5).
             BuildPress::CloseBuilder => {
-                if state.lobby.builder().dirty() {
+                let auto_saves = (state.lobby.token().is_some()
+                    || state.offline.is_some()
+                    || state.central_without_gateway())
+                    && !state
+                        .lobby
+                        .builder()
+                        .entries(baylee_client_core::deckbuilder::Zone::Main)
+                        .is_empty();
+                if state.lobby.builder().dirty() && !auto_saves {
                     if !state.confirm_leave {
                         state.confirm_leave = true;
                     }
@@ -265,15 +308,40 @@ impl BuildPress {
             }
             BuildPress::DiscardAndLeave => {
                 let editing = state.lobby.builder().editing().map(str::to_owned);
+                if editing.is_none() && !prefs.all().deck_card_favourites_for("new").is_empty() {
+                    prefs.edit().remove_deck_card_favourites("new");
+                }
                 crate::buildui::draft::forget(&[editing.as_deref()]);
                 leave_the_builder(state, mailbox);
             }
             BuildPress::SaveDeck => {
-                let request = state.lobby.save_deck();
-                if request.is_some() {
-                    state.build.save = crate::buildui::SaveState::Saving;
+                if state.lobby.builder().name().trim().is_empty()
+                    && !state.lobby.builder().entries(Zone::Main).is_empty()
+                {
+                    let default_name = Phrase::BuildUntitled.text(state.lobby.lang()).to_string();
+                    state.lobby.builder_mut().set_default_name(&default_name);
                 }
-                dispatch(state, mailbox, request);
+                if state.offline.is_some() || state.central_without_gateway() {
+                    let old_key = state.lobby.builder().editing().unwrap_or("new").to_owned();
+                    super::http::auto_save_deck(state, mailbox);
+                    if let Some(new_id) = state.lobby.builder().editing().map(str::to_owned)
+                        && new_id != old_key
+                    {
+                        if !prefs.all().deck_card_favourites_for(&old_key).is_empty() {
+                            prefs.edit().migrate_deck_card_favourites(&old_key, &new_id);
+                        }
+                        if !prefs.all().variants_for_deck(&old_key).is_empty() {
+                            prefs.edit().migrate_deck_variants(&old_key, &new_id);
+                        }
+                    }
+                    state.lobby.tell(Phrase::DeckSaved, &[]);
+                } else {
+                    let request = state.lobby.save_deck();
+                    if request.is_some() {
+                        state.build.save = crate::buildui::SaveState::Saving;
+                    }
+                    dispatch(state, mailbox, request);
+                }
             }
             BuildPress::FocusBuild(field) => {
                 let deck = state.lobby.builder_mut();
@@ -296,6 +364,70 @@ impl BuildPress {
                     .edit_buffer(BuildField::Name, crate::buildui::select_all);
                 crate::buildui::move_nav(state, crate::buildui::Nav::Field);
             }
+            BuildPress::FinishRename => {
+                state.lobby.builder_mut().focus_on(BuildField::Search);
+                crate::buildui::move_nav(state, crate::buildui::Nav::Idle);
+                if (!state.gateway.is_empty() && state.lobby.token().is_some())
+                    || state.offline.is_some()
+                    || state.central_without_gateway()
+                {
+                    super::http::auto_save_deck(state, mailbox);
+                }
+            }
+            BuildPress::DeleteBuildDeck => {
+                state.build.menu = None;
+                state.confirmation = Some(confirm::Destructive::DeleteBuildDeck(
+                    state.lobby.builder().editing().map(str::to_owned),
+                ));
+            }
+            BuildPress::SetPoolView(view) => {
+                if state.build.pool_view != view {
+                    state.build.pool_view = view;
+                    scrolled.set(List::Pool, 0.0);
+                }
+            }
+            BuildPress::TogglePoolGrouped => {
+                state.build.pool_grouped = !state.build.pool_grouped;
+                state.build.pool_collapsed.clear();
+                scrolled.set(List::Pool, 0.0);
+            }
+            BuildPress::TogglePoolSection(key) => {
+                let folded = &mut state.build.pool_collapsed;
+                if let Some(at) = folded.iter().position(|k| *k == key) {
+                    folded.remove(at);
+                } else {
+                    folded.push(key);
+                }
+            }
+            BuildPress::ToggleCardFavDeck(slot) => {
+                let deck_key = state.lobby.builder().editing().unwrap_or("new").to_owned();
+                if let Some(name) = state
+                    .lobby
+                    .builder()
+                    .card(slot)
+                    .map(|c| c.english_name.clone())
+                {
+                    prefs.edit().toggle_deck_card_favourite(&deck_key, &name);
+                }
+            }
+            BuildPress::ToggleCardFavGlobal(slot) => {
+                if let Some(name) = state
+                    .lobby
+                    .builder()
+                    .card(slot)
+                    .map(|c| c.english_name.clone())
+                {
+                    prefs.edit().toggle_card_favourite(&name);
+                }
+            }
+            BuildPress::ToggleFilterFavDeck => {
+                state.build.fav_deck = !state.build.fav_deck;
+                scrolled.set(List::Pool, 0.0);
+            }
+            BuildPress::ToggleFilterFavGlobal => {
+                state.build.fav_global = !state.build.fav_global;
+                scrolled.set(List::Pool, 0.0);
+            }
             BuildPress::PickRowPrint(at) => {
                 scrolled.set(List::PickerPanel, 0.0);
                 state.build.window_back = false;
@@ -304,12 +436,13 @@ impl BuildPress {
                 dispatch(state, mailbox, request);
             }
             BuildPress::PickCommanderPrint(slot) => {
-                let Some(at) = state.lobby.builder().commander_row(slot) else {
-                    return;
-                };
                 scrolled.set(List::PickerPanel, 0.0);
                 state.build.window_back = false;
-                let request = state.lobby.builder_mut().open_row_picker(at, Zone::Main);
+                let request = if let Some(at) = state.lobby.builder().commander_row(slot) {
+                    state.lobby.builder_mut().open_row_picker(at, Zone::Main)
+                } else {
+                    state.lobby.builder_mut().open_picker(slot, Zone::Main)
+                };
                 dispatch(state, mailbox, request);
             }
             BuildPress::PickPrint(slot) => {
@@ -447,9 +580,106 @@ impl BuildPress {
                 builder.set_cmc(if same { None } else { Some(cmc) });
             }
             BuildPress::ClearCmc => state.lobby.builder_mut().set_cmc(None),
+            BuildPress::SetRarity(rarity) => {
+                state.lobby.builder_mut().set_rarity(rarity);
+                scrolled.set(List::Pool, 0.0);
+            }
             BuildPress::TogglePlayable => state.lobby.builder_mut().toggle_playable_only(),
-            BuildPress::CycleSort => state.lobby.builder_mut().cycle_sort(),
-            BuildPress::ClearFilters => state.lobby.builder_mut().clear_filters(),
+            BuildPress::CycleSort => {
+                state.lobby.builder_mut().cycle_sort_dir();
+                scrolled.set(List::Pool, 0.0);
+            }
+            BuildPress::ToggleSortMenu => {
+                state.build.menu = if state.build.menu == Some(BuildMenu::Sort) {
+                    None
+                } else {
+                    Some(BuildMenu::Sort)
+                };
+            }
+            BuildPress::SelectSort(sort) => {
+                state.lobby.builder_mut().set_sort(sort);
+                scrolled.set(List::Pool, 0.0);
+            }
+            BuildPress::SaveFormatVariant => {
+                if (state.offline.is_some() || state.central_without_gateway())
+                    && state
+                        .lobby
+                        .builder()
+                        .editing()
+                        .is_none_or(|id| id.starts_with("builtin:"))
+                {
+                    let old_key = state.lobby.builder().editing().unwrap_or("new").to_owned();
+                    super::http::auto_save_deck(state, mailbox);
+                    if let Some(new_id) = state.lobby.builder().editing().map(str::to_owned)
+                        && new_id != old_key
+                    {
+                        if !prefs.all().deck_card_favourites_for(&old_key).is_empty() {
+                            prefs.edit().migrate_deck_card_favourites(&old_key, &new_id);
+                        }
+                        if !prefs.all().variants_for_deck(&old_key).is_empty() {
+                            prefs.edit().migrate_deck_variants(&old_key, &new_id);
+                        }
+                    }
+                }
+                let deck_key = state.lobby.builder().editing().unwrap_or("new").to_owned();
+                let format = state.lobby.builder().format().to_owned();
+                let label = format.clone();
+                let cards = state.lobby.builder().rows(Zone::Main);
+                let sideboard = state.lobby.builder().rows(Zone::Side);
+                let commanders = state.lobby.builder().commander_names();
+                let banlist_id = state.lobby.builder().list().map(|l| l.id.clone());
+                prefs.edit().upsert_deck_variant(
+                    &deck_key,
+                    baylee_client_core::prefs::DeckFormatVariant {
+                        label,
+                        format,
+                        cards,
+                        sideboard,
+                        commanders,
+                        banlist_id,
+                    },
+                );
+            }
+            BuildPress::LoadFormatVariant(at) => {
+                let deck_key = state.lobby.builder().editing().unwrap_or("new").to_owned();
+                if let Some(variant) = prefs.all().variants_for_deck(&deck_key).get(at).cloned() {
+                    state.lobby.builder_mut().apply_variant(
+                        &variant.format,
+                        &variant.cards,
+                        &variant.sideboard,
+                        &variant.commanders,
+                    );
+                    if let Some(banlist_id) = variant.banlist_id {
+                        if state.lobby.token().is_some() {
+                            dispatch(
+                                state,
+                                mailbox,
+                                Some(LobbyRequest::LoadBanlist {
+                                    id: banlist_id,
+                                    into: ListFor::Deck,
+                                }),
+                            );
+                        }
+                    } else {
+                        state.lobby.builder_mut().set_list(None);
+                    }
+                    if (!state.gateway.is_empty() && state.lobby.token().is_some())
+                        || state.offline.is_some()
+                        || state.central_without_gateway()
+                    {
+                        super::http::auto_save_deck(state, mailbox);
+                    }
+                }
+            }
+            BuildPress::DeleteFormatVariant(at) => {
+                let deck_key = state.lobby.builder().editing().unwrap_or("new").to_owned();
+                prefs.edit().remove_deck_variant(&deck_key, at);
+            }
+            BuildPress::ClearFilters => {
+                state.build.fav_deck = false;
+                state.build.fav_global = false;
+                state.lobby.builder_mut().clear_filters();
+            }
             BuildPress::ClearDeck => {
                 state.build.menu = None;
                 state.confirmation = Some(confirm::Destructive::Clear(
@@ -538,6 +768,13 @@ impl BuildPress {
                     Some(BuildMenu::Header)
                 };
             }
+            BuildPress::ToggleGroupingMenu => {
+                state.build.menu = if state.build.menu == Some(BuildMenu::Grouping) {
+                    None
+                } else {
+                    Some(BuildMenu::Grouping)
+                };
+            }
             BuildPress::PoolMenu(slot) => {
                 state.build.menu = if state.build.menu == Some(BuildMenu::Pool(slot)) {
                     None
@@ -556,16 +793,6 @@ impl BuildPress {
                 if state.build.menu.is_some() {
                     state.build.menu = None;
                 }
-            }
-            BuildPress::BuilderSettings => {
-                state.build.menu = None;
-                SettingsPress::OpenSettings.handle(Cx {
-                    state,
-                    prefs: cx_prefs,
-                    scrolled,
-                    mailbox,
-                    settings: cx_settings,
-                });
             }
             BuildPress::ToggleRail => {
                 state.build.rail = !state.build.rail;

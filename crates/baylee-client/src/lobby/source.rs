@@ -23,9 +23,20 @@ use qrcodegen::{QrCode, QrCodeEcc};
 /// front door's top-right tile as a code and as text, opened on a click.
 pub(crate) const DISCORD_URL: &str = "https://discord.gg/4pP3uAwgY";
 
+/// The community's `WhatsApp` invitation (`baylee-central` `web/src/config.ts`),
+/// drawn on the front door as a community button and QR tile, opened on a click.
+pub(crate) const WHATSAPP_URL: &str = "https://chat.whatsapp.com/JsWHl71rnPPGEG74w48vk6";
+
+/// Baylee's website, linked from Central's sign-in form.
+pub(crate) const CENTRAL_WEBSITE_URL: &str = "https://baylee.app";
+
 /// Where a Baylee account is made: the website's registration page, which
 /// Central's sign-in form links to (baylee-central `docs/web-accounts.md`).
 pub(crate) const CENTRAL_REGISTER_URL: &str = "https://baylee.app/register";
+
+/// Releases and changelog on GitHub, opened when clicking the bottom-left
+/// version badge.
+pub(crate) const CHANGELOG_URL: &str = "https://github.com/AceVik/baylee/releases";
 
 /// The light round a code, in modules: the standard's quiet zone.
 const QUIET: i32 = 4;
@@ -70,6 +81,12 @@ pub(super) fn keep_the_code(mut state: ResMut<LobbyState>, images: Option<ResMut
     };
     if state.discord_code.is_none() {
         state.discord_code = code(&mut images, DISCORD_URL);
+    }
+    if state.whatsapp_code.is_none() {
+        state.whatsapp_code = code(&mut images, WHATSAPP_URL);
+    }
+    if state.website_code.is_none() {
+        state.website_code = code(&mut images, CENTRAL_WEBSITE_URL);
     }
     let url = super::front::source_address(&state);
     let drawn = state.source_code.as_ref().map(|code| code.url.as_str());
@@ -139,7 +156,10 @@ pub(crate) fn address_of(press: super::front::FrontPress, state: &LobbyState) ->
     match press {
         FrontPress::OpenSource => web_address(super::front::source_address(state)),
         FrontPress::OpenDiscord => web_address(DISCORD_URL),
+        FrontPress::OpenWhatsApp => web_address(WHATSAPP_URL),
+        FrontPress::OpenWebsite => web_address(CENTRAL_WEBSITE_URL),
         FrontPress::OpenCentralRegister => web_address(CENTRAL_REGISTER_URL),
+        FrontPress::OpenChangelog => web_address(CHANGELOG_URL),
         FrontPress::OpenImpressum => super::front::impressum_link(state).map(|(url, _)| url),
         _ => None,
     }
@@ -161,7 +181,11 @@ mod tests {
     /// looks for it (a dark ring, a light ring, a dark core).
     #[test]
     fn a_code_is_its_modules_inside_a_quiet_zone() {
-        for url in ["https://github.com/AceVik/baylee", DISCORD_URL] {
+        for url in [
+            "https://github.com/AceVik/baylee",
+            DISCORD_URL,
+            WHATSAPP_URL,
+        ] {
             a_code_says(url);
         }
     }
@@ -189,6 +213,20 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn the_whatsapp_code_says_the_invitation() {
+        assert_eq!(
+            WHATSAPP_URL,
+            "https://chat.whatsapp.com/JsWHl71rnPPGEG74w48vk6"
+        );
+        assert_eq!(web_address(WHATSAPP_URL).as_deref(), Some(WHATSAPP_URL));
+        let state = LobbyState::from_settings(crate::settings::ClientSettings::default());
+        assert_eq!(
+            address_of(super::super::front::FrontPress::OpenWhatsApp, &state).as_deref(),
+            Some(WHATSAPP_URL)
+        );
     }
 
     fn a_code_says(url: &str) {

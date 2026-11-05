@@ -212,10 +212,23 @@ pub(crate) enum Readout {
     Figures,
     /// How full the cache is.
     Cache,
+    /// Downloaded / total card count (`4.210 / 10.754`).
+    CountPair,
+    /// Current download speed (`1,2 MB/s`).
+    Speed,
+    /// Downloaded size so far (`1,1 GB`).
+    DownloadedSize,
+    /// Estimated total size (`~ 2,4 GB`).
+    EstimatedTotalSize,
+    /// Estimated remaining time (`~ 12 min`).
+    RemainingTime,
+    /// Short round description (`Vorschaubilder · Runde 1/2`).
+    RoundShort,
 }
 
 impl Readout {
     fn said(self, lang: Lang, progress: &Progress) -> String {
+        use baylee_client_core::sizewords::{rate, size};
         match self {
             Self::Status => words::status(lang, progress.status),
             Self::Percent if progress.pictures_total > 0 => words::percent_text(lang, progress),
@@ -223,6 +236,70 @@ impl Readout {
             Self::Cards => words::cards(lang, progress),
             Self::Figures => words::figures(lang, progress),
             Self::Cache => words::cache(lang, progress),
+            Self::CountPair => {
+                if progress.cards_total > 0 {
+                    format!(
+                        "{} / {}",
+                        words::grouped(lang, progress.cards_done),
+                        words::grouped(lang, progress.cards_total)
+                    )
+                } else if progress.pictures_total > 0 {
+                    format!(
+                        "{} / {}",
+                        words::grouped(lang, progress.pictures_done),
+                        words::grouped(lang, progress.pictures_total)
+                    )
+                } else {
+                    "—".to_owned()
+                }
+            }
+            Self::Speed => progress
+                .speed
+                .map_or_else(|| "—".to_owned(), |s| rate(lang, s)),
+            Self::DownloadedSize => {
+                let bytes = progress.cached.unwrap_or(progress.bytes);
+                if bytes > 0 {
+                    size(lang, bytes)
+                } else {
+                    size(lang, 0)
+                }
+            }
+            Self::EstimatedTotalSize => {
+                let done_bytes = progress.cached.unwrap_or(progress.bytes);
+                let share = f64::from(words::share(progress));
+                if share > 0.01 && done_bytes > 0 {
+                    #[allow(
+                        clippy::cast_possible_truncation,
+                        clippy::cast_sign_loss,
+                        clippy::cast_precision_loss
+                    )]
+                    let est = ((done_bytes as f64) / share).round() as u64;
+                    format!("~ {}", size(lang, est.max(done_bytes)))
+                } else if progress.budget > 0 {
+                    format!("≤ {}", size(lang, progress.budget))
+                } else {
+                    "—".to_owned()
+                }
+            }
+            Self::RemainingTime => progress.left.map_or_else(
+                || "—".to_owned(),
+                |left| format!("~ {}", words::span(lang, left)),
+            ),
+            Self::RoundShort => progress.round.map_or_else(String::new, |round| {
+                let which = match round {
+                    baylee_client_core::cachefill::Round::Thumbnails => {
+                        Phrase::CardFillRoundThumbnails
+                    }
+                    baylee_client_core::cachefill::Round::Large => Phrase::CardFillRoundLarge,
+                };
+                which.fill(
+                    lang,
+                    &[
+                        &(round.index() + 1).to_string(),
+                        &progress.rounds.to_string(),
+                    ],
+                )
+            }),
         }
     }
 }
@@ -473,26 +550,33 @@ pub(crate) struct FillMark;
 pub(crate) struct FillMarkShare;
 
 /// The mark, hidden until [`show_mark`] says otherwise. A hit area like the
-/// header's other tools, opening the block.
+/// header's other tools, opening the card-fill details popover.
 pub(crate) fn mark(commands: &mut Commands, kit: Kit) -> Entity {
     let m: ShellMetrics = kit.m;
     let face = commands
         .spawn((
+            crate::shellkit::Role::Button,
             Node {
                 min_height: m.px(32.0),
-                padding: UiRect::axes(m.px(6.0), m.px(4.0)),
+                padding: UiRect::axes(m.px(10.0), m.px(4.0)),
                 align_items: AlignItems::Center,
-                column_gap: m.px(4.0),
+                column_gap: m.px(6.0),
+                border: UiRect::all(px_fixed(1.0)),
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PILL)),
                 ..default()
             },
+            BackgroundColor(tokens::CONTROL.with_alpha(0.75)),
+            BorderColor::all(tokens::BORDER),
+            UiTransform::default(),
+            crate::ambience::Feel::new(tokens::CONTROL.with_alpha(0.75)),
             Pickable::IGNORE,
         ))
         .id();
     let glyph = commands
         .spawn((
             Text::new(crate::hud::glyph::DOWNLOAD.to_string()),
-            crate::hud::icon_tf(kit.fonts, m.small),
-            TextColor(tokens::MUTED),
+            crate::hud::icon_tf(kit.fonts, m.small * 0.92),
+            TextColor(tokens::ACCENT),
             Pickable::IGNORE,
         ))
         .id();
@@ -500,8 +584,8 @@ pub(crate) fn mark(commands: &mut Commands, kit: Kit) -> Entity {
         .spawn((
             FillMarkShare,
             Text::new(""),
-            crate::hud::tf(kit.fonts, m.small),
-            TextColor(tokens::MUTED),
+            crate::hud::tf_bold(kit.fonts, m.small * 0.92),
+            TextColor(tokens::INK),
             Pickable::IGNORE,
         ))
         .id();
@@ -512,7 +596,8 @@ pub(crate) fn mark(commands: &mut Commands, kit: Kit) -> Entity {
         face,
         (
             FillMark,
-            Press::Settings(SettingsPress::Fill(FillPress::Show)),
+            crate::shellkit::header::HeaderTrigger::CardFill,
+            Press::Header(header::HeaderPress::CardFill),
             hint::HoverHint(String::new()),
         ),
     );
@@ -520,6 +605,332 @@ pub(crate) fn mark(commands: &mut Commands, kit: Kit) -> Entity {
         node.display = Display::None;
     });
     hit
+}
+
+fn popover_readout_text(
+    commands: &mut Commands,
+    kit: Kit,
+    readout: Readout,
+    ink: Color,
+    size: f32,
+    bold: bool,
+) -> Entity {
+    let font = if bold {
+        crate::hud::tf_bold(kit.fonts, size)
+    } else {
+        crate::hud::tf(kit.fonts, size)
+    };
+    commands
+        .spawn((
+            readout,
+            Text::new(""),
+            TextLayout::new(Justify::Left, LineBreak::WordOrCharacter),
+            Node {
+                min_width: px_fixed(0.0),
+                ..default()
+            },
+            font,
+            TextColor(ink),
+            Pickable::IGNORE,
+        ))
+        .id()
+}
+
+fn metric_tile(
+    commands: &mut Commands,
+    kit: Kit,
+    icon_glyph: char,
+    title: &str,
+    readout: Readout,
+) -> Entity {
+    let m = kit.m;
+    let tile = commands
+        .spawn((
+            Node {
+                flex_grow: 1.0,
+                flex_basis: Val::Percent(46.0),
+                flex_direction: FlexDirection::Column,
+                row_gap: m.px(3.0),
+                padding: UiRect::axes(m.px(10.0), m.px(8.0)),
+                border: UiRect::all(px_fixed(1.0)),
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL)),
+                ..default()
+            },
+            BackgroundColor(tokens::CONTROL.with_alpha(0.62)),
+            BorderColor::all(tokens::BORDER),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let label_row = commands
+        .spawn((
+            Node {
+                align_items: AlignItems::Center,
+                column_gap: m.px(5.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let icon = commands
+        .spawn((
+            Text::new(icon_glyph.to_string()),
+            crate::hud::icon_tf(kit.fonts, m.small * 0.82),
+            TextColor(tokens::MUTED),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let cap = commands
+        .spawn((
+            Text::new(title.to_owned()),
+            crate::hud::tf(kit.fonts, m.small * 0.84),
+            TextColor(tokens::MUTED),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(label_row).add_children(&[icon, cap]);
+    let val = popover_readout_text(commands, kit, readout, tokens::INK, m.small * 0.98, true);
+    commands.entity(tile).add_children(&[label_row, val]);
+    tile
+}
+
+/// Rich dropdown popover opened when clicking the header's cache-warmup indicator.
+#[allow(clippy::too_many_lines)]
+pub(crate) fn popover(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Entity {
+    let m = kit.m;
+    let lang = state.lobby.lang();
+    let de = lang == Lang::De;
+    let root = commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                flex_direction: FlexDirection::Column,
+                row_gap: m.px(10.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+
+    // Header row: status + percentage badge
+    let head = commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                justify_content: JustifyContent::SpaceBetween,
+                align_items: AlignItems::Center,
+                column_gap: m.px(8.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let left_col = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Column,
+                row_gap: m.px(2.0),
+                flex_shrink: 1.0,
+                min_width: px_fixed(0.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let status = popover_readout_text(commands, kit, Readout::Status, tokens::INK, m.text, true);
+    let round_line = popover_readout_text(
+        commands,
+        kit,
+        Readout::RoundShort,
+        tokens::MUTED,
+        m.small * 0.86,
+        false,
+    );
+    commands
+        .entity(left_col)
+        .add_children(&[status, round_line]);
+
+    let badge = commands
+        .spawn((
+            Node {
+                padding: UiRect::axes(m.px(8.0), m.px(3.0)),
+                border: UiRect::all(px_fixed(1.0)),
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PILL)),
+                ..default()
+            },
+            BackgroundColor(tokens::ACCENT.with_alpha(0.14)),
+            BorderColor::all(tokens::ACCENT.with_alpha(0.42)),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let pct = popover_readout_text(
+        commands,
+        kit,
+        Readout::Percent,
+        tokens::ACCENT,
+        m.small * 0.94,
+        true,
+    );
+    commands.entity(badge).add_child(pct);
+    commands.entity(head).add_children(&[left_col, badge]);
+
+    // Progress bar
+    let track = commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                height: m.px(7.0),
+                flex_shrink: 0.0,
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PILL)),
+                overflow: Overflow::clip(),
+                ..default()
+            },
+            BackgroundColor(tokens::TRACK_OFF),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let filled = commands
+        .spawn((
+            FillBar,
+            Node {
+                width: Val::Percent(0.0),
+                height: Val::Percent(100.0),
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PILL)),
+                ..default()
+            },
+            BackgroundColor(tokens::ACCENT),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(track).add_child(filled);
+
+    // 2x3 grid of detailed metrics
+    let grid = commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                flex_wrap: FlexWrap::Wrap,
+                column_gap: m.px(6.0),
+                row_gap: m.px(6.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let t_cards = metric_tile(
+        commands,
+        kit,
+        crate::hud::glyph::LIBRARY,
+        if de {
+            "Karten geladen"
+        } else {
+            "Cards downloaded"
+        },
+        Readout::CountPair,
+    );
+    let t_speed = metric_tile(
+        commands,
+        kit,
+        crate::hud::glyph::ENERGY,
+        if de { "Geschwindigkeit" } else { "Speed" },
+        Readout::Speed,
+    );
+    let t_done = metric_tile(
+        commands,
+        kit,
+        crate::hud::glyph::DOWNLOAD,
+        if de { "Heruntergeladen" } else { "Downloaded" },
+        Readout::DownloadedSize,
+    );
+    let t_total = metric_tile(
+        commands,
+        kit,
+        crate::hud::glyph::ZONES,
+        if de {
+            "Gesamtgröße (gesch.)"
+        } else {
+            "Total size (est.)"
+        },
+        Readout::EstimatedTotalSize,
+    );
+    let t_left = metric_tile(
+        commands,
+        kit,
+        crate::hud::glyph::CLOCK,
+        if de {
+            "Restzeit (gesch.)"
+        } else {
+            "Remaining (est.)"
+        },
+        Readout::RemainingTime,
+    );
+    commands
+        .entity(grid)
+        .add_children(&[t_cards, t_speed, t_done, t_total, t_left]);
+
+    // Footer actions: Pause/Resume + Open Network Settings
+    let actions_row = commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                column_gap: m.px(8.0),
+                padding: UiRect::top(m.px(2.0)),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+
+    let view = state.settings_view.fill;
+    let going = match view.buttons {
+        FillButtons::Going => Some((Phrase::CardFillPause, FillPress::Pause)),
+        FillButtons::Paused => Some((Phrase::CardFillResume, FillPress::Pause)),
+        FillButtons::Stopped => Some((Phrase::CardFillTryAgain, FillPress::TryAgain)),
+        FillButtons::Resting => None,
+    };
+    if let Some((words, action)) = going {
+        let pause_btn = controls::button(
+            commands,
+            kit,
+            words.text(lang),
+            Weight::Secondary,
+            controls::Live::Yes,
+            None,
+            Press::Settings(SettingsPress::Fill(action)),
+        );
+        commands
+            .entity(pause_btn)
+            .entry::<Node>()
+            .and_modify(move |mut n| {
+                n.flex_grow = 1.0;
+                n.flex_basis = px_fixed(0.0);
+                n.min_height = m.px(32.0);
+            });
+        commands.entity(actions_row).add_child(pause_btn);
+    }
+
+    let settings_btn = controls::button(
+        commands,
+        kit,
+        Phrase::SettingsTitle.text(lang),
+        Weight::Secondary,
+        controls::Live::Yes,
+        None,
+        Press::Settings(SettingsPress::Fill(FillPress::Show)),
+    );
+    commands
+        .entity(settings_btn)
+        .entry::<Node>()
+        .and_modify(move |mut n| {
+            n.flex_grow = 1.0;
+            n.flex_basis = px_fixed(0.0);
+            n.min_height = m.px(32.0);
+        });
+    commands.entity(actions_row).add_child(settings_btn);
+
+    commands
+        .entity(root)
+        .add_children(&[head, track, grid, actions_row]);
+    root
 }
 
 /// Stands the mark while pictures are on their way, and keeps its words true.

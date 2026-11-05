@@ -34,7 +34,6 @@ use super::{Asked, Fetch, Progress, Shown, UpdateButton, UpdateNotice, UpdatePla
 use crate::hud::{UiFonts, palette, tf};
 use crate::settings::ClientSettings;
 use crate::shellkit::controls::Kit;
-use crate::shellkit::role::Role;
 use crate::shellkit::{InputClass, Platform, ShellMetrics, TextSize, Viewport, px_fixed};
 use crate::ui_button::UiButton;
 use crate::{DuelPhase, lobby};
@@ -288,17 +287,16 @@ pub(super) fn show_progress(
     }
 }
 
-/// Fit the card to the measured front-door page above its legal footer, or
-/// to the table between the report corner and the hand/decision ledge.
+/// Fit the card to the bottom-right corner of the window, or to the table
+/// between the report corner and the hand/decision ledge.
 /// Read UI units, including `UiScale`, and compare before writing: neither a
 /// resize nor a taller footer requires rebuilding the card or its buttons.
-#[allow(clippy::type_complexity)] // disjoint root/actions nodes; measured lobby page
+#[allow(clippy::type_complexity)] // disjoint root and actions nodes
 pub(super) fn fit_toasts(
     windows: Query<&Window>,
     ui: Option<Res<UiScale>>,
-    roots: Query<(), With<lobby::LobbyRoot>>,
-    hosts: Query<&ChildOf>,
-    pages: Query<(&Role, &ChildOf, &ComputedNode, &bevy::ui::UiGlobalTransform)>,
+    slide: Option<Res<crate::social::drawer::DrawerSlide>>,
+    zoom: Option<Res<crate::social::zoom::Zoom>>,
     mut toasts: Query<
         (&ToastPlacement, &CardSize, &mut Node),
         (With<UpdateToast>, Without<ToastActions>),
@@ -311,26 +309,7 @@ pub(super) fn fit_toasts(
     let Some(window) = crate::hud::scale::window_space(&windows, ui.as_deref()) else {
         return;
     };
-    // The front door's scrolling page ends exactly where its fixed colophon
-    // starts. This follows both footer forms and their text scale;
-    // signed-in screens with no such page reserve only the window margin.
-    // The page stands in the lobby's root, or in the host its scroll bar
-    // shares with it (`lobby::scrollbars::attach`), which it fills.
-    let in_root = |parent: Entity| {
-        roots.contains(parent)
-            || hosts
-                .get(parent)
-                .is_ok_and(|host| roots.contains(host.parent()))
-    };
-    let page_bottom = pages
-        .iter()
-        .filter(|(role, parent, node, _)| {
-            **role == Role::Scroll && in_root(parent.parent()) && node.size().y > 0.0
-        })
-        .map(|(_, _, node, at)| {
-            (at.translation.y + node.size().y * 0.5) * node.inverse_scale_factor()
-        })
-        .fold(window.y, f32::min);
+    let drawer_room = slide.map_or(0.0, |s| s.room(zoom.map_or(1.0, |z| z.0)));
     for (placement, size, mut node) in &mut toasts {
         let top = if placement.0 {
             crate::hud::TOP_CLEAR
@@ -340,14 +319,15 @@ pub(super) fn fit_toasts(
         let bottom = if placement.0 {
             crate::hud::HAND_ZONE_H + TOAST_GAP
         } else {
-            (window.y - page_bottom).max(0.0) + TOAST_GAP
+            TOAST_GAP
         };
         let tight = window.y - top - bottom < 160.0;
         let next = Node {
-            left: if placement.0 {
-                percent(50)
+            left: if placement.0 { percent(50) } else { Val::Auto },
+            right: if placement.0 {
+                Val::Auto
             } else {
-                px_fixed(TOAST_GAP)
+                px_fixed(TOAST_GAP + drawer_room)
             },
             top: if placement.0 { px(top) } else { Val::Auto },
             bottom: if placement.0 { Val::Auto } else { px(bottom) },

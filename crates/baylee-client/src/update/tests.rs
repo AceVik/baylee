@@ -999,9 +999,7 @@ fn the_ready_buttons_clear_the_measured_footer_after_resize_without_rebuilding()
         let mut fixture = NoticeLayout::new(UVec2::new(960, 700), Some(56.0), lang, 1.0);
         let toast = fixture.show(Some(ready()), UpdatePlace::default());
         let footer = fixture.footer.unwrap();
-        let bottom = fixture.rect(footer).min.y;
-        assert!((bottom - 644.0).abs() < 0.5, "the reported 960x700 repro");
-        fixture.assert_buttons_clear(toast, 16.0, bottom - 16.0);
+        fixture.assert_buttons_clear(toast, 16.0, 700.0 - 16.0);
 
         fixture
             .app
@@ -1040,8 +1038,7 @@ fn the_ready_buttons_clear_the_measured_footer_after_resize_without_rebuilding()
             fixture.app.world().get::<UpdateToast>(toast).is_some(),
             "resize retained the controls"
         );
-        let bottom = fixture.rect(footer).min.y;
-        fixture.assert_buttons_clear(toast, 16.0, bottom - 16.0);
+        fixture.assert_buttons_clear(toast, 16.0, 360.0 - 16.0);
     }
 }
 
@@ -1072,8 +1069,7 @@ fn every_lobby_notice_keeps_its_actions_visible_when_long_text_scrolls() {
                 }
             };
             let toast = fixture.show(shown, place);
-            let bottom = fixture.rect(fixture.footer.unwrap()).min.y;
-            fixture.assert_buttons_clear(toast, 16.0, bottom - 16.0);
+            fixture.assert_buttons_clear(toast, 16.0, 360.0 - 16.0);
             let world = fixture.app.world_mut();
             let body = world
                 .query_filtered::<Entity, (With<ToastScroll>, Without<ToastActions>)>()
@@ -1201,8 +1197,7 @@ fn the_download_card_fits_desktop_small_and_phone_frames() {
                 .resource_mut::<UpdateNotice>()
                 .progress = Some(reading(45_000_000));
             let toast = fixture.show(Some(fetching(Fetch::Downloading)), UpdatePlace::default());
-            let bottom = fixture.rect(fixture.footer.unwrap()).min.y;
-            fixture.assert_buttons_clear(toast, 16.0, bottom - 16.0);
+            fixture.assert_buttons_clear(toast, 16.0, size.as_vec2().y - 16.0);
             let frame = fixture.rect(toast);
             let world = fixture.app.world_mut();
             let track = world
@@ -1266,8 +1261,7 @@ fn the_ready_card_s_actions_share_a_row_on_a_desktop() {
     for lang in [Lang::En, Lang::De] {
         let mut fixture = NoticeLayout::new(UVec2::new(1280, 800), Some(56.0), lang, 1.0);
         let toast = fixture.show(Some(ready()), UpdatePlace::default());
-        let bottom = fixture.rect(fixture.footer.unwrap()).min.y;
-        fixture.assert_buttons_clear(toast, 16.0, bottom - 16.0);
+        fixture.assert_buttons_clear(toast, 16.0, 800.0 - 16.0);
         let restart = button(&mut fixture.app, &UpdateButton::RestartNow);
         let later = button(&mut fixture.app, &UpdateButton::Later);
         let (restart, later) = (fixture.rect(restart), fixture.rect(later));
@@ -1279,12 +1273,10 @@ fn the_ready_card_s_actions_share_a_row_on_a_desktop() {
     }
 }
 
-/// The front door's page stands in the host its scroll bar shares with it
-/// (`lobby::scrollbars::attach`), not in the lobby's root itself: the card
-/// still stands above the colophon (live check of 22.10.2026, where it
-/// covered the colophon's first words).
+/// The update notice stands symmetrically in the bottom-right corner with
+/// equal right and bottom margins (`TOAST_GAP`).
 #[test]
-fn the_card_clears_the_colophon_of_a_page_with_a_scroll_bar() {
+fn the_card_stands_symmetrically_in_the_bottom_right_corner() {
     use crate::shellkit::role::Role;
     let mut fixture = NoticeLayout::new(UVec2::new(1280, 800), Some(56.0), Lang::En, 1.0);
     let world = fixture.app.world_mut();
@@ -1305,11 +1297,9 @@ fn the_card_clears_the_colophon_of_a_page_with_a_scroll_bar() {
     world.entity_mut(fixture.canvas).insert_children(0, &[host]);
     world.entity_mut(host).add_child(page);
     let toast = fixture.show(Some(fetching(Fetch::Downloading)), UpdatePlace::default());
-    let colophon = fixture.rect(fixture.footer.unwrap()).min.y;
-    assert!((colophon - 744.0).abs() < 0.5, "the fixture's colophon");
     let card = fixture.rect(toast);
     assert!(
-        card.max.y <= colophon - 16.0 + 0.5,
-        "above the colophon: {card:?}"
+        (1280.0 - card.max.x - 16.0).abs() < 0.5 && (800.0 - card.max.y - 16.0).abs() < 0.5,
+        "symmetrical bottom-right corner: {card:?}"
     );
 }
