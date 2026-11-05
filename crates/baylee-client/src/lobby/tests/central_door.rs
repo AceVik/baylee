@@ -324,3 +324,108 @@ fn central_sign_in_wears_lobby_header_allows_decks_before_gateway_and_refreshes_
     ));
     assert!(presses(&mut app).contains(&Press::Front(FrontPress::SelectGateway(0))));
 }
+
+/// Lands a reply as the mailbox would, a frame later.
+fn land(app: &mut App, reply: Reply) {
+    app.world()
+        .resource::<Mailbox>()
+        .0
+        .lock()
+        .expect("mailbox")
+        .push(reply);
+    app.update();
+    settle(app);
+}
+
+/// Signed in at Central with one gateway on the list, and that gateway being
+/// admitted to. Its address is one no request can be built from (`headless`);
+/// the jobs are what the account worker would have run.
+fn admitting(app: &mut App) -> std::sync::mpsc::Receiver<super::super::central::Job> {
+    let (handle, jobs) = super::super::central::Handle::queued_for_test();
+    let mailbox = app.world().resource::<Mailbox>().clone();
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        super::super::central::restored_for_test(&mut state, vec![String::new()]);
+        state.central.as_mut().expect("Central on").handle = Some(handle);
+        assert!(state.select_gateway(0), "the list holds the gateway");
+        super::super::central::admit(&mut state, &mailbox);
+        assert!(state.central_admitting());
+    }
+    app.update();
+    settle(app);
+    jobs
+}
+
+/// In a session at a gateway, signed in through Central.
+fn in_a_central_session(app: &mut App) -> std::sync::mpsc::Receiver<super::super::central::Job> {
+    let jobs = admitting(app);
+    assert!(jobs.try_recv().is_ok(), "the admission was asked for");
+    land(
+        app,
+        Reply::Event(LobbyEvent::LoggedIn {
+            token: "tok".to_string(),
+            username: None,
+        }),
+    );
+    assert!(!app.world().resource::<LobbyState>().central_admitting());
+    jobs
+}
+
+/// A refusal in a live session (a table the gateway would not open, a deck it
+/// would not save) is about that table or deck: the session goes on, at its
+/// gateway, with the caret where it was. Accepting terms enters it afresh,
+/// and "Restart to update" still names it (`resume`: `gateway_selected`).
+#[test]
+fn a_refusal_inside_a_central_session_leaves_the_gateway_chosen() {
+    let mut app = headless();
+    let jobs = in_a_central_session(&mut app);
+    let before = app.world().resource::<LobbyState>().lobby.focus();
+    land(
+        &mut app,
+        Reply::Event(LobbyEvent::Failed("that table is full".to_string())),
+    );
+    {
+        let state = app.world().resource::<LobbyState>();
+        assert_eq!(state.lobby.token(), Some("tok"), "the session goes on");
+        assert!(state.gateway_selected, "at its gateway");
+        assert!(state.lobby.gateway_chosen());
+        assert_eq!(state.lobby.focus(), before, "and the caret stays");
+    }
+    let mailbox = app.world().resource::<Mailbox>().clone();
+    let mut state = app.world_mut().resource_mut::<LobbyState>();
+    super::super::central::readmit(&mut state, &mailbox);
+    assert!(jobs.try_recv().is_ok(), "the terms' readmission finds it");
+}
+
+/// The one refusal that does send the player back: the admission's own.
+#[test]
+fn a_refused_admission_goes_back_to_the_account_s_list() {
+    let mut app = headless();
+    let _jobs = admitting(&mut app);
+    land(
+        &mut app,
+        Reply::Event(LobbyEvent::Failed("not admitted".to_string())),
+    );
+    let state = app.world().resource::<LobbyState>();
+    assert!(!state.central_admitting());
+    assert!(!state.gateway_selected);
+    assert!(!state.lobby.gateway_chosen());
+    assert_eq!(state.lobby.focus(), Field::Gateway);
+    assert_eq!(state.lobby.tone(), Tone::Refusal);
+    assert_eq!(state.lobby.status(), "not admitted");
+}
+
+/// A session the gateway ended leaves the list on screen (`Panel::of`), and
+/// the keys go to that list, never to the sign-in fields it hides.
+#[test]
+fn a_central_session_that_expires_leaves_the_keys_on_the_list() {
+    let mut app = headless();
+    let _jobs = in_a_central_session(&mut app);
+    land(&mut app, Reply::Expired);
+    let state = app.world().resource::<LobbyState>();
+    assert_eq!(state.lobby.token(), None);
+    assert!(state.central_ready(), "Central's own session goes on");
+    assert!(state.showing_gateway_hub());
+    assert!(!state.lobby.gateway_chosen());
+    assert_eq!(state.lobby.focus(), Field::Gateway);
+}

@@ -204,12 +204,17 @@ pub(super) fn poll(
                             | LobbyEvent::GuestIn(_)
                             | LobbyEvent::Failed(_)
                     ) {
+                        // Only an admission's own refusal goes back to the
+                        // list. Any other, in a live session (a table, a
+                        // deck), is about that table or deck.
+                        let refused = matches!(event, LobbyEvent::Failed(_))
+                            && state.central_admitting()
+                            && state.lobby.token().is_none();
                         if let Some(central) = &mut state.central {
                             central.admitting = false;
                         }
-                        if matches!(event, LobbyEvent::Failed(_)) && state.central_ready() {
-                            state.gateway_selected = false;
-                            state.lobby.set_gateway_ready(false);
+                        if refused {
+                            super::central::back_to_list(&mut state);
                         }
                     }
                     let worked = matches!(event, LobbyEvent::LoggedIn { .. });
@@ -318,6 +323,12 @@ pub(super) fn poll(
                         if let Some(settings) = settings.as_mut() {
                             keep_gateways(&state, settings);
                         }
+                    }
+                    // Signed in at Central the list is what stands now
+                    // (`front::Panel::of`), and the keys go with it.
+                    #[cfg(not(target_arch = "wasm32"))]
+                    if state.central_ready() {
+                        super::central::back_to_list(&mut state);
                     }
                 }
                 // Written only when they change: the pill reads them, and a
