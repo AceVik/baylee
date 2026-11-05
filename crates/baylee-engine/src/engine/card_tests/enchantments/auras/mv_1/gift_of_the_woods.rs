@@ -235,3 +235,76 @@ fn gift_of_the_woods_enchants_an_opponents_creature_but_keeps_its_own_controller
     assert_eq!(engine.state().players[0].life, 21);
     assert_eq!(engine.state().players[1].life, 20);
 }
+
+/// Declares `bears` attacking and blocked by the Giant, and stops with the
+/// Aura's trigger on the stack.
+fn blocked_with_the_trigger_waiting(
+    engine: &mut Engine<RegistryLookup>,
+    bears: ObjectId,
+    giant: ObjectId,
+) {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    pass_until(engine, |e| {
+        e.state().turn.active == p0 && e.state().turn.step == Step::DeclareAttackers
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(bears, Defender::Player(p1))],
+            },
+        )
+        .unwrap();
+    pass_until(engine, |e| e.state().turn.step == Step::DeclareBlockers);
+    engine
+        .apply(
+            p1,
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(giant, bears)],
+            },
+        )
+        .unwrap();
+    assert!(!stack_is_empty(engine), "the Aura's trigger is waiting");
+}
+
+/// "It" is the creature the event was about, whatever the Aura is on by the
+/// time the ability resolves.
+#[test]
+fn gift_of_the_woods_pumps_the_creature_that_blocked_after_the_aura_moves() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let (mut engine, bears, ogre) = gifted_table();
+    let giant = on_battlefield(&engine, p1, hill_giant()).unwrap();
+    let aura = on_battlefield(&engine, p0, gift_of_the_woods()).unwrap();
+    blocked_with_the_trigger_waiting(&mut engine, bears, giant);
+
+    engine.state.object_mut(aura).unwrap().attached_to = Some(ogre);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(pt(&engine, bears), (2, 5), "the creature that became blocked");
+    assert_eq!(pt(&engine, ogre), (2, 2), "not the Aura's new host");
+    assert_eq!(engine.state().players[0].life, 21);
+}
+
+/// The same when the Aura has left: the trigger is independent of its source.
+#[test]
+fn gift_of_the_woods_pumps_the_creature_that_blocked_after_the_aura_leaves() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let (mut engine, bears, _ogre) = gifted_table();
+    let giant = on_battlefield(&engine, p1, hill_giant()).unwrap();
+    let aura = on_battlefield(&engine, p0, gift_of_the_woods()).unwrap();
+    blocked_with_the_trigger_waiting(&mut engine, bears, giant);
+
+    engine
+        .state
+        .move_object(
+            aura,
+            ZoneLocation::Graveyard(p0),
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::Effect,
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(pt(&engine, bears), (2, 5));
+    assert_eq!(engine.state().players[0].life, 21);
+}
