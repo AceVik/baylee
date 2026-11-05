@@ -862,7 +862,7 @@ pub enum AwaitingOp {
     },
     /// After `Populate`: copy the chosen creature token.
     Populate,
-    /// After `LookAtTopPick`: chosen go to hand, the rest to the bottom.
+    /// After a top-card choice: move the selected cards, then their remainder.
     DigRest {
         /// Destination of the selected cards.
         found: baylee_cards_dsl::Find,
@@ -870,8 +870,8 @@ pub enum AwaitingOp {
         rest: Vec<ObjectId>,
         /// The selected card is public before it changes zones.
         reveal: bool,
-        /// "In a random order" rather than the player's.
-        random: bool,
+        /// Where the unselected cards go, including any library ordering.
+        destination: dig::RestDestination,
     },
     /// After `LookAtTopKeepBottomPlay`'s first question: the chosen card
     /// goes to the hand, and the bottom card is asked of the rest.

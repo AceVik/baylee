@@ -411,6 +411,7 @@ pub(crate) fn check_optional_clauses_are_offered(
         "ChooseExiledToPlay",
         "LookAtTopKeepBottomPlay",
         "LookAtTopFind",
+        "RevealTopFind",
         "LookAtTopMayTake",
         "Fabricate",
         "LookAtTopMayPut",

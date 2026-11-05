@@ -4977,6 +4977,10 @@ and a library with no match is revealed and moved whole.
 `Effect::RevealTopAllMatching { count, filter, found }` [Goblin Ringleader]
 reveals the top `count` cards, moves every match to `found`, and puts the
 rest on the bottom in an order the controller chooses.
+`Effect::RevealTopFind { found, count, filter, otherwise }` [Malevolent Rumble]
+reveals up to `count` cards, offers at most one matching card for `found`, and
+moves every unselected card to `otherwise`. The whole reveal precedes every
+move; no match finishes the remainder without an empty choice.
 `Effect::PutTargetIntoLibraryBeneathTop { count }` [Unexpectedly Absent] puts
 each target into its owner's library with `count` cards above it, or on the
 bottom when the library is smaller.

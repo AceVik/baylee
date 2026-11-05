@@ -168,6 +168,9 @@ fn moves_library(effect: &Effect) -> bool {
             matched, otherwise, ..
         } => outside_library(*matched) || outside_library(*otherwise),
         Effect::RevealTopAllMatching { found, .. } => outside_library(found.dest),
+        Effect::RevealTopFind {
+            found, otherwise, ..
+        } => outside_library(found.dest) || outside_library(*otherwise),
         Effect::LookAtTopMayPut {
             matched, otherwise, ..
         } => outside_library(matched.dest) || outside_library(*otherwise),

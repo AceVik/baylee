@@ -2430,6 +2430,76 @@ fn mirrodin_reader_patterns() {
     );
 }
 
+#[test]
+fn optional_reveal_dig_takes_one_and_refuses_unread_variants() {
+    let body = read(
+        "Name:Reveal a permanent\nManaCost:1 G\nTypes:Sorcery\n\
+         A:SP$ Dig | DigNum$ 4 | Reveal$ True | ChangeValid$ Permanent | DestinationZone2$ Graveyard | Optional$ True",
+    );
+    let ability = &body.abilities[0];
+    for needle in [
+        "Effect::RevealTopFind",
+        "found: Find::HAND",
+        "count: 4",
+        "filter: &DIG1",
+        "otherwise: SearchDest::Graveyard",
+    ] {
+        assert!(ability.contains(needle), "missing {needle}: {ability}");
+    }
+    for card_type in [
+        "ARTIFACT",
+        "BATTLE",
+        "CREATURE",
+        "ENCHANTMENT",
+        "LAND",
+        "PLANESWALKER",
+    ] {
+        assert!(
+            body.statics.contains(&format!("TypeSet::{card_type}")),
+            "`Permanent` in a library must mean a permanent card: {}",
+            body.statics
+        );
+    }
+    assert!(!body.statics.contains("Filter::Any"));
+
+    for (count, reveal, rest) in [
+        (4, "True", "ChangeNum$ All | DestinationZone2$ Graveyard"),
+        (4, "True", "Optional$ False | DestinationZone2$ Graveyard"),
+        (
+            4,
+            "True",
+            "Optional$ True | ChangeNum$ 1 | DestinationZone2$ Graveyard",
+        ),
+        (4, "False", "Optional$ True | DestinationZone2$ Graveyard"),
+        (
+            4,
+            "True",
+            "Optional$ True | DestinationZone$ Exile | DestinationZone2$ Graveyard",
+        ),
+        (4, "True", "Optional$ True | DestinationZone2$ Library"),
+        (
+            4,
+            "True",
+            "Optional$ True | DestinationZone2$ Graveyard | UnknownRule$ True",
+        ),
+        (
+            4,
+            "True",
+            "Optional$ True | DestinationZone2$ Graveyard | ValidTgts$ Creature",
+        ),
+    ] {
+        let text = format!(
+            "Name:Unread dig\nManaCost:1 G\nTypes:Sorcery\n\
+             A:SP$ Dig | DigNum$ {count} | Reveal$ {reveal} | ChangeValid$ Permanent | {rest}"
+        );
+        assert!(refused(&text), "silently accepted a different dig: {text}");
+    }
+    assert!(refused(
+        "Name:Dynamic dig\nManaCost:X G\nTypes:Sorcery\n\
+         A:SP$ Dig | DigNum$ X | Reveal$ True | ChangeValid$ Permanent | DestinationZone2$ Graveyard | Optional$ True"
+    ));
+}
+
 // Table-style regression: all batch-two reader patterns share one assertion helper.
 #[allow(clippy::too_many_lines)]
 #[test]
