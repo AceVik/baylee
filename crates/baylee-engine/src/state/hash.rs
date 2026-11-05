@@ -881,7 +881,7 @@ fn hash_source_references(h: &mut Hasher, state: &GameState, position: &dyn Fn(O
             // A surviving copy trigger observes these announcement decisions
             // even after the original spell has left the stack.
             h.u32(source.x_value);
-            source.kicked.hash(h);
+            source.kicked().hash(h);
             hash_times_kicked(h, source.times_kicked);
             source.replicated.hash(h);
             source.mode_index.hash(h);
@@ -1256,7 +1256,7 @@ fn hash_copy_decisions(h: &mut Hasher, obj: &GameObject) {
     // Copies of spells retain announcement decisions, and temporary copies
     // can restore a different rules bundle on otherwise identical boards.
     obj.x_value.hash(h);
-    obj.kicked.hash(h);
+    obj.kicked().hash(h);
     hash_times_kicked(h, obj.times_kicked);
     obj.replicated.hash(h);
     obj.alt_cast.hash(h);
@@ -1841,7 +1841,6 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
         source_power_lki,
         paid,
         x_value,
-        kicked,
         times_kicked,
         replicated,
         alt_cast,
@@ -2132,7 +2131,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
     source_power_lki.hash(h);
     paid.hash(h);
     x_value.hash(h);
-    kicked.hash(h);
+    (*times_kicked > 0).hash(h);
     hash_times_kicked(h, *times_kicked);
     replicated.hash(h);
     alt_cast.hash(h);

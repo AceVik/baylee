@@ -408,7 +408,6 @@ impl<L: CardLookup> Engine<L> {
             obj.set_second(wizard.second_targets.clone(), second_target_req);
             obj.set_second_players(wizard.second_target_players);
             obj.x_value = wizard.x;
-            obj.kicked = wizard.kicked;
             obj.times_kicked = wizard.times_kicked();
             obj.replicated = wizard.replicated;
             obj.alt_cast = matches!(wizard.option, Some(CastModeKind::Alternative(_)));

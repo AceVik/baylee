@@ -117,7 +117,6 @@ impl<L: CardLookup> Engine<L> {
                 obj.x_value = 0;
                 // What was paid to cast it, likewise (CR 400.7d names the
                 // spell that became this permanent, and no spell did).
-                obj.kicked = false;
                 obj.times_kicked = 0;
             }
             // Daybound's first static ability (CR 702.145b): if it is

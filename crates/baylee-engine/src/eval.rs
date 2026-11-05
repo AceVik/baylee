@@ -606,7 +606,7 @@ pub fn matches_projected_with_context(
                 .any(|commander| obj_subs.intersects(commander.characteristics().subtypes))
         }
         Filter::HasKeyword(k) => chars.keywords.contains(*k),
-        Filter::Kicked => obj.kicked,
+        Filter::Kicked => obj.kicked(),
         Filter::CastFromHand => obj.cast_history.was_from_hand(),
         Filter::CmcAtMost(n) => chars.mana_value() <= *n,
         // The bound is the announced X on the ability's own source, which is

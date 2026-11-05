@@ -30,7 +30,7 @@ fn batch45_escape_can_kick_a_spell_whose_ordinary_target_is_unavailable() {
     target(&mut e, vec![bear], vec![]);
     let fodder = cards_offered(&e);
     choose(&mut e, fodder);
-    assert!(e.state.object(spell).unwrap().kicked);
+    assert!(e.state.object(spell).unwrap().kicked());
     assert_eq!(
         e.state.players[0].mana_pool.total(),
         0,

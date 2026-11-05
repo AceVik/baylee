@@ -1100,7 +1100,7 @@ fn every_field_that_decides_the_future_moves_the_snapshot_hash() {
             fixture_object(s, id).controlled_since += 7;
         }),
         ("x_value", |s, id| fixture_object(s, id).x_value = 3),
-        ("kicked", |s, id| fixture_object(s, id).kicked = true),
+        ("kicked", |s, id| fixture_object(s, id).times_kicked = 1),
         ("times_kicked", |s, id| {
             fixture_object(s, id).times_kicked = 2;
         }),

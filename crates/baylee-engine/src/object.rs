@@ -1412,10 +1412,11 @@ pub struct GameObject {
     pub paid: Option<Box<PaidRecord>>,
     /// The value of X chosen at cast time (spells).
     pub x_value: u32,
-    /// Whether the kicker/additional cost was paid (spells).
-    pub kicked: bool,
     /// How many times it was kicked (CR 702.33d): a multikicker's count, 1
-    /// for a plain kicker, 0 for neither. `kicked` is this being above zero.
+    /// for a plain kicker, 0 for neither. [`Self::kicked`] derives the boolean
+    /// from this count, so the two answers cannot drift apart and no second
+    /// byte grows every object by a full alignment step.
+    ///
     /// It stays with the permanent the spell became, which may ask what was
     /// paid to cast it (CR 400.7d), and goes when anything else brings the
     /// object in (`progress::apply_enter_modifiers`).
@@ -1579,7 +1580,6 @@ impl GameObject {
             source_power_lki: None,
             paid: None,
             x_value: 0,
-            kicked: false,
             times_kicked: 0,
             replicated: 0,
             alt_cast: false,
@@ -1622,6 +1622,19 @@ impl GameObject {
         obj.targets = targets;
         obj.zone = Zone::Stack;
         obj
+    }
+
+    /// Whether this spell was kicked. Multikicker makes this true whenever
+    /// its count is positive (CR 702.33d), so the count is the only stored fact.
+    #[must_use]
+    pub const fn kicked(&self) -> bool {
+        self.times_kicked > 0
+    }
+
+    /// Set the kicker decision where a cost projection has no count of its own.
+    /// A positive existing count remains positive; clearing the decision resets it.
+    pub fn set_kicked(&mut self, kicked: bool) {
+        self.times_kicked = if kicked { self.times_kicked.max(1) } else { 0 };
     }
 
     /// Opponent chosen as this permanent entered, if any.

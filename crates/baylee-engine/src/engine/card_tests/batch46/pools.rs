@@ -30,9 +30,9 @@ fn batch46_pools_copies_actual_announced_x_and_preserves_cast_decisions_after_co
         assert_eq!(e.state.object(spell).unwrap().x_value, 3);
         assert_eq!(e.state.players[0].mana_pool.total(), 0);
         // No registered permanent currently has kicker. Supply only the
-        // independent decision bit on the real, paid-for permanent spell;
-        // this exercises copying that bit, not kicker affordability.
-        e.state.object_mut(spell).unwrap().kicked = true;
+        // independent decision on the real, paid-for permanent spell;
+        // this exercises copying it, not kicker affordability.
+        e.state.object_mut(spell).unwrap().times_kicked = 1;
         target(&mut e, vec![ring], vec![]);
         if counter_original {
             e.apply(P0, PlayerAction::PassPriority).unwrap();
@@ -43,7 +43,7 @@ fn batch46_pools_copies_actual_announced_x_and_preserves_cast_decisions_after_co
         }
         pass_until(&mut e, stack_is_empty);
         assert_eq!(e.state.object(ring).unwrap().x_value, 3);
-        assert!(e.state.object(ring).unwrap().kicked);
+        assert!(e.state.object(ring).unwrap().kicked());
         assert_eq!(
             e.state.object(ring).unwrap().characteristics().mana_value(),
             0
