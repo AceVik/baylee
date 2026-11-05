@@ -91,7 +91,7 @@ impl<L: CardLookup> Engine<L> {
         }
         if asked == Some(player) {
             self.drop_the_leavers_question(player);
-        } else if !self.forget_the_departed(&exiled) {
+        } else if !self.refresh_attack_sacrifice() && !self.forget_the_departed(&exiled) {
             self.cannot_comply();
         }
     }
