@@ -8671,7 +8671,7 @@ CentralAdmissionRefused = This gateway did not let your account in. Try again, o
 CentralAdmissionUnavailable = Baylee Central or this gateway is not answering. Try again in a moment.
 
 # Syncing the Central account's data failed; local changes stay.
-CentralSyncFailed =Account synchronization failed. Your local changes are retained; please sign in again.
+CentralSyncFailed = Account synchronization failed. Your local changes are retained; please sign in again.
 
 # The front door's button that signs out of the Baylee (Central) account.
 CentralSignOut = Sign out
