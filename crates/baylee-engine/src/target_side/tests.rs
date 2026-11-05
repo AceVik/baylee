@@ -106,7 +106,10 @@ fn an_auras_side_is_what_it_does_to_its_creature() {
         ),
     ];
     assert_eq!(aura_side(&rancor), Some(TargetSide::Helpful));
-    let pacifism = [static_ability!(Filter::AttachedToBySource, Modifier::CantAttack)];
+    let pacifism = [static_ability!(
+        Filter::AttachedToBySource,
+        Modifier::CantAttack
+    )];
     assert_eq!(aura_side(&pacifism), Some(TargetSide::Harmful));
 }
 

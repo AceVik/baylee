@@ -212,6 +212,13 @@ fn core_samples() -> Vec<(&'static str, String)> {
             ])),
         ),
         (
+            "TargetSide",
+            json(serde_json::json!([
+                baylee_core::types::TargetSide::Harmful,
+                baylee_core::types::TargetSide::Helpful,
+            ])),
+        ),
+        (
             "TypeSet",
             json(serde_json::json!([
                 TypeSet::CREATURE,
@@ -354,7 +361,9 @@ fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
     // so this addition also leaves VIEW_VERSION at 85.
     // `GrantSource::taps`: additive and omitted while false, likewise; a reader
     // without it plans as it did.
-    const RECORDED: (u32, u64) = (85, 13_062_118_185_787_167_670);
+    // `TargetingContext::side`: additive and omitted when absent, so 85 still
+    // names the shape.
+    const RECORDED: (u32, u64) = (85, 3_091_753_333_932_082_586);
 
     let samples = core_samples();
     let sampled: std::collections::BTreeSet<String> =

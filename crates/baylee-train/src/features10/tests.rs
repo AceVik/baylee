@@ -170,7 +170,13 @@ fn only_the_chooser_is_told() {
     let mut table = table("Swords to Plowshares", 19);
     cast(&mut table, "Swords to Plowshares", None);
     assert!(table.session.view_for_with_context(P1).is_none());
-    assert!(table.session.observe_view_with_context(P1).targeting.is_none());
+    assert!(
+        table
+            .session
+            .observe_view_with_context(P1)
+            .targeting
+            .is_none()
+    );
 }
 
 #[test]
@@ -217,5 +223,10 @@ fn the_slot_reads_the_same_off_the_wire() {
     for (a, b) in here.candidates.iter().zip(&there.candidates) {
         assert_eq!(a.feat, b.feat);
     }
-    assert!(there.candidates.iter().any(|c| c.feat[TARGET_SIDE_SLOT] != 0.0));
+    assert!(
+        there
+            .candidates
+            .iter()
+            .any(|c| c.feat[TARGET_SIDE_SLOT] != 0.0)
+    );
 }
