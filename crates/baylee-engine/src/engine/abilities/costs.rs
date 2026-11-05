@@ -1006,13 +1006,17 @@ impl<L: CardLookup> Engine<L> {
                     };
                     // "The sacrificed creature's mana value" (Birthing Pod)
                     // is read off the permanent as it last existed on the
-                    // battlefield (CR 608.2h), so before it goes.
-                    if matches!(
-                        part,
-                        CostPart::Sacrifice(_)
-                            | CostPart::ExilePermanent(_)
-                            | CostPart::ExileFromGraveyard(_)
-                    ) {
+                    // battlefield (CR 608.2h), so before it goes. Only the
+                    // printed cost's: that sentence is linked to it, and a
+                    // Swamp a rule imposed is none of it (CR 607.2i).
+                    if work.next <= cost.parts.len().saturating_sub(cost.imposed)
+                        && matches!(
+                            part,
+                            CostPart::Sacrifice(_)
+                                | CostPart::ExilePermanent(_)
+                                | CostPart::ExileFromGraveyard(_)
+                        )
+                    {
                         paid.sacrificed = self.state.object(card).map(|o| (card, o.version));
                         paid.sacrificed_lki = self
                             .state

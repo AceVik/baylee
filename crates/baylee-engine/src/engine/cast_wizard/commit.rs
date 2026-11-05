@@ -203,7 +203,7 @@ impl<L: CardLookup> Engine<L> {
             });
         }
         let mut graveyard_batch = crate::graveyard_order::PaymentBatch::new(&self.state);
-        for part in super::wizard_mandatory_parts(face, wizard.option).chain(imposed.iter()) {
+        for part in super::wizard_mandatory_parts(face, wizard.option) {
             graveyard_batch.before_part(&mut self.state, part);
             if !paid_as_a_mandatory_additional_cost(part) {
                 continue;
@@ -319,6 +319,17 @@ impl<L: CardLookup> Engine<L> {
                 }
                 _ => {}
             }
+        }
+        // Last, as `additional_card_costs_for` asks them, so the nth answer
+        // pays the nth part. Like buyback they leave the receipt alone: an
+        // imposed Swamp is no "sacrificed creature" (CR 607.2i).
+        for part in &imposed {
+            graveyard_batch.before_part(&mut self.state, part);
+            let chosen = cost_objects
+                .next()
+                .copied()
+                .ok_or(EngineError::IllegalAction("an unanswered imposed cost"))?;
+            super::super::cost_wizard::pay(&mut self.state, player, part, chosen)?;
         }
         graveyard_batch.finish(&mut self.state);
         // Escape may exile a card sacrificed or discarded for this same

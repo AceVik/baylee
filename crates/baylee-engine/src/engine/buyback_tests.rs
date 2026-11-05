@@ -439,3 +439,94 @@ fn a_life_cost_is_paid_and_refused_as_life() {
         assert_eq!(in_hand(&engine, P0, slaughter()).is_some(), asked);
     }
 }
+
+/// The nth answer pays the nth part: a cost imposed from outside comes after
+/// buyback's in the questions, so it does in the payment. Drought's rule on blue
+/// symbols, because no black spell in the pool prints a buyback naming objects:
+/// Forbid's two discards and two sacrifices each keep the answers given for them.
+#[test]
+fn an_imposed_cost_is_paid_with_the_answers_asked_for_it() {
+    let forbid = card_index("6e26a525-2584-490d-b106-621c1a30e1fd");
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &vec![island(); 2])
+        .hand(0, &[forbid, grizzly_bears(), mountain(), swamp()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, P0);
+    let modifier = baylee_cards_dsl::Modifier::SpellsCostSacrificePerManaSymbol {
+        color: baylee_core::color::Color::Blue,
+        sacrifice: &baylee_cards_dsl::Filter::LAND,
+    };
+    let timestamp = engine.state.next_timestamp();
+    engine
+        .state
+        .effects
+        .register(crate::effects::ContinuousEffect {
+            id: baylee_core::ids::EffectId::new(0),
+            source: None,
+            controller: P0,
+            origin: crate::effects::EffectOrigin::Resolution,
+            layer: modifier.layer(),
+            timestamp,
+            duration: baylee_cards_dsl::Duration::Indefinitely,
+            filter: crate::effects::EffectFilter::Dsl(&baylee_cards_dsl::Filter::Any),
+            modifier,
+        });
+    let in_hand = |engine: &Engine<RegistryLookup>, card: CardIndex| {
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Hand(P0))
+            .iter()
+            .copied()
+            .find(|id| {
+                engine
+                    .state()
+                    .object(*id)
+                    .and_then(|object| object.card)
+                    .is_some_and(|c| c.index == card)
+            })
+            .expect("the card is in hand")
+    };
+    let first = in_hand(&engine, mountain());
+    let second = in_hand(&engine, swamp());
+    let islands: Vec<ObjectId> = engine.state().battlefield_seen().collect();
+
+    engine.state.players[0]
+        .mana_pool
+        .add(baylee_core::mana::ManaColor::Green, 2);
+    engine.refresh_offer();
+    cast_with_floating(&mut engine, P0, grizzly_bears());
+    let bears = on_stack(&engine, grizzly_bears()).expect("the Bears are on the stack");
+    engine.state.players[0]
+        .mana_pool
+        .add(baylee_core::mana::ManaColor::Blue, 3);
+    engine.refresh_offer();
+    let mark = engine.state().journal.len();
+    cast_with_floating(&mut engine, P0, forbid);
+    answer(&mut engine, true);
+    aim(&mut engine, bears);
+    for answer in [first, second, islands[0], islands[1]] {
+        engine
+            .apply(
+                P0,
+                PlayerAction::ChooseObjects {
+                    objects: vec![answer],
+                },
+            )
+            .expect("each answer pays the part it was asked for");
+    }
+
+    let discarded: Vec<ObjectId> = engine.state().journal.entries()[mark..]
+        .iter()
+        .filter_map(|entry| match entry.event {
+            GameEvent::Discarded { object, .. } => Some(object),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(discarded, vec![first, second], "buyback's two discards");
+    for land in &islands {
+        let object = engine.state().object(*land).expect("the land still exists");
+        assert_eq!(object.zone, crate::zone::Zone::Graveyard, "a sacrificed land");
+    }
+}
