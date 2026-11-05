@@ -222,7 +222,7 @@ fn leave_the_builder(state: &mut ResMut<LobbyState>, mailbox: &Mailbox) {
     if state.confirm_leave {
         state.confirm_leave = false;
     }
-    super::http::commit_session_version(state, mailbox);
+    super::decksave::commit_session_version(state, mailbox);
     state.hub = Hub::Decks;
     let request = state.lobby.close_builder();
     dispatch(state, mailbox, request);
@@ -323,7 +323,7 @@ impl BuildPress {
                 }
                 if state.offline.is_some() || state.central_without_gateway() {
                     let old_key = state.lobby.builder().editing().unwrap_or("new").to_owned();
-                    super::http::auto_save_deck(state, mailbox);
+                    super::decksave::auto_save_deck(state, mailbox);
                     if let Some(new_id) = state.lobby.builder().editing().map(str::to_owned)
                         && new_id != old_key
                     {
@@ -371,7 +371,7 @@ impl BuildPress {
                     || state.offline.is_some()
                     || state.central_without_gateway()
                 {
-                    super::http::auto_save_deck(state, mailbox);
+                    super::decksave::auto_save_deck(state, mailbox);
                 }
             }
             BuildPress::DeleteBuildDeck => {
@@ -609,7 +609,7 @@ impl BuildPress {
                         .is_none_or(|id| id.starts_with("builtin:"))
                 {
                     let old_key = state.lobby.builder().editing().unwrap_or("new").to_owned();
-                    super::http::auto_save_deck(state, mailbox);
+                    super::decksave::auto_save_deck(state, mailbox);
                     if let Some(new_id) = state.lobby.builder().editing().map(str::to_owned)
                         && new_id != old_key
                     {
@@ -667,7 +667,7 @@ impl BuildPress {
                         || state.offline.is_some()
                         || state.central_without_gateway()
                     {
-                        super::http::auto_save_deck(state, mailbox);
+                        super::decksave::auto_save_deck(state, mailbox);
                     }
                 }
             }

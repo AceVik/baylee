@@ -422,7 +422,7 @@ fn type_key(
                     || state.offline.is_some()
                     || state.central_without_gateway()
                 {
-                    super::http::auto_save_deck(state, mailbox);
+                    super::decksave::auto_save_deck(state, mailbox);
                 }
             }
             BuildField::PickerSet | BuildField::ListName | BuildField::ListSearch => {}
