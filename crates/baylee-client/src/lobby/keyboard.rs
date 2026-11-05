@@ -481,6 +481,7 @@ pub(super) fn field_drawn(state: &LobbyState) -> bool {
         Field::RoomBoard(seat) => room && state.room_setup_seat == Some(seat),
         Field::RoomCounter => room && state.room_setup_seat.is_some(),
         Field::Search | Field::DeckSearch | Field::ReplaySearch => !room && !sheet,
+        Field::Gateway | Field::GatewaySearch => state.showing_gateway_hub(),
         _ => true,
     }
 }

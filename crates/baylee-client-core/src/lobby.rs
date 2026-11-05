@@ -2216,6 +2216,11 @@ impl Lobby {
                 | Field::AccountPassword => false,
             },
             Screen::Table => match self.focus {
+                // The gateway picker: a Central session's Play tab, until a
+                // gateway is chosen. Which tab is up is the shell's to ask.
+                Field::Gateway | Field::GatewaySearch => {
+                    matches!(self.performer, Performer::Central) && !self.gateway_chosen()
+                }
                 // The Create-table sheet's name, before there is a room.
                 Field::RoomName if self.awaiting.is_none() => true,
                 Field::RoomName | Field::RoomBoard(_) | Field::RoomCounter => {
