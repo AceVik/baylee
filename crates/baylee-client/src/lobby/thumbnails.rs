@@ -357,33 +357,6 @@ pub(super) fn fade_art(
     }
 }
 
-/// Known artist credits for built-in starter / iconic signature cards so
-/// starter decks and Vorlagen have their credited illustration immediately.
-pub(crate) fn known_artist(name: &str, _scryfall_id: &str) -> Option<&'static str> {
-    match name {
-        "General Tazri" | "Sheoldred, the Apocalypse" | "Cyclonic Rift" | "Llanowar Elves" => {
-            Some("Chris Rahn")
-        }
-        "Aminatou, the Fateshifter" => Some("Seb McKinnon"),
-        "Aang and Katara" => Some("Fajareka Setiawan"),
-        "Jace, the Mind Sculptor" => Some("Jason Chan"),
-        "Elesh Norn, Mother of Machines" => Some("Martina Fačková"),
-        "Darksteel Forge" => Some("Martina Pilcerova"),
-        "Mycosynth Lattice" => Some("Anthony Francisco"),
-        "Jin-Gitaxias, Progress Tyrant" => Some("Kotakan"),
-        "Sol Ring" => Some("Mike Bierek"),
-        "Force of Will" | "Swords to Plowshares" => Some("Terese Nielsen"),
-        "Demonic Tutor" => Some("Scott Chou"),
-        "Teferi, Time Raveler" => Some("Chris Rallis"),
-        "Sun Titan" => Some("Todd Lockwood"),
-        "Counterspell" => Some("Zack Stella"),
-        "Lightning Bolt" => Some("Christopher Moeller"),
-        "Wrath of God" => Some("Kev Walker"),
-        "Birds of Paradise" => Some("Marcelo Vignali"),
-        _ => None,
-    }
-}
-
 const ARTISTS_FILE: &str = "artists.json";
 
 /// In-flight Scryfall artist lookup `(scryfall_id, result_slot)`.
@@ -399,7 +372,7 @@ pub(crate) fn cached_artists() -> BTreeMap<String, String> {
 /// Queues every deck's picture once a deck list lands (§10 #5: the shelf
 /// and Play's hero are a press away from it), and resolves any missing
 /// artist credit from the local cache or Scryfall so `art_crop` + `Illustrator`
-/// can be shown (`docs/legal.md` Principle 4).
+/// can be shown (`docs/legal.md` §3).
 #[allow(clippy::too_many_lines)] // artist resolution + thumbnail prefetching in one system
 pub(super) fn prefetch_art(
     mut state: ResMut<LobbyState>,
@@ -440,8 +413,8 @@ pub(super) fn prefetch_art(
     // unless an artist is actually going to be filled.
     let mut missing_id: Option<String> = None;
     let mut can_fill = false;
-    state.lobby.visit_missing_artists(|name, scryfall_id| {
-        if known_artist(name, scryfall_id).is_some() || map.contains_key(scryfall_id) {
+    state.lobby.visit_missing_artists(|_, scryfall_id| {
+        if map.contains_key(scryfall_id) {
             can_fill = true;
         } else if !scryfall_id.is_empty()
             && !tried_ids.contains(scryfall_id)
@@ -452,10 +425,7 @@ pub(super) fn prefetch_art(
     });
 
     let filled = if can_fill {
-        state.lobby.fill_missing_artists(|name, scryfall_id| {
-            if let Some(a) = known_artist(name, scryfall_id) {
-                return Some(a.to_string());
-            }
+        state.lobby.fill_missing_artists(|_, scryfall_id| {
             if let Some(a) = map.get(scryfall_id) {
                 return Some(a.clone());
             }
@@ -476,8 +446,13 @@ pub(super) fn prefetch_art(
         tried_ids.insert(id.clone());
         let slot = std::sync::Arc::new(std::sync::Mutex::new(None));
         let slot_clone = std::sync::Arc::clone(&slot);
-        let req = ehttp::Request::get(format!("https://api.scryfall.com/cards/{id}"));
-        ehttp::fetch(req, move |res| {
+        let mut req = ehttp::Request::get(format!(
+            "{}/cards/{id}",
+            baylee_client_core::images::SCRYFALL_API
+        ));
+        req.headers.insert("Accept", "application/json");
+        req.headers.insert("User-Agent", "baylee-deckbuilder/0.1");
+        crate::transport::fetch(req, move |res| {
             let artist = res
                 .ok()
                 .filter(|r| r.status == 200)
