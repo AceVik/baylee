@@ -6524,3 +6524,18 @@ got wrong was in the tests, not in the cards:
   shape or client mechanism is needed. The house AI now reads the fallback through
   `payment_unpaid_effects`, with a regression that was red before that reader
   change. The full 363-test AI suite passes; no card-specific seat policy exists.
+
+## 2026-11-05 — Infernal Darkness's combined cumulative-upkeep payment
+
+- Reuse `PlayerMayPayManaAndLifeEachThenElse` with the age-counter count and a
+  `SacrificeSelf` fallback. The existing resolver already treats the repeated
+  `{B}` and life as one optional, atomic price and recognizes the effect as
+  cumulative upkeep; no new engine or DSL mechanic is needed.
+- Six card tests cover the first three upkeeps, refusal without spending mana or
+  life, an unpayable life component without a partial mana payment, every unit of
+  Ancient Tomb's colorless mana, ordinary land types on either side, Sol Ring's
+  unchanged artifact mana and cumulative-upkeep recognition. All six were red
+  against the old separate-mana-only payment and pass against the combined one.
+- Desktop, house AI and LLM seats already understand `PayManaAndLife`; their
+  shared payment suites remain green. No card-specific prompt, policy or hidden
+  information is needed.
