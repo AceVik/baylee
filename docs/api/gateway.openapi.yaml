@@ -6385,6 +6385,18 @@ components:
           description: >-
             The image id of the deck's playmat, from `POST /images?kind=playmat`, under the
             same rule as the sleeve.
+        versioned:
+          type: boolean
+          description: >-
+            Whether a card-list change records a history version (`true`, the default) or
+            updates the current version in place during an active builder session (`false`).
+        superseded:
+          anyOf:
+          - $ref: "#/components/schemas/SupersededDeck"
+          - type: "null"
+          description: >-
+            When leaving a builder session that saved in place, the card lists the session
+            started from so the entire session records one history entry.
       required:
       - name
       - cards
@@ -7140,6 +7152,11 @@ components:
     Games:
       type: object
       properties:
+        players_online:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Distinct accounts currently online (in the lobby or seated at a running game).
         running:
           type: integer
           format: int64
@@ -7161,6 +7178,7 @@ components:
           minimum: 0
           description: Seats of running games whose engine has not dialled back yet.
       required:
+      - players_online
       - running
       - local_running
       - waiting
@@ -9426,6 +9444,25 @@ components:
       - kind
       - amount
       description: One kind of counter a starting permanent carries, and how many.
+    SupersededDeck:
+      type: object
+      properties:
+        cards:
+          type: array
+          items:
+            type: string
+          description: Main-deck lines as the builder opened them.
+        sideboard:
+          type: array
+          items:
+            type: string
+          description: Sideboard lines as the builder opened them.
+        commanders:
+          type: array
+          items:
+            type: string
+          description: Commanders as the builder opened them.
+      description: The card lists a deck held when the builder session began.
     TableClock:
       type: object
       properties:
