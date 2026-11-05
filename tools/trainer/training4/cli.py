@@ -67,7 +67,10 @@ def parse_args(default_architecture="v4"):
     ap.add_argument("--decision-chunk", type=int, default=1, help="Group independent readouts after causal memory updates; requires grouped boards and dropout=0")
     ap.add_argument("--gpu-prefetch", type=int, choices=range(4), default=0, help="Future CUDA input batches on a separate copy stream (0=off, 1=double buffer)")
     ap.add_argument("--freeze-trunk", action="store_true", help="Freeze board encoder, transformer trunk, recurrent memory, and critic; train only action/policy heads")
-    ap.add_argument("--encoder-version", type=int, choices=(7, 8, 9), default=7)
+    ap.add_argument("--encoder-version", type=int, choices=(7, 8, 9, 10), default=7)
+    ap.add_argument("--encoder-warmstart-to10", action="store_true", help="Fresh E7 weights-only transfer to Encoder10; requires --init")
+    ap.add_argument("--train-candidate-column", type=int, default=None, metavar="SLOT",
+                    help="Train only this input column of the candidate projection, from zero: every other parameter stays frozen, so a candidate with the slot at zero scores as before")
     ap.add_argument("--encoder-warmstart-to9", action="store_true", help="Fresh E7/E8 weights-only transfer; zero new trainable global columns, no behavior-equivalence claim")
     ap.add_argument("--encoder-warmstart-from7", action="store_true", help="Explicit new Encoder8 experiment: load Encoder7 weights only; never resume/relabel")
     ap.add_argument("--architecture", choices=("v4", "v5"), default=default_architecture)
@@ -105,6 +108,14 @@ def parse_args(default_architecture="v4"):
         ap.error("Encoder8 package continuation is unsupported; use --init or --resume")
     if args.encoder_warmstart_from7 and (args.encoder_version != 8 or not args.init or args.resume or args.init_state):
         ap.error("--encoder-warmstart-from7 requires --encoder-version 8 and --init only")
+    if args.encoder_warmstart_to10 and (args.encoder_version != 10 or not args.init or args.resume or args.init_state):
+        ap.error("--encoder-warmstart-to10 requires Encoder10 and --init only")
+    if args.train_candidate_column is not None:
+        if not (args.init or args.resume) or args.init_state or args.freeze_trunk or args.relational_lr > 0:
+            ap.error("--train-candidate-column needs --init or --resume, without --init-state, --freeze-trunk or relational rates")
+        if not 0 <= args.train_candidate_column < M.CAND_FEAT_WIDTH:
+            ap.error("--train-candidate-column names no candidate slot")
+        identity["candidate_column"] = args.train_candidate_column
     if args.encoder_warmstart_to9 and (args.encoder_version != 9 or not args.init or args.resume or args.init_state or args.encoder_warmstart_from7 or args.candidate_context_warmstart or args.freeze_trunk):
         ap.error("--encoder-warmstart-to9 requires Encoder9 and --init only, with trainable trunk and no simultaneous transfer")
     if args.candidate_context_revision >= 2 and (args.architecture != "v5" or args.relational_revision != 2):

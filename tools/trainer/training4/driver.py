@@ -42,6 +42,7 @@ from .depth_schedule import DepthSchedule, evaluate_depths
 from .objective import selection_score, check_resume_objective
 from .optimizer_groups import build_optimizer_groups, check_resume_schedule
 from .optimizer_step import update_parameters
+from .candidate_column import carries_column
 
 
 def main(default_architecture="v4") -> None:
@@ -161,7 +162,8 @@ def main(default_architecture="v4") -> None:
             raise ValueError("Initial checkpoint uses an incompatible memory contract")
         from encoder_contract import check_initial_encoder
         provenance = check_initial_encoder(ckpt_init.get("encoder_version"), args.encoder_version,
-                                           args.encoder_warmstart_from7, args.encoder_warmstart_to9)
+                                           args.encoder_warmstart_from7, args.encoder_warmstart_to9,
+                                           args.encoder_warmstart_to10)
         if provenance:
             provenance["source_checkpoint"] = str(init_pt.resolve())
             from torch_io4 import file_digest
@@ -218,10 +220,14 @@ def main(default_architecture="v4") -> None:
         )
         for n, p in net.named_parameters():
             p.requires_grad_(n.startswith(head_prefixes))
+    if args.train_candidate_column is not None:
+        from .candidate_column import freeze_all_but_column
+        freeze_all_but_column(net, args.train_candidate_column, start_from_zero=not args.resume)
     opt_groups, optimizer_schedule = build_optimizer_groups(
         net, args.lr, architecture=args.architecture, freeze_trunk=args.freeze_trunk,
         relational_lr=args.relational_lr, output_lr=args.relational_output_lr,
-        warmup_steps=args.relational_warmup_steps)
+        warmup_steps=args.relational_warmup_steps,
+        decay=args.train_candidate_column is None)
     opt = torch.optim.AdamW(
         opt_groups,
         fused=True if args.fused_optimizer and device.type == "cuda" else None,
@@ -461,8 +467,10 @@ def main(default_architecture="v4") -> None:
                         traj_loss, st = compute_unroll_device_loss(full_outputs, torch.stack(full_aux, dim=1), batch, plans, loss_config)
                         epoch_stats[:3] += st[:3] / U
                         epoch_stats[3:] += st[3:]
-                updated = update_parameters(traj_loss, net, opt, checkpoint_writer,
-                                            optimizer_schedule, optimizer_updates + 1)
+                updated = ((args.train_candidate_column is None
+                            or carries_column(host, args.train_candidate_column))
+                           and update_parameters(traj_loss, net, opt, checkpoint_writer,
+                                                 optimizer_schedule, optimizer_updates + 1))
                 optimizer_updates += int(updated)
                 net.clear_structure()
 

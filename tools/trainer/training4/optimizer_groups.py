@@ -3,7 +3,7 @@ import math
 
 
 def build_optimizer_groups(net, main_lr, *, architecture='v4', freeze_trunk=False,
-                           relational_lr=0., output_lr=0., warmup_steps=0):
+                           relational_lr=0., output_lr=0., warmup_steps=0, decay=True):
     if (any(not math.isfinite(x) or x < 0 for x in (relational_lr, output_lr))
             or warmup_steps < 0):
         raise ValueError('Relational learning rates/warmup must be finite and nonnegative')
@@ -16,7 +16,7 @@ def build_optimizer_groups(net, main_lr, *, architecture='v4', freeze_trunk=Fals
     critic = [(name, p) for name, p in parameters if 'seat_value_head' in name]
     other = [(name, p) for name, p in parameters if 'seat_value_head' not in name]
     if not enabled:
-        groups = [dict(params=[p for _, p in other], lr=main_lr, weight_decay=1e-2)]
+        groups = [dict(params=[p for _, p in other], lr=main_lr, weight_decay=1e-2 if decay else 0.)]
         if critic:
             groups.append(dict(params=[p for _, p in critic], lr=main_lr * .2, weight_decay=5e-2))
         return groups, None

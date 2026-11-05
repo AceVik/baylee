@@ -12,6 +12,7 @@ def validate_encoder(version, *, model_version=5, relational_revision=2,
         candidate_context_revision=candidate_context_revision,global_feat_width=global_feat_width),allow_nan=False).encode()))
 
 
-def check_initial_encoder(source, target, explicit_from7=False, explicit_to9=False):
+def check_initial_encoder(source, target, explicit_from7=False, explicit_to9=False, explicit_to10=False):
     return json.loads(_native(['training-contract'],json.dumps(dict(kind='initial_encoder',source=source,
-        target=target,explicit_from7=explicit_from7,explicit_to9=explicit_to9),allow_nan=False).encode()))
+        target=target,explicit_from7=explicit_from7,explicit_to9=explicit_to9,
+        explicit_to10=explicit_to10),allow_nan=False).encode()))
