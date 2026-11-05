@@ -382,6 +382,7 @@ pub fn popover_shadow() -> BoxShadow {
 }
 
 /// Prefix glyph for a dropdown menu item based on its label or destructive flag.
+#[allow(clippy::too_many_lines)] // one flat table of words, read top to bottom
 fn menu_item_glyph(text: &str, destructive: bool) -> char {
     let lower = text.to_lowercase();
     if lower.contains("profil") || lower.contains("profile") {
