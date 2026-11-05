@@ -381,6 +381,8 @@ fn a_tax_out_of_reach_is_refused_before_any_land_is_asked_for() {
 /// payable declaration is refused for the order its costs happen to come in.
 #[test]
 fn no_answer_strands_a_later_sacrifice_and_no_payable_attack_is_refused() {
+    static ISLAND: baylee_cards_dsl::Filter =
+        baylee_cards_dsl::Filter::HasSubtype(baylee_core::generated::subtypes::land::ISLAND);
     for lands in [
         [index::FOREST, index::ISLAND, index::ISLAND],
         [index::ISLAND, index::ISLAND, index::FOREST],
@@ -393,9 +395,6 @@ fn no_answer_strands_a_later_sacrifice_and_no_payable_attack_is_refused() {
         let forest = creature(&engine, index::FOREST);
         let islands = all_of(&engine, P0, index::ISLAND);
         // Leviathan's restriction.
-        static ISLAND: baylee_cards_dsl::Filter = baylee_cards_dsl::Filter::HasSubtype(
-            baylee_core::generated::subtypes::land::ISLAND,
-        );
         let filter = crate::effects::EffectFilter::object(&engine.state, lions);
         impose(
             &mut engine,
@@ -535,7 +534,10 @@ fn a_leaver_taking_the_land_a_cost_needed_reopens_the_declaration() {
 
     assert!(engine.attack_sacrifice.is_none());
     assert!(
-        matches!(engine.pending(), Pending::ChooseAttackers { player: P0, .. }),
+        matches!(
+            engine.pending(),
+            Pending::ChooseAttackers { player: P0, .. }
+        ),
         "one land cannot pay two costs: {:?}",
         engine.pending()
     );

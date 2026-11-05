@@ -280,7 +280,11 @@ fn gift_of_the_woods_pumps_the_creature_that_blocked_after_the_aura_moves() {
     engine.state.object_mut(aura).unwrap().attached_to = Some(ogre);
     pass_until(&mut engine, stack_is_empty);
 
-    assert_eq!(pt(&engine, bears), (2, 5), "the creature that became blocked");
+    assert_eq!(
+        pt(&engine, bears),
+        (2, 5),
+        "the creature that became blocked"
+    );
     assert_eq!(pt(&engine, ogre), (2, 2), "not the Aura's new host");
     assert_eq!(engine.state().players[0].life, 21);
 }

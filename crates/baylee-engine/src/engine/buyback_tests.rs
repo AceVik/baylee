@@ -448,7 +448,7 @@ fn a_life_cost_is_paid_and_refused_as_life() {
 fn an_imposed_cost_is_paid_with_the_answers_asked_for_it() {
     let forbid = card_index("6e26a525-2584-490d-b106-621c1a30e1fd");
     let mut engine = Duel::new(SEED, island())
-        .battlefield(0, &vec![island(); 2])
+        .battlefield(0, &[island(), island()])
         .hand(0, &[forbid, grizzly_bears(), mountain(), swamp()])
         .start();
     keep_mulligans(&mut engine);
@@ -527,6 +527,10 @@ fn an_imposed_cost_is_paid_with_the_answers_asked_for_it() {
     assert_eq!(discarded, vec![first, second], "buyback's two discards");
     for land in &islands {
         let object = engine.state().object(*land).expect("the land still exists");
-        assert_eq!(object.zone, crate::zone::Zone::Graveyard, "a sacrificed land");
+        assert_eq!(
+            object.zone,
+            crate::zone::Zone::Graveyard,
+            "a sacrificed land"
+        );
     }
 }
