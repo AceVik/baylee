@@ -779,6 +779,88 @@ fn a_block_names_only_what_may_block_what() {
     );
 }
 
+/// Entangler on a blocker: the question says so, and the answer may name it
+/// once for each attacker. The count is the engine's, up to the limit the
+/// question carries (CR 509.1a).
+#[test]
+fn a_creature_that_may_block_more_than_one_is_told_so_and_may() {
+    use baylee_engine::choice::BlockCapacity;
+
+    let (mut view, _) = board();
+    view.active = THEM;
+    view.phase = baylee_view::Phase::Combat;
+    view.step = baylee_view::Step::DeclareBlockers;
+    let attackers = [id(45), id(46), id(47)];
+    view.combat.attackers = attackers
+        .iter()
+        .map(|&creature| AttackerView {
+            creature,
+            defending: baylee_core::ids::Defender::Player(ME),
+            blocked: false,
+        })
+        .collect();
+    let wake = |capacity: Vec<BlockCapacity>| {
+        let pending = Pending::ChooseBlockers {
+            demands: Vec::new(),
+            player: ME,
+            attacker: THEM,
+            blockers: vec![BlockOption {
+                blocker: id(31),
+                attackers: attackers.to_vec(),
+            }],
+            bounds: Vec::new(),
+            capacity,
+            obeying: Vec::new(),
+        };
+        let request = request(
+            view.clone(),
+            pending,
+            LogTail {
+                from: 0,
+                entries: Vec::new(),
+            },
+        );
+        Narrator::new(&request.context).wake(&request, &[], None)
+    };
+    let blocks = |names: &[&str]| Decision {
+        ask: Some("q12".into()),
+        blocks: names
+            .iter()
+            .map(|attacker| ("#31".to_owned(), (*attacker).to_owned()))
+            .collect(),
+        ..Decision::default()
+    };
+    let all = ["#45", "#46", "#47"];
+
+    let any = wake(vec![BlockCapacity {
+        blocker: id(31),
+        most: None,
+    }]);
+    assert!(any.text.contains("any number of them"), "{}", any.text);
+    assert!(any.text.contains("name it once for"), "{}", any.text);
+    assert_eq!(
+        any.menu.resolve(&blocks(&all)).expect("three blocks").act,
+        Act::Now(PlayerAction::DeclareBlockers {
+            blockers: attackers.iter().map(|&a| (id(31), a)).collect()
+        })
+    );
+    let twice = any.menu.resolve(&blocks(&["#45", "#45"]));
+    assert!(twice.is_err(), "the same pair named twice: {twice:?}");
+
+    let two = wake(vec![BlockCapacity {
+        blocker: id(31),
+        most: Some(2),
+    }]);
+    assert!(two.text.contains("up to 2 of them"), "{}", two.text);
+    assert!(two.menu.resolve(&blocks(&all[..2])).is_ok());
+    assert!(two.menu.resolve(&blocks(&all)).is_err());
+
+    let one = wake(Vec::new());
+    assert!(!one.text.contains("of them"), "{}", one.text);
+    assert!(one.menu.resolve(&blocks(&all[..1])).is_ok());
+    assert!(one.menu.resolve(&blocks(&all[..2])).is_err());
+}
+
 /// The model's answer is read leniently where the meaning is plain.
 #[test]
 fn a_decision_is_read_leniently_where_the_meaning_is_plain() {

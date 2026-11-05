@@ -16,8 +16,9 @@ use baylee_client_core::manaplan::{self, Tap};
 use baylee_core::ids::{AbilityRef, CardIndex, Defender, ObjectId, PlayerId, SubtypeId};
 use baylee_core::mana::{ManaColor, ManaCost, ManaPayment};
 use baylee_engine::choice::{
-    ArrangePile, ArrangePlace, ArrangePrompt, AttackerBound, BlockOption, CardTotal, CastModeDesc,
-    CastModeKind, LegalActions, NumberPrompt, Pending, PlayerAction, TargetPrompt, YesNoPrompt,
+    ArrangePile, ArrangePlace, ArrangePrompt, AttackerBound, BlockCapacity, BlockOption, CardTotal,
+    CastModeDesc, CastModeKind, LegalActions, NumberPrompt, Pending, PlayerAction, TargetPrompt,
+    YesNoPrompt,
 };
 use baylee_view::{ManaPoolView, PublicObject};
 use serde_json::Value;
@@ -74,8 +75,12 @@ enum Ask {
         defenders: Vec<Defender>,
         pending: Box<Pending>,
     },
-    /// A block declaration.
-    Block { options: Vec<BlockOption> },
+    /// A block declaration. How many attackers a blocker may take is the
+    /// engine's to say, so the question is kept to check the answer against.
+    Block {
+        options: Vec<BlockOption>,
+        pending: Box<Pending>,
+    },
     /// A number in a range.
     Number { min: u32, max: u32 },
     /// A subtype, by name.
@@ -478,7 +483,7 @@ impl Menu {
                 defenders,
                 pending,
             } => self.attack(decision, attackers, defenders, pending),
-            Ask::Block { options } => Self::block(decision, options),
+            Ask::Block { options, pending } => Self::block(decision, options, pending),
             Ask::Number { min, max } => Self::number(decision, *min, *max),
             Ask::Subtype { options } => {
                 let name = named(decision)?;
@@ -738,16 +743,15 @@ impl Menu {
         Ok(now(answer, label))
     }
 
-    fn block(decision: &Decision, options: &[BlockOption]) -> Result<Resolved, String> {
+    fn block(
+        decision: &Decision,
+        options: &[BlockOption],
+        pending: &Pending,
+    ) -> Result<Resolved, String> {
         let blockers: Vec<ObjectId> = options.iter().map(|o| o.blocker).collect();
         let mut declared = Vec::new();
         for (blocker, attacker) in &decision.blocks {
             let creature = object(blocker, &blockers)?;
-            if declared.iter().any(|(c, _)| *c == creature) {
-                return Err(format!(
-                    "{blocker} blocks twice; a creature blocks one attacker"
-                ));
-            }
             let may = options
                 .iter()
                 .find(|o| o.blocker == creature)
@@ -766,10 +770,11 @@ impl Menu {
                 .collect();
             pairs.join(", ")
         };
-        Ok(now(
-            PlayerAction::DeclareBlockers { blockers: declared },
-            label,
-        ))
+        let answer = PlayerAction::DeclareBlockers { blockers: declared };
+        if let Some(fault) = pending.answer_fault(&answer) {
+            return Err(fault.reason().to_owned());
+        }
+        Ok(now(answer, label))
     }
 
     fn arrange(

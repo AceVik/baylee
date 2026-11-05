@@ -356,8 +356,9 @@ impl Builder<'_, '_> {
                 attacker,
                 blockers,
                 bounds,
+                capacity,
                 ..
-            } => self.blockers(*attacker, blockers, bounds),
+            } => self.blockers(*attacker, blockers, bounds, capacity),
             Pending::GameOver(_) => {
                 self.line("The game is over.");
                 self.ask = Ask::Nothing;
@@ -1529,6 +1530,7 @@ impl Builder<'_, '_> {
         attacker: PlayerId,
         options: &[BlockOption],
         bounds: &[AttackerBound],
+        capacity: &[BlockCapacity],
     ) {
         let table = self.table;
         self.line(format!(
@@ -1564,7 +1566,13 @@ impl Builder<'_, '_> {
                 },
             );
             let may: Vec<String> = option.attackers.iter().map(|&a| tag(a)).collect();
-            self.line(format!("  {head} can block {}", may.join(", ")));
+            let room = capacity.iter().find(|c| c.blocker == option.blocker);
+            let more = match room.map(|c| c.most) {
+                None => String::new(),
+                Some(None) => ", any number of them".to_owned(),
+                Some(Some(most)) => format!(", up to {most} of them"),
+            };
+            self.line(format!("  {head} can block {}{more}", may.join(", ")));
         }
         for bound in bounds {
             let name = table.named(bound.attacker);
@@ -1583,11 +1591,17 @@ impl Builder<'_, '_> {
         }
         self.ask = Ask::Block {
             options: options.to_vec(),
+            pending: Box::new(self.request.pending.clone()),
         };
-        self.answer(
-            "blocks=[{\"blocker\": id, \"attacker\": id}, …]; blocks=[] blocks nothing. Each \
-             blocker blocks one attacker",
-        );
+        let each = if capacity.is_empty() {
+            "Each blocker blocks one attacker"
+        } else {
+            "Each blocker blocks one attacker unless its line says more; then name it once for \
+             each attacker it blocks"
+        };
+        self.answer(&format!(
+            "blocks=[{{\"blocker\": id, \"attacker\": id}}, …]; blocks=[] blocks nothing. {each}"
+        ));
     }
 }
 
