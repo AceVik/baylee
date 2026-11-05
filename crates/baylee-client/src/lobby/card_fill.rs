@@ -698,7 +698,6 @@ fn metric_tile(
 pub(crate) fn popover(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Entity {
     let m = kit.m;
     let lang = state.lobby.lang();
-    let de = lang == Lang::De;
     let root = commands
         .spawn((
             Node {
@@ -820,47 +819,35 @@ pub(crate) fn popover(commands: &mut Commands, state: &LobbyState, kit: Kit) -> 
         commands,
         kit,
         crate::hud::glyph::LIBRARY,
-        if de {
-            "Karten geladen"
-        } else {
-            "Cards downloaded"
-        },
+        Phrase::CardFillTileCards.text(lang),
         Readout::CountPair,
     );
     let t_speed = metric_tile(
         commands,
         kit,
         crate::hud::glyph::ENERGY,
-        if de { "Geschwindigkeit" } else { "Speed" },
+        Phrase::CardFillTileSpeed.text(lang),
         Readout::Speed,
     );
     let t_done = metric_tile(
         commands,
         kit,
         crate::hud::glyph::DOWNLOAD,
-        if de { "Heruntergeladen" } else { "Downloaded" },
+        Phrase::CardFillTileDownloaded.text(lang),
         Readout::DownloadedSize,
     );
     let t_total = metric_tile(
         commands,
         kit,
         crate::hud::glyph::ZONES,
-        if de {
-            "Gesamtgröße (gesch.)"
-        } else {
-            "Total size (est.)"
-        },
+        Phrase::CardFillTileTotal.text(lang),
         Readout::EstimatedTotalSize,
     );
     let t_left = metric_tile(
         commands,
         kit,
         crate::hud::glyph::CLOCK,
-        if de {
-            "Restzeit (gesch.)"
-        } else {
-            "Remaining (est.)"
-        },
+        Phrase::CardFillTileRemaining.text(lang),
         Readout::RemainingTime,
     );
     commands

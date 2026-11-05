@@ -5,43 +5,26 @@ use super::*;
 
 /// Returns `(icon, accent_color, subtitle)` for each table `Template`.
 fn template_visuals(template: Template, lang: Lang) -> (char, Color, &'static str) {
-    let de = lang == Lang::De;
     match template {
         Template::Commander => (
             '\u{f521}',
             tokens::GOLD,
-            if de {
-                "40 Leben · Legendärer Kommandeur"
-            } else {
-                "40 life · Legendary commander"
-            },
+            Phrase::CreateTemplateCommander.text(lang),
         ),
         Template::Duel => (
             '\u{f6de}',
             tokens::ACCENT,
-            if de {
-                "20 Leben · Klassisches Duell"
-            } else {
-                "20 life · Classic 1v1 duel"
-            },
+            Phrase::CreateTemplateDuel.text(lang),
         ),
         Template::FiveLand => (
             '\u{f0e7}',
             Color::srgb(0.38, 0.84, 0.56),
-            if de {
-                "20 Leben · 5 Standardländer im Spiel"
-            } else {
-                "20 life · 5 basic lands in play"
-            },
+            Phrase::CreateTemplateFiveLand.text(lang),
         ),
         Template::Mixed => (
             '\u{f074}',
             Color::srgb(0.74, 0.56, 0.96),
-            if de {
-                "20 Leben · Alle Deck-Formate frei"
-            } else {
-                "20 life · Any deck format welcome"
-            },
+            Phrase::CreateTemplateMixed.text(lang),
         ),
     }
 }
@@ -163,7 +146,6 @@ pub(super) fn create_sheet(
 ) {
     let lobby = &state.lobby;
     let lang = lobby.lang();
-    let de = lang == Lang::De;
     let phone = kit.m.frame == ShellFrame::Phone;
     let mut body = Vec::new();
     let label = |commands: &mut Commands, text: &str| parts::caption(commands, kit, text);
@@ -206,11 +188,7 @@ pub(super) fn create_sheet(
         } else {
             '\u{f0c0}'
         },
-        &if de {
-            format!("{} Sitzplätze", draft.players)
-        } else {
-            format!("{} seats", draft.players)
-        },
+        &Phrase::CreateSeats.fill(lang, &[&draft.players.to_string()]),
         tokens::ACCENT,
     );
     let b_life = parts::badge_with(commands, kit, '\u{f004}', &draft.summary(lang), tokens::INK);
@@ -220,15 +198,9 @@ pub(super) fn create_sheet(
         kit,
         if has_pw { '\u{f023}' } else { '\u{f09c}' },
         if has_pw {
-            if de {
-                "Passwortgeschützt"
-            } else {
-                "Password-protected"
-            }
-        } else if de {
-            "Öffentlich"
+            Phrase::CreatePasswordProtected.text(lang)
         } else {
-            "Public"
+            Phrase::CreatePublic.text(lang)
         },
         if has_pw {
             tokens::GOLD
@@ -250,16 +222,8 @@ pub(super) fn create_sheet(
         kit,
         "1",
         '\u{f0c0}',
-        if de {
-            "Tisch & Sitzplätze"
-        } else {
-            "Table & Seats"
-        },
-        if de {
-            "Tischname in der Lobby und Anzahl der Spieler am Tisch"
-        } else {
-            "Table name in the lobby and number of seats at the table"
-        },
+        Phrase::CreateSectionTable.text(lang),
+        Phrase::CreateSectionTableAbout.text(lang),
         tokens::ACCENT,
     );
 
@@ -291,16 +255,13 @@ pub(super) fn create_sheet(
             n.justify_content = JustifyContent::SpaceBetween;
         });
     let players_lbl = label(commands, Phrase::SheetPlayers.text(lang));
-    let seat_hint_text = match (draft.players, de) {
-        (2, true) => "1v1 Duell",
-        (2, false) => "1v1 Duel",
-        (3, true) => "3er-Runde (Jeder gegen Jeden)",
-        (3, false) => "3-player Free-for-All",
-        (4, true) => "Klassische 4er-Runde (Commander)",
-        (4, false) => "Classic 4-player Pod",
-        (_, true) => "Große Mehrspieler-Runde",
-        (_, false) => "Large Multiplayer Table",
-    };
+    let seat_hint_text = match draft.players {
+        2 => Phrase::CreateSeatHintTwo,
+        3 => Phrase::CreateSeatHintThree,
+        4 => Phrase::CreateSeatHintFour,
+        _ => Phrase::CreateSeatHintMany,
+    }
+    .text(lang);
     let seat_hint = parts::badge_with(
         commands,
         kit,
@@ -354,16 +315,8 @@ pub(super) fn create_sheet(
         kit,
         "2",
         '\u{f521}',
-        if de {
-            "Spielmodus & Startregeln"
-        } else {
-            "Game Mode & Starting Rules"
-        },
-        if de {
-            "Format-Vorlage wählen und Lebenspunkte oder Mulligans feinabstimmen"
-        } else {
-            "Choose a format preset and fine-tune starting life or mulligans"
-        },
+        Phrase::CreateSectionMode.text(lang),
+        Phrase::CreateSectionModeAbout.text(lang),
         tokens::GOLD,
     );
     let tmpl_lbl = label(commands, Phrase::SheetTemplate.text(lang));
@@ -640,26 +593,14 @@ pub(super) fn create_sheet(
         "3",
         '\u{f017}',
         if lobby.offline() {
-            if de {
-                "Zuschauer & Tisch-Zugang"
-            } else {
-                "Spectators & Table Access"
-            }
-        } else if de {
-            "Bedenkzeit & Zugang"
+            Phrase::CreateSectionAccessOffline.text(lang)
         } else {
-            "Time Control & Access"
+            Phrase::CreateSectionAccess.text(lang)
         },
         if lobby.offline() {
-            if de {
-                "Zuschauer-Optionen für deine Partie (Passwortschutz & Bedenkzeit gelten für Online-Tische)"
-            } else {
-                "Spectator permissions for your match (password & decision clock apply to online tables)"
-            }
-        } else if de {
-            "Zuschauer-Optionen, Passwortschutz und Bedenkzeit pro Entscheidung"
+            Phrase::CreateSectionAccessOfflineAbout.text(lang)
         } else {
-            "Spectator permissions, password protection, and decision clock"
+            Phrase::CreateSectionAccessAbout.text(lang)
         },
         Color::srgb(0.38, 0.84, 0.56),
     );
@@ -695,15 +636,9 @@ pub(super) fn create_sheet(
             '\u{f070}'
         },
         if draft.spectators {
-            if de {
-                "Zuschauer erlaubt"
-            } else {
-                "Spectators allowed"
-            }
-        } else if de {
-            "Keine Zuschauer"
+            Phrase::CreateSpectatorsAllowed.text(lang)
         } else {
-            "No spectators"
+            Phrase::CreateNoSpectators.text(lang)
         },
         if draft.spectators {
             Color::srgb(0.36, 0.84, 0.56)

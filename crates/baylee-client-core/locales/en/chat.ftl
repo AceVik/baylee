@@ -850,3 +850,15 @@ UnreadMarker = New
 
 # The drawer's door to the settings.
 PrivacyButton = Chat & privacy…
+
+# The lobby header's notice for unread chat messages.
+# Arguments: count
+NoticeUnread =
+    { $count ->
+        [one] { $count } unread chat message
+       *[other] { $count } unread chat messages
+    }
+
+# The lobby header's notice for a friend request.
+# Arguments: player
+NoticeFriendRequest = Friend request from { $player }

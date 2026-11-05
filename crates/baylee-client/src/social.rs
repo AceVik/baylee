@@ -543,32 +543,24 @@ fn lobby_side(
         return;
     };
     let lang = lobby.lobby.lang();
-    let de = lang == baylee_client_core::i18n::Lang::De;
     let (unread, _) = machine.unread_where(&social::TabFilter::standard(ChatTab::All));
     let view = machine.friends();
     let req_count = view.incoming.len() + view.invites.len() + view.group_invites.len();
     let total_social_unread = (unread as usize) + req_count;
     let mut notices = Vec::new();
     if unread > 0 {
-        let msg = if de {
-            if unread == 1 {
-                "1 ungelesene Chat-Nachricht".to_string()
-            } else {
-                format!("{unread} ungelesene Chat-Nachrichten")
-            }
-        } else if unread == 1 {
-            "1 unread chat message".to_string()
-        } else {
-            format!("{unread} unread chat messages")
-        };
-        notices.push(msg);
+        notices.push(
+            baylee_client_core::i18n::ChatPhrase::NoticeUnread.fill_count(
+                lang,
+                unread as usize,
+                &[],
+            ),
+        );
     }
     for person in view.incoming {
-        notices.push(if de {
-            format!("Freundschaftsanfrage von {}", person.handle)
-        } else {
-            format!("Friend request from {}", person.handle)
-        });
+        notices.push(
+            baylee_client_core::i18n::ChatPhrase::NoticeFriendRequest.fill(lang, &[&person.handle]),
+        );
     }
     for held in view.invites {
         let invite = &held.invite;

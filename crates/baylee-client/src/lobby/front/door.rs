@@ -1333,10 +1333,7 @@ pub(crate) fn version_line(commands: &mut Commands, state: &LobbyState, kit: Kit
     let table = keys::table_of(state).name;
     let bg = Color::srgba(0.04, 0.07, 0.11, 0.88);
     let border = tokens::BORDER.with_alpha(0.68);
-    let hint = match lang {
-        Lang::De => "Versionshinweise (Changelog) öffnen",
-        Lang::En => "Open release notes (changelog)",
-    };
+    let hint = Phrase::FrontChangelogHint.text(lang);
     let row = commands
         .spawn((
             Role::Button,
@@ -1520,83 +1517,43 @@ pub(super) fn community_dialog(
         match kind {
             CommunityKind::WhatsApp => (
                 Phrase::TileWhatsApp.text(lang),
-                match lang {
-                    Lang::De => {
-                        "Tritt der deutschen & internationalen WhatsApp-Community bei, um Mitspieler zu finden und dich auszutauschen."
-                    }
-                    Lang::En => {
-                        "Join the WhatsApp community group to find fellow players, coordinate matches, and chat."
-                    }
-                },
+                Phrase::CommunityWhatsAppAbout.text(lang),
                 '\u{f086}',
                 WHATSAPP_GREEN,
                 super::super::source::WHATSAPP_URL,
                 state.whatsapp_code.as_ref(),
                 FrontPress::OpenWhatsApp,
-                match lang {
-                    Lang::De => "In WhatsApp / Browser öffnen",
-                    Lang::En => "Open in WhatsApp / browser",
-                },
+                Phrase::CommunityWhatsAppOpen.text(lang),
             ),
             CommunityKind::Discord => (
                 Phrase::TileDiscord.text(lang),
-                match lang {
-                    Lang::De => {
-                        "Unser Discord-Server für Turniere, Deckbau, Sprach-Kanäle, Bug-Reports und direkte Entwickler-Updates."
-                    }
-                    Lang::En => {
-                        "Our Discord server for tournaments, deckbuilding, voice channels, bug reports, and developer updates."
-                    }
-                },
+                Phrase::CommunityDiscordAbout.text(lang),
                 '\u{f500}',
                 DISCORD_ACCENT,
                 super::super::source::DISCORD_URL,
                 state.discord_code.as_ref(),
                 FrontPress::OpenDiscord,
-                match lang {
-                    Lang::De => "Discord im Browser öffnen",
-                    Lang::En => "Open Discord in browser",
-                },
+                Phrase::CommunityDiscordOpen.text(lang),
             ),
             CommunityKind::GitHub => (
                 Phrase::TileSource.text(lang),
-                match lang {
-                    Lang::De => {
-                        "Der vollständige Quellcode dieses Clients und Gateways (AGPL-3.0-or-later) auf GitHub."
-                    }
-                    Lang::En => {
-                        "The complete source code of this client and gateway (AGPL-3.0-or-later) on GitHub."
-                    }
-                },
+                Phrase::CommunitySourceAbout.text(lang),
                 '\u{f126}',
                 GITHUB_ACCENT,
                 source_address(state),
                 state.source_code.as_ref(),
                 FrontPress::OpenSource,
-                match lang {
-                    Lang::De => "Repository im Browser öffnen",
-                    Lang::En => "Open repository in browser",
-                },
+                Phrase::CommunitySourceOpen.text(lang),
             ),
             CommunityKind::Website => (
                 Phrase::CentralWebsite.text(lang),
-                match lang {
-                    Lang::De => {
-                        "Die zentrale Webseite für deinen Baylee-Account, Downloads, Versionshinweise und Community-Gateways."
-                    }
-                    Lang::En => {
-                        "The central website for your Baylee account, downloads, release notes, and community gateways."
-                    }
-                },
+                Phrase::CommunityWebsiteAbout.text(lang),
                 '\u{f0ac}',
                 tokens::ACCENT,
                 super::super::source::CENTRAL_WEBSITE_URL,
                 state.website_code.as_ref(),
                 FrontPress::OpenWebsite,
-                match lang {
-                    Lang::De => "baylee.app im Browser öffnen",
-                    Lang::En => "Open baylee.app in browser",
-                },
+                Phrase::CommunityWebsiteOpen.text(lang),
             ),
         };
 
