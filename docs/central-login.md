@@ -6,9 +6,17 @@ gateway with `BAYLEE_CENTRAL_CONFIG_FILE` and a mode that takes Central's
 accounts answers (§"Who a gateway lets in"). Choosing one turns the
 account form into Central's; the sign-in restores the account's gateways and
 admits the player to the one chosen. Since the cutover (§"Cutover") nobody
-registers or signs in with a password at any gateway. `‹` on Central's form
-goes back to the device's own gateways, and so does the end of a Central
-session. The official gateway is bound to Central through its bridge since
+registers or signs in with a password at any gateway.
+
+A native launch starts at Central's sign-in (`LobbyState::new`), and signing
+out comes back to it; the account's gateways load once signed in. A player
+with no account registers at baylee.app or plays offline. `‹` on Central's
+form goes back to the device's own gateways only on a form opened for a chosen
+gateway, which a launch no longer reaches. Otherwise the device's list opens
+only when a session ends without signing out: Later on Central's terms, a
+failed move, or Central ending the session.
+
+The official gateway is bound to Central through its bridge since
 beta.8a (22.10.2026): new accounts register at baylee.app, and an account from
 before moves to Central at its first sign-in in the client (§"Legacy
 migration"). `baylee-account` wraps the pinned Central SDK using a
