@@ -546,6 +546,48 @@ fn pays_tax_declines_untap_self_payment_when_source_is_already_untapped() {
     assert!(super::pays_tax(&view, ManaCost::parse("{4}"), &ctx));
 }
 
+#[test]
+fn pays_tax_reads_an_any_player_payments_unpaid_effects() {
+    use baylee_cards_dsl::Effect;
+    use baylee_core::mana::ManaCost;
+
+    static UPKEEP: &[Effect] = &[Effect::AnyPlayerMayPayManaOr {
+        cost: ManaCost::parse("{3}"),
+        effects: &[Effect::SacrificeSelf],
+    }];
+    static NO_COST: &[Effect] = &[Effect::AnyPlayerMayPayManaOr {
+        cost: ManaCost::parse("{3}"),
+        effects: &[Effect::GainLife {
+            amount: baylee_cards_dsl::Amount::Fixed(1),
+        }],
+    }];
+
+    let mut view = base_view();
+    let upkeep = baylee_engine::engine::DecisionContext {
+        effects: UPKEEP,
+        ..Default::default()
+    };
+    assert!(!super::pays_tax(&view, ManaCost::parse("{3}"), &upkeep));
+    view.battlefield = vec![
+        test_public_object(1, "Forest", 0, None),
+        test_public_object(2, "Forest", 0, None),
+        test_public_object(3, "Forest", 0, None),
+    ];
+    assert!(
+        super::pays_tax(&view, ManaCost::parse("{3}"), &upkeep),
+        "three available mana keep the permanent whose sacrifice nobody paying would cause"
+    );
+
+    let no_cost = baylee_engine::engine::DecisionContext {
+        effects: NO_COST,
+        ..Default::default()
+    };
+    assert!(
+        !super::pays_tax(&view, ManaCost::parse("{3}"), &no_cost),
+        "an unrelated unpaid effect does not become an upkeep payment"
+    );
+}
+
 /// Power Sink's "unless" carries a sequence that starts with the counter, and
 /// refusing it loses the spell: paid when it can be, `{0}` included (NEW-15).
 /// The effects are the card's own, read from the registry.

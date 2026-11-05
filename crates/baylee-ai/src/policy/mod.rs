@@ -2993,27 +2993,19 @@ pub(crate) fn pays_tax(
         }
         return can_pay(view, &price);
     }
-    let refusal_costs_a_card = context.effects.iter().any(|effect| match effect {
-        Effect::PlayerMayPayOr { effect, .. } | Effect::PlayerMayPayManaOr { effect, .. } => {
-            refusing_costs_a_card(effect)
-        }
-        _ => false,
-    });
+    let refusal_costs_a_card = context
+        .effects
+        .iter()
+        .flat_map(payment_unpaid_effects)
+        .any(refusing_costs_a_card);
     if !refusal_costs_a_card {
         return false;
     }
-    let is_upkeep_sacrifice = context.effects.iter().any(|effect| {
-        matches!(
-            effect,
-            Effect::PlayerMayPayOr {
-                effect: Effect::SacrificeSelf,
-                ..
-            } | Effect::PlayerMayPayManaOr {
-                effect: Effect::SacrificeSelf,
-                ..
-            }
-        )
-    });
+    let is_upkeep_sacrifice = context
+        .effects
+        .iter()
+        .flat_map(payment_unpaid_effects)
+        .any(|effect| matches!(effect, Effect::SacrificeSelf));
     if is_upkeep_sacrifice {
         let is_cumulative = context.effects.iter().any(|effect| {
             matches!(
@@ -3043,6 +3035,18 @@ pub(crate) fn pays_tax(
         }
     }
     can_pay(view, &price)
+}
+
+/// The consequence of declining a payment, independent of how many players
+/// are offered it. Other effects have no unpaid branch to inspect.
+fn payment_unpaid_effects(effect: &Effect) -> &[Effect] {
+    match effect {
+        Effect::PlayerMayPayOr { effect, .. } | Effect::PlayerMayPayManaOr { effect, .. } => {
+            std::slice::from_ref(effect)
+        }
+        Effect::AnyPlayerMayPayManaOr { effects, .. } => effects,
+        _ => &[],
+    }
 }
 
 /// Whether what an "unless" does when its price goes unpaid (CR 118.12a)
