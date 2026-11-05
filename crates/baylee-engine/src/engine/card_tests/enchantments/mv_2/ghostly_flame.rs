@@ -130,3 +130,34 @@ fn ghostly_flame_does_not_change_what_a_red_spell_can_target() {
     assert!(!options.contains(&acolyte));
     assert!(options.contains(&bears));
 }
+
+/// Combat damage is damage too: a red Goblin blocked by a creature with
+/// protection from red kills it only while Ghostly Flame makes the Goblin a
+/// colorless source (CR 702.16e on the real colors, 609.7 on the source).
+#[test]
+fn red_combat_damage_bypasses_protection_from_red_only_with_ghostly_flame() {
+    for with_flame in [false, true] {
+        let board = if with_flame {
+            vec![index::RAGING_GOBLIN, ghostly_flame()]
+        } else {
+            vec![index::RAGING_GOBLIN]
+        };
+        let mut engine = lk::game(SEED, &board, &[index::CRIMSON_ACOLYTE], &[], &[]);
+        let goblin = lk::obj(&engine, P0, index::RAGING_GOBLIN);
+        let acolyte = lk::obj(&engine, lk::P1, index::CRIMSON_ACOLYTE);
+
+        let _ = lk::attack(&mut engine, &[goblin]);
+        lk::block(&mut engine, &[(acolyte, goblin)]);
+        lk::through_combat(&mut engine);
+
+        assert_eq!(
+            lk::zone_of(&engine, acolyte),
+            if with_flame {
+                Zone::Graveyard
+            } else {
+                Zone::Battlefield
+            },
+            "with_flame = {with_flame}"
+        );
+    }
+}

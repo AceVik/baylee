@@ -208,3 +208,19 @@ fn forgotten_lore_with_an_empty_graveyard_asks_for_no_card_or_payment() {
     assert!(in_graveyard(&engine, P0, forgotten_lore()).is_some());
     assert_eq!(lk::pool_of(&engine, P0, ManaColor::Green), 3);
 }
+
+/// Paying to repeat when every card has been chosen leaves nothing to choose:
+/// no empty card question is asked (the repeated "you may pay {G}" is), and
+/// the last chosen card still comes back.
+#[test]
+fn forgotten_lore_repeat_with_no_unchosen_card_returns_the_last_choice() {
+    let (mut engine, buried) = cast(&[index::GRIZZLY_BEARS], 1);
+    assert_eq!(card_choice(&mut engine).0, P1);
+    choose(&mut engine, P1, buried[0]);
+    pay(&mut engine, true);
+    pay(&mut engine, false);
+    lk::settle(&mut engine);
+
+    assert_eq!(in_hand(&engine, P0, index::GRIZZLY_BEARS), Some(buried[0]));
+    assert_eq!(lk::pool_of(&engine, P0, ManaColor::Green), 0);
+}

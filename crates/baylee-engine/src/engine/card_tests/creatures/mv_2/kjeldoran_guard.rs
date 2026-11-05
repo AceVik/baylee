@@ -121,3 +121,45 @@ fn kjeldoran_guard_pump_and_linked_sacrifice_expire_at_end_of_turn() {
         "a later turn's departure no longer sacrifices the Guard"
     );
 }
+
+/// "Defending player" is whoever is attacked, not "the opponent": on the
+/// opponent's attack only the Guard's controller's snow lands matter.
+#[test]
+fn kjeldoran_guard_reads_the_snow_lands_of_the_player_being_attacked() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    for (mine, theirs, offered) in [
+        (vec![snow_covered_forest()], vec![], false),
+        (vec![], vec![snow_covered_forest()], true),
+    ] {
+        let mut board = vec![kjeldoran_guard()];
+        board.extend(mine);
+        let mut opposing = vec![grizzly_bears()];
+        opposing.extend(theirs);
+        let mut engine = Duel::new(SEED, plains())
+            .battlefield(0, &board)
+            .battlefield(1, &opposing)
+            .start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+        let guard = on_battlefield(&engine, p0, kjeldoran_guard()).unwrap();
+        let bears = on_battlefield(&engine, p1, grizzly_bears()).unwrap();
+
+        reach_their_main_phase(&mut engine, p1);
+        pass_until(&mut engine, |e| {
+            matches!(e.pending(), Pending::ChooseAttackers { .. })
+        });
+        engine
+            .apply(
+                p1,
+                PlayerAction::DeclareAttackers {
+                    attackers: vec![(bears, Defender::Player(p0))],
+                },
+            )
+            .unwrap();
+        pass_until(&mut engine, |e| {
+            e.state().turn.phase == Phase::Combat
+                && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+        });
+        assert_eq!(ability_offered(&engine, guard, 0), offered);
+    }
+}

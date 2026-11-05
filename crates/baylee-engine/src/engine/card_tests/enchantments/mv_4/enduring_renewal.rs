@@ -194,3 +194,51 @@ fn enduring_renewal_leaves_an_opponents_creature_in_their_graveyard() {
     assert!(in_hand(&engine, P1, index::GRIZZLY_BEARS).is_none());
     assert!(in_hand(&engine, P0, index::GRIZZLY_BEARS).is_none());
 }
+
+/// The draw step is a draw: with a creature on top, the controller's draw is
+/// replaced and the creature is milled, while the opponent's draw is not.
+#[test]
+fn enduring_renewal_replaces_only_its_controllers_draw_step_draw() {
+    let mut engine = lk::game(
+        SEED,
+        &[],
+        &[],
+        &[enduring_renewal(), index::GRIZZLY_BEARS],
+        &[index::HILL_GIANT],
+    );
+    let mine = in_hand(&engine, P0, index::GRIZZLY_BEARS).expect("Bears in hand");
+    let theirs = in_hand(&engine, P1, index::HILL_GIANT).expect("Giant in hand");
+    for (seat, card) in [(P0, mine), (P1, theirs)] {
+        engine
+            .dev_state_mut(seat)
+            .unwrap()
+            .move_object(
+                card,
+                ZoneLocation::Library(seat),
+                crate::zone::ZonePosition::Top,
+                crate::event::Cause::Setup,
+            )
+            .expect("stack the library");
+    }
+    engine.refresh_offer();
+    lk::float(
+        &mut engine,
+        P0,
+        &[(ManaColor::Colorless, 2), (ManaColor::White, 2)],
+    );
+    cast_with_floating(&mut engine, P0, enduring_renewal());
+    pass_until(&mut engine, stack_is_empty);
+
+    reach_their_main_phase(&mut engine, P1);
+    assert!(
+        in_hand(&engine, P1, index::HILL_GIANT).is_some(),
+        "the opponent's draw is not replaced"
+    );
+
+    reach_their_main_phase(&mut engine, P0);
+    assert!(
+        in_graveyard(&engine, P0, index::GRIZZLY_BEARS).is_some(),
+        "the draw step's draw is revealed and the creature milled"
+    );
+    assert!(in_hand(&engine, P0, index::GRIZZLY_BEARS).is_none());
+}

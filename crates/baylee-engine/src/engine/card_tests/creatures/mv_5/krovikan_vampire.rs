@@ -224,3 +224,30 @@ fn krovikan_vampire_sacrifices_the_returned_creature_when_it_leaves_play() {
     assert!(in_graveyard(&engine, P1, index::GRIZZLY_BEARS).is_some());
     assert!(on_battlefield(&engine, P0, index::GRIZZLY_BEARS).is_none());
 }
+
+#[test]
+fn krovikan_vampire_returns_a_creature_it_killed_on_its_own_turn_at_its_own_end_step() {
+    let mut engine = lk::game(
+        SEED,
+        &[krovikan_vampire()],
+        &[index::GRIZZLY_BEARS],
+        &[],
+        &[],
+    );
+    let vampire = lk::obj(&engine, P0, krovikan_vampire());
+    let bears = lk::obj(&engine, P1, index::GRIZZLY_BEARS);
+    reach_their_main_phase(&mut engine, P1);
+    reach_their_main_phase(&mut engine, P0);
+
+    let _ = lk::attack(&mut engine, &[vampire]);
+    lk::block(&mut engine, &[(bears, vampire)]);
+    lk::through_combat(&mut engine);
+    assert!(in_graveyard(&engine, P1, index::GRIZZLY_BEARS).is_some());
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == crate::turn::Step::End && !stack_is_empty(e)
+    });
+    lk::settle(&mut engine);
+    assert_eq!(lk::zone_of(&engine, bears), Zone::Battlefield);
+    assert_eq!(engine.state().object(bears).unwrap().controller, P0);
+}

@@ -109,3 +109,40 @@ fn general_jarkeld_leaves_every_block_unchanged_if_either_exchange_is_illegal() 
         "the ground Bear cannot be moved onto the flying attacker"
     );
 }
+
+/// Every creature that blocks exactly one of the two attackers switches, so a
+/// double block moves as a pair and the other attacker's lone blocker moves
+/// the other way.
+#[test]
+fn general_jarkeld_moves_every_blocker_of_a_double_block() {
+    let mut engine = lk::game(
+        SEED,
+        &[
+            general_jarkeld(),
+            index::GRIZZLY_BEARS,
+            index::LLANOWAR_ELVES,
+        ],
+        &[
+            index::GRIZZLY_BEARS,
+            index::LLANOWAR_ELVES,
+            index::HILL_GIANT,
+        ],
+        &[],
+        &[],
+    );
+    let a1 = lk::obj(&engine, P0, index::GRIZZLY_BEARS);
+    let a2 = lk::obj(&engine, P0, index::LLANOWAR_ELVES);
+    let b1 = lk::obj(&engine, P1, index::GRIZZLY_BEARS);
+    let b2 = lk::obj(&engine, P1, index::LLANOWAR_ELVES);
+    let b3 = lk::obj(&engine, P1, index::HILL_GIANT);
+
+    let _ = lk::attack(&mut engine, &[a1, a2]);
+    lk::block(&mut engine, &[(b1, a1), (b2, a1), (b3, a2)]);
+    activate(&mut engine, P0, general_jarkeld(), 0);
+    lk::aim(&mut engine, &[a1, a2], &[]);
+    lk::settle(&mut engine);
+
+    assert_eq!(engine.state().combat.blocked_by(b1), vec![a2]);
+    assert_eq!(engine.state().combat.blocked_by(b2), vec![a2]);
+    assert_eq!(engine.state().combat.blocked_by(b3), vec![a1]);
+}
