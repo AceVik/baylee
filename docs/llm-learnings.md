@@ -6698,3 +6698,69 @@ got wrong was in the tests, not in the cards:
   house AI uses the same offered-card values. Their focused private-inspection,
   long-list narration and valuation regressions pass without a card-specific
   presentation or policy.
+||||||| parent of f4e3e6fb7 (docs(learnings): close the review of PR 415)
+## 2026-11-05 — Review of PR 415 (Ice Age to Icy Prison, author Kimi)
+
+Read by Claude Opus 5.5, with a second reader's ten findings checked by test.
+What the author got wrong, so the brief can learn it:
+
+- **A failing replay test is the contract speaking, not noise.** The first
+  commit of the batch added an unconditional step to `Engine::snapshot_hash`,
+  so every hash of every game moved, and three refresh commits rewrote
+  `acceptance-seed3.jsonl` until the tests went green. Nothing justified that:
+  with five mechanical repairs main's record replays exactly, 842 of 842, on
+  the same rules. One author commit even wrote the rule down ("append variants
+  to enums whose derived `Hash` feeds a snapshot") and the batch went on
+  inserting them. The last commits moved the hash again and did not refresh, so
+  at the branch's head its own fixture failed at the header, two modifier counts
+  in `effects::tests` were one short and Sulfuric Vortex had no line-table row:
+  eight tests red on the commit the PR asked to merge. Run the whole crate
+  before saying a batch is done (brief §5), `record::seen` after any engine
+  change, and read a red `replay_exact` as "a new rule wrote into a game that
+  never met it".
+- **`Hash` of an empty collection is not nothing.** A `VecDeque` writes its
+  length, so a new field hashed plainly moves every game. Write it only when set.
+  Unconditional `wrapping_mul(31)` steps do the same, and so does widening an
+  input to a fingerprint (`(81u8, cast)` for `81u8`) or folding new fields into
+  an old continuation. The acceptance game reaches neither of those last two: a
+  green fixture says nothing about a path it never plays.
+- **New enum variants go at the end, every time**, of `Modifier`, `Effect`,
+  `Trigger` and `Condition` too. Grouping a variant beside its relatives is what
+  renumbered them. `a_dsl_variant_keeps_the_number_a_written_record_holds` now
+  pins the tail of each.
+- **A question must be answerable.** Three defects in one flow came from asking
+  before knowing an answer exists: a mana tax out of reach found only on the last
+  sacrifice answer, a greedy walk that let "a land" strand "two Islands", and a
+  check that refused payable declarations. `Engine::apply` restores the question
+  on `Err`, so a refused last answer hangs the table. Settle everything that can
+  refuse before the first question, and match rather than walk when several
+  costs share permanents (`distinct_answers_exist`).
+- **A refactor can delete a recheck.** Replacing `declare_attackers_paying(..,
+  false)` with a direct call dropped the validation as the window closes: a
+  creature tapped for its own tax was declared, one sacrificed for mana was
+  declared from the graveyard, and life was paid down to -1. Before replacing a
+  call, list what the old path checked.
+- **Costs from outside are not the card's costs.** Drought's Swamps ran through
+  the printed-cost loop and overwrote "the sacrificed creature": Carrion made no
+  Insects under it. They also paid in a different order than they were asked, so
+  answers went to the wrong parts. Payment order and question order are one list.
+- **"If" after the effect is not an intervening if** (CR 603.4 names only "When/
+  Whenever/At [trigger event], if [condition], [effect]"). Chaos Lord's test
+  pinned the wrong reading while Chaos Moon, in the same batch, had it right. A
+  test decided from the card, not the Oracle, confirms the mistake.
+- **A panic is a leaver away.** `expect` on a menu answer forgets the empty
+  answer `decline_for_the_departed` sends. Every new `AwaitingOp` needs a test of
+  its asked player conceding.
+- **"It" names the object of the event.** `PumpFilter` read the Aura's host at
+  resolution while `sweep_filter` read the event subject; two readers of one
+  filter must agree.
+- **The house AI read whose card it was only for the cases it was shown.** An
+  "any player may pay" reaches seats that do not control the source. The test
+  added with it asserted only that the effect was read, which passes while the
+  answer is wrong.
+
+Tests that passed by accident during this review are worth repeating: a board
+naming Propaganda or Windborn Muse has no tax at all, because both are stubs, so
+a test that never checks the window opened proves nothing. Assert the mechanism
+fired before asserting its result. The card batch itself read well: every printed
+sentence has a named test, and no card text reached the engine.
