@@ -381,109 +381,59 @@ pub fn popover_shadow() -> BoxShadow {
     ])
 }
 
+/// Which glyph a menu label takes: the first row with one of its words in the
+/// label, in this order, because a label can hold words of two rows.
+const MENU_GLYPHS: &[(&[&str], char)] = &[
+    (&["profil", "profile"], '\u{f007}'),
+    (&["tasten", "shortcut", "key"], '\u{f11c}'),
+    (&["problem", "report", "fehler", "bug"], '\u{f188}'),
+    (&["gateway", "wechsel"], '\u{f0ec}'),
+    (&["schließen", "beenden", "quit", "close"], '\u{f011}'),
+    (&["abmelden", "konto", "sign out", "switch"], '\u{f2f5}'),
+    (&["dupliz", "duplicate"], '\u{f24d}'),
+    (&["export", "kopier", "copy"], '\u{f56e}'),
+    (&["umbenenn", "bearbeit", "rename", "edit"], '\u{f304}'),
+    (&["leeren", "empty", "clear"], '\u{f12d}'),
+    (&["commander"], '\u{f521}'),
+    (&["highlander"], '\u{f3ed}'),
+    (&["standard"], '\u{f091}'),
+    (&["pioneer"], '\u{f14e}'),
+    (&["modern"], '\u{f0e7}'),
+    (&["legacy"], '\u{f02d}'),
+    (&["vintage", "selten", "rarity"], '\u{f3a5}'),
+    (&["pauper"], '\u{f51e}'),
+    (&["freiform", "freeform"], '\u{f534}'),
+    (&["alle formate", "all formats"], '\u{f5fd}'),
+    (&["druck", "print"], '\u{f03e}'),
+    (&["sideboard"], '\u{f0ec}'),
+    (&["hauptdeck", "main deck", "hinzuf", "add"], '\u{f067}'),
+    (&["historie", "history"], '\u{f1da}'),
+    (
+        &["ansehen", "preview", "karte öffnen", "open card"],
+        '\u{f06e}',
+    ),
+    (&["speicherdatum", "saved"], '\u{f017}'),
+    (&["name"], '\u{f15d}'),
+    (&["stärke", "power"], '\u{f6de}'),
+    (&["zuklapp", "collapse"], '\u{f066}'),
+    (&["aufklapp", "expand"], '\u{f065}'),
+    (&["typ", "type"], '\u{f0db}'),
+    (&["mana"], '\u{f51e}'),
+    (&["farb", "color", "colour"], '\u{f53f}'),
+    (&["format"], '\u{f091}'),
+    (&["favorit", "favourite"], '\u{f005}'),
+];
+
+/// The words of a label that deletes something, read after every other row.
+const DELETING_WORDS: [&str; 4] = ["lösch", "delete", "entfern", "remove"];
+
 /// Prefix glyph for a dropdown menu item based on its label or destructive flag.
 fn menu_item_glyph(text: &str, destructive: bool) -> char {
     let lower = text.to_lowercase();
-    if lower.contains("profil") || lower.contains("profile") {
-        '\u{f007}'
-    } else if lower.contains("tasten") || lower.contains("shortcut") || lower.contains("key") {
-        '\u{f11c}'
-    } else if lower.contains("problem")
-        || lower.contains("report")
-        || lower.contains("fehler")
-        || lower.contains("bug")
-    {
-        '\u{f188}'
-    } else if lower.contains("gateway") || lower.contains("wechsel") {
-        '\u{f0ec}'
-    } else if lower.contains("schließen")
-        || lower.contains("beenden")
-        || lower.contains("quit")
-        || lower.contains("close")
-    {
-        '\u{f011}'
-    } else if lower.contains("abmelden")
-        || lower.contains("konto")
-        || lower.contains("sign out")
-        || lower.contains("switch")
-    {
-        '\u{f2f5}'
-    } else if lower.contains("dupliz") || lower.contains("duplicate") {
-        '\u{f24d}'
-    } else if lower.contains("export") || lower.contains("kopier") || lower.contains("copy") {
-        '\u{f56e}'
-    } else if lower.contains("umbenenn")
-        || lower.contains("bearbeit")
-        || lower.contains("rename")
-        || lower.contains("edit")
-    {
-        '\u{f304}'
-    } else if lower.contains("leeren") || lower.contains("empty") || lower.contains("clear") {
-        '\u{f12d}'
-    } else if lower.contains("commander") {
-        '\u{f521}'
-    } else if lower.contains("highlander") {
-        '\u{f3ed}'
-    } else if lower.contains("standard") {
-        '\u{f091}'
-    } else if lower.contains("pioneer") {
-        '\u{f14e}'
-    } else if lower.contains("modern") {
-        '\u{f0e7}'
-    } else if lower.contains("legacy") {
-        '\u{f02d}'
-    } else if lower.contains("vintage") || lower.contains("selten") || lower.contains("rarity") {
-        '\u{f3a5}'
-    } else if lower.contains("pauper") {
-        '\u{f51e}'
-    } else if lower.contains("freiform") || lower.contains("freeform") {
-        '\u{f534}'
-    } else if lower.contains("alle formate") || lower.contains("all formats") {
-        '\u{f5fd}'
-    } else if lower.contains("druck") || lower.contains("print") {
-        '\u{f03e}'
-    } else if lower.contains("sideboard") {
-        '\u{f0ec}'
-    } else if lower.contains("hauptdeck")
-        || lower.contains("main deck")
-        || lower.contains("hinzuf")
-        || lower.contains("add")
-    {
-        '\u{f067}'
-    } else if lower.contains("historie") || lower.contains("history") {
-        '\u{f1da}'
-    } else if lower.contains("ansehen")
-        || lower.contains("preview")
-        || lower.contains("karte öffnen")
-        || lower.contains("open card")
-    {
-        '\u{f06e}'
-    } else if lower.contains("speicherdatum") || lower.contains("saved") {
-        '\u{f017}'
-    } else if lower.contains("name") {
-        '\u{f15d}'
-    } else if lower.contains("stärke") || lower.contains("power") {
-        '\u{f6de}'
-    } else if lower.contains("zuklapp") || lower.contains("collapse") {
-        '\u{f066}'
-    } else if lower.contains("aufklapp") || lower.contains("expand") {
-        '\u{f065}'
-    } else if lower.contains("typ") || lower.contains("type") {
-        '\u{f0db}'
-    } else if lower.contains("mana") {
-        '\u{f51e}'
-    } else if lower.contains("farb") || lower.contains("color") || lower.contains("colour") {
-        '\u{f53f}'
-    } else if lower.contains("format") {
-        '\u{f091}'
-    } else if lower.contains("favorit") || lower.contains("favourite") {
-        '\u{f005}'
-    } else if destructive
-        || lower.contains("lösch")
-        || lower.contains("delete")
-        || lower.contains("entfern")
-        || lower.contains("remove")
-    {
+    let says = |words: &[&str]| words.iter().any(|word| lower.contains(word));
+    if let Some((_, glyph)) = MENU_GLYPHS.iter().find(|(words, _)| says(words)) {
+        *glyph
+    } else if destructive || says(&DELETING_WORDS) {
         '\u{f1f8}'
     } else {
         '\u{f0da}'
