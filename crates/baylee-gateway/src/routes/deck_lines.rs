@@ -102,35 +102,16 @@ pub(crate) struct DeckBody {
     /// under the same rule as the sleeve.
     #[serde(default)]
     pub(crate) playmat: Option<String>,
-    /// @description Whether a card-list change records a history version
-    /// (`true`, the default) or updates the current version in place during
-    /// an active builder session (`false`).
+    /// @description Whether a save that changes a list keeps the state it
+    /// replaces in the deck's history (`true`, the default). `false` updates
+    /// the deck where it stands, for a builder session whose first change
+    /// has already been kept.
     #[serde(default = "default_versioned")]
     pub(crate) versioned: bool,
-    /// @description When leaving a builder session that saved in place, the
-    /// card lists the session started from so the entire session records one
-    /// history entry.
-    #[serde(default)]
-    pub(crate) superseded: Option<SupersededDeck>,
 }
 
 const fn default_versioned() -> bool {
     true
-}
-
-/// The card lists a deck held when the builder session began.
-/// @openapi
-#[derive(Clone, Debug, Default, Deserialize)]
-pub(crate) struct SupersededDeck {
-    /// @description Main-deck lines as the builder opened them.
-    #[serde(default)]
-    pub(crate) cards: Vec<String>,
-    /// @description Sideboard lines as the builder opened them.
-    #[serde(default)]
-    pub(crate) sideboard: Vec<String>,
-    /// @description Commanders as the builder opened them.
-    #[serde(default)]
-    pub(crate) commanders: Vec<String>,
 }
 
 impl DeckBody {

@@ -417,13 +417,16 @@ pub(crate) async fn create_deck(
 /// @summary Save a deck again
 /// @description Replaces one of the account's decks with the body, under
 /// the rules `POST /decks` checks. A save that changes a list keeps the
-/// state it replaces in the deck's history (`summary` names the change);
-/// one that leaves `format` or `description` out keeps them.
+/// state it replaces in the deck's history (`summary` names the change),
+/// unless `versioned` is `false`; one that leaves `format` or `description`
+/// out keeps them. A builder session sends `versioned` until an answer says
+/// `archived`, so the session is one entry in the history and what the deck
+/// held before it is kept however the session ends.
 /// @tag Decks
 /// @security bearer
 /// @insert `SessionRefusals`
 /// @path-param id: String "The deck's id"
-/// @return 204: "Saved"
+/// @return 200: `$DeckUpdated` "Saved"
 /// @return 400: `$ErrorBody` "The deck is refused: its name, a card line, a commander or the deck's size (the error names it)"
 /// @return 403: `$ErrorBody` "Another account's deck or a shared one, or a sleeve or playmat the account did not upload; or the account is banned (`ban`) or must accept the terms in force first (`terms_required`)"
 /// @return 404: `$ErrorBody` "No such deck"
@@ -434,7 +437,7 @@ pub(crate) async fn update_deck(
     headers: HeaderMap,
     Path(id): Path<String>,
     Json(body): Json<DeckBody>,
-) -> Result<StatusCode, (StatusCode, Json<ErrorBody>)> {
+) -> Result<Json<DeckUpdated>, (StatusCode, Json<ErrorBody>)> {
     let account_id = authed(&state, &headers).await?;
     validate_deck(&body)?;
     let deck = store::deck(&state.db, &id)
@@ -454,7 +457,7 @@ pub(crate) async fn update_deck(
         Some(text) => Some(text),
         None => deck.description.clone(),
     };
-    store::put_deck_versioned(
+    let archived = store::put_deck_versioned(
         &state.db,
         Deck {
             name: body.name,
@@ -470,12 +473,19 @@ pub(crate) async fn update_deck(
         },
         body.summary.filter(|s| !s.is_empty()),
         body.versioned,
-        body.superseded
-            .map(|s| (s.cards, s.sideboard, s.commanders)),
     )
     .await
     .map_err(|e| db_down(&e))?;
-    Ok(StatusCode::NO_CONTENT)
+    Ok(Json(DeckUpdated { archived }))
+}
+
+/// `PUT /decks/{id}`.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct DeckUpdated {
+    /// @description Whether this save kept the state it replaced in the
+    /// deck's history.
+    archived: bool,
 }
 
 /// Everything a deck is reached through, in one place.

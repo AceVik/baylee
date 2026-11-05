@@ -983,27 +983,6 @@ impl BuildField {
     }
 }
 
-/// The card lists a deck held when the current builder session opened it,
-/// so in-place auto-saves during the session collapse into a single history
-/// entry when leaving the builder.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SessionBaseline {
-    /// The deck's id.
-    pub deck_id: String,
-    /// Deck name when the session began.
-    #[serde(default)]
-    pub name: String,
-    /// Format when the session began.
-    #[serde(default)]
-    pub format: String,
-    /// Main-deck rows when the session began.
-    pub cards: Vec<String>,
-    /// Sideboard rows when the session began.
-    pub sideboard: Vec<String>,
-    /// Commander names when the session began.
-    pub commanders: Vec<String>,
-}
-
 /// The deck builder's whole state.
 #[derive(Clone, Debug, Default)]
 #[allow(clippy::struct_excessive_bools)] // independent facts: unsaved, naming, rules text, stubs shown
@@ -1134,11 +1113,9 @@ pub struct DeckBuilder {
     /// A saved version the export dialog writes instead of the deck in hand
     /// (History's Export…, windows-b6 §C.3).
     export_version: Option<transfer::VersionRows>,
-    /// The card lists the deck held when this builder visit opened it, so
-    /// in-session auto-saves coalesce into one history version on leave.
-    session_baseline: Option<SessionBaseline>,
-    /// Whether the deck was started from scratch in this builder visit.
-    new_in_session: bool,
+    /// Whether a save may update the deck where it stands
+    /// ([`DeckBuilder::saves_in_place`]).
+    in_place: bool,
 }
 
 mod builder;

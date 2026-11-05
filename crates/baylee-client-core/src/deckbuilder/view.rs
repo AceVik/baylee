@@ -315,6 +315,9 @@ impl DeckBuilder {
             &draft.side,
             &draft.commanders,
         );
+        // A draft of a stored deck is a new visit to it, and the gateway holds
+        // whatever it held: the first save still keeps that.
+        self.in_place = editing.is_none();
         self.editing = editing;
         self.format.clone_from(&draft.format);
         self.touch();
@@ -550,6 +553,10 @@ mod tests {
         assert_eq!(other.entries(Zone::Side), deck.entries(Zone::Side));
         assert_eq!(other.editing(), Some("d"));
         assert!(other.dirty(), "a restored draft is unsaved");
+        assert!(
+            !other.saves_in_place(),
+            "and its first save keeps what the gateway holds"
+        );
         assert!(!other.differs_from(&back));
         assert!(Draft::default().is_empty());
 
@@ -562,7 +569,32 @@ mod tests {
             ..Draft::default()
         });
         assert_eq!(fresh.editing(), None, "a new deck's draft stays a new deck");
+        assert!(fresh.saves_in_place(), "with nothing behind it to keep");
         assert_eq!(fresh.counts().main, 2);
+    }
+
+    /// A deck is in place once a state is kept or it was made here, and not
+    /// by a save that kept nothing: a rename, or a gateway that did not say.
+    #[test]
+    fn only_a_kept_state_lets_a_visit_save_in_place() {
+        let mut deck = deck();
+        assert!(
+            !deck.saves_in_place(),
+            "a stored deck keeps its state first"
+        );
+        deck.set_name("Elves");
+        deck.mark_auto_saved(None, deck.changes(), false);
+        assert!(!deck.saves_in_place());
+        deck.add(2, Zone::Main);
+        deck.mark_auto_saved(None, deck.changes(), true);
+        assert!(deck.saves_in_place());
+
+        let lists = (deck.rows(Zone::Main), deck.rows(Zone::Side));
+        deck.load("d", "x", &lists.0, &lists.1, &[]);
+        assert!(!deck.saves_in_place(), "every visit keeps its own");
+
+        deck.start_new();
+        assert!(deck.saves_in_place(), "a new deck has nothing to keep");
     }
 
     #[test]

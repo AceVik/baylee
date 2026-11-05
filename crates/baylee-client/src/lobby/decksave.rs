@@ -34,9 +34,15 @@ fn read_save(
     saved_changes: u32,
     result: &ehttp::Result<ehttp::Response>,
 ) -> Vec<Reply> {
-    #[derive(serde::Deserialize)]
-    struct SavedDeck {
-        deck_id: String,
+    /// `POST /decks` says `deck_id`, `PUT /decks/{id}` says `archived`, and
+    /// a gateway from before that says nothing, which has to read as no: a
+    /// save in place on a word that never came would lose a state.
+    #[derive(Default, serde::Deserialize)]
+    struct Saved {
+        #[serde(default)]
+        deck_id: Option<String>,
+        #[serde(default)]
+        archived: bool,
     }
 
     let failed = |why: Option<String>| Reply::AutoSaveFailed { why };
@@ -49,13 +55,14 @@ fn read_save(
         }
     };
     if response.ok {
-        let deck_id = response
+        let Saved { deck_id, archived } = response
             .text()
-            .and_then(|text| serde_json::from_str::<SavedDeck>(text).ok())
-            .map(|deck| deck.deck_id);
+            .and_then(|text| serde_json::from_str(text).ok())
+            .unwrap_or_default();
         return vec![Reply::AutoSaved {
             deck_id,
             saved_changes,
+            archived,
         }];
     }
     // The session's own endings are told by their own replies.
@@ -94,10 +101,15 @@ pub(super) fn save_failed(state: &mut LobbyState, why: Option<String>) {
     }
 }
 
-/// Immediately saves the deck builder's current state without creating a new
-/// version-history entry (`"versioned": false`). The deck stays dirty until
-/// the gateway has answered; a deck that may not save is not sent, since
-/// `rows` leaves out a card the pool has not got.
+/// Immediately saves the deck builder's current state. The deck stays dirty
+/// until the gateway has answered; a deck that may not save is not sent,
+/// since `rows` leaves out a card the pool has not got.
+///
+/// Every visit is one entry in the deck's history, and the entry is written
+/// by the save that first changes a list (`"versioned": true`), the ones
+/// after it updating the deck where it stands. Written first and not on the
+/// way out, so that nothing has to go right later: quit, sign out or discard
+/// and what the deck held before this visit is already kept.
 #[allow(clippy::too_many_lines)]
 pub(crate) fn auto_save_deck(state: &mut LobbyState, mailbox: &Mailbox) {
     use baylee_client_core::deckbuilder::Zone;
@@ -133,7 +145,7 @@ pub(crate) fn auto_save_deck(state: &mut LobbyState, mailbox: &Mailbox) {
             state
                 .lobby
                 .builder_mut()
-                .mark_auto_saved(deck_id.as_deref(), saved_changes);
+                .mark_auto_saved(deck_id.as_deref(), saved_changes, false);
             state.build.save = crate::buildui::SaveState::Saved {
                 at: 0.0,
                 minutes: 0,
@@ -168,7 +180,7 @@ pub(crate) fn auto_save_deck(state: &mut LobbyState, mailbox: &Mailbox) {
             state
                 .lobby
                 .builder_mut()
-                .mark_auto_saved(deck_id.as_deref(), saved_changes);
+                .mark_auto_saved(deck_id.as_deref(), saved_changes, false);
             state.build.save = crate::buildui::SaveState::Saved {
                 at: 0.0,
                 minutes: 0,
@@ -197,7 +209,7 @@ pub(crate) fn auto_save_deck(state: &mut LobbyState, mailbox: &Mailbox) {
         "cards": cards,
         "sideboard": sideboard,
         "commanders": commanders,
-        "versioned": false,
+        "versioned": !state.lobby.builder().saves_in_place(),
     });
     if let Some(format) = format {
         body["format"] = serde_json::Value::String(format);
@@ -207,77 +219,5 @@ pub(crate) fn auto_save_deck(state: &mut LobbyState, mailbox: &Mailbox) {
         None => json_post(&format!("{base}/decks"), &body),
     };
     let request = bearer(request, Some(&token));
-    send_save(state, mailbox, request, saved_changes);
-}
-
-/// Commits all changes made during this deckbuilder session as a single
-/// coalesced version-history entry (`"versioned": true`, `"superseded": baseline`)
-/// when leaving the deckbuilder.
-pub(crate) fn commit_session_version(state: &mut LobbyState, mailbox: &Mailbox) {
-    use baylee_client_core::deckbuilder::Zone;
-
-    let lang = state.lobby.lang();
-    if state.offline.is_some() || state.central_without_gateway() {
-        if state.lobby.builder().dirty() {
-            auto_save_deck(state, mailbox);
-        }
-        let _ = state.lobby.builder_mut().take_session_baseline();
-        return;
-    }
-    let Some(token) = state.lobby.token().map(str::to_owned) else {
-        return;
-    };
-    let base = state.gateway.trim_end_matches('/').to_string();
-    if base.is_empty() {
-        return;
-    }
-    let is_new = state.lobby.builder().is_new_in_session();
-    let changed = state.lobby.builder().session_changed();
-    let baseline = state.lobby.builder_mut().take_session_baseline();
-    if is_new || !changed {
-        if state.lobby.builder().dirty() {
-            auto_save_deck(state, mailbox);
-        }
-        return;
-    }
-    let Some(baseline) = baseline else {
-        return;
-    };
-    let deck = state.lobby.builder();
-    if deck.entries(Zone::Main).is_empty() {
-        return;
-    }
-    let Some(id) = deck.editing().map(str::to_owned) else {
-        return;
-    };
-    let name = if deck.name().trim().is_empty() {
-        Phrase::BuildUntitled.text(lang).to_string()
-    } else {
-        deck.name().trim().chars().take(64).collect()
-    };
-    let cards = deck.rows(Zone::Main);
-    let sideboard = deck.rows(Zone::Side);
-    let commanders = deck.commander_names();
-    let format = Some(deck.format().to_string());
-    let saved_changes = deck.changes();
-    let mut body = serde_json::json!({
-        "name": name,
-        "cards": cards,
-        "sideboard": sideboard,
-        "commanders": commanders,
-        "versioned": true,
-        "superseded": {
-            "cards": baseline.cards,
-            "sideboard": baseline.sideboard,
-            "commanders": baseline.commanders,
-        }
-    });
-    if let Some(format) = format {
-        body["format"] = serde_json::Value::String(format);
-    }
-    let request = bearer(
-        json_body(ehttp::Method::PUT, &format!("{base}/decks/{id}"), &body),
-        Some(&token),
-    );
     send_save(state, mailbox, request, saved_changes);
 }

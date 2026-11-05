@@ -3819,7 +3819,7 @@ from a curl recipe into a contract:
 | decks | `GET /decks` | `[{id, name, format, cards, sideboard, copies, side_copies, identity, commanders, leaders, signature, unplayable, updated_at, sleeve, playmat}]` |
 | one deck | `GET /decks/{id}` | `{id, kind, name, format, description, cards:[…], sideboard:[…], commanders:[…], version}` |
 | save a deck | `POST /decks` `{name, cards:["N Card Name"], sideboard, commanders, format?, description?, summary?, sleeve?, playmat?}` | `{deck_id}`; `403` for a sleeve or mat the caller did not upload |
-| edit one | `PUT /decks/{id}` — same body | `204` |
+| edit one | `PUT /decks/{id}` — same body, and `versioned?` (default `true`) | `{archived}`: whether this save kept the state it replaced |
 | throw one away | `DELETE /decks/{id}` | `204` |
 | what anybody may play | `GET /decks/shared` | `[{id, kind, name, format, description, cards, sideboard, commanders, version, copies, identity, leaders, signature, unplayable}]` |
 | take a copy | `POST /decks/{id}/copy` | `{deck_id}` |
@@ -3905,6 +3905,18 @@ any other save does, and answers the new number. So a revert is revertible
 and nothing in a history is ever removed or rewritten — which is also why
 `(deck_id, version)` is a primary key with no `ON CONFLICT`: a racing save
 fails loudly rather than quietly writing a second past.
+
+**A builder session is one entry, written by its first change.** The client
+auto-saves every edit, and a row per edit would bury the ones worth going back
+to, so `PUT /decks/{id}` takes `versioned: false`: the deck is updated where it
+stands and no row is written. A session sends the default until an answer says
+`archived: true`, and `false` from then on. The row is written *first* so that
+nothing has to go right later: whether the session ends in Back, Discard, a
+sign-out or a crash, what the deck held before it is already in the history.
+What a row holds is only ever read from the deck, in the save's transaction;
+no field of a body can put lists into a history, where a revert could fetch them
+back past `validate_deck`. A session that changes a list and changes it back
+leaves an entry equal to the head; a history is never rewritten to hide one.
 
 **What each save changed (WG-6).** Every `past` row, and the head, carries
 `delta: {added, removed, count, printing, finish, language, note}` against

@@ -852,12 +852,19 @@ pub async fn create_deck(db: &DatabaseConnection, new: NewDeck) -> Result<Option
 ///
 /// If the database refuses.
 pub async fn put_deck(db: &DatabaseConnection, saved: Deck, summary: Option<String>) -> Result<()> {
-    put_deck_versioned(db, saved, summary, true, None).await
+    put_deck_versioned(db, saved, summary, true)
+        .await
+        .map(|_| ())
 }
 
-/// Write a deck, optionally updating the current version in place (`versioned
-/// == false`) or archiving `superseded` (when given) so an entire deckbuilder
-/// session records a single history entry when the player leaves.
+/// [`put_deck`], answering whether the history grew; with `versioned` false
+/// the current version is updated where it stands and it never does.
+///
+/// That is how a builder session is one entry: it saves with `versioned`
+/// until an answer says a state was kept, and in place from then on. What a
+/// row holds is only ever read from the deck here, in this transaction, so
+/// no body can write into the history, and the state a session started from
+/// is kept before anything can overwrite it.
 ///
 /// # Errors
 ///
@@ -867,10 +874,9 @@ pub async fn put_deck_versioned(
     saved: Deck,
     summary: Option<String>,
     versioned: bool,
-    superseded: Option<(Vec<String>, Vec<String>, Vec<String>)>,
-) -> Result<()> {
+) -> Result<bool> {
     let Some(id) = uuid(&saved.id) else {
-        return Ok(());
+        return Ok(false);
     };
     let account_id = uuid(&saved.account_id);
     let (copied_from, copied_version) = match &saved.origin {
@@ -880,37 +886,18 @@ pub async fn put_deck_versioned(
 
     let tx = db.begin().await?;
     let before = Decks::find_by_id(id).one(&tx).await?;
-    let archive =
-        match (&before, versioned, superseded) {
-            (None, _, _) | (Some(_), false, _) => None,
-            (Some(row), true, Some((cards, sideboard, commanders))) => {
-                let baseline = deck::Model {
-                    cards,
-                    sideboard,
-                    commanders,
-                    ..row.clone()
-                };
-                (!baseline.same_cards(&saved.cards, &saved.sideboard, &saved.commanders))
-                    .then_some((baseline.cards, baseline.sideboard, baseline.commanders))
-            }
-            (Some(row), true, None) => {
-                (!row.same_cards(&saved.cards, &saved.sideboard, &saved.commanders)).then(|| {
-                    (
-                        row.cards.clone(),
-                        row.sideboard.clone(),
-                        row.commanders.clone(),
-                    )
-                })
-            }
-        };
-    let version = match (&before, archive) {
-        (Some(row), Some((cards, sideboard, commanders))) => {
+    let archived = versioned
+        && before
+            .as_ref()
+            .is_some_and(|row| !row.same_cards(&saved.cards, &saved.sideboard, &saved.commanders));
+    let version = match &before {
+        Some(row) if archived => {
             DeckVersions::insert(deck_version::ActiveModel {
                 deck_id: Set(id),
                 version: Set(row.version),
-                cards: Set(cards),
-                sideboard: Set(sideboard),
-                commanders: Set(commanders),
+                cards: Set(row.cards.clone()),
+                sideboard: Set(row.sideboard.clone()),
+                commanders: Set(row.commanders.clone()),
                 summary: Set(summary),
                 superseded_at: Set(at(saved.updated_at)),
             })
@@ -921,8 +908,8 @@ pub async fn put_deck_versioned(
             // rather than quietly writing a second past for the same number.
             row.version + 1
         }
-        (Some(row), None) => row.version,
-        (None, _) => 1,
+        Some(row) => row.version,
+        None => 1,
     };
 
     Decks::insert(deck::ActiveModel {
@@ -965,7 +952,7 @@ pub async fn put_deck_versioned(
     .exec(&tx)
     .await?;
     tx.commit().await?;
-    Ok(())
+    Ok(archived)
 }
 
 /// One deck's history, newest first — every state it no longer holds.

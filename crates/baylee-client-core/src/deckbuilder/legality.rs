@@ -94,9 +94,6 @@ impl DeckBuilder {
     /// Takes the format a stored deck says. Not an edit.
     pub fn keep_format(&mut self, format: &str) {
         self.format = format.to_string();
-        if let Some(base) = &mut self.session_baseline {
-            base.format = format.to_string();
-        }
         self.recheck();
     }
 

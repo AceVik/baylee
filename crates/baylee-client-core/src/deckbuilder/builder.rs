@@ -2088,50 +2088,25 @@ impl DeckBuilder {
     }
 
     /// Marks an in-session auto-save complete for `saved_changes` without
-    /// clobbering edits made while the request was in flight.
-    pub fn mark_auto_saved(&mut self, deck_id: Option<&str>, saved_changes: u32) {
+    /// clobbering edits made while the request was in flight. `archived`:
+    /// the gateway kept the state the save replaced.
+    pub fn mark_auto_saved(&mut self, deck_id: Option<&str>, saved_changes: u32, archived: bool) {
         if let Some(id) = deck_id {
             self.editing = Some(id.to_string());
         }
+        self.in_place |= archived || deck_id.is_some();
         if self.changes == saved_changes {
             self.dirty = false;
             self.naming = false;
         }
     }
 
-    /// The baseline captured when this builder session opened an existing deck.
+    /// Whether a save may update the deck where it stands: it was created in
+    /// this visit, or the state it held before this visit is already kept in
+    /// its history. Until then every save asks to keep what it replaces.
     #[must_use]
-    pub const fn session_baseline(&self) -> Option<&SessionBaseline> {
-        self.session_baseline.as_ref()
-    }
-
-    /// Whether this deck was created from scratch in the current builder visit.
-    #[must_use]
-    pub const fn is_new_in_session(&self) -> bool {
-        self.new_in_session
-    }
-
-    /// Whether the deck's card lists differ from the baseline captured when the
-    /// builder opened it (or whether unsaved edits remain).
-    #[must_use]
-    pub fn session_changed(&self) -> bool {
-        if self.dirty {
-            return true;
-        }
-        let Some(base) = &self.session_baseline else {
-            return false;
-        };
-        self.rows(Zone::Main) != base.cards
-            || self.rows(Zone::Side) != base.sideboard
-            || self.commander_names() != base.commanders
-            || (!base.name.is_empty() && self.name.text().trim() != base.name.trim())
-            || (!base.format.is_empty() && self.format() != base.format)
-    }
-
-    /// Takes the session baseline when leaving the builder so the final save
-    /// archives it as a single history entry.
-    pub fn take_session_baseline(&mut self) -> Option<SessionBaseline> {
-        self.session_baseline.take()
+    pub const fn saves_in_place(&self) -> bool {
+        self.in_place
     }
 
     /// Starts a new, empty deck.
@@ -2143,8 +2118,7 @@ impl DeckBuilder {
         self.missing.clear();
         self.name.clear();
         self.editing = None;
-        self.session_baseline = None;
-        self.new_in_session = true;
+        self.in_place = true;
         self.zone = Zone::Main;
         self.dirty = false;
         self.changes = 0;
@@ -2177,7 +2151,7 @@ impl DeckBuilder {
         commanders: &[String],
     ) {
         self.start_new();
-        self.new_in_session = false;
+        self.in_place = false;
         self.editing = Some(id.to_string());
         self.name = crate::textbuf::TextBuffer::new(name);
         // A commander is a name too, and races the pool the same way its
@@ -2201,33 +2175,12 @@ impl DeckBuilder {
         self.dirty = false;
         self.changes = 0;
         self.naming = false;
-        self.session_baseline = Some(SessionBaseline {
-            deck_id: id.to_string(),
-            name: name.trim().to_string(),
-            format: self.format().to_string(),
-            cards: if self.pending.is_empty() {
-                self.rows(Zone::Main)
-            } else {
-                cards.to_vec()
-            },
-            sideboard: if self.pending.is_empty() {
-                self.rows(Zone::Side)
-            } else {
-                sideboard.to_vec()
-            },
-            commanders: if self.pending_commander.is_empty() {
-                self.commander_names()
-            } else {
-                commanders.to_vec()
-            },
-        });
         // This one already has a name; what is wanted is the next card.
         self.focus_on(BuildField::Search);
     }
 
     /// Replaces the working deck's format, main deck, sideboard, and commanders
-    /// with a saved format variant while keeping the deck's ID, name, and
-    /// session baseline.
+    /// with a saved format variant while keeping the deck's ID and name.
     pub fn apply_variant(
         &mut self,
         format: &str,
@@ -2258,21 +2211,6 @@ impl DeckBuilder {
     /// asks the deck's standing again.
     pub(super) fn resolve_pending(&mut self) {
         self.resolve_rows();
-        if !self.dirty
-            && self.changes == 0
-            && self.pending.is_empty()
-            && self.pending_commander.is_empty()
-            && self.session_baseline.is_some()
-        {
-            let cards = self.rows(Zone::Main);
-            let sideboard = self.rows(Zone::Side);
-            let commanders = self.commander_names();
-            if let Some(base) = &mut self.session_baseline {
-                base.cards = cards;
-                base.sideboard = sideboard;
-                base.commanders = commanders;
-            }
-        }
         self.recheck();
     }
 

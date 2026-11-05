@@ -13,7 +13,6 @@ use std::time::{Duration, Instant};
 
 /// One save as it reached the gateway.
 #[derive(Clone, Debug)]
-#[allow(dead_code)] // read through `Debug` until the routes are asserted on
 struct Seen {
     /// `PUT /decks/d1`, the request line's first two words.
     route: String,
@@ -243,7 +242,9 @@ fn a_refused_save_leaves_the_deck_dirty_and_tells_the_player() {
     let gateway = Gateway::new();
     let mut app = editing_a_stored_deck(&gateway.base);
     add_a_forest(&mut app);
-    until(&mut app, "the save went out", |_| gateway.saves().len() == 1);
+    until(&mut app, "the save went out", |_| {
+        gateway.saves().len() == 1
+    });
     assert!(
         state(&app).lobby.builder().dirty(),
         "unsaved until it is answered"
@@ -294,14 +295,18 @@ fn save_retries_a_failed_save() {
     let gateway = Gateway::new();
     let mut app = editing_a_stored_deck(&gateway.base);
     add_a_forest(&mut app);
-    until(&mut app, "the save went out", |_| gateway.saves().len() == 1);
+    until(&mut app, "the save went out", |_| {
+        gateway.saves().len() == 1
+    });
     gateway.answer(500, r#"{"error":"the database is down"}"#);
     until(&mut app, "the refusal arrived", |app| {
         state(app).build.save == SaveState::Failed
     });
 
     press(&mut app, Press::Build(BuildPress::SaveDeck));
-    until(&mut app, "the retry went out", |_| gateway.saves().len() == 2);
+    until(&mut app, "the retry went out", |_| {
+        gateway.saves().len() == 2
+    });
     gateway.answer(204, "");
     until(&mut app, "the retry landed", |app| {
         !state(app).lobby.builder().dirty()
@@ -316,7 +321,9 @@ fn a_session_that_ends_under_a_save_keeps_the_draft() {
     let gateway = Gateway::new();
     let mut app = editing_a_stored_deck(&gateway.base);
     add_a_forest(&mut app);
-    until(&mut app, "the save went out", |_| gateway.saves().len() == 1);
+    until(&mut app, "the save went out", |_| {
+        gateway.saves().len() == 1
+    });
     gateway.answer(401, r#"{"error":"invalid session"}"#);
     until(&mut app, "the session ended", |app| {
         matches!(state(app).lobby.screen(), Screen::SignIn { .. })
@@ -354,7 +361,9 @@ fn a_deck_that_saves_leaves_at_once() {
     press(&mut app, Press::Build(BuildPress::CloseBuilder));
     assert!(!state(&app).confirm_leave);
     assert_eq!(state(&app).lobby.screen(), &Screen::Table);
-    until(&mut app, "the save went out", |_| !gateway.saves().is_empty());
+    until(&mut app, "the save went out", |_| {
+        !gateway.saves().is_empty()
+    });
 }
 
 /// Discard means discard: after a failed save the edit is not sent on the
@@ -364,7 +373,9 @@ fn discarding_a_failed_save_sends_nothing_more() {
     let gateway = Gateway::new();
     let mut app = editing_a_stored_deck(&gateway.base);
     add_a_forest(&mut app);
-    until(&mut app, "the save went out", |_| gateway.saves().len() == 1);
+    until(&mut app, "the save went out", |_| {
+        gateway.saves().len() == 1
+    });
     gateway.answer(500, r#"{"error":"the database is down"}"#);
     until(&mut app, "the refusal arrived", |app| {
         state(app).build.save == SaveState::Failed
@@ -379,6 +390,117 @@ fn discarding_a_failed_save_sends_nothing_more() {
     assert!(state_mut(&mut app).drafts.of(Some("d1")).is_none());
 }
 
+/// What the deck held before this visit reaches the history with the visit's
+/// first change: every save asks for it until the gateway says it was kept,
+/// and only then does a save update the deck where it stands.
+#[test]
+fn a_visits_first_change_keeps_history_and_the_rest_save_in_place() {
+    let gateway = Gateway::new();
+    let mut app = editing_a_stored_deck(&gateway.base);
+    add_a_forest(&mut app);
+    until(&mut app, "the first save", |_| gateway.saves().len() == 1);
+    assert_eq!(gateway.saves()[0].body["versioned"], true);
+    gateway.answer(200, r#"{"archived":true}"#);
+    until(&mut app, "it landed", |app| {
+        !state(app).lobby.builder().dirty()
+    });
+
+    add_a_forest(&mut app);
+    until(&mut app, "the second save", |_| gateway.saves().len() == 2);
+    assert_eq!(gateway.saves()[1].body["versioned"], false);
+}
+
+/// A rename writes no history, so the change after it still has to.
+#[test]
+fn a_rename_leaves_the_history_for_the_first_change() {
+    let gateway = Gateway::new();
+    let mut app = editing_a_stored_deck(&gateway.base);
+    state_mut(&mut app).lobby.builder_mut().set_name("Elves");
+    until(&mut app, "the rename's save", |_| {
+        gateway.saves().len() == 1
+    });
+    gateway.answer(200, r#"{"archived":false}"#);
+    until(&mut app, "it landed", |app| {
+        !state(app).lobby.builder().dirty()
+    });
+
+    add_a_forest(&mut app);
+    until(&mut app, "the change's save", |_| {
+        gateway.saves().len() == 2
+    });
+    assert_eq!(gateway.saves()[1].body["versioned"], true);
+}
+
+/// A gateway that does not say keeps asking to keep history, which at worst
+/// writes a row too many and never loses one.
+#[test]
+fn a_gateway_that_says_nothing_never_saves_in_place() {
+    let gateway = Gateway::new();
+    let mut app = editing_a_stored_deck(&gateway.base);
+    add_a_forest(&mut app);
+    until(&mut app, "the first save", |_| gateway.saves().len() == 1);
+    gateway.answer(204, "");
+    until(&mut app, "it landed", |app| {
+        !state(app).lobby.builder().dirty()
+    });
+
+    add_a_forest(&mut app);
+    until(&mut app, "the second save", |_| gateway.saves().len() == 2);
+    assert_eq!(gateway.saves()[1].body["versioned"], true);
+}
+
+/// A deck this visit created has nothing behind it to keep: after the POST
+/// the saves go in place, and leaving writes no row.
+#[test]
+fn a_new_deck_has_no_history_to_write() {
+    let gateway = Gateway::new();
+    let mut app = signed_in(&gateway.base);
+    {
+        let mut state = state_mut(&mut app);
+        state.build = crate::buildui::BuildUi::opened();
+        let _ = state.lobby.build_deck();
+    }
+    frames(&mut app, 3);
+    add_a_forest(&mut app);
+    until(&mut app, "the deck was created", |_| {
+        gateway.saves().len() == 1
+    });
+    assert_eq!(gateway.saves()[0].route, "POST /decks");
+    gateway.answer(200, r#"{"deck_id":"n1"}"#);
+    until(&mut app, "it landed", |app| {
+        state(app).lobby.builder().editing() == Some("n1")
+    });
+
+    add_a_forest(&mut app);
+    until(&mut app, "the next save", |_| gateway.saves().len() == 2);
+    assert_eq!(gateway.saves()[1].route, "PUT /decks/n1");
+    assert_eq!(gateway.saves()[1].body["versioned"], false);
+}
+
+/// Opening the deck again is a new visit: its first change keeps history.
+#[test]
+fn every_visit_writes_its_own_entry() {
+    let gateway = Gateway::new();
+    let mut app = editing_a_stored_deck(&gateway.base);
+    add_a_forest(&mut app);
+    until(&mut app, "the first save", |_| gateway.saves().len() == 1);
+    gateway.answer(200, r#"{"archived":true}"#);
+    until(&mut app, "it landed", |app| {
+        !state(app).lobby.builder().dirty()
+    });
+    press(&mut app, Press::Build(BuildPress::CloseBuilder));
+    until(&mut app, "the lobby settled", |app| {
+        !state(app).lobby.busy()
+    });
+
+    open_stored(&mut app, &["4 Llanowar Elves", "1 Forest"]);
+    add_a_forest(&mut app);
+    until(&mut app, "the next visit's save", |_| {
+        gateway.saves().len() == 2
+    });
+    assert_eq!(gateway.saves()[1].body["versioned"], true);
+}
+
 /// Leaving under a save does not hide its failure: the draft survives the
 /// builder, the player hears it, and opening the deck takes the edit back.
 #[test]
@@ -388,7 +510,9 @@ fn a_save_that_fails_after_leaving_comes_back_with_the_deck() {
     add_a_forest(&mut app);
     press(&mut app, Press::Build(BuildPress::CloseBuilder));
     assert_eq!(state(&app).lobby.screen(), &Screen::Table);
-    until(&mut app, "the save went out", |_| !gateway.saves().is_empty());
+    until(&mut app, "the save went out", |_| {
+        !gateway.saves().is_empty()
+    });
     let sent = gateway.saves().len();
     for _ in 0..sent {
         gateway.answer(500, r#"{"error":"the database is down"}"#);
@@ -398,7 +522,9 @@ fn a_save_that_fails_after_leaving_comes_back_with_the_deck() {
     });
     assert!(state_mut(&mut app).drafts.of(Some("d1")).is_some());
 
-    until(&mut app, "the lobby settled", |app| !state(app).lobby.busy());
+    until(&mut app, "the lobby settled", |app| {
+        !state(app).lobby.busy()
+    });
     open_stored(&mut app, &["4 Llanowar Elves"]);
     let rows = state(&app).lobby.builder().rows(Zone::Main);
     assert!(rows.iter().any(|row| row.contains("Forest")), "{rows:?}");

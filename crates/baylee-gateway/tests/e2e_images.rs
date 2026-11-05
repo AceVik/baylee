@@ -270,7 +270,7 @@ fn a_deck_wears_only_its_players_pictures() {
         ("its own again", wearing(&quoted(&sleeve), "null")),
     ] {
         let (status, answer) = http(gw.port, "PUT", &path, Some(&painter), &body);
-        assert_eq!(status, 204, "{what}: {answer}");
+        assert_eq!(status, 200, "{what}: {answer}");
     }
     let (status, answer) = http(
         gw.port,
