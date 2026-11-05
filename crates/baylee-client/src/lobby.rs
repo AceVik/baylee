@@ -1275,6 +1275,7 @@ pub(crate) mod card_fill;
 mod clicks;
 mod confirm;
 pub(crate) mod decks;
+pub(crate) mod decksave;
 pub(crate) mod dock;
 mod editing;
 mod end_screen;

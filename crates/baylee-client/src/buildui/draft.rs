@@ -95,7 +95,7 @@ pub(crate) fn keep_the_draft(
     if !on_screen {
         if kept.visiting {
             if let Some(mailbox) = mailbox.as_deref() {
-                crate::lobby::http::commit_session_version(&mut state, mailbox);
+                crate::lobby::decksave::commit_session_version(&mut state, mailbox);
             }
             *kept = Keeper::default();
         }
@@ -157,7 +157,7 @@ pub(crate) fn keep_the_draft(
         if !creating_in_flight && kept.auto_saved.as_ref() != Some(&draft) {
             let old_key = deck.editing().unwrap_or("new").to_owned();
             kept.auto_saved = Some(draft);
-            crate::lobby::http::auto_save_deck(&mut state, mailbox);
+            crate::lobby::decksave::auto_save_deck(&mut state, mailbox);
             if let Some(new_id) = state.lobby.builder().editing().map(str::to_owned)
                 && new_id != old_key
                 && let Some(prefs) = prefs.as_deref_mut()
