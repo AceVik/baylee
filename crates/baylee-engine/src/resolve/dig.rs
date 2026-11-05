@@ -52,9 +52,13 @@ pub(super) fn start(
             })
         })
         .collect();
-    if options.is_empty() {
+    // A public reveal has shown the cards already. A private look shows them
+    // only through this question, so it is asked with nothing to pick as well,
+    // and a stored game holds an answer to it.
+    if reveal && options.is_empty() {
         return finish_with_destination(state, res, found, top, false, destination, &[]);
     }
+    let max = u8::from(!options.is_empty());
     res.awaiting = Some(AwaitingOp::DigRest {
         rest: top,
         reveal: !reveal,
@@ -65,7 +69,7 @@ pub(super) fn start(
         player: you,
         options,
         min: 0,
-        max: 1,
+        max,
         prompt: match found.dest {
             SearchDest::Hand => ChoicePrompt::PutIntoHand,
             SearchDest::Battlefield => ChoicePrompt::PutOntoBattlefield,
