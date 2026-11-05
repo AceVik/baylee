@@ -25,13 +25,24 @@ impl std::io::Write for Fnv1aWriter {
     }
 }
 
+/// A target question as older encoders hash it. Its `side` came later and is a
+/// function of the rest, so leaving it out keeps them byte for byte.
+#[derive(Serialize)]
+struct ObservableTargeting<'a> {
+    source: &'a baylee_view::PublicObject,
+    text: &'a Option<baylee_view::StackText>,
+    whole_spell: bool,
+    second: bool,
+    batch_count: u32,
+}
+
 #[derive(Serialize)]
 struct ObservableView<'a> {
     decision_player: &'a Option<PlayerId>,
     controlled_hands: &'a [baylee_view::SharedHand],
     damage_sources: &'a [baylee_view::DamageSourceView],
     target_objects: &'a [baylee_view::DamageSourceView],
-    targeting: &'a Option<baylee_view::TargetingContext>,
+    targeting: Option<ObservableTargeting<'a>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     casting: &'a Option<ObjectId>,
     seat: &'a PlayerId,
@@ -131,7 +142,13 @@ impl<'a> ObservableView<'a> {
             controlled_hands,
             damage_sources,
             target_objects,
-            targeting,
+            targeting: targeting.as_ref().map(|t| ObservableTargeting {
+                source: &t.source,
+                text: &t.text,
+                whole_spell: t.whole_spell,
+                second: t.second,
+                batch_count: t.batch_count,
+            }),
             casting,
             seat,
             turn,

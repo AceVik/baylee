@@ -533,7 +533,7 @@ pub fn stream_game4_with_encoder_and_producer(
     producer: Option<&ProducerEncoder>,
     mut emit: impl FnMut(Step4) -> Result<(), String>,
 ) -> Result<StreamedGame4, String> {
-    if !matches!(encoder_version, 7..=9) {
+    if !matches!(encoder_version, 7..=10) {
         return Err("Unsupported encoder version".into());
     }
     if encoder_version == 9 && (shadow.is_some() || llm.is_some()) {

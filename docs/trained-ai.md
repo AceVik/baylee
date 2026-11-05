@@ -566,6 +566,28 @@ such as legal-target, legal-block or tutor-match relationships require a
 separately versioned, view-only encoder change; they are not silently supplied
 by the new model.
 
+### Encoder 10: the side of a target candidate (November 2026)
+
+Encoder 10 is Encoder 7 with one signed value on target candidates: candidate slot
+12, which no other question writes, holds `+1` on the side of the table the effect
+wants, `-1` on the other, and `0` where the question has no side to read or the
+candidate has none (a card in a graveyard or in exile, "no target"). The net sees who
+controls a candidate and which spell is asking; on removal and helpful effects it had
+not learnt to cross the two.
+
+The reading is `baylee_engine::target_side`, the table the house takes its signs
+from, carried to the chooser as `TargetingContext::side`, so conversion, `eval4` and a
+live seat read the same value from the view. It is an input, never a label. No width
+moves and no graph changes shape: `CAND_FEAT_WIDTH` stays 48, an older export reads
+zero, and an Encoder 10 export with that column at zero plays as Encoder 7.
+
+`--train-candidate-column 12` (with `--encoder-version 10 --encoder-warmstart-to10`)
+starts that column from zero and trains nothing else. A candidate with the slot at
+zero then gets no gradient and scores as the initial network does.
+
+Unread, so `0`: effects outside the table (regenerate, life loss, mill, "can't block",
+control and mana Auras, equip), a teammate reads as across the table.
+
 ### PR #410's questions in Encoders 4 and 7–9 (1 November 2026)
 
 PR #410 added a card-type question, the foretell special action and cast,

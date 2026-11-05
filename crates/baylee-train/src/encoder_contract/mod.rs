@@ -1,9 +1,9 @@
-//! Encoders 4, 7, 8 and 9 held to one contract on real tables: each answers
+//! Encoders 4, 7, 8, 9 and 10 held to one contract on real tables: each answers
 //! the questions PR #410 added the same way ([`mechanics`]), and the outputs
 //! older datasets were built from stay byte for byte as they were
 //! ([`pins`]).
 //!
-//! The four share one candidate builder (`encode_candidates4`, which
+//! The five share one candidate builder (`encode_candidates4`, which
 //! `encode_candidates7_grouped` wraps) and differ in their state encoder and
 //! in the view their runtime reads, so every test here runs each of them
 //! through [`Encoder`], with the view and the seat memory its runtime uses.
@@ -41,15 +41,17 @@ pub(super) enum Encoder {
     V8,
     /// Encoder 9: Encoder 8 with the settled X.
     V9,
+    /// Encoder 10: Encoder 7 with the side of each target candidate.
+    V10,
 }
 
 impl Encoder {
-    pub(super) const ALL: [Self; 4] = [Self::V4, Self::V7, Self::V8, Self::V9];
+    pub(super) const ALL: [Self; 5] = [Self::V4, Self::V7, Self::V8, Self::V9, Self::V10];
 
     /// The deciding view this encoder's runtime and converter read.
     pub(super) fn view_for(self, session: &Session, seat: PlayerId) -> (Pending, PlayerView) {
         match self {
-            Self::V4 | Self::V7 => session.view_for_with_context(seat),
+            Self::V4 | Self::V7 | Self::V10 => session.view_for_with_context(seat),
             Self::V8 => session.view_for_with_payment_context(seat),
             Self::V9 => session.view_for_with_announcement_context(seat),
         }
@@ -59,7 +61,7 @@ impl Encoder {
     /// The passive view a seat's memory observes between decisions.
     pub(super) fn observe(self, session: &Session, seat: PlayerId) -> PlayerView {
         match self {
-            Self::V4 | Self::V7 => session.observe_view_with_context(seat),
+            Self::V4 | Self::V7 | Self::V10 => session.observe_view_with_context(seat),
             Self::V8 => session.observe_view_with_payment_context(seat),
             Self::V9 => session.observe_view_with_announcement_context(seat),
         }
@@ -68,7 +70,7 @@ impl Encoder {
     /// Feeds `view` to a seat's memory; whether it changed.
     pub(super) fn remember(self, knowledge: &mut SeatKnowledge4, view: &PlayerView) -> bool {
         match self {
-            Self::V4 | Self::V7 => knowledge.observe(view),
+            Self::V4 | Self::V7 | Self::V10 => knowledge.observe(view),
             Self::V8 => knowledge.observe_with_payment_context(view),
             Self::V9 => knowledge.observe_with_announcement_context(view),
         }
@@ -83,7 +85,7 @@ impl Encoder {
     ) -> EncodedState4 {
         match self {
             Self::V4 => encode_state4(view, pending, knowledge, &TEAMS),
-            Self::V7 => encode_state7(view, pending, knowledge, &TEAMS),
+            Self::V7 | Self::V10 => encode_state7(view, pending, knowledge, &TEAMS),
             Self::V8 => crate::features8::encode_state8(view, pending, knowledge, &TEAMS),
             Self::V9 => crate::features9::encode_state9(view, pending, knowledge, &TEAMS),
         }
@@ -101,6 +103,7 @@ impl Encoder {
         let candidates = match self {
             Self::V4 => encode_candidates4(&state, view, pending),
             Self::V7 | Self::V8 | Self::V9 => encode_candidates7_grouped(&state, view, pending),
+            Self::V10 => crate::features10::encode_candidates10(&state, view, pending),
         };
         (state, candidates)
     }

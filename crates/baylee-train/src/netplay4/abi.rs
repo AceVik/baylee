@@ -7,7 +7,7 @@ pub(super) const fn widths(encoder: u32) -> (usize, usize) {
             crate::features7::ENTITY_FEAT_WIDTH7,
             crate::features9::GLOBAL_FEAT_WIDTH9,
         ),
-        7 | 8 => (
+        7 | 8 | 10 => (
             crate::features7::ENTITY_FEAT_WIDTH7,
             crate::features7::GLOBAL_FEAT_WIDTH7,
         ),
@@ -19,7 +19,7 @@ pub(super) const fn widths(encoder: u32) -> (usize, usize) {
 }
 pub(super) fn validate(session: &Session, encoder: u32) -> anyhow::Result<()> {
     let width = match encoder {
-        7 | 8 => 80,
+        7 | 8 | 10 => 80,
         9 => 82,
         _ => return Ok(()),
     };

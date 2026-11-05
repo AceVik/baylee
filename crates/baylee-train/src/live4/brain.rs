@@ -59,7 +59,7 @@ pub trait Brain4 {
 
 pub(super) fn validate_wire_encoder(encoder: u32) -> anyhow::Result<()> {
     anyhow::ensure!(
-        matches!(encoder, 5..=7),
+        matches!(encoder, 5..=7 | 10),
         "Encoder {encoder} live seats require a supported observation contract; Encoders 8 and 9 need payment-context wire support; use offline eval4"
     );
     Ok(())

@@ -40,7 +40,7 @@ use serde_json::{Value, json};
 #[command(about = "Converts selfplay runs into Playernet v4 trajectory shards")]
 struct Args {
     /// Explicit observation encoder. Archived conversion remains Encoder 7.
-    #[arg(long, default_value_t = 7, value_parser = clap::value_parser!(u32).range(7..=9))]
+    #[arg(long, default_value_t = 7, value_parser = clap::value_parser!(u32).range(7..=10))]
     encoder_version: u32,
     /// Input selfplay run directories, comma-separated.
     #[arg(long, value_delimiter = ',')]
@@ -727,7 +727,7 @@ mod encoder_cli_tests {
                 .unwrap();
         assert_eq!(announcement.encoder_version, 9);
         assert!(
-            Args::try_parse_from(["convert4", "--out", "dataset", "--encoder-version", "10"])
+            Args::try_parse_from(["convert4", "--out", "dataset", "--encoder-version", "11"])
                 .is_err()
         );
     }

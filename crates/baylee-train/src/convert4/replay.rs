@@ -163,7 +163,7 @@ fn replay_feature_frames(
     purpose: FeaturePurpose,
     mut emit: impl FnMut(Step4, i32) -> Result<(), String>,
 ) -> Result<super::streaming::FeatureReplaySummary, String> {
-    if !matches!(encoder_version, 7..=9) {
+    if !matches!(encoder_version, 7..=10) {
         return Err("Unsupported encoder version".into());
     }
     if encoder_version == 9 && (shadow.is_some() || llm.is_some()) {
@@ -362,7 +362,11 @@ fn replay_feature_frames(
                     Some(&knowledge[seat_u8 as usize]),
                     &teams,
                 );
-                let cands = encode_candidates7_grouped(&state, &view, &pending);
+                let cands = if encoder_version == 10 {
+                    crate::features10::encode_candidates10(&state, &view, &pending)
+                } else {
+                    encode_candidates7_grouped(&state, &view, &pending)
+                };
 
                 let is_forced = match cands.head {
                     HeadKind4::SingleChoice => cands.candidates.len() <= 1,

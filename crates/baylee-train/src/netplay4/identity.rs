@@ -75,7 +75,7 @@ fn contract(meta: &Value) -> anyhow::Result<(u32, u32, &'static str)> {
             meta["architecture"].as_str(),
             Some(V5_ARCHITECTURE | V5_ARCHITECTURE_V2 | V5_CANDIDATE_V2 | V5_CANDIDATE_V3)
         ))
-        || (encoder == 8
+        || (matches!(encoder, 8 | 10)
             && model == 5
             && matches!(
                 meta["architecture"].as_str(),
@@ -102,7 +102,7 @@ fn contract(meta: &Value) -> anyhow::Result<(u32, u32, &'static str)> {
                 ),
             "Encoder 9 requires explicit global width 82 and v5 relational revision 2, candidate revision 1 or 2"
         );
-    } else if matches!(encoder, 7 | 8) {
+    } else if matches!(encoder, 7 | 8 | 10) {
         for width in [
             &meta["global_feat_width"],
             &meta["config"]["global_feat_width"],

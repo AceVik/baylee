@@ -44,7 +44,7 @@ pub fn validate_encoder_rows(root: &Path, meta: &Value) -> Result<()> {
     } else if let Some(width) = meta.get("global_feat_width") {
         ensure!(width == 80, "Legacy encoder global width must remain80");
     }
-    if !matches!(encoder, Some(7..=9)) {
+    if !matches!(encoder, Some(7..=10)) {
         return Ok(());
     }
     for split in ["train", "val"] {
@@ -102,7 +102,7 @@ fn common(meta: &Value, prefix: &str, contract: &str) -> Result<()> {
             && meta[format!("{prefix}status")] == "complete"
             && meta["ppo_eligible"] == false
             && meta["policy_provenance_version"].is_null()
-            && matches!(meta["encoder_version"].as_u64(), Some(7..=9))
+            && matches!(meta["encoder_version"].as_u64(), Some(7..=10))
             && meta["trajectory_version"].as_u64() == Some(2),
         "Incomplete or incompatible BC dataset contract"
     );

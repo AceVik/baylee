@@ -53,7 +53,7 @@ fn contract(model: &Path) -> anyhow::Result<Value> {
         !matches!(meta["encoder_version"].as_u64(), Some(8 | 9)),
         "Encoders 8 and 9 are offline-only until payment-context wire support is available"
     );
-    let v5 = meta["encoder_version"] == 7 && meta["model_version"] == 5;
+    let v5 = matches!(meta["encoder_version"].as_u64(), Some(7 | 10)) && meta["model_version"] == 5;
     ensure!(
         (v5 || matches!(
             (

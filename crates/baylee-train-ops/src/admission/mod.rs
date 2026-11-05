@@ -249,7 +249,7 @@ pub fn admit(root: &Path, checkpoint: &Path, collection_path: &Path) -> Result<V
         meta["trajectory_version"] == 2
             && meta["sampling_version"] == 2
             && meta["policy_provenance_version"] == 2
-            && matches!(meta["encoder_version"].as_u64(), Some(7..=9)),
+            && matches!(meta["encoder_version"].as_u64(), Some(7..=10)),
         "dataset trajectory/encoder/provenance contract mismatch"
     );
     ensure!(

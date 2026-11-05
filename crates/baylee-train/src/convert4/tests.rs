@@ -176,7 +176,7 @@ fn observe_view_hides_opponent_private_hand_and_library() {
 #[test]
 fn unsupported_encoder_rejects_before_any_frames_are_emitted() {
     let mut emitted = 0;
-    let result = stream_game4_with_encoder(b"", 1, true, None, None, None, false, 10, |_| {
+    let result = stream_game4_with_encoder(b"", 1, true, None, None, None, false, 11, |_| {
         emitted += 1;
         Ok(())
     });

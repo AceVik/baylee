@@ -1,4 +1,4 @@
-//! Older datasets stay valid: every output of the four encoders on two
+//! Older datasets stay valid: every output of the five encoders on two
 //! scripted games, hashed and pinned.
 //!
 //! Each game is played once per encoder. What convert4 and the runtime read
@@ -249,7 +249,7 @@ const GAMES: [Game; 2] = [
 ];
 
 /// Per encoder, the digest of each of [`GAMES`], from 6934c1c2c.
-const PINNED: [(Encoder, [&str; 2]); 4] = [
+const PINNED: [(Encoder, [&str; 2]); 5] = [
     (
         Encoder::V4,
         [
@@ -276,6 +276,13 @@ const PINNED: [(Encoder, [&str; 2]); 4] = [
         [
             "f4ec25377879cc3f0858f5991212327f293d8be7556003600f7477e246b27548",
             "a931690c161fdc7d7fa9f18c1db25df86d50b999d1bde5f216197042457a8923",
+        ],
+    ),
+    (
+        Encoder::V10,
+        [
+            "4b52b48c209eec39cbccd9ade6f8164e2b786d449ea20ef5652a61ab3390004e",
+            "8e32b680ae5cff6931a0c2703c801b1e50bb097fa726f5eaafedba0bdbf5dc00",
         ],
     ),
 ];

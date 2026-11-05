@@ -8,7 +8,7 @@ use serde_json::{Value, json};
 fn encoder(value: &Value) -> Result<Value> {
     let version = value["version"].as_u64();
     ensure!(
-        matches!(version, Some(7..=9)),
+        matches!(version, Some(7..=10)),
         "Unsupported encoder version"
     );
     ensure!(
@@ -39,6 +39,15 @@ fn initial(value: &Value) -> Result<Value> {
         );
         return Ok(
             json!({"source_encoder_version":source,"target_encoder_version":9,"kind":"new_experiment_weights_only","new_global_columns":"zero_initialized_trainable","behavior_equivalence_claimed":false}),
+        );
+    }
+    if value["explicit_to10"] == true {
+        ensure!(
+            source == 7 && target == 10 && value["explicit_from7"] != true,
+            "Encoder10 warmstart requires an explicit 7-to-10 weights-only transition"
+        );
+        return Ok(
+            json!({"source_encoder_version":7,"target_encoder_version":10,"kind":"new_experiment_weights_only"}),
         );
     }
     if value["explicit_from7"] == true {

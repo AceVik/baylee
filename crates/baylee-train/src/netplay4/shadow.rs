@@ -26,7 +26,11 @@ impl NetPlayer4 {
             } else {
                 encode_state7(view, Some(pending), knowledge, teams)
             };
-            let candidates = encode_candidates7_grouped(&state, view, pending);
+            let candidates = if self.encoder_version == 10 {
+                crate::features10::encode_candidates10(&state, view, pending)
+            } else {
+                encode_candidates7_grouped(&state, view, pending)
+            };
             (state, candidates)
         } else {
             let state = encode_state4(view, Some(pending), knowledge, teams);

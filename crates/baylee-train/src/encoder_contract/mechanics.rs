@@ -411,4 +411,5 @@ per_encoder!(
     encoder7 => Encoder::V7,
     encoder8 => Encoder::V8,
     encoder9 => Encoder::V9,
+    encoder10 => Encoder::V10,
 );
