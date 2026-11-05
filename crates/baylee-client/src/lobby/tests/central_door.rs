@@ -606,7 +606,10 @@ fn the_gateway_picker_answers_the_keyboard_after_a_visit_to_decks() {
 
     key(&mut app, typed('x'));
     assert_eq!(
-        app.world().resource::<LobbyState>().lobby.field(Field::Gateway),
+        app.world()
+            .resource::<LobbyState>()
+            .lobby
+            .field(Field::Gateway),
         "x"
     );
     key(&mut app, pressed(KeyCode::Backspace, Key::Backspace));
@@ -630,7 +633,10 @@ fn the_picker_and_the_decks_tab_each_keep_their_own_keys() {
     app.update();
     key(&mut app, typed('q'));
     assert_eq!(
-        app.world().resource::<LobbyState>().lobby.field(Field::Gateway),
+        app.world()
+            .resource::<LobbyState>()
+            .lobby
+            .field(Field::Gateway),
         "",
         "the picker is not on screen"
     );
@@ -641,7 +647,10 @@ fn the_picker_and_the_decks_tab_each_keep_their_own_keys() {
         .focus_on(Field::DeckSearch);
     key(&mut app, typed('d'));
     assert_eq!(
-        app.world().resource::<LobbyState>().lobby.field(Field::DeckSearch),
+        app.world()
+            .resource::<LobbyState>()
+            .lobby
+            .field(Field::DeckSearch),
         "d"
     );
     press(&mut app, Press::Header(HeaderPress::Nav(0)));
@@ -650,6 +659,160 @@ fn the_picker_and_the_decks_tab_each_keep_their_own_keys() {
     let state = app.world().resource::<LobbyState>();
     assert_eq!(state.lobby.field(Field::DeckSearch), "d");
     assert_eq!(state.lobby.field(Field::Gateway), "x");
+}
+
+fn casper() -> baylee_client_core::lobby::KeptGuest {
+    baylee_client_core::lobby::KeptGuest {
+        token: "guest-tok".to_string(),
+        handle: "Casper#0007".to_string(),
+    }
+}
+
+/// A guest at a guests' gateway, Central signed in behind it, with a
+/// settings file to be kept in.
+fn a_central_player_as_a_guest() -> App {
+    let mut app = headless();
+    app.insert_resource(crate::settings::ClientSettings::default());
+    let _jobs = admitting(&mut app);
+    turned_away_by(&mut app, false, true);
+    land(&mut app, Reply::Event(LobbyEvent::GuestIn(casper())));
+    assert!(app.world().resource::<LobbyState>().lobby.guest());
+    app
+}
+
+/// Switch gateway, from the header's gateway card.
+fn switch_gateway(app: &mut App) {
+    press(app, Press::Header(HeaderPress::Gateway));
+    app.update();
+    press(app, Press::Header(HeaderPress::SwitchGateway));
+    app.update();
+    settle(app);
+}
+
+/// Switching gateway ends a guest as signing it out does (#269), so it is
+/// asked first. Said no to, the guest plays on; said yes to, it is forgotten
+/// here too, and Central stays signed in with the account's list.
+#[test]
+fn a_guest_is_asked_before_switching_gateway_ends_it() {
+    let mut app = a_central_player_as_a_guest();
+    switch_gateway(&mut app);
+    {
+        let state = app.world().resource::<LobbyState>();
+        assert!(
+            matches!(
+                state.confirmation,
+                Some(super::super::confirm::Destructive::SignOutGuest { to_gateways: true })
+            ),
+            "the guest is asked"
+        );
+        assert_eq!(state.lobby.token(), Some("guest-tok"), "and is still here");
+    }
+    press(&mut app, Press::Shared(SharedPress::CancelDestructive));
+    app.update();
+    {
+        let state = app.world().resource::<LobbyState>();
+        assert!(state.confirmation.is_none());
+        assert_eq!(state.lobby.token(), Some("guest-tok"));
+    }
+
+    switch_gateway(&mut app);
+    tap_control(&mut app, "yes", |p| {
+        *p == Press::Shared(SharedPress::ConfirmDestructive)
+    });
+    let state = app.world().resource::<LobbyState>();
+    assert_eq!(state.lobby.token(), None);
+    assert!(state.guests.is_empty(), "its dead token is not kept");
+    assert!(
+        app.world()
+            .resource::<crate::settings::ClientSettings>()
+            .guests
+            .is_empty(),
+        "nor in the settings file"
+    );
+    assert!(state.central_ready(), "Central stays signed in");
+    assert!(state.showing_gateway_hub());
+    assert!(!state.gateway_selected);
+}
+
+/// What one account's session bought does not survive into the next
+/// session: its online replays and an Undo still counting down.
+#[test]
+fn switching_gateway_leaves_nothing_of_the_session_behind() {
+    use baylee_client_core::replay::library::{HostedCheck, HostedGame, HostedResult, ReplayPage};
+    let mut app = headless();
+    let _jobs = in_a_central_session(&mut app);
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.undo = Some(super::super::decks::Undo {
+            kind: super::super::decks::UndoKind::Restore,
+            left: 5.0,
+        });
+        let page = ReplayPage {
+            games: vec![HostedGame {
+                game: "g1".to_string(),
+                started_at: "2026-11-05T12:00:00Z".to_string(),
+                ended_at: None,
+                complete: true,
+                seat: 0,
+                turn: None,
+                result: HostedResult::Won,
+                public: false,
+                check: HostedCheck::Exact,
+                build: None,
+                seats: Vec::new(),
+                archived: false,
+            }],
+            total: 1,
+        };
+        state.replays.library.add_page("", 0, &page);
+        assert_eq!(state.replays.library.entries().len(), 1);
+    }
+    app.update();
+    settle(&mut app);
+    switch_gateway(&mut app);
+    let state = app.world().resource::<LobbyState>();
+    assert_eq!(state.lobby.token(), None);
+    assert!(state.central_ready(), "Central stays signed in");
+    assert!(state.undo.is_none(), "no Undo of the old session");
+    assert!(
+        state.replays.library.entries().is_empty(),
+        "no replay of the old session"
+    );
+}
+
+/// Settings' Switch gateway is the header's: it leaves the gateway, not
+/// Central, and asks a guest first.
+#[test]
+fn settings_switch_gateway_is_the_headers() {
+    use crate::lobby::settings_press::SettingsPress;
+    use baylee_client_core::settings_map::Section;
+    let open_network = |app: &mut App| {
+        {
+            let mut state = app.world_mut().resource_mut::<LobbyState>();
+            state.settings = SettingsPane::Open;
+            state.set_settings_section(Section::Network);
+        }
+        app.update();
+        settle(app);
+    };
+
+    let mut app = headless();
+    let _jobs = in_a_central_session(&mut app);
+    open_network(&mut app);
+    press(&mut app, Press::Settings(SettingsPress::SwitchGateway));
+    {
+        let state = app.world().resource::<LobbyState>();
+        assert_eq!(state.lobby.token(), None);
+        assert!(state.central_ready(), "Central stays signed in");
+        assert!(state.showing_gateway_hub());
+    }
+
+    let mut app = a_central_player_as_a_guest();
+    open_network(&mut app);
+    press(&mut app, Press::Settings(SettingsPress::SwitchGateway));
+    let state = app.world().resource::<LobbyState>();
+    assert!(state.confirmation.is_some(), "the guest is asked");
+    assert_eq!(state.lobby.token(), Some("guest-tok"));
 }
 
 /// A session the gateway ended leaves the list on screen (`Panel::of`), and

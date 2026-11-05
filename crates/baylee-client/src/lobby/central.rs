@@ -777,17 +777,17 @@ pub(super) fn back_to_list(state: &mut LobbyState) {
     state.lobby.set_gateway_ready(false);
 }
 
-pub(super) fn leave_gateway_to_central(state: &mut LobbyState, mailbox: &Mailbox) {
-    let flush = state.lobby.flush_delete();
-    super::http::dispatch(state, mailbox, flush);
-    state.offline = None;
-    let out = state.lobby.sign_out();
-    super::http::dispatch(state, mailbox, out);
+/// What follows the end of a gateway's session (`clicks::to_the_gateways`)
+/// for a player still signed in at Central: the Play tab's list again, under
+/// the account's own name. An admission still under way is dropped with it.
+pub(super) fn back_from_a_session(state: &mut LobbyState) {
     state.gateway_epoch = state.gateway_epoch.wrapping_add(1);
-    state.gateway_selected = false;
+    if let Some(central) = &mut state.central {
+        central.admitting = false;
+    }
     state.left_central_bound = false;
     state.hub = super::Hub::Play;
-    state.lobby.set_gateway_ready(false);
+    back_to_list(state);
     state.lobby.set_registration(Registration::Off);
     state.lobby.set_guests_enabled(false);
     if let Some(handle) = state

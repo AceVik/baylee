@@ -1429,9 +1429,15 @@ impl HeaderPress {
             HeaderPress::ChatPrivacy => cx.state.shell_asks.push(ShellAsk::ChatPrivacy),
             HeaderPress::SwitchGateway => {
                 cx.state.header_menu = None;
-                #[cfg(not(target_arch = "wasm32"))]
                 if cx.state.central_ready() {
-                    super::central::leave_gateway_to_central(cx.state, cx.mailbox);
+                    let Cx {
+                        state,
+                        prefs,
+                        scrolled,
+                        mailbox,
+                        settings,
+                    } = cx;
+                    super::clicks::switch_gateway(state, prefs, scrolled, mailbox, settings);
                     return;
                 }
                 HubPress::SignOut.handle(cx);

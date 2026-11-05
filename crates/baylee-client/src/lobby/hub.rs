@@ -233,7 +233,8 @@ impl HubPress {
             }
             // A guest is asked first: signed out, it is gone (#269).
             HubPress::SignOut if state.lobby.guest() => {
-                state.confirmation = Some(confirm::Destructive::SignOutGuest);
+                state.confirmation =
+                    Some(confirm::Destructive::SignOutGuest { to_gateways: false });
             }
             HubPress::SignOut => {
                 sign_out(state, prefs, scrolled, mailbox, settings);

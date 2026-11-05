@@ -167,7 +167,7 @@ fn a_guest_is_asked_before_it_signs_out_and_forgotten_after() {
     sign_out_from_the_header(&mut app);
     assert!(matches!(
         app.world().resource::<LobbyState>().confirmation,
-        Some(super::confirm::Destructive::SignOutGuest)
+        Some(super::confirm::Destructive::SignOutGuest { to_gateways: false })
     ));
     assert_eq!(kept_in_the_file(&app), Some(kept()), "not yet");
     assert!(labels(&mut app).contains(&"Sign out Casper#0007?".to_string()));

@@ -1,7 +1,7 @@
 //! What a click on a lobby control means: [`Press`], and the way from a
 //! clicked entity to the control it belongs to.
 
-use super::clicks::sign_out;
+use super::clicks::{sign_out, to_the_gateways};
 use super::systems::keep_gateways;
 #[allow(clippy::wildcard_imports)] // the lobby's own vocabulary
 use super::*;
@@ -138,10 +138,20 @@ impl SharedPress {
                 }
             }
             SharedPress::ConfirmDestructive
-                if matches!(state.confirmation, Some(confirm::Destructive::SignOutGuest)) =>
+                if matches!(
+                    state.confirmation,
+                    Some(confirm::Destructive::SignOutGuest { .. })
+                ) =>
             {
-                state.confirmation = None;
-                sign_out(state, prefs, scrolled, mailbox, settings);
+                let switching = matches!(
+                    state.confirmation.take(),
+                    Some(confirm::Destructive::SignOutGuest { to_gateways: true })
+                );
+                if switching {
+                    to_the_gateways(state, prefs, scrolled, mailbox, settings);
+                } else {
+                    sign_out(state, prefs, scrolled, mailbox, settings);
+                }
             }
             SharedPress::ConfirmDestructive => {
                 let forgetting = matches!(
