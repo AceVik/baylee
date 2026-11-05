@@ -1095,6 +1095,19 @@ impl LobbyState {
         }
     }
 
+    /// Whether the list offers the guest door of the gateway that turned
+    /// this Central account away (`central::guest_door_open`).
+    pub(crate) fn central_guest_door(&self) -> bool {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            central::guest_door_open(self)
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            false
+        }
+    }
+
     /// Signed in to Baylee Central without an active gateway session.
     pub(crate) fn central_without_gateway(&self) -> bool {
         self.central_ready() && !self.lobby.offline() && self.lobby.token().is_none()

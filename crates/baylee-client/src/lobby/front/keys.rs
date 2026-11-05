@@ -49,6 +49,7 @@ const GATEWAY_STOPS: &[&str] = &[
     "group-offline",
     "address",
     "save",
+    "guest",
     "lang",
     "music",
     "settings",
@@ -198,10 +199,16 @@ pub(crate) const ABOUT: TabOrder = TabOrder {
     modal: true,
 };
 
+/// Signed in at Central the account's list is the door, whatever is chosen;
+/// only a guest's face, which the player asked for there, stands in for it.
+pub(super) fn on_the_list(state: &LobbyState) -> bool {
+    state.central_ready() && state.lobby.face() != Face::Guest
+}
+
 /// The table of the face on show.
 #[must_use]
 pub(crate) fn table_of(state: &LobbyState) -> &'static TabOrder {
-    if state.central_ready() || !state.lobby.gateway_chosen() {
+    if on_the_list(state) || !state.lobby.gateway_chosen() {
         return &GATEWAY;
     }
     match state.lobby.face() {

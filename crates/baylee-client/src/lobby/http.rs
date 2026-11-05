@@ -127,6 +127,9 @@ pub(super) fn dispatch(state: &mut LobbyState, mailbox: &Mailbox, request: Optio
                 ));
                 return;
             }
+            // The guest door a gateway left open, pressed by the player
+            // (`central::guest_here`): the gateway's own route, as ever.
+            LobbyRequest::PlayAsGuest { .. } if state.central_guest_door() => {}
             LobbyRequest::Register { .. }
             | LobbyRequest::ChangePassword { .. }
             | LobbyRequest::PlayAsGuest { .. } => {

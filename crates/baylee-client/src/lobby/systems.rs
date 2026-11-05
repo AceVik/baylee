@@ -214,7 +214,7 @@ pub(super) fn poll(
                             central.admitting = false;
                         }
                         if refused {
-                            super::central::back_to_list(&mut state);
+                            super::central::turned_away(&mut state);
                         }
                     }
                     let worked = matches!(event, LobbyEvent::LoggedIn { .. });

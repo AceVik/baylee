@@ -52,8 +52,15 @@ says nothing about guests.
   `mixed` gateway's form is Central's sign-in with the gateway's own *Play as
   guest* beside it, which turns Central's form off again and opens the
   gateway's guest face, the gateway still chosen (`lobby/central.rs`
-  `guest_instead`). A guest door for a player signed in at Central comes with
-  the device list (a later release).
+  `guest_instead`). A failed admission never makes a player signed in at
+  Central a guest and never accepts terms for them: the refusal is shown on
+  the account's list, and it is the player who chooses what follows. A gateway
+  that said it takes guests and no Central sign-in, which no admission will
+  ever enter, then offers its guest door beside that refusal (`guest_here`):
+  the gateway's own guest face and terms sheet, with Central still signed in.
+  One that takes Central's accounts offers none there, because a refusal from
+  it may be a ban. Any other guest door for a player signed in at Central
+  comes with the device list (a later release).
 - **A gateway nobody can enter.** Until a Central sign-in reaches a gateway
   without a connection (the short-lived identity proof, a later release),
   `central` on an unconnected gateway takes nobody. The gateway says so in

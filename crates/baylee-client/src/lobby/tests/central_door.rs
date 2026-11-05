@@ -415,6 +415,145 @@ fn a_refused_admission_goes_back_to_the_account_s_list() {
     assert_eq!(state.lobby.status(), "not admitted");
 }
 
+/// What the chosen gateway's `GET /auth/config` said, and then its refusal.
+fn turned_away_by(app: &mut App, central: bool, guests: bool) {
+    land(
+        app,
+        Reply::Registration {
+            registration: Registration::Open,
+            art_cache: false,
+            guests,
+            central,
+        },
+    );
+    land(
+        app,
+        Reply::Event(LobbyEvent::Failed("not admitted".to_string())),
+    );
+}
+
+/// A gateway that takes guests and no Central account can never admit the
+/// account. The refusal is shown with its guest door under it, and nothing
+/// moves until the player presses that door; then the gateway's own guest
+/// face stands, and Back returns to the list, Central signed in throughout.
+#[test]
+fn a_guests_gateway_offers_its_door_under_the_refusal_and_waits_for_the_player() {
+    let door = Press::Front(FrontPress::GuestFace);
+    let mut app = headless();
+    let _jobs = admitting(&mut app);
+    turned_away_by(&mut app, false, true);
+    {
+        let state = app.world().resource::<LobbyState>();
+        assert_eq!(state.lobby.status(), "not admitted", "it is said");
+        assert_eq!(state.lobby.token(), None, "and nobody came in");
+        assert!(!state.lobby.guest());
+    }
+    assert!(presses(&mut app).contains(&door), "the door stands");
+
+    press(&mut app, door);
+    settle(&mut app);
+    {
+        let state = app.world().resource::<LobbyState>();
+        assert_eq!(state.lobby.face(), baylee_client_core::lobby::Face::Guest);
+        assert_eq!(state.lobby.token(), None, "the face asks, nothing is sent");
+        assert!(state.central_ready(), "Central stays signed in");
+        assert!(state.lobby.gateway_chosen());
+    }
+    assert!(presses(&mut app).contains(&Press::Front(FrontPress::Submit)));
+
+    press(&mut app, Press::Front(FrontPress::BackToSignIn));
+    settle(&mut app);
+    let state = app.world().resource::<LobbyState>();
+    assert!(state.showing_gateway_hub());
+    assert!(!state.lobby.gateway_chosen(), "back on the list");
+    assert_eq!(state.lobby.focus(), Field::Gateway);
+    assert!(presses(&mut app).contains(&door), "the door still stands");
+}
+
+/// Coming in through that door is any guest's sign-in: the gateway's terms
+/// wait for their sheet and its answer, and the guest is kept for the gateway.
+#[test]
+fn a_guest_through_that_door_meets_the_terms_sheet() {
+    use super::super::front::terms::TermsReply;
+    let mut app = headless();
+    app.insert_resource(crate::settings::ClientSettings::default());
+    let _jobs = admitting(&mut app);
+    turned_away_by(&mut app, false, true);
+    press(&mut app, Press::Front(FrontPress::GuestFace));
+    settle(&mut app);
+    press(&mut app, Press::Front(FrontPress::Submit));
+    assert_ne!(
+        app.world().resource::<LobbyState>().lobby.status(),
+        "Please use Baylee Central sign-in.",
+        "the gateway's own route is asked"
+    );
+    land(&mut app, Reply::Terms(TermsReply::Stale(true)));
+    land(
+        &mut app,
+        Reply::Event(LobbyEvent::GuestIn(baylee_client_core::lobby::KeptGuest {
+            token: "guest-tok".to_string(),
+            handle: "Casper#0007".to_string(),
+        })),
+    );
+    let state = app.world().resource::<LobbyState>();
+    assert!(state.lobby.guest());
+    assert!(state.terms.up(), "the sheet asks; nothing was accepted");
+    assert!(state.central_ready());
+    assert_eq!(state.guests.len(), 1, "kept for this gateway");
+}
+
+/// A gateway that takes Central's accounts may be refusing a ban, and one
+/// that takes no guests has no door: neither is offered, the refusal stands.
+#[test]
+fn no_guest_door_where_the_gateway_takes_central_accounts_or_no_guests() {
+    for (central, guests) in [(true, true), (true, false), (false, false)] {
+        let mut app = headless();
+        let _jobs = admitting(&mut app);
+        turned_away_by(&mut app, central, guests);
+        assert_eq!(
+            app.world().resource::<LobbyState>().lobby.status(),
+            "not admitted"
+        );
+        assert!(
+            !presses(&mut app).contains(&Press::Front(FrontPress::GuestFace)),
+            "central {central}, guests {guests}"
+        );
+    }
+}
+
+/// The door opens on a refusal only, not on what the gateway said about
+/// itself; the next admission asked for closes it again.
+#[test]
+fn the_guest_door_waits_for_a_refusal_and_goes_with_the_next_admission() {
+    let door = Press::Front(FrontPress::GuestFace);
+    let mut app = headless();
+    let _jobs = admitting(&mut app);
+    land(
+        &mut app,
+        Reply::Registration {
+            registration: Registration::Open,
+            art_cache: false,
+            guests: true,
+            central: false,
+        },
+    );
+    assert!(!presses(&mut app).contains(&door), "still being admitted");
+    land(
+        &mut app,
+        Reply::Event(LobbyEvent::Failed("not admitted".to_string())),
+    );
+    assert!(presses(&mut app).contains(&door));
+    let mailbox = app.world().resource::<Mailbox>().clone();
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        assert!(state.select_gateway(0));
+        super::super::central::admit(&mut state, &mailbox);
+    }
+    app.update();
+    settle(&mut app);
+    assert!(!presses(&mut app).contains(&door), "asked again");
+}
+
 /// A session the gateway ended leaves the list on screen (`Panel::of`), and
 /// the keys go to that list, never to the sign-in fields it hides.
 #[test]

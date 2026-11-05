@@ -663,7 +663,7 @@ fn text_field_keys(
         if door && key.logical_key == Key::Escape && state.lobby.deleting_account().is_none() {
             if state.front_menu {
                 state.front_menu = false;
-            } else if !state.lobby.back_to_sign_in() {
+            } else if !state.back_a_face() {
                 if state.lobby.gateway_chosen() {
                     state.leave_gateway();
                 } else if state.gateway_cursor.is_some() {

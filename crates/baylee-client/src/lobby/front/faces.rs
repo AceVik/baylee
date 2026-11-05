@@ -748,6 +748,36 @@ fn submit(commands: &mut Commands, state: &LobbyState, kit: Kit, text: &str) -> 
     button
 }
 
+/// What the guest door says: a guest kept here by its handle.
+fn guest_words(state: &LobbyState) -> String {
+    let lang = state.lobby.lang();
+    state.lobby.kept_guest().map_or_else(
+        || Phrase::FrontGuestTitle.text(lang).to_string(),
+        |kept| Phrase::ContinueAsGuest.fill(lang, &[&kept.handle]),
+    )
+}
+
+/// The door of the gateway that turned a Central account away, under its
+/// refusal, and only ever pressed by the player: nothing moves a Central
+/// account to a guest by itself (`central::admit`).
+fn refused_guest_door(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Option<Entity> {
+    state.central_guest_door().then(|| {
+        controls::wide_button(
+            commands,
+            kit,
+            &guest_words(state),
+            Weight::Secondary,
+            Live::Yes,
+            None,
+            (
+                Press::Front(FrontPress::GuestFace),
+                keys::stop(state, "guest"),
+                super::super::hint::HoverHint(Phrase::GuestNotice.text(state.lobby.lang()).into()),
+            ),
+        )
+    })
+}
+
 /// The sign-in face: the gateway/Central header, username and password,
 /// Sign in; under a rule, Register + Play offline (or Create account +
 /// Play as guest + Play offline).
@@ -841,14 +871,10 @@ pub(super) fn sign_in(
     });
     let guest = (lobby.guest_offered() && (!is_central_login_face(state) || state.central_bound()))
         .then(|| {
-            let text = lobby.kept_guest().map_or_else(
-                || Phrase::FrontGuestTitle.text(lang).to_string(),
-                |kept| Phrase::ContinueAsGuest.fill(lang, &[&kept.handle]),
-            );
             controls::wide_button(
                 commands,
                 kit,
-                &text,
+                &guest_words(state),
                 Weight::Secondary,
                 if lobby.busy() || !(state.gateway_selected || state.central_bound()) {
                     Live::No("")
@@ -1243,6 +1269,9 @@ pub(super) fn gateway(
         && let Some(said) = status(commands, state, kit)
     {
         commands.entity(add_box).add_child(said);
+    }
+    if let Some(guest) = refused_guest_door(commands, state, kit) {
+        commands.entity(add_box).add_child(guest);
     }
     commands.entity(card).add_child(add_box);
 }
