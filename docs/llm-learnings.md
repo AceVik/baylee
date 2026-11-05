@@ -6575,3 +6575,22 @@ got wrong was in the tests, not in the cards:
   house AI uses the existing generic triggered-ability and effect readers, with
   the five Ice Age consumer regressions still green; no card-specific policy or
   client presentation is needed.
+
+## 2026-11-05 — Mind Warp's X-card private discard
+
+- Reuse `LookHandDiscard { player: Chosen, count: X, filter: Any }` rather than
+  composing separate inspection and discard instructions. The existing
+  continuation privately exposes the whole hand only to the resolving
+  controller, limits the choice to the available cards and discards the selected
+  incarnations into their owner's graveyard. No new engine or DSL mechanic is
+  needed.
+- Three played tests cover exactly two choices from a three-card hand, refusal
+  of a short answer without moving a card, preservation of the unchosen card,
+  X = 0 inspection without discarding, and X greater than a two-card hand. The
+  two positive-discard tests were red against the old acknowledgement-only card.
+  The five general private-hand tests and five Leshrac's Sigil card tests remain
+  green.
+- Desktop and LLM seats reuse the existing private `ChooseCards` question and
+  its exact options; no new pending shape or hidden information is introduced.
+  The house AI's existing forced private-discard policy chooses from the offered
+  cards, and the full 363-test AI suite passes without a card-specific policy.
