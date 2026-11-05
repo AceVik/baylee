@@ -479,7 +479,9 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // readable row for that reason too: a net sixteen-row increase to 2995.
     // Krovikan Sorcerer's black-card activation uses the already readable
     // drawn-only discard effect: one more readable row and one more activation.
-    assert_eq!((read, of), (2996, 3784), "activated/loyalty reader census");
+    // Orcish Farmer's targeted land-type change adds one activation; its value
+    // depends on the affected land and stays contextual rather than guessed.
+    assert_eq!((read, of), (2996, 3785), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

@@ -6594,3 +6594,23 @@ got wrong was in the tests, not in the cards:
   its exact options; no new pending shape or hidden information is introduced.
   The house AI's existing forced private-discard policy chooses from the offered
   cards, and the full 363-test AI suite passes without a card-specific policy.
+
+## 2026-11-05 — Orcish Farmer's affected-controller untap expiry
+
+- Reuse `Effect::continuous` with `SetLandType(SWAMP)` and
+  `Duration::UntilStartOfAffectedNextUntap` on an ordinary targeted activation.
+  The existing duration follows the affected incarnation's current controller and
+  ends before that player's next actual untap determination; the stale Partial
+  reason was wrong, so no engine or DSL change is needed.
+- Two played tests cover lands on either side, rejection of a creature target,
+  the tap cost, replacement of Forest by Swamp and its intrinsic {B} mana. The
+  second activates during the affected player's turn, proves persistence through
+  cleanup and the intervening turn, then verifies that Choke sees the restored
+  Island and keeps it tapped at the next untap determination. Both were red
+  against the ability-less stub. The general 13-test untap suite and Choke's card
+  test remain green.
+- Desktop and LLM seats reuse ordinary activation, target and intrinsic-mana
+  actions with projected land subtypes; no new pending shape is needed. The house
+  AI leaves the land-type change's contextual value unread rather than guessing,
+  with the activation census now at 2,996 readable rows out of 3,785. Its full
+  363-test suite passes without a card-specific policy.
