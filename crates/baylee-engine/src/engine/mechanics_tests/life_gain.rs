@@ -185,3 +185,50 @@ fn a_later_players_gain_waits_behind_the_front_choice() {
     assert_eq!(life(&engine, them()), 10);
     assert!(engine.state().life_gains_to_offer.is_empty());
 }
+
+/// A player who leaves while choosing makes no choice (CR 800.4f), and the gain
+/// that was theirs goes with them; the seat behind them is still settled.
+#[test]
+fn leaving_during_the_choice_drops_that_gain_and_settles_the_next() {
+    let third = PlayerId::new(2);
+    let mut engine = bench(
+        7721,
+        cards(),
+        [
+            Seat::with(&[GIVER]).at(10),
+            Seat::with(&[NO_LIFE, DRAW_LIFE]).at(10),
+            Seat::default().at(10),
+        ],
+    );
+    to_main(&mut engine, me());
+    let giver = the(&engine, ZoneLocation::Battlefield, GIVER);
+    activate(&mut engine, me(), giver, 1);
+    walk_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::LifeGainReplacement,
+                ..
+            }
+        )
+    });
+    assert_eq!(engine.pending().asked(), Some(them()));
+    assert_eq!(
+        engine
+            .state()
+            .life_gains_to_offer
+            .iter()
+            .map(|gain| gain.player)
+            .collect::<Vec<_>>(),
+        vec![them(), third]
+    );
+
+    engine.apply(them(), PlayerAction::Concede).unwrap();
+
+    assert!(
+        engine.state().life_gains_to_offer.is_empty(),
+        "the leaver's gain went with them and the one behind it was settled"
+    );
+    assert_eq!(hand_size(&engine, them()), 0, "no draw was chosen");
+    assert_ne!(engine.pending().asked(), Some(them()));
+}
