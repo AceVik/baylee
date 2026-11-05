@@ -3010,6 +3010,16 @@ pub(crate) fn pays_tax(
         .flat_map(payment_unpaid_effects)
         .any(|effect| matches!(effect, Effect::SacrificeSelf));
     if is_upkeep_sacrifice {
+        // "Unless any player pays" asks every seat, and only the permanent's
+        // controller loses a card by refusing. Paying to keep an opponent's
+        // Icy Prison also keeps whatever it has exiled, this seat's included.
+        if context
+            .source
+            .and_then(|id| view.object(id))
+            .is_some_and(|source| source.controller != resource_player(view))
+        {
+            return false;
+        }
         let is_cumulative = context.effects.iter().any(|effect| {
             matches!(
                 effect,
