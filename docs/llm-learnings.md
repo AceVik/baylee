@@ -6615,6 +6615,35 @@ got wrong was in the tests, not in the cards:
   with the activation census now at 2,996 readable rows out of 3,785. Its full
   363-test suite passes without a card-specific policy.
 
+## 2026-11-05 — Sulfuric Vortex's complete life-gain replacement
+
+- Add `Modifier::LifeGainNoLifeInstead { who }` beside Lich's
+  `LifeGainDrawsInstead`, rather than treating a replacement as a general
+  life-total prohibition. With both complete replacements present, the affected
+  player chooses one source under CR 616.1; either consumes the whole gain, so
+  there is no life-gain event, tally or second replacement. Repeated equivalent
+  effects apply once without an unnecessary question. Lich's draws finish their
+  own replacements before the next queued life gain (CR 616.2).
+- The generic queue preserves contested and subsequent gains in instruction
+  order across resolution and machine continuations. It participates in hashes,
+  fingerprints and fork audits. Replaced gains cannot enlarge a damage-floor
+  loss allowance. Source choices have no first-effect fallback: a pool lint and
+  a runtime invariant reject different replacement kinds hidden behind one
+  source, since `ChooseCards` cannot distinguish them.
+- Five direct rule tests cover no-life alone, either affected-player choice,
+  equivalent replacements and a later player's queued gain. Three played card
+  tests cover the {1}{R}{R} cost, both upkeeps, gains on either side and normal
+  life gain returning after a real Disenchant. Deliberately making no-life draw
+  cards turned the direct test red but initially not the card test; adding a
+  library-length assertion exposed the gap, after which both tests were red
+  against the mutation and green after exact restoration. The focused
+  life-gain filter passes 22 tests, and the damage-floor and uniqueness tests
+  also pass.
+- Desktop uses the shared object choice with localized replacement wording;
+  LLM seats narrate the same prompt. The house AI chooses the first legal source
+  deterministically through its general replacement-answer helper, without a
+  card-specific policy. Their focused prompt, choice and narration tests pass.
+
 ## 2026-11-05 — Orcish Librarian's seeded top-eight exile
 
 - Reuse `Effect::LookAtTopExileRandom { count: 8, exile: 4 }` for the ordinary

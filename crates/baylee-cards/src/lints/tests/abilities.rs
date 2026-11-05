@@ -37,6 +37,7 @@ fn a_continuous_player_relation_is_one_the_state_can_answer() {
                 | Modifier::CantLoseLife { who }
                 | Modifier::NoLossForZeroLife { who }
                 | Modifier::LifeGainDrawsInstead { who }
+                | Modifier::LifeGainNoLifeInstead { who }
                 | Modifier::CantBeAttackedExceptBy { who, .. }
                 | Modifier::SkipUntapStep { who }
                 | Modifier::UntapAtMost { who, .. }
@@ -90,6 +91,48 @@ fn a_continuous_player_relation_is_one_the_state_can_answer() {
          answer, so they would apply to nobody:\n{}",
         wrong.len(),
         wrong.join("\n")
+    );
+}
+
+/// `ChooseCards` identifies a complete life-gain replacement by its public
+/// source. One source must not hide both the no-life and draw-cards choices
+/// behind an indistinguishable answer, whether printed or granted. Separate
+/// sources such as Lich and Sulfuric Vortex remain a meaningful choice.
+#[test]
+fn competing_life_gain_replacements_have_unambiguous_sources() {
+    let mut wrong = Vec::new();
+    let mut seen = 0_usize;
+    for def in crate::all() {
+        let mut no_life = false;
+        let mut draw_cards = false;
+        let faces = def.faces.iter().flat_map(|f| f.abilities.iter());
+        for ability in def.abilities.iter().chain(faces) {
+            let printed = match ability {
+                AbilityDef::Static(sa) => vec![sa.modifier],
+                _ => Vec::new(),
+            };
+            let granted = branches(ability)
+                .into_iter()
+                .flat_map(|b| b.effects.iter().flat_map(declared_layers))
+                .map(|(_, modifier)| modifier);
+            for modifier in printed.into_iter().chain(granted) {
+                match modifier {
+                    Modifier::LifeGainNoLifeInstead { .. } => no_life = true,
+                    Modifier::LifeGainDrawsInstead { .. } => draw_cards = true,
+                    _ => {}
+                }
+            }
+        }
+        seen += usize::from(no_life || draw_cards);
+        if no_life && draw_cards {
+            wrong.push(def.name());
+        }
+    }
+    assert_eq!(seen, 2, "Lich and Sulfuric Vortex must both be inspected");
+    assert!(
+        wrong.is_empty(),
+        "sources with indistinguishable life-gain replacement choices: {}",
+        wrong.join(", ")
     );
 }
 
