@@ -295,11 +295,14 @@ pub(super) fn poll(
                         at: 0.0,
                         minutes: 0,
                     };
-                    crate::buildui::draft::forget(&[editing.as_deref(), None]);
+                    if !state.lobby.builder().dirty() {
+                        state.drafts.forget(&[editing.as_deref(), None]);
+                    }
                     if !matches!(state.lobby.screen(), client_core::lobby::Screen::Build) {
                         dispatch(&mut state, &mailbox, Some(LobbyRequest::ListDecks));
                     }
                 }
+                Reply::AutoSaveFailed { why } => super::decksave::save_failed(&mut state, why),
                 Reply::Clocks(clocks) => {
                     if state.lobby.clocks() != clocks {
                         state.lobby.set_clocks(clocks);

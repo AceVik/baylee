@@ -2079,6 +2079,14 @@ impl DeckBuilder {
         }
     }
 
+    /// The player threw away what no save has: whatever closes the builder
+    /// now has nothing to save.
+    pub fn discard_edits(&mut self) {
+        self.dirty = false;
+        self.changes = 0;
+        self.naming = false;
+    }
+
     /// Marks an in-session auto-save complete for `saved_changes` without
     /// clobbering edits made while the request was in flight.
     pub fn mark_auto_saved(&mut self, deck_id: Option<&str>, saved_changes: u32) {

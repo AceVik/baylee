@@ -25,40 +25,63 @@ const FILE: &str = "builder-drafts.json";
 /// How long the deck has to stand still before its draft is written.
 const SETTLE_SECS: f64 = 1.0;
 
-/// Every kept draft, by the deck it is a draft of.
+/// Every kept draft, by the deck it is a draft of: the document, read the
+/// first time it is asked for and written through from then on.
 #[derive(Default, Serialize, Deserialize)]
-struct Drafts {
+pub(crate) struct Drafts {
     #[serde(default)]
     decks: BTreeMap<String, Draft>,
+    /// Whether the document has been read.
+    #[serde(skip)]
+    read: bool,
 }
 
 fn key(editing: Option<&str>) -> String {
     editing.map_or_else(|| "new".to_string(), str::to_owned)
 }
 
-fn read() -> Drafts {
-    crate::settings::store::read_named(FILE)
-        .and_then(|text| serde_json::from_str(&text).ok())
-        .unwrap_or_default()
-}
-
-fn write(drafts: &Drafts) {
-    if drafts.decks.is_empty() {
-        crate::settings::store::remove_named(FILE);
-    } else if let Ok(text) = serde_json::to_string(drafts) {
-        crate::settings::store::write_named(FILE, &text);
+impl Drafts {
+    fn decks(&mut self) -> &mut BTreeMap<String, Draft> {
+        if !self.read {
+            self.read = true;
+            let kept: Option<Self> = crate::settings::store::read_named(FILE)
+                .and_then(|text| serde_json::from_str(&text).ok());
+            if let Some(kept) = kept {
+                self.decks = kept.decks;
+            }
+        }
+        &mut self.decks
     }
-}
 
-/// Forgets the drafts of `decks` (a saved deck, a discarded one).
-pub(crate) fn forget(decks: &[Option<&str>]) {
-    let mut drafts = read();
-    let before = drafts.decks.len();
-    for deck in decks {
-        drafts.decks.remove(&key(*deck));
+    fn write(&self) {
+        if self.decks.is_empty() {
+            crate::settings::store::remove_named(FILE);
+        } else if let Ok(text) = serde_json::to_string(self) {
+            crate::settings::store::write_named(FILE, &text);
+        }
     }
-    if drafts.decks.len() != before {
-        write(&drafts);
+
+    /// The draft kept of a deck.
+    pub(crate) fn of(&mut self, editing: Option<&str>) -> Option<&Draft> {
+        self.decks().get(&key(editing))
+    }
+
+    /// Keeps `draft` as its deck's.
+    pub(crate) fn keep(&mut self, draft: &Draft) {
+        self.decks()
+            .insert(key(draft.editing.as_deref()), draft.clone());
+        self.write();
+    }
+
+    /// Forgets the drafts of `decks` (a saved deck, a discarded one).
+    pub(crate) fn forget(&mut self, decks: &[Option<&str>]) {
+        let before = self.decks().len();
+        for deck in decks {
+            self.decks.remove(&key(*deck));
+        }
+        if self.decks.len() != before {
+            self.write();
+        }
     }
 }
 
@@ -94,6 +117,15 @@ pub(crate) fn keep_the_draft(
     let on_screen = matches!(state.lobby.screen(), Screen::Build);
     if !on_screen {
         if kept.visiting {
+            // Whatever becomes of the save that goes out now, the device
+            // holds the edit until the gateway has said it does.
+            let deck = state.lobby.builder();
+            if deck.dirty() {
+                let draft = deck.draft();
+                if !draft.is_empty() {
+                    state.drafts.keep(&draft);
+                }
+            }
             if let Some(mailbox) = mailbox.as_deref() {
                 crate::lobby::decksave::commit_session_version(&mut state, mailbox);
             }
@@ -120,10 +152,11 @@ pub(crate) fn keep_the_draft(
     let deck = state.lobby.builder();
     if kept.restore && deck.loaded() && !state.lobby.busy() {
         kept.restore = false;
-        let drafts = read();
-        if let Some(draft) = drafts.decks.get(&key(deck.editing())).cloned()
+        let editing = deck.editing().map(str::to_owned);
+        let draft = state.drafts.of(editing.as_deref()).cloned();
+        if let Some(draft) = draft
             && !draft.is_empty()
-            && deck.differs_from(&draft)
+            && state.lobby.builder().differs_from(&draft)
         {
             state.lobby.builder_mut().restore(&draft);
             state.lobby.tell_refusal(Phrase::BuildDraftRestored, &[]);
@@ -137,12 +170,11 @@ pub(crate) fn keep_the_draft(
     if kept.restore {
         return;
     }
-    let can_auto_save = (!state.gateway.is_empty() && state.lobby.token().is_some())
-        || state.offline.is_some()
-        || state.central_without_gateway();
+    let can_auto_save = state.saves_decks();
     let deck = state.lobby.builder();
     if !deck.dirty() {
         kept.pending = None;
+        kept.written = None;
         return;
     }
     if can_auto_save
@@ -153,7 +185,9 @@ pub(crate) fn keep_the_draft(
     {
         let draft = deck.draft();
         // Wait for an in-flight initial POST /decks to assign `editing` before sending another save.
-        let creating_in_flight = deck.editing().is_none() && kept.auto_saved.is_some();
+        let creating_in_flight = deck.editing().is_none()
+            && kept.auto_saved.is_some()
+            && state.build.save != SaveState::Failed;
         if !creating_in_flight && kept.auto_saved.as_ref() != Some(&draft) {
             let old_key = deck.editing().unwrap_or("new").to_owned();
             kept.auto_saved = Some(draft);
@@ -187,11 +221,7 @@ pub(crate) fn keep_the_draft(
     }
     if let Some((draft, since)) = kept.pending.take() {
         if at - since >= SETTLE_SECS {
-            let mut drafts = read();
-            drafts
-                .decks
-                .insert(key(draft.editing.as_deref()), draft.clone());
-            write(&drafts);
+            state.drafts.keep(&draft);
             kept.written = Some(draft);
         } else {
             kept.pending = Some((draft, since));
@@ -210,7 +240,7 @@ pub(crate) fn follow_the_save(mut state: ResMut<LobbyState>, time: Option<Res<Ti
             if !deck.dirty() {
                 let editing = deck.editing().map(str::to_owned);
                 state.build.save = SaveState::Saved { at, minutes: 0 };
-                forget(&[editing.as_deref(), None]);
+                state.drafts.forget(&[editing.as_deref(), None]);
             } else if !state.lobby.busy() {
                 state.build.save = SaveState::Failed;
             }
