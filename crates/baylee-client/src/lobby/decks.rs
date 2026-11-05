@@ -3358,6 +3358,12 @@ impl DecksPress {
             DecksPress::DiscardAndRestore => {
                 state.confirm_restore = false;
                 let request = state.lobby.restore_version();
+                // The edits it discards must not land on top of the restore.
+                if request.is_some() {
+                    let visit = state.lobby.builder().visit();
+                    state.deck_saves.withdraw(visit);
+                    state.lobby.builder_mut().discard_edits();
+                }
                 dispatch(state, mailbox, request);
             }
             DecksPress::Version(version) => {

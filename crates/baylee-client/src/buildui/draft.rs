@@ -131,6 +131,24 @@ fn now(time: Option<&Time<Real>>) -> f64 {
     time.map_or(0.0, Time::elapsed_secs_f64)
 }
 
+/// Saves what the builder holds. The device's store gives a new deck its id
+/// in the call, and what the player keeps per deck goes with it; a gateway's
+/// answer brings the id later (`decksave::save_landed`).
+fn save(
+    state: &mut LobbyState,
+    prefs: Option<&mut crate::prefs::Prefs>,
+    mailbox: &crate::lobby::Mailbox,
+) {
+    let old_key = state.lobby.builder().editing().unwrap_or("new").to_owned();
+    crate::lobby::decksave::auto_save_deck(state, mailbox);
+    if let Some(prefs) = prefs
+        && let Some(new_id) = state.lobby.builder().editing()
+        && new_id != old_key
+    {
+        crate::lobby::decksave::carry_deck_prefs(prefs, &old_key, new_id);
+    }
+}
+
 /// Keeps the draft: takes it back when its deck is opened again, saves every
 /// change once it has stood [`SAVE_SETTLE_SECS`], and writes the draft a
 /// second after the last edit for as long as no save has landed.
@@ -156,7 +174,7 @@ pub(crate) fn keep_the_draft(
             if let Some(mailbox) = mailbox.as_deref()
                 && state.lobby.builder().dirty()
             {
-                crate::lobby::decksave::auto_save_deck(&mut state, mailbox);
+                save(&mut state, prefs.as_deref_mut(), mailbox);
             }
             *kept = Keeper::default();
         }
@@ -232,16 +250,7 @@ pub(crate) fn keep_the_draft(
     let Some(mailbox) = mailbox.as_deref() else {
         return;
     };
-    let old_key = state.lobby.builder().editing().unwrap_or("new").to_owned();
-    crate::lobby::decksave::auto_save_deck(&mut state, mailbox);
-    // The device's store gives a deck its id in that call; a gateway's
-    // answer brings it later.
-    if let Some(prefs) = prefs.as_deref_mut()
-        && let Some(new_id) = state.lobby.builder().editing()
-        && new_id != old_key
-    {
-        crate::lobby::decksave::carry_deck_prefs(prefs, &old_key, new_id);
-    }
+    save(&mut state, prefs.as_deref_mut(), mailbox);
     // Saving can name a nameless deck.
     let holds = state.lobby.builder().draft();
     *offered = Some(holds.clone());
