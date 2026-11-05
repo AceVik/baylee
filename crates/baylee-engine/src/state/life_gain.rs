@@ -186,17 +186,23 @@ impl GameState {
 
     /// Applies the chosen replacement once, then advances to the next choice.
     /// `Pending::answer_fault` has already restricted `chosen` to the menu.
+    ///
+    /// No answer names nothing: the asked player left the game, and that seat
+    /// chooses nothing (CR 800.4f). The front gain is settled as if never
+    /// asked about, which drops it if it was theirs (CR 800.4a) and applies
+    /// whatever still stands if the sources that contested it have gone.
     pub(crate) fn life_gain_choice_answered(&mut self, chosen: &[ObjectId]) -> Option<PlayerId> {
         let gain = self.life_gains_to_offer.front().copied()?;
-        let replacements = self.life_gain_replacements(gain.player);
         let named = chosen.first().copied();
-        let kind = replacements
-            .iter()
+        let kind = self
+            .life_gain_replacements(gain.player)
+            .into_iter()
             .find(|replacement| named.is_some() && replacement.source == named)
-            .expect("the offered source identifies an applicable replacement")
-            .kind;
-        self.life_gains_to_offer.pop_front();
-        self.apply_life_gain_replacement(gain.player, gain.amount, kind);
+            .map(|replacement| replacement.kind);
+        if let Some(kind) = kind {
+            self.life_gains_to_offer.pop_front();
+            self.apply_life_gain_replacement(gain.player, gain.amount, kind);
+        }
         self.next_life_gain_offer()
     }
 
