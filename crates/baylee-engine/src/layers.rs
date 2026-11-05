@@ -1275,6 +1275,7 @@ fn apply(
         | Modifier::CantLoseLife { .. }
         | Modifier::NoLossForZeroLife { .. }
         | Modifier::LifeGainDrawsInstead { .. }
+        | Modifier::LifeGainNoLifeInstead { .. }
         | Modifier::CantBeAttackedExceptBy { .. }
         // Damage results and counter placements consume these replacements;
         // they do not alter a projected characteristic.

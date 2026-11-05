@@ -487,7 +487,7 @@ impl<L: CardLookup> Engine<L> {
             // A draw Island Sanctuary may replace that was queued where no
             // resolution could ask (Lich's draws for a gain outside one):
             // asked before anything else happens.
-            if self.offer_queued_draw() {
+            if self.offer_queued_draw() || self.offer_queued_life_gain() {
                 return;
             }
             let signature = watch.wants_sample().then(|| self.state.loop_signature());

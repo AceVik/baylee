@@ -67,6 +67,7 @@ impl GameState {
             draw_front,
             // A count of replaced draws, each of which was public.
             draws_replaced: _,
+            life_gains_to_offer,
             discard_answers,
             discards_on_top,
             extra_turns: _,
@@ -194,6 +195,7 @@ impl GameState {
         )?;
         idle(&|| pending_miracle.is_empty(), "pending_miracle")?;
         idle(&|| draws_to_offer.is_empty(), "draws_to_offer")?;
+        idle(&|| life_gains_to_offer.is_empty(), "life_gains_to_offer")?;
         idle(&|| *draw_front == super::FrontDraw::default(), "draw_front")?;
         idle(&|| discard_answers.is_empty(), "discard_answers")?;
         idle(&|| discards_on_top.is_empty(), "discards_on_top")?;

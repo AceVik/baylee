@@ -355,6 +355,7 @@ fn choice_noun(reason: ChoicePrompt) -> Phrase {
         | ChoicePrompt::EntryReplacement
         | ChoicePrompt::Dredge
         | ChoicePrompt::DrawReplacement
+        | ChoicePrompt::LifeGainReplacement
         | ChoicePrompt::Vote
         | ChoicePrompt::Generic => Phrase::NounCards,
     }
@@ -380,6 +381,7 @@ fn cards_line(
         ChoicePrompt::EntryReplacement => Some(Phrase::ChooseEntryReplacement),
         ChoicePrompt::Dredge => Some(Phrase::ChooseDredge),
         ChoicePrompt::DrawReplacement => Some(Phrase::ChooseDrawReplacement),
+        ChoicePrompt::LifeGainReplacement => Some(Phrase::ChooseLifeGainReplacement),
         // A vote is not "choose 1 card": the answer is a ballot the table is
         // told (CR 701.38a), and the tally stands beside it (`ballots_line`).
         ChoicePrompt::Vote => Some(Phrase::CastYourVote),

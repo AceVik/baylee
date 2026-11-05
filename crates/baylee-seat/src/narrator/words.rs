@@ -212,6 +212,10 @@ pub fn subtypes(subtypes: baylee_core::types::SubtypeSet) -> String {
         .join(" ")
 }
 
+fn replacement_prompt(event: &str) -> String {
+    format!("Choose the source whose replacement applies to this {event}")
+}
+
 /// What a [`ChoicePrompt`] asks, as an instruction.
 #[must_use]
 pub fn choice_prompt(prompt: ChoicePrompt) -> String {
@@ -222,9 +226,8 @@ pub fn choice_prompt(prompt: ChoicePrompt) -> String {
             "Choose a card in your graveyard to dredge instead of drawing; choose none to draw"
                 .into()
         }
-        ChoicePrompt::DrawReplacement => {
-            "Choose the source whose replacement applies to this card draw next".into()
-        }
+        ChoicePrompt::DrawReplacement => replacement_prompt("card draw"),
+        ChoicePrompt::LifeGainReplacement => replacement_prompt("life gain"),
         ChoicePrompt::CommandCard => "Choose the card the affected player must play".into(),
         ChoicePrompt::NewHost { .. } => {
             "Choose an object for the Aura to enchant (not a target)".into()
@@ -391,6 +394,7 @@ mod tests {
     fn the_draw_questions_say_what_they_decide() {
         assert!(choice_prompt(ChoicePrompt::Dredge).contains("choose none to draw"));
         assert!(choice_prompt(ChoicePrompt::DrawReplacement).contains("card draw"));
+        assert!(choice_prompt(ChoicePrompt::LifeGainReplacement).contains("life gain"));
     }
 
     /// The pool's keywords all have a name here: a card that prints one the

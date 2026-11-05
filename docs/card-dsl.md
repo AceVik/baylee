@@ -4613,6 +4613,19 @@ free untap, and the last applicable replacement is mandatory.
 players, including life payment and damage that causes life loss. It does
 not count prevented damage, zero loss, or life-total changes that gain life.
 
+`Modifier::LifeGainNoLifeInstead { who }` replaces the named players' entire
+life-gain event with nothing (CR 119.10, 614.1a). It is not
+`LifeTotalCantChange`: the latter also governs exchanges, redistribution and
+costs, and prevents another life-gain replacement from doing anything (CR
+119.7). `LifeGainDrawsInstead { who }` instead replaces the whole gain with
+that many replacement-aware draws. Multiple copies of either kind apply only
+once; when both kinds apply, `ChoicePrompt::LifeGainReplacement` asks the
+affected player which source to apply before any later gain (CR 614.5,
+616.1). Neither complete replacement produces a life-gain event or tally.
+Because the shared object choice names sources, a card may not carry both
+kinds, directly or through a grant; the pool lint and runtime check prevent an
+ambiguous source from silently selecting an arbitrary effect.
+
 #### Destruction receipts and separately announced target groups
 
 `Effect::DestroyAllThenForEachDestroyed { filter, no_regen, effects }`

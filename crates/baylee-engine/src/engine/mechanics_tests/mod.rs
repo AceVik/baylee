@@ -38,6 +38,7 @@ mod draw_replacements;
 mod effects;
 mod flanking;
 mod land_transformations;
+mod life_gain;
 mod mana;
 mod modal_activated;
 mod names;

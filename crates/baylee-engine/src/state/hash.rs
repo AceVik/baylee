@@ -50,6 +50,7 @@ impl GameState {
             draws_to_offer,
             draw_front,
             draws_replaced,
+            life_gains_to_offer,
             discard_answers,
             discards_on_top,
             extra_turns,
@@ -194,6 +195,7 @@ impl GameState {
         draws_to_offer.hash(&mut h);
         draw_front.hash(&mut h);
         draws_replaced.hash(&mut h);
+        life_gains_to_offer.hash(&mut h);
         discard_answers.hash(&mut h);
         discards_on_top.hash(&mut h);
         extra_turns.hash(&mut h);

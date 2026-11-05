@@ -1340,9 +1340,11 @@ impl<L: CardLookup> Engine<L> {
                     PlanKind::Miracle { .. } | PlanKind::Discovered { .. } => {
                         unreachable!("miracle and discover plans are answered via YesNo")
                     }
-                    PlanKind::SkipTurn { .. } | PlanKind::SkipDraw { .. } => {
+                    PlanKind::SkipTurn { .. }
+                    | PlanKind::SkipDraw { .. }
+                    | PlanKind::LifeGainReplacement => {
                         unreachable!(
-                            "turn skips and draw questions are answered via YesNo or ChooseObjects"
+                            "replacement questions are answered via YesNo or ChooseObjects"
                         )
                     }
                     PlanKind::DivideDamage { .. } => {
@@ -1956,6 +1958,14 @@ impl<L: CardLookup> Engine<L> {
             {
                 if self.attack_sacrifice.is_some() {
                     return self.answer_attack_sacrifice(objects);
+                }
+                if matches!(self.pending_plan, Some(PlanKind::LifeGainReplacement)) {
+                    self.pending_plan = None;
+                    let next = self.state.life_gain_choice_answered(&objects);
+                    if !self.offer_queued_draw() && next.is_some() {
+                        self.offer_queued_life_gain();
+                    }
+                    return Ok(());
                 }
                 if matches!(self.pending_plan, Some(PlanKind::SkipDraw { .. })) {
                     let Some(PlanKind::SkipDraw { source }) = self.pending_plan.take() else {

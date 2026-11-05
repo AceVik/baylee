@@ -196,14 +196,20 @@ fn floor_counts_simultaneous_lifelink_even_when_damage_is_to_another_recipient()
 
 #[test]
 fn replaced_prevention_and_lifelink_gains_do_not_enlarge_the_floor_allowance() {
-    for lifelink in [false, true] {
+    for (lifelink, no_life) in [(false, false), (false, true), (true, false), (true, true)] {
         let mut state = state();
         state.players[0].life = 2;
         protect(&mut state);
         effect(
             &mut state,
-            Modifier::LifeGainDrawsInstead {
-                who: PlayerRel::You,
+            if no_life {
+                Modifier::LifeGainNoLifeInstead {
+                    who: PlayerRel::You,
+                }
+            } else {
+                Modifier::LifeGainDrawsInstead {
+                    who: PlayerRel::You,
+                }
             },
         );
         let source = creature(&mut state, B, KeywordSet::EMPTY);

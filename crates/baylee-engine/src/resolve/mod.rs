@@ -1265,6 +1265,9 @@ pub fn run(state: &mut GameState, res: &mut Resolution) -> Flow {
         if let Some(pending) = ask_offered_draw(state, res) {
             return Flow::Wait(pending);
         }
+        if let Some(pending) = ask_offered_life_gain(state, res) {
+            return Flow::Wait(pending);
+        }
         if res.pc >= res.effects.len() {
             break;
         }
@@ -1335,6 +1338,17 @@ fn ask_offered_draw(state: &mut GameState, res: &mut Resolution) -> Option<Pendi
     let (player, source) = state.next_draw_offer()?;
     res.awaiting = Some(AwaitingOp::SkipDraw { source });
     Some(state.draw_offer_question(player, source))
+}
+
+/// Asks about a contested life gain before the resolution's next instruction.
+/// Draws produced by Lich are settled first, through `ask_offered_draw`.
+fn ask_offered_life_gain(state: &mut GameState, res: &mut Resolution) -> Option<Pending> {
+    if res.awaiting.is_some() || res.mana_ability || state.life_gains_to_offer.is_empty() {
+        return None;
+    }
+    let player = state.next_life_gain_offer()?;
+    res.awaiting = Some(AwaitingOp::LifeGainReplacement);
+    Some(state.life_gain_question(player))
 }
 
 fn order_before_continuing(
