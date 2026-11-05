@@ -1,7 +1,7 @@
 //! Effect-based choices, shared by targeting, planeswalkers and deck analysis.
 //! Unknown effects retain the general policy; new cards need no name table.
 
-use baylee_cards_dsl::{AbilityDef, Amount, CounterKind, Effect, KeywordSet, Modifier};
+use baylee_cards_dsl::{AbilityDef, Amount, CounterKind, Effect, KeywordSet};
 use baylee_core::ids::{CardIndex, ObjectId, PlayerId, SubtypeId};
 use baylee_core::types::TypeSet;
 use baylee_engine::choice::PlayerAction;
@@ -56,33 +56,7 @@ pub(crate) struct Offer<'a> {
     pub max: u32,
 }
 
-/// A deliberately partial evaluator: an amount this side of the wire cannot
-/// count answers zero rather than a guess.
-///
-/// The magnitude and the sign are read separately, and the sign is
-/// [`Amount::is_negative`] rather than a list of the negative variants. This
-/// was such a list — `NegX` and `NegXFixed` each with an arm of its own —
-/// and it was the fourth copy of the same question in the workspace. The
-/// next negative amount added to the DSL would have been read here as a
-/// bonus, silently, in a heuristic nobody asserts a sign on.
-pub(crate) fn amount(n: Amount, x: u32) -> i32 {
-    if let Amount::Negated(inner) = n {
-        return -amount(*inner, x);
-    }
-    let magnitude = match n {
-        Amount::Fixed(v) | Amount::NegXFixed(v) => i32::try_from(v).unwrap_or(i32::MAX),
-        Amount::X | Amount::NegX | Amount::XPlusCommanderCasts | Amount::TimesKicked => {
-            i32::try_from(x).unwrap_or(i32::MAX)
-        }
-        Amount::DoubleX => i32::try_from(x.saturating_mul(2)).unwrap_or(i32::MAX),
-        _ => 0,
-    };
-    if n.is_negative() {
-        -magnitude
-    } else {
-        magnitude
-    }
-}
+pub(crate) use baylee_engine::target_side::amount;
 
 /// Whether a counter pointed at `o` would take it off the stack.
 ///
@@ -310,15 +284,7 @@ pub(crate) fn meaning(effects: &[Effect], x: u32) -> Meaning {
     for effect in effects {
         // These instructions bind independent event subjects or grant future
         // abilities; their children do not act once on the current target.
-        if matches!(
-            effect,
-            Effect::CreateDelayedObserver { .. }
-                | Effect::DestroyAllThenForEachDestroyed { .. }
-                | Effect::ForEachCreatureDamagedBySourceThatDiedThisTurn { .. }
-                | Effect::ForEachTarget { .. }
-                | Effect::WheneverCombatEventThisTurn { .. }
-                | Effect::GrantTriggeredIfAbsent { .. }
-        ) {
+        if baylee_engine::target_side::acts_elsewhere(effect) {
             continue;
         }
         let mut m = Meaning::default();
@@ -332,6 +298,9 @@ pub(crate) fn meaning(effects: &[Effect], x: u32) -> Meaning {
             m = meaning(then, x);
             m.absorb(meaning(otherwise, x));
         }
+        if let Some(benefit) = baylee_engine::target_side::effect_benefit(effect, x) {
+            m.benefit = benefit;
+        }
         match effect {
             Effect::AddCounter { kind, .. } => match kind {
                 CounterKind::Minus { .. }
@@ -339,7 +308,6 @@ pub(crate) fn meaning(effects: &[Effect], x: u32) -> Meaning {
                 | CounterKind::Rad
                 | CounterKind::Stun
                 | CounterKind::Finality => {
-                    m.benefit = -1;
                     m.size_counter = matches!(kind, CounterKind::Minus { .. }).then_some(*kind);
                 }
                 CounterKind::Plus { .. }
@@ -353,7 +321,6 @@ pub(crate) fn meaning(effects: &[Effect], x: u32) -> Meaning {
                 | CounterKind::Charge
                 | CounterKind::Shield
                 | CounterKind::Level => {
-                    m.benefit = 1;
                     m.size_counter = matches!(kind, CounterKind::Plus { .. }).then_some(*kind);
                 }
                 // These two have no sign of their own. A lore counter
@@ -371,82 +338,35 @@ pub(crate) fn meaning(effects: &[Effect], x: u32) -> Meaning {
                 // means whatever that card says; there is no rule to read.
                 CounterKind::Bore | CounterKind::Defense | CounterKind::Custom(_) => {}
             },
-            Effect::PumpTarget {
-                power,
-                toughness,
-                keywords,
-                ..
-            } => {
-                m.benefit = amount(*power, x)
-                    .saturating_add(amount(*toughness, x))
-                    .signum();
-                if m.benefit == 0
-                    && keywords.bits() & !baylee_cards_dsl::KeywordSet::DEFENDER.bits() != 0
-                {
-                    m.benefit = 1;
-                }
-            }
-            Effect::CreateContinuousEffect { modifier, .. } => {
-                m.benefit = match modifier {
-                    Modifier::ModifyPT(p, t) => (i32::from(*p) + i32::from(*t)).signum(),
-                    Modifier::AddKeyword(_) => 1,
-                    _ => 0,
-                }
-            }
             Effect::Destroy { .. } | Effect::DestroyTargetSlots { .. } => {
                 m.removal = true;
                 m.destroy = true;
-                m.benefit = -1;
             }
             Effect::Exile { .. }
             | Effect::ReturnToHand { .. }
             | Effect::PutTargetOnBottomOfLibrary
             | Effect::ChangeController { .. } => {
                 m.removal = true;
-                m.benefit = -1;
             }
             Effect::CounterTargetSpell
             | Effect::CounterTargetSpellToExile
             | Effect::CounterTargetAbility
             | Effect::CounterTargetSpellOrAbility => {
                 m.counter = true;
-                m.benefit = -1;
             }
             Effect::DealDamage { amount: n, .. }
             | Effect::DealDamageEvenly { amount: n, .. }
             | Effect::DealDamageWithCappedLifeGain { amount: n }
             | Effect::DealDamageWithLimitedLifeGain { amount: n, .. } => {
                 m.damage = u32::try_from(amount(*n, x)).unwrap_or(0);
-                m.benefit = -1;
             }
             Effect::DealDamageDivided { amount: n } => {
                 m.damage = n.total(x);
-                m.benefit = -1;
             }
-            Effect::Blink { .. }
-            | Effect::ExileAndReturnAtEndStep
-            | Effect::UntapTarget
-            | Effect::GrantFlashback
-            | Effect::GraveyardToHand { .. }
-            | Effect::GraveyardToTop { .. }
-            | Effect::GainLifeFor {
-                who: baylee_cards_dsl::PlayerRel::Chosen,
-                ..
-            } => m.benefit = 1,
-            Effect::TapTarget => m.benefit = -1,
             Effect::DrawCards { amount: n } | Effect::DrawCardsFor { amount: n, .. } => {
                 m.draw = u32::try_from(amount(*n, x)).unwrap_or(0);
                 m.commander_draws = u32::from(matches!(n, Amount::XPlusCommanderCasts));
                 m.value = i64::from(m.draw) * 400;
-                if matches!(
-                    effect,
-                    Effect::DrawCardsFor {
-                        who: baylee_cards_dsl::PlayerRel::Chosen,
-                        ..
-                    }
-                ) {
-                    m.benefit = 1;
-                }
             }
             Effect::DrawThenDiscardDrawn { draw, discard } => {
                 m.draw = u32::try_from(amount(*draw, x)).unwrap_or(0);

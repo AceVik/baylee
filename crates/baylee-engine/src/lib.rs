@@ -24,6 +24,7 @@ pub mod event;
 
 /// `GameState`: the complete, cloneable, hashable world.
 pub mod state;
+pub mod target_side;
 
 /// Phases, steps, and turn bookkeeping.
 pub mod turn;

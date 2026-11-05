@@ -6,6 +6,15 @@
 use crate::ids::SubtypeId;
 use serde::{Deserialize, Serialize};
 
+/// Which side of the table an effect wants what it names on, as its rules read.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
+pub enum TargetSide {
+    /// It hurts what it names: an opponent's is the right side.
+    Harmful,
+    /// It helps what it names: the chooser's own is the right side.
+    Helpful,
+}
+
 mod bitmap;
 
 /// Const-friendly string equality (`str` cannot be matched in const fn).
