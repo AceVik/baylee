@@ -203,6 +203,7 @@ mod mistfolk;
 mod mogg_jailer;
 mod mogg_maniac;
 mod mogg_squad;
+mod mogg_toady;
 mod mogg_war_marshal;
 mod molten_hydra;
 mod monk_realist;
