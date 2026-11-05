@@ -14,8 +14,8 @@ The capture was needed because that game became obsolete. Seat 1 started it, and
 
 This is a game played by the house from seed 3 on the current engine, for the tests that change a table and watch the digest move or stay (`what_the_table_shows_moves_seen`, the library swap, the battlefield order, the clone). It pins no value. The tests replay it with `replay_exact`, so every engine hash is checked; its header names the build `test`.
 
-When a state-hash change moves only its `hash` values, `refresh_fixture_hashes` (an ignored test in `seen.rs`) rewrites them and checks every `seen` and the finish on the way. When a rule fix makes the game diverge, `capture_acceptance_record` (ignored too) writes it again from `played(3)`. Either way, update the SHA256 below.
+When the owner has decided that the state hash changes, `refresh_fixture_hashes` (an ignored test in `seen.rs`) rewrites the `hash` values and checks every `seen` and the finish on the way. It is never the way past a red test after adding a feature: a rule that is new writes nothing into a game that never meets it, and a red `replay_exact` here means that promise broke (`docs/engine-internals.md`, "The replay contract"). When a rule fix makes the game diverge, `capture_acceptance_record` (ignored too) writes it again from `played(3)`. Either way, update the SHA256 below.
 
-Current SHA256: `3e9883ba8683bc3bbc542632224791916c40822546b1e75b24d094bb7ef6ed1f`, captured 3.11.2026 on branch `c42/llm-report-fixes-20261103`; engine hashes refreshed 4.11.2026 on `agy/mirrodin-2` after adding linked activation mana notes.
+Current SHA256: `581471d8065301f7628b1f5dde9210bd864d9611c5e11f490e9748c89bbcb3d0`, captured 3.11.2026 on branch `c42/llm-report-fixes-20261103`.
 
 The games and names are synthetic repository test data, not a player record.

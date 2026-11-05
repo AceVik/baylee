@@ -175,9 +175,6 @@ pub enum Condition {
     AmountIsEven(crate::Amount),
     /// This incarnation blocked or became blocked since your previous upkeep.
     SourceBlockedOrWasBlockedSinceYourLastUpkeep,
-    /// The ability's source was blocked earlier this turn, as that exact
-    /// battlefield incarnation (CR 400.7, CR 603.4).
-    SourceWasBlockedThisTurn,
     /// A creature damaged by this source incarnation died this turn.
     CreatureDamagedBySourceDiedThisTurn,
     /// At least one eligible defending player controls no matching permanent.
@@ -499,6 +496,9 @@ pub enum Condition {
     /// under your control since the beginning of your last upkeep, and it is
     /// still yours to sacrifice.
     SourceCameUnderYourControlSinceYourLastUpkeep,
+    /// The ability's source was blocked earlier this turn, as that exact
+    /// battlefield incarnation (CR 400.7, CR 603.4).
+    SourceWasBlockedThisTurn,
 }
 
 /// Trigger conditions for triggered abilities.
@@ -791,11 +791,6 @@ pub enum Trigger {
     /// subject, which `Effect::AtNextEndStepAboutSubject` names later
     /// (Infinite Authority's "the first creature").
     AttachedBlocksOrBecomesBlockedBy(&'static Filter),
-    /// The attached creature blocks or becomes blocked by one or more matching
-    /// creatures: the source's own trigger, once when it blocks and once when
-    /// it becomes blocked, not once for every opposing creature (CR 509.3a,
-    /// 509.3c). Otherwise this follows [`Self::AttachedBlocksOrBecomesBlockedBy`].
-    AttachedBlocksOrBecomesBlockedByOneOrMore(&'static Filter),
     /// Rampage's "whenever this creature becomes blocked" (CR 702.23).
     /// Its effects carry N, so every separate instance triggers independently.
     Rampage,
@@ -878,6 +873,11 @@ pub enum Trigger {
     LosesLife(crate::effect::PlayerRel),
     /// "Whenever this creature mutates" (Gemrazer, CR 702.140d).
     Mutates,
+    /// The attached creature blocks or becomes blocked by one or more matching
+    /// creatures: the source's own trigger, once when it blocks and once when
+    /// it becomes blocked, not once for every opposing creature (CR 509.3a,
+    /// 509.3c). Otherwise this follows [`Self::AttachedBlocksOrBecomesBlockedBy`].
+    AttachedBlocksOrBecomesBlockedByOneOrMore(&'static Filter),
 }
 
 impl Trigger {

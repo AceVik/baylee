@@ -249,3 +249,30 @@ fn the_choosers_concession_discards_the_unpaid_declaration() {
         "neither a stored sacrifice nor an attacker is committed on departure"
     );
 }
+
+/// A tax window open in a written record has no sacrifices, and its life tax
+/// follows from the attackers and the board: it keeps the value it was recorded
+/// with. Only a declaration that chose permanents adds to the continuation.
+#[test]
+fn a_tax_window_without_sacrifices_keeps_the_fingerprint_a_written_record_holds() {
+    let engine = game(2, false);
+    let attackers = vec![(
+        creature(&engine, index::GRIZZLY_BEARS),
+        Defender::Player(P1),
+    )];
+    let cost = baylee_core::mana::ManaCost::ZERO.with_more_generic(2);
+    let opened = Box::new(engine.window_start(P0));
+    let recorded = crate::state::structural_fingerprint(&attackers)
+        .wrapping_mul(31)
+        .wrapping_add(crate::state::mana_cost_fingerprint(&cost))
+        .wrapping_mul(31)
+        .wrapping_add(opened.fingerprint());
+    let window = PaymentContinuation::AttackTax {
+        attackers,
+        sacrifices: Vec::new(),
+        life: 2,
+        cost,
+        opened,
+    };
+    assert_eq!(window.fingerprint(), recorded);
+}

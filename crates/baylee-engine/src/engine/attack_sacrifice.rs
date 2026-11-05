@@ -108,7 +108,7 @@ pub(crate) fn payments_fingerprint(payments: &[AttackSacrificePayment]) -> u64 {
 }
 
 impl AttackSacrificeWork {
-    fn fingerprint(&self) -> u64 {
+    pub(super) fn fingerprint(&self) -> u64 {
         let mut fingerprint =
             crate::state::structural_fingerprint(&(&self.player, &self.attackers));
         for cost in &self.remaining {
@@ -217,11 +217,5 @@ impl<L: CardLookup> Engine<L> {
         self.attack_sacrifice = Some(work);
         self.ask_next_attack_sacrifice();
         Ok(())
-    }
-
-    pub(super) fn attack_sacrifice_fingerprint(&self) -> u64 {
-        self.attack_sacrifice
-            .as_ref()
-            .map_or(0, AttackSacrificeWork::fingerprint)
     }
 }

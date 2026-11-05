@@ -195,7 +195,12 @@ impl GameState {
         draws_to_offer.hash(&mut h);
         draw_front.hash(&mut h);
         draws_replaced.hash(&mut h);
-        life_gains_to_offer.hash(&mut h);
+        // Written only while a gain waits: a `VecDeque` writes its length even
+        // when empty, and a game that never contests a life gain must keep
+        // every hash a record holds.
+        if !life_gains_to_offer.is_empty() {
+            life_gains_to_offer.hash(&mut h);
+        }
         discard_answers.hash(&mut h);
         discards_on_top.hash(&mut h);
         extra_turns.hash(&mut h);
@@ -272,6 +277,11 @@ impl GameState {
             provenance.timestamp.hash(&mut one);
             provenance.chosen_subtype.hash(&mut one);
             provenance.source_watermark.hash(&mut one);
+            // Decides which spell this mana pays for, and writes nothing for
+            // the mana of every other restriction.
+            if let Some(exile) = provenance.last_linked_exile {
+                exile.hash(&mut one);
+            }
             let restriction = provenance.restriction;
             filter_hash(&mut one, restriction.filter);
             restriction.ability_filter.hash(&mut one);
@@ -2100,7 +2110,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                 mana_types,
                 last_exile,
             } => {
-                h.u8(92);
+                h.u8(93);
                 (acquisition, mana_types, last_exile).hash(h);
             }
             Rider::MergedTop(id) => {
