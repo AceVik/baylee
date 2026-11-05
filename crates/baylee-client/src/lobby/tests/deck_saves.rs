@@ -790,7 +790,9 @@ fn a_failed_new_deck_keeps_its_draft_through_another_decks_save() {
     until(&mut app, "the refusal arrived", |app| {
         !state(app).deck_save_out()
     });
-    until(&mut app, "the lobby settled", |app| !state(app).lobby.busy());
+    until(&mut app, "the lobby settled", |app| {
+        !state(app).lobby.busy()
+    });
     assert!(state_mut(&mut app).drafts.of(None).is_some());
 
     open_stored(&mut app, &["4 Llanowar Elves"]);

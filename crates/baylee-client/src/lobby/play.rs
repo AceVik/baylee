@@ -1019,7 +1019,7 @@ pub(super) fn remember(
         .cloned();
     let deck = state
         .lobby
-        .next_deck()
+        .played_deck()
         .map(|d| d.name.clone())
         .unwrap_or_default();
     let house = handover.local
