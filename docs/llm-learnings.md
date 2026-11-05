@@ -6764,3 +6764,49 @@ naming Propaganda or Windborn Muse has no tax at all, because both are stubs, so
 a test that never checks the window opened proves nothing. Assert the mechanism
 fired before asserting its result. The card batch itself read well: every printed
 sentence has a named test, and no card text reached the engine.
+
+## 2026-11-05 — Second read of PR 415's tests, Malevolent Rumble and the house-AI tests
+
+What the author (Kimi) got wrong, for the brief to learn. No defect reached the
+engine or a card in this pass; every finding is a boundary a sentence draws that
+no test of the batch played. All the tests added for them pass on the author's
+code.
+
+- **The sentence's subject was tested on one side only.** Kjeldoran Guard's
+  "defending player" was played only on the Guard's own turn, where the
+  opponent is the defender. On the opponent's attack the defender is the Guard's
+  controller and only their snow lands count. Gaze of Pain asserted "an
+  unblocked attacker" but never a blocked one, the opponent's, or a later turn
+  ("a creature you control", "isn't blocked", "until end of turn"). Enduring
+  Renewal drew with Divination only, never in the draw step, and never an
+  opponent's draw. Call to Arms chose White every time, so a card that read
+  "white" instead of the chosen color would have passed.
+- **A damage rule must be played in combat too.** Ghostly Flame's tests dealt
+  damage with a spell and an ability, but the batch edited `ice_combat.rs`; the
+  combat path had no card test until now.
+- **"Repeat this process" repeats the question.** Forgotten Lore asks "you may
+  pay {G}" again after the last card has been chosen. That is the printed text
+  (the repeat includes the payment) and not a leak: assert the question that
+  must not appear (the empty card choice), not one that must.
+- **Count creatures in a group, not in a pair.** General Jarkeld's exchange
+  was played with one blocker each; "each creature that's blocking exactly one"
+  is only visible with a double block.
+- **A test named for a count has to fail on the wrong count.** Krovikan
+  Vampire's "returns at each players' end step" played the opponent's only.
+- **Census numbers in a test are a ledger, not a check.** The activation census
+  moved from 3782 to 3783, 2995 and then 2996 with three commits, each with a
+  prose reason; the number is right only as long as the prose is. Prefer the
+  per-card assertion (as the Kjeldoran Guard, Heart Wolf and War Barge rows now
+  have) over the total.
+- **A numeric AI assertion pins an implementation.** The Goblin Sappers test
+  asserts `activation_worth(0) == activation_worth(1) + midpoint(source_loss,
+  0)`; it fails the day the halving changes, not the day the delayed trigger
+  counts the source twice. Say which of the two it is guarding.
+- **Malevolent Rumble read well.** `RevealTopFind` is named for the rule, the
+  whole reveal precedes every move, the commander question is asked for the
+  hand-bound card before anything moves and for the graveyard-bound one only as
+  the later state-based action (CR 903.9a), an empty library reveals nothing and
+  still makes the token, and the reader refuses every Dig variant it does not
+  read. A private `LookAtTopFind` with no match no longer asks an empty
+  `ChooseCards` (it did before, with `max` 0); nothing the player could see
+  changed and the replay record is byte-identical.

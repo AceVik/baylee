@@ -145,3 +145,48 @@ fn gaze_of_pain_observes_a_creature_that_enters_after_it_resolves() {
         "it assigns no combat damage after the optional effect is chosen"
     );
 }
+
+/// "Attacks and isn't blocked", "a creature you control", "until end of
+/// turn": a blocked attacker, the opponent's attacker and a later turn's
+/// unblocked attacker each ask nothing and deal their combat damage as usual.
+#[test]
+fn gaze_of_pain_ignores_blocked_attackers_opposing_attackers_and_later_turns() {
+    let mut engine = lk::game(
+        SEED,
+        &[index::GRIZZLY_BEARS],
+        &[index::WALL_OF_WOOD, index::GRIZZLY_BEARS],
+        &[gaze_of_pain()],
+        &[],
+    );
+    let runner = lk::obj(&engine, P0, index::GRIZZLY_BEARS);
+    let wall = lk::obj(&engine, P1, index::WALL_OF_WOOD);
+    let theirs = lk::obj(&engine, P1, index::GRIZZLY_BEARS);
+    lk::float(
+        &mut engine,
+        P0,
+        &[(ManaColor::Colorless, 1), (ManaColor::Black, 1)],
+    );
+    lk::cast_at(&mut engine, P0, gaze_of_pain(), &[], &[]);
+
+    // Blocked: the Wall stops the Bears and nothing is asked.
+    let _ = lk::attack(&mut engine, &[runner]);
+    lk::block(&mut engine, &[(wall, runner)]);
+    lk::through_combat(&mut engine);
+    assert_eq!(lk::life(&engine, P1), 20);
+    assert_eq!(lk::damage_on(&engine, wall), 2, "only combat damage");
+
+    // The opponent's unblocked attacker is not "a creature you control".
+    reach_their_main_phase(&mut engine, P1);
+    let _ = lk::attack(&mut engine, &[theirs]);
+    lk::block(&mut engine, &[]);
+    lk::through_combat(&mut engine);
+    assert_eq!(lk::life(&engine, P0), 18);
+
+    // The next turn of the controller: the effect has ended.
+    reach_their_main_phase(&mut engine, P0);
+    let _ = lk::attack(&mut engine, &[runner]);
+    lk::block(&mut engine, &[]);
+    lk::through_combat(&mut engine);
+    assert_eq!(lk::life(&engine, P1), 18, "no trigger, so no choice");
+    assert_eq!(lk::damage_on(&engine, wall), 0);
+}

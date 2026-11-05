@@ -230,3 +230,29 @@ fn call_to_arms_does_not_count_tokens_toward_a_tie() {
     );
     assert_eq!(pt(&engine, my_lions), (3, 2), "the bonus remains active");
 }
+
+/// The bonus follows the color that was chosen, not white: with Blue chosen
+/// and one blue permanent on the chosen player's side, the white creatures
+/// grow; with White chosen on the same board, white leads nothing.
+#[test]
+fn call_to_arms_reads_the_chosen_color_not_white() {
+    for (chosen, stays) in [(ManaColor::Blue, true), (ManaColor::White, false)] {
+        let mut engine = lk::game(
+            SEED,
+            &[index::SAVANNAH_LIONS],
+            &[index::SEA_SPIRIT],
+            &[call_to_arms()],
+            &[],
+        );
+        let lions = lk::obj(&engine, P0, index::SAVANNAH_LIONS);
+
+        cast_call(&mut engine, chosen, P1);
+
+        assert_eq!(
+            on_battlefield(&engine, P0, call_to_arms()).is_some(),
+            stays,
+            "{chosen:?} chosen"
+        );
+        assert_eq!(pt(&engine, lions), if stays { (3, 2) } else { (2, 1) });
+    }
+}
