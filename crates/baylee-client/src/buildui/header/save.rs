@@ -10,15 +10,13 @@ pub(super) fn save_button(commands: &mut Commands, env: &Env) -> Entity {
     let deck = env.deck();
     let lang = env.lang();
     let live = deck.saveable() && !env.state.lobby.busy();
+    // An auto-save that failed has nowhere else to stand once its toast is
+    // gone: the button is Retry, and says so.
+    let failed = env.ui().save == SaveState::Failed && deck.dirty();
     let mut trailing = Vec::new();
     if deck.dirty() {
-        trailing.push(glyph(
-            commands,
-            kit,
-            mark::DOT,
-            m.small * 0.55,
-            tokens::GOLD,
-        ));
+        let ink = if failed { tokens::DANGER } else { tokens::GOLD };
+        trailing.push(glyph(commands, kit, mark::DOT, m.small * 0.55, ink));
     }
     let reason = if env.state.lobby.busy() {
         Phrase::SavingDeck.text(lang).to_string()
@@ -32,7 +30,9 @@ pub(super) fn save_button(commands: &mut Commands, env: &Env) -> Entity {
         Some(keys) if !keys.is_empty() => format!("{} ({keys})", Phrase::BuildSave.text(lang)),
         _ => Phrase::BuildSave.text(lang).to_string(),
     };
-    let save_hint = if live {
+    let save_hint = if live && failed {
+        format!("{save_base} — {}", Phrase::BuildSaveFailed.text(lang))
+    } else if live {
         save_base
     } else {
         format!("{save_base} — {reason}")
