@@ -582,7 +582,15 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             } else if matches!(filter, baylee_cards_dsl::Filter::AttachedToBySource) {
                 // "Enchanted creature gets +3/+3": the host now, or the one it
                 // had as it left, sacrificed to pay for this (Briar Shield).
-                let (host, _) = super::attached_host(state, res)?;
+                // A trigger's "it" is the creature the event was about, as
+                // `sweep_filter` reads it, wherever the Aura has gone since.
+                let host = match super::subjects::event_subject(state, res) {
+                    Some(subject) if super::subjects::on_battlefield(state, subject) => {
+                        subject.object
+                    }
+                    Some(_) => return None,
+                    None => super::attached_host(state, res)?.0,
+                };
                 if seats.as_ref().is_some_and(|seats| {
                     state
                         .object(host)
