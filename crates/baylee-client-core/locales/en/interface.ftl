@@ -8662,8 +8662,16 @@ CentralRegister = Register
 # Central sign-in or a restored Central session failed.
 CentralSignInFailed = Sign-in or restore failed. Please check your credentials and connection.
 
+# A gateway, or Central for it, refused to admit the signed-in account: a ban
+# there, a gateway that takes no Central accounts, or a refused ticket. The
+# gateway's refusal is a bare status, so the sentence cannot say which.
+CentralAdmissionRefused = This gateway did not let your account in. Try again, or choose another gateway.
+
+# Central or the gateway could not be reached to admit the signed-in account.
+CentralAdmissionUnavailable = Baylee Central or this gateway is not answering. Try again in a moment.
+
 # Syncing the Central account's data failed; local changes stay.
-CentralSyncFailed = Account synchronization failed. Your local changes are retained; please sign in again.
+CentralSyncFailed =Account synchronization failed. Your local changes are retained; please sign in again.
 
 # The front door's button that signs out of the Baylee (Central) account.
 CentralSignOut = Sign out

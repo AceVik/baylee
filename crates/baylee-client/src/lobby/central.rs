@@ -223,6 +223,11 @@ pub(crate) struct State {
     pub(super) terms_pending: bool,
     /// A Central ticket is being exchanged with the chosen gateway.
     pub(super) admitting: bool,
+    /// The last admission asked for was refused ([`guest_door_open`]).
+    turned_away: bool,
+    /// The chosen gateway's `GET /auth/config` says it takes no Central
+    /// sign-in ([`guest_door_open`]).
+    pub(super) no_central_here: bool,
     /// The Central account's `DisplayName#Tag` (or username), shown in the
     /// Lobby profile pill even before a gateway is selected.
     pub(crate) profile_handle: Option<String>,
@@ -252,6 +257,8 @@ pub(super) fn enable(state: &mut LobbyState) {
         linked: false,
         terms_pending: false,
         admitting: false,
+        turned_away: false,
+        no_central_here: false,
         profile_handle: None,
     });
     state.gateway_selected = false;
@@ -525,247 +532,131 @@ pub(super) fn receive(
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-fn accept_guest_terms_if_needed(base: &str, token: &str) {
-    #[derive(serde::Deserialize)]
-    struct TermsDoc {
-        version: String,
-    }
-    let get = ehttp::Request::get(format!("{base}/terms"));
-    let Ok(resp) = crate::transport::fetch_blocking(&get) else {
-        return;
-    };
-    if !(200..300).contains(&resp.status) {
-        return;
-    }
-    let Ok(doc) = serde_json::from_slice::<TermsDoc>(&resp.bytes) else {
-        return;
-    };
-    let Ok(body) = serde_json::to_vec(&serde_json::json!({ "terms_version": doc.version })) else {
-        return;
-    };
-    let mut post = ehttp::Request::post(format!("{base}/account/terms"), body);
-    post.headers.insert("Content-Type", "application/json");
-    post.headers
-        .insert("Authorization", format!("Bearer {token}"));
-    let _ = crate::transport::fetch_blocking(&post);
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-fn sanitize_guest_display_name(raw: &str) -> String {
-    let filtered: String = raw
-        .chars()
-        .filter(|c| c.is_ascii_alphanumeric() || *c == '_' || *c == '-')
-        .take(16)
-        .collect();
-    let trimmed = filtered.trim_matches(['_', '-']);
-    if (3..=16).contains(&trimmed.len()) {
-        trimmed.to_string()
-    } else {
-        "Player".to_string()
-    }
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-enum GuestFallbackError {
-    NoGuests,
-    Unreachable,
-    Other,
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-fn admit_guest_fallback(
-    gateway: &str,
-    display_name: &str,
-    lang: &str,
-    kept: Option<baylee_client_core::lobby::KeptGuest>,
-) -> Result<baylee_client_core::lobby::KeptGuest, GuestFallbackError> {
-    #[derive(serde::Deserialize)]
-    struct GuestBody {
-        token: String,
-        handle: String,
-        #[serde(default)]
-        terms_stale: Option<bool>,
-    }
-    let base = gateway.trim_end_matches('/');
-    if base.is_empty() {
-        return Err(GuestFallbackError::Unreachable);
-    }
-    if let Some(kept) = kept {
-        let mut check = ehttp::Request::get(format!("{base}/me"));
-        check
-            .headers
-            .insert("Authorization", format!("Bearer {}", kept.token));
-        if let Ok(resp) = crate::transport::fetch_blocking(&check) {
-            if (200..300).contains(&resp.status) {
-                return Ok(kept);
-            }
-            if resp.status == 403 {
-                accept_guest_terms_if_needed(base, &kept.token);
-                if let Ok(retry) = crate::transport::fetch_blocking(&check)
-                    && (200..300).contains(&retry.status)
-                {
-                    return Ok(kept);
-                }
-            }
-        }
-    }
-    let clean_name = sanitize_guest_display_name(display_name);
-    let post_guest = |payload: serde_json::Value| -> Result<ehttp::Response, GuestFallbackError> {
-        let bytes = serde_json::to_vec(&payload).map_err(|_| GuestFallbackError::Other)?;
-        let mut req = ehttp::Request::post(format!("{base}/auth/guest"), bytes);
-        req.headers.insert("Content-Type", "application/json");
-        crate::transport::fetch_blocking(&req).map_err(|_| GuestFallbackError::Unreachable)
-    };
-    let mut response = post_guest(serde_json::json!({
-        "display_name": clean_name,
-        "lang": lang,
-    }))?;
-    if response.status == 400 {
-        response = post_guest(serde_json::json!({ "lang": lang }))?;
-    }
-    if !(200..300).contains(&response.status) {
-        if response.status == 403
-            && response
-                .text()
-                .is_some_and(|t| t.contains("takes no guests"))
-        {
-            return Err(GuestFallbackError::NoGuests);
-        }
-        return Err(GuestFallbackError::Other);
-    }
-    let guest: GuestBody =
-        serde_json::from_slice(&response.bytes).map_err(|_| GuestFallbackError::Other)?;
-    if guest.terms_stale == Some(true) {
-        accept_guest_terms_if_needed(base, &guest.token);
-    }
-    Ok(baylee_client_core::lobby::KeptGuest {
-        token: guest.token,
-        handle: guest.handle,
-    })
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-fn gateway_reachable(gateway: &str) -> bool {
-    let base = gateway.trim_end_matches('/');
-    if base.is_empty() {
-        return false;
-    }
-    let req = ehttp::Request::get(format!("{base}/info"));
-    crate::transport::fetch_blocking(&req).is_ok_and(|resp| (200..500).contains(&resp.status))
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-fn fallback_event(
-    gateway: &str,
-    display_name: &str,
-    lang_code: &str,
-    lang: Lang,
-    kept_guest: Option<baylee_client_core::lobby::KeptGuest>,
-) -> LobbyEvent {
-    match admit_guest_fallback(gateway, display_name, lang_code, kept_guest) {
-        Ok(guest) => LobbyEvent::GuestIn(guest),
-        Err(GuestFallbackError::NoGuests) => LobbyEvent::Failed(Phrase::NoGuests.text(lang).into()),
-        Err(GuestFallbackError::Unreachable) => {
-            LobbyEvent::Failed(Phrase::GatewayNotAnswering.text(lang).into())
-        }
-        Err(GuestFallbackError::Other) => {
-            if gateway_reachable(gateway) {
-                LobbyEvent::Failed(message(lang).into())
-            } else {
-                LobbyEvent::Failed(Phrase::GatewayNotAnswering.text(lang).into())
-            }
-        }
-    }
-}
-
+/// Asks Central for a ticket to the chosen gateway and redeems it there.
+///
+/// Whatever goes wrong is said to the player ([`admission_answered`]). It is
+/// never answered by trying something else in their name: a guest is the
+/// player's own choice ([`guest_door_open`]), and a gateway's terms are
+/// accepted on their sheet and nowhere else (`front::terms`).
 pub(super) fn admit(state: &mut LobbyState, mailbox: &Mailbox) {
     let Some(handle) = state.central.as_ref().and_then(|s| s.handle.clone()) else {
         return;
     };
     if let Some(central) = &mut state.central {
         central.admitting = true;
+        central.turned_away = false;
     }
     let gateway = state.gateway.clone();
     let epoch = state.gateway_epoch;
     let target = mailbox.clone();
     let lang = state.lobby.lang();
-    let lang_code = state.lang.clone();
-    let kept_guest = state.guests.get(&gateway).cloned();
-    let display_name = state
-        .central
-        .as_ref()
-        .and_then(|c| c.profile_handle.as_deref())
-        .or_else(|| state.lobby.me().map(|m| m.handle.as_str()))
-        .and_then(|h| h.split('#').next())
-        .map(str::trim)
-        .filter(|s| s.len() >= 2)
-        .unwrap_or("Player")
-        .to_string();
     state.lobby.tell(Phrase::GatewayConnecting, &[]);
-    let fallback_gateway = gateway.clone();
-    let fallback_name = display_name.clone();
-    let fallback_lang = lang_code.clone();
-    let fallback_kept = kept_guest.clone();
-    let fallback_target = target.clone();
-    let accepted = handle
+    let asked = handle
         .send
         .try_send(Box::new(move |account| {
-            let admission = account.admit(&gateway);
-            let stale = admission.as_ref().ok().and_then(|value| value.terms_stale);
-            let central_stale = admission
-                .as_ref()
-                .ok()
-                .and_then(|value| value.central_terms_stale)
-                == Some(true);
-            let event = match admission {
-                Ok(mut value) => LobbyEvent::LoggedIn {
-                    token: std::mem::take(&mut value.token),
-                    username: value.username.take(),
-                },
-                Err(_) => fallback_event(&gateway, &display_name, &lang_code, lang, kept_guest),
-            };
-            if let Ok(mut messages) = target.0.lock() {
-                if let Some(stale) = stale {
-                    messages.push(Reply::Remote(
-                        epoch,
-                        Box::new(Reply::Terms(super::front::terms::TermsReply::Stale(stale))),
-                    ));
-                }
-                // Central's own terms come first: their sheet, then the
-                // gateway's after a fresh admission.
-                if central_stale {
-                    messages.push(Reply::Remote(
-                        epoch,
-                        Box::new(Reply::Terms(super::front::terms::TermsReply::CentralStale)),
-                    ));
-                }
-                let central_bound = matches!(event, LobbyEvent::LoggedIn { .. });
-                messages.push(Reply::Remote(epoch, Box::new(Reply::Event(event))));
-                if central_bound {
-                    messages.push(Reply::Remote(
-                        epoch,
-                        Box::new(Reply::Terms(super::front::terms::TermsReply::CentralBound)),
-                    ));
-                }
-            }
+            admission_answered(account.admit(&gateway), lang, epoch, &target);
         }))
         .is_ok();
-    if !accepted {
-        let _ = std::thread::Builder::new()
-            .name("baylee-guest-admit".into())
-            .spawn(move || {
-                let event = fallback_event(
-                    &fallback_gateway,
-                    &fallback_name,
-                    &fallback_lang,
-                    lang,
-                    fallback_kept,
-                );
-                if let Ok(mut messages) = fallback_target.0.lock() {
-                    messages.push(Reply::Remote(epoch, Box::new(Reply::Event(event))));
-                }
-            });
+    if !asked {
+        admission_answered(Err(Error::Busy), lang, epoch, mailbox);
+    }
+}
+
+/// Leaves what an admission answered in the mailbox: the session with the
+/// news about terms it brought, or the refusal in words, and nothing else.
+fn admission_answered(
+    admission: Result<baylee_account::Admission, Error>,
+    lang: Lang,
+    epoch: u64,
+    mailbox: &Mailbox,
+) {
+    let stale = admission.as_ref().ok().and_then(|value| value.terms_stale);
+    let central_stale = admission
+        .as_ref()
+        .ok()
+        .and_then(|value| value.central_terms_stale)
+        == Some(true);
+    let event = match admission {
+        Ok(mut value) => LobbyEvent::LoggedIn {
+            token: std::mem::take(&mut value.token),
+            username: value.username.take(),
+        },
+        Err(error) => LobbyEvent::Failed(refusal(lang, error).into()),
+    };
+    if let Ok(mut messages) = mailbox.0.lock() {
+        if let Some(stale) = stale {
+            messages.push(Reply::Remote(
+                epoch,
+                Box::new(Reply::Terms(super::front::terms::TermsReply::Stale(stale))),
+            ));
+        }
+        // Central's own terms come first: their sheet, then the
+        // gateway's after a fresh admission.
+        if central_stale {
+            messages.push(Reply::Remote(
+                epoch,
+                Box::new(Reply::Terms(super::front::terms::TermsReply::CentralStale)),
+            ));
+        }
+        let central_bound = matches!(event, LobbyEvent::LoggedIn { .. });
+        messages.push(Reply::Remote(epoch, Box::new(Reply::Event(event))));
+        if central_bound {
+            messages.push(Reply::Remote(
+                epoch,
+                Box::new(Reply::Terms(super::front::terms::TermsReply::CentralBound)),
+            ));
+        }
+    }
+}
+
+/// Why an admission failed, as far as the status alone says: a bare `403` is
+/// a ban and a gateway that takes no Central account alike, and every refusal
+/// from a gateway is a bare status (`docs/protocol.md`).
+fn refusal(lang: Lang, error: Error) -> &'static str {
+    match error {
+        Error::Unavailable | Error::Busy => Phrase::CentralAdmissionUnavailable.text(lang),
+        _ => Phrase::CentralAdmissionRefused.text(lang),
+    }
+}
+
+/// The chosen gateway did not admit the account: its refusal stands over the
+/// account's list, and the gateway keeps its address for [`guest_here`].
+pub(super) fn turned_away(state: &mut LobbyState) {
+    if let Some(central) = &mut state.central {
+        central.turned_away = true;
+    }
+    back_to_list(state);
+}
+
+/// Whether the gateway that just turned this account away offers its own
+/// guest door: it said it takes guests and no Central sign-in, so no
+/// admission will ever enter it. A gateway that takes Central's accounts
+/// offers none here, because a refusal from it may be a ban.
+pub(super) fn guest_door_open(state: &LobbyState) -> bool {
+    state
+        .central
+        .as_ref()
+        .is_some_and(|c| c.turned_away && c.no_central_here && !c.admitting)
+        && state.lobby.guests_enabled()
+        && state.lobby.token().is_none()
+}
+
+/// The player pressed that door: the gateway is chosen again, as any gateway
+/// is, with the doors it named, and the guest comes in as on any gateway,
+/// through its own guest face and terms sheet. Central stays signed in.
+/// Nothing when no such door stands.
+pub(super) fn guest_here(state: &mut LobbyState) {
+    if !guest_door_open(state) {
+        return;
+    }
+    let registration = state.lobby.registration();
+    let row = state
+        .displayed_gateways()
+        .iter()
+        .position(|gateway| *gateway == state.gateway);
+    if row.is_some_and(|row| state.select_gateway(row)) {
+        state.lobby.set_registration(registration);
+        state.lobby.set_guests_enabled(true);
     }
 }
 
@@ -1241,6 +1132,64 @@ mod tests {
         world.insert_resource(prefs);
         world.run_system_once(sync_gateways).unwrap();
         assert!(jobs.try_recv().is_err(), "the list is not rewritten");
+    }
+
+    /// An admission that cannot even be asked for (the account worker's
+    /// queue is full, or the worker is gone) is said to the player. Nothing
+    /// is sent to the gateway in its place: no guest is made there, and no
+    /// terms are accepted, because the player was asked neither.
+    #[test]
+    fn an_admission_that_cannot_be_asked_for_asks_the_gateway_nothing() {
+        let sink = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        sink.set_nonblocking(true).unwrap();
+        let mut state = LobbyState::from_settings(crate::settings::ClientSettings::default());
+        restored_for_test(&mut state, Vec::new());
+        state.central.as_mut().unwrap().handle = Some(Handle::unavailable_for_test());
+        state.gateway = format!("http://{}", sink.local_addr().unwrap());
+        state.guests.insert(
+            state.gateway.clone(),
+            baylee_client_core::lobby::KeptGuest {
+                token: "synthetic-guest-token".into(),
+                handle: "Casper#0007".into(),
+            },
+        );
+        let mailbox = Mailbox::default();
+        admit(&mut state, &mailbox);
+        std::thread::sleep(std::time::Duration::from_millis(300));
+        assert!(
+            matches!(sink.accept(), Err(error) if error.kind() == std::io::ErrorKind::WouldBlock),
+            "the gateway was asked something"
+        );
+        let replies = std::mem::take(&mut *mailbox.0.lock().unwrap());
+        assert!(matches!(
+            replies.as_slice(),
+            [Reply::Remote(_, event)] if matches!(**event, Reply::Event(LobbyEvent::Failed(_)))
+        ));
+    }
+
+    /// Every way an admission fails, a Central outage, a refused ticket and
+    /// a ban among them, is one sentence to the player and nothing more.
+    #[test]
+    fn a_refused_admission_is_said_and_nothing_follows_it() {
+        for error in [
+            Error::Rejected,
+            Error::Unavailable,
+            Error::Conflict,
+            Error::Busy,
+            Error::TermsRequired,
+        ] {
+            let mailbox = Mailbox::default();
+            admission_answered(Err(error), Lang::En, 7, &mailbox);
+            let replies = std::mem::take(&mut *mailbox.0.lock().unwrap());
+            assert!(
+                matches!(
+                    replies.as_slice(),
+                    [Reply::Remote(7, event)]
+                        if matches!(**event, Reply::Event(LobbyEvent::Failed(_)))
+                ),
+                "{error}"
+            );
+        }
     }
 
     #[test]

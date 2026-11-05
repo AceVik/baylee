@@ -142,7 +142,7 @@ pub(super) enum Panel {
 impl Panel {
     /// The panel the lobby asks for.
     fn of(state: &LobbyState) -> Self {
-        if state.central_ready() {
+        if keys::on_the_list(state) {
             return Self::Gateway;
         }
         if state.lobby.gateway_chosen() {
@@ -1561,12 +1561,16 @@ impl FrontPress {
             }
             FrontPress::Nothing => {}
             FrontPress::BackToSignIn => {
-                state.lobby.back_to_sign_in();
+                state.back_a_face();
             }
             FrontPress::GuestFace => {
-                // From Central's form, a gateway that takes guests too.
+                // From Central's form, a gateway that takes guests too; or,
+                // signed in at Central, the door a guests' gateway left open.
                 #[cfg(not(target_arch = "wasm32"))]
-                super::central::guest_instead(state);
+                {
+                    super::central::guest_instead(state);
+                    super::central::guest_here(state);
+                }
                 let request = state.lobby.open_guest_face();
                 if state.lobby.guest() {
                     let gateway = state.gateway.clone();

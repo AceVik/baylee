@@ -97,11 +97,28 @@ impl LobbyState {
         self.lobby.set_guests_enabled(guests);
         self.art_cache = art_cache;
         #[cfg(not(target_arch = "wasm32"))]
-        if central {
-            super::central::bound(self);
+        {
+            if central {
+                super::central::bound(self);
+            }
+            if let Some(account) = &mut self.central {
+                account.no_central_here = !central;
+            }
         }
         #[cfg(target_arch = "wasm32")]
         let _ = central;
+    }
+
+    /// Back from the create-account or guest face (`‹ Back`, Esc); `false`
+    /// when none is up. Signed in at Central the guest's face came off the
+    /// account's list, so that is what it goes back to.
+    pub(super) fn back_a_face(&mut self) -> bool {
+        let back = self.lobby.back_to_sign_in();
+        #[cfg(not(target_arch = "wasm32"))]
+        if back && self.central_ready() {
+            super::central::back_to_list(self);
+        }
+        back
     }
 
     /// Back from the account form to the gateway form.
