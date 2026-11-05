@@ -204,6 +204,11 @@ fn http_rejects_browser_rebinding_wrong_verbs_and_large_heads() {
 
 fn headless() -> (App, PathBuf) {
     let mut app = App::new();
+    let mut recorder = running();
+    // These tests exercise target selection at the zero-time frame, not the
+    // wall-clock cadence (which `late_frames_skip_instead_of_bursting` covers).
+    // App setup may otherwise miss the first 10 FPS slot under parallel load.
+    recorder.run.as_mut().unwrap().start = None;
     let (_, jobs) = channel();
     app.insert_resource(DevControl {
         jobs: Mutex::new(jobs),
@@ -218,7 +223,7 @@ fn headless() -> (App, PathBuf) {
         idle_exit: None,
     })
     .init_resource::<Time<Virtual>>()
-    .insert_resource(running());
+    .insert_resource(recorder);
     install(&mut app);
     app.world_mut().spawn((Window::default(), PrimaryWindow));
     let directory = app
