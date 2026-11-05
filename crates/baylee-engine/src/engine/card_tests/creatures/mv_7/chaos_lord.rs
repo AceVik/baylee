@@ -18,18 +18,26 @@ fn chaos_lord() -> CardIndex {
     card_index("16d0aea2-4ca4-4a9d-8674-2863e085f514")
 }
 
+/// The upkeep trigger's target, the one question a game with the Lord out asks
+/// on the way to the main phase.
+fn aim_at_the_opponent(engine: &mut Engine<RegistryLookup>) {
+    lk::aim(engine, &[], &[P1]);
+}
+
 /// First strike played through combat: a 6/4 Craw Wurm blocking Chaos Lord
 /// dies in the first-strike damage step and never deals its 6. Without first
 /// strike both would deal damage at once and the Lord would end combat with
-/// 6 damage marked. The third permanent keeps the upkeep trigger from firing.
+/// 6 damage marked. The third permanent keeps the Lord where it is: the upkeep
+/// trigger still goes on the stack, and finds the count odd.
 #[test]
 fn chaos_lord_kills_its_blocker_before_the_blocker_deals_damage() {
-    let mut engine = lk::game(
+    let mut engine = lk::game_with(
         SEED,
         &[chaos_lord(), forest()],
         &[index::CRAW_WURM],
         &[],
         &[],
+        aim_at_the_opponent,
     );
     let lord = lk::obj(&engine, P0, chaos_lord());
     let wurm = lk::obj(&engine, P1, index::CRAW_WURM);
@@ -80,16 +88,51 @@ fn chaos_lord_targets_an_opponent_and_changes_control_at_even_permanent_count() 
     assert_eq!(object.owner, P0, "a control change never changes ownership");
 }
 
+/// The "if" comes after the effect (CR 603.4): an odd count stops nothing from
+/// going on the stack, and the ability targets and then does nothing.
 #[test]
-fn chaos_lord_does_not_trigger_at_an_odd_permanent_count() {
-    let engine = lk::game(SEED, &[chaos_lord()], &[], &[], &[]);
+fn chaos_lord_triggers_at_an_odd_count_and_does_nothing_as_it_resolves() {
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[chaos_lord()])
+        .start();
+    keep_mulligans(&mut engine);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    lk::aim(&mut engine, &[], &[P1]);
+    lk::settle(&mut engine);
 
-    assert!(
-        stack_is_empty(&engine),
-        "the intervening-if is false when the Lord is the only permanent"
-    );
     let lord = lk::obj(&engine, P0, chaos_lord());
     assert_eq!(engine.state().object(lord).unwrap().controller, P0);
+}
+
+/// The count that matters is the one as it resolves, either way: an odd board
+/// made even in response gives the Lord away.
+#[test]
+fn chaos_lord_counts_the_permanents_as_it_resolves_not_as_it_triggers() {
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[chaos_lord(), grizzly_bears(), forest()])
+        .hand(1, &[index::LIGHTNING_BOLT])
+        .start();
+    keep_mulligans(&mut engine);
+    let lord = lk::obj(&engine, P0, chaos_lord());
+    let bears = lk::obj(&engine, P0, grizzly_bears());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    lk::aim(&mut engine, &[], &[P1]);
+
+    lk::pass_once(&mut engine);
+    lk::float(&mut engine, P1, &[(ManaColor::Red, 1)]);
+    cast_with_floating(&mut engine, P1, index::LIGHTNING_BOLT);
+    lk::aim(&mut engine, &[bears], &[]);
+    lk::settle(&mut engine);
+
+    assert_eq!(
+        engine.state().object(lord).unwrap().controller,
+        P1,
+        "three permanents as it triggered, two as it resolved"
+    );
 }
 
 #[test]
@@ -125,7 +168,7 @@ fn chaos_lord_rechecks_parity_when_its_trigger_resolves() {
     assert_eq!(
         engine.state().object(lord).unwrap().controller,
         P0,
-        "the intervening-if is false on resolution, so control does not change"
+        "the count is odd as it resolves, so control does not change"
     );
 }
 
@@ -157,7 +200,14 @@ fn chaos_lord_cannot_attack_on_the_turn_it_enters() {
 
 #[test]
 fn chaos_lord_can_attack_after_a_control_change_if_it_entered_on_an_earlier_turn() {
-    let mut engine = lk::game(SEED, &[chaos_lord()], &[], &[], &[index::DOMINATE]);
+    let mut engine = lk::game_with(
+        SEED,
+        &[chaos_lord()],
+        &[],
+        &[],
+        &[index::DOMINATE],
+        aim_at_the_opponent,
+    );
     let lord = lk::obj(&engine, P0, chaos_lord());
     reach_their_main_phase(&mut engine, P1);
 

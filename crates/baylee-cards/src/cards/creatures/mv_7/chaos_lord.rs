@@ -27,13 +27,19 @@ card!(
                 step: StepKind::Upkeep,
                 whose: PlayerRel::You,
             },
-            &[Effect::ChangeController {
-                new_controller: PlayerRel::TargetPlayerOrController,
+            // The "if" follows the effect, so this is no intervening if (CR
+            // 603.4): the ability always goes on the stack and targets, and
+            // the permanents are counted only as it resolves.
+            &[Effect::IfCondition {
+                condition: Condition::AmountIsEven(Amount::CountOf {
+                    filter: &Filter::Any,
+                    zone: ZoneSel::Battlefield,
+                }),
+                then: &[Effect::ChangeController {
+                    new_controller: PlayerRel::TargetPlayerOrController,
+                }],
+                otherwise: &[],
             }],
-            condition = Some(Condition::AmountIsEven(Amount::CountOf {
-                filter: &Filter::Any,
-                zone: ZoneSel::Battlefield,
-            })),
             targets = Some(TargetReq::one(TargetSpec::AnyOpponent)),
         ),
         // Only the attack restriction is relaxed. This is deliberately not
