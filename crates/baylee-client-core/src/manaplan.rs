@@ -235,9 +235,9 @@ pub fn add_converters(
 }
 
 /// Rank taps by the board and colours still needed by cards in hand.
-/// Creatures retain their combat and tap-ability value; a permanent used
-/// for more than mana (`beyond_mana`, asked of the rules it has: Karakas, a
-/// creature land) is kept next; scarce hand colours are held back ahead of
+/// Creatures retain their combat and tap-ability value; a permanent with an
+/// ability that costs no mana (`beyond_mana`, asked of the rules it has:
+/// Karakas) is kept next; scarce hand colours are held back ahead of
 /// interchangeable mana. Floating mana and avoiding life/sacrifice costs
 /// still take precedence in the matcher.
 ///
@@ -247,11 +247,16 @@ pub fn add_converters(
 /// tapped first about as often as not (report 30.10.2026). The client and
 /// the house AI both rank through here, each handing in the registry's
 /// answer.
+///
+/// An ability that costs mana of its own is no such claim: Mind Stone kept up
+/// for its `{1}`, `{T}` draw with nothing left to pay the `{1}` cost two
+/// Islands their place, and the `{U}` in hand went uncast (report 5.11.2026).
+/// It only breaks a tie, ahead of a land nothing in hand is waiting for.
 pub fn prioritize(
     sources: &mut [Source],
     view: &baylee_view::PlayerView,
     hand: &[ManaCost],
-    beyond_mana: &dyn Fn(baylee_view::RulesFace) -> bool,
+    beyond_mana: &dyn Fn(baylee_view::RulesFace) -> baylee_cards_dsl::UseBeyondMana,
 ) {
     let mut supply = [0_u32; 6];
     let mut demand = [0_u32; 6];
@@ -279,10 +284,10 @@ pub fn prioritize(
             .map_or(0, |o| {
                 20_000 + u32::from(o.power.unwrap_or(0).unsigned_abs()) * 10
             });
-        let utility_value = if object.and_then(|o| o.rules).is_some_and(beyond_mana) {
-            10_000
-        } else {
-            0
+        let utility_value = match object.and_then(|o| o.rules).map(beyond_mana) {
+            Some(baylee_cards_dsl::UseBeyondMana::Free) => 10_000,
+            Some(baylee_cards_dsl::UseBeyondMana::Paid) => 1,
+            Some(baylee_cards_dsl::UseBeyondMana::Nothing) | None => 0,
         };
         source.preserve = creature_value.max(utility_value) + colour_value.min(9_000);
     }
@@ -1332,7 +1337,9 @@ mod tests {
             if reverse {
                 sources.reverse();
             }
-            prioritize(&mut sources, &view, &[cost("{U}{U}")], &|_| false);
+            prioritize(&mut sources, &view, &[cost("{U}{U}")], &|_| {
+                baylee_cards_dsl::UseBeyondMana::Nothing
+            });
             assert_eq!(
                 tapped(&plan(&cost("{1}"), &empty(), &sources).unwrap()),
                 vec![2]
@@ -1465,7 +1472,13 @@ mod tests {
             if reverse {
                 sources.reverse();
             }
-            prioritize(&mut sources, &view, &[], &|face| face == karakas_rules);
+            prioritize(&mut sources, &view, &[], &|face| {
+                if face == karakas_rules {
+                    baylee_cards_dsl::UseBeyondMana::Free
+                } else {
+                    baylee_cards_dsl::UseBeyondMana::Nothing
+                }
+            });
             assert_eq!(
                 tapped(&plan(&cost("{W}"), &empty(), &sources).unwrap()),
                 vec![2],
@@ -1477,6 +1490,57 @@ mod tests {
                 "and the Karakas is spent when the cost needs it"
             );
         }
+    }
+
+    /// Two Islands, a Darksteel Citadel and a Mind Stone, `{3}` to pay and
+    /// Preordain in hand: Mind Stone's draw costs `{1}` of its own, so it
+    /// gives way to a colour the hand wants and one Island stays up. With
+    /// nothing in hand waiting for blue it breaks the tie and stays up itself
+    /// (report 5.11.2026).
+    #[test]
+    fn a_rock_with_a_paid_ability_gives_way_to_a_colour_the_hand_wants() {
+        use crate::test_support::{ViewBuilder, token};
+        let stone_rules = baylee_view::RulesFace {
+            card: baylee_core::ids::CardIndex::new(7),
+            face: 0,
+        };
+        let mut stone = token(4, 0, "Mind Stone", 0, 0);
+        stone.types = baylee_core::types::TypeSet::ARTIFACT;
+        stone.rules = Some(stone_rules);
+        let lands = [(1, "Island"), (2, "Island"), (3, "Darksteel Citadel")].map(|(id, name)| {
+            let mut land = token(id, 0, name, 0, 0);
+            land.types = baylee_core::types::TypeSet::LAND;
+            land
+        });
+        let view = ViewBuilder::new(2)
+            .with_battlefield(0, lands.into_iter().chain([stone]).collect::<Vec<_>>())
+            .build();
+        let ranked = |hand: &[ManaCost]| {
+            let mut sources = vec![
+                land(1, ManaColor::Blue),
+                land(2, ManaColor::Blue),
+                land(3, ManaColor::Colorless),
+                land(4, ManaColor::Colorless),
+            ];
+            prioritize(&mut sources, &view, hand, &|face| {
+                if face == stone_rules {
+                    baylee_cards_dsl::UseBeyondMana::Paid
+                } else {
+                    baylee_cards_dsl::UseBeyondMana::Nothing
+                }
+            });
+            sources
+        };
+        assert_eq!(
+            tapped(&plan(&cost("{3}"), &empty(), &ranked(&[cost("{U}")])).unwrap()),
+            vec![1, 3, 4],
+            "an Island stays up for the spell"
+        );
+        assert_eq!(
+            tapped(&plan(&cost("{3}"), &empty(), &ranked(&[])).unwrap()),
+            vec![1, 2, 3],
+            "the rock stays up when no colour is wanted"
+        );
     }
 
     /// The preference, rather than the correctness: with a choice, the pip is

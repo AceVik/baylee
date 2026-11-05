@@ -157,32 +157,43 @@ impl CardDef {
         }
     }
 
-    /// Whether `face` has an ability its controller activates on the
-    /// battlefield that is not a mana ability (CR 605.1a): Karakas's bounce,
-    /// a creature land's animation, Mind Stone's draw. A permanent like that
-    /// is used for more than mana, so a mana planner taps it last
+    /// What `face` is wanted for besides its mana: the abilities its
+    /// controller activates on the battlefield that are not mana abilities
+    /// (CR 605.1a), Karakas's bounce, a creature land's animation, Mind
+    /// Stone's draw. A mana planner keeps such a permanent back
     /// (`manaplan::prioritize`). Statics (Urborg) and abilities activated
     /// from elsewhere (cycling) do not count: tapping for mana costs them
     /// nothing.
     #[must_use]
-    pub fn activates_beyond_mana(&self, face: usize) -> bool {
+    pub fn use_beyond_mana(&self, face: usize) -> UseBeyondMana {
         use crate::ability::{AbilityDef, ActivationZone};
-        self.abilities_for_face(face).iter().any(|ability| {
-            !ability.is_mana_ability()
-                && matches!(
-                    ability,
-                    AbilityDef::Activated {
-                        zone: ActivationZone::Battlefield | ActivationZone::BattlefieldOwner,
-                        ..
-                    } | AbilityDef::ActivatedConditional {
-                        zone: ActivationZone::Battlefield | ActivationZone::BattlefieldOwner,
-                        ..
-                    } | AbilityDef::ModalActivated {
-                        zone: ActivationZone::Battlefield | ActivationZone::BattlefieldOwner,
-                        ..
-                    }
-                )
-        })
+        self.abilities_for_face(face)
+            .iter()
+            .filter(|ability| !ability.is_mana_ability())
+            .filter_map(|ability| match ability {
+                AbilityDef::Activated {
+                    zone: ActivationZone::Battlefield | ActivationZone::BattlefieldOwner,
+                    cost,
+                    ..
+                }
+                | AbilityDef::ActivatedConditional {
+                    zone: ActivationZone::Battlefield | ActivationZone::BattlefieldOwner,
+                    cost,
+                    ..
+                }
+                | AbilityDef::ModalActivated {
+                    zone: ActivationZone::Battlefield | ActivationZone::BattlefieldOwner,
+                    cost,
+                    ..
+                } => Some(if cost.mana == ManaCost::ZERO {
+                    UseBeyondMana::Free
+                } else {
+                    UseBeyondMana::Paid
+                }),
+                _ => None,
+            })
+            .max()
+            .unwrap_or(UseBeyondMana::Nothing)
     }
 
     /// Whether this is a split card with one shared type line (CR 709.5), a
@@ -302,6 +313,19 @@ impl Default for CardDef {
     fn default() -> Self {
         Self::DEFAULT
     }
+}
+
+/// What a permanent is wanted for besides its mana
+/// ([`CardDef::use_beyond_mana`]), the stronger claim on staying untapped last.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum UseBeyondMana {
+    /// Nothing: a plain land, a static one (Urborg).
+    Nothing,
+    /// An ability that costs mana of its own: Mind Stone's draw. Keeping the
+    /// permanent up is worth something only with that mana beside it.
+    Paid,
+    /// An ability that costs no mana: Karakas's bounce.
+    Free,
 }
 
 /// Prototype's alternative characteristics (CR 718.3).

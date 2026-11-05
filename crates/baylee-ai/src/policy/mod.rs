@@ -2097,8 +2097,9 @@ fn offers(view: &PlayerView, legal: &LegalActions) -> Vec<Offer> {
     // The registry's answer, as the client's: a land used for more than
     // mana (Karakas) is tapped last.
     manaplan::prioritize(&mut ranked, view, &costs, &|face| {
-        baylee_cards::by_index(face.card)
-            .is_some_and(|def| def.activates_beyond_mana(usize::from(face.face)))
+        baylee_cards::by_index(face.card).map_or(baylee_cards_dsl::UseBeyondMana::Nothing, |def| {
+            def.use_beyond_mana(usize::from(face.face))
+        })
     });
     for ((offer, source), harm) in result.iter_mut().zip(ranked).zip(harms) {
         let pain_penalty = u32::try_from(harm.max(0))

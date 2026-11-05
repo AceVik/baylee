@@ -14,7 +14,7 @@
 //! harder half missing: it has no card and no registry token either, so its
 //! name was all there ever was to go on and it drew as a coloured rectangle.
 
-use baylee_cards_dsl::{AbilityDef, ActivationZone};
+use baylee_cards_dsl::{AbilityDef, ActivationZone, UseBeyondMana};
 use baylee_client_core::board::{Registry, Wears};
 use baylee_core::ids::CardIndex;
 use baylee_view::RulesFace;
@@ -106,14 +106,15 @@ pub fn card_by_body(object: &baylee_view::PublicObject) -> Option<Wears> {
     Some(Wears::Card(index, face))
 }
 
-/// Whether a permanent with these rules is used for more than mana: an
-/// ability activated on the battlefield that is not a mana ability
-/// ([`baylee_cards_dsl::CardDef::activates_beyond_mana`]). The mana
-/// planner taps such a source last (`manaplan::prioritize`).
+/// What a permanent with these rules is used for besides mana: an ability
+/// activated on the battlefield that is not a mana ability
+/// ([`baylee_cards_dsl::CardDef::use_beyond_mana`]). The mana planner keeps
+/// such a source back (`manaplan::prioritize`).
 #[must_use]
-pub fn taps_beyond_mana(face: RulesFace) -> bool {
-    baylee_cards::by_index(face.card)
-        .is_some_and(|def| def.activates_beyond_mana(usize::from(face.face)))
+pub fn taps_beyond_mana(face: RulesFace) -> UseBeyondMana {
+    baylee_cards::by_index(face.card).map_or(UseBeyondMana::Nothing, |def| {
+        def.use_beyond_mana(usize::from(face.face))
+    })
 }
 
 /// What the power and toughness box of a card face or registry token says:
@@ -204,7 +205,7 @@ pub fn registry() -> Registry<'static> {
 
 #[cfg(test)]
 mod tests {
-    use super::{named, of, registry, taps_beyond_mana, utility_land, wearing};
+    use super::{UseBeyondMana, named, of, registry, taps_beyond_mana, utility_land, wearing};
     use baylee_client_core::board::Wears;
     use baylee_view::RulesFace;
 
@@ -537,13 +538,20 @@ mod tests {
             Some(Wears::Card(card, face)) => RulesFace { card, face },
             other => panic!("{name}: {other:?}"),
         };
-        assert!(
+        assert_eq!(
             taps_beyond_mana(face("Karakas")),
+            UseBeyondMana::Free,
             "Karakas bounces a legend"
         );
+        assert_eq!(
+            taps_beyond_mana(face("Mind Stone")),
+            UseBeyondMana::Paid,
+            "Mind Stone's draw costs {{1}} of its own"
+        );
         for name in ["Plains", "Urborg, Tomb of Yawgmoth", "Reliquary Tower"] {
-            assert!(
-                !taps_beyond_mana(face(name)),
+            assert_eq!(
+                taps_beyond_mana(face(name)),
+                UseBeyondMana::Nothing,
                 "{name} is used for mana alone"
             );
         }
