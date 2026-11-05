@@ -820,6 +820,7 @@ impl Effect {
             | Effect::RevealUntilNamed { .. }
             | Effect::RevealUntilMatching { .. }
             | Effect::LookAtTopFind { .. }
+            | Effect::RevealTopFind { .. }
             | Effect::ChooseFromYourGraveyard { .. }
             | Effect::LookAtTopKeepBottomPlay { .. }
             | Effect::ChooseExiledToPlay { .. }

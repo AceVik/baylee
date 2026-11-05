@@ -115,6 +115,29 @@ fn behold_and_mana_difference_search_offer_their_optional_actions() {
 }
 
 #[test]
+fn a_reveal_top_find_choice_satisfies_the_printed_may() {
+    let payload = serde_json::json!({
+        "oracle_text": "You may put a permanent card from among them into your hand."
+    });
+    let mut tally = super::PrintingTally::default();
+    let mut problems = 0;
+    for (name, expected) in [("Malevolent Rumble", 0), ("Fog", 1)] {
+        let def = baylee_cards::decks::by_name(name)
+            .and_then(baylee_cards::by_index)
+            .expect("registered fixture");
+        super::check_optional_clauses_are_offered(
+            "fixture",
+            def,
+            &payload,
+            &mut tally,
+            &mut problems,
+        );
+        assert_eq!(problems, expected, "{name}");
+    }
+    assert_eq!(tally.optional_clauses, 2);
+}
+
+#[test]
 fn a_linked_exile_play_can_be_declined() {
     let payload = serde_json::json!({
         "oracle_text": "You may play the exiled card without paying its mana cost."

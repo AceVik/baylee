@@ -734,19 +734,29 @@ impl Tx<'_> {
             }
             "Dig" => {
                 if target.is_some()
-                    || p.take("DigNum").as_deref() != Some("1")
                     || p.take("Reveal").as_deref() != Some("True")
-                    || p.take("ChangeNum").as_deref() != Some("All")
                     || p.take("DestinationZone2").as_deref() != Some("Graveyard")
+                    || !matches!(p.take("DestinationZone").as_deref(), None | Some("Hand"))
                 {
                     return None;
                 }
+                let count = p.take("DigNum")?.parse::<u8>().ok()?;
                 let valid = p.take("ChangeValid")?;
-                let filter = self.filter_expr(&valid)?;
+                let filter = self.filter_expr_in_zone(&valid, true)?;
                 let name = self.body.filter_static("DIG", &filter);
-                vec![format!(
-                    "Effect::RevealTopAndSort {{ filter: &{name}, matched: SearchDest::Hand, otherwise: SearchDest::Graveyard }}"
-                )]
+                match (
+                    count,
+                    p.take("ChangeNum").as_deref(),
+                    p.take("Optional").as_deref(),
+                ) {
+                    (1, Some("All"), None) => vec![format!(
+                        "Effect::RevealTopAndSort {{ filter: &{name}, matched: SearchDest::Hand, otherwise: SearchDest::Graveyard }}"
+                    )],
+                    (count, None, Some("True")) => vec![format!(
+                        "Effect::RevealTopFind {{ found: Find::HAND, count: {count}, filter: &{name}, otherwise: SearchDest::Graveyard }}"
+                    )],
+                    _ => return None,
+                }
             }
             "Draw"
                 if matches!(

@@ -12739,6 +12739,8 @@ pub mod malcator_s_watcher;
 pub mod malevolent_awakening;
 #[path = "creatures/mv_2/malevolent_hermit.rs"]
 pub mod malevolent_hermit;
+#[path = "sorceries/mv_2/malevolent_rumble.rs"]
+pub mod malevolent_rumble;
 #[path = "enchantments/auras/mv_4/malfunction.rs"]
 pub mod malfunction;
 #[path = "instants/mv_2/malicious_advice.rs"]

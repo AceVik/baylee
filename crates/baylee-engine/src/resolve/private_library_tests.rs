@@ -189,6 +189,127 @@ fn name_mismatch_branch_runs_only_for_an_existing_nonmatching_card() {
     }
 }
 
+fn reveal_events(state: &GameState) -> Vec<Vec<ObjectId>> {
+    state
+        .journal
+        .entries()
+        .iter()
+        .filter_map(|entry| match &entry.event {
+            GameEvent::Revealed { cards, .. } => Some(cards.clone()),
+            _ => None,
+        })
+        .collect()
+}
+
+#[test]
+fn public_top_find_reveals_all_and_moves_the_unselected_cards() {
+    for pick in [None, Some(4)] {
+        let (mut state, source, cards) = table(6);
+        let you = PlayerId::new(0);
+        let mut res = resolution(
+            source,
+            &[Effect::RevealTopFind {
+                found: baylee_cards_dsl::Find::HAND,
+                count: 4,
+                filter: &baylee_cards_dsl::Filter::Any,
+                otherwise: SearchDest::Graveyard,
+            }],
+            you,
+        );
+        let top = vec![cards[5], cards[4], cards[3], cards[2]];
+        let Flow::Wait(Pending::ChooseCards {
+            player,
+            options,
+            min,
+            max,
+            prompt,
+            ..
+        }) = run(&mut state, &mut res)
+        else {
+            panic!("an optional choice among all four cards");
+        };
+        assert_eq!(player, you);
+        assert_eq!(options, top);
+        assert_eq!((min, max), (0, 1));
+        assert_eq!(prompt, ChoicePrompt::PutIntoHand);
+        let revealed = reveal_events(&state);
+        assert_eq!(revealed, vec![top.clone()]);
+
+        let chosen = pick.map_or_else(Vec::new, |at| vec![cards[at]]);
+        assert!(matches!(
+            resume(&mut state, &mut res, &chosen),
+            Flow::Complete
+        ));
+        assert_eq!(state.zones.list(ZoneLocation::Hand(you)), &chosen);
+        let rest: Vec<_> = top
+            .into_iter()
+            .filter(|card| !chosen.contains(card))
+            .collect();
+        assert_eq!(state.zones.list(ZoneLocation::Graveyard(you)), &rest);
+        assert_eq!(state.zones.list(ZoneLocation::Library(you)), &cards[..2]);
+        assert_eq!(reveal_events(&state), revealed, "no second reveal");
+    }
+}
+
+#[test]
+fn public_top_find_without_a_match_finishes_without_an_empty_question() {
+    let (mut state, source, cards) = table(6);
+    let you = PlayerId::new(0);
+    let mut res = resolution(
+        source,
+        &[Effect::RevealTopFind {
+            found: baylee_cards_dsl::Find::HAND,
+            count: 4,
+            filter: &baylee_cards_dsl::Filter::CREATURE,
+            otherwise: SearchDest::Graveyard,
+        }],
+        you,
+    );
+    assert!(matches!(run(&mut state, &mut res), Flow::Complete));
+    assert_eq!(
+        reveal_events(&state),
+        vec![vec![cards[5], cards[4], cards[3], cards[2]]]
+    );
+    assert_eq!(
+        state.zones.list(ZoneLocation::Graveyard(you)),
+        &cards[2..].iter().rev().copied().collect::<Vec<_>>()
+    );
+    assert_eq!(state.zones.list(ZoneLocation::Library(you)), &cards[..2]);
+    assert!(state.zones.list(ZoneLocation::Hand(you)).is_empty());
+}
+
+#[test]
+fn private_top_find_still_reveals_only_the_selected_card() {
+    let (mut state, source, cards) = table(4);
+    let you = PlayerId::new(0);
+    let mut res = resolution(
+        source,
+        &[Effect::LookAtTopFind {
+            found: baylee_cards_dsl::Find::HAND,
+            count: 3,
+            filter: &baylee_cards_dsl::Filter::Any,
+            random: false,
+        }],
+        you,
+    );
+    assert!(matches!(
+        run(&mut state, &mut res),
+        Flow::Wait(Pending::ChooseCards { .. })
+    ));
+    assert!(reveal_events(&state).is_empty());
+    let Flow::Wait(Pending::Arrange { cards: rest, .. }) =
+        resume(&mut state, &mut res, &[cards[3]])
+    else {
+        panic!("the two private misses still need an order");
+    };
+    assert!(matches!(
+        resume_arranged(&mut state, &mut res, &[rest]),
+        Flow::Complete
+    ));
+    assert_eq!(reveal_events(&state), vec![vec![cards[3]]]);
+    assert_eq!(state.zones.list(ZoneLocation::Hand(you)), &[cards[3]]);
+}
+
 #[test]
 fn private_top_pick_keeps_suffix_and_orders_remaining_on_top() {
     let (mut state, source, cards) = table(8);

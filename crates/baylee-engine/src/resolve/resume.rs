@@ -976,9 +976,11 @@ pub(super) fn resume_inner(
             found,
             rest,
             reveal,
-            random,
+            destination,
         } => {
-            if let Some(pending) = dig::finish(state, res, found, rest, reveal, random, chosen) {
+            if let Some(pending) =
+                dig::finish_with_destination(state, res, found, rest, reveal, destination, chosen)
+            {
                 return Flow::Wait(pending);
             }
         }

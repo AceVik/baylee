@@ -1140,6 +1140,19 @@ mass bounce is), and the last answer re-enters the operation, which then runs
 once with every answer in hand. Any effect that calls it must ask before its
 first mutation, or the re-run does that mutation twice.
 
+`resolve::dig` follows that protocol for both private `LookAtTopFind` and
+public `RevealTopFind`. Its `RestDestination` keeps the private effects'
+bottom-of-library ordering separate from a public effect's graveyard, exile
+or other printed destination. `finish_with_destination` resolves every
+selected `Find`, plans both the selected and unselected moves, and only then
+asks the commander questions; no card from either group moves before the last
+answer. A public top reveal is journalled before the choice and is not repeated
+when a selection resumes. No match finishes the remainder immediately rather
+than publishing an empty choice. Graveyard and exile moves ask nothing here:
+CR 903.9a's question is the later state-based action, not this replacement.
+The direct public/private resolver tests and Malevolent Rumble's two-commander
+card test pin those boundaries.
+
 Where it does **not** reach yet, all of them paths where the move happens
 inside a choice that has already been answered or outside a resolution
 altogether: the turn-based and effect draws (`GameState::draw_cards`), a

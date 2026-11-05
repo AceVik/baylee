@@ -6664,3 +6664,37 @@ got wrong was in the tests, not in the cards:
   self-exiling activation's contextual value unread rather than guessing, with
   the census now at 2,996 readable rows out of 3,786; its full 363-test suite
   passes without a card-specific policy.
+
+## 2026-11-05 — Malevolent Rumble's public filtered top-four choice
+
+- Add `Effect::RevealTopFind { found, count, filter, otherwise }` beside the
+  private `LookAtTopFind`, with one shared `resolve::dig` implementation.
+  `RestDestination` distinguishes bottom-of-library ordering from moving the
+  remainder to another zone. Public reveals are recorded before any choice;
+  no match completes the remainder without an empty question. The reader accepts
+  only the exactly read optional reveal-to-hand/rest-to-graveyard `Dig` shape and
+  rejects targets, alternate destinations, unread counts and unknown parameters.
+  Its library-zone filter reading makes `Permanent` the six permanent card types
+  rather than silently accepting every card.
+- The shared completion plans selected and unselected moves before its first
+  mutation, so every applicable hand/library commander replacement is answered
+  before any card moves. A commander sent to the graveyard is not part of that
+  pre-move question: its owner gets the later CR 903.9a state-based choice. The
+  first version of the card test confused those two rules; the corrected test
+  now plays both in order instead of demanding a nonexistent graveyard
+  replacement prompt.
+- Five played card tests cover exact mana payment, the top-four reveal and legal
+  permanent choices, declining, empty and short libraries, the untouched suffix,
+  both commander paths and the exact Eldrazi Spawn with its one-{C} sacrifice
+  ability. Direct resolver regressions cover public selection/no-match and retain
+  private reveal and ordering semantics; Dig Through Time and Goblin Ringleader
+  remain green. Both reader regressions, all 90 DSL unit tests and the optional-
+  clause validator regression pass. `validate` initially caught the missing
+  `RevealTopFind` registration in the validator itself; after that fix it accepts
+  all 12,543 cards, the affected Clippy run is clean and `require-card-tests`
+  passes with its required JSON stdin.
+- Desktop and LLM seats use the existing filtered `Pending::ChooseCards` view and
+  reveal journal, with no new pending type or hidden-information exception. The
+  house AI uses the same offered-card values. Their focused private-inspection,
+  long-list narration and valuation regressions pass without a card-specific
+  presentation or policy.

@@ -89,6 +89,12 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
             ch.draw += 1.0;
             ch.discard += 1.0;
         }
+        Effect::RevealTopFind { otherwise, .. } => {
+            ch.draw += 1.0;
+            if matches!(otherwise, baylee_cards_dsl::SearchDest::Graveyard) {
+                ch.mill += 1.0;
+            }
+        }
         Effect::LookAtTopPick { .. } | Effect::LookAtTopPickThenReorder { .. }
         | Effect::LookAtTopFind { .. }
         | Effect::LookAtTopMayTake { .. }

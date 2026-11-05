@@ -2432,48 +2432,29 @@ pub(super) fn exec_immediate(
             count,
             filter,
             random,
-        } => {
-            let top: Vec<ObjectId> = state
-                .zones
-                .list(ZoneLocation::Library(you))
-                .iter()
-                .rev()
-                .take(usize::from(count))
-                .copied()
-                .collect();
-            if top.is_empty() {
-                return None;
-            }
-            let options: Vec<ObjectId> = top
-                .iter()
-                .copied()
-                .filter(|id| {
-                    state.object(*id).is_some_and(|o| {
-                        eval::matches_with_context(filter, state, o, you, res.rule_context())
-                    })
-                })
-                .collect();
-            let max = u8::from(!options.is_empty());
-            res.awaiting = Some(AwaitingOp::DigRest {
-                rest: top,
-                reveal: true,
-                random,
-                found,
-            });
-            Some(Pending::ChooseCards {
-                player: you,
-                options,
-                min: 0,
-                max,
-                prompt: match found.dest {
-                    SearchDest::Hand => ChoicePrompt::PutIntoHand,
-                    SearchDest::Battlefield => ChoicePrompt::PutOntoBattlefield,
-                    SearchDest::TopOfLibrary => ChoicePrompt::PutBackOnTop,
-                    SearchDest::Graveyard | SearchDest::Exile => ChoicePrompt::Generic,
-                },
-                total: None,
-            })
-        }
+        } => super::dig::start(
+            state,
+            res,
+            count,
+            filter,
+            found,
+            false,
+            super::dig::RestDestination::Bottom { random },
+        ),
+        Effect::RevealTopFind {
+            found,
+            count,
+            filter,
+            otherwise,
+        } => super::dig::start(
+            state,
+            res,
+            count,
+            filter,
+            found,
+            true,
+            super::dig::RestDestination::Move(otherwise),
+        ),
         Effect::LookAtTopPick {
             count,
             pick,
@@ -2502,7 +2483,7 @@ pub(super) fn exec_immediate(
             res.awaiting = Some(AwaitingOp::DigRest {
                 rest: top.clone(),
                 reveal: false,
-                random,
+                destination: super::dig::RestDestination::Bottom { random },
                 found: baylee_cards_dsl::Find::HAND,
             });
             Some(Pending::ChooseCards {
