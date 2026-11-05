@@ -405,6 +405,11 @@ pub struct TargetingContext {
     pub second: bool,
     /// Maximum currently waiting consecutive identical triggers.
     pub batch_count: u32,
+    /// Which side of the table the effect asking wants what it names on, as
+    /// the card's rules read; absent where they do not say. Sent only to the
+    /// chooser, about their own question.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub side: Option<baylee_core::types::TargetSide>,
 }
 
 impl PlayerView {

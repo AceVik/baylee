@@ -158,6 +158,7 @@ mod tests {
             whole_spell: false,
             second: false,
             batch_count: 50,
+            side: None,
         });
         let mut i = Interaction::new(pending(), PlayerId::new(0));
         assert!(batch_answer(&i, &view).is_none());

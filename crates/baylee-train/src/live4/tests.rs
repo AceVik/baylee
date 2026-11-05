@@ -356,6 +356,7 @@ fn socket_casting_and_targeting_are_normalized_for_policy_only() {
         whole_spell: false,
         second: false,
         batch_count: 1,
+        side: None,
     });
     let pending = Pending::Priority {
         player: ME,

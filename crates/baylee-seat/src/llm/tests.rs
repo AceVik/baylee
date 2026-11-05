@@ -309,6 +309,7 @@ async fn a_cast_by_tapping_plays_out_without_another_call() {
         whole_spell: true,
         second: false,
         batch_count: 1,
+        side: None,
     });
     let pending = Pending::ChooseTargets {
         player: context().seat,

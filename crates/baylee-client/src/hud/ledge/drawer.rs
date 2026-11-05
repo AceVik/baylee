@@ -2157,6 +2157,7 @@ mod targeting_tests {
             whole_spell: true,
             second: true,
             batch_count: 1,
+            side: None,
         });
         duel.receive_choice(pending);
         let (lines, mut rows) = read(&duel);

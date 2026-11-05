@@ -898,6 +898,31 @@ pub fn game_static(
     }
 }
 
+/// The side a target question wants, read from the rules of the effect asking:
+/// its selected mode's effects, or an Aura's statics on what it enchants. A clone
+/// and the second of two target clauses have no side to read.
+fn target_side(
+    context: &baylee_engine::engine::DecisionContext<'_>,
+) -> Option<baylee_core::types::TargetSide> {
+    use baylee_engine::target_side::{aura_side, effects_side};
+    if context.copying.is_some() || context.second_instance {
+        return None;
+    }
+    if let [baylee_cards_dsl::Effect::AttachSelf { .. }] = context.effects {
+        let printed = context.printed?;
+        let def = baylee_cards::by_index(printed.card())?;
+        let face = usize::from(printed.face());
+        return def
+            .faces
+            .get(face)?
+            .subtypes
+            .contains(&baylee_core::generated::subtypes::enchantment::AURA)
+            .then(|| aura_side(def.abilities_for_face(face)))
+            .flatten();
+    }
+    effects_side(context.effects, context.x)
+}
+
 /// Explains only the current chooser's decision; never another seat's hand.
 pub(crate) fn targeting_context<L: baylee_engine::state::CardLookup>(
     engine: &baylee_engine::engine::Engine<L>,
@@ -966,6 +991,7 @@ pub(crate) fn targeting_context<L: baylee_engine::state::CardLookup>(
         whole_spell: context.whole_spell,
         second: context.second_instance,
         batch_count: engine.target_batch_count(),
+        side: target_side(&context),
     })
 }
 

@@ -182,6 +182,7 @@ fn a_controlled_target_choice_reads_as_its_golden_text() {
         whole_spell: true,
         second: false,
         batch_count: 1,
+        side: None,
     });
     let pending = Pending::ChooseTargets {
         player: THEM,

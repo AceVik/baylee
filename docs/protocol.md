@@ -5029,6 +5029,14 @@ rules, an optional `StackText`, `whole_spell`, `second` and `batch_count`.
 Other seats receive no targeting context. `whole_spell` requests the full
 non-modal spell face; a selected mode/ability uses the exact text locator.
 
+`side` is `Harmful` or `Helpful` when the rules of the effect asking say what it
+does to what it names: the selected mode's effects, or an Aura's statics on its
+creature (`baylee_engine::target_side`). It is a reading of the card and says
+nothing about which target is best. It is absent for a clone, a fight, a redirect,
+the second of two target clauses and anything the reading has no row for.
+Neither `PROTOCOL_VERSION` nor `VIEW_VERSION` moves: a reader that does not know
+the field never sees a difference.
+
 `PlayerAction::ChooseTargetBatch { objects, players, count }` explicitly
 answers 2 or more consecutive identical triggered-ability target questions.
 The engine checks the current chooser, advertised count, target membership,

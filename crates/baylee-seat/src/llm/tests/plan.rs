@@ -201,6 +201,7 @@ async fn a_fetchland_turn_is_one_call() {
         whole_spell: true,
         second: false,
         batch_count: 1,
+        side: None,
     });
     let targets = Pending::ChooseTargets {
         player: ME,

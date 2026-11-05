@@ -24,6 +24,7 @@ fn targeting() -> (Duel, ObjectId) {
         whole_spell: true,
         second: false,
         batch_count: 1,
+        side: None,
     });
     let mut duel = Duel {
         interaction: Some(baylee_client_core::Interaction::new(

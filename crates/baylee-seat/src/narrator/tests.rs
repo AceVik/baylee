@@ -895,6 +895,7 @@ fn a_target_question_reads_as_its_golden_text() {
         whole_spell: true,
         second: false,
         batch_count: 1,
+        side: None,
     });
     let pending = Pending::ChooseTargets {
         player: ME,
