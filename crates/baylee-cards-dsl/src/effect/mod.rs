@@ -634,19 +634,6 @@ pub enum Effect {
         /// Random order rather than the controller's chosen order.
         random: bool,
     },
-    /// Reveal up to `count` cards from the top of your library. You may move
-    /// one matching card to `found`; every other revealed card moves to
-    /// `otherwise`. All cards are revealed before any of them moves.
-    RevealTopFind {
-        /// Destination and entry details for the optional selected card.
-        found: Find,
-        /// Maximum number of cards revealed.
-        count: u8,
-        /// What the selected card must match.
-        filter: &'static Filter,
-        /// Destination for every card not selected.
-        otherwise: SearchDest,
-    },
     /// Look at the top `count` cards of your library; put `pick` of them
     /// into your hand and the rest on the bottom — in any order (Dig
     /// Through Time), or in a random order when `random` (Memory Deluge,
@@ -4171,6 +4158,19 @@ pub enum Effect {
         keywords: KeywordSet,
         /// How long the changes last.
         duration: crate::static_ability::Duration,
+    },
+    /// Reveal up to `count` cards from the top of your library. You may move
+    /// one matching card to `found`; every other revealed card moves to
+    /// `otherwise`. All cards are revealed before any of them moves.
+    RevealTopFind {
+        /// Destination and entry details for the optional selected card.
+        found: Find,
+        /// Maximum number of cards revealed.
+        count: u8,
+        /// What the selected card must match.
+        filter: &'static Filter,
+        /// Destination for every card not selected.
+        otherwise: SearchDest,
     },
 }
 
