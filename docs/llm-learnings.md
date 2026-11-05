@@ -6554,4 +6554,5 @@ got wrong was in the tests, not in the cards:
   draw-memory tests and five affected house-AI consumer tests also pass.
 - Desktop and LLM seats reuse the existing private `ChooseCards` decision and
   its exact options. The house AI already values and answers the shared effect;
-  no card-specific presentation, policy or hidden information is needed.
+  no card-specific presentation, policy or hidden information is needed. The
+  activated/loyalty reader census now counts 2,996 readable rows out of 3,784.
