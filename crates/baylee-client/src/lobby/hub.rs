@@ -210,6 +210,13 @@ impl HubPress {
                     if hub != Hub::Play {
                         state.ensure_central_lobby(mailbox);
                     }
+                    // The gateway picker is back, and the caret comes with
+                    // it, out of a box the tab just left took with it.
+                    if state.showing_gateway_hub()
+                        && !matches!(state.lobby.focus(), Field::Gateway | Field::GatewaySearch)
+                    {
+                        state.lobby.focus_on(Field::Gateway);
+                    }
                     // The list is read again on every visit: a game just
                     // played, a record deleted elsewhere.
                     if hub == Hub::Replays {

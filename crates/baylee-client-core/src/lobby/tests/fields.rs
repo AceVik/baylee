@@ -283,6 +283,31 @@ fn typing_lands_in_the_focused_field_and_control_keys_do_not() {
     assert_eq!(lobby.field(Field::Username), "", "an empty field survives");
 }
 
+/// Signed in at Central with no gateway chosen, the Play tab draws the
+/// gateway picker on the table screen, so its two boxes take keys there. No
+/// other table screen has them.
+#[test]
+fn the_gateway_picker_types_on_a_central_session_s_table_screen() {
+    let mut lobby = Lobby::new();
+    lobby.set_gateway_ready(false);
+    let _ = lobby.enter_central();
+    assert_eq!(lobby.screen(), &Screen::Table);
+    for field in [Field::Gateway, Field::GatewaySearch] {
+        lobby.focus_on(field);
+        assert!(lobby.typing_here(), "{field:?}");
+    }
+
+    lobby.set_gateway_ready(true);
+    lobby.focus_on(Field::Gateway);
+    assert!(!lobby.typing_here(), "a gateway chosen, the picker is gone");
+
+    let mut offline = Lobby::new();
+    offline.set_gateway_ready(false);
+    let _ = offline.play_offline();
+    offline.focus_on(Field::Gateway);
+    assert!(!offline.typing_here(), "offline tables draw no picker");
+}
+
 #[test]
 fn the_front_door_types_only_into_the_form_it_shows() {
     let mut lobby = Lobby::new();

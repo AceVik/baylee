@@ -554,6 +554,104 @@ fn the_guest_door_waits_for_a_refusal_and_goes_with_the_next_admission() {
     assert!(!presses(&mut app).contains(&door), "asked again");
 }
 
+/// Signed in at Central with two gateways listed, at the picker.
+fn at_the_picker(app: &mut App) -> std::sync::mpsc::Receiver<super::super::central::Job> {
+    use baylee_client_core::lobby::gateway_info::GatewayInfo;
+    let (handle, jobs) = super::super::central::Handle::queued_for_test();
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        let urls = ["https://one.example", "https://two.example"].map(str::to_string);
+        super::super::central::restored_for_test(&mut state, urls.to_vec());
+        state.central.as_mut().expect("Central on").handle = Some(handle);
+        for url in urls {
+            state.probes.insert(
+                url,
+                Probe::Known(GatewayInfo {
+                    version: "0.1.0".to_string(),
+                    protocol_version: baylee_protocol::PROTOCOL_VERSION,
+                    view_version: baylee_view::VIEW_VERSION,
+                    ..GatewayInfo::default()
+                }),
+            );
+        }
+        state.lobby.set_field(Field::Gateway, "");
+    }
+    settle(app);
+    jobs
+}
+
+fn key(app: &mut App, input: KeyboardInput) {
+    app.world_mut()
+        .resource_mut::<Messages<KeyboardInput>>()
+        .write(input);
+    app.update();
+}
+
+/// Decks and back moves a Central session to the table screen for good, and
+/// the picker the Play tab draws there is the same picker: it takes the
+/// typed address, and the arrows and Enter walk and choose its rows.
+#[test]
+fn the_gateway_picker_answers_the_keyboard_after_a_visit_to_decks() {
+    let mut app = headless();
+    let jobs = at_the_picker(&mut app);
+    press(&mut app, Press::Header(HeaderPress::Nav(1)));
+    app.update();
+    press(&mut app, Press::Header(HeaderPress::Nav(0)));
+    app.update();
+    assert_eq!(
+        *app.world().resource::<LobbyState>().lobby.screen(),
+        Screen::Table
+    );
+    assert!(app.world().resource::<LobbyState>().showing_gateway_hub());
+
+    key(&mut app, typed('x'));
+    assert_eq!(
+        app.world().resource::<LobbyState>().lobby.field(Field::Gateway),
+        "x"
+    );
+    key(&mut app, pressed(KeyCode::Backspace, Key::Backspace));
+    key(&mut app, pressed(KeyCode::ArrowDown, Key::ArrowDown));
+    let row = app.world().resource::<LobbyState>().gateway_cursor;
+    assert!(row.is_some(), "the arrows walk the rows");
+    key(&mut app, pressed(KeyCode::Enter, Key::Enter));
+    let state = app.world().resource::<LobbyState>();
+    assert!(state.central_admitting(), "Enter chose the row");
+    assert_eq!(state.gateway, state.displayed_gateways()[row.unwrap()]);
+    assert!(jobs.try_recv().is_ok());
+}
+
+/// The picker's boxes are the Play tab's: on Decks a key goes nowhere near
+/// them, and back on Play the caret leaves the box of the tab just left.
+#[test]
+fn the_picker_and_the_decks_tab_each_keep_their_own_keys() {
+    let mut app = headless();
+    let _jobs = at_the_picker(&mut app);
+    press(&mut app, Press::Header(HeaderPress::Nav(1)));
+    app.update();
+    key(&mut app, typed('q'));
+    assert_eq!(
+        app.world().resource::<LobbyState>().lobby.field(Field::Gateway),
+        "",
+        "the picker is not on screen"
+    );
+
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .focus_on(Field::DeckSearch);
+    key(&mut app, typed('d'));
+    assert_eq!(
+        app.world().resource::<LobbyState>().lobby.field(Field::DeckSearch),
+        "d"
+    );
+    press(&mut app, Press::Header(HeaderPress::Nav(0)));
+    app.update();
+    key(&mut app, typed('x'));
+    let state = app.world().resource::<LobbyState>();
+    assert_eq!(state.lobby.field(Field::DeckSearch), "d");
+    assert_eq!(state.lobby.field(Field::Gateway), "x");
+}
+
 /// A session the gateway ended leaves the list on screen (`Panel::of`), and
 /// the keys go to that list, never to the sign-in fields it hides.
 #[test]
