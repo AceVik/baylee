@@ -57,9 +57,7 @@ pub(super) fn accept(state: &mut LobbyState) -> Option<LobbyRequest> {
         }
         Destructive::DeleteBuildDeck(id) => {
             state.drafts.forget(&[id.as_deref(), None]);
-            let builder = state.lobby.builder_mut();
-            let _ = builder.take_session_baseline();
-            builder.discard_edits();
+            state.lobby.builder_mut().discard_edits();
             state.confirm_leave = false;
             state.hub = Hub::Decks;
             let refresh = state.lobby.close_builder();

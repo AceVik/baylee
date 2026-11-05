@@ -561,7 +561,11 @@ pub(super) fn json_post(url: &str, body: &serde_json::Value) -> ehttp::Request {
 
 /// A JSON request with any method. `ehttp` only builds `GET` and `POST`, and
 /// updating a deck is a `PUT`.
-pub(super) fn json_body(method: ehttp::Method, url: &str, body: &serde_json::Value) -> ehttp::Request {
+pub(super) fn json_body(
+    method: ehttp::Method,
+    url: &str,
+    body: &serde_json::Value,
+) -> ehttp::Request {
     let mut request = ehttp::Request::post(url, serde_json::to_vec(body).unwrap_or_default());
     request.method = method;
     request.headers = ehttp::Headers::new(&[

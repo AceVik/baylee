@@ -60,7 +60,7 @@ async fn the_list_says_when_what_cannot_play_and_whose_art() {
     // A save moves it (whole seconds, so wait one out).
     std::thread::sleep(std::time::Duration::from_millis(1100));
     let (status, answer) = http(port, "PUT", &format!("/decks/{id}"), Some(&token), &body);
-    assert_eq!(status, 204, "{answer}");
+    assert_eq!(status, 200, "{answer}");
     let deck = listed(port, &token);
     assert!(
         deck["updated_at"].as_u64().expect("updated_at") > saved,

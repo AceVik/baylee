@@ -120,7 +120,7 @@ fn a_deck_survives_a_round_trip_with_its_sideboard() {
         Some(&token),
         edited,
     );
-    assert_eq!(status, 204, "{answer}");
+    assert_eq!(status, 200, "{answer}");
     let (_, one) = http(
         gateway.port,
         "GET",
@@ -420,7 +420,7 @@ fn a_deck_remembers_every_state_it_has_been_in() {
         Some(&token),
         second,
     );
-    assert_eq!(status, 204, "{body}");
+    assert_eq!(status, 200, "{body}");
 
     let (status, history) = http(
         gateway.port,
@@ -470,6 +470,129 @@ fn a_deck_remembers_every_state_it_has_been_in() {
     // What going back does with all of this is the next test.
 }
 
+/// A builder session is one entry in the history, and it is written by the
+/// session's first change, not by leaving: however a session ends, what the
+/// deck held before it is already kept.
+#[test]
+fn a_builder_session_keeps_what_it_replaced_before_it_changes_anything() {
+    let gateway = spawn_gateway("session_history");
+    let token = login(gateway.port, "sessions", "Sessions");
+    let save = |cards: &str, versioned: bool| {
+        format!(r#"{{"name":"Sessions","cards":[{cards}],"versioned":{versioned}}}"#)
+    };
+    let (status, saved) = http(
+        gateway.port,
+        "POST",
+        "/decks",
+        Some(&token),
+        &save(r#""4 Baleful Strix""#, true),
+    );
+    assert_eq!(status, 200, "{saved}");
+    let id = json_field(&saved, "deck_id").to_string();
+    let put = |body: &str| {
+        let (status, answer) = http(
+            gateway.port,
+            "PUT",
+            &format!("/decks/{id}"),
+            Some(&token),
+            body,
+        );
+        assert_eq!(status, 200, "{answer}");
+        serde_json::from_str::<serde_json::Value>(&answer).expect("json")
+    };
+    let history = || {
+        let (status, history) = http(
+            gateway.port,
+            "GET",
+            &format!("/decks/{id}/history"),
+            Some(&token),
+            "",
+        );
+        assert_eq!(status, 200, "{history}");
+        serde_json::from_str::<serde_json::Value>(&history).expect("json")
+    };
+    let kept = |version: u32| {
+        let (status, state) = http(
+            gateway.port,
+            "GET",
+            &format!("/decks/{id}/versions/{version}"),
+            Some(&token),
+            "",
+        );
+        assert_eq!(status, 200, "{state}");
+        let state: serde_json::Value = serde_json::from_str(&state).expect("json");
+        state["cards"][0].as_str().unwrap_or_default().to_owned()
+    };
+
+    // A save that keeps history and changes nothing keeps nothing, and says
+    // so: this is how a rename leaves the next save asking.
+    let answer = put(&save(r#""4 Baleful Strix""#, true));
+    assert_eq!(answer["archived"], false, "{answer}");
+
+    // The session's first change keeps the state it replaces, at once.
+    let answer = put(&save(r#""4 Counterspell""#, true));
+    assert_eq!(answer["archived"], true, "{answer}");
+    let during = history();
+    assert_eq!(during["version"], 2, "{during}");
+    assert_eq!(during["past"][0]["version"], 1, "{during}");
+    assert_eq!(kept(1), "4 Baleful Strix");
+
+    // Every save after it updates the deck where it stands.
+    let answer = put(&save(r#""4 Island""#, false));
+    assert_eq!(answer["archived"], false, "{answer}");
+    let answer = put(&save(r#""4 Forest""#, false));
+    assert_eq!(answer["archived"], false, "{answer}");
+    let after = history();
+    assert_eq!(after["version"], 2, "one session, one entry: {after}");
+    assert_eq!(after["past"].as_array().map(Vec::len), Some(1), "{after}");
+
+    // Nothing left: quit here and nothing has to be committed. The next
+    // session keeps what this one ended with.
+    let answer = put(&save(r#""4 Mountain""#, true));
+    assert_eq!(answer["archived"], true, "{answer}");
+    let next = history();
+    assert_eq!(next["version"], 3, "{next}");
+    assert_eq!(kept(2), "4 Forest");
+    assert_eq!(kept(1), "4 Baleful Strix");
+}
+
+/// What a history row holds comes from the deck itself, never from the body:
+/// a row can come back through a revert, and a body's lists that skipped
+/// `validate_deck` would come back with it.
+#[test]
+fn a_save_cannot_write_the_history_it_is_replacing() {
+    let gateway = spawn_gateway("history_forgery");
+    let token = login(gateway.port, "forger", "Forger");
+    let (status, saved) = http(
+        gateway.port,
+        "POST",
+        "/decks",
+        Some(&token),
+        r#"{"name":"Forger","cards":["4 Baleful Strix"]}"#,
+    );
+    assert_eq!(status, 200, "{saved}");
+    let id = json_field(&saved, "deck_id").to_string();
+    let (status, answer) = http(
+        gateway.port,
+        "PUT",
+        &format!("/decks/{id}"),
+        Some(&token),
+        r#"{"name":"Forger","cards":["4 Counterspell"],
+            "superseded":{"cards":["9999 Not A Card"],"sideboard":[],"commanders":[]}}"#,
+    );
+    assert!((200..300).contains(&status), "{status}: {answer}");
+    let (status, old) = http(
+        gateway.port,
+        "GET",
+        &format!("/decks/{id}/versions/1"),
+        Some(&token),
+        "",
+    );
+    assert_eq!(status, 200, "{old}");
+    assert!(old.contains("4 Baleful Strix"), "{old}");
+    assert!(!old.contains("Not A Card"), "{old}");
+}
+
 /// Each version says what changed against the one before it (WG-6), in the
 /// words the history sheet uses: a finish change is a finish change, not a
 /// card out and a card in; and how many cards it holds, counted by copies.
@@ -508,7 +631,7 @@ fn a_deck_history_says_what_each_save_changed() {
             Some(&token),
             &save(cards),
         );
-        assert_eq!(status, 204, "{body}");
+        assert_eq!(status, 200, "{body}");
     }
 
     let (status, history) = http(
@@ -574,7 +697,7 @@ fn going_back_is_a_change_and_not_an_erasure() {
         Some(&token),
         second,
     );
-    assert_eq!(status, 204, "{body}");
+    assert_eq!(status, 200, "{body}");
 
     // Go back.
     let (status, reverted) = http(
@@ -637,7 +760,7 @@ fn going_back_is_a_change_and_not_an_erasure() {
         Some(&token),
         renamed,
     );
-    assert_eq!(status, 204, "{body}");
+    assert_eq!(status, 200, "{body}");
     let (status, deck) = http(
         gateway.port,
         "GET",
