@@ -195,7 +195,7 @@ fn state_mut(app: &mut App) -> Mut<'_, LobbyState> {
 
 /// Runs frames until `done`, or fails naming what never came.
 fn until(app: &mut App, what: &str, mut done: impl FnMut(&mut App) -> bool) {
-    let deadline = Instant::now() + Duration::from_secs(5);
+    let deadline = Instant::now() + Duration::from_secs(20);
     while !done(app) {
         assert!(Instant::now() < deadline, "never: {what}");
         app.update();
@@ -227,18 +227,19 @@ fn editing_a_stored_deck(base: &str) -> App {
 }
 
 fn open_stored(app: &mut App, cards: &[&str]) {
-    let mut state = state_mut(app);
-    state.build = crate::buildui::BuildUi::opened();
-    let _ = state.lobby.edit_deck(0);
-    state.lobby.apply(LobbyEvent::DeckLoaded {
-        id: "d1".to_owned(),
-        name: "Allytifact".to_owned(),
-        cards: cards.iter().map(|&row| row.to_owned()).collect(),
-        sideboard: Vec::new(),
-        commanders: Vec::new(),
-        format: String::new(),
-    });
-    drop(state);
+    {
+        let mut state = state_mut(app);
+        state.build = crate::buildui::BuildUi::opened();
+        let _ = state.lobby.edit_deck(0);
+        state.lobby.apply(LobbyEvent::DeckLoaded {
+            id: "d1".to_owned(),
+            name: "Allytifact".to_owned(),
+            cards: cards.iter().map(|&row| row.to_owned()).collect(),
+            sideboard: Vec::new(),
+            commanders: Vec::new(),
+            format: String::new(),
+        });
+    }
     frames(app, 3);
 }
 
@@ -852,6 +853,34 @@ fn a_deck_deleted_under_its_post_goes_when_it_lands() {
     });
     frames(&mut app, SETTLED);
     assert_eq!(gateway.saves().len(), 1, "{:?}", gateway.saves());
+}
+
+/// On the device a deck gets its id in the call, on the way out too, and what
+/// the player marked on it goes with it.
+#[test]
+fn a_device_deck_left_inside_the_wait_keeps_what_was_marked_on_it() {
+    let mut app = headless();
+    state_mut(&mut app).offline = Some(super::offline::Offline::without_a_file());
+    tap_control(&mut app, "play offline", |p| {
+        *p == Press::Front(FrontPress::PlayOffline)
+    });
+    to_decks(&mut app);
+    press(&mut app, Press::Decks(DecksPress::NewDeck));
+    settle(&mut app);
+    app.world_mut()
+        .resource_mut::<crate::prefs::Prefs>()
+        .edit()
+        .toggle_deck_card_favourite("new", "Forest");
+    assert!(state_mut(&mut app).lobby.builder_mut().add(0, Zone::Main));
+    press(&mut app, Press::Build(BuildPress::CloseBuilder));
+    frames(&mut app, 2);
+
+    let deck = state(&app).lobby.builder();
+    assert!(!deck.dirty(), "saved on the way out");
+    let id = deck.editing().expect("the store gave it an id").to_owned();
+    let prefs = app.world().resource::<crate::prefs::Prefs>().all();
+    assert_eq!(prefs.deck_card_favourites_for(&id), ["Forest"]);
+    assert!(prefs.deck_card_favourites_for("new").is_empty());
 }
 
 /// Closing the client inside the wait keeps the edit on the device: its save

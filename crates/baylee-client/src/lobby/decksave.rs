@@ -89,13 +89,10 @@ fn read_save(lang: Lang, result: &ehttp::Result<ehttp::Response>) -> Vec<Reply> 
     }
 
     let failed = |why: Option<String>| Reply::AutoSaveFailed { why };
-    let response = match result {
-        Ok(response) => response,
-        Err(_) => {
-            return vec![failed(Some(
-                Phrase::GatewayUnreachable.text(lang).to_string(),
-            ))];
-        }
+    let Ok(response) = result else {
+        return vec![failed(Some(
+            Phrase::GatewayUnreachable.text(lang).to_string(),
+        ))];
     };
     if response.ok {
         let Saved { deck_id, archived } = response
