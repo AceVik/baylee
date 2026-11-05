@@ -853,6 +853,8 @@ pub(crate) fn check_scope_matches_the_text(
         || built.contains("AttackTaxLife")
         || built.contains("AttackTaxMana")
         || built.contains("WheneverCreatureAttacksYouOrYourPlaneswalkerUntilYourNextTurn")
+        // Both comparative combat restrictions count the effect controller's creatures.
+        || built.contains("UnlessYouControlMoreCreaturesThan")
         // This cumulative coin-flip effect untaps only lands its controller controls.
         || built.contains("FlipCoinsUntilLossOrStopCumulative");
     let filters_theirs = compares_controllers

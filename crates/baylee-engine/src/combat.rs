@@ -49,6 +49,46 @@ pub use block::{
 pub use damage::divisions_owed;
 pub(crate) use damage::{collect_combat_damage, prepare_damage_step, unpreventable};
 
+/// The creatures each player controls, counted once for a combat declaration.
+///
+/// Projected types make animated permanents and tokens count, while
+/// `battlefield_seen` keeps phased-out permanents out of the totals.
+pub(super) struct CreatureCounts(Vec<usize>);
+
+impl CreatureCounts {
+    fn new(state: &GameState) -> Self {
+        let mut counts = vec![0; state.players.len()];
+        for id in state.battlefield_seen() {
+            if let Some(object) = state.object(id)
+                && object.characteristics().types.contains(TypeSet::CREATURE)
+                && let Some(count) = counts.get_mut(usize::from(object.controller.get()))
+            {
+                *count += 1;
+            }
+        }
+        Self(counts)
+    }
+
+    fn of(&self, player: PlayerId) -> usize {
+        self.0.get(usize::from(player.get())).copied().unwrap_or(0)
+    }
+
+    /// Whether every applicable restriction gives its controller strictly
+    /// more creatures than `other` controls.
+    fn satisfies(
+        &self,
+        state: &GameState,
+        effects: &[&crate::effects::ContinuousEffect],
+        object: &crate::object::GameObject,
+        other: PlayerId,
+    ) -> bool {
+        effects.iter().all(|fx| {
+            !crate::effects::applies_to(state, fx, object)
+                || self.of(fx.controller) > self.of(other)
+        })
+    }
+}
+
 /// One declared attacker.
 #[derive(Clone, Copy, Hash, Debug)]
 pub struct AttackerInfo {

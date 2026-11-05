@@ -308,9 +308,9 @@ not turn face up for that assignment. Strike-step membership remains separate
 step nor allows a double striker to assign damage in either step.
 
 ### What must attack, and what may attack whom (CR 508.1c–d)
-Two sentences change a declaration of attackers, and both are statics the
-layers carry as rules modifiers (`Layer::Text`, beside the other
-modifiers that change what a creature may do):
+Combat restrictions and requirements are statics the layers carry as rules
+modifiers (`Layer::Text`, beside the other modifiers that change what a
+creature may do):
 
 - **A requirement**, `Modifier::AttacksEachCombat` ("attacks each combat if
   able"). A grant is an until-end-of-turn effect with the same modifier, so
@@ -320,6 +320,15 @@ modifiers that change what a creature may do):
   ("can't attack unless defending player controls an Island"): the filter
   is asked of the permanents of the player the creature would attack, and
   of a planeswalker's controller when it attacks one.
+- **Comparative creature-count restrictions** (CR 508.1c, 509.1b),
+  `Modifier::CantAttackUnlessYouControlMoreCreaturesThanDefender` and
+  `Modifier::CantBlockUnlessYouControlMoreCreaturesThanAttacker`.
+  `combat::CreatureCounts` counts each player's projected battlefield creatures
+  once when the declaration rules are built. The comparison is strict, includes
+  creatures outside the declaration, and reads the chosen defending player or
+  the particular attacker's current controller rather than the active player.
+  Block offers and direct declarations share the same predicate; mana-payment
+  handling remains independent.
 
 `combat::AttackRules` collects restrictions, requirements, attacker caps and
 costs once per declaration. The offer drops a creature that no defender
