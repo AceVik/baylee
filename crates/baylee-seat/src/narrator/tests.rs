@@ -1788,3 +1788,17 @@ fn a_guess_names_the_chosen_card_and_whose_hand() {
         Act::Now(PlayerAction::YesNo(false))
     );
 }
+
+/// A melded permanent wears a token definition's art and is two cards, so the
+/// board never calls it a token (report 5.11.2026, Brisela).
+#[test]
+fn a_melded_permanent_is_not_called_a_token() {
+    let mut brisela = token(30, 0, "Brisela, Voice of Nightmares", 9, 10);
+    brisela.types = baylee_core::types::TypeSet::CREATURE;
+    brisela.status = baylee_view::ObjectStatus::MELDED_CARD;
+    let line = super::board::type_line(&brisela);
+    assert!(!line.ends_with(" token"), "{line}");
+    brisela.status = baylee_view::ObjectStatus::TOKEN;
+    let line = super::board::type_line(&brisela);
+    assert!(line.ends_with(" token"), "{line}");
+}

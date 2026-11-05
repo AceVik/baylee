@@ -256,6 +256,9 @@ pub struct GameLog {
     /// entry replacement, a shockland's life, asks first): the move onto the
     /// battlefield writes their play, with who played them.
     landing: BTreeMap<ObjectId, PlayerId>,
+    /// The cards of a melded or mutated permanent parked in the command zone
+    /// ([`Self::moved`]): when they leave, they leave the battlefield.
+    merged: BTreeSet<ObjectId>,
     /// The time as the caller last told it ([`Self::tell_time`]).
     now: u64,
     naming: Naming,
@@ -298,6 +301,7 @@ impl GameLog {
             phase: None,
             aims: BTreeMap::new(),
             landing: BTreeMap::new(),
+            merged: BTreeSet::new(),
             now: 0,
             naming: Naming::default(),
         };
@@ -933,6 +937,26 @@ impl GameLog {
         discarded: &mut BTreeSet<ObjectId>,
         batch: usize,
     ) {
+        // The other card of a melded or mutated permanent waits in the command
+        // zone as the engine's bookkeeping (`Rider::MergedInto`), and that
+        // zone's view leaves it out too. To a player it is part of the
+        // permanent: it never went there, and it leaves from the battlefield.
+        let merged = to == Zone::Command
+            && state.object(id).is_some_and(|object| {
+                object
+                    .riders
+                    .iter()
+                    .any(|rider| matches!(rider, baylee_engine::object::Rider::MergedInto(_)))
+            });
+        if merged {
+            self.merged.insert(id);
+            return;
+        }
+        let from = if from == Zone::Command && self.merged.remove(&id) {
+            Zone::Battlefield
+        } else {
+            from
+        };
         // Onto the stack is the cast or the ability; off it is the
         // resolution, or the counter that already has its line.
         if from == Zone::Stack || to == Zone::Stack {
@@ -2007,8 +2031,59 @@ mod tests {
             phase: None,
             aims: BTreeMap::new(),
             landing: BTreeMap::new(),
+            merged: BTreeSet::new(),
             naming: Naming::default(),
         }
+    }
+
+    /// The other card of a melded permanent is parked in the command zone by
+    /// the engine: no line says it went there (report 5.11.2026, Bruna beside
+    /// Brisela), and it leaves the battlefield when the permanent does.
+    #[test]
+    fn a_melded_card_never_went_to_the_command_zone() {
+        let engine = game(vec![FILLER, FILLER]);
+        let mut state = engine.state().clone();
+        let cards = state.zones.list(ZoneLocation::Battlefield).to_vec();
+        state
+            .object_mut(cards[1])
+            .unwrap()
+            .riders
+            .push(baylee_engine::object::Rider::MergedInto(cards[0]));
+        let (mut shown, mut discarded) = (BTreeSet::new(), BTreeSet::new());
+        let mut log = a_log();
+        log.moved(
+            &state,
+            cards[1],
+            (Zone::Exile, Zone::Command),
+            None,
+            &mut shown,
+            &mut discarded,
+            0,
+        );
+        assert_eq!(log.len(), 0, "{:?}", log.lines);
+
+        state.object_mut(cards[1]).unwrap().riders.clear();
+        log.moved(
+            &state,
+            cards[1],
+            (Zone::Command, Zone::Graveyard),
+            None,
+            &mut shown,
+            &mut discarded,
+            0,
+        );
+        assert!(
+            matches!(
+                log.lines[0].event,
+                LogEvent::Moved {
+                    from: LogZone::Battlefield,
+                    to: LogZone::Graveyard,
+                    ..
+                }
+            ),
+            "{:?}",
+            log.lines
+        );
     }
 
     /// Only lines every seat is told in full fold: whether two private lines

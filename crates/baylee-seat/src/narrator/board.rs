@@ -3,7 +3,9 @@
 use super::{Table, object_name, tag, words};
 use baylee_core::ids::{Defender, ObjectId, PlayerId};
 use baylee_core::types::{SubtypeSet, TypeSet};
-use baylee_view::{DayNight, HandObject, ManaPoolView, PublicObject, StackItem, Step, TargetRef};
+use baylee_view::{
+    DayNight, HandObject, ManaPoolView, ObjectStatus, PublicObject, StackItem, Step, TargetRef,
+};
 use std::fmt::Write as _;
 
 /// The most cards one graveyard or exile line names; older ones are
@@ -280,7 +282,12 @@ pub(super) fn type_line(object: &PublicObject) -> String {
         let _ = write!(out, " — {subtypes}");
     }
     let face_down = object.status.is_face_down();
-    if object.token.is_some() || (object.card.is_none() && object.rules.is_none() && !face_down) {
+    // A melded permanent wears a token definition's art and is two cards.
+    let melded = object.status.contains(ObjectStatus::MELDED_CARD);
+    if !melded
+        && (object.token.is_some()
+            || (object.card.is_none() && object.rules.is_none() && !face_down))
+    {
         out.push_str(" token");
     }
     out
