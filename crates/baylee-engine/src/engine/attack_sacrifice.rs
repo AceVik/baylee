@@ -80,6 +80,43 @@ fn options(
         .collect()
 }
 
+/// Whether `costs` can all still be paid from what `reserved` leaves, each
+/// permanent once (CR 508.1h). A matching and not a walk down the list: a land
+/// spent on the cost any land pays may be the Island a stricter cost needs, and
+/// the order costs were determined in says nothing about which pays which.
+fn payable<'a>(
+    state: &GameState,
+    player: PlayerId,
+    costs: impl IntoIterator<Item = &'a AttackSacrificeCost>,
+    reserved: &BTreeSet<ObjectId>,
+) -> bool {
+    let menus: Vec<Vec<ObjectId>> = costs
+        .into_iter()
+        .flat_map(|cost| {
+            let menu = options(state, player, *cost, reserved);
+            std::iter::repeat_n(menu, usize::from(cost.count))
+        })
+        .collect();
+    crate::casting::distinct_answers_exist(&menus)
+}
+
+/// What the front cost may be paid with: only permanents that leave the rest of
+/// `work` payable, because a question nothing can answer stops the game. The
+/// player gets the whole of the choice CR 508.1j gives and none of the dead ends.
+fn answers(state: &GameState, work: &AttackSacrificeWork) -> Vec<ObjectId> {
+    let mut owed: Vec<AttackSacrificeCost> = work.remaining.iter().copied().collect();
+    let front = owed[0];
+    owed[0].count -= 1;
+    options(state, work.player, front, &work.reserved)
+        .into_iter()
+        .filter(|id| {
+            let mut reserved = work.reserved.clone();
+            reserved.insert(*id);
+            payable(state, work.player, &owed, &reserved)
+        })
+        .collect()
+}
+
 pub(crate) fn valid_payments(
     state: &GameState,
     player: PlayerId,
@@ -140,15 +177,10 @@ impl<L: CardLookup> Engine<L> {
         life: i32,
         mana_reach: u64,
     ) -> Result<(), EngineError> {
-        let mut reserved = BTreeSet::new();
-        for &cost in &costs {
-            let legal = options(&self.state, player, cost, &reserved);
-            if legal.len() < usize::from(cost.count) {
-                return Err(EngineError::IllegalAction(
-                    "cannot pay sacrifice cost required to declare those attackers",
-                ));
-            }
-            reserved.extend(legal.into_iter().take(usize::from(cost.count)));
+        if !payable(&self.state, player, &costs, &BTreeSet::new()) {
+            return Err(EngineError::IllegalAction(
+                "cannot pay sacrifice cost required to declare those attackers",
+            ));
         }
         self.attack_sacrifice = Some(AttackSacrificeWork {
             player,
@@ -169,11 +201,14 @@ impl<L: CardLookup> Engine<L> {
             .attack_sacrifice
             .as_ref()
             .expect("attack cost in progress");
-        let cost = *work.remaining.front().expect("a remaining sacrifice cost");
-        let count = cost.count;
+        let count = work
+            .remaining
+            .front()
+            .expect("a remaining sacrifice cost")
+            .count;
         self.pending = Pending::ChooseCards {
             player: work.player,
-            options: options(&self.state, work.player, cost, &work.reserved),
+            options: answers(&self.state, work),
             min: count,
             max: count,
             prompt: crate::choice::ChoicePrompt::CostSacrifice,
@@ -203,6 +238,13 @@ impl<L: CardLookup> Engine<L> {
             ));
         }
         work.reserved.extend(objects.iter().copied());
+        // Each permanent offered leaves the rest payable on its own; several
+        // chosen together may not.
+        if !payable(&self.state, work.player, &work.remaining, &work.reserved) {
+            return Err(EngineError::IllegalAction(
+                "those permanents would leave another attack cost unpayable",
+            ));
+        }
         work.payments.push(AttackSacrificePayment { cost, objects });
         if work.remaining.is_empty() {
             return self.finish_attack_declaration(

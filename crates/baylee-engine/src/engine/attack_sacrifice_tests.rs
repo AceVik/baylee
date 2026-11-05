@@ -276,3 +276,258 @@ fn a_tax_window_without_sacrifices_keeps_the_fingerprint_a_written_record_holds(
     };
     assert_eq!(window.fingerprint(), recorded);
 }
+
+fn board(mine: &[CardIndex], theirs: &[CardIndex]) -> Engine<RegistryLookup> {
+    let mut engine = Duel::table(508_002, index::FOREST, 2)
+        .battlefield(0, mine)
+        .battlefield(1, theirs)
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, P0);
+    engine
+}
+
+fn at_the_declaration(engine: &mut Engine<RegistryLookup>) {
+    pass_until(engine, |engine| {
+        matches!(
+            engine.pending(),
+            Pending::ChooseAttackers { player: P0, .. }
+        )
+    });
+}
+
+fn attacking(engine: &Engine<RegistryLookup>, object: ObjectId) -> bool {
+    engine.state().combat.is_attacking(object)
+}
+
+/// A continuous effect of no card: Propaganda and Windborn Muse are not built
+/// yet, and Leviathan's own upkeep would stand in the way of the test.
+fn impose(
+    engine: &mut Engine<RegistryLookup>,
+    controller: PlayerId,
+    filter: crate::effects::EffectFilter,
+    modifier: baylee_cards_dsl::Modifier,
+) {
+    let timestamp = engine.state.next_timestamp();
+    engine
+        .state
+        .effects
+        .register(crate::effects::ContinuousEffect {
+            id: baylee_core::ids::EffectId::new(0),
+            source: None,
+            controller,
+            origin: crate::effects::EffectOrigin::Resolution,
+            layer: modifier.layer(),
+            timestamp,
+            duration: baylee_cards_dsl::Duration::Indefinitely,
+            filter,
+            modifier,
+        });
+}
+
+/// "Creatures can't attack you unless their controller pays" {`mana`} each.
+fn tax_attacks_on_p1(engine: &mut Engine<RegistryLookup>, modifier: baylee_cards_dsl::Modifier) {
+    let everything = crate::effects::EffectFilter::Dsl(&baylee_cards_dsl::Filter::Any);
+    impose(engine, P1, everything, modifier);
+}
+
+const PROPAGANDA: baylee_cards_dsl::Modifier =
+    baylee_cards_dsl::Modifier::AttackTaxMana { mana: 2 };
+
+/// CR 508.1h: the whole cost is known before anything is chosen for it. A tax
+/// no source can reach ends the declaration here, because once a land is being
+/// chosen nothing can take the attack back and every answer would be refused.
+#[test]
+fn a_tax_out_of_reach_is_refused_before_any_land_is_asked_for() {
+    let mut engine = board(
+        &[
+            index::GRIZZLY_BEARS,
+            index::LLANOWAR_ELVES,
+            index::FOREST,
+            index::FOREST,
+        ],
+        &[index::FLOODED_WOODLANDS],
+    );
+    tax_attacks_on_p1(&mut engine, PROPAGANDA);
+    let bears = creature(&engine, index::GRIZZLY_BEARS);
+    let elves = creature(&engine, index::LLANOWAR_ELVES);
+    at_the_declaration(&mut engine);
+
+    let both = vec![(bears, Defender::Player(P1)), (elves, Defender::Player(P1))];
+    assert!(
+        engine
+            .apply(P0, PlayerAction::DeclareAttackers { attackers: both })
+            .is_err(),
+        "{{4}} is out of reach of three sources"
+    );
+    assert!(matches!(
+        engine.pending(),
+        Pending::ChooseAttackers { player: P0, .. }
+    ));
+
+    engine
+        .apply(
+            P0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(bears, Defender::Player(P1))],
+            },
+        )
+        .expect("one attacker's {2} and one land are affordable");
+    assert_eq!(sacrifice_options(&engine).len(), 2);
+}
+
+/// A land spent on a cost any land pays can leave a stricter cost unpayable, so
+/// the question offers only what still lets every cost behind it pay, and no
+/// payable declaration is refused for the order its costs happen to come in.
+#[test]
+fn no_answer_strands_a_later_sacrifice_and_no_payable_attack_is_refused() {
+    for lands in [
+        [index::FOREST, index::ISLAND, index::ISLAND],
+        [index::ISLAND, index::ISLAND, index::FOREST],
+    ] {
+        let mut mine = vec![index::SAVANNAH_LIONS, index::GRIZZLY_BEARS];
+        mine.extend(lands);
+        let mut engine = board(&mine, &[index::FLOODED_WOODLANDS]);
+        let lions = creature(&engine, index::SAVANNAH_LIONS);
+        let bears = creature(&engine, index::GRIZZLY_BEARS);
+        let forest = creature(&engine, index::FOREST);
+        let islands = all_of(&engine, P0, index::ISLAND);
+        // Leviathan's restriction.
+        static ISLAND: baylee_cards_dsl::Filter = baylee_cards_dsl::Filter::HasSubtype(
+            baylee_core::generated::subtypes::land::ISLAND,
+        );
+        let filter = crate::effects::EffectFilter::object(&engine.state, lions);
+        impose(
+            &mut engine,
+            P0,
+            filter,
+            baylee_cards_dsl::Modifier::CantAttackUnlessYouSacrifice {
+                count: 2,
+                filter: &ISLAND,
+            },
+        );
+        declare(&mut engine, &[bears, lions]);
+
+        assert_eq!(
+            sacrifice_options(&engine),
+            vec![forest],
+            "an Island here would leave the second cost's two Islands short"
+        );
+        choose(&mut engine, vec![forest]);
+        choose(&mut engine, islands.clone());
+
+        assert!(attacking(&engine, bears) && attacking(&engine, lions));
+        for land in islands.into_iter().chain([forest]) {
+            assert_eq!(zone(&engine, land), Zone::Graveyard);
+        }
+    }
+}
+
+/// What the window's mana abilities did to the declaration is read again as it
+/// closes. Llanowar Elves tapped for its own tax is a tapped creature, which
+/// cannot be declared (CR 508.1a); the tax itself stays the one determined.
+#[test]
+fn a_creature_that_tapped_for_the_tax_is_not_declared() {
+    let mut engine = board(&[index::LLANOWAR_ELVES, index::FOREST], &[]);
+    tax_attacks_on_p1(&mut engine, PROPAGANDA);
+    let elves = creature(&engine, index::LLANOWAR_ELVES);
+    let forest = creature(&engine, index::FOREST);
+    declare(&mut engine, &[elves]);
+    assert!(engine.payment_window().is_some());
+
+    engine
+        .apply(
+            P0,
+            PlayerAction::ActivateAbility {
+                source: elves,
+                ability_index: 0,
+            },
+        )
+        .expect("the Elves make mana in the window");
+    engine
+        .apply(P0, PlayerAction::ActivateManaAbility { source: forest })
+        .expect("the Forest makes mana in the window");
+    engine.apply(P0, PlayerAction::PassPriority).unwrap();
+
+    assert!(!attacking(&engine, elves));
+}
+
+/// An attacker a mana ability sacrificed is no attacker, whatever paid for it.
+#[test]
+fn a_creature_sacrificed_for_the_tax_is_not_declared() {
+    let mut engine = board(&[index::BLOOD_PET, index::FOREST], &[]);
+    tax_attacks_on_p1(&mut engine, PROPAGANDA);
+    let pet = creature(&engine, index::BLOOD_PET);
+    let forest = creature(&engine, index::FOREST);
+    declare(&mut engine, &[pet]);
+    assert!(engine.payment_window().is_some());
+
+    engine
+        .apply(
+            P0,
+            PlayerAction::ActivateAbility {
+                source: pet,
+                ability_index: 0,
+            },
+        )
+        .expect("Blood Pet makes mana in the window");
+    engine
+        .apply(P0, PlayerAction::ActivateManaAbility { source: forest })
+        .expect("the Forest makes mana in the window");
+    engine.apply(P0, PlayerAction::PassPriority).unwrap();
+
+    assert_eq!(zone(&engine, pet), Zone::Graveyard);
+    assert!(!attacking(&engine, pet));
+}
+
+/// The life half is paid when the window closes, so it is checked there too:
+/// life a mana ability cost in the window is life that no longer pays it.
+#[test]
+fn life_lost_in_the_window_no_longer_pays_the_declaration() {
+    let mut engine = board(&[index::GRIZZLY_BEARS, index::FOREST, index::FOREST], &[]);
+    tax_attacks_on_p1(&mut engine, PROPAGANDA);
+    tax_attacks_on_p1(
+        &mut engine,
+        baylee_cards_dsl::Modifier::AttackTaxLife { life: 5 },
+    );
+    let bears = creature(&engine, index::GRIZZLY_BEARS);
+    declare(&mut engine, &[bears]);
+    assert!(engine.payment_window().is_some());
+
+    engine.state.players[0].life = 4;
+    for forest in all_of(&engine, P0, index::FOREST) {
+        engine
+            .apply(P0, PlayerAction::ActivateManaAbility { source: forest })
+            .expect("the Forests make mana in the window");
+    }
+    engine.apply(P0, PlayerAction::PassPriority).unwrap();
+
+    assert!(!attacking(&engine, bears));
+    assert_eq!(engine.state().players[0].life, 4);
+}
+
+/// CR 508.1k: only a chosen creature still under its controller's control
+/// becomes an attacker. A green land creature may pay Flooded Woodlands with
+/// itself, and then there is nothing left to declare.
+#[test]
+fn a_creature_sacrificed_to_its_own_attack_never_becomes_an_attacker() {
+    let mut engine = board(
+        &[index::DRYAD_ARBOR, index::FOREST],
+        &[index::FLOODED_WOODLANDS],
+    );
+    let arbor = creature(&engine, index::DRYAD_ARBOR);
+    declare(&mut engine, &[arbor]);
+    let mark = engine.state().journal.len();
+    assert!(sacrifice_options(&engine).contains(&arbor));
+
+    choose(&mut engine, vec![arbor]);
+
+    assert_eq!(zone(&engine, arbor), Zone::Graveyard);
+    assert!(!attacking(&engine, arbor));
+    assert!(
+        !engine.state().journal.entries()[mark..]
+            .iter()
+            .any(|entry| matches!(entry.event, GameEvent::BecameAttacker { .. })),
+        "no attack was made"
+    );
+}

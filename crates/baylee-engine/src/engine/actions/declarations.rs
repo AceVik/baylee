@@ -6,16 +6,56 @@ use super::{
     ObjectKind, Pending, PlayerId, combat,
 };
 
+/// What a legal declaration of attackers costs, determined and not yet paid
+/// (CR 508.1h).
+struct AttackCosts {
+    sacrifices: Vec<AttackSacrificeCost>,
+    mana: u32,
+    life: i32,
+}
+
 impl<L: CardLookup> Engine<L> {
     /// The automatic progression machine: SBAs, stack resolution, and
     /// step/turn transitions until a decision is required.
-    #[allow(clippy::too_many_lines)]
     pub(crate) fn declare_attackers(
         &mut self,
         player: PlayerId,
         attackers: Vec<(ObjectId, baylee_core::ids::Defender)>,
     ) -> Result<(), EngineError> {
-        self.declare_attackers_paying(player, attackers, true)
+        let reach = if combat::AttackRules::new(&self.state).has_mana_tax() {
+            self.attack_mana_reach(player)
+        } else {
+            0
+        };
+        let costs = self.attack_costs(player, &attackers, reach)?;
+        // Before any permanent is chosen: nothing takes a declaration back
+        // once its sacrifices are being asked for.
+        if !self.attack_tax_within_reach(player, costs.mana, reach) {
+            return Err(EngineError::IllegalAction(
+                "cannot pay mana required to declare those attackers",
+            ));
+        }
+        if !costs.sacrifices.is_empty() {
+            return self.ask_attack_sacrifices(
+                player,
+                attackers,
+                costs.sacrifices,
+                costs.mana,
+                costs.life,
+                reach,
+            );
+        }
+        self.finish_attack_declaration(player, attackers, Vec::new(), costs.mana, costs.life, reach)
+    }
+
+    /// Whether the pool, and up to `reach` more mana made in a payment window,
+    /// could cover a mana tax.
+    fn attack_tax_within_reach(&self, player: PlayerId, tax: u32, reach: u64) -> bool {
+        self.state.players[usize::from(player.get())]
+            .mana_pool
+            .total()
+            .saturating_add(reach)
+            >= u64::from(tax)
     }
 
     /// What a mana tax the attacking player's pool does not cover may still
@@ -39,16 +79,16 @@ impl<L: CardLookup> Engine<L> {
         u64::try_from(sources.len() + legal.granted_actions.len()).unwrap_or(u64::MAX)
     }
 
-    /// [`Self::declare_attackers`], where `window` says whether a mana tax
-    /// the pool does not cover opens a payment window (CR 508.1i) or is
-    /// refused: the window's own settlement asks with `false`.
-    #[allow(clippy::too_many_lines)]
-    fn declare_attackers_paying(
-        &mut self,
+    /// Whether `attackers` is a legal declaration, and what it costs: CR
+    /// 508.1a–d and 508.1h. `reach` is the mana a payment window could still
+    /// make for its tax (`Self::attack_mana_reach`), and zero as that window
+    /// closes, when the pool alone stands behind it.
+    fn attack_costs(
+        &self,
         player: PlayerId,
-        attackers: Vec<(ObjectId, baylee_core::ids::Defender)>,
-        window: bool,
-    ) -> Result<(), EngineError> {
+        attackers: &[(ObjectId, baylee_core::ids::Defender)],
+        reach: u64,
+    ) -> Result<AttackCosts, EngineError> {
         // Checked against the same list the request offered, so a client
         // can never name a defender the engine did not put on the table:
         // an opponent's planeswalker that has since left, a player who has
@@ -58,13 +98,7 @@ impl<L: CardLookup> Engine<L> {
         // tokens, and a `contains` per attacker made it quadratic (33,600
         // attackers cost 190 ms in self-play, r001 game 431).
         let mut seen = std::collections::BTreeSet::new();
-        let rules = combat::AttackRules::new(&self.state);
-        let reach = if window && rules.has_mana_tax() {
-            self.attack_mana_reach(player)
-        } else {
-            0
-        };
-        let rules = rules.reaching(reach);
+        let rules = combat::AttackRules::new(&self.state).reaching(reach);
         if let Some(max) = rules.max_attackers()
             && attackers.len() > max
         {
@@ -79,7 +113,7 @@ impl<L: CardLookup> Engine<L> {
                 "that creature can attack only alone",
             ));
         }
-        for (creature, defending) in &attackers {
+        for (creature, defending) in attackers {
             if !combat::can_attack(&self.state, player, *creature) {
                 return Err(EngineError::IllegalAction("creature cannot attack"));
             }
@@ -128,7 +162,7 @@ impl<L: CardLookup> Engine<L> {
                 "cannot pay life required to declare those attackers",
             ));
         }
-        let sacrifice_costs: Vec<AttackSacrificeCost> = attackers
+        let sacrifices: Vec<AttackSacrificeCost> = attackers
             .iter()
             .flat_map(|&(creature, _)| rules.sacrifice_tax(creature))
             .map(AttackSacrificeCost::from)
@@ -137,29 +171,15 @@ impl<L: CardLookup> Engine<L> {
         // CR 508.1h–i: every cost is now known and none is paid yet. A mana
         // tax the pool does not cover is made in a payment window, and the
         // declaration waits in it with nothing paid.
-        let total_mana_tax = attackers
+        let mana = attackers
             .iter()
             .map(|&(creature, defending)| rules.mana_tax_for(creature, defending))
             .fold(0_u32, u32::saturating_add);
-        drop(rules);
-        if !sacrifice_costs.is_empty() {
-            return self.ask_attack_sacrifices(
-                player,
-                attackers,
-                sacrifice_costs,
-                total_mana_tax,
-                total_life_tax,
-                reach,
-            );
-        }
-        self.finish_attack_declaration(
-            player,
-            attackers,
-            Vec::new(),
-            total_mana_tax,
-            total_life_tax,
-            reach,
-        )
+        Ok(AttackCosts {
+            sacrifices,
+            mana,
+            life: total_life_tax,
+        })
     }
 
     /// Pays the already determined costs with the permanents their controller
@@ -178,10 +198,15 @@ impl<L: CardLookup> Engine<L> {
                 "chosen permanents no longer pay the attack sacrifice cost",
             ));
         }
+        if total_life_tax > 0 && !self.state.can_pay_life(player, total_life_tax) {
+            return Err(EngineError::IllegalAction(
+                "cannot pay life required to declare those attackers",
+            ));
+        }
         let tax = baylee_core::mana::ManaCost::ZERO.with_more_generic(total_mana_tax);
         let pool = &self.state.players[usize::from(player.get())].mana_pool;
         if total_mana_tax > 0 && !crate::mana_pay::can_pay(pool, &tax) {
-            if pool.total().saturating_add(reach) < u64::from(total_mana_tax) {
+            if !self.attack_tax_within_reach(player, total_mana_tax, reach) {
                 return Err(EngineError::IllegalAction(
                     "cannot pay mana required to declare those attackers",
                 ));
@@ -208,6 +233,16 @@ impl<L: CardLookup> Engine<L> {
                 let _ = self.state.sacrifice_object(sac_id, Cause::TurnBased);
             }
         }
+        // CR 508.1k: only a creature its cost left under this player's control
+        // becomes an attacker. A green land creature may pay with itself.
+        let attackers: Vec<_> = attackers
+            .into_iter()
+            .filter(|(creature, _)| {
+                self.state.object(*creature).is_some_and(|object| {
+                    object.zone == crate::zone::Zone::Battlefield && object.controller == player
+                })
+            })
+            .collect();
         for &(creature, defending) in &attackers {
             if combat::attack_taps(&self.state, creature) {
                 self.state.set_tapped(creature, true);
@@ -306,9 +341,20 @@ impl<L: CardLookup> Engine<L> {
         opened: &super::WindowStart,
     ) -> bool {
         self.awaiting_answer = false;
-        if self
-            .finish_attack_declaration(player, attackers, sacrifices, cost.generic_total(), life, 0)
-            .is_ok()
+        // The window's mana abilities ran after the declaration was checked:
+        // a creature they tapped or sacrificed is no longer one that may
+        // attack. The costs stay the ones determined before it (CR 508.1h).
+        if self.attack_costs(player, &attackers, 0).is_ok()
+            && self
+                .finish_attack_declaration(
+                    player,
+                    attackers,
+                    sacrifices,
+                    cost.generic_total(),
+                    life,
+                    0,
+                )
+                .is_ok()
         {
             return true;
         }

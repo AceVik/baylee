@@ -24,7 +24,8 @@ mod intrinsic;
 mod lands;
 pub(crate) use additional::{
     additional_card_enters_graveyard, additional_payment_capacity, additional_payment_capacity_for,
-    additional_spell_costs, extend_sacrifices_per_mana_symbol, pitch_costs_payable,
+    additional_spell_costs, distinct_answers_exist, extend_sacrifices_per_mana_symbol,
+    pitch_costs_payable,
 };
 mod payment;
 mod permissions;

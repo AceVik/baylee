@@ -338,11 +338,19 @@ Mana, life and sacrifice costs are determined for the complete declaration
 before any of them is paid (CR 508.1h). Each sacrifice cost becomes a
 `Pending::ChooseCards` question with `ChoicePrompt::CostSacrifice`: its
 controller chooses exactly the required number of matching permanents they
-control, and one permanent cannot pay two costs. Nothing is sacrificed,
-tapped or declared between those answers. A mana payment window retains the
-chosen permanents and the determined life cost; a short payment reverses the
-window without sacrificing them. The final payment is validated again before
-the attackers are declared.
+control, and one permanent cannot pay two costs. A declaration whose costs no
+assignment of permanents pays is refused, a tax out of the sources' reach
+likewise, both before the first question: nothing takes a declaration back
+once its sacrifices are being asked for. Each question offers only permanents
+that leave every later cost payable, a matching rather than a walk down the
+list, so a land spent on "a land" cannot strand "two Islands". Nothing is
+sacrificed, tapped or declared between those answers. A mana payment window
+retains the chosen permanents and the determined costs, which stay locked in
+(CR 508.1h); as it closes the declaration is checked again, because a mana
+ability may have tapped or sacrificed an attacker, and a short payment or a
+declaration that no longer stands reverses the window without sacrificing
+anything. The final payment is validated before the attackers are declared,
+and a creature a cost sacrificed never becomes one (CR 508.1k).
 
 ### Historical land count at turn start
 
