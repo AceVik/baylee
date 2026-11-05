@@ -1083,6 +1083,12 @@ pub enum Modifier {
         /// Generic mana paid per matching block declaration.
         mana: u32,
     },
+    /// The affected creature can't attack unless the effect's controller
+    /// controls strictly more creatures than the defending player.
+    CantAttackUnlessYouControlMoreCreaturesThanDefender,
+    /// The affected creature can't block an attacker unless the effect's
+    /// controller controls strictly more creatures than that attacker's controller.
+    CantBlockUnlessYouControlMoreCreaturesThanAttacker,
 }
 
 /// What a [`Modifier::CharacteristicPT`] counts.
@@ -1402,6 +1408,8 @@ impl Modifier {
             | Self::CantEnterBattlefield(_)
             | Self::SpellsCostMoreMana(_)
             | Self::CantAttackIfDefenderControls(_)
+            | Self::CantAttackUnlessYouControlMoreCreaturesThanDefender
+            | Self::CantBlockUnlessYouControlMoreCreaturesThanAttacker
             | Self::ExileInsteadOfYourGraveyard
             | Self::ExileInsteadOfLeavingBattlefield
             | Self::CastSpellsFromGraveyard => Layer::Text,
@@ -1869,7 +1877,7 @@ mod tests {
     #[test]
     #[allow(clippy::too_many_lines)] // one row per rules-modifying modifier
     fn a_rules_modifying_effect_changes_no_characteristic_and_parks_on_text() {
-        for modifier in [
+        for modifier in vec![
             Modifier::BandsWithOther(&Filter::CREATURE),
             Modifier::GraveyardInstantSorceryOnce,
             Modifier::GraveyardVampireOnce,
@@ -2023,6 +2031,8 @@ mod tests {
             Modifier::CantAttackIfDefenderControls(&Filter::CREATURE),
             Modifier::ExileInsteadOfYourGraveyard,
             Modifier::CastSpellsFromGraveyard,
+            Modifier::CantAttackUnlessYouControlMoreCreaturesThanDefender,
+            Modifier::CantBlockUnlessYouControlMoreCreaturesThanAttacker,
         ] {
             assert_eq!(
                 modifier.layer(),

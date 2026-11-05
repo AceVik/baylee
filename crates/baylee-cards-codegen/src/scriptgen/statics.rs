@@ -480,6 +480,32 @@ impl Tx<'_> {
         let Some(valid) = p.take("ValidCard") else {
             return self.deny("a `CantBlock` static with no `ValidCard$`".to_string());
         };
+        if valid == "Card.Self" && (p.has("CheckSVar") || p.has("SVarCompare")) {
+            let condition = p.take("Condition");
+            let checked = p.take("CheckSVar");
+            let comparison = p.take("SVarCompare");
+            let yours = self.svars.get("X");
+            let active = self.svars.get("Y");
+            if condition.as_deref() != Some("NotPlayerTurn")
+                || checked.as_deref() != Some("Y")
+                || comparison.as_deref() != Some("GEX")
+                || yours.is_none_or(|v| v.trim() != "Count$Valid Creature.YouCtrl")
+                || active.is_none_or(|v| v.trim() != "Count$Valid Creature.ActivePlayerCtrl")
+            {
+                return self.deny(
+                    "a `CantBlock` creature-count comparison other than active fewer than yours"
+                        .to_string(),
+                );
+            }
+            if let Some(key) = p.first_key() {
+                return self.deny(format!("unclaimed parameter `CantBlock.{key}`"));
+            }
+            self.body.abilities.push(Self::static_expr(
+                "Filter::This",
+                "Modifier::CantBlockUnlessYouControlMoreCreaturesThanAttacker",
+            ));
+            return Some(());
+        }
         let filter = self.filter_expr(&valid)?;
         let condition = self.condition(&mut p)?;
         if !p.exhausted() {
@@ -834,10 +860,11 @@ impl Tx<'_> {
 
     /// "Can't attack unless defending player controls an Island" (CR
     /// 508.1c): `S:Mode$ CantAttack | UnlessDefender$ controls<filter>`.
-    /// A plain "can't attack" and every other `UnlessDefender$` question
-    /// (fewer creatures, poisoned, the monarch) stay unclaimed, and so does
-    /// a negated one (`!controls…`): "unless defending player controls no
-    /// untapped lands" is a different sentence.
+    /// Goblin Goon's comparative creature count has its own exact spelling.
+    /// A plain "can't attack" and the other `UnlessDefender$` questions
+    /// (poisoned, the monarch) stay unclaimed, and so does a negated one
+    /// (`!controls…`): "unless defending player controls no untapped lands"
+    /// is a different sentence.
     pub(super) fn cant_attack_unless(&mut self, mut p: Params) -> Option<()> {
         p.drop_prose();
         match p.take("Secondary").as_deref() {
@@ -847,6 +874,20 @@ impl Tx<'_> {
         let Some(valid) = p.take("ValidCard") else {
             return self.deny("`CantAttack` naming no creature".to_string());
         };
+        if p.peek("UnlessDefender") == Some("hasFewerCreaturesInPlayThanYou") {
+            p.take("UnlessDefender");
+            if valid != "Card.Self" {
+                return self.deny(format!("a creature-count attack restriction on `{valid}`"));
+            }
+            if let Some(key) = p.first_key() {
+                return self.deny(format!("unclaimed parameter `CantAttack.{key}`"));
+            }
+            self.body.abilities.push(Self::static_expr(
+                "Filter::This",
+                "Modifier::CantAttackUnlessYouControlMoreCreaturesThanDefender",
+            ));
+            return Some(());
+        }
         if p.peek("Target") == Some("You") && !p.has("UnlessDefender") {
             p.take("Target");
             let condition = self.condition(&mut p)?;

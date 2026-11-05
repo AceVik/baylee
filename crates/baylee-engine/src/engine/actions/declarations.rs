@@ -386,7 +386,7 @@ impl<L: CardLookup> Engine<L> {
             if !self.state.combat.is_attacking(*attacker) {
                 return Err(EngineError::IllegalAction("no such attacker"));
             }
-            if !combat::can_block(&self.state, defending, *blocker, *attacker) {
+            if !rules.can_declare(defending, *blocker, *attacker) {
                 return Err(EngineError::IllegalAction("creature cannot block"));
             }
             if !seen.insert((*blocker, *attacker)) {

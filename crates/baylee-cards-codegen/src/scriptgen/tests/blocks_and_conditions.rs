@@ -1396,6 +1396,66 @@ fn a_present_clause_of_another_value_is_not_taken_as_absent() {
 /// one of them — here the comparison, "if it was not" — keeps all three for
 /// the general reading, which refuses `ConditionDefined$ Remembered`. It
 /// used to lose all three and untap unconditionally.
+const CREATURE_COUNT_COMBAT: &str = "Name:X\nManaCost:3 R R\nTypes:Creature Goblin Mutant\nPT:6/6\n\
+    S:Mode$ CantAttack | ValidCard$ Card.Self | UnlessDefender$ hasFewerCreaturesInPlayThanYou\n\
+    S:Mode$ CantBlock | ValidCard$ Card.Self | Condition$ NotPlayerTurn | CheckSVar$ Y | SVarCompare$ GEX\n\
+    SVar:X:Count$Valid Creature.YouCtrl\n\
+    SVar:Y:Count$Valid Creature.ActivePlayerCtrl";
+
+/// The exact two-count idiom becomes the general, pair-aware combat rules.
+#[test]
+fn creature_count_combat_restrictions_read_both_printed_sentences() {
+    let body = read(CREATURE_COUNT_COMBAT);
+    assert_eq!(
+        body.abilities,
+        [
+            "static_ability!(Filter::This, Modifier::CantAttackUnlessYouControlMoreCreaturesThanDefender)",
+            "static_ability!(Filter::This, Modifier::CantBlockUnlessYouControlMoreCreaturesThanAttacker)",
+        ]
+    );
+}
+
+/// Every nearby meaning stays a stub: neither a condition nor one side of
+/// the comparison may disappear into an unconditional restriction.
+#[test]
+fn creature_count_combat_restrictions_refuse_every_nearby_idiom() {
+    let swapped = CREATURE_COUNT_COMBAT.replace(
+        "SVar:X:Count$Valid Creature.YouCtrl\nSVar:Y:Count$Valid Creature.ActivePlayerCtrl",
+        "SVar:X:Count$Valid Creature.ActivePlayerCtrl\nSVar:Y:Count$Valid Creature.YouCtrl",
+    );
+    assert_ne!(swapped, CREATURE_COUNT_COMBAT);
+    let variants = [
+        CREATURE_COUNT_COMBAT.replacen(
+            "S:Mode$ CantAttack | ValidCard$ Card.Self",
+            "S:Mode$ CantAttack | ValidCard$ Creature.YouCtrl",
+            1,
+        ),
+        CREATURE_COUNT_COMBAT.replace(
+            "S:Mode$ CantBlock | ValidCard$ Card.Self",
+            "S:Mode$ CantBlock | ValidCard$ Creature.YouCtrl",
+        ),
+        CREATURE_COUNT_COMBAT.replace("Creature.YouCtrl", "Creature.OppCtrl"),
+        CREATURE_COUNT_COMBAT.replace("Creature.ActivePlayerCtrl", "Creature.YouCtrl"),
+        swapped,
+        CREATURE_COUNT_COMBAT.replace("SVarCompare$ GEX", "SVarCompare$ GTX"),
+        CREATURE_COUNT_COMBAT.replace("Condition$ NotPlayerTurn", "Condition$ PlayerTurn"),
+        CREATURE_COUNT_COMBAT.replace("Condition$ NotPlayerTurn | ", ""),
+        CREATURE_COUNT_COMBAT.replace("CheckSVar$ Y", "CheckSVar$ Y | ValidPlayer$ Opponent"),
+        CREATURE_COUNT_COMBAT.replace("SVarCompare$ GEX", "SVarCompare$ GEX | Secondary$ False"),
+        CREATURE_COUNT_COMBAT.replace("SVar:X:Count$Valid Creature.YouCtrl\n", ""),
+        CREATURE_COUNT_COMBAT.replace(
+            "hasFewerCreaturesInPlayThanYou",
+            "hasFewerLandsInPlayThanYou",
+        ),
+    ];
+    for text in variants {
+        assert!(
+            refused(&text),
+            "a nearby idiom was silently accepted:\n{text}"
+        );
+    }
+}
+
 #[test]
 fn a_discard_condition_of_another_value_is_not_taken_as_absent() {
     let script = |compare: &str| {
