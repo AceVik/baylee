@@ -185,6 +185,14 @@ pub(crate) fn additional_payment_capacity_for(
     )
 }
 
+/// Whether every menu can name a permanent of its own, each used once.
+pub(crate) fn distinct_answers_exist(menus: &[Vec<ObjectId>]) -> bool {
+    let mut candidates: Vec<_> = menus.iter().flatten().copied().collect();
+    candidates.sort_unstable();
+    candidates.dedup();
+    preferred_assignment(menus, candidates).is_some()
+}
+
 /// The left-side subsets matchable to distinct cost parts form a transversal
 /// matroid. Processing preferred cards first therefore maximizes their number
 /// among complete matchings: augmentation never drops a previously matched card.
