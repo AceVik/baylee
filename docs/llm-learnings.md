@@ -6539,3 +6539,19 @@ got wrong was in the tests, not in the cards:
 - Desktop, house AI and LLM seats already understand `PayManaAndLife`; their
   shared payment suites remain green. No card-specific prompt, policy or hidden
   information is needed.
+
+## 2026-11-05 — Krovikan Sorcerer's drawn-only discard
+
+- Reuse `Effect::DrawThenDiscardDrawn { draw: Fixed(2), discard: 1 }` for the
+  black-card activation. Its instruction-local object/version ledger already
+  excludes cards held before the draw, replacement draws and later incarnations;
+  no new engine or DSL mechanic is needed.
+- Two played tests cover both colored discard costs, both activation offers, the
+  exact one- and two-card draws, and a free choice between only the two cards
+  drawn by the second ability. Direct actions reject a nonblack cost card and an
+  old hand card at the drawn-only discard. Both tests were red against the old
+  one-ability card and pass against the completed card. All 15 general
+  draw-memory tests and five affected house-AI consumer tests also pass.
+- Desktop and LLM seats reuse the existing private `ChooseCards` decision and
+  its exact options. The house AI already values and answers the shared effect;
+  no card-specific presentation, policy or hidden information is needed.
