@@ -1130,11 +1130,12 @@ pub use view::{Draft, Grouping, STAT_GROUPS, Section, SectionKey};
 #[must_use]
 pub fn rarity_label(rarity: Rarity, lang: Lang) -> &'static str {
     match rarity {
-        Rarity::Common => Phrase::BuildRarityCommon,
-        Rarity::Uncommon => Phrase::BuildRarityUncommon,
-        Rarity::Rare => Phrase::BuildRarityRare,
-        Rarity::Mythic => Phrase::BuildRarityMythic,
-        Rarity::Special | Rarity::Bonus => Phrase::BuildRaritySpecial,
+        Rarity::Common => Phrase::RarityCommon,
+        Rarity::Uncommon => Phrase::RarityUncommon,
+        Rarity::Rare => Phrase::RarityRare,
+        Rarity::Mythic => Phrase::RarityMythic,
+        Rarity::Special => Phrase::RaritySpecial,
+        Rarity::Bonus => Phrase::RarityBonus,
     }
     .text(lang)
 }

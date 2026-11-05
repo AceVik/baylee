@@ -8013,9 +8013,6 @@ BuildCurveLit = { $card_type } highlighted
 # Stats: the colour pips' heading.
 BuildColourPips = Colour pips
 
-# Stats: what the pips count.
-BuildPipsNote = share of coloured symbols in the deck
-
 # Stats: the land share. `$count` lands, `$total` cards.
 # Arguments: count, total
 BuildLandShare = { $count } of { $total }
@@ -9226,21 +9223,6 @@ SortDirDescHint = Order: Descending (Desc)
 # The deck builder's sort direction, as a tooltip: the default order.
 SortDirUnsetHint = Order: Default (Unset)
 
-# A card rarity, as the deck builder's chips, cards and statistics name it.
-BuildRarityCommon = Common
-
-# A card rarity, as the deck builder names it.
-BuildRarityUncommon = Uncommon
-
-# A card rarity, as the deck builder names it.
-BuildRarityRare = Rare
-
-# A card rarity, as the deck builder names it.
-BuildRarityMythic = Mythic
-
-# A special or bonus card rarity, as the deck builder names it.
-BuildRaritySpecial = Special
-
 # A deck's achievement frame, lowest tier: no games recorded.
 DeckTierUnranked = Untested
 
@@ -9384,6 +9366,14 @@ BuildStatRecord = RECORD & RANK
 
 # The record tile before any game was played.
 BuildStatNoGames = 0 games
+
+# The record tile: wins of games, with the share won in per cent.
+# Arguments: wins, games, percent
+BuildStatRecordLine = { $wins }W / { $games }G ({ $percent }%)
+
+# The record tile's second line: the frame's level of eleven and its title.
+# Arguments: level, title
+BuildStatTierLine = Tier { $level }/11 · { $title }
 
 # The note on the colour pips card.
 BuildPipsVsSources = Cost pips vs. mana sources
