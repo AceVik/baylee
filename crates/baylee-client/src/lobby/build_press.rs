@@ -307,33 +307,22 @@ impl BuildPress {
                 state.lobby.builder_mut().discard_edits();
                 leave_the_builder(state, mailbox);
             }
+            // The button skips the wait and stands in the same line as every
+            // other save, so it is also what retries a failed one.
             BuildPress::SaveDeck => {
-                if state.lobby.builder().name().trim().is_empty()
-                    && !state.lobby.builder().entries(Zone::Main).is_empty()
-                {
-                    let default_name = Phrase::BuildUntitled.text(state.lobby.lang()).to_string();
-                    state.lobby.builder_mut().set_default_name(&default_name);
-                }
-                if state.offline.is_some() || state.central_without_gateway() {
+                if super::decksave::can_save(state) {
                     let old_key = state.lobby.builder().editing().unwrap_or("new").to_owned();
+                    state.build.save = crate::buildui::SaveState::Saving;
+                    state.lobby.tell(Phrase::SavingDeck, &[]);
                     super::decksave::auto_save_deck(state, mailbox);
-                    if let Some(new_id) = state.lobby.builder().editing().map(str::to_owned)
+                    if let Some(new_id) = state.lobby.builder().editing()
                         && new_id != old_key
                     {
-                        if !prefs.all().deck_card_favourites_for(&old_key).is_empty() {
-                            prefs.edit().migrate_deck_card_favourites(&old_key, &new_id);
-                        }
-                        if !prefs.all().variants_for_deck(&old_key).is_empty() {
-                            prefs.edit().migrate_deck_variants(&old_key, &new_id);
-                        }
+                        super::decksave::carry_deck_prefs(prefs, &old_key, new_id);
                     }
-                    state.lobby.tell(Phrase::DeckSaved, &[]);
-                } else {
-                    let request = state.lobby.save_deck();
-                    if request.is_some() {
-                        state.build.save = crate::buildui::SaveState::Saving;
+                    if state.offline.is_some() || state.central_without_gateway() {
+                        state.lobby.tell(Phrase::DeckSaved, &[]);
                     }
-                    dispatch(state, mailbox, request);
                 }
             }
             BuildPress::FocusBuild(field) => {
@@ -603,15 +592,10 @@ impl BuildPress {
                 {
                     let old_key = state.lobby.builder().editing().unwrap_or("new").to_owned();
                     super::decksave::auto_save_deck(state, mailbox);
-                    if let Some(new_id) = state.lobby.builder().editing().map(str::to_owned)
+                    if let Some(new_id) = state.lobby.builder().editing()
                         && new_id != old_key
                     {
-                        if !prefs.all().deck_card_favourites_for(&old_key).is_empty() {
-                            prefs.edit().migrate_deck_card_favourites(&old_key, &new_id);
-                        }
-                        if !prefs.all().variants_for_deck(&old_key).is_empty() {
-                            prefs.edit().migrate_deck_variants(&old_key, &new_id);
-                        }
+                        super::decksave::carry_deck_prefs(prefs, &old_key, new_id);
                     }
                 }
                 let deck_key = state.lobby.builder().editing().unwrap_or("new").to_owned();

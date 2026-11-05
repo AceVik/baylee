@@ -4900,8 +4900,27 @@ leaves: it closes the innermost thing open, ends a renaming, clears the
 search, and then does nothing (`editing::escape`); Back is `‹`, Alt+← or ⌘[.
 While a deck is unsaved the builder keeps a draft of it on the device
 (`buildui::draft`, `builder-drafts.json` beside the settings, a second after
-the last edit), forgets it when the deck saves or is discarded, and takes it
-back when the same deck is opened again with something the gateway never got.
+the last edit and at once on leaving or closing), forgets it when a save of it
+lands or it is discarded, and takes it back when the same deck is opened again
+with something the gateway never got.
+
+**Every change saves itself, and only an answer says it did** (`lobby::decksave`,
+`client_core::deckbuilder::saves`). An edit that has stood 0.4 s goes out, so a
+word typed into the name is one save. A save carries the whole deck and the
+transport runs each request on a thread of its own, so two out at once could
+land in either order and leave the gateway the older list: one is out at a
+time, and what is edited under it goes out behind it as one save. Save is the
+same save without the wait, and it stands in the same line. Leaving sends what
+is unsaved, behind whatever is out. Back leaves at once while that can be
+done; a deck that may not save, or whose last save failed, asks "Discard
+changes?" instead. The deck stays dirty until an answer says the gateway holds
+what the builder holds now, so an edit made under a save is still unsaved when
+that save lands. A failed save says why, marks the Save button, and waits for
+the next edit or a press of Save rather than looping on a refusal; its draft
+stays, and a deck that failed after it was left comes back with it. A `401`
+ends the session as any request's does, the draft kept the same way. Offline
+and on a Central account with no gateway the same saves go into the device's
+store, in the call.
 
 **The shell's builder (WP4).** The screen follows the shell design's §7 on the
 kit (`crate::shellkit`): the pool on the left, three fifths, the deck on the

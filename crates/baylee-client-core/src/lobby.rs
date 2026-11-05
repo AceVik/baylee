@@ -2521,8 +2521,8 @@ impl Lobby {
 
     /// Saves a deck outright. `cards` are gateway rows, each `"N Card Name"`.
     ///
-    /// This is the starter-deck button; the builder saves through
-    /// [`Lobby::save_deck`].
+    /// This is the starter-deck button; the builder's saves stand in a line
+    /// of their own ([`crate::deckbuilder::saves`]).
     pub fn create_deck(&mut self, name: &str, cards: Vec<String>) -> Option<LobbyRequest> {
         if self.busy || !self.has_a_performer() || cards.is_empty() {
             return None;
@@ -2617,17 +2617,6 @@ impl Lobby {
     /// Selects `deck_id` the next time `ListDecks` refreshes the deck list.
     pub fn remember_saved_deck(&mut self, deck_id: &str) {
         self.use_once_listed = Some(deck_id.to_string());
-    }
-
-    /// Saves whatever the builder holds.
-    pub fn save_deck(&mut self) -> Option<LobbyRequest> {
-        if self.busy || !self.has_a_performer() {
-            return None;
-        }
-        let request = self.builder.save()?;
-        self.busy = true;
-        self.note(Phrase::SavingDeck);
-        Some(request)
     }
 
     /// The pool, for a table: naming a card searches it in the client's own

@@ -183,7 +183,7 @@ fn state_mut(app: &mut App) -> Mut<'_, LobbyState> {
 }
 
 /// Runs frames until `done`, or fails naming what never came.
-fn until(app: &mut App, what: &str, done: impl Fn(&App) -> bool) {
+fn until(app: &mut App, what: &str, mut done: impl FnMut(&mut App) -> bool) {
     let deadline = Instant::now() + Duration::from_secs(5);
     while !done(app) {
         assert!(Instant::now() < deadline, "never: {what}");
@@ -499,6 +499,158 @@ fn every_visit_writes_its_own_entry() {
         gateway.saves().len() == 2
     });
     assert_eq!(gateway.saves()[1].body["versioned"], true);
+}
+
+/// Long enough on a test's clock for an edit to settle and go out.
+const SETTLED: usize = 12;
+
+/// One save is out at a time: requests run on threads of their own, so a
+/// second one out could land first and leave the gateway the older list. The
+/// edits made under a save go out as one save behind it.
+#[test]
+fn a_deck_has_one_save_out_and_the_rest_wait_as_one() {
+    let gateway = Gateway::new();
+    let mut app = editing_a_stored_deck(&gateway.base);
+    add_a_forest(&mut app);
+    until(&mut app, "the first save", |_| gateway.saves().len() == 1);
+    for _ in 0..3 {
+        add_a_forest(&mut app);
+        frames(&mut app, SETTLED);
+    }
+    assert_eq!(gateway.saves().len(), 1, "nothing else goes out under it");
+
+    gateway.answer(200, r#"{"archived":true}"#);
+    until(&mut app, "the rest went out", |_| {
+        gateway.saves().len() == 2
+    });
+    let last = &gateway.saves()[1];
+    assert_eq!(last.body["cards"][1], "4 Forest", "{last:?}");
+    assert_eq!(
+        last.body["versioned"], false,
+        "told by the answer before it"
+    );
+
+    gateway.answer(200, r#"{"archived":false}"#);
+    until(&mut app, "all of it landed", |app| {
+        !state(app).lobby.builder().dirty()
+    });
+    frames(&mut app, SETTLED);
+    assert_eq!(gateway.saves().len(), 2);
+}
+
+/// A name typed is a run of edits, and a run of edits is one save.
+#[test]
+fn a_name_typed_is_one_save() {
+    let gateway = Gateway::new();
+    let mut app = editing_a_stored_deck(&gateway.base);
+    for ch in " Elves".chars() {
+        state_mut(&mut app).lobby.builder_mut().type_name(ch);
+        frames(&mut app, 1);
+    }
+    until(&mut app, "the save went out", |_| {
+        !gateway.saves().is_empty()
+    });
+    frames(&mut app, SETTLED);
+    assert_eq!(gateway.saves().len(), 1, "{:?}", gateway.saves());
+    assert_eq!(gateway.saves()[0].body["name"], "Allytifact Elves");
+}
+
+/// A letter typed under a save is one change with the letters before it, and
+/// still not saved: the answer must not call the deck clean.
+#[test]
+fn a_letter_typed_under_a_save_is_not_lost() {
+    let gateway = Gateway::new();
+    let mut app = editing_a_stored_deck(&gateway.base);
+    state_mut(&mut app).lobby.builder_mut().type_name('A');
+    until(&mut app, "the save went out", |_| {
+        gateway.saves().len() == 1
+    });
+    state_mut(&mut app).lobby.builder_mut().type_name('B');
+    frames(&mut app, 2);
+
+    gateway.answer(200, r#"{"archived":false}"#);
+    until(&mut app, "the letter went out", |_| {
+        gateway.saves().len() == 2
+    });
+    assert_eq!(gateway.saves()[1].body["name"], "AllytifactAB");
+    assert!(
+        state(&app).lobby.builder().dirty(),
+        "until that is answered"
+    );
+    gateway.answer(200, r#"{"archived":false}"#);
+    until(&mut app, "it landed", |app| {
+        !state(app).lobby.builder().dirty()
+    });
+}
+
+/// Save, the button, is a save like the others: it skips the wait and stands
+/// in the same line, and the player hears when it has landed.
+#[test]
+fn the_save_button_stands_in_the_same_line() {
+    let gateway = Gateway::new();
+    let mut app = editing_a_stored_deck(&gateway.base);
+    add_a_forest(&mut app);
+    until(&mut app, "the first save", |_| gateway.saves().len() == 1);
+    add_a_forest(&mut app);
+    press(&mut app, Press::Build(BuildPress::SaveDeck));
+    frames(&mut app, SETTLED);
+    assert_eq!(gateway.saves().len(), 1, "{:?}", gateway.saves());
+
+    gateway.answer(200, r#"{"archived":true}"#);
+    until(&mut app, "the second went out", |_| {
+        gateway.saves().len() == 2
+    });
+    gateway.answer(200, r#"{"archived":false}"#);
+    until(&mut app, "it landed", |app| {
+        !state(app).lobby.builder().dirty()
+    });
+    assert_eq!(state(&app).lobby.status(), "deck saved");
+}
+
+/// What leaving sends goes behind the save out, so a late save can never
+/// land on top of the last one.
+#[test]
+fn leaving_under_a_save_sends_the_rest_behind_it() {
+    let gateway = Gateway::new();
+    let mut app = editing_a_stored_deck(&gateway.base);
+    add_a_forest(&mut app);
+    until(&mut app, "the first save", |_| gateway.saves().len() == 1);
+    add_a_forest(&mut app);
+    press(&mut app, Press::Build(BuildPress::CloseBuilder));
+    assert_eq!(state(&app).lobby.screen(), &Screen::Table);
+    frames(&mut app, SETTLED);
+    assert_eq!(gateway.saves().len(), 1, "{:?}", gateway.saves());
+
+    gateway.answer(200, r#"{"archived":true}"#);
+    until(&mut app, "the last went out", |_| {
+        gateway.saves().len() == 2
+    });
+    assert_eq!(gateway.saves()[1].body["cards"][1], "2 Forest");
+    assert_eq!(gateway.saves()[1].body["versioned"], false);
+    gateway.answer(200, r#"{"archived":false}"#);
+    until(&mut app, "the draft was forgotten", |app| {
+        state_mut(app).drafts.of(Some("d1")).is_none()
+    });
+    frames(&mut app, SETTLED);
+    assert_eq!(gateway.saves().len(), 2, "{:?}", gateway.saves());
+}
+
+/// Closing the client inside the wait keeps the edit on the device: its save
+/// had not gone out, and nothing will send it now.
+#[test]
+fn closing_the_client_keeps_what_had_no_time_to_go_out() {
+    let gateway = Gateway::new();
+    let mut app = editing_a_stored_deck(&gateway.base);
+    add_a_forest(&mut app);
+    app.world_mut()
+        .resource_mut::<Messages<AppExit>>()
+        .write(AppExit::Success);
+    app.update();
+    let kept = state_mut(&mut app).drafts.of(Some("d1")).cloned();
+    assert!(
+        kept.is_some_and(|draft| draft.main.iter().any(|row| row.contains("Forest"))),
+        "nothing else holds it"
+    );
 }
 
 /// Leaving under a save does not hide its failure: the draft survives the
