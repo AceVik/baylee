@@ -196,6 +196,27 @@ impl<L: CardLookup> Engine<L> {
         Ok(())
     }
 
+    /// Another player left while a sacrifice was being chosen, and what they
+    /// owned went with them (CR 800.4a). The question is asked again from what
+    /// remains; if the costs can no longer be paid the declaration is illegal,
+    /// and with nothing paid it is simply made again (CR 508.1). Returns whether
+    /// a declaration was waiting.
+    pub(super) fn refresh_attack_sacrifice(&mut self) -> bool {
+        let Some(work) = &self.attack_sacrifice else {
+            return false;
+        };
+        if valid_payments(&self.state, work.player, &work.payments)
+            && payable(&self.state, work.player, &work.remaining, &work.reserved)
+        {
+            self.ask_next_attack_sacrifice();
+        } else {
+            self.attack_sacrifice = None;
+            self.awaiting_answer = false;
+            self.run_until_choice();
+        }
+        true
+    }
+
     fn ask_next_attack_sacrifice(&mut self) {
         let work = self
             .attack_sacrifice

@@ -506,6 +506,42 @@ fn life_lost_in_the_window_no_longer_pays_the_declaration() {
     assert_eq!(engine.state().players[0].life, 4);
 }
 
+/// A land borrowed from a player who then leaves goes with them (CR 800.4a), and
+/// the costs may no longer be payable. Nothing has been paid, so the declaration
+/// is illegal and is made again rather than left asking what nobody can answer.
+#[test]
+fn a_leaver_taking_the_land_a_cost_needed_reopens_the_declaration() {
+    let p2 = PlayerId::new(2);
+    let mut engine = Duel::table(508_003, index::FOREST, 3)
+        .battlefield(
+            0,
+            &[index::GRIZZLY_BEARS, index::LLANOWAR_ELVES, index::FOREST],
+        )
+        .battlefield(1, &[index::FLOODED_WOODLANDS])
+        .battlefield(2, &[index::FOREST])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, P0);
+    let borrowed = on_battlefield(&engine, p2, index::FOREST).expect("the third seat's land");
+    let land = engine.state.object_mut(borrowed).expect("the land");
+    land.controller = P0;
+    land.base_controller = P0;
+    let bears = creature(&engine, index::GRIZZLY_BEARS);
+    let elves = creature(&engine, index::LLANOWAR_ELVES);
+    declare(&mut engine, &[bears, elves]);
+    assert_eq!(sacrifice_options(&engine).len(), 2);
+
+    engine.apply(p2, PlayerAction::Concede).unwrap();
+
+    assert!(engine.attack_sacrifice.is_none());
+    assert!(
+        matches!(engine.pending(), Pending::ChooseAttackers { player: P0, .. }),
+        "one land cannot pay two costs: {:?}",
+        engine.pending()
+    );
+    assert!(!attacking(&engine, bears) && !attacking(&engine, elves));
+}
+
 /// CR 508.1k: only a chosen creature still under its controller's control
 /// becomes an attacker. A green land creature may pay Flooded Woodlands with
 /// itself, and then there is nothing left to declare.
