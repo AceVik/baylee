@@ -879,6 +879,13 @@ pub(super) fn migration_failed(state: &mut LobbyState, prefs: &mut crate::prefs:
         .apply(LobbyEvent::Failed(message(state.lobby.lang()).into()));
 }
 
+/// No gateway entered, signed in at Central: the account's list stands, with
+/// the caret in it.
+pub(super) fn back_to_list(state: &mut LobbyState) {
+    state.gateway_selected = false;
+    state.lobby.set_gateway_ready(false);
+}
+
 pub(super) fn leave_gateway_to_central(state: &mut LobbyState, mailbox: &Mailbox) {
     let flush = state.lobby.flush_delete();
     super::http::dispatch(state, mailbox, flush);
