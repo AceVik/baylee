@@ -451,6 +451,18 @@ fn a_draw_dredge_could_replace_is_drawn_and_the_replacement_order_is_answered_on
             },
             "{profile:?}"
         );
+        assert_eq!(
+            ask(
+                vec![obj(2), obj(1)],
+                1,
+                1,
+                ChoicePrompt::LifeGainReplacement
+            ),
+            PlayerAction::ChooseObjects {
+                objects: vec![obj(2)]
+            },
+            "{profile:?} did not answer the life-gain replacement deterministically"
+        );
     }
 }
 

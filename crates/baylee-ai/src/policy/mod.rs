@@ -85,8 +85,8 @@ pub(crate) fn has_dredge(abilities: &[AbilityDef]) -> bool {
         .any(|a| matches!(a, AbilityDef::Replacement(ReplacementRule::Dredge(_))))
 }
 
-/// The answer to a question about a card draw that replacements could
-/// modify, or `None` for any other prompt.
+/// The answer to a replacement choice about a draw or life gain, or `None`
+/// for any other prompt.
 ///
 /// `Dredge` (CR 702.52a) is declined by every profile. The alternative is not
 /// a draw at all: `card_value` prices the graveyard card that would come back
@@ -102,7 +102,7 @@ pub(crate) fn has_dredge(abilities: &[AbilityDef]) -> bool {
 /// Mephistopheles or a Lamp is out too, after declining to dredge the same
 /// draw when asked alone. The engine's order is fixed, which keeps the
 /// answer deterministic.
-fn draw_answer(
+fn replacement_answer(
     view: &PlayerView,
     options: &[ObjectId],
     prompt: baylee_engine::choice::ChoicePrompt,
@@ -110,6 +110,9 @@ fn draw_answer(
     use baylee_engine::choice::ChoicePrompt;
     match prompt {
         ChoicePrompt::Dredge => Some(Vec::new()),
+        // Both complete replacements are legal; the stable source order makes
+        // the house's choice reproducible without a card-specific exception.
+        ChoicePrompt::LifeGainReplacement => Some(options.first().copied().into_iter().collect()),
         ChoicePrompt::DrawReplacement => {
             let dredges = |id: &ObjectId| {
                 identity(view, *id)
@@ -444,7 +447,7 @@ impl HeuristicAgent {
     ) -> Option<Vec<ObjectId>> {
         let forced_discard = (prompt == baylee_engine::choice::ChoicePrompt::LookAtHand && max > 0)
             .then(|| self.best_offered_cards(view, options, min));
-        draw_answer(view, options, prompt).or(forced_discard)
+        replacement_answer(view, options, prompt).or(forced_discard)
     }
 
     pub(crate) fn select_cards(

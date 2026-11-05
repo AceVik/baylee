@@ -29,7 +29,9 @@ mod draw_wish;
 mod fork;
 mod hash;
 mod hidden_exile;
+mod life_gain;
 mod lifetimes;
+pub use life_gain::PendingLifeGain;
 mod merged;
 mod moves;
 mod objects;
@@ -426,6 +428,10 @@ pub struct GameState {
     /// instruction that does something to "the card drawn" reads it to
     /// tell a plain draw from a replaced one (CR 614.11b).
     pub draws_replaced: u32,
+    /// Positive life changes whose complete replacements compete, plus later
+    /// gains that must not overtake them. Drained before the next resolution
+    /// instruction or machine rule step; empty whenever nobody is being asked.
+    pub life_gains_to_offer: std::collections::VecDeque<life_gain::PendingLifeGain>,
     /// Library of Leng's answers for cards an effect is about to discard
     /// (`ReplacementRule::MayDiscardToLibraryTop`): `None` for the
     /// graveyard, `Some((rank, reveal))` for the library, rank 0 the top
@@ -874,6 +880,7 @@ impl GameState {
             draws_to_offer,
             draw_front,
             draws_replaced,
+            life_gains_to_offer,
             discard_answers,
             discards_on_top,
             extra_turns,
@@ -984,6 +991,10 @@ impl GameState {
             ("state.draws_to_offer", format!("{draws_to_offer:?}")),
             ("state.draw_front", format!("{draw_front:?}")),
             ("state.draws_replaced", format!("{draws_replaced:?}")),
+            (
+                "state.life_gains_to_offer",
+                format!("{life_gains_to_offer:?}"),
+            ),
             ("state.discard_answers", format!("{discard_answers:?}")),
             ("state.discards_on_top", format!("{discards_on_top:?}")),
             ("state.extra_turns", format!("{extra_turns:?}")),
@@ -1190,6 +1201,15 @@ impl GameState {
     /// Two decisions stay with the caller: whether a change of nothing is
     /// worth recording, and the `Cause`.
     pub fn change_life(&mut self, player: PlayerId, by: i32, cause: Cause) {
+        if by > 0 && self.replace_or_queue_life_gain(player, by, cause) {
+            return;
+        }
+        self.change_life_now(player, by, cause);
+    }
+
+    /// Applies a life change after any positive-gain replacement is settled.
+    /// Also rechecks prohibitions when a queued gain reaches the front.
+    pub(crate) fn change_life_now(&mut self, player: PlayerId, by: i32, cause: Cause) {
         // A resolving instruction continues after its controller leaves
         // (CR 608.2m), but the departed seat's retained information must
         // remain what it was immediately before leaving (CR 800.4i).
@@ -1197,13 +1217,6 @@ impl GameState {
             || self.life_total_cant_change(player)
             || (by < 0 && self.cant_lose_life(player))
         {
-            return;
-        }
-        // Lich: the gain is replaced by that many draws (CR 614.1a), so no
-        // life changes and no gain is recorded for a gain trigger to read.
-        // One replacement however many effects say it (CR 614.5).
-        if by > 0 && self.life_gain_draws_instead(player) {
-            self.draw_cards(player, usize::try_from(by).unwrap_or(0));
             return;
         }
         let seat = player.get() as usize;

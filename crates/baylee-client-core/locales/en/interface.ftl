@@ -24,6 +24,9 @@ ChooseDredge = Dredge a card instead of drawing? Choose one from your graveyard,
 # Choice among the replacements that could modify one card draw (CR 616.1): dredge cards, Chains of Mephistopheles, Aladdin's Lamp, Ring of Ma'rûf.
 ChooseDrawReplacement = Which replacement will you apply to this draw next?
 
+# Choice between complete replacements of one life gain (CR 616.1).
+ChooseLifeGainReplacement = Which replacement will you apply to this life gain?
+
 # A vote (CR 701.38a): the menu is what this player may vote for, and the one chosen is their ballot. Every earlier ballot is told beside it (`VotesSoFar`).
 CastYourVote = Cast your vote: choose one.
 

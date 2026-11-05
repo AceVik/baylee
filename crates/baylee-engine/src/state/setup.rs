@@ -94,6 +94,7 @@ impl GameState {
             draws_to_offer: std::collections::VecDeque::new(),
             draw_front: super::FrontDraw::default(),
             draws_replaced: 0,
+            life_gains_to_offer: std::collections::VecDeque::new(),
             discard_answers: Vec::new(),
             discards_on_top: Vec::new(),
             extra_turns: std::collections::VecDeque::new(),

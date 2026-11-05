@@ -795,6 +795,8 @@ enum PlanKind {
         /// The question asked.
         source: crate::state::DrawReplacement,
     },
+    /// Which complete replacement applies to the front waiting life gain.
+    LifeGainReplacement,
     /// Target choice for a synthetic trigger (granted triggered ability).
     SyntheticTriggerTarget {
         /// The queued trigger.

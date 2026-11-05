@@ -225,6 +225,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::CantLoseLife { .. }
         | Modifier::NoLossForZeroLife { .. }
         | Modifier::LifeGainDrawsInstead { .. }
+        | Modifier::LifeGainNoLifeInstead { .. }
         | Modifier::CantBeAttackedExceptBy { .. }
         | Modifier::CantAttackYou
         | Modifier::AttackTaxLife { .. }
@@ -735,6 +736,7 @@ impl EffectTable {
                     | Modifier::CantLoseLife { .. }
                     | Modifier::NoLossForZeroLife { .. }
                     | Modifier::LifeGainDrawsInstead { .. }
+                    | Modifier::LifeGainNoLifeInstead { .. }
                     | Modifier::PlayersCantLose
                     | Modifier::NamedPlayersCantLose(_)
                     | Modifier::PlayersCantWin(_)
@@ -1756,6 +1758,9 @@ mod tests {
             },
             Modifier::LifeGainDrawsInstead {
                 who: PlayerRel::You,
+            },
+            Modifier::LifeGainNoLifeInstead {
+                who: PlayerRel::EachPlayer,
             },
             Modifier::CantBeAttackedExceptBy {
                 who: PlayerRel::You,

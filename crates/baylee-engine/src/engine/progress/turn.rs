@@ -344,6 +344,18 @@ impl<L: CardLookup> Engine<L> {
         self.awaiting_answer = true;
     }
 
+    /// Asks which complete replacement applies to the front waiting life gain.
+    /// Returns `true` when a question was asked.
+    pub(crate) fn offer_queued_life_gain(&mut self) -> bool {
+        let Some(player) = self.state.next_life_gain_offer() else {
+            return false;
+        };
+        self.pending_plan = Some(PlanKind::LifeGainReplacement);
+        self.pending = self.state.life_gain_question(player);
+        self.awaiting_answer = true;
+        true
+    }
+
     /// Queues delayed actions (suspend finishes, a pact's price) when the
     /// upkeep step begins.
     pub(crate) fn queue_upkeep_delayed(&mut self) {

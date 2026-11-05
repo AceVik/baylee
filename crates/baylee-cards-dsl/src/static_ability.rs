@@ -417,6 +417,14 @@ pub enum Modifier {
         /// Whose gains are replaced, relative to the effect's controller.
         who: crate::effect::PlayerRel,
     },
+    /// "If a player would gain life, that player gains no life instead"
+    /// (Sulfuric Vortex): a replacement of the whole gain, not a restriction
+    /// on changing the life total (CR 614.1a, 119.10). With another complete
+    /// replacement such as Lich's, the affected player chooses one (CR 616.1).
+    LifeGainNoLifeInstead {
+        /// Whose gains are replaced, relative to the effect's controller.
+        who: crate::effect::PlayerRel,
+    },
     /// "You can't be attacked except by creatures with …" (Island
     /// Sanctuary): a restriction on declaring attackers (CR 508.1c) that
     /// shuts out every creature not matching `by` from attacking these
@@ -1316,6 +1324,7 @@ impl Modifier {
             | Self::PlayerProtectionFromOpponents { .. }
             | Self::NoLossForZeroLife { .. }
             | Self::LifeGainDrawsInstead { .. }
+            | Self::LifeGainNoLifeInstead { .. }
             | Self::CantBeAttackedExceptBy { .. }
             | Self::ReplacePlayerDamage { .. }
             | Self::DamageFromColoredSourcesIsColorless(_)
@@ -1926,6 +1935,9 @@ mod tests {
             },
             Modifier::LifeGainDrawsInstead {
                 who: crate::effect::PlayerRel::You,
+            },
+            Modifier::LifeGainNoLifeInstead {
+                who: crate::effect::PlayerRel::EachPlayer,
             },
             Modifier::CantBeAttackedExceptBy {
                 who: crate::effect::PlayerRel::You,

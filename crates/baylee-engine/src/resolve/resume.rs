@@ -62,6 +62,13 @@ pub(super) fn resume_inner(
             }
             return run(state, res);
         }
+        AwaitingOp::LifeGainReplacement => {
+            if let Some(player) = state.life_gain_choice_answered(chosen) {
+                res.awaiting = Some(AwaitingOp::LifeGainReplacement);
+                return Flow::Wait(state.life_gain_question(player));
+            }
+            return run(state, res);
+        }
         AwaitingOp::Hideaway { looked } => hidden_exile::choose(state, res, looked, chosen),
         AwaitingOp::RevealLibrarySearch => {
             if !chosen.is_empty() {

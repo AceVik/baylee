@@ -1250,6 +1250,39 @@ inside a resolution, `resolve/discard.rs`), and
 two Lamp effects of one Lamp in one turn are applied oldest first rather
 than in the player's order.
 
+### Complete replacements of a life gain (CR 119.10, 614.5, 616.1)
+
+`GameState::change_life` sends every positive change through
+`state/life_gain.rs`. `Modifier::LifeGainDrawsInstead` (Lich) turns the whole
+gain into that many draws; `Modifier::LifeGainNoLifeInstead` (Sulfuric Vortex)
+turns it into nothing. Neither leaves a `LifeChanged` event or adds to
+`life_gained_amount`. Several replacements with the same outcome apply only
+once, without a redundant question (CR 614.5). When both outcomes apply, the
+affected player chooses one source through `ChooseCards {
+LifeGainReplacement, min: 1, max: 1 }`; after either complete replacement
+there is no life gain left for the other (CR 616.1, 616.1e-f).
+
+A contested gain and every later gain wait in `GameState::life_gains_to_offer`
+as `PendingLifeGain { player, amount, cause }`. A resolution drains that queue
+before its next instruction (`AwaitingOp::LifeGainReplacement`); the machine
+drains gains queued outside one through `PlanKind::LifeGainReplacement`.
+Lich's draws use the ordinary replacement-aware `draw_cards` path, so those
+draws and their own choices finish before the next waiting life gain (CR
+616.2). A replacement that disappears while queued no longer applies, and a
+player who cannot gain life cannot receive either replacement (CR 119.7).
+Damage-floor calculations likewise count no replaced gain as additional loss
+allowance. The queue is included in snapshot hashes, fingerprints and loop
+progress, and an active replacement continuation forbids forks.
+
+The shared object-choice protocol names public sources, not internal
+`EffectId`s. A pool lint therefore rejects different kinds of complete
+life-gain replacement on the same card, including granted modifiers; the
+runtime also rejects an ambiguous hand-built state instead of silently using
+registration order. Separate sources such as Lich and Sulfuric Vortex remain
+fully selectable. If a future card needs two such kinds on one permanent, the
+choice must gain effect identity rather than reusing one indistinguishable
+source answer.
+
 ### A discard asked about before it is made (Library of Leng)
 "If an effect causes you to discard a card, discard it, but you may put it
 on top of your library instead of into your graveyard." It replaces where a

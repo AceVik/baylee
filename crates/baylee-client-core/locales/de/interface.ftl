@@ -10,6 +10,7 @@ ChooseEntryOrder = Die Ersatzeffekte welches Permanents möchtest du zuerst anwe
 ChooseEntryReplacement = Welchen Ersatzeffekt möchtest du als Nächstes anwenden?
 ChooseDredge = Eine Karte ausgraben, statt zu ziehen? Wähle eine aus deinem Friedhof oder bestätige ohne Auswahl, um normal zu ziehen.
 ChooseDrawReplacement = Welchen Ersatzeffekt möchtest du als Nächstes auf dieses Ziehen anwenden?
+ChooseLifeGainReplacement = Welchen Ersatzeffekt möchtest du auf diesen Lebensgewinn anwenden?
 CastYourVote = Gib deine Stimme ab: Wähle eine Option.
 VotesSoFar = Bisherige Stimmen: { $ballots }
 BallotFor = { $voter } für { $choice }

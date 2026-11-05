@@ -189,6 +189,10 @@ pub enum ChoicePrompt {
     /// Ma'rûf whose effect waits for the draw. Exactly one is named; the
     /// draw it leaves is asked about again (CR 616.1f).
     DrawReplacement,
+    /// Which complete replacement applies to a life gain. The menu holds the
+    /// sources of the applicable effects; the affected player chooses exactly
+    /// one, and no life-gain event remains for another to replace (CR 616.1).
+    LifeGainReplacement,
     /// Delve: exile cards from your graveyard, each paying for {1}
     /// (CR 702.66). Not a search and not a discard — the pile is offered so
     /// the caster can spend it.

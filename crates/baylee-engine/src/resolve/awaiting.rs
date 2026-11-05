@@ -1028,6 +1028,9 @@ pub enum AwaitingOp {
         /// The question asked.
         source: crate::state::DrawReplacement,
     },
+    /// The affected player chooses a complete replacement for the front life
+    /// gain. The instruction that caused it has already run.
+    LifeGainReplacement,
     /// Commanders whose owners have still to answer CR 903.9b for the
     /// operation at `res.pc`, which has not run yet.
     ///
@@ -1214,6 +1217,9 @@ impl AwaitingOp {
             },
             Self::Loot(loot) => crate::state::structural_fingerprint(&(34_u8, loot)),
             Self::SkipDraw { source } => crate::state::structural_fingerprint(&(35_u8, source)),
+            Self::LifeGainReplacement => {
+                crate::state::structural_fingerprint(&"life-gain-replacement")
+            }
             Self::RepeatCoinLifeStake(decision) => {
                 crate::state::structural_fingerprint(&(61_u8, decision))
             }

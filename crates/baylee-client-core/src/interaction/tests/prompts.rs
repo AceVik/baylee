@@ -650,6 +650,14 @@ fn the_questions_a_card_draw_raises_are_each_said_in_both_languages() {
         line(ChoicePrompt::DrawReplacement, 1, 1, Lang::De),
         "Welchen Ersatzeffekt möchtest du als Nächstes auf dieses Ziehen anwenden?"
     );
+    assert_eq!(
+        line(ChoicePrompt::LifeGainReplacement, 1, 1, Lang::En),
+        "Which replacement will you apply to this life gain?"
+    );
+    assert_eq!(
+        line(ChoicePrompt::LifeGainReplacement, 1, 1, Lang::De),
+        "Welchen Ersatzeffekt möchtest du auf diesen Lebensgewinn anwenden?"
+    );
     // Both are sentences: neither is the entry replacements' and neither is
     // the plain count of cards.
     for lang in Lang::ALL {

@@ -4,6 +4,7 @@ use std::hash::Hash;
 
 pub(super) fn hash(h: &mut Hasher, state: &GameState, position: &impl Fn(ObjectId) -> u32) {
     state.draws_to_offer.hash(h);
+    state.life_gains_to_offer.hash(h);
     let front = &state.draw_front;
     for objects in [&front.declined, &front.applied] {
         let mut positions: Vec<_> = objects.iter().map(|&id| position(id)).collect();
