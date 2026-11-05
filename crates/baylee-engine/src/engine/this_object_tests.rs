@@ -357,6 +357,9 @@ fn every_this_object_in_the_pool_is_one_the_resolver_reads() {
         // amount after the target is not this list's business.
         // Galleon's played regression proves the delayed source is retained.
         "AtEndOfCombat { about: ThisObject",
+        // Krovikan Vampire watches its own exact incarnation for control loss
+        // or departure; `control_observers::register` retains that version.
+        "CreateDelayedObserver { watch: ThisObject",
         "PreventNextDamage { target: ThisObject",
         // Goblin Tinkerer's "that artifact deals damage equal to its mana value
         // to this creature": the recipient goes through
@@ -476,6 +479,9 @@ fn every_event_object_in_the_pool_is_one_the_engine_reads() {
         // Cockatrice's delayed trigger remembers the block's other creature:
         // `AtEndOfCombat` reads `about` through `spec_object`.
         "AtEndOfCombat { about: EventObject",
+        // Krovikan Vampire's delayed sacrifice: `control_observers::register`
+        // reads `about` through `subjects::event` and retains its exact version.
+        "CreateDelayedObserver { watch: ThisObject, when: YouLoseControl, about: EventObject",
         // Pyrogoyf's "that creature deals damage equal to its power" and
         // Farrel's Mantle's "have it deal damage equal to its power plus 2":
         // both variants name the event object itself and `resolve::life`
