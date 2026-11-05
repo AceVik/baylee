@@ -938,6 +938,26 @@ pub struct StackItem {
     /// printed on, and bit `i` for mode `i`. `None` for a spell or ability
     /// with no modes, and until the log has said.
     pub modes: Option<(baylee_view::RulesFace, u8)>,
+    /// How many times this spell was kicked, 0 for none (CR 702.33d).
+    pub times_kicked: u8,
+    /// Whether its buyback cost was paid (CR 702.27a).
+    pub bought_back: bool,
+}
+
+impl StackItem {
+    /// What was announced for this spell that its card cannot say, one line
+    /// each: every player was told it as it was cast (CR 601.2b), and nothing
+    /// on the table shows it afterwards.
+    #[must_use]
+    pub fn announced_costs(&self, lang: crate::Lang) -> Vec<String> {
+        let kicked = (self.times_kicked > 0).then(|| {
+            crate::Phrase::StackKicked.fill_count(lang, usize::from(self.times_kicked), &[])
+        });
+        let bought = self
+            .bought_back
+            .then(|| crate::Phrase::StackBoughtBack.text(lang).to_string());
+        kicked.into_iter().chain(bought).collect()
+    }
 }
 
 /// A card in the local seat's hand.
@@ -1032,6 +1052,32 @@ pub struct BoardModel {
     pub stack: Vec<StackItem>,
     /// The local hand, in the order the cards arrived.
     pub hand: Vec<HandCard>,
+}
+
+/// The hand row's cards for `cards`, lit by what is offered.
+fn hand_cards(cards: &[baylee_view::HandObject], openings: &Openings<'_>) -> Vec<HandCard> {
+    cards
+        .iter()
+        .map(|h| HandCard {
+            id: h.id,
+            name: h.name.clone(),
+            mana_value: h.mana_value,
+            art: ImageKey::of(h.card, ArtSize::Small),
+            playable: openings.playable.contains(&h.id),
+            reachable: openings.reachable.contains(&h.id),
+            commander: h.commander,
+        })
+        .collect()
+}
+
+impl BoardModel {
+    /// Draws the hand row from `cards` instead of the deciding player's:
+    /// the hand of the chair the table is shown from (`perspective`), which
+    /// is this seat's own or one it controls, never any other
+    /// (`decision::hand_of`).
+    pub fn show_hand(&mut self, cards: &[baylee_view::HandObject], openings: &Openings<'_>) {
+        self.hand = hand_cards(cards, openings);
+    }
 }
 
 fn stack_art(
@@ -1200,6 +1246,8 @@ impl BoardModel {
                     art,
                     depth: depth_base - 1 - i,
                     modes: None,
+                    times_kicked: o.times_kicked,
+                    bought_back: o.bought_back,
                 }
             })
             .rev()
@@ -1215,18 +1263,7 @@ impl BoardModel {
         // the pointer was not the card that got clicked. Sorting was carrying
         // information that `playable`/`reachable` already carry as light, and
         // it was the one that could move a card out from under a click.
-        let hand: Vec<HandCard> = crate::decision::hand(view)
-            .iter()
-            .map(|h| HandCard {
-                id: h.id,
-                name: h.name.clone(),
-                mana_value: h.mana_value,
-                art: ImageKey::of(h.card, ArtSize::Small),
-                playable: openings.playable.contains(&h.id),
-                reachable: openings.reachable.contains(&h.id),
-                commander: h.commander,
-            })
-            .collect();
+        let hand = hand_cards(crate::decision::hand(view), &openings);
 
         Self {
             seq: view.seq,

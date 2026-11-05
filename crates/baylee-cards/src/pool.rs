@@ -175,13 +175,13 @@ pub struct PoolCard {
     /// they own is asking about the *card*, and the answer crosses every set
     /// it was ever printed in.
     pub oracle_id: &'static str,
-    /// @description Every other name it is printed under, to search by:
-    /// its names in other languages the catalog holds, and the whole
-    /// `A // B` spelling of a card with two faces. Left out when there are
-    /// none.
+    /// @description Its other names to search by: in the served language
+    /// and in English, and the whole `A // B` spelling of a card with two
+    /// faces. Left out when there are none.
     /// @internal
-    /// Every other name this card is printed under — other languages, and
-    /// the whole `A // B` spelling of a card with two faces.
+    /// Its other names in the served language and English, and the whole
+    /// `A // B` spelling of a card with two faces. A search reads these and
+    /// no others (`foreign_names`).
     ///
     /// The builder shows one row per card and lets a player find it by typing
     /// any of its names — a German player types "Blitzschlag" and gets the
@@ -198,6 +198,15 @@ pub struct PoolCard {
     /// largest field in the answer.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub alt_names: Vec<String>,
+    /// @description Names the card is printed under in languages that are
+    /// neither the served one nor English: read when a pasted deck line names
+    /// the card, and by no search. Omitted when empty.
+    /// @internal
+    /// A search answers in the client's language and English and no other,
+    /// so these stay out of `alt_names`; a deck list pasted in another
+    /// language is still a deck list. Filled by the gateway's catalog.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub foreign_names: Vec<String>,
     /// @description The kinds of mana its printed mana abilities make, as
     /// `WUBRGC` letters: what a deck's colour sources are counted by. Left
     /// out when there are none.
@@ -303,6 +312,7 @@ pub fn row(def: &'static CardDef) -> PoolCard {
             .map(ToString::to_string)
             .into_iter()
             .collect(),
+        foreign_names: Vec::new(),
         produces: crate::produces::produces(def),
     }
 }

@@ -9,11 +9,13 @@ use baylee_view::{
 };
 
 mod constrained_tests;
+mod controlled_tests;
 /// `worth`'s takes and declines, on this module's boards: a child of
 /// it, so the helpers below serve both.
 mod worth_tests;
 
 mod activations_tests;
+mod announced_cost_tests;
 mod attacks_tests;
 mod blocks_tests;
 mod choices_tests;
@@ -26,6 +28,7 @@ mod modes_tests;
 mod optional_tests;
 mod payment_tests;
 mod planning_tests;
+mod spell_ending_tests;
 mod stack_tests;
 mod targets_tests;
 mod x_target_tests;
@@ -121,6 +124,8 @@ fn permanent(id: ObjectId, controller: PlayerId, power: i16) -> PublicObject {
         attached_to: None,
         targets: vec![],
         stack_item: None,
+        times_kicked: 0,
+        bought_back: false,
         summoning_sick: false,
         ability_mana_spending: baylee_core::mana::ManaSpending::EXACT,
         granted_mana: None,
@@ -280,6 +285,10 @@ fn view(seat: u8, lives: &[i32], battlefield: Vec<PublicObject>) -> PlayerView {
         announced_x: None,
         sorcery_lock: None,
         sorceries_have_flash: false,
+        flash_types: baylee_core::types::TypeSet::EMPTY,
+        controls: Vec::new(),
+        foreign_targets: Vec::new(),
+        ballots: Vec::new(),
     }
 }
 

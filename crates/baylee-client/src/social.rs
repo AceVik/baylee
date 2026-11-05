@@ -8,16 +8,18 @@
 //! the machine holds. It never builds a frame or an HTTP body.
 //!
 //! - [`SocialHost`]: the machine, the transport, the secret store and the
-//!   chat folder, for as long as the lobby is signed in at a gateway whose
-//!   `/info` says it has chat. It persists across the lobby and the table.
+//!   chat folder for the lobby's signed-in session. Personal chat uses its
+//!   Central account, or a chat-enabled gateway for legacy sessions. The host
+//!   persists across the lobby and the table.
 //! - [`ChatUi`]: what the window shows (open, which tab, typing, the peek,
 //!   the drawer, the sheets), per device.
 //! - `window`: the one chat window, at the table in the log's place and in
 //!   the lobby docked bottom-right; `drawer` the friends list; `toasts`;
 //!   `sheet` the encryption notice, safety numbers and devices.
 //!
-//! Signed in nowhere, offline (`LocalHost`) or at a gateway with no chat,
-//! nothing here is drawn and the table's log panel is today's.
+//! Signed in nowhere or offline (`LocalHost`), nothing here is drawn. A
+//! Central session can use personal chat even when the gateway has no chat;
+//! a legacy session then keeps only the table's log panel.
 
 use std::collections::VecDeque;
 
@@ -29,7 +31,11 @@ use bevy::prelude::*;
 
 use crate::lobby::LobbyState;
 
+#[cfg(not(target_arch = "wasm32"))]
+mod central;
 pub(crate) mod drawer;
+mod driver;
+mod effects;
 pub(crate) mod glass;
 pub(crate) mod keys;
 pub(crate) mod menu;
@@ -117,6 +123,8 @@ pub struct SocialHost {
     info: InfoState,
     mailbox: Mailbox,
     socket: Socket,
+    #[cfg(not(target_arch = "wasm32"))]
+    central: Option<central::Bridge>,
     store: Option<Box<dyn social::SecretStore>>,
     disk: Option<ChatHome>,
     /// The state file, waiting out its debounce.
@@ -188,124 +196,15 @@ impl SocialHost {
         }
     }
 
-    /// Carries out the machine's effects.
-    pub(crate) fn carry_out(&mut self, effects: Vec<Effect>) {
-        #[cfg(not(target_arch = "wasm32"))]
-        let snapshot = self.vault.snapshot_owner();
-        #[cfg(not(target_arch = "wasm32"))]
-        let _batch = snapshot.as_ref().and_then(|sync| sync.begin_batch());
-        for effect in effects {
-            self.carry_out_one(effect);
-        }
-    }
-
-    fn carry_out_one(&mut self, effect: Effect) {
-        let Some(session) = self.session.clone() else {
-            return;
-        };
-        match effect {
-            Effect::Http {
-                tag,
-                method,
-                path,
-                body,
-            } => transport::request(
-                &self.mailbox,
-                &session.gateway,
-                &session.token,
-                tag,
-                method,
-                &path,
-                body.as_ref(),
-            ),
-            Effect::Up(up) => {
-                #[cfg(not(target_arch = "wasm32"))]
-                if let baylee_protocol::social::Up::Ack { upto } = &up
-                    && self.vault.defer_ack(*upto)
-                {
-                    return;
-                }
-                if let Ok(text) = serde_json::to_string(&up)
-                    && !self.socket.send(text)
-                    && let Some(machine) = self.machine.as_mut()
-                {
-                    // No socket: the machine keeps the send pending and
-                    // goes again once the link is back.
-                    let _ = machine.on_link(SocialLink::Down, now_ms());
-                }
-            }
-            Effect::Dial => self.socket.want(),
-            Effect::Hang => self.socket.hang(),
-            Effect::StoreSecrets(value) => {
-                if let (Some(store), Some(machine)) = (self.store.as_ref(), self.machine.as_ref())
-                    && let Err(why) = store.store(&machine.secret_slot(), value.expose())
-                {
-                    warn!("the chat's keys could not be kept: {why}");
-                }
-            }
-            Effect::ForgetSecrets => {
-                if let (Some(store), Some(machine)) = (self.store.take(), self.machine.as_ref()) {
-                    let slot = machine.secret_slot();
-                    #[cfg(not(target_arch = "wasm32"))]
-                    std::thread::spawn(move || {
-                        let _ = store.forget(&slot);
-                    });
-                    #[cfg(target_arch = "wasm32")]
-                    let _ = store.forget(&slot);
-                }
-            }
-            Effect::SaveState(bytes) => {
-                #[cfg(not(target_arch = "wasm32"))]
-                if self.vault.is_central() {
-                    // Central's shutdown drain must see the latest conversation map even
-                    // when macOS quits by dropping the World without an AppExit message.
-                    if let Some(disk) = self.disk.as_mut() {
-                        if disk.write(social::disk::STATE_FILE, &bytes).is_err() {
-                            self.vault.error = Some(vault_access::Error::Io);
-                        }
-                        self.save = None;
-                    }
-                    return;
-                }
-                self.save = Some((SAVE_DEBOUNCE, bytes));
-            }
-            effect @ (Effect::AppendHistory { .. }
-            | Effect::RewriteHistory { .. }
-            | Effect::DeleteAllLocal) => {
-                if matches!(effect, Effect::DeleteAllLocal) {
-                    self.save = None;
-                }
-                if let Some(disk) = self.disk.as_mut()
-                    && let Some(Err(why)) = social::disk::apply(&effect, &mut **disk)
-                {
-                    warn!("the chat's history could not be written: {why}");
-                }
-            }
-            Effect::Toast(toast) => {
-                self.toasts.push_back(toast);
-                while self.toasts.len() > 6 {
-                    self.toasts.pop_front();
-                }
-            }
-            Effect::Withdraw(about) => {
-                self.toasts
-                    .retain(|toast| toast.about.as_ref() != Some(&about));
-                self.withdrawn.push(about);
-            }
-            Effect::Sound(cue) => self.sounds.push(cue),
-            Effect::OpenConversation(conv) => self.asks.push(UiAsk::Open(conv)),
-            Effect::JoinTable { game, invite } => self.asks.push(UiAsk::Join { game, invite }),
-            Effect::WatchTable { game } => self.asks.push(UiAsk::Watch { game }),
-            Effect::OpenDrawer => self.asks.push(UiAsk::Drawer),
-            Effect::Copy(text) => self.copy = Some(text),
-        }
-    }
-
     /// Ends the session: the socket closes, the state file is written.
     fn end(&mut self) {
         self.flush_save();
         self.socket.hang();
         self.socket = Socket::default();
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            self.central = None;
+        }
         self.machine = None;
         self.store = None;
         self.disk = None;
@@ -713,7 +612,7 @@ pub(crate) fn install(app: &mut App) {
         .add_systems(
             Update,
             (
-                drive.run_if(resource_exists::<LobbyState>),
+                driver::drive.run_if(resource_exists::<LobbyState>),
                 table_context.run_if(resource_exists::<LobbyState>),
                 lobby_side.run_if(resource_exists::<LobbyState>),
             )
@@ -776,164 +675,6 @@ fn follow_the_zoom(
         for root in &roots {
             commands.entity(root).despawn();
         }
-    }
-}
-
-/// The session the lobby is signed in to, if any.
-fn wanted_session(lobby: &LobbyState) -> Option<Session> {
-    let token = lobby.lobby.token()?;
-    if lobby.lobby.offline() {
-        return None;
-    }
-    let me = lobby.lobby.me()?;
-    let tag = social::tag_of(&me.handle)?.to_string();
-    Some(Session {
-        gateway: lobby.gateway.trim_end_matches('/').to_string(),
-        token: token.to_string(),
-        handle: me.handle.clone(),
-        tag,
-        guest: me.guest,
-    })
-}
-
-/// Drives the machine: the session, the gateway's answers, the socket, the
-/// clock, the debounced state file.
-#[allow(clippy::too_many_arguments, clippy::too_many_lines)] // a Bevy system: each input in turn
-fn drive(
-    time: Res<Time>,
-    mut lobby: ResMut<LobbyState>,
-    prefs: Option<Res<crate::prefs::Prefs>>,
-    mut host: ResMut<SocialHost>,
-    keys: Res<ButtonInput<KeyCode>>,
-    mouse: Option<Res<ButtonInput<MouseButton>>>,
-    windows: Query<&Window>,
-) {
-    let host = &mut *host;
-    let wanted = wanted_session(&lobby);
-    if host.session != wanted {
-        if host.session.is_some() {
-            host.end();
-        }
-        host.session = wanted;
-    }
-    if let Some(prefs) = prefs.as_deref() {
-        host.sync_prefs(&prefs.all().chat);
-    }
-    // Vault credentials are an invisible one-shot handoff. Mutating only that
-    // field must not flag visible lobby state and rebuild its UI every frame.
-    vault_access::discard_stale_login(lobby.bypass_change_detection());
-    let Some(session) = host.session.clone() else {
-        return;
-    };
-    if host.info == InfoState::Unknown {
-        host.info = InfoState::Asking;
-        transport::ask_info(&host.mailbox, &session.gateway);
-    }
-    let dt = time.delta_secs();
-    let now = now_ms();
-    let mut news = Vec::new();
-    for arrived in host.mailbox.drain() {
-        match arrived {
-            Arrived::Info(social) => {
-                host.info = InfoState::Known(social);
-                if let Some((version, keep)) = social
-                    && version == baylee_protocol::social::SOCIAL_VERSION
-                {
-                    let chat = prefs
-                        .as_deref()
-                        .map(|p| p.all().chat.clone())
-                        .unwrap_or_default();
-                    host.start(keep, chat);
-                }
-            }
-            Arrived::Http { tag, status, body } => {
-                if let Some(machine) = host.machine.as_mut() {
-                    let effects = machine.on_http(tag, status, &body, now, &mut OsEntropy);
-                    host.carry_out(effects);
-                }
-            }
-            Arrived::Ticket(status, body) => {
-                host.socket.ticket(
-                    status,
-                    &body,
-                    &session.gateway,
-                    &session.token,
-                    &host.mailbox,
-                    &mut news,
-                );
-            }
-        }
-    }
-    vault_access::follow(host, lobby.bypass_change_detection());
-    if host.machine.is_none() {
-        return;
-    }
-    host.socket.pump(
-        dt,
-        &session.gateway,
-        &session.token,
-        &host.mailbox,
-        &mut news,
-    );
-    for item in news {
-        let Some(machine) = host.machine.as_mut() else {
-            break;
-        };
-        let effects = match item {
-            LinkNews::Up => machine.on_link(SocialLink::Up, now),
-            LinkNews::Down => machine.on_link(SocialLink::Down, now),
-            LinkNews::Refused | LinkNews::Unauthorized => machine.on_link(SocialLink::Refused, now),
-            LinkNews::Frame(text) => {
-                if let Ok(frame) = serde_json::from_str::<baylee_protocol::social::Down>(&text) {
-                    machine.on_frame(frame, now, &mut OsEntropy)
-                } else {
-                    debug!("the social socket sent something unreadable");
-                    Vec::new()
-                }
-            }
-        };
-        host.carry_out(effects);
-    }
-    // Input resets the idle clock (auto-away after ten minutes, §6).
-    if keys.get_just_pressed().next().is_some()
-        || mouse.is_some_and(|m| m.get_just_pressed().next().is_some())
-    {
-        host.idle = 0.0;
-    } else {
-        host.idle += dt;
-    }
-    host.since_tick += dt;
-    if host.since_tick >= TICK_SECS {
-        host.since_tick = 0.0;
-        let idle_ms = std::time::Duration::from_secs_f32(host.idle.max(0.0))
-            .as_millis()
-            .try_into()
-            .unwrap_or(u64::MAX);
-        let focused = windows.iter().any(|w| w.focused);
-        if let Some(machine) = host.machine.as_mut() {
-            machine.set_focus(focused);
-            let effects = machine.tick(now, idle_ms);
-            host.carry_out(effects);
-        }
-    }
-    if let Some(machine) = host.machine.as_mut()
-        && machine.wants_entropy()
-    {
-        let effects = machine.flush(now, &mut OsEntropy);
-        host.carry_out(effects);
-    }
-    if let Some((left, _)) = host.save.as_mut() {
-        *left -= dt;
-        if *left <= 0.0 {
-            host.flush_save();
-        }
-    }
-    #[cfg(not(target_arch = "wasm32"))]
-    if let Some(upto) = host.vault.ready_ack()
-        && let Ok(text) = serde_json::to_string(&baylee_protocol::social::Up::Ack { upto })
-        && host.socket.send(text)
-    {
-        host.vault.sent_ack(upto);
     }
 }
 

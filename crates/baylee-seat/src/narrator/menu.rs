@@ -10,20 +10,22 @@
 use super::{Style, Table, board, tag, words};
 use crate::mind::Request;
 use crate::reports::Report;
-use crate::wake::{Reach, ReachFrom, reachable};
+use crate::wake::{Reach, ReachFrom, Way, reachable, reachable_abilities, reachable_foretell};
 use baylee_cards_dsl::AbilityDef;
 use baylee_client_core::manaplan::{self, Tap};
 use baylee_core::ids::{AbilityRef, CardIndex, Defender, ObjectId, PlayerId, SubtypeId};
 use baylee_core::mana::{ManaColor, ManaCost, ManaPayment};
 use baylee_engine::choice::{
-    ArrangePile, ArrangePlace, ArrangePrompt, AttackerBound, BlockOption, CardTotal, CastModeDesc,
-    CastModeKind, LegalActions, NumberPrompt, Pending, PlayerAction, TargetPrompt, YesNoPrompt,
+    ArrangePile, ArrangePlace, ArrangePrompt, AttackerBound, BlockCapacity, BlockOption, CardTotal,
+    CastModeDesc, CastModeKind, LegalActions, NumberPrompt, Pending, PlayerAction, TargetPrompt,
+    YesNoPrompt,
 };
 use baylee_view::{ManaPoolView, PublicObject};
 use serde_json::Value;
 use std::fmt::Write as _;
 
 mod builder;
+mod payment;
 mod plan;
 
 pub use plan::{GRAMMAR, React, Step, Stop, Until, asked};
@@ -42,6 +44,9 @@ pub struct Menu {
     me: PlayerId,
     /// What the question listed for the model to answer with, in order.
     offered: Vec<Offered>,
+    /// The player decided for, when it is a player whose turn the seat
+    /// controls (CR 723.5) and not the seat.
+    controlled: Option<PlayerId>,
 }
 
 /// One thing a question listed for the model to answer with, as the model
@@ -86,8 +91,12 @@ enum Ask {
         defenders: Vec<Defender>,
         pending: Box<Pending>,
     },
-    /// A block declaration.
-    Block { options: Vec<BlockOption> },
+    /// A block declaration. How many attackers a blocker may take is the
+    /// engine's to say, so the question is kept to check the answer against.
+    Block {
+        options: Vec<BlockOption>,
+        pending: Box<Pending>,
+    },
     /// A number in a range.
     Number { min: u32, max: u32 },
     /// A subtype, by name.
@@ -246,6 +255,26 @@ pub struct Stops {
     pub theirs: Vec<String>,
 }
 
+impl Stops {
+    /// The steps `written` names, by the names the header uses
+    /// ([`crate::wake::stop_row`] reads the rules' names too), each once,
+    /// in the order written. A name that is no step is left out, so the
+    /// header's `stops:` line says what the seat will stop at.
+    fn named(written: &[String]) -> Vec<String> {
+        let mut named: Vec<String> = Vec::new();
+        for id in written
+            .iter()
+            .filter_map(|name| crate::wake::stop_row(name))
+            .map(crate::wake::stop_id)
+        {
+            if !named.iter().any(|kept| kept == id) {
+                named.push(id.to_string());
+            }
+        }
+        named
+    }
+}
+
 impl Decision {
     /// Reads the input of a `decide` call.
     ///
@@ -292,8 +321,16 @@ impl Decision {
                 .unwrap_or_default(),
             say: text("say"),
             stops: map.get("stops").and_then(Value::as_object).map(|s| Stops {
-                mine: s.get("mine").map(list).unwrap_or_default(),
-                theirs: s.get("theirs").map(list).unwrap_or_default(),
+                mine: s
+                    .get("mine")
+                    .map(list)
+                    .map(|names| Stops::named(&names))
+                    .unwrap_or_default(),
+                theirs: s
+                    .get("theirs")
+                    .map(list)
+                    .map(|names| Stops::named(&names))
+                    .unwrap_or_default(),
             }),
             plan: map.get("plan").map(list).unwrap_or_default(),
             until: text("until").or_else(|| text("hold")),
@@ -415,6 +452,15 @@ impl Menu {
             Some(_) => {}
         }
         if decision.concede.is_some() {
+            // A controller never concedes for the player it controls
+            // (CR 723.6): a concession is only ever the seat's own.
+            if let Some(p) = self.controlled.map(Table::player_id) {
+                return Err(format!(
+                    "you cannot concede for {p}: you decide for {p} while you control {p}'s \
+                     turn, and only {p} may concede for {p} (CR 723.6); your own concession is \
+                     yours to make in a decision of your own. Answer {asked} for {p}"
+                ));
+            }
             return Ok(now(PlayerAction::Concede, "concede the game".into()));
         }
         // The orders around the answer are read first: one that is not
@@ -461,7 +507,7 @@ impl Menu {
                 defenders,
                 pending,
             } => self.attack(decision, attackers, defenders, pending),
-            Ask::Block { options } => Self::block(decision, options),
+            Ask::Block { options, pending } => Self::block(decision, options, pending),
             Ask::Number { min, max } => Self::number(decision, *min, *max),
             Ask::Subtype { options } => {
                 let name = named(decision)?;
@@ -477,8 +523,7 @@ impl Menu {
             }
             Ask::CardName => {
                 let name = named(decision)?;
-                let (card, face) = card_name(&name)
-                    .ok_or_else(|| format!("«{name}» is not the name of a card this game knows"))?;
+                let (card, face) = card_name(&name).ok_or_else(|| not_a_card_here(&name))?;
                 Ok(now(
                     PlayerAction::ChooseCardName { card, face },
                     format!("name {name}"),
@@ -722,16 +767,15 @@ impl Menu {
         Ok(now(answer, label))
     }
 
-    fn block(decision: &Decision, options: &[BlockOption]) -> Result<Resolved, String> {
+    fn block(
+        decision: &Decision,
+        options: &[BlockOption],
+        pending: &Pending,
+    ) -> Result<Resolved, String> {
         let blockers: Vec<ObjectId> = options.iter().map(|o| o.blocker).collect();
         let mut declared = Vec::new();
         for (blocker, attacker) in &decision.blocks {
             let creature = object(blocker, &blockers)?;
-            if declared.iter().any(|(c, _)| *c == creature) {
-                return Err(format!(
-                    "{blocker} blocks twice; a creature blocks one attacker"
-                ));
-            }
             let may = options
                 .iter()
                 .find(|o| o.blocker == creature)
@@ -750,10 +794,11 @@ impl Menu {
                 .collect();
             pairs.join(", ")
         };
-        Ok(now(
-            PlayerAction::DeclareBlockers { blockers: declared },
-            label,
-        ))
+        let answer = PlayerAction::DeclareBlockers { blockers: declared };
+        if let Some(fault) = pending.answer_fault(&answer) {
+            return Err(fault.reason().to_owned());
+        }
+        Ok(now(answer, label))
     }
 
     fn arrange(
@@ -835,6 +880,23 @@ fn card_name(name: &str) -> Option<(CardIndex, u8)> {
         .position(|f| f.name.eq_ignore_ascii_case(name))
         .unwrap_or(0);
     Some((card, u8::try_from(face).unwrap_or(0)))
+}
+
+/// Why `name` cannot be named here. What may be named is the pool the
+/// deckbuilder shows, which is what the engine takes (owner, 4.11.2026). A
+/// real card without a script is told apart from a name that is no card at
+/// all: no deck here can hold it, so naming it could only ever miss, while
+/// "not a card" would tell a model its true name was wrong (Cabal Therapy
+/// naming Return to Dust).
+fn not_a_card_here(name: &str) -> String {
+    if baylee_cards_index::row_by_name(name).is_some() {
+        format!(
+            "«{name}» exists, but it isn't in this game's pool: name any card this game has, as \
+             in its deckbuilder (naming one nobody can hold simply misses)"
+        )
+    } else {
+        format!("«{name}» is not the name of a card this game has")
+    }
 }
 
 /// One of `among` by its `#` handle.
@@ -959,7 +1021,7 @@ pub(super) fn question(table: &Table<'_>, request: &Request, style: Style) -> (S
         .chain(&view.looking_at)
         .chain(&view.library_tops)
         .map(|o| o.id)
-        .chain(view.hand.iter().map(|c| c.id))
+        .chain(baylee_client_core::decision::known_cards(view).map(|c| c.id))
         .collect();
     let menu = Menu {
         question: request.question,
@@ -969,6 +1031,7 @@ pub(super) fn question(table: &Table<'_>, request: &Request, style: Style) -> (S
         players: view.seats.iter().map(|s| s.player).collect(),
         me: view.seat,
         offered: q.offered,
+        controlled: table.controlled(),
     };
     (q.text, menu)
 }
@@ -996,11 +1059,27 @@ fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, Str
         YesNoPrompt::ApplyAdditionalCountersNext {
             permanent,
             additional,
-        } => additional_counter_words(table, *permanent, *additional),
+            kind,
+        } => additional_counter_words(table, *permanent, *additional, *kind),
         YesNoPrompt::Kicker => (
             "Pay the kicker or additional cost?".into(),
             "pay it".into(),
             "cast it without it".into(),
+        ),
+        YesNoPrompt::Buyback { cost, parts } => (
+            format!(
+                "Pay its buyback ({})? If you do, the spell goes back to your hand as it \
+                 resolves instead of into your graveyard, and you may cast it again; if it is \
+                 countered, or every target is gone, it goes to your graveyard and the cost \
+                 stays paid.",
+                baylee_client_core::interaction::buyback_price(
+                    baylee_client_core::Lang::En,
+                    *cost,
+                    *parts
+                )
+            ),
+            "pay it, and have the spell back as it resolves".into(),
+            "cast it without it, and it goes to your graveyard".into(),
         ),
         YesNoPrompt::PayTax { mana } => (
             format!("Pay {{{mana}}} for this tax?"),
@@ -1018,7 +1097,7 @@ fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, Str
             kind,
             count,
         } => counter_untap_words(table, *permanent, *kind, *count),
-        YesNoPrompt::PayPact { cost } => pact_words(cost),
+        YesNoPrompt::PayPact { cost } => pact_words(table, cost),
         YesNoPrompt::PayEnergy { amount } => (
             format!("Pay {amount} energy counters?"),
             "pay".into(),
@@ -1036,14 +1115,7 @@ fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, Str
             "accept the draw".into(),
             "play on".into(),
         ),
-        YesNoPrompt::CommanderZone { card } => (
-            format!(
-                "Put your commander {} into the command zone?",
-                table.named(*card)
-            ),
-            "move it to the command zone".into(),
-            "leave it where it is".into(),
-        ),
+        YesNoPrompt::CommanderZone { card } => commander_zone_words(table, *card),
         YesNoPrompt::CommanderReplace { card, to_library } => {
             commander_replace_words(table, *card, *to_library)
         }
@@ -1066,21 +1138,43 @@ fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, Str
             "the top".into(),
             "the bottom".into(),
         ),
-        YesNoPrompt::Discover { card } => (
-            format!(
-                "Cast {} without paying its mana cost? If you don't, it goes into your hand.",
-                table.named(*card)
-            ),
-            "cast it".into(),
-            "put it into your hand".into(),
-        ),
-        YesNoPrompt::SkipTurn { source } => (
-            format!("Skip this turn to untap {}?", table.named(*source)),
-            "skip this turn; untap it when the next turn begins".into(),
-            "take this turn; leave it tapped".into(),
-        ),
+        YesNoPrompt::Discover { card } => discover_words(table, *card),
+        YesNoPrompt::SkipTurn { source } => skip_turn_words(table, *source),
+        YesNoPrompt::GuessNamedCardInHand { holder, card, face } => {
+            guess_words(table, *holder, *card, *face)
+        }
         YesNoPrompt::Generic => ("Yes or no?".into(), "yes".into(), "no".into()),
     }
+}
+
+/// Time Vault's turn trade, both consequences named.
+fn skip_turn_words(table: &Table<'_>, source: ObjectId) -> (String, String, String) {
+    (
+        format!("Skip this turn to untap {}?", table.named(source)),
+        "skip this turn; untap it when the next turn begins".into(),
+        "take this turn; leave it tapped".into(),
+    )
+}
+
+/// Liar's Pendulum's guess, naming the card whose name was chosen aloud
+/// and whose hand it is about.
+fn guess_words(
+    table: &Table<'_>,
+    holder: PlayerId,
+    card: baylee_core::ids::CardIndex,
+    face: u8,
+) -> (String, String, String) {
+    let name = baylee_cards::by_index(card)
+        .and_then(|def| def.faces.get(usize::from(face)))
+        .map_or("the chosen name", |face| face.name);
+    (
+        format!(
+            "Guess: does {} have a card named {name} in hand?",
+            table.player(holder)
+        ),
+        format!("yes, {name} is in that hand"),
+        format!("no, {name} is not in that hand"),
+    )
 }
 
 fn may_do_words() -> (String, String, String) {
@@ -1120,7 +1214,14 @@ fn counter_untap_words(
     )
 }
 
-fn pact_words(cost: &baylee_core::mana::ManaCost) -> (String, String, String) {
+fn pact_words(table: &Table<'_>, cost: &baylee_core::mana::ManaCost) -> (String, String, String) {
+    if let Some(p) = table.controlled().map(Table::player_id) {
+        return (
+            format!("Pay {cost} for {p}'s pact? If it is not paid, {p} loses the game."),
+            format!("pay {cost} with {p}'s mana"),
+            format!("don't pay, and {p} loses the game"),
+        );
+    }
     (
         format!("Pay {cost} for the pact? If you don't, you lose the game."),
         format!("pay {cost}"),
@@ -1146,7 +1247,7 @@ fn miracle_words(table: &Table<'_>, card: ObjectId) -> (String, String, String) 
             table.named(card)
         ),
         "cast it for its miracle cost".into(),
-        "keep it in your hand".into(),
+        table.for_decider("keep it in your hand"),
     )
 }
 
@@ -1165,10 +1266,21 @@ fn additional_counter_words(
     table: &Table<'_>,
     permanent: ObjectId,
     additional: u16,
+    kind: Option<baylee_cards_dsl::CounterKind>,
 ) -> (String, String, String) {
+    let counters = kind.map_or_else(
+        || "counters of each kind".into(),
+        |kind| {
+            baylee_client_core::interaction::counter_label_counted(
+                kind,
+                baylee_client_core::Lang::En,
+                usize::from(additional),
+            )
+        },
+    );
     (
         format!(
-            "Apply {additional} additional counters of each kind to {} next?",
+            "Apply {additional} additional {counters} to {} next?",
             table.named(permanent)
         ),
         "apply the additive counter replacement next".into(),
@@ -1195,6 +1307,17 @@ fn proliferate_words(player: PlayerId) -> (String, String, String) {
     )
 }
 
+fn commander_zone_words(table: &Table<'_>, card: ObjectId) -> (String, String, String) {
+    (
+        table.for_decider(&format!(
+            "Put your commander {} into the command zone?",
+            table.named(card)
+        )),
+        "move it to the command zone".into(),
+        "leave it where it is".into(),
+    )
+}
+
 fn commander_replace_words(
     table: &Table<'_>,
     card: ObjectId,
@@ -1202,12 +1325,23 @@ fn commander_replace_words(
 ) -> (String, String, String) {
     let destination = if to_library { "library" } else { "hand" };
     (
-        format!(
+        table.for_decider(&format!(
             "Your commander {} is about to go to your {destination}. Put it into the command zone instead?",
             table.named(card)
-        ),
+        )),
         "put it into the command zone".into(),
-        format!("let it go to your {destination}"),
+        table.for_decider(&format!("let it go to your {destination}")),
+    )
+}
+
+fn discover_words(table: &Table<'_>, card: ObjectId) -> (String, String, String) {
+    (
+        table.for_decider(&format!(
+            "Cast {} without paying its mana cost? If you don't, it goes into your hand.",
+            table.named(card)
+        )),
+        "cast it".into(),
+        table.for_decider("put it into your hand"),
     )
 }
 
@@ -1230,7 +1364,12 @@ fn ability_def(table: &Table<'_>, source: ObjectId, index: u32) -> Option<&'stat
                 .abilities_for_face(usize::from(rules.face))
                 .get(usize::try_from(grant.ability?).ok()?);
         }
-        if let Some(rules) = object.rules {
+        if let Some(rules) = object.rules.or_else(|| {
+            (!object.status.is_face_down())
+                .then_some(object.card)
+                .flatten()
+                .map(Into::into)
+        }) {
             baylee_cards::by_index(rules.card)?.abilities_for_face(usize::from(rules.face))
         } else if !object.status.is_face_down() {
             baylee_cards::tokens::by_token_id(object.token?)?.abilities
@@ -1238,7 +1377,10 @@ fn ability_def(table: &Table<'_>, source: ObjectId, index: u32) -> Option<&'stat
             return None;
         }
     } else {
-        let card = view.hand.iter().find(|c| c.id == source)?.card;
+        let card = baylee_client_core::decision::known_cards(view)
+            .into_iter()
+            .find(|c| c.id == source)?
+            .card;
         baylee_cards::by_index(card.index)?.abilities_for_face(usize::from(card.face))
     };
     list.get(usize::try_from(index).ok()?)
@@ -1257,12 +1399,22 @@ fn ability_sentence(table: &Table<'_>, source: ObjectId, index: u32) -> Option<&
             grant.text?.line,
         );
     }
-    let rules = view.object(source).and_then(|o| o.rules).or_else(|| {
-        view.hand
-            .iter()
-            .find(|c| c.id == source)
-            .map(|c| baylee_view::RulesFace::from(c.card))
-    })?;
+    let rules = view
+        .object(source)
+        .and_then(|o| {
+            o.rules.or_else(|| {
+                (!o.status.is_face_down())
+                    .then_some(o.card)
+                    .flatten()
+                    .map(Into::into)
+            })
+        })
+        .or_else(|| {
+            baylee_client_core::decision::known_cards(view)
+                .into_iter()
+                .find(|c| c.id == source)
+                .map(|c| baylee_view::RulesFace::from(c.card))
+        })?;
     let face = usize::from(rules.face);
     let at = baylee_cards::lines::ability_line(rules.card, face, index)?;
     baylee_cards::oracle::sentence(rules.card, face, at.line)
@@ -1314,7 +1466,33 @@ fn targeting_sentence(targeting: &baylee_view::TargetingContext) -> Option<Strin
     None
 }
 
+/// A face-down cast, named for the keyword the card has. The engine has one
+/// mode for both (CR 702.37c, 702.168a), and a morph card is not told
+/// "disguise".
+fn face_down_label(card: Option<baylee_view::CardIdentity>, cost: &str) -> String {
+    let keyword = card
+        .and_then(crate::wake::face_down_keyword)
+        .unwrap_or("disguise");
+    format!("Cast it face down with {keyword} for {cost}")
+}
+
 /// A cast mode in words, with its cost.
+/// What each ending does, because the choice is between outcomes and a model
+/// has only these words to weigh them with.
+fn spell_ending_label(ending: baylee_engine::choice::SpellEnding) -> &'static str {
+    use baylee_engine::choice::SpellEnding;
+    match ending {
+        SpellEnding::Hand => "Buyback: it goes back to your hand, to cast again at its full price",
+        SpellEnding::Rebound => {
+            "Rebound: exile it, and cast it free at the start of your next upkeep, once"
+        }
+        SpellEnding::Adventure => {
+            "Adventure: exile it, and you may cast the creature from exile later at its price"
+        }
+        SpellEnding::Exile => "Exile it, and nothing more comes of it",
+    }
+}
+
 fn cast_mode_label(card: Option<baylee_view::CardIdentity>, option: &CastModeDesc) -> String {
     let face = card.map_or(0, |c| usize::from(c.face));
     let sentence = |line: Option<baylee_cards::lines::AbilityLine>| {
@@ -1348,7 +1526,7 @@ fn cast_mode_label(card: Option<baylee_view::CardIdentity>, option: &CastModeDes
                 |w| format!("Mode \"{w}\" for {cost}"),
             )
         }
-        CastModeKind::Modes(n) => format!("Choose {n} modes, for {cost}"),
+        CastModeKind::Modes(set) => modes_label(card, face, set, &cost),
         CastModeKind::Face(i) | CastModeKind::PlayLandFace(i) => {
             let name = card
                 .and_then(|c| baylee_cards::by_index(c.index))
@@ -1361,8 +1539,9 @@ fn cast_mode_label(card: Option<baylee_view::CardIdentity>, option: &CastModeDes
             }
         }
         CastModeKind::Prototype => format!("Cast it prototyped for {cost}"),
-        CastModeKind::Disguise => format!("Cast it face down with disguise for {cost}"),
+        CastModeKind::Disguise => face_down_label(card, &cost),
         CastModeKind::Miracle => format!("Cast it for its miracle cost {cost}"),
+        CastModeKind::Foretell => format!("Cast it with foretell for {cost}"),
         CastModeKind::Flashback => format!("Cast it with flashback for {cost}"),
         CastModeKind::BeamMeUp => {
             format!("Cast it with beam me up for {cost}, returning a creature you control")
@@ -1375,6 +1554,7 @@ fn cast_mode_label(card: Option<baylee_view::CardIdentity>, option: &CastModeDes
         CastModeKind::MutatePosition(top) => {
             if top { "Put on top" } else { "Put underneath" }.to_string()
         }
+        CastModeKind::SpellEnding(ending) => spell_ending_label(ending).to_string(),
         CastModeKind::Mutate => format!("Cast it with mutate for {cost}"),
         CastModeKind::Escape => format!("Cast it with escape for {cost}"),
         CastModeKind::EscapeGranted {
@@ -1419,11 +1599,8 @@ fn cast_mode_label(card: Option<baylee_view::CardIdentity>, option: &CastModeDes
 fn own_subtypes(table: &Table<'_>, options: &[SubtypeId]) -> Vec<&'static str> {
     let mut seen: Vec<SubtypeId> = Vec::new();
     let view = table.view;
-    for object in view
-        .battlefield
-        .iter()
-        .filter(|o| o.controller == view.seat)
-    {
+    let decider = table.decider();
+    for object in view.battlefield.iter().filter(|o| o.controller == decider) {
         seen.extend(object.subtypes.iter());
     }
     for entry in &table.context.deck.main {
@@ -1474,6 +1651,38 @@ fn entry_life_words(amount: u16) -> (String, String, String) {
     )
 }
 
+/// A set of modes in the card's own words. The set is a bitmask, and it was
+/// written out as a count: Journey of Discovery's two modes read "Choose 3
+/// modes". An entwined cast says so, because its price is what the set is for.
+fn modes_label(
+    card: Option<baylee_view::CardIdentity>,
+    face: usize,
+    set: u8,
+    cost: &str,
+) -> String {
+    let words: Vec<String> = (0..usize::try_from(u8::BITS).unwrap_or(8))
+        .filter(|mode| set & (1 << mode) != 0)
+        .map(|mode| {
+            card.and_then(|c| {
+                baylee_cards::lines::mode_line(c.index, face, mode)
+                    .and_then(|line| baylee_cards::oracle::sentence(c.index, face, line.line))
+                    .or_else(|| baylee_cards::lines::inline_mode_words(c.index, face, mode))
+            })
+            .map_or_else(|| format!("mode {}", mode + 1), |w| format!("\"{w}\""))
+        })
+        .collect();
+    let entwined = card
+        .and_then(|c| baylee_cards::by_index(c.index))
+        .and_then(|def| def.faces.get(face))
+        .is_some_and(|f| f.entwine.is_some());
+    let head = if entwined {
+        "Cast it with entwine"
+    } else {
+        "Cast it with these modes"
+    };
+    format!("{head} for {cost}: {}", words.join(" and "))
+}
+
 fn spoken_cost(cost: &baylee_core::mana::ManaCost) -> String {
     let cost = cost.to_string();
     if cost.is_empty() {
@@ -1482,3 +1691,6 @@ fn spoken_cost(cost: &baylee_core::mana::ManaCost) -> String {
         cost
     }
 }
+
+#[cfg(test)]
+mod label_tests;

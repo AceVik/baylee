@@ -107,7 +107,7 @@ impl<L: CardLookup> Engine<L> {
                     // it, so X is bounded only by the number type, as an
                     // activation's is (`abilities/x_value.rs`). An answer
                     // the window then cannot pay is reversed there and says
-                    // so (`GameEvent::CastCancelled`, CR 601.2h, 732.1).
+                    // so (`GameEvent::CastCancelled`, CR 601.2h, 733.1).
                     // Life payments still cannot exceed payable life.
                     let more_mana = !wizard.makes_mana_after_choices()
                         && self.can_make_mana_for_cast(wizard.player);
@@ -187,7 +187,12 @@ impl<L: CardLookup> Engine<L> {
                     return self.advance_cast_wizard();
                 }
                 let options = self.wizard_target_options(&wizard, &spec);
-                let player_options = eval::target_player_options(&self.state, &spec, wizard.player);
+                let player_options = eval::target_player_options_from(
+                    &self.state,
+                    &spec,
+                    wizard.player,
+                    eval::live_context(&self.state, wizard.card),
+                );
                 // "Any target" is one set: a burn spell with every creature
                 // hexproofed is still castable at a player's face, so the
                 // count that has to reach `min` spans both halves.
@@ -260,8 +265,12 @@ impl<L: CardLookup> Engine<L> {
                     &req.spec,
                     wizard.targets.first().copied(),
                 );
-                let player_options =
-                    eval::target_player_options(&self.state, &req.spec, wizard.player);
+                let player_options = eval::target_player_options_from(
+                    &self.state,
+                    &req.spec,
+                    wizard.player,
+                    eval::live_context(&self.state, wizard.card),
+                );
                 if options.len() + player_options.len() < req.min as usize {
                     self.cast_wizard = None;
                     return Err(EngineError::IllegalAction("not enough legal targets"));
@@ -298,7 +307,12 @@ impl<L: CardLookup> Engine<L> {
                 let spec = self
                     .wizard_target_req(&wizard)
                     .map_or(TargetSpec::AnyPlayer, |req| req.spec);
-                let options = eval::target_player_options(&self.state, &spec, wizard.player);
+                let options = eval::target_player_options_from(
+                    &self.state,
+                    &spec,
+                    wizard.player,
+                    eval::live_context(&self.state, wizard.card),
+                );
                 // No player can be chosen (every opponent has hexproof, say):
                 // the spell cannot take the step and cannot be cast (CR
                 // 601.2c, 601.2), and an empty menu is a question with no
@@ -322,7 +336,7 @@ impl<L: CardLookup> Engine<L> {
                     || (face.kicked_targets.is_some() && !wizard.free)
                 {
                     let mut wizard = wizard;
-                    wizard.stage = WizardStage::Replicate;
+                    wizard.stage = WizardStage::Buyback;
                     self.cast_wizard = Some(wizard);
                     return self.advance_cast_wizard();
                 }
@@ -338,6 +352,28 @@ impl<L: CardLookup> Engine<L> {
                         })
                     }),
                 };
+                self.awaiting_answer = true;
+                Ok(())
+            }
+            WizardStage::Buyback => {
+                let Some(question) = self.ask_buyback(&wizard) else {
+                    let mut wizard = wizard;
+                    wizard.stage = WizardStage::Multikicker;
+                    self.cast_wizard = Some(wizard);
+                    return self.advance_cast_wizard();
+                };
+                self.pending = question;
+                self.awaiting_answer = true;
+                Ok(())
+            }
+            WizardStage::Multikicker => {
+                let Some(question) = self.ask_multikicker(&wizard) else {
+                    let mut wizard = wizard;
+                    wizard.stage = WizardStage::Replicate;
+                    self.cast_wizard = Some(wizard);
+                    return self.advance_cast_wizard();
+                };
+                self.pending = question;
                 self.awaiting_answer = true;
                 Ok(())
             }
@@ -364,14 +400,29 @@ impl<L: CardLookup> Engine<L> {
                 Ok(())
             }
             WizardStage::PitchChoice => {
-                let filter = self.wizard_pitch_filter(&wizard);
+                let parts = self.wizard_pitch_parts(&wizard);
+                let filter = parts
+                    .iter()
+                    .filter_map(|part| match part {
+                        CostPart::ExileFromHand(filter) => Some(*filter),
+                        _ => None,
+                    })
+                    .nth(wizard.pitch.len());
                 if let Some(filter) = filter {
-                    // The same scan `can_afford` and `casting::can_cast` now
-                    // run before this cast was ever offered: one reader, so
-                    // the offer and the prompt cannot disagree about what is
-                    // in the hand.
-                    let options =
+                    let mut options =
                         casting::pitchable(&self.state, wizard.player, wizard.card, filter);
+                    options.retain(|id| !wizard.pitch.contains(id));
+                    options.retain(|id| {
+                        let mut chosen = wizard.pitch.clone();
+                        chosen.push(*id);
+                        casting::pitch_costs_payable(
+                            &self.state,
+                            wizard.player,
+                            wizard.card,
+                            parts,
+                            &chosen,
+                        )
+                    });
                     if options.is_empty() {
                         self.cast_wizard = None;
                         return Err(EngineError::IllegalAction(
@@ -501,12 +552,13 @@ impl<L: CardLookup> Engine<L> {
                 // what they tap and in how much of the cost the taps may pay
                 // (#229). A waterbend's taps exist only once its cost is paid
                 // and pay that cost's generic mana alone (CR 701.67b). Convoke
-                // may pay the spell's whole total cost (CR 702.51a), but
-                // `finish_cast` takes the taps off its generic mana only, so
-                // the bound is the generic delve has left; #230 teaches the
-                // payment a creature's colour and moves this bound with it.
-                // A bound the payment cannot honour is a tap spent for
-                // nothing, as in the delve stage above.
+                // may pay the spell's whole total cost (CR 702.51a): each
+                // creature a coloured symbol of its colour or one generic
+                // mana, so the bound is the coloured symbols the sources can
+                // pay between them (`ManaCost::convoked_colored`) and the
+                // generic delve has left. Improvise's artifacts pay generic
+                // only (CR 702.126a). A bound the payment cannot honour is a
+                // tap spent for nothing, as in the delve stage above.
                 let generic =
                     |cost: &ManaCost| usize::try_from(cost.generic_total()).unwrap_or(usize::MAX);
                 let (sources, room) = if face.waterbend && wizard.kicked {
@@ -523,11 +575,20 @@ impl<L: CardLookup> Engine<L> {
                 {
                     // Convoke's creatures and improvise's artifacts
                     // (CR 702.126a), each permanent once.
-                    (
-                        crate::casting::tap_to_pay_sources(&self.state, face, wizard.player),
-                        generic(&wizard_total_cost(face, &wizard))
-                            .saturating_sub(wizard.delve_exiles.len()),
-                    )
+                    let sources =
+                        crate::casting::tap_to_pay_sources(&self.state, face, wizard.player);
+                    let left = wizard_total_cost(face, &wizard).with_less_generic(
+                        u32::try_from(wizard.delve_exiles.len()).unwrap_or(u32::MAX),
+                    );
+                    let (rest, colored) = left.convoked_colored(&crate::casting::tap_colors(
+                        &self.state,
+                        face,
+                        &sources,
+                    ));
+                    let room = usize::try_from(colored)
+                        .unwrap_or(usize::MAX)
+                        .saturating_add(generic(&rest));
+                    (sources, room)
                 } else {
                     (Vec::new(), 0)
                 };
@@ -556,8 +617,9 @@ impl<L: CardLookup> Engine<L> {
             }
             WizardStage::Sacrifice => {
                 let face = self.wizard_face(&wizard);
-                let asked = wizard.sacrifices.len();
-                let Some(part) = additional_card_costs_for(face, wizard.option).nth(asked) else {
+                let asked = wizard.cost_objects.len();
+                let Some(part) = additional_card_costs_for(face, wizard.cost_choice()).nth(asked)
+                else {
                     let mut wizard = wizard;
                     wizard.stage = WizardStage::Done;
                     self.cast_wizard = Some(wizard);
@@ -573,16 +635,16 @@ impl<L: CardLookup> Engine<L> {
                     wizard.card,
                     part,
                 );
-                options.retain(|id| *id != wizard.card && !wizard.sacrifices.contains(id));
+                options.retain(|id| *id != wizard.card && !wizard.cost_objects.contains(id));
                 options.retain(|candidate| {
-                    let mut chosen = wizard.sacrifices.to_vec();
+                    let mut chosen = wizard.cost_objects.to_vec();
                     chosen.push(*candidate);
                     casting::additional_payment_capacity_for(
                         &self.state,
                         wizard.player,
                         wizard.card,
                         face,
-                        wizard.option,
+                        wizard.cost_choice(),
                         &chosen,
                     )
                     .is_some()

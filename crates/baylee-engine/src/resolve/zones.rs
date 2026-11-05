@@ -22,7 +22,6 @@ mod sweep_filter;
 /// does not exist (CR 702.26b). `battlefield_view` leaves it out for the
 /// same reason.
 ///
-/// It is the sibling of the battlefield check in `Engine::demand_echo`.
 /// `resolve::exec_choice` reads it too, so "you may sacrifice this" is not
 /// offered when the answer "yes" is impossible (CR 608.2d).
 pub(super) fn can_sacrifice_self(state: &GameState, res: &Resolution) -> bool {
@@ -102,6 +101,7 @@ pub(super) fn spec_object(
         | TargetSpec::ObjectOfEventPlayer(_)
         | TargetSpec::Spell(_)
         | TargetSpec::StackOrBattlefield(_)
+        | TargetSpec::ObjectOrCardInAnyGraveyard(_)
         | TargetSpec::CardInGraveyard(..)
         | TargetSpec::CardInPlayersGraveyard(..)
         | TargetSpec::CardInGraveyardBelowEvent(..)
@@ -112,6 +112,8 @@ pub(super) fn spec_object(
         | TargetSpec::AnyPlayer
         | TargetSpec::AnyOpponent
         | TargetSpec::PlayerWhoAttackedThisTurn
+        | TargetSpec::OpponentWithMoreThanActivePlayer(_)
+        | TargetSpec::OpponentWithMoreThanPlayer(..)
         | TargetSpec::AnyTarget => res.targets.first().copied(),
     }
 }
@@ -948,7 +950,8 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
-        Effect::RollDiePutTargetIntoLibraryBeneathTop { sides } => {
+        Effect::RollDiePutTargetIntoLibraryBeneathTop { .. }
+        | Effect::PutTargetIntoLibraryBeneathTop { .. } => {
             let moves: Vec<(ObjectId, ZoneLocation)> = res
                 .targets
                 .iter()
@@ -960,7 +963,15 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             if let Some(pending) = ask_commander_replace(state, res, &moves) {
                 return Some(pending);
             }
-            let x = (state.rng.below(u64::from(sides.max(1))) as usize) + 1;
+            let x = match op {
+                Effect::RollDiePutTargetIntoLibraryBeneathTop { sides } => {
+                    (state.rng.below(u64::from(sides.max(1))) as usize) + 1
+                }
+                Effect::PutTargetIntoLibraryBeneathTop { count } => {
+                    usize::try_from(amount2(&count, state, you, res)).unwrap_or(usize::MAX)
+                }
+                _ => unreachable!(),
+            };
             for (target, to) in moves {
                 if let Some(obj) = state.object_mut(target) {
                     obj.kind = ObjectKind::Card;
@@ -1306,9 +1317,9 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             let shielded: Vec<ObjectId> = state
                 .battlefield_seen()
                 .filter(|id| {
-                    state.object(*id).is_some_and(|o| {
-                        crate::eval::matches_with_context(filter, state, o, you, res.rule_context())
-                    })
+                    state
+                        .object(*id)
+                        .is_some_and(|o| sweep_filter::matches(filter, state, o, res))
                 })
                 .collect();
             for id in shielded {

@@ -58,6 +58,21 @@ impl<L: CardLookup> Engine<L> {
             self.end_game(result);
             return;
         }
+        // A spell's ending is asked again from the board the leaver left: a
+        // spell of theirs went with them, and what they controlled may have
+        // been what competed. Their leaving was an event of its own, so a
+        // rule of theirs has nothing to say about the move still to come
+        // (#291). Nobody chooses what is left alone.
+        if let Some(PlanKind::SpellEnding { spell }) = self.pending_plan {
+            self.pending_plan = None;
+            self.awaiting_answer = false;
+            crate::replacement::expire_departed_rules(&mut self.state);
+            if !self.ask_spell_ending(spell) {
+                self.finish_spell(spell, None);
+                self.run_until_choice();
+            }
+            return;
+        }
         if self.state.entries.waiting() {
             crate::entry::refresh_after_departure(&mut self.state);
             self.awaiting_answer = false;
@@ -324,7 +339,7 @@ impl<L: CardLookup> Engine<L> {
         // A search they were making for another player (Opposition Agent)
         // is that player's own again: the effect that gave them control of
         // the searcher has ended (CR 800.4a), and a player nobody controls
-        // makes their own choices (CR 722.5). Same cards, same limits, and
+        // makes their own choices (CR 723.5). Same cards, same limits, and
         // the finds go where the search sends them.
         if !their_own
             && let Some(res) = &mut self.resolution

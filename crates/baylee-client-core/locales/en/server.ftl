@@ -339,3 +339,23 @@ YouAreAlreadyAtThisTable = you are already at this table
 YouAreNotAtThisTable = you are not at this table
 
 YouWereNotAtThatTable = you were not at that table
+
+NoSuchList = no such list
+
+InvalidListName = invalid list name
+
+InvalidFormat = invalid format
+
+InvalidCardId = invalid card id
+
+ACardNamedTwice = a card named twice
+
+TooManyLists = too many lists
+
+TooManyCards = too many cards
+
+OfficialListsAreReadOnly = official lists are read-only
+
+ThatListIsForAnotherFormat = that list is for another format
+
+ThisTableHasNoList = this table has no list

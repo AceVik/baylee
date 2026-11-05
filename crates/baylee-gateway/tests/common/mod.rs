@@ -171,10 +171,7 @@ impl Drop for Gateway {
         let _ = std::fs::remove_file(&self.store_path);
         let _ = std::fs::remove_file(&self.port_file);
         let _ = std::fs::remove_file(&self.log_path);
-        ddl(&format!(
-            "DROP SCHEMA IF EXISTS \"{}\" CASCADE",
-            self.schema
-        ));
+        ddl(&baylee_db::drop_schema_statement(&self.schema));
     }
 }
 
@@ -262,7 +259,7 @@ pub fn spawn_gateway_with(label: &str, env: &[(&str, String)]) -> Gateway {
     // half a gigabyte that took three minutes to ingest. The name carries
     // the test's, so a schema left behind by a crash says which one left it.
     let schema = format!("t_{label}_{id}").replace(|c: char| !c.is_ascii_alphanumeric(), "_");
-    ddl(&format!("DROP SCHEMA IF EXISTS \"{schema}\" CASCADE"));
+    ddl(&baylee_db::drop_schema_statement(&schema));
     ddl(&format!("CREATE SCHEMA \"{schema}\""));
     let base = database_url();
     let sep = if base.contains('?') { '&' } else { '?' };

@@ -49,12 +49,16 @@ pub(in crate::hud) fn stack_sentence(
     // The modes chosen for it (#23): every player is told them as it is
     // put on the stack (CR 601.2b, 603.3c), and the card alone cannot say
     // which they were. A modal spell has no sentence of its own here, and a
-    // modal trigger's says only "choose one —".
-    let Some(modes) = chosen_modes(item, faces) else {
+    // modal trigger's says only "choose one —". What it was kicked and
+    // whether its buyback was paid are the same kind of thing.
+    let modes = chosen_modes(item, faces);
+    let costs = item.announced_costs(Lang::of(&faces.settings.lang));
+    if modes.is_none() && costs.is_empty() {
         return said;
-    };
+    }
     let mut blocks = said.unwrap_or_default();
-    blocks.extend(modes);
+    blocks.extend(modes.into_iter().flatten());
+    blocks.extend(costs.into_iter().map(TextBlock::Rules));
     Some(blocks)
 }
 

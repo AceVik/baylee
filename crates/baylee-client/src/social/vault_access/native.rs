@@ -60,11 +60,7 @@ pub(crate) fn follow(host: &mut SocialHost, lobby: &mut LobbyState) {
     let central_start = host.vault.central.is_some()
         && !host.vault.attempted
         && host.machine.is_none()
-        && host.session.as_ref().is_some_and(|session| !session.guest)
-        && matches!(
-            host.info,
-            InfoState::Known(Some((baylee_protocol::social::SOCIAL_VERSION, _)))
-        );
+        && host.session.as_ref().is_some_and(|session| !session.guest);
     follow_with(host, lobby, |host, login| {
         begin(host, Choice::Unlock, login.password, login.previous, None);
     });
@@ -130,6 +126,7 @@ fn follow_with(
                     host.disk = Some(ready.disk);
                     host.vault.sync = ready.sync;
                     host.vault.error = None;
+                    crate::social::central::attach(host, host.vault.central.clone());
                     host.carry_out(ready.effects);
                 }
                 Err(error) => host.vault.error = Some(error),
@@ -143,14 +140,16 @@ fn follow_with(
         lobby.vault_login = None;
         return;
     }
-    if matches!(host.info, InfoState::Known(None)) {
+    if host.vault.central.is_none() && matches!(host.info, InfoState::Known(None)) {
         lobby.vault_login = None;
         return;
     }
-    if !matches!(
-        host.info,
-        InfoState::Known(Some((baylee_protocol::social::SOCIAL_VERSION, _)))
-    ) {
+    if host.vault.central.is_none()
+        && !matches!(
+            host.info,
+            InfoState::Known(Some((baylee_protocol::social::SOCIAL_VERSION, _)))
+        )
+    {
         return;
     }
     if host.machine.is_some() || host.vault.attempted {

@@ -959,6 +959,14 @@ fn no_spell_cost_list_carries_a_part_its_payment_walks_past() {
                     ));
                 }
             }
+            for part in face.buyback.iter().flat_map(|cost| cost.parts) {
+                if !crate::engine::cast_wizard::paid_as_a_buyback_cost(part) {
+                    offenders.push(format!(
+                        "{} — buyback part {part:?}, which `finish_cast` skips",
+                        face.name,
+                    ));
+                }
+            }
         }
     }
     assert!(

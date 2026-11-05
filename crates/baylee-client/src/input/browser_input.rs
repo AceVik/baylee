@@ -152,7 +152,6 @@ pub(super) fn browser_keys(
     typed: &mut MessageReader<KeyboardInput>,
     duel: &mut Duel,
 ) -> bool {
-    use baylee_client_core::textbuf::{Dir, Step};
     // Two fields and one chord table. While the builder holds a caret in one
     // of its rows, every key below goes there instead of into the box — the
     // two are editors of one string and only one of them may be typed into,
@@ -195,29 +194,6 @@ pub(super) fn browser_keys(
     if crate::softkeys::SoftKeyboard::owns_typing() {
         return true;
     }
-    // The three modifiers a text field reads, once for the whole batch
-    // because a key event carries no modifier state of its own. Which one
-    // means what is the platform's convention rather than a preference, and
-    // it is the lobby's: shift extends a selection, and the reaches past a
-    // single character are ⌥/Ctrl for a word and ⌘/Home-End for the line.
-    let shift = codes.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]);
-    let word = codes.any_pressed([
-        KeyCode::AltLeft,
-        KeyCode::AltRight,
-        KeyCode::ControlLeft,
-        KeyCode::ControlRight,
-    ]);
-    let line = codes.any_pressed([KeyCode::SuperLeft, KeyCode::SuperRight]);
-    // ⌘A and Ctrl+A, answered before the text arm so the "a" stays out of the
-    // box.
-    let command = line || codes.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]);
-    let reach = if line {
-        Step::Line
-    } else if word {
-        Step::Word
-    } else {
-        Step::Char
-    };
     // A sheet a question opened answers with Space (tick) and Enter (send).
     // While its box holds the caret those keys were the box's: a blank typed
     // into an empty filter, an Enter that only let go of it, and the tutor's
@@ -225,6 +201,7 @@ pub(super) fn browser_keys(
     // (or, for Enter, once something is ticked) the box lets go and the key
     // goes on to the dialog; with words in it, it stays the box's.
     let answering = target == Caret::Box && duel.browser.answers_here(duel.interaction.as_ref());
+    let chords = crate::filterui::Chords::read(codes);
     for event in typed.read() {
         if !event.state.is_pressed() {
             continue;
@@ -245,28 +222,9 @@ pub(super) fn browser_keys(
                 return false;
             }
         }
-        let gesture = match &event.logical_key {
-            Key::Backspace => Gesture::Back,
-            Key::Delete => Gesture::Forward,
-            Key::ArrowLeft => Gesture::Move(reach, Dir::Left, shift),
-            Key::ArrowRight => Gesture::Move(reach, Dir::Right, shift),
-            Key::Home => Gesture::Move(Step::Line, Dir::Left, shift),
-            Key::End => Gesture::Move(Step::Line, Dir::Right, shift),
-            // "Done" rather than "submit": the rows are already narrowed, so
-            // the only thing left to do is hand the keyboard back.
-            Key::Enter => Gesture::Done,
-            Key::Character(s) if command => {
-                if s.eq_ignore_ascii_case("a") {
-                    Gesture::SelectAll
-                } else {
-                    continue;
-                }
-            }
-            Key::Character(s) => Gesture::Insert(s.to_string()),
-            Key::Space => Gesture::Insert(" ".to_string()),
-            _ => continue,
-        };
-        gesture.done(target, duel);
+        if let Some(gesture) = crate::filterui::gesture(event, chords) {
+            duel.browser.gesture(gesture);
+        }
     }
     true
 }
@@ -278,59 +236,4 @@ enum Caret {
     Box,
     /// A row of the filter builder.
     Row,
-}
-
-/// One editing gesture, before it is aimed at a field.
-///
-/// The chords are read once and the field is chosen once, which is the point:
-/// the box and a builder row take the same keys because they are the same
-/// kind of thing, and a table written twice is a table that agrees until
-/// somebody adds a chord to one half of it.
-enum Gesture {
-    /// Backspace.
-    Back,
-    /// Delete.
-    Forward,
-    /// An arrow, Home or End.
-    Move(
-        baylee_client_core::textbuf::Step,
-        baylee_client_core::textbuf::Dir,
-        bool,
-    ),
-    /// ⌘A.
-    SelectAll,
-    /// Enter: hand the keyboard back.
-    Done,
-    /// A character, or a whole run of them from an IME or a paste.
-    Insert(String),
-}
-
-impl Gesture {
-    /// Does it, to whichever field holds the caret.
-    fn done(self, target: Caret, duel: &mut Duel) {
-        match (target, self) {
-            (Caret::Box, Self::Back) => {
-                duel.browser.pop_filter();
-            }
-            (Caret::Box, Self::Forward) => duel.browser.delete_forward(),
-            (Caret::Box, Self::Move(step, dir, select)) => {
-                duel.browser.move_filter_caret(step, dir, select);
-            }
-            (Caret::Box, Self::SelectAll) => duel.browser.select_all_filter(),
-            (Caret::Box, Self::Done) => duel.browser.stop_typing(),
-            (Caret::Box, Self::Insert(text)) => duel.browser.type_text(&text),
-            (Caret::Row, Self::Back) => duel.browser.in_builder(|it| {
-                it.pop_typed();
-            }),
-            (Caret::Row, Self::Forward) => {
-                duel.browser.in_builder(FilterPanel::delete_typed_forward);
-            }
-            (Caret::Row, Self::Move(step, dir, select)) => duel
-                .browser
-                .in_builder(|it| it.move_typing_caret(step, dir, select)),
-            (Caret::Row, Self::SelectAll) => duel.browser.in_builder(FilterPanel::select_all_typed),
-            (Caret::Row, Self::Done) => duel.browser.in_builder(FilterPanel::stop_typing),
-            (Caret::Row, Self::Insert(text)) => duel.browser.type_into_builder(&text),
-        }
-    }
 }

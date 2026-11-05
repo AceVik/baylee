@@ -24,6 +24,17 @@ ChooseDredge = Dredge a card instead of drawing? Choose one from your graveyard,
 # Choice among the replacements that could modify one card draw (CR 616.1): dredge cards, Chains of Mephistopheles, Aladdin's Lamp, Ring of Ma'rûf.
 ChooseDrawReplacement = Which replacement will you apply to this draw next?
 
+# A vote (CR 701.38a): the menu is what this player may vote for, and the one chosen is their ballot. Every earlier ballot is told beside it (`VotesSoFar`).
+CastYourVote = Cast your vote: choose one.
+
+# The ballots cast so far in the vote in progress, after the question or the wait. `$ballots` is the list of `BallotFor` lines, joined by commas.
+# Arguments: ballots
+VotesSoFar = Votes so far: { $ballots }
+
+# One ballot in `VotesSoFar`: `$voter` (a seat's name, or You) voted for `$choice`.
+# Arguments: voter, choice
+BallotFor = { $voter } for { $choice }
+
 # Full sacrifice needed before the announced card can enter the battlefield.
 # Arguments: count
 SacrificeToEnter =
@@ -2038,6 +2049,22 @@ MutateUnderneath = Put underneath
 # Resolution choice: `ChooseMutatePosition`.
 ChooseMutatePosition = Choose how to merge
 
+# Resolution choice: `ChooseSpellEnding`. A resolved spell, and more than one
+# effect wanting it instead of the graveyard (CR 616.1e).
+ChooseSpellEnding = Where does the spell go?
+
+# Resolution choice: `SpellEndingHand`.
+SpellEndingHand = Back to your hand (buyback)
+
+# Resolution choice: `SpellEndingRebound`.
+SpellEndingRebound = Exile it, cast it free next upkeep (rebound)
+
+# Resolution choice: `SpellEndingAdventure`.
+SpellEndingAdventure = Exile it, on an adventure
+
+# Resolution choice: `SpellEndingExile`.
+SpellEndingExile = Exile it
+
 # Resolution choice: `ChooseDungeon`.
 ChooseDungeon = Choose a dungeon
 
@@ -2602,6 +2629,60 @@ RequiredManaProgress =
 # Decision controller differs from the resource owner.
 # Arguments: player
 DecidingFor = You decide for { $player }
+
+# A question asked of a player this seat controls (CR 723.5), on the shelf
+# and the decision sheet: whose it is, then the question.
+# Arguments: player, question
+ForPlayer = For { $player }: { $question }
+
+# The banner on the controlled player's own table during their turn
+# (Mindslaver, CR 723.1). `$player` is the player in control.
+# Arguments: player
+ControlTakesYourTurn = { $player } controls your turn
+
+# The same outside their own turn: a control limited to an instruction
+# (Word of Command, CR 723.2).
+# Arguments: player
+ControlDecidesForYou = { $player } decides for you
+
+# The banner on every other seat's table: control of a player is public.
+# Arguments: controller, player
+ControlDecidesForOther = { $controller } decides for { $player }
+
+# The badge on the chip of a player this seat controls.
+ControlUnderYours = Under your control
+
+# The same badge on the chip whose chair the table is shown from.
+ControlUnderYoursShown = Shown · under your control
+
+# The badge on a controlled player's chip, for everybody.
+# Arguments: player
+ControlledBy = Controlled by { $player }
+
+# The label over the hand while the table is shown from a controlled
+# player's chair.
+# Arguments: player
+ControlHandOf = { $player }'s hand · under your control
+
+# The hint on a controlled player's chip: what a press on it does.
+# Arguments: player
+ControlChipHint = Press to play from { $player }'s chair: their hand, mana and questions
+
+# The hint on this seat's own chip while another chair is shown.
+ControlChipHintBack = Press to go back to your own hand
+
+# The hint on a turn whose player is controlled.
+# Arguments: player, controller
+ControlTurnOf = { $player }'s turn — controlled by { $controller }
+
+# Settings: whether the table follows the player this seat decides for.
+RowFollowControl = Follow the player you decide for
+
+# Its help line.
+HelpFollowControl = While you control another player (Mindslaver), the table shows that player's hand, mana and questions as one of their decisions arrives, and yours again as one of your own does. A chair you pick on its chip stays until the next decision. Off, the table stays where you put it.
+
+# The keymap: show the table from the next player you control.
+ActCyclePerspective = Play from the next chair you control
 
 # A replacement effect turns the affected face-down creature face up.
 DamageTurnFaceUp = Turn face up before damage
@@ -3254,6 +3335,9 @@ ChooseBasicLandType = Choose a basic land type
 # Choose a land type, including nonbasic land subtypes
 ChooseLandType = Choose a land type
 
+# Choose a card type (Serra's Emissary)
+ChooseCardType = Choose a card type
+
 # Choose a card name (Pithing Needle)
 ChooseCardName = Choose a card name
 
@@ -3293,6 +3377,54 @@ CombatDamageShareNamed = Combat damage from { $source } to { $recipient } ({ $po
 # Arguments: cost, min, max
 ReplicateHowOften = Replicate { $cost }: pay it how many times? ({ $min }–{ $max })
 
+# Multikicker $cost: pay it how many times? ($min–$max)
+# Arguments: cost, min, max
+MultikickerHowOften = Multikicker { $cost }: pay it how many times? ({ $min }–{ $max })
+
+# The buyback question. $price is the whole cost, one or more of the
+# price phrases below joined by commas.
+# Arguments: price
+BuybackAsk = Buyback: { $price }? The spell comes back to your hand as it resolves.
+
+# Part of a buyback price: life.
+# Arguments: amount
+BuybackPriceLife = pay { $amount } life
+
+# Part of a buyback price: permanents to sacrifice.
+# Arguments: count
+BuybackPriceSacrifice =
+    { $count ->
+        [one] sacrifice a permanent
+       *[other] sacrifice { $count } permanents
+    }
+
+# Part of a buyback price: cards the player chooses.
+# Arguments: count
+BuybackPriceDiscard =
+    { $count ->
+        [one] discard a card
+       *[other] discard { $count } cards
+    }
+
+# Part of a buyback price: cards discarded at random.
+# Arguments: count
+BuybackPriceDiscardRandom =
+    { $count ->
+        [one] discard a card at random
+       *[other] discard { $count } cards at random
+    }
+
+# Beside a spell on the stack: its buyback cost was paid.
+StackBoughtBack = Buyback paid: returns to hand as it resolves
+
+# Beside a spell on the stack: how many times it was kicked.
+# Arguments: count
+StackKicked =
+    { $count ->
+        [one] Kicked
+       *[other] Kicked { $count } times
+    }
+
 # Choose a player
 ChoosePlayer = Choose a player
 
@@ -3327,6 +3459,9 @@ CastMiracle = Miracle
 
 # Flashback
 CastFlashback = Flashback
+
+# Foretell, both the special action and the later alternative cast
+CastForetell = Foretell
 
 # Beam me up's casting option.
 CastBeamMeUp = Beam me up
@@ -3476,6 +3611,10 @@ ApplyAdditionalCountersNext =
        *[other] additional counters
     } of each kind next? No applies another replacement first.
 
+# Apply an entry replacement that adds a specified counter kind.
+# Arguments: count, kind
+ApplyAdditionalCountersOfKindNext = Apply { $count } additional { $kind } next? No applies another replacement first.
+
 # Use the optional part of this ability? ("you may …")
 UseTheOptionalAbility = This ability is optional. Use it?
 
@@ -3491,6 +3630,11 @@ CastDiscovered = You discovered this card. Cast it without paying its mana cost?
 
 # A turn replacement with an explicit turn cost, not a free optional effect.
 SkipTurnToUntap = Skip this turn to untap this permanent?
+
+# Liar's Pendulum: the guess whether the player has a card with the name
+# just chosen in hand. Yes guesses it is there.
+# Arguments: player
+GuessNamedCardInHand = Guess: does { $player } have a card with the chosen name in hand?
 
 # Yes or no?
 YesOrNo = Yes or no?
@@ -3523,6 +3667,14 @@ YouAreWatching = You are watching
 
 # Concede, armed and waiting for the second press.
 ConcedeConfirm = Concede? Press again
+
+# Concede while this seat makes another player's decisions (CR 723.5):
+# it concedes only this seat's own game, never the controlled player's
+# (CR 723.6), and says so.
+ConcedeYourself = Concede yourself
+
+# The same, armed and waiting for the second press.
+ConcedeYourselfConfirm = Concede yourself? Press again
 
 # The game menu's way up from a running table without conceding
 # (report 33).
@@ -3634,6 +3786,11 @@ SuspendedCard =
 
 # Confirm a suspend action with no outstanding mana payment.
 ArmedSuspendNow = Suspend this card
+
+# Confirm foretell's {2} special action, with or without automatic taps.
+# Arguments: cost
+ArmedForetell = Pay { $cost } and foretell
+ArmedForetellNow = Foretell this card
 
 # The button that puts an armed deed back, with nothing sent.
 ArmedCancel = Not yet
@@ -4010,6 +4167,9 @@ PlanSpellRefused = The mana is up but the spell is not castable
 
 # The mana is up but the card cannot be suspended.
 PlanSuspendRefused = The mana is up but the card cannot be suspended
+
+# The mana is up but foretell's special action is no longer legal.
+PlanForetellRefused = The mana is up but the card cannot be foretold
 
 # The run lost the card it was paying for.
 PlanCardGone = The run lost the card it was paying for
@@ -4472,6 +4632,12 @@ FilterUnanswerable = A condition cannot be checked here — the list stays empty
 # Arguments: chips
 FilterAlsoChips = Chips are narrowing this list as well: { $chips }
 
+# Arguments: types
+NameOnlyTypes = This question takes only: { $types }
+
+# Arguments: types
+NameNoTypes = This question leaves out: { $types }
+
 # Playable only
 FilterChipPlayable = playable only
 
@@ -4533,6 +4699,61 @@ FilterKeyToughness = Toughness
 
 # Printed starting loyalty.
 FilterKeyLoyalty = Loyalty
+
+# A condition chosen from a list: a printing's rarity or set, or a format.
+FilterKindPrinting = Printing, format and list
+
+# A printing's rarity.
+FilterKeyRarity = Rarity
+
+# A printing's set.
+FilterKeySet = Set
+
+# The format lets the card be played. A restricted card counts.
+FilterKeyFormat = Legal in
+
+# The format bans the card.
+FilterKeyBanned = Banned in
+
+# The format allows one copy.
+FilterKeyRestricted = Restricted in
+
+# Under a row asking for rarity, set or format, and over an empty list, on a
+# list without the gateway's table: offline, or at a gateway with no catalog.
+FilterNoPoolFacts = Rarity, set and format need the gateway's card catalog, which is not available here. The list stays empty while such a condition stands.
+
+# The six rarities, as a filter row offers them.
+RarityCommon = Common
+RarityUncommon = Uncommon
+RarityRare = Rare
+RaritySpecial = Special
+RarityMythic = Mythic
+RarityBonus = Bonus
+
+# Formats a card can be legal in, as a filter row offers them. A format the
+# gateway knows and this list does not is shown by its key.
+PlayFormatAlchemy = Alchemy
+PlayFormatBrawl = Brawl
+PlayFormatCommander = Commander
+PlayFormatCompetitiveBrawl = Competitive Brawl
+PlayFormatDuel = Duel Commander
+PlayFormatFuture = Future Standard
+PlayFormatGladiator = Gladiator
+PlayFormatHistoric = Historic
+PlayFormatLegacy = Legacy
+PlayFormatModern = Modern
+PlayFormatOathbreaker = Oathbreaker
+PlayFormatOldschool = Old School
+PlayFormatPauper = Pauper
+PlayFormatPauperCommander = Pauper Commander
+PlayFormatPenny = Penny Dreadful
+PlayFormatPioneer = Pioneer
+PlayFormatPredh = PreDH
+PlayFormatPremodern = Premodern
+PlayFormatStandard = Standard
+PlayFormatStandardBrawl = Standard Brawl
+PlayFormatTimeless = Timeless
+PlayFormatVintage = Vintage
 
 # A colour reading: the card has these and may have others.
 FilterAtLeast = at least
@@ -5266,6 +5487,14 @@ LogCardsKeptYou = { $you_subject } chose to keep { $cards }
 # Arguments: player, cards
 LogCardsKept = { $player } chose to keep { $cards }
 
+# The reading seat voted (CR 701.38a). `$object` is what it voted for.
+# Arguments: player, object, unused_2, unused_3, unused_4, unused_5, unused_6, you_subject
+LogVotedYou = { $you_subject } voted for { $object }
+
+# Another seat voted.
+# Arguments: player, object
+LogVoted = { $player } voted for { $object }
+
 # The reading seat revealed cards. `$cards` is the list.
 # Arguments: player, cards, unused_2, unused_3, unused_4, unused_5, unused_6, you_subject
 LogRevealedYou = { $you_subject } revealed { $cards }
@@ -5333,7 +5562,7 @@ LogDay = It became day
 # It became night (CR 730).
 LogNight = It became night
 
-# The reading seat became the monarch (CR 724.3).
+# The reading seat became the monarch (CR 725.3).
 # Arguments: player, unused_1, unused_2, unused_3, unused_4, unused_5, unused_6, you_subject
 LogMonarchYou = { $you_subject } became the monarch
 
@@ -7605,6 +7834,18 @@ BuildSyntaxExact = exactly this name
 # Syntax help: `or`.
 BuildSyntaxOr = either
 
+# Syntax help: `r:`.
+BuildSyntaxRarity = a printing's rarity
+
+# Syntax help: `s:`.
+BuildSyntaxSet = printed in this set
+
+# Syntax help: `f:`.
+BuildSyntaxFormat = may be played in this format
+
+# Syntax help: `banned:`.
+BuildSyntaxBanned = banned in this format (also restricted:)
+
 # The pool's filter disclosure. Chip budget 14.
 BuildFilters = Filters
 
@@ -8559,3 +8800,377 @@ MemorialZoomOut = Zoom out
 MemorialFit = Fit
 MemorialZoomMinimum = The entire photograph is visible.
 MemorialZoomMaximum = Maximum zoom reached.
+
+# Settings › Network: the background download of the card cache.
+RowCardFill = Card pictures in the background
+
+# Under it: what it does and what it costs.
+HelpCardFill = Downloads the pictures of every fully implemented card straight from Scryfall, so the deck builder and the table show them at once. Scryfall sees this device's address, as for any picture. Rests during a game. Off keeps what is already here.
+
+# Settings › Network: how fast it goes.
+RowCardFillPace = Download pace
+
+# Under it: the three paces in numbers.
+HelpCardFillPace = How many pictures come down at once: Gentle 1, Steady 2, Brisk 3. A picture you are looking at always goes first.
+
+# The slowest pace.
+CardFillPaceGentle = Gentle
+
+# The middle pace.
+CardFillPaceSteady = Steady
+
+# The fastest pace.
+CardFillPaceBrisk = Brisk
+
+# Settings › Network: which pictures are kept.
+RowCardFillReach = Pictures to keep
+
+# Under it: what each choice costs and gives.
+HelpCardFillReach = Thumbnails are about 150 MB for the whole pool and make the lists quick. Large pictures add about 1.1 GB and make the previews quick.
+
+# Only the small pictures.
+CardFillReachThumbnails = Thumbnails
+
+# The small pictures, then the large ones.
+CardFillReachEverything = Large ones too
+
+# Settings › Network: how large the cache may grow.
+RowCardFillBudget = Cache size limit
+
+# Under it: what the limit stops, and what it does not.
+HelpCardFillBudget = The background download stops at this size, and whenever less than 2 GB is free on the disk. Pictures you open are kept all the same.
+
+# A size limit on its control: `$size` whole gigabytes.
+# Arguments: size
+CardFillBudget = { $size } GB
+
+# The button that rests the download.
+CardFillPause = Pause
+
+# The button that lets it go on.
+CardFillResume = Resume
+
+# The button that starts it again after it stopped.
+CardFillTryAgain = Try again
+
+# The button that deletes the cached pictures.
+CardFillEmpty = Empty the cache
+
+# The question before that: what it deletes.
+CardFillEmptyAsk = This deletes every card picture on this device. They are downloaded again when they are needed.
+
+# The second press that does it.
+CardFillEmptySure = Yes, delete them
+
+# It is switched off.
+CardFillStatusOff = Off
+
+# The player pressed Pause.
+CardFillStatusPaused = Paused
+
+# A game is on.
+CardFillStatusMatch = Resting while a game is on
+
+# It works out what is missing.
+CardFillStatusChecking = Checking what is already here
+
+# It is downloading.
+CardFillStatusRunning = Downloading
+
+# It stays away for `$time` ("45 s", "2 min").
+# Arguments: time
+CardFillStatusCooling = The server wants a break, going on in { $time }
+
+# Everything is on disk.
+CardFillStatusFinished = All pictures are here
+
+# No cache directory.
+CardFillStopNoCache = Stopped: this device has no cache folder
+
+# A picture could not be written.
+CardFillStopCannotWrite = Stopped: the cache folder cannot be written
+
+# The size limit.
+CardFillStopBudget = Stopped: the size limit is reached
+
+# The disk.
+CardFillStopDisk = Stopped: less than 2 GB free on the disk
+
+# Failure after failure, with no answer.
+CardFillStopUnreachable = Stopped: the picture server cannot be reached
+
+# Failure after failure, too busy.
+CardFillStopBusy = Stopped: the picture server stayed too busy
+
+# Failure after failure, a server error `$code`.
+# Arguments: code
+CardFillStopServer = Stopped: the picture server keeps failing ({ $code })
+
+# Refused outright, by status `$code`.
+# Arguments: code
+CardFillStopRefused = Stopped: the picture server refused ({ $code })
+
+# How far this round is, in cards.
+# Arguments: done, total
+CardFillCards = { $done } of { $total } cards
+
+# The round of small pictures.
+# Arguments: round, rounds
+CardFillRoundThumbnails = thumbnails, round { $round } of { $rounds }
+
+# The round of large pictures.
+# Arguments: round, rounds
+CardFillRoundLarge = large pictures, round { $round } of { $rounds }
+
+# Pictures the server does not have.
+# Arguments: count
+CardFillMissing = { $count ->
+        [one] one picture the server does not have
+       *[other] { $count } pictures the server does not have
+    }
+
+# What has come down so far: `$size` with its unit.
+# Arguments: size
+CardFillDownloaded = { $size } downloaded
+
+# A span of hours and minutes.
+# Arguments: hours, minutes
+CardFillHours = { $hours } h { $minutes } min
+
+# A span of whole minutes.
+# Arguments: minutes
+CardFillMinutes = { $minutes } min
+
+# A span of seconds.
+# Arguments: seconds
+CardFillSeconds = { $seconds } s
+
+# How long it has been at work: `$time` a span.
+# Arguments: time
+CardFillElapsed = { $time } so far
+
+# How much longer: `$time` a span.
+# Arguments: time
+CardFillLeft = about { $time } left
+
+# How large the cache is, of what it may be: sizes with their units.
+# Arguments: used, budget
+CardFillCache = Cache: { $used } of { $budget }
+
+# The indicator's hint: `$status` what it is doing, `$detail` how far.
+# Arguments: status, detail
+CardFillIndicator = Card pictures: { $status } · { $detail }
+
+# What the deck builder's format picker is called.
+CheckFormat = Format
+
+# The picker's entry for a deck that keeps to no format, and what a table
+# with no check says.
+CheckNoFormat = No format
+
+# What the deck builder's list picker is called.
+CheckList = Ban list
+
+# The picker's entry for no list: the format's own bans stand.
+CheckNoList = The format's own
+
+# The overview for a deck with no format and no list: nothing to check.
+CheckFree = No format chosen, so nothing is checked.
+
+# The overview's headline. `$name` a format or a list.
+# Arguments: name
+CheckLegal = Legal for { $name }
+
+# The overview's headline over the problems. `$name` a format or a list.
+# Arguments: name, count
+CheckIllegal =
+    { $count ->
+        [one] Not legal for { $name }: one problem
+       *[other] Not legal for { $name }: { $count } problems
+    }
+
+# The overview's headline when nothing wrong was found and not everything could
+# be asked. Never read as legal. `$name` a format or a list.
+# Arguments: name
+CheckUnknown = Can't say whether this is legal for { $name }
+
+# The deck's size against a format that takes this many or more.
+# Arguments: have, need
+CheckCountAtLeast = { $have } cards, at least { $need }
+
+# The deck's size against a format that takes exactly this many.
+# Arguments: have, need
+CheckCountExactly = { $have } of { $need } cards
+
+# The deck's size where no size is known.
+# Arguments: have
+CheckCount = { $have } cards
+
+# Rows read from a stored deck are waiting for the pool.
+CheckWaitsForPool = The check waits for the card pool.
+
+# Offline, or a gateway with no catalog: what could not be asked.
+CheckNoStatuses = Bans, restrictions and which cards the format has could not be checked: that needs the gateway's card table.
+
+# A format whose deck shape this build does not know.
+CheckNoShape = This format's deck size, copies and leaders are not checked here.
+
+# Cards the gateway's table has no word on in this format.
+# Arguments: count
+CheckCardsUnknown =
+    { $count ->
+        [one] One card could not be checked: the table says nothing about it in this format.
+       *[other] { $count } cards could not be checked: the table says nothing about them in this format.
+    }
+
+# A notice, not a fault: the card does nothing in a game.
+# Arguments: count
+CheckUnscripted =
+    { $count ->
+        [one] One card has no script: it is allowed, and it does nothing in a game.
+       *[other] { $count } cards have no script: they are allowed, and they do nothing in a game.
+    }
+
+# A card this build has no definition for.
+# Arguments: card
+ProblemUnknownCard = { $card } is not a card this build knows.
+
+# Arguments: have, need
+ProblemTooFew = { $have } cards in the deck; it needs at least { $need }.
+
+# Arguments: have, need
+ProblemWrongSize = { $have } cards in the deck; it needs exactly { $need }.
+
+# Copies in the deck and its sideboard together.
+# Arguments: card, have, limit
+ProblemTooManyCopies = { $card }: { $have } copies, at most { $limit } allowed.
+
+# Arguments: have, limit
+ProblemSideboardTooBig = { $have } cards in the sideboard; at most { $limit } allowed.
+
+# Commander games do not use sideboards.
+# Arguments: have
+ProblemNoSideboard = { $have } cards in the sideboard; this format has none.
+
+ProblemNoLeader = The deck has no commander.
+
+# More than two commanders.
+# Arguments: have
+ProblemLeaders = { $have } commanders; a deck has one, or two that may lead together.
+
+# Arguments: card
+ProblemNotALeader = { $card } cannot be a commander.
+
+# Arguments: card, other
+ProblemCannotLeadTogether = { $card } and { $other } cannot lead one deck.
+
+# Arguments: card
+ProblemOutsideIdentity = { $card } is outside the commander's colour identity.
+
+ProblemLeadersNotTaken = This format has no commanders.
+
+# Arguments: card, format
+ProblemBanned = { $card } is banned in { $format }.
+
+# Arguments: card, format, have
+ProblemRestricted = { $card } is restricted in { $format }: one copy, not { $have }.
+
+# Arguments: card, format
+ProblemNotLegal = { $card } is not legal in { $format }.
+
+# Arguments: card, list
+ProblemListBanned = { $card } is banned by { $list }.
+
+# Arguments: card, list, have
+ProblemListRestricted = { $card } is restricted by { $list }: one copy, not { $have }.
+
+# Arguments: card, list
+ProblemListBannedAsCommander = { $card } may not lead a deck under { $list }.
+
+# A deck row's badge, read at a glance.
+BadgeBanned = Banned
+BadgeRestricted = Restricted
+BadgeNotLegal = Not legal
+BadgeTooMany = Too many
+BadgeOffColour = Off colour
+BadgeNoLeader = Can't lead
+
+# The way from the overview to the sheet.
+CheckOpen = Format and list
+
+# The sheet's title.
+CheckTitle = What this deck is held to
+
+# Problems the foot has no room for, a press from the sheet.
+# Arguments: count
+CheckMore =
+    { $count ->
+        [one] and one more
+       *[other] and { $count } more
+    }
+
+# The status line when a table's list turned a deck away.
+# Arguments: list
+RefusedNote = The list { $list } turned this deck away.
+
+# The sheet that says why. `$list` the list.
+# Arguments: list
+RefusedTitle = This deck does not keep to { $list }
+
+# The list picker in a room and in the check.
+ListNone = None
+ListNew = New list
+ListCopy = Copy
+ListEdit = Edit
+ListRead = Read
+ListDelete = Delete list
+ListSave = Save list
+ListNameLabel = Name
+ListSearchLabel = Find a card
+ListOfficial = Official
+ListEmpty = No cards on this list.
+ListStatusBanned = Banned
+ListStatusRestricted = Restricted: one copy
+ListStatusBannedAsCommander = Banned as commander
+ListTitle = Ban list
+ListTitleOfficial = Official list
+
+# The default name of a copy. `$name` the list it was made from.
+# Arguments: name
+ListCopyName = Copy of { $name }
+
+# The default name of a new list.
+ListNewName = My list
+
+# A room's rules line: `$list` the list it holds decks to.
+# Arguments: list
+RoomRulesList = Ban list: { $list }
+
+# A room without a list.
+RoomRulesNoList = No ban list: every deck may sit down
+
+# A room's own list, to someone not at the table.
+RoomRulesOwnList = Ban list: the host's own
+
+# The list a running game keeps. `$version` its version.
+# Arguments: version
+RoomRulesFrozen = Fixed at version { $version } for this game
+
+RoomRulesChoose = Ban list…
+RoomRulesRead = Read the list
+RoomListTitle = What this table holds a deck to
+
+# A deck tile's word for a deck its gateway calls illegal.
+DeckTileIllegal = Not legal
+
+# Offline: a list is a gateway's.
+ListNeedsGateway = Ban lists live on a gateway; sign in to one.
+
+# A ban list names the card.
+FilterKeyList = On ban list
+
+# Under a row naming a ban list, and over an empty list, where this client holds none.
+FilterNoLists = Ban lists come from the gateway, and none are here. The list stays empty while such a condition stands.
+
+# Syntax help: `list:`.
+BuildSyntaxList = on this ban list

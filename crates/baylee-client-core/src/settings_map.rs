@@ -237,6 +237,8 @@ pub enum Row {
     Arrangement,
     /// Whether the table follows the turn (DESIGN-v8 §1.1, D25).
     FollowTurn,
+    /// Whether the table follows the player this seat decides for (CR 723.5).
+    FollowControl,
     /// The arrangement remembered per seat count (DESIGN-v8 §2.6, D24).
     ArrangementBySeats,
     // Graphics (account)
@@ -308,6 +310,14 @@ pub enum Row {
     SwitchGateway,
     /// The connection's state, as text to copy.
     Diagnostics,
+    /// The card cache's background fill: its switch and how it goes.
+    CardFill,
+    /// How fast it goes.
+    CardFillPace,
+    /// Which pictures it keeps.
+    CardFillReach,
+    /// How large it lets the cache grow.
+    CardFillBudget,
     // Language models
     /// The seat's profiles and their caps.
     Profiles,
@@ -450,6 +460,13 @@ pub const ROWS: &[RowDef] = &[
         D,
         P::RowFollowTurn,
         P::HelpFollowTurn,
+    ),
+    def(
+        Row::FollowControl,
+        S::Graphics,
+        D,
+        P::RowFollowControl,
+        P::HelpFollowControl,
     ),
     def(
         Row::ArrangementBySeats,
@@ -622,6 +639,34 @@ pub const ROWS: &[RowDef] = &[
         P::HelpDiagnostics,
     ),
     def(
+        Row::CardFill,
+        S::Network,
+        D,
+        P::RowCardFill,
+        P::HelpCardFill,
+    ),
+    def(
+        Row::CardFillPace,
+        S::Network,
+        D,
+        P::RowCardFillPace,
+        P::HelpCardFillPace,
+    ),
+    def(
+        Row::CardFillReach,
+        S::Network,
+        D,
+        P::RowCardFillReach,
+        P::HelpCardFillReach,
+    ),
+    def(
+        Row::CardFillBudget,
+        S::Network,
+        D,
+        P::RowCardFillBudget,
+        P::HelpCardFillBudget,
+    ),
+    def(
         Row::Profiles,
         S::LanguageModels,
         M,
@@ -710,6 +755,11 @@ pub fn offered(row: Row, builds: Builds, monitors: usize) -> bool {
         }
         Row::Monitor => builds.desktop && monitors > 1,
         Row::CheckAutomatically | Row::InstallAutomatically | Row::CheckNow => builds.desktop,
+        // A browser caches for itself, and a phone's disk and data plan are
+        // not filled behind its owner's back.
+        Row::CardFill | Row::CardFillPace | Row::CardFillReach | Row::CardFillBudget => {
+            builds.desktop
+        }
         // The tours are desktop-only for now (owner, 09.10.).
         Row::TourLobby | Row::TourBuilder | Row::TourTable | Row::TourTips | Row::TourRestart => {
             !builds.phone
@@ -841,6 +891,7 @@ mod tests {
             Row::VisitCamera,
             Row::Arrangement,
             Row::FollowTurn,
+            Row::FollowControl,
             Row::ArrangementBySeats,
             Row::PriorityCue,
         ] {

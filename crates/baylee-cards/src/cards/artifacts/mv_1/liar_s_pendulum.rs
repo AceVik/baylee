@@ -21,6 +21,7 @@ card!(
             Effect::ChooseCardName {
                 player: PlayerRel::You,
                 types: TypeSet::EMPTY,
+                excluded_types: TypeSet::EMPTY,
                 remember: false
             },
             Effect::GuessChosenNameInHand {

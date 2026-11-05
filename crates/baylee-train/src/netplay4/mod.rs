@@ -51,7 +51,13 @@ mod policy;
 mod shadow;
 use policy::sample_categorical;
 pub use policy::{PolicyMode4, valid_raw_temperature};
+mod ranked;
+pub use ranked::{Ranked4, RootDecision4, rank_single_choice};
+pub mod search;
+mod snapshot;
+pub use snapshot::PlayerSnapshot4;
 mod structure;
+pub use structure::{CatalogBinding4, CatalogPolicy4, DriftedRule4};
 mod tactics;
 pub use crate::features4::{sample_pairs_constrained, sample_subset_constrained};
 use fallback::fallback_action;
@@ -102,7 +108,7 @@ enum Backend {
 pub struct NetPlayer4 {
     backend: Backend,
     model_dir: PathBuf,
-    rule_roots: Option<BTreeMap<String, u32>>,
+    rule_roots: Option<Arc<structure::RuleRoots>>,
     encoder_version: u32,
     model_identity: ModelIdentity,
     d_model: usize,
@@ -121,9 +127,15 @@ pub struct NetPlayer4 {
     /// Per-seat most recently announced `CastSpell` or `ActivateAbility` `(object_id, ability_index)`
     /// for target-intent and scalar choice disambiguation before `Pending::Priority` resumes.
     last_announced_source: BTreeMap<u8, (ObjectId, Option<u32>)>,
+    /// Per seat, the value head's output on its latest knowledge-changing
+    /// observation ([`NetPlayer4::observed_value`]).
+    observed_values: BTreeMap<u8, f32>,
     /// Accumulated coverage matrix across decisions.
     pub coverage: CoverageMatrix4,
     last_fallback: Option<FallbackDiagnostic4>,
+    /// Rule references left out of this player's steps because the model's
+    /// catalog does not know them ([`CatalogPolicy4`]).
+    rule_refs_left_out: u64,
 }
 
 fn ort_error(e: impl std::fmt::Display) -> anyhow::Error {
@@ -175,7 +187,7 @@ const fn depth_graph(k: u8) -> u8 {
 /// A verified model directory: everything a player needs besides sessions.
 struct ModelFiles {
     model_dir: PathBuf,
-    rule_roots: Option<BTreeMap<String, u32>>,
+    rule_roots: Option<Arc<structure::RuleRoots>>,
     encoder_version: u32,
     identity: ModelIdentity,
     d_model: usize,
@@ -185,27 +197,18 @@ struct ModelFiles {
 impl ModelFiles {
     /// Opens a supported V4/V5 ONNX directory (`model.onnx` and
     /// `model.onnx.json`) or a graph with companion metadata, with the
-    /// session of its default graph and that graph's depth.
-    fn open(path: &Path) -> anyhow::Result<(Self, u8, Session)> {
+    /// session of its default graph and that graph's depth. Its card catalog
+    /// is bound to this build's under `catalog`.
+    fn open(path: &Path, catalog: CatalogPolicy4) -> anyhow::Result<(Self, u8, Session)> {
         let (onnx_path, meta, identity) = identity::read_model(path)?;
         let encoder_version = identity.encoder_version;
-        let structured = matches!(identity.model_version, 3 | 5);
         let d_model = meta["d_model"].as_u64().context("missing d_model")? as usize;
         let thinking_steps = meta["thinking_steps"]
             .as_u64()
             .context("missing thinking_steps")? as u8;
         let session = load_session(&onnx_path)?;
         abi::validate(&session, encoder_version)?;
-        let rule_roots = if structured {
-            Some(structure::load(
-                &onnx_path.with_file_name("card_structure.json"),
-                meta["structure_sha256"]
-                    .as_str()
-                    .context("missing structure hash")?,
-            )?)
-        } else {
-            None
-        };
+        let rule_roots = rule_roots(&onnx_path, &meta, &identity, catalog)?.map(Arc::new);
 
         anyhow::ensure!(
             identity::read_model(path)?.2 == identity,
@@ -223,18 +226,75 @@ impl ModelFiles {
     }
 }
 
+/// A structured model's rule roots, bound to this build's catalog.
+fn rule_roots(
+    onnx_path: &Path,
+    meta: &serde_json::Value,
+    identity: &ModelIdentity,
+    catalog: CatalogPolicy4,
+) -> anyhow::Result<Option<structure::RuleRoots>> {
+    if !matches!(identity.model_version, 3 | 5) {
+        return Ok(None);
+    }
+    structure::load(
+        &onnx_path.with_file_name("card_structure.json"),
+        meta["structure_sha256"]
+            .as_str()
+            .context("missing structure hash")?,
+        catalog,
+    )
+    .map(Some)
+}
+
+/// How a model directory's card catalog binds to this build's under
+/// `catalog`, without opening a session: what a run records before it
+/// starts. `None` for a model without a rule catalog.
+///
+/// # Errors
+/// When the model cannot be read or the catalogs do not bind.
+pub fn inspect_catalog(
+    path: &Path,
+    catalog: CatalogPolicy4,
+) -> anyhow::Result<Option<CatalogBinding4>> {
+    let (onnx_path, meta, identity) = identity::read_model(path)?;
+    Ok(rule_roots(&onnx_path, &meta, &identity, catalog)?.map(|roots| roots.binding))
+}
+
 impl NetPlayer4 {
     /// Loads a supported V4/V5 ONNX directory (`model.onnx` and
-    /// `model.onnx.json`) or a graph with companion metadata.
+    /// `model.onnx.json`) or a graph with companion metadata, whose card
+    /// catalog must be this build's.
     ///
     /// # Errors
     /// When the ONNX model or metadata cannot be loaded.
     pub fn load(path: &Path) -> anyhow::Result<Self> {
-        let (files, depth, session) = ModelFiles::open(path)?;
+        Self::load_with(path, CatalogPolicy4::Exact)
+    }
+
+    /// [`Self::load`] with the card catalog bound under `catalog`.
+    ///
+    /// # Errors
+    /// When the ONNX model or metadata cannot be loaded, or the catalogs do
+    /// not relate as `catalog` requires.
+    pub fn load_with(path: &Path, catalog: CatalogPolicy4) -> anyhow::Result<Self> {
+        let (files, depth, session) = ModelFiles::open(path, catalog)?;
         Ok(Self::with_backend(
             files,
             Backend::Owned(BTreeMap::from([(depth, session)])),
         ))
+    }
+
+    /// How this player's card catalog was bound, for a structured model.
+    #[must_use]
+    pub fn catalog_binding(&self) -> Option<&CatalogBinding4> {
+        self.rule_roots.as_deref().map(|roots| &roots.binding)
+    }
+
+    /// Rule references this player's steps left out because its catalog
+    /// does not know them: `0` under an identical catalog.
+    #[must_use]
+    pub const fn rule_refs_left_out(&self) -> u64 {
+        self.rule_refs_left_out
     }
 
     /// A player whose steps run in `net`'s batches, together with every
@@ -270,9 +330,38 @@ impl NetPlayer4 {
             knowledge: BTreeMap::new(),
             seen_hashes: BTreeMap::new(),
             last_announced_source: BTreeMap::new(),
+            observed_values: BTreeMap::new(),
             coverage: CoverageMatrix4::default(),
             last_fallback: None,
+            rule_refs_left_out: 0,
         }
+    }
+
+    /// A player with no graphs, for tests of what it does around inference.
+    #[cfg(test)]
+    pub(super) fn without_graphs(encoder_version: u32, d_model: usize) -> Self {
+        let identity = ModelIdentity {
+            model_family: "v5",
+            model_version: 5,
+            encoder_version,
+            global_feat_width: None,
+            critic_semantics: None,
+            architecture: None,
+            onnx_sha256: String::new(),
+            depth_graph_sha256: BTreeMap::new(),
+            metadata_sha256: String::new(),
+            source_checkpoint_sha256: None,
+            precision: None,
+        };
+        let files = ModelFiles {
+            model_dir: PathBuf::new(),
+            rule_roots: None,
+            encoder_version,
+            identity,
+            d_model,
+            thinking_steps: 2,
+        };
+        Self::with_backend(files, Backend::Owned(BTreeMap::new()))
     }
 
     /// Recovery reason for the most recent decision; cleared before every answer.
@@ -350,6 +439,7 @@ impl NetPlayer4 {
         self.knowledge.clear();
         self.seen_hashes.clear();
         self.last_announced_source.clear();
+        self.observed_values.clear();
         self.last_fallback = None;
     }
 
@@ -368,6 +458,7 @@ impl NetPlayer4 {
         self.knowledge.clear();
         self.seen_hashes.clear();
         self.last_announced_source.clear();
+        self.observed_values.clear();
         self.last_fallback = None;
         for s in 0..preset.seats.len() {
             let pid = PlayerId::new(s as u8);
@@ -429,8 +520,9 @@ impl NetPlayer4 {
             pairs: Vec::new(),
             pair_objects: Vec::new(),
         };
-        let (h_next, _, _, _, _) = self.run_onnx_step(&state, &empty_cands, &pre_h, 0)?;
+        let (h_next, _, _, _, value) = self.run_onnx_step(&state, &empty_cands, &pre_h, 0)?;
         self.h_states.insert(s, h_next);
+        self.observed_values.insert(s, value);
         Ok(())
     }
 
@@ -447,8 +539,9 @@ impl NetPlayer4 {
             h_in,
             k_val,
             self.encoder_version,
-            self.rule_roots.as_ref(),
+            self.rule_roots.as_deref(),
         )?;
+        self.rule_refs_left_out += row.rules_left_out;
         let sessions = match &mut self.backend {
             Backend::Shared(net) => return net.run(row),
             Backend::Owned(sessions) => sessions,

@@ -576,3 +576,183 @@ fn the_seat_teferi_locks_is_told_which_card_is_locking_it() {
         "the static is the lock, not the +1: nobody's sorceries have flash"
     );
 }
+
+/// A reflexive or synthetic trigger (`AbilityRef::SYNTHETIC`) asking for its
+/// target as it goes on the stack (CR 603.12, CR 603.3d) exposes its source
+/// card, effect slice, and exact Oracle sentence to the choosing seat.
+#[test]
+fn reflexive_synthetic_trigger_target_exposes_source_and_sentence_in_targeting_context() {
+    let entry = |name: &str| DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
+        card: baylee_cards::decks::by_name(name).unwrap(),
+        print: PrintRef::new(0),
+    };
+    let mut preset = mixed_print_preset();
+    preset.seats[0].starting_battlefield = vec![
+        entry("Eden, Seat of the Sanctum"),
+        entry("Forest"),
+        entry("Forest"),
+        entry("Forest"),
+        entry("Forest"),
+        entry("Forest"),
+    ];
+    let mut engine = Engine::new(&preset, Registry).unwrap();
+    let view = settle(&mut engine, None);
+    let me = PlayerId::new(0);
+    let eden = view
+        .battlefield
+        .iter()
+        .find(|o| o.name == "Eden, Seat of the Sanctum")
+        .unwrap()
+        .id;
+    for land in view.battlefield.iter().filter(|o| o.name == "Forest") {
+        engine
+            .apply(me, PlayerAction::ActivateManaAbility { source: land.id })
+            .unwrap();
+    }
+    engine
+        .apply(
+            me,
+            PlayerAction::ActivateAbility {
+                source: eden,
+                ability_index: 1,
+            },
+        )
+        .unwrap();
+    while let Pending::Priority { player, .. } = engine.pending().clone() {
+        engine.apply(player, PlayerAction::PassPriority).unwrap();
+    }
+    assert!(matches!(engine.pending(), Pending::YesNo { .. }));
+    engine.apply(me, PlayerAction::YesNo(true)).unwrap();
+    assert!(
+        matches!(engine.pending(), Pending::ChooseTargets { .. }),
+        "expected reflexive ChooseTargets, got {:?}",
+        engine.pending()
+    );
+    let dctx = engine.decision_context();
+    assert_eq!(dctx.source, Some(eden));
+    assert_eq!(
+        dctx.ability_index,
+        Some(baylee_core::ids::AbilityRef::SYNTHETIC)
+    );
+    assert!(
+        !dctx.effects.is_empty(),
+        "synthetic trigger decision_context must carry its effects for AI target evaluation"
+    );
+    let context = targeting_context(&engine, me).expect("targeting_context for reflexive trigger");
+    assert_eq!(context.source.id, eden);
+    assert_eq!(context.source.name, "Eden, Seat of the Sanctum");
+    let text = context
+        .text
+        .expect("reflexive trigger should resolve to its Oracle sentence");
+    let sentence = baylee_cards::oracle::sentence(
+        baylee_cards::decks::by_name("Eden, Seat of the Sanctum").unwrap(),
+        usize::from(text.face),
+        text.line,
+    )
+    .unwrap();
+    assert!(
+        sentence.contains("When you do, return another target permanent card"),
+        "unexpected sentence: {sentence}"
+    );
+    assert!(targeting_context(&engine, PlayerId::new(1)).is_none());
+}
+
+/// Deciding for a controlled player, a seat is told that player's timing:
+/// Teferi's own controller making the locked opponent's decision (CR 723.5)
+/// sees the lock the opponent is under, and is free again on its own
+/// question.
+#[test]
+fn a_seat_deciding_for_a_locked_player_is_told_that_players_lock() {
+    use baylee_engine::choice::{Pending, PlayerAction};
+
+    let preset = a_table_under_teferi();
+    let mut engine = Engine::new(&preset, Registry).expect("game starts");
+    for _ in 0..2 {
+        let Pending::Mulligan { player, .. } = engine.pending().clone() else {
+            panic!("expected a mulligan")
+        };
+        engine.apply(player, PlayerAction::MulliganKeep).unwrap();
+    }
+    let (locked, teferi) = (PlayerId::new(0), PlayerId::new(1));
+    let view = |decision_player| {
+        player_view(
+            engine.state(),
+            teferi,
+            0,
+            None,
+            &SeatContext {
+                awaiting: Some(teferi),
+                decision_player: Some(decision_player),
+                ..SeatContext::default()
+            },
+            &[],
+        )
+    };
+    assert!(
+        view(locked).sorcery_lock.is_some(),
+        "the controlled player's"
+    );
+    assert_eq!(view(teferi).sorcery_lock, None, "its own");
+}
+
+/// Confusion in the Ranks under one player, set off by the other: the
+/// ability is its controller's, its target the other player's choice, and
+/// every seat is told so while it stands on the stack.
+#[test]
+fn an_ability_aimed_by_someone_else_is_told_while_it_is_on_the_stack() {
+    let entry = |name: &str| DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
+        card: baylee_cards::decks::by_name(name).unwrap(),
+        print: PrintRef::new(0),
+    };
+    let mut preset = mixed_print_preset();
+    preset.seats[0].starting_hand = Some(vec![entry("Ornithopter")]);
+    preset.seats[1].starting_battlefield =
+        vec![entry("Confusion in the Ranks"), entry("Ondu Cleric")];
+    let mut engine = Engine::new(&preset, Registry).unwrap();
+    let view = settle(&mut engine, None);
+    let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+    let cleric = view
+        .battlefield
+        .iter()
+        .find(|object| object.name == "Ondu Cleric")
+        .unwrap()
+        .id;
+    engine
+        .apply(
+            me,
+            PlayerAction::CastSpell {
+                card: view.hand[0].id,
+            },
+        )
+        .unwrap();
+    assert!(
+        player_view(engine.state(), me, 0, None, &SeatContext::default(), &[])
+            .foreign_targets
+            .is_empty(),
+        "a spell's targets are its caster's"
+    );
+    while !matches!(engine.pending(), Pending::ChooseTargets { .. }) {
+        let Pending::Priority { player, .. } = *engine.pending() else {
+            panic!("the spell resolves on passes: {:?}", engine.pending());
+        };
+        engine.apply(player, PlayerAction::PassPriority).unwrap();
+    }
+    engine
+        .apply(
+            me,
+            PlayerAction::ChooseObjects {
+                objects: vec![cleric],
+            },
+        )
+        .unwrap();
+    for seat in [me, them] {
+        let view = player_view(engine.state(), seat, 0, None, &SeatContext::default(), &[]);
+        assert_eq!(view.stack.len(), 1);
+        assert_eq!(view.stack[0].controller, them);
+        assert_eq!(view.foreign_targets, vec![view.stack[0].id]);
+    }
+}

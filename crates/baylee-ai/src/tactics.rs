@@ -71,7 +71,7 @@ pub(crate) fn amount(n: Amount, x: u32) -> i32 {
     }
     let magnitude = match n {
         Amount::Fixed(v) | Amount::NegXFixed(v) => i32::try_from(v).unwrap_or(i32::MAX),
-        Amount::X | Amount::NegX | Amount::XPlusCommanderCasts => {
+        Amount::X | Amount::NegX | Amount::XPlusCommanderCasts | Amount::TimesKicked => {
             i32::try_from(x).unwrap_or(i32::MAX)
         }
         Amount::DoubleX => i32::try_from(x.saturating_mul(2)).unwrap_or(i32::MAX),
@@ -152,6 +152,39 @@ pub(crate) fn printed_effects(o: &PublicObject) -> Vec<&'static [Effect]> {
         .collect()
 }
 
+/// The printed ability a stack object names, if it names one a card or a
+/// token prints.
+fn stack_ability(view: &PlayerView, o: &PublicObject) -> Option<&'static AbilityDef> {
+    let Some(baylee_view::StackItem::Ability {
+        token,
+        source,
+        ability,
+        rules,
+        ..
+    }) = &o.stack_item
+    else {
+        return None;
+    };
+    if let Some(tok) = token {
+        return usize::try_from(tok.index).ok().and_then(|idx| {
+            baylee_cards::tokens::by_token_id(tok.token)?
+                .abilities
+                .get(idx)
+        });
+    }
+    let ability_ref = (*ability)?;
+    usize::try_from(ability_ref.index).ok().and_then(|index| {
+        let face = rules.or(o.rules).map_or(0, |r| usize::from(r.face));
+        baylee_cards::by_index(ability_ref.card)
+            .and_then(|d| {
+                d.abilities_for_face(face)
+                    .get(index)
+                    .or_else(|| d.abilities.get(index))
+            })
+            .or_else(|| crate::activate::printed(view, *source, ability_ref.index))
+    })
+}
+
 /// Every effect slice a spell or ability on the stack resolves.
 ///
 /// Instant and sorcery spells carry their printed [`AbilityDef::Spell`]
@@ -159,48 +192,49 @@ pub(crate) fn printed_effects(o: &PublicObject) -> Vec<&'static [Effect]> {
 /// triggered or loyalty ability their [`baylee_view::StackItem::Ability`]
 /// names.
 pub(crate) fn stack_effects(view: &PlayerView, o: &PublicObject) -> Vec<&'static [Effect]> {
-    if let Some(baylee_view::StackItem::Ability {
-        token,
-        source,
-        ability,
-        rules,
-        ..
-    }) = &o.stack_item
-    {
-        let def = if let Some(tok) = token {
-            usize::try_from(tok.index).ok().and_then(|idx| {
-                baylee_cards::tokens::by_token_id(tok.token)?
-                    .abilities
-                    .get(idx)
-            })
-        } else if let Some(ability_ref) = ability {
-            usize::try_from(ability_ref.index).ok().and_then(|index| {
-                let face = rules.or(o.rules).map_or(0, |r| usize::from(r.face));
-                baylee_cards::by_index(ability_ref.card)
-                    .and_then(|d| {
-                        d.abilities_for_face(face)
-                            .get(index)
-                            .or_else(|| d.abilities.get(index))
-                    })
-                    .or_else(|| crate::activate::printed(view, *source, ability_ref.index))
-            })
-        } else {
-            None
-        };
-        return match def {
-            Some(
-                AbilityDef::Activated { effects, .. }
-                | AbilityDef::ActivatedConditional { effects, .. }
-                | AbilityDef::Triggered { effects, .. }
-                | AbilityDef::Loyalty { effects, .. },
-            ) => vec![*effects],
-            Some(
-                AbilityDef::ModalActivated { modes, .. } | AbilityDef::ModalTriggered { modes, .. },
-            ) => modes.iter().map(|m| m.effects).collect(),
-            _ => Vec::new(),
-        };
+    if !matches!(o.stack_item, Some(baylee_view::StackItem::Ability { .. })) {
+        return printed_effects(o);
     }
-    printed_effects(o)
+    match stack_ability(view, o) {
+        Some(
+            AbilityDef::Activated { effects, .. }
+            | AbilityDef::ActivatedConditional { effects, .. }
+            | AbilityDef::Triggered { effects, .. }
+            | AbilityDef::Loyalty { effects, .. },
+        ) => vec![*effects],
+        Some(
+            AbilityDef::ModalActivated { modes, .. } | AbilityDef::ModalTriggered { modes, .. },
+        ) => modes.iter().map(|m| m.effects).collect(),
+        _ => Vec::new(),
+    }
+}
+
+/// Whether an ability on the stack asks its own controller for mana as it
+/// resolves (CR 605.3a): echo, a pact's price, cumulative upkeep. Echo prints
+/// a cost and no effects, so it is read off the ability itself.
+pub(crate) fn asks_its_controller_for_mana(view: &PlayerView, o: &PublicObject) -> bool {
+    use baylee_cards_dsl::PlayerRel;
+    let Some(ability) = stack_ability(view, o) else {
+        return false;
+    };
+    matches!(ability, AbilityDef::Echo { .. })
+        || stack_effects(view, o).into_iter().any(|effects| {
+            Effect::is_cumulative_upkeep(effects)
+                || effects.iter().any(|effect| {
+                    matches!(
+                        effect,
+                        Effect::PayManaOrLose { .. }
+                            | Effect::PlayerMayPayOr {
+                                player: PlayerRel::You,
+                                ..
+                            }
+                            | Effect::PlayerMayPayManaOr {
+                                player: PlayerRel::You,
+                                ..
+                            }
+                    )
+                })
+        })
 }
 
 /// Whether `s` on the stack removes battlefield permanent `o` when it resolves.

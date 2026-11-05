@@ -42,10 +42,12 @@ pub(crate) async fn list_decks(
         .collect();
     credit_artists(&state, &mut digests).await;
     let now = time::OffsetDateTime::now_utc();
+    let table = state.pool_table().await;
     let decks: Vec<_> = decks
         .into_iter()
         .zip(digests)
         .map(|(d, digest)| DeckRow {
+            legality: legality_of(&d, table.as_deref()),
             blocked: blocked_in(&state, &d, now),
             cards: d.cards.len(),
             sideboard: d.sideboard.len(),
@@ -67,10 +69,56 @@ pub(crate) async fn list_decks(
     Ok(Json(decks))
 }
 
+/// How a deck stands in its own format, as this gateway reads it now.
+///
+/// @description How a deck stands in its own format, as this gateway reads
+/// it now: a deck may be saved illegal and may become so after a ban, and it
+/// is told so here and never refused for it.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct DeckLegality {
+    /// @description `legal`, `illegal`, or `unknown` where not everything
+    /// could be asked (no catalog, a format whose shape this build does not
+    /// know). A deck of `freeform` has nothing to keep to and is `legal`.
+    standing: &'static str,
+    /// @description What is wrong with it; empty for a deck with nothing
+    /// against it.
+    problems: Vec<baylee_cardtext::Problem>,
+}
+
+/// How `deck` stands in its own format.
+fn legality_of(deck: &Deck, table: Option<&baylee_catalog::PoolFacts>) -> DeckLegality {
+    use baylee_cards::formats::{self, Rules, Standing};
+    let Ok(loaded) = crate::routes::loaded_deck(deck) else {
+        return DeckLegality {
+            standing: "unknown",
+            problems: Vec::new(),
+        };
+    };
+    let report = formats::validate_loaded(
+        &loaded,
+        Rules {
+            format: &deck.format,
+            facts: table,
+            list: None,
+        },
+    );
+    DeckLegality {
+        standing: match report.standing() {
+            Standing::Legal => "legal",
+            Standing::Illegal => "illegal",
+            Standing::Unknown => "unknown",
+        },
+        problems: report.problems,
+    }
+}
+
 /// One row of `GET /decks`.
 /// @openapi
 #[derive(Serialize)]
 pub(crate) struct DeckRow {
+    /// @description How it stands in its own format.
+    legality: DeckLegality,
     /// @description The deck's id.
     id: String,
     /// @description The cards of this deck blocked on this gateway now; a
@@ -318,9 +366,9 @@ pub(crate) struct DeckCreated {
 /// @summary Save a new deck
 /// @description Stores a deck for the signed-in account and answers its
 /// id. Every line is read against this build's pool: a card it cannot play,
-/// more than four copies of a card that is not a basic land, an illegal
-/// commander or a picture the account did not upload refuses the deck, and
-/// the error says which.
+/// a commander it does not know or a picture the account did not upload
+/// refuses the deck, and the error says which. A deck illegal in its format
+/// is saved and told so (`GET /decks`).
 /// @tag Decks
 /// @security bearer
 /// @insert `SessionRefusals`

@@ -77,14 +77,34 @@ struct Args {
     /// Verified executed external LLM labels only; all other policy weights zero.
     #[arg(long, conflicts_with = "shadow_bc")]
     llm_bc: bool,
+    /// With `--llm-bc`: leave out the games a failed conversion of the same
+    /// runs could not replay on this build (its `rejected-games.json`; every
+    /// entry must be a replay-audit refusal). The dataset records them.
+    #[arg(long, requires = "llm_bc")]
+    llm_bc_skip_unreplayable: Option<PathBuf>,
     /// Build a BC-only dataset from exported live-server game records.
     #[arg(long, conflicts_with_all = ["shadow_bc", "llm_bc"])]
     live_bc: bool,
+    /// BC-only self-imitation: keep only the net decisions of the seats a
+    /// `train_ops group-weights` file lists, at their weights; games it does
+    /// not list are skipped.
+    #[arg(long, conflicts_with_all = ["shadow_bc", "llm_bc", "live_bc"])]
+    game_weights: Option<PathBuf>,
+    /// BC-only search distillation: the answers searched decisions played
+    /// are the policy targets; every run must have been searched.
+    #[arg(long, conflicts_with_all = ["shadow_bc", "llm_bc", "live_bc", "game_weights"])]
+    search_targets: bool,
+    /// With `--search-targets`: the policy weight of the net's own
+    /// unsearched decisions (0 leaves them out).
+    #[arg(long, requires = "search_targets", default_value_t = 0.0)]
+    search_unsearched_weight: f32,
 }
 
 #[derive(Clone, Debug)]
 struct GameRef {
     game_id: u32,
+    /// Self-imitation weight per seat (`--game-weights`).
+    seat_weights: Option<[f32; MAX_SEATS]>,
     producer_encoder: Option<ProducerEncoder>,
     on_policy: Option<on_policy::GameBinding>,
     shard_path: PathBuf,
@@ -124,7 +144,10 @@ mod on_policy;
 mod output;
 mod policy_provenance;
 mod research;
+mod search_distill;
+mod self_imitation;
 mod shadow;
+mod unreplayable;
 use output::{GameWriter, publish_ready};
 
 #[allow(
@@ -148,9 +171,29 @@ fn main() -> anyhow::Result<()> {
     if args.shadow_bc && !args.include_passive_obs {
         bail!("--shadow-bc requires --include-passive-obs for complete recurrent history");
     }
+    if args.game_weights.is_some() && (!args.include_passive_obs || !args.val_runs.is_empty()) {
+        bail!("--game-weights requires --include-passive-obs and weighs --runs only");
+    }
+    if args.search_targets && (!args.include_passive_obs || !args.val_runs.is_empty()) {
+        bail!("--search-targets requires --include-passive-obs and distills --runs only");
+    }
     if args.out.exists() {
         bail!("{} already exists", args.out.display());
     }
+    let game_weights = args
+        .game_weights
+        .as_deref()
+        .map(|path| self_imitation::Weights::load(path, &args.runs))
+        .transpose()?;
+    let mut unreplayable = args
+        .llm_bc_skip_unreplayable
+        .as_deref()
+        .map(unreplayable::Skip::load)
+        .transpose()?;
+    let mut search_targets = args
+        .search_targets
+        .then(|| search_distill::Targets::new(args.search_unsearched_weight))
+        .transpose()?;
     fs::create_dir_all(&args.out)?;
 
     let mut games: Vec<GameRef> = Vec::new();
@@ -184,6 +227,11 @@ fn main() -> anyhow::Result<()> {
                 "Neural producer/converter encoder mismatch; probabilities cannot migrate across encoders"
             );
         }
+        if let Some(targets) = &mut search_targets {
+            targets
+                .admit(&run_json)
+                .with_context(|| format!("{}", run_dir.display()))?;
+        }
         policy_sources.push(run_json.clone());
         if let Some(decks) = run_json["decks"].as_array() {
             for d in decks {
@@ -208,17 +256,44 @@ fn main() -> anyhow::Result<()> {
             if !matches!(kind, "won" | "team_won" | "draw") {
                 continue;
             }
+            let seat_weights = match &game_weights {
+                Some(weights) => {
+                    let record = v["record_sha256"]
+                        .as_str()
+                        .context("self-imitation needs record_sha256")?;
+                    let Some(seats) = weights.seats(record) else {
+                        continue;
+                    };
+                    anyhow::ensure!(
+                        v.get("rollout_sidecar").is_some(),
+                        "self-imitation needs the net's rollout sidecar"
+                    );
+                    Some(seats)
+                }
+                None => None,
+            };
+            anyhow::ensure!(
+                search_targets.is_none() || v.get("rollout_sidecar").is_some(),
+                "search distillation needs the rollout sidecar naming searched answers"
+            );
             let shard_name = v["shard"]
                 .as_str()
                 .context("missing shard name in games.jsonl")?;
             let offset = v["offset"].as_u64().context("missing offset")?;
             let len = v["len"].as_u64().context("missing len")?;
+            if let Some(skip) = &mut unreplayable {
+                let shard = run_dir.join("records").join(shard_name).canonicalize()?;
+                if skip.takes(&shard, offset, len) {
+                    continue;
+                }
+            }
             let seed = v["seed"].as_u64().unwrap_or(0);
             let sidecar: Option<Vec<RolloutStepSidecar4>> = v
                 .get("rollout_sidecar")
                 .and_then(|sc| serde_json::from_value(sc.clone()).ok());
             let game_id = (games.len() + 1) as u32;
             games.push(GameRef {
+                seat_weights,
                 on_policy: policy_game,
                 producer_encoder: if matches!(args.encoder_version, 8 | 9) && sidecar.is_some() {
                     Some(ProducerEncoder::from_run(&run_json).map_err(anyhow::Error::msg)?)
@@ -410,11 +485,23 @@ fn main() -> anyhow::Result<()> {
                 .filter_map(|g| g.llm.as_ref().map(|s| s.metadata(g.game_id)))
                 .collect::<Vec<_>>()
         );
+        if let Some(skip) = &unreplayable {
+            // Before any game converts: a stale list stops the conversion.
+            meta["llm_bc_skipped_unreplayable"] = skip.metadata()?;
+        }
     }
     if args.live_bc {
         meta["live_bc_version"] = json!(1);
         meta["ppo_eligible"] = json!(false);
         meta["policy_provenance_version"] = Value::Null;
+    }
+    if let Some(weights) = &game_weights {
+        meta["self_imitation"] = weights.metadata(games_arc.len());
+        meta["ppo_eligible"] = json!(false);
+    }
+    if let Some(targets) = &search_targets {
+        meta["search_distillation"] = targets.metadata(games_arc.len());
+        meta["ppo_eligible"] = json!(false);
     }
     fs::write(
         args.out.join("dataset_header.json"),
@@ -440,6 +527,9 @@ fn main() -> anyhow::Result<()> {
         let include_passive = args.include_passive_obs;
         let live_bc = args.live_bc;
         let encoder_version = args.encoder_version;
+        let search_weighting = search_targets
+            .as_ref()
+            .map(search_distill::Targets::weighting);
 
         handles.push(std::thread::spawn(move || -> anyhow::Result<()> {
             loop {
@@ -456,7 +546,9 @@ fn main() -> anyhow::Result<()> {
                 let mut frame_labels = gref.shadow.as_ref()
                     .map(|source| shadow::FrameLabels::new_with_encoder(&root,gref.game_id,source,encoder_version)).transpose()?;
                 let mut llm_labels=gref.llm.as_ref().map(|source|llm::FrameLabels::new_with_encoder(&root,gref.game_id,source,encoder_version)).transpose()?;
-                let emit = |step: Step4| {
+                let emit = |mut step: Step4| {
+                    if let Some(seats) = &gref.seat_weights { self_imitation::apply(&mut step, seats); }
+                    if let Some(weighting) = search_weighting { weighting.apply(&mut step); }
                     if let Some(labels) = &mut frame_labels { labels.push(&step)?; }
                     if let Some(labels)=&mut llm_labels {labels.push(&step)?;}
                     writer.push(&step).map_err(|e|e.to_string())

@@ -38,10 +38,12 @@ pub(crate) fn table_with(lands: usize, commander_casts: u32) -> Duel {
         .with_commanders(0, &[&commander])
         .build();
     view.seats[0].commanders[0].casts = commander_casts;
+    // The engine lists a commander it would cast once paid as payable.
     let legal = baylee_engine::choice::LegalActions {
         can_pass: true,
         abilities: ids.iter().map(|id| (*id, GRANTED_ABILITY)).collect(),
         mana_abilities: ids,
+        payable: vec![commander.id],
         ..baylee_engine::choice::LegalActions::default()
     };
     Duel {

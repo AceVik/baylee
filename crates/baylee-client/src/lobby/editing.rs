@@ -111,7 +111,10 @@ pub(super) fn builder_keys(
             .builder_mut()
             .edit_buffer(field, |buffer| buffer.insert(&text));
     }
-    if state.lobby.builder().panel().is_some() && field == BuildField::Search && typing {
+    if state.lobby.builder().panel().is_some()
+        && matches!(field, BuildField::Search | BuildField::ListSearch)
+        && typing
+    {
         // The filter builder holds the search's words while it is open; Esc
         // still closes it.
         if codes.just_pressed(KeyCode::Escape) {
@@ -171,6 +174,15 @@ fn escape(state: &mut ResMut<LobbyState>, scrolled: &mut Scrolled) {
         state.confirm_leave = false;
     } else if state.lobby.builder().inspecting().is_some() {
         state.lobby.builder_mut().stop_inspecting();
+    } else if state.lobby.builder().list_editor().is_some() {
+        // The gear first, as on the pool: the list stays open behind it.
+        if state.lobby.builder().panel().is_some() {
+            state.lobby.builder_mut().close_panel();
+        } else {
+            state.lobby.builder_mut().close_list();
+        }
+    } else if state.build.check_sheet {
+        state.build.check_sheet = false;
     } else if state.build.stats_sheet {
         state.build.stats_sheet = false;
     } else if state.build.syntax {
@@ -407,7 +419,7 @@ fn type_key(
                 state.lobby.builder_mut().focus_on(BuildField::Search);
                 crate::buildui::move_nav(state, Nav::Idle);
             }
-            BuildField::PickerSet => {}
+            BuildField::PickerSet | BuildField::ListName | BuildField::ListSearch => {}
         }
         return;
     }

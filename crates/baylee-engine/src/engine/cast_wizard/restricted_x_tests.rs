@@ -356,7 +356,16 @@ fn deferred_x_payment_can_generate_and_spend_more_than_fifty_after_announcement(
     engine
         .apply(player, PlayerAction::ChooseNumber(61))
         .unwrap();
-    assert!(engine.payment_window().is_some());
+    assert_eq!(
+        engine.payment_window(),
+        Some((
+            player,
+            baylee_core::mana::ManaPayment::Fixed(
+                ManaCost::parse("{1}").with_symbol(baylee_core::mana::ManaSymbol::Black, 62),
+            ),
+        )),
+        "payment_window materializes restricted X into colored symbols so view.owed and manaplan do not plan non-black mana for X"
+    );
     let source = synthetic::permanents(&engine, 98_003)[0];
     engine
         .apply(
@@ -692,5 +701,204 @@ fn accepting_a_composite_price_revalidates_life_before_spending_any_mana() {
         engine.state.players[0].mana_pool.total(),
         2,
         "unpayable life cannot consume the mana component"
+    );
+}
+
+#[test]
+fn deferred_payment_window_enforces_color_restriction_on_x_and_rolls_back_off_color_mana() {
+    static ADD_B: &[Effect] = &[Effect::mana(ManaColor::Black, 1)];
+    static ADD_R: &[Effect] = &[Effect::mana(ManaColor::Red, 1)];
+    static SWAMP_ABILITIES: &[AbilityDef] = &[baylee_cards_dsl::mana_ability!(ADD_B)];
+    static MOUNTAIN_ABILITIES: &[AbilityDef] = &[baylee_cards_dsl::mana_ability!(ADD_R)];
+    let definition = probe_spell(0, true, false);
+    let swamp_def = synthetic::land(98_090, "Swamp probe", SWAMP_ABILITIES);
+    let mountain_def = synthetic::land(98_091, "Mountain probe", MOUNTAIN_ABILITIES);
+    let mut preset = synthetic::preset(77, &[98_090, 98_090, 98_090, 98_090, 98_091, 98_091]);
+    preset.seats[0].starting_hand = Some(vec![DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
+        card: CardIndex::new(98_001),
+        print: PrintRef::new(0),
+    }]);
+    let mut engine = Engine::new(
+        &preset,
+        SyntheticLookup::new(vec![definition, swamp_def, mountain_def]),
+    )
+    .unwrap();
+    synthetic::keep_mulligans(&mut engine);
+    let player = PlayerId::new(0);
+    for _ in 0..30 {
+        if matches!(engine.pending(), Pending::Priority { player: p, .. } if *p == player) {
+            break;
+        }
+        let pending = engine.pending().clone();
+        assert!(synthetic::walk_past(&mut engine, &pending));
+    }
+
+    let card = engine.state.zones.list(ZoneLocation::Hand(player))[0];
+    let swamps = synthetic::permanents(&engine, 98_090);
+    let mountains = synthetic::permanents(&engine, 98_091);
+
+    // 1. Cast with empty pool (deferred payment window) and choose X = 2.
+    engine
+        .apply(player, PlayerAction::CastSpell { card })
+        .unwrap();
+    engine.apply(player, PlayerAction::ChooseNumber(2)).unwrap();
+    assert_eq!(
+        engine.payment_window(),
+        Some((
+            player,
+            baylee_core::mana::ManaPayment::Fixed(ManaCost::parse("{1}{B}{B}{B}"))
+        )),
+        "X = 2 with x_mana_color = Black must materialize {{B}}{{B}} in the deferred payment window"
+    );
+
+    // Tap 2 Swamps and 2 Mountains ({B}{B}{R}{R} = 4 mana, but only 2 black for {1}{B}{B}{B}).
+    for &land in &[swamps[0], swamps[1], mountains[0], mountains[1]] {
+        engine
+            .apply(
+                player,
+                PlayerAction::ActivateAbility {
+                    source: land,
+                    ability_index: 0,
+                },
+            )
+            .unwrap();
+    }
+    // Passing priority in the payment window fails to pay {1}{B}{B}{B} and reverses cast + mana (CR 733.1).
+    engine.apply(player, PlayerAction::PassPriority).unwrap();
+    assert!(engine.state.zones.list(ZoneLocation::Stack).is_empty());
+    assert_eq!(engine.state.zones.list(ZoneLocation::Hand(player)), &[card]);
+    assert_eq!(engine.state.players[0].mana_pool.total(), 0);
+    for &land in &[swamps[0], swamps[1], mountains[0], mountains[1]] {
+        assert!(
+            !engine
+                .state
+                .object(land)
+                .unwrap()
+                .status
+                .contains(crate::object::Status::TAPPED)
+        );
+    }
+
+    // 2. Cast again with X = 1 and pay {B}{B}{R} (satisfying {1}{B}{B}).
+    engine
+        .apply(player, PlayerAction::CastSpell { card })
+        .unwrap();
+    engine.apply(player, PlayerAction::ChooseNumber(1)).unwrap();
+    assert_eq!(
+        engine.payment_window(),
+        Some((
+            player,
+            baylee_core::mana::ManaPayment::Fixed(ManaCost::parse("{1}{B}{B}"))
+        ))
+    );
+    for &land in &[swamps[2], swamps[3], mountains[0]] {
+        engine
+            .apply(
+                player,
+                PlayerAction::ActivateAbility {
+                    source: land,
+                    ability_index: 0,
+                },
+            )
+            .unwrap();
+    }
+    engine.apply(player, PlayerAction::PassPriority).unwrap();
+    assert_eq!(engine.state.zones.list(ZoneLocation::Stack), &[card]);
+    assert_eq!(engine.state.players[0].mana_pool.total(), 0);
+}
+
+#[test]
+fn unpaid_special_and_offboard_activations_partition_cleanly_between_unpaid_and_paid() {
+    use crate::choice::{TURN_FACE_UP, unlock_door};
+    use crate::engine::testkit::{
+        Duel, cast_with_floating, in_hand, keep_mulligans, on_battlefield, pass_until,
+        reach_main_phase, stack_is_empty,
+    };
+    use baylee_core::generated::index;
+
+    let p0 = PlayerId::new(0);
+    let walk_in_closet = baylee_cards::by_oracle_id("52e77cc3-f8e9-4a20-811b-fe1e46a96ad7")
+        .expect("Walk-In Closet // Forgotten Cellar")
+        .index;
+    let mut engine = Duel::new(42, index::FOREST)
+        .battlefield(0, &[walk_in_closet])
+        .hand(0, &[index::ZOETIC_CAVERN, index::ASH_BARRENS])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // Cast Zoetic Cavern face down via morph ({3}), leaving the mana pool empty.
+    engine.state.players[0].mana_pool.add(ManaColor::Green, 3);
+    engine.refresh_offer();
+    cast_with_floating(&mut engine, p0, index::ZOETIC_CAVERN);
+    pass_until(&mut engine, stack_is_empty);
+
+    let cavern = on_battlefield(&engine, p0, index::ZOETIC_CAVERN).expect("face-down Cavern");
+    let room = on_battlefield(&engine, p0, walk_in_closet).expect("Room on battlefield");
+    let barrens = in_hand(&engine, p0, index::ASH_BARRENS).expect("Ash Barrens in hand");
+
+    // 1. With an empty mana pool at sorcery speed: all four appear in `unpaid_abilities` only.
+    let Pending::Priority { legal, .. } = engine.pending() else {
+        panic!("expected priority")
+    };
+    for (src, idx, expected_cost) in [
+        (cavern, TURN_FACE_UP, ManaCost::parse("{2}")),
+        (room, unlock_door(0), ManaCost::parse("{2}{G}")),
+        (room, unlock_door(1), ManaCost::parse("{3}{G}{G}")),
+        (barrens, 1, ManaCost::parse("{1}")),
+    ] {
+        assert!(legal.unpaid_abilities.contains(&(src, idx, expected_cost)));
+        assert!(!legal.abilities.contains(&(src, idx)));
+    }
+
+    // 2. Add {3}{G}{G} to the mana pool: all four move from `unpaid_abilities` into `abilities`.
+    engine.state.players[0].mana_pool.add(ManaColor::Green, 5);
+    engine.refresh_offer();
+    let Pending::Priority { legal, .. } = engine.pending() else {
+        panic!("expected priority")
+    };
+    for (src, idx) in [
+        (cavern, TURN_FACE_UP),
+        (room, unlock_door(0)),
+        (room, unlock_door(1)),
+        (barrens, 1),
+    ] {
+        assert!(legal.abilities.contains(&(src, idx)));
+        assert!(
+            !legal
+                .unpaid_abilities
+                .iter()
+                .any(|&(s, i, _)| s == src && i == idx)
+        );
+    }
+
+    // 3. Unlock door 0 ({2}{G}), then clear the remaining pool: door 0 is gone; door 1 is unpaid again.
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: room,
+                ability_index: unlock_door(0),
+            },
+        )
+        .unwrap();
+    engine.state.players[0].mana_pool = baylee_core::mana::ManaPool::new();
+    engine.refresh_offer();
+    let Pending::Priority { legal, .. } = engine.pending() else {
+        panic!("expected priority")
+    };
+    assert!(!legal.abilities.contains(&(room, unlock_door(0))));
+    assert!(
+        !legal
+            .unpaid_abilities
+            .iter()
+            .any(|&(s, i, _)| s == room && i == unlock_door(0))
+    );
+    assert!(
+        legal
+            .unpaid_abilities
+            .contains(&(room, unlock_door(1), ManaCost::parse("{3}{G}{G}")))
     );
 }

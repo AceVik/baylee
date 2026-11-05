@@ -407,6 +407,7 @@ fn a_card_name_is_found_by_any_word_of_it_and_sent_as_its_card() {
     let rows = options(
         &Prompt::ChooseCardName {
             types: baylee_core::types::TypeSet::EMPTY,
+            excluded_types: baylee_core::types::TypeSet::EMPTY,
         },
         Lang::En,
         None,
@@ -423,6 +424,7 @@ fn a_card_name_is_found_by_any_word_of_it_and_sent_as_its_card() {
 
     let pending = baylee_engine::choice::Pending::ChooseCardName {
         types: baylee_core::types::TypeSet::EMPTY,
+        excluded_types: baylee_core::types::TypeSet::EMPTY,
         player: baylee_core::ids::PlayerId::new(0),
     };
     let mut interaction = Interaction::new(pending, baylee_core::ids::PlayerId::new(0));
@@ -446,18 +448,33 @@ fn a_card_name_is_found_by_any_word_of_it_and_sent_as_its_card() {
 #[test]
 fn a_back_face_is_named_and_a_leading_match_comes_first() {
     let rebirth = baylee_cards::decks::by_name("Malakir Rebirth").expect("in the pool");
-    let rows = card_name_rows("malakir mire", baylee_core::types::TypeSet::EMPTY);
+    let rows = card_name_rows(
+        "malakir mire",
+        baylee_core::types::TypeSet::EMPTY,
+        baylee_core::types::TypeSet::EMPTY,
+    );
     assert_eq!(
         rows.first().and_then(|row| card_name_at(row.index)),
         Some((rebirth, 1)),
         "Malakir Mire is the back of Malakir Rebirth"
     );
-    let rows = card_name_rows("pith", baylee_core::types::TypeSet::EMPTY);
+    let rows = card_name_rows(
+        "pith",
+        baylee_core::types::TypeSet::EMPTY,
+        baylee_core::types::TypeSet::EMPTY,
+    );
     assert_eq!(
         rows.first().map(|row| row.label.as_str()),
         Some("Pithing Needle")
     );
-    assert!(card_name_rows("zzzzqq", baylee_core::types::TypeSet::EMPTY).is_empty());
+    assert!(
+        card_name_rows(
+            "zzzzqq",
+            baylee_core::types::TypeSet::EMPTY,
+            baylee_core::types::TypeSet::EMPTY
+        )
+        .is_empty()
+    );
 }
 
 #[test]
@@ -481,8 +498,8 @@ fn a_filter_that_matches_nothing_offers_nothing() {
 #[test]
 fn a_land_name_choice_preserves_the_catalog_index() {
     use baylee_core::types::TypeSet;
-    assert!(card_name_rows("sol ring", TypeSet::LAND).is_empty());
-    let rows = card_name_rows("wasteland", TypeSet::LAND);
+    assert!(card_name_rows("sol ring", TypeSet::LAND, TypeSet::EMPTY).is_empty());
+    let rows = card_name_rows("wasteland", TypeSet::LAND, TypeSet::EMPTY);
     let row = rows.iter().find(|row| row.label == "Wasteland").unwrap();
     assert_eq!(
         card_name_at(row.index),
@@ -1093,6 +1110,68 @@ fn a_page_clamps_and_its_arrows_are_worded_alike() {
         [
             (baylee_client_core::targeting::PREVIOUS, "‹ Back"),
             (baylee_client_core::targeting::NEXT, "More ›"),
+        ]
+    );
+}
+
+/// Each ending of a resolved spell is its own button saying what it does, in
+/// both languages, and none has a price.
+#[test]
+fn a_spells_endings_are_buttons_that_say_what_they_do() {
+    use baylee_engine::choice::SpellEnding;
+    let (view, object) = pathway_in_hand();
+    let prompt = Prompt::CastMode {
+        object,
+        options: [
+            SpellEnding::Hand,
+            SpellEnding::Rebound,
+            SpellEnding::Adventure,
+            SpellEnding::Exile,
+        ]
+        .into_iter()
+        .zip(0..)
+        .map(|(ending, index)| CastModeDesc {
+            index,
+            kind: CastModeKind::SpellEnding(ending),
+            cost: ManaCost::ZERO,
+        })
+        .collect(),
+    };
+    let labels = |lang| -> Vec<String> {
+        options(
+            &prompt,
+            lang,
+            None,
+            "",
+            FaceNames {
+                view: Some(&view),
+                texts: None,
+            },
+        )
+        .expect("an ending has rows")
+        .into_iter()
+        .map(|row| {
+            assert!(row.cost.is_none(), "no ending has a price");
+            row.label
+        })
+        .collect()
+    };
+    assert_eq!(
+        labels(Lang::En),
+        [
+            "Back to your hand (buyback)",
+            "Exile it, cast it free next upkeep (rebound)",
+            "Exile it, on an adventure",
+            "Exile it",
+        ]
+    );
+    assert_eq!(
+        labels(Lang::De),
+        [
+            "Zurück auf deine Hand (Rückkauf)",
+            "Ins Exil, in deiner nächsten Versorgung kostenlos wirken",
+            "Ins Exil, auf ein Abenteuer",
+            "Ins Exil",
         ]
     );
 }

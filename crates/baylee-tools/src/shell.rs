@@ -3,6 +3,7 @@ mod check;
 mod common;
 mod devctl;
 mod front;
+mod gateway;
 mod keys;
 mod lane;
 mod measure;
@@ -261,7 +262,7 @@ fn raw(d: &Devctl, route: &str, path: Option<&Path>) -> Result<()> {
         })
         .transpose()?;
     let timeout = Duration::from_secs(if route == "/screenshot" { 120 } else { 60 });
-    let mut reply = d.http.call(route, body.as_ref(), None, timeout)?;
+    let mut reply = d.call_within(route, body.as_ref(), timeout)?;
     redact(&mut reply);
     println!("{}", serde_json::to_string_pretty(&reply)?);
     Ok(())

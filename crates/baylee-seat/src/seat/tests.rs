@@ -12,6 +12,7 @@ use prost::Message as _;
 
 const ME: PlayerId = PlayerId::new(0);
 
+mod controlled;
 mod draw;
 
 fn frame(msg: v1::envelope::Msg) -> Vec<u8> {

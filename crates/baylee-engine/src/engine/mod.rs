@@ -67,7 +67,7 @@ enum CombatDeclared {
     None,
     Attackers,
     /// A declaration whose mana tax was left unpaid in its payment window
-    /// was undone (CR 508.1i, CR 732.1). The step asks again, offering only
+    /// was undone (CR 508.1i, CR 733.1). The step asks again, offering only
     /// what the pool already pays, so a seat that will not pay is not walked
     /// round the same window twice.
     TaxDeclined {
@@ -157,16 +157,12 @@ enum PaymentContinuation {
         id: baylee_core::ids::GrantedActionId,
         cost: baylee_core::mana::ManaCost,
     },
-    Pact {
-        cost: baylee_core::mana::ManaCost,
-        source: Option<baylee_core::ids::DamageSourceRef>,
-    },
     /// Miracle's choices are complete; mana abilities may now pay them.
     Miracle {
         wizard: Box<cast_wizard::CastWizard>,
         version: u32,
         cost: baylee_core::mana::ManaCost,
-        /// What closing without the cast gives back (CR 732.1).
+        /// What closing without the cast gives back (CR 733.1).
         opened: Box<WindowStart>,
     },
     /// "You may cast that card" said yes to (CR 608.2g): the mana is made
@@ -182,7 +178,7 @@ enum PaymentContinuation {
         then_no_more_spells: bool,
         /// "Mana of any type can be spent to cast that spell."
         any_mana: bool,
-        /// What closing without the cast gives back (CR 732.1).
+        /// What closing without the cast gives back (CR 733.1).
         opened: Box<WindowStart>,
     },
     /// A declaration of attackers whose mana tax the pool did not cover
@@ -193,7 +189,7 @@ enum PaymentContinuation {
         attackers: Vec<(ObjectId, baylee_core::ids::Defender)>,
         /// The total tax, which is what the window shows as owed.
         cost: baylee_core::mana::ManaCost,
-        /// What closing without the declaration gives back (CR 732.1).
+        /// What closing without the declaration gives back (CR 733.1).
         opened: Box<WindowStart>,
     },
     /// A declaration of blockers whose mana tax the pool did not cover
@@ -205,7 +201,7 @@ enum PaymentContinuation {
         blockers: Vec<(ObjectId, ObjectId)>,
         /// The total tax, which is what the window shows as owed.
         cost: baylee_core::mana::ManaCost,
-        /// What closing without the declaration gives back (CR 732.1).
+        /// What closing without the declaration gives back (CR 733.1).
         opened: Box<WindowStart>,
     },
 }
@@ -215,7 +211,7 @@ enum PaymentContinuation {
 ///
 /// The mana abilities activated in such a window were activated while
 /// making a play that, if the cast is not made, was never completed, and
-/// CR 732.1 lets each player reverse "any legal mana abilities that player
+/// CR 733.1 lets each player reverse "any legal mana abilities that player
 /// activated while making the illegal play" (`Engine::give_back_window`).
 /// Every tap is its own `apply`, and a host reads the journal after each
 /// one, so the journal is not cut back: what was made is taken back, and
@@ -233,7 +229,7 @@ pub(crate) struct WindowStart {
     /// How many triggered abilities were waiting when it opened: those
     /// queued after were triggered by the mana abilities and wait for a
     /// player to get priority (CR 117.5), and no ability triggers from what
-    /// is reversed (CR 732.1).
+    /// is reversed (CR 733.1).
     triggers: usize,
 }
 
@@ -266,9 +262,6 @@ impl PaymentContinuation {
                 .wrapping_add(r.pc as u64)
                 .wrapping_add(u64::from(r.on_stack.slot()))
                 .wrapping_add(u64::from(r.controller.get())),
-            Self::Pact { cost, source } => crate::state::mana_cost_fingerprint(cost)
-                .wrapping_mul(31)
-                .wrapping_add(crate::state::structural_fingerprint(source)),
             Self::GrantedAction { id, cost } => id
                 .get()
                 .wrapping_mul(31)
@@ -558,20 +551,6 @@ pub struct Engine<L: CardLookup> {
     /// Delayed actions come due, each with the player who controls it
     /// (CR 603.7d), which [`Self::process_delayed`] reads as it performs it.
     delayed_queue: VecDeque<(PlayerId, crate::state::DelayedAction)>,
-    /// Upkeep payments that have triggered and not yet been answered: echo,
-    /// and a pact's "pay …; if you don't, you lose the game".
-    ///
-    /// Not [`Self::delayed_queue`], which runs as the upkeep begins, before
-    /// anybody holds priority. That is too early for an ability whose whole
-    /// text is a payment: an upkeep trigger is put on the stack before the
-    /// active player receives priority and resolves after it (CR 503.1a,
-    /// CR 117.3a), and this engine pays from the pool, which the untap step
-    /// has just emptied (CR 500.5) and in which nobody could have made mana
-    /// (CR 502.4). Asked there, Pact of Negation lost the game on eight
-    /// untapped Islands and echo sacrificed every permanent it is printed on.
-    /// `priority_round` asks these when the upkeep's round closes on an
-    /// empty stack — `offer_miracle`'s moment, for `offer_miracle`'s reason.
-    upkeep_payments: VecDeque<crate::state::DelayedAction>,
     /// Synthetic keyword-trigger effects by stack object (prowess).
     synthetic_fx: rustc_hash::FxHashMap<ObjectId, &'static [baylee_cards_dsl::Effect]>,
     /// A spell being cast step by step (modes/targets/X/kicker/pitch).
@@ -700,22 +679,6 @@ enum PlanKind {
         /// The control alternative already satisfies this replacement.
         untapped_without_reveal: bool,
     },
-    /// A delayed pay-or-lose decision (Pact of Negation).
-    DelayedPay {
-        /// The mana cost to pay.
-        cost: baylee_core::mana::ManaCost,
-        /// Exact card imposing the debt.
-        source: Option<baylee_core::ids::DamageSourceRef>,
-    },
-    /// A delayed pay-or-sacrifice decision (echo).
-    DelayedPaySacrifice {
-        /// The mana cost to pay.
-        cost: baylee_core::mana::ManaCost,
-        /// The permanent sacrificed when not paid.
-        card: ObjectId,
-        /// Incarnation imposing the cost and sacrificed if declined.
-        version: u32,
-    },
     /// A clone choosing what to copy as it enters.
     CopyOnEnter {
         /// The entering permanent.
@@ -752,6 +715,11 @@ enum PlanKind {
     },
     /// Choosing a card name as a permanent enters (Pithing Needle).
     ChooseCardName {
+        /// The entering permanent.
+        object: ObjectId,
+    },
+    /// Choosing a card type as a permanent enters (Serra's Emissary).
+    ChooseCardType {
         /// The entering permanent.
         object: ObjectId,
     },
@@ -963,6 +931,12 @@ enum PlanKind {
         /// Earlier pages of this one cost; nothing has been paid yet.
         chosen: Vec<ObjectId>,
     },
+    /// A resolved spell still on the stack, waiting for its controller to
+    /// say which of its competing endings applies (CR 616.1e).
+    SpellEnding {
+        /// The spell.
+        spell: ObjectId,
+    },
 }
 
 impl<L: CardLookup> Engine<L> {
@@ -1029,7 +1003,6 @@ impl<L: CardLookup> Engine<L> {
             entry_scan_seq: 0,
             entry_questions: VecDeque::new(),
             delayed_queue: VecDeque::new(),
-            upkeep_payments: VecDeque::new(),
             synthetic_fx: rustc_hash::FxHashMap::default(),
             cast_wizard: None,
             trigger_queue: VecDeque::new(),
@@ -1076,6 +1049,17 @@ impl<L: CardLookup> Engine<L> {
     #[must_use]
     pub fn pending(&self) -> &Pending {
         &self.pending
+    }
+
+    /// The ballots of the vote in progress, in the order they were cast,
+    /// and nothing outside one. Public to every seat: each vote is announced
+    /// as it is cast (CR 608.2d), in turn order (CR 701.38a).
+    #[must_use]
+    pub fn ballots(&self) -> &[resolve::Ballot] {
+        match self.resolution.as_ref().and_then(|r| r.awaiting.as_ref()) {
+            Some(resolve::AwaitingOp::Vote(vote)) => vote.ballots(),
+            _ => &[],
+        }
     }
 
     /// Cards privately inspected during the current filtered selection,
@@ -1141,8 +1125,7 @@ impl<L: CardLookup> Engine<L> {
         let window = self.mana_window.as_ref()?;
         match &window.suspended {
             PaymentContinuation::LandMana(_) => None,
-            PaymentContinuation::Pact { cost, .. }
-            | PaymentContinuation::GrantedAction { cost, .. }
+            PaymentContinuation::GrantedAction { cost, .. }
             | PaymentContinuation::Cast { cost, .. }
             | PaymentContinuation::Miracle { cost, .. }
             | PaymentContinuation::AttackTax { cost, .. }
@@ -1418,13 +1401,11 @@ impl<L: CardLookup> Engine<L> {
         for seat in self.mulligans.iter().flatten() {
             extra = extra.wrapping_mul(31).wrapping_add(seat.fingerprint());
         }
-        // An upkeep payment still owed turns the close of the upkeep's round
-        // into a question instead of the next step, and it survives answers
-        // (a second pact is still waiting while the first is asked), so two
-        // engines that differ in it diverge at that close.
-        extra = extra
-            .wrapping_mul(31)
-            .wrapping_add(self.upkeep_payments.len() as u64);
+        // Where the length of the upkeep's waiting payments went, always
+        // nothing since they went on the stack. A written record holds a
+        // hash with this step in it (`docs/engine-internals.md`, "The replay
+        // contract").
+        extra = extra.wrapping_mul(31);
         // A CR 605.3a payment window narrows the legal actions to mana and
         // makes passing close the window rather than count toward the round,
         // so two engines that differ in it answer the next question
@@ -1576,7 +1557,6 @@ impl<L: CardLookup> Engine<L> {
             entry_scan_seq,
             entry_questions,
             delayed_queue,
-            upkeep_payments,
             synthetic_fx,
             cast_wizard,
             trigger_queue,
@@ -1649,7 +1629,6 @@ impl<L: CardLookup> Engine<L> {
             ("entry_scan_seq", format!("{entry_scan_seq:?}")),
             ("entry_questions", format!("{entry_questions:?}")),
             ("delayed_queue", format!("{delayed_queue:?}")),
-            ("upkeep_payments", format!("{upkeep_payments:?}")),
             ("synthetic_fx", format!("{fx:?}")),
             ("cast_wizard", format!("{cast_wizard:?}")),
             ("trigger_queue", format!("{trigger_queue:?}")),
@@ -1936,6 +1915,8 @@ mod targeting;
 pub use decision::DecisionContext;
 mod actions;
 mod announcement_context;
+#[cfg(test)]
+mod buyback_tests;
 mod cancel_cast;
 pub(crate) mod cast_wizard;
 mod checkpoint;
@@ -1944,22 +1925,37 @@ mod checkpoint_tests;
 mod constrained_mana;
 pub(crate) mod cost_wizard;
 mod effect_play;
+mod foretell;
 mod granted;
 mod land_type_choices;
 mod leave;
 #[cfg(test)]
+mod library_flow_tests;
+#[cfg(test)]
+mod life_cost_flow_tests;
+#[cfg(test)]
 mod lost_target_tests;
 mod mulligan;
+#[cfg(test)]
+mod multikicker_tests;
 mod payment_window;
 mod player_control;
 #[cfg(test)]
 mod player_control_tests;
 mod progress;
+// Training and evaluation lookahead (`Engine::fork_for`); feature
+// `simulation`, never in a hosting build.
+#[cfg(any(test, feature = "simulation"))]
+mod simulation;
+#[cfg(any(test, feature = "simulation"))]
+pub use simulation::{DeckKnowledge, ForkRefusal};
 mod spend_riders;
 // Fuzzer invariants (`fuzz` feature; `docs/verification-hooks.md`).
 #[cfg(any(test, feature = "fuzz"))]
 mod invariants;
 
+#[cfg(test)]
+mod activation_flow_tests;
 #[cfg(test)]
 mod activation_target_tests;
 #[cfg(test)]
@@ -1972,6 +1968,8 @@ mod answer_door_tests;
 mod arrange_tests;
 #[cfg(test)]
 mod arrival_tests;
+#[cfg(test)]
+mod attach_flow_tests;
 #[cfg(test)]
 mod automation_tests;
 #[cfg(test)]
@@ -1991,6 +1989,8 @@ mod card_tests;
 #[cfg(test)]
 mod cast_face_tests;
 #[cfg(test)]
+mod cast_trigger_flow_tests;
+#[cfg(test)]
 mod chosen_tests;
 #[cfg(test)]
 mod claim_tests;
@@ -2009,6 +2009,8 @@ mod condition_tests;
 #[cfg(test)]
 mod convoke_tests;
 #[cfg(test)]
+mod cost_flow_tests;
+#[cfg(test)]
 mod counted_pt_tests;
 #[cfg(test)]
 mod cycling_tests;
@@ -2019,21 +2021,33 @@ mod day_night_tests;
 #[cfg(test)]
 mod departed_control_tests;
 #[cfg(test)]
+mod dies_flow_tests;
+#[cfg(test)]
 mod discard_top_tests;
 #[cfg(test)]
 mod draw_skip_tests;
 #[cfg(test)]
 mod draw_tests;
 #[cfg(test)]
+mod echo_payment_tests;
+#[cfg(test)]
+mod echo_trigger_tests;
+#[cfg(test)]
 mod enter_tests;
 #[cfg(test)]
 mod entry_counter_transaction_tests;
+#[cfg(test)]
+mod etb_flow_tests;
 #[cfg(test)]
 mod fight_tests;
 #[cfg(test)]
 mod flanking_tests;
 #[cfg(test)]
+mod flash_haste_flow_tests;
+#[cfg(test)]
 mod flashback_tests;
+#[cfg(test)]
+mod fog_disenchant_flow_tests;
 #[cfg(test)]
 mod graveyard_order_tests;
 #[cfg(test)]
@@ -2047,12 +2061,20 @@ mod state_trigger_tests;
 #[cfg(test)]
 mod timing_window_tests;
 #[cfg(test)]
+mod upkeep_flow_tests;
+#[cfg(test)]
 mod upkeep_permission_tests;
 
 #[cfg(test)]
 mod cancel_cast_tests;
 #[cfg(test)]
+mod cast_basics_tests;
+#[cfg(test)]
 mod coin_replacement_tests;
+#[cfg(test)]
+mod combat_flow_tests;
+#[cfg(test)]
+mod combat_skip_tests;
 #[cfg(test)]
 mod end_step_tests;
 #[cfg(test)]
@@ -2064,7 +2086,17 @@ mod event_player_tests;
 #[cfg(test)]
 mod extra_turn_tests;
 #[cfg(test)]
+mod foretell_tests;
+#[cfg(test)]
+mod game_end_tests;
+#[cfg(test)]
 mod granted_this_tests;
+#[cfg(test)]
+mod hand_effects_flow_tests;
+#[cfg(test)]
+mod hand_size_tests;
+#[cfg(test)]
+mod helix_flow_tests;
 #[cfg(test)]
 mod house_rules_tests;
 #[cfg(test)]
@@ -2073,6 +2105,8 @@ mod if_you_do_tests;
 mod investigate_tests;
 #[cfg(test)]
 mod keyword_tests;
+#[cfg(test)]
+mod land_drop_flow_tests;
 #[cfg(test)]
 mod land_mana_tests;
 #[cfg(test)]
@@ -2088,11 +2122,17 @@ mod loop_false_positive_tests;
 #[cfg(test)]
 mod loop_tests;
 #[cfg(test)]
+mod loyalty_flow_tests;
+#[cfg(test)]
 mod m2_tests;
 #[cfg(test)]
 mod mana_criteria_tests;
 #[cfg(test)]
+mod mana_flow_tests;
+#[cfg(test)]
 mod mana_tests;
+#[cfg(test)]
+mod mass_flow_tests;
 #[cfg(test)]
 mod mdfc_tests;
 #[cfg(test)]
@@ -2101,6 +2141,8 @@ mod mechanics_tests;
 mod mind_twist_tests;
 #[cfg(test)]
 mod miracle_tests;
+#[cfg(test)]
+mod modal_flow_tests;
 #[cfg(test)]
 mod monarch_table_tests;
 #[cfg(test)]
@@ -2114,6 +2156,8 @@ mod pay_in_cast_tests;
 #[cfg(test)]
 mod pay_window_tests;
 #[cfg(test)]
+mod per_turn_reset_tests;
+#[cfg(test)]
 mod phasing_tests;
 #[cfg(test)]
 mod player_damage_tests;
@@ -2122,13 +2166,23 @@ mod printed_tests;
 #[cfg(test)]
 mod priority_tests;
 #[cfg(test)]
+mod protection_flow_tests;
+#[cfg(test)]
+mod pump_flow_tests;
+#[cfg(test)]
 mod redirection_tests;
 #[cfg(test)]
 mod reflexive_tests;
 #[cfg(test)]
 mod refusal_tests;
 #[cfg(test)]
+mod regen_flow_tests;
+#[cfg(test)]
 mod regenerate_tests;
+#[cfg(test)]
+mod removal_flow_tests;
+#[cfg(test)]
+mod replay_basics_tests;
 #[cfg(test)]
 mod resolution_tests;
 #[cfg(test)]
@@ -2148,6 +2202,8 @@ mod s7b_tests;
 #[cfg(test)]
 mod s7c_tests;
 #[cfg(test)]
+mod sacrifice_flow_tests;
+#[cfg(test)]
 mod saga_tests;
 #[cfg(test)]
 mod search_tests;
@@ -2156,13 +2212,25 @@ mod self_subject_tests;
 #[cfg(test)]
 mod sickness_tests;
 #[cfg(test)]
+mod simulation_tests;
+#[cfg(test)]
 mod speed_tests;
+#[cfg(test)]
+mod stack_flow_tests;
 #[cfg(test)]
 mod static_controller_tests;
 #[cfg(test)]
+mod static_flow_tests;
+#[cfg(test)]
+mod strike_flow_tests;
+#[cfg(test)]
 pub(crate) mod synthetic;
 #[cfg(test)]
+mod table_flow_tests;
+#[cfg(test)]
 mod target_tests;
+#[cfg(test)]
+mod targeting_flow_tests;
 #[cfg(test)]
 mod tax_window_tests;
 #[cfg(test)]
@@ -2180,6 +2248,8 @@ mod token_tests;
 #[cfg(test)]
 mod trigger_target_tests;
 #[cfg(test)]
+mod turn_basics_tests;
+#[cfg(test)]
 mod turn_start_tests;
 #[cfg(test)]
 mod undying_tests;
@@ -2190,6 +2260,8 @@ mod verification_tests;
 #[cfg(test)]
 mod vocabulary_tests;
 #[cfg(test)]
+mod vote_tests;
+#[cfg(test)]
 mod w1_tests;
 #[cfg(test)]
 mod walker_tests;
@@ -2199,14 +2271,20 @@ mod ward_tests;
 mod waterbend_tests;
 #[cfg(test)]
 mod werewolf_tests;
+#[cfg(test)]
+mod x_flow_tests;
 
 #[cfg(test)]
 mod scrap_trawler_tests;
 
 #[cfg(test)]
+mod counter_flow_tests;
+#[cfg(test)]
 mod courser_tests;
 #[cfg(test)]
 mod tear_asunder_tests;
+#[cfg(test)]
+mod trick_flow_tests;
 
 #[cfg(test)]
 mod dauthi_tests;

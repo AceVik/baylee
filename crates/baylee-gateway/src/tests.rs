@@ -455,67 +455,22 @@ fn parsed(lines: &[&str]) -> Result<usize, String> {
         })
 }
 
-/// **Four copies is a deck's limit, not a line's.**
-///
-/// That is the rule a per-line check gets wrong, and it gets it wrong in the
-/// direction a player finds by accident rather than on purpose: three
-/// Lightning Bolt and then two more is five Lightning Bolt, and every line
-/// in that list is legal on its own. The count is carried per card across
-/// the whole list, which is the only reason this function exists instead of
-/// a loop at each of its two call sites.
+/// How many copies a deck holds is a format's question and not a reason to
+/// refuse a save (`docs/banlists-and-formats.md`): the check counts them per
+/// card, over every row and printing, and says so (`GET /decks`, a table's
+/// list). What a list refuses here is what a game could not be built from.
 #[test]
-fn the_copy_limit_is_counted_over_the_deck_and_not_over_one_line() {
-    const TOO_MANY: &str = "invalid card count (1-4, unlimited for basic lands)";
-
-    assert_eq!(parsed(&["4 Lightning Bolt"]), Ok(1));
-    assert_eq!(parsed(&["5 Lightning Bolt"]), Err(TOO_MANY.to_string()));
-    assert_eq!(
-        parsed(&["3 Lightning Bolt", "1 Lightning Bolt"]),
-        Ok(2),
-        "four in two rows is four"
-    );
-    assert_eq!(
-        parsed(&["3 Lightning Bolt", "2 Lightning Bolt"]),
-        Err(TOO_MANY.to_string()),
-        "and five in two rows is five"
-    );
-    assert_eq!(
-        parsed(&["1 Lightning Bolt"; 5]),
-        Err(TOO_MANY.to_string()),
-        "however many rows it is spread over"
-    );
+fn a_save_is_not_refused_for_how_many_copies_it_holds() {
+    assert_eq!(parsed(&["5 Lightning Bolt"]), Ok(1));
     assert_eq!(
         parsed(&["4 Lightning Bolt (LEA)", "4 Lightning Bolt (M10)"]),
-        Err(TOO_MANY.to_string()),
-        "two printings of one card are one card — the eight Bolts that went \
-         through a per-row check once a printing became part of a row"
+        Ok(2)
     );
-    assert_eq!(
-        parsed(&["4 Lightning Bolt", "4 Karakas"]),
-        Ok(2),
-        "and it is counted per card, so two cards are two counts"
-    );
-}
-
-/// A basic land is the exemption, and what makes one is the **printing**:
-/// the supertype and the type off the front face, never the name. A
-/// Karakas is a legendary land and is four like everything else.
-#[test]
-fn a_basic_land_is_the_one_card_a_deck_may_hold_any_number_of() {
     assert_eq!(parsed(&["40 Forest"]), Ok(1));
-    assert_eq!(
-        parsed(&["20 Forest", "20 Island"]),
-        Ok(2),
-        "and each of them separately"
-    );
-    assert_eq!(
-        parsed(&["5 Karakas"]),
-        Err("invalid card count (1-4, unlimited for basic lands)".to_string()),
-        "a land that is not basic is not exempt, whatever else it is"
-    );
+    assert_eq!(parsed(&["5 Karakas"]), Ok(1));
 }
 
-/// The list has a ceiling as well, and it is checked **as the lines are
+/// The list has a ceiling, and it is checked **as the lines are
 /// read** rather than at the end, so a list that would take a gigabyte to
 /// expand is refused at the row that passes 250 rather than after all of
 /// them.
@@ -638,41 +593,35 @@ fn a_deck_is_refused_for_its_shape_before_any_card_is_read() {
 }
 
 /// **A sideboard is read by the deck's own parser**, so it cannot hold what
-/// a deck could not — and it is read *separately*, so four in the deck and
-/// four in the sideboard is eight copies of a card and legal, which is the
-/// point of having one.
+/// a deck could not.
 #[test]
 fn a_sideboard_is_the_same_parser_over_a_list_of_its_own() {
     assert_eq!(
         deck(serde_json::json!({
             "name": "a deck",
             "cards": ["1 Forest"],
-            "sideboard": ["5 Lightning Bolt"],
+            "sideboard": ["1 Lihgtning Bolt"],
         })),
-        Err("invalid card count (1-4, unlimited for basic lands)".to_string()),
-        "five is five wherever it is written"
+        Err("unknown card".to_string()),
+        "a name nothing has printed is that wherever it is written"
     );
     assert!(
         deck(serde_json::json!({
             "name": "a deck",
             "cards": ["4 Lightning Bolt"],
-            "sideboard": ["4 Lightning Bolt"],
+            "sideboard": ["5 Lightning Bolt"],
         }))
         .is_ok(),
-        "and the two lists are counted apart, which is what a sideboard is"
+        "and how many is the format's question"
     );
 }
 
-/// **Three questions, not one.** A commander's name has to resolve, what it
-/// resolves to has to be a card that may lead a deck (CR 903.3 — a legendary
-/// creature, Vehicle or Spacecraft with a power and toughness), and a second
-/// one has to be allowed to lead it *with* the first.
-///
-/// The check used to stop at the first of those, so any card in this pool
-/// could be named as a commander and the engine seated it without
-/// complaint.
+/// A commander's name has to resolve. Whether what it resolves to may lead a
+/// deck, alone or with the other, is the format's question (CR 903.3): the
+/// check says so and a save is never refused for it, or a deck stored before
+/// a card's rule changed could not be saved again.
 #[test]
-fn a_commander_is_a_card_that_may_lead_and_not_merely_a_card() {
+fn a_commander_has_to_be_a_card_and_its_format_says_the_rest() {
     let with = |commanders: &[&str]| {
         deck(serde_json::json!({
             "name": "a deck",
@@ -687,28 +636,13 @@ fn a_commander_is_a_card_that_may_lead_and_not_merely_a_card() {
         "a name nothing has printed"
     );
     assert_eq!(
-        with(&["Lightning Bolt"]),
-        Err("that card cannot be a commander".to_string()),
-        "a card this pool has, which is the question that used to go unasked"
-    );
-    assert_eq!(
         with(&["Lightning Bolt", "Forest", "Karakas"]),
         Err("a deck has at most two commanders".to_string()),
         "counted before any of them is looked up"
     );
-
-    let mut leaders = baylee_cards::all().filter_map(|def| {
-        let leader = baylee_cards::decks::leader_of(def.index)?;
-        leader.eligible.then(|| (def.faces[0].name, leader))
-    });
-    let (first_name, first) = leaders.next().expect("this pool has a commander");
-    let (second_name, _) = leaders
-        .find(|(_, other)| !baylee_cards::decks::may_lead_together(&first, other))
-        .expect("and two that cannot lead one deck between them");
-    assert_eq!(
-        with(&[first_name, second_name]),
-        Err("those two cards cannot lead one deck".to_string()),
-        "{first_name} and {second_name} are each a commander and not a pair"
+    assert!(
+        with(&["Lightning Bolt"]).is_ok(),
+        "a card that may not lead is saved, and told"
     );
 }
 
@@ -722,19 +656,19 @@ fn the_field_an_older_client_sends_is_read_only_when_the_new_one_is_empty() {
         deck(serde_json::json!({
             "name": "a deck",
             "cards": ["1 Forest"],
-            "commander": "Lightning Bolt",
+            "commander": "Lihgtning Bolt",
         })),
-        Err("that card cannot be a commander".to_string()),
+        Err("unknown commander".to_string()),
         "the old field is read when the new one says nothing"
     );
-    assert_eq!(
+    assert!(
         deck(serde_json::json!({
             "name": "a deck",
             "cards": ["1 Forest"],
             "commander": "Lihgtning Bolt",
             "commanders": ["Lightning Bolt"],
-        })),
-        Err("that card cannot be a commander".to_string()),
+        }))
+        .is_ok(),
         "and is not read at all when it does"
     );
 }

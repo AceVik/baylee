@@ -76,6 +76,18 @@ impl GameState {
         self.invalidate_projections();
     }
 
+    /// Mark this exact exiled incarnation as foretold and privately visible
+    /// to its owner. No counters or linked host are involved (CR 702.143a).
+    pub(crate) fn foretell_exiled_card(&mut self, card: ObjectId, owner: PlayerId, turn: u32) {
+        self.conceal_exiled_card(card);
+        let object = self.object_mut(card).expect("foretold card exists");
+        object.riders.push(Rider::Foretold { turn });
+        object.riders.push(Rider::ExileVisibility {
+            seen: std::iter::once(owner).collect(),
+            follow_source: false,
+        });
+    }
+
     /// Called when control actually changes, and when a hideaway host phases in.
     /// Only exile is visited; ordinary projection passes do not scan for rights.
     pub(crate) fn learn_hideaway_cards(&mut self, host: ObjectId) {

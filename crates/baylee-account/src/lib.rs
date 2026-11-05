@@ -15,7 +15,9 @@ pub use account::Account;
 mod admission;
 mod http;
 pub use admission::{Admission, GatewayHttp};
-pub use central_api::{Endpoint, Error, Token, gateway, owner, terms, wire};
+pub use central_api::{
+    Endpoint, Error, Token, chat as chat_api, gateway, groups, owner, social, terms, wire,
+};
 #[cfg(feature = "client")]
 pub use central_client as sdk;
 pub use http::CentralHttp;

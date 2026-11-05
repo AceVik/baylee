@@ -118,3 +118,133 @@ fn an_opponents_ankh_prices_every_land() {
         PlayerAction::PlayLand { card: obj(3) }
     );
 }
+
+/// Simic Growth Chamber with the handle `slot`, on the battlefield, tapped
+/// as it enters.
+fn karoo_on_board(slot: u32, tapped: bool) -> PublicObject {
+    let mut land = carded(
+        permanent(obj(slot), PlayerId::new(0), 0),
+        "Simic Growth Chamber",
+        TypeSet::LAND,
+    );
+    land.power = None;
+    land.toughness = None;
+    if tapped {
+        land.status = ObjectStatus::TAPPED;
+    }
+    land
+}
+
+/// A basic land of the seat's on the battlefield.
+fn basic_on_board(slot: u32, name: &str, tapped: bool) -> PublicObject {
+    let mut land = carded(
+        permanent(obj(slot), PlayerId::new(0), 0),
+        name,
+        TypeSet::LAND,
+    );
+    land.power = None;
+    land.toughness = None;
+    land.supertypes = SupertypeSet::BASIC;
+    if tapped {
+        land.status = ObjectStatus::TAPPED;
+    }
+    land
+}
+
+/// The report of 3.11.2026: a Karoo played with no other land out returns
+/// itself, and the land drop is gone. A basic beside it in the hand is the
+/// better land; alone, the Karoo is not played at all.
+#[test]
+fn a_bounce_land_is_not_played_with_no_land_to_return() {
+    let mut v = main_phase(20, vec![]);
+    v.hand.push(hand_card(2, "Simic Growth Chamber"));
+    v.hand.push(hand_card(3, "Forest"));
+    assert_eq!(
+        agent().act(&v, &lands_offered(vec![obj(2), obj(3)])),
+        PlayerAction::PlayLand { card: obj(3) },
+        "the Karoo was played ahead of a basic with nothing to return"
+    );
+
+    v.hand.remove(1);
+    assert_eq!(
+        agent().act(&v, &lands_offered(vec![obj(2)])),
+        PlayerAction::PassPriority,
+        "a Karoo that can only return itself was played"
+    );
+}
+
+/// With a land out the Karoo is worth playing, but after a plain land in the
+/// hand and before nothing.
+#[test]
+fn a_bounce_land_is_played_after_plain_lands_and_when_it_is_the_only_one() {
+    let mut v = main_phase(20, vec![basic_on_board(1, "Island", false)]);
+    v.hand.push(hand_card(2, "Simic Growth Chamber"));
+    v.hand.push(hand_card(3, "Forest"));
+    assert_eq!(
+        agent().act(&v, &lands_offered(vec![obj(2), obj(3)])),
+        PlayerAction::PlayLand { card: obj(3) }
+    );
+    assert_eq!(
+        agent().act(&v, &lands_offered(vec![obj(2)])),
+        PlayerAction::PlayLand { card: obj(2) }
+    );
+}
+
+/// The Karoo's trigger asks which land to return. Offered first, the Karoo
+/// itself was returned, and the board was the same as before it was played.
+#[test]
+fn a_bounce_land_returns_a_tapped_basic_and_not_itself() {
+    use baylee_engine::choice::ChoicePrompt;
+    let mut trigger = permanent(obj(9), PlayerId::new(0), 0);
+    trigger.stack_item = Some(baylee_view::StackItem::Ability {
+        source: obj(1),
+        ability: None,
+        text: None,
+        token: None,
+        rules: Some(baylee_view::RulesFace::from(
+            karoo_on_board(1, true).card.unwrap(),
+        )),
+    });
+    let mut v = main_phase(
+        20,
+        vec![
+            karoo_on_board(1, true),
+            basic_on_board(2, "Island", false),
+            basic_on_board(3, "Forest", true),
+        ],
+    );
+    v.stack.push(trigger);
+    let ask = |v: &PlayerView, options: Vec<ObjectId>| {
+        agent().act(
+            v,
+            &Pending::ChooseCards {
+                player: v.seat,
+                options,
+                min: 1,
+                max: 1,
+                prompt: ChoicePrompt::Generic,
+                total: None,
+            },
+        )
+    };
+    assert_eq!(
+        ask(&v, vec![obj(1), obj(2), obj(3)]),
+        PlayerAction::ChooseObjects {
+            objects: vec![obj(3)]
+        },
+        "the tapped basic was not the land returned"
+    );
+    assert_eq!(
+        ask(&v, vec![obj(1), obj(2)]),
+        PlayerAction::ChooseObjects {
+            objects: vec![obj(2)]
+        },
+        "the Karoo was returned while another land was there"
+    );
+    assert_eq!(
+        ask(&v, vec![obj(1)]),
+        PlayerAction::ChooseObjects {
+            objects: vec![obj(1)]
+        }
+    );
+}

@@ -5,6 +5,7 @@ mod fields;
 mod guests;
 mod hosted;
 mod invites;
+mod lists;
 mod moderation;
 mod offline;
 mod rooms;

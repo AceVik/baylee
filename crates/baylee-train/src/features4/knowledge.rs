@@ -57,10 +57,25 @@ struct ObservableView<'a> {
     exile: &'a [Vec<baylee_view::PublicObject>],
     command: &'a [Vec<baylee_view::PublicObject>],
     combat: &'a baylee_view::CombatView,
+    /// Public ballots of a vote in progress; absent while empty, so every
+    /// observation outside a vote hashes as it did before votes were told.
+    #[serde(skip_serializing_if = "no_ballots")]
+    ballots: &'a [baylee_view::Ballot],
     looking_at: &'a [baylee_view::PublicObject],
     library_tops: &'a [baylee_view::PublicObject],
     sorcery_lock: &'a Option<ObjectId>,
     sorceries_have_flash: &'a bool,
+    /// Granted flash by type; absent while empty, so every observation
+    /// without such an effect hashes as it did before it was told.
+    #[serde(skip_serializing_if = "no_flash_types")]
+    flash_types: &'a baylee_core::types::TypeSet,
+    /// Who decides for whom; absent while empty, likewise.
+    #[serde(skip_serializing_if = "no_controls")]
+    controls: &'a [baylee_view::PlayerControl],
+    /// Abilities whose targets another player chooses; absent while empty,
+    /// likewise.
+    #[serde(skip_serializing_if = "no_foreign_targets")]
+    foreign_targets: &'a [ObjectId],
 }
 
 impl<'a> ObservableView<'a> {
@@ -102,10 +117,14 @@ impl<'a> ObservableView<'a> {
             exile,
             command,
             combat,
+            ballots,
             looking_at,
             library_tops,
             sorcery_lock,
             sorceries_have_flash,
+            flash_types,
+            controls,
+            foreign_targets,
         } = view;
         Self {
             decision_player,
@@ -137,12 +156,37 @@ impl<'a> ObservableView<'a> {
             exile,
             command,
             combat,
+            ballots,
             looking_at,
             library_tops,
             sorcery_lock,
             sorceries_have_flash,
+            flash_types,
+            controls,
+            foreign_targets,
         }
     }
+}
+
+/// serde hands a field to its skip test by reference.
+fn no_foreign_targets(targets: &&[ObjectId]) -> bool {
+    targets.is_empty()
+}
+
+/// serde hands a field to its skip test by reference.
+fn no_controls(controls: &&[baylee_view::PlayerControl]) -> bool {
+    controls.is_empty()
+}
+
+/// serde hands a field to its skip test by reference.
+#[allow(clippy::trivially_copy_pass_by_ref)] // serde's signature, not ours
+fn no_flash_types(types: &&baylee_core::types::TypeSet) -> bool {
+    types.is_empty()
+}
+
+/// serde hands a field to its skip test by reference.
+fn no_ballots(ballots: &&[baylee_view::Ballot]) -> bool {
+    ballots.is_empty()
 }
 
 /// Computes a deterministic 64-bit FNV-1a hash of the seat-authorized

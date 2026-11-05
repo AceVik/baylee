@@ -96,6 +96,14 @@ pub enum Modifier {
         /// Additional counters per placement event.
         n: u16,
     },
+    /// As the affected permanent enters, add this many counters of one kind.
+    /// The count is captured before the permanent reaches the battlefield.
+    AdditionalCounterOnEntryByCount {
+        /// Kind created by this entry replacement.
+        kind: crate::CounterKind,
+        /// Number derived from the game state before entry.
+        count: crate::PtCount,
+    },
     /// If the effect's controller would flip a coin, flip one additional
     /// coin and ignore one result of their choice: a replacement effect
     /// (CR 614.1a, "instead").
@@ -107,6 +115,9 @@ pub enum Modifier {
     SpellsCostMorePerControlled(&'static crate::Filter),
     /// Matching spells cost this much less generic mana after all increases.
     SpellsCostLess(u32),
+    /// Matching spells cost {1} less for each counter of this kind on the
+    /// continuous effect's source (Herald of War).
+    SpellsCostLessPerCounter(crate::CounterKind),
     /// Generic cost increase for activated abilities of matching objects.
     AbilitiesCostMore(u32),
     /// Additional life paid when activating a mana ability of the affected object.
@@ -155,6 +166,16 @@ pub enum Modifier {
     /// Titania's Song: one layer-4 cohort loses abilities in layer 6 and gets
     /// mana-value P/T in 7b; its static continues until cleanup after departure.
     AnimateNoncreatureArtifactWithoutAbilitiesUntilEndOfTurnAfterDeparture,
+    /// "[These permanents are] creatures in addition to their other types
+    /// and have base power and base toughness each equal to their mana
+    /// value" (Opalescence). Layer 4 adds the creature type and nothing
+    /// else, keeping every other type and subtype (CR 205.1b); the same
+    /// effect sets base power and toughness to the object's mana value in
+    /// layer 7b (CR 613.4b), on the objects it took in layer 4 (CR 613.6).
+    /// Unlike [`Self::AnimateNoncreatureArtifact`] it asks no noncreature
+    /// question and adds no artifact type: a creature it reaches has its
+    /// printed power and toughness replaced as well.
+    CreatureWithManaValuePT,
     /// Removes types.
     RemoveType(TypeSet),
     /// Adds a subtype.
@@ -365,6 +386,14 @@ pub enum Modifier {
     PlayerProtectionFromEverything {
         /// Affected players relative to the effect controller.
         who: crate::PlayerRel,
+    },
+    /// The named players have protection from sources matching this filter
+    /// (CR 702.16b: only damage and targeting apply to a player).
+    PlayerProtectionFrom {
+        /// Affected players relative to the effect controller.
+        who: crate::PlayerRel,
+        /// Sources from which those players are protected.
+        from: &'static crate::Filter,
     },
     /// These players can't lose life (Everybody Lives!: `EachPlayer`). That
     /// covers damage, effects and payments alike (CR 119.8): the loss
@@ -964,6 +993,12 @@ pub enum Modifier {
         /// Life paid per attacking creature.
         life: u16,
     },
+    /// Creatures can't attack the effect's controller or their planeswalkers
+    /// unless their controller pays this much generic mana per creature.
+    AttackTaxMana {
+        /// Generic mana paid per attacking creature.
+        mana: u32,
+    },
     /// "If damage would be dealt to any creature, you may have that damage
     /// dealt to you instead" (Blood of the Martyr).
     MayRedirectDamageToYou,
@@ -972,6 +1007,8 @@ pub enum Modifier {
     /// "Can't attack unless its controller pays {1} per counter of this kind
     /// on it" (Myr Prototype).
     CantAttackUnlessPayManaPerCounter(crate::CounterKind),
+    /// "Can't block unless its controller pays {N}".
+    CantBlockUnlessPayMana(u32),
     /// "Can't block unless its controller pays {1} per counter of this kind
     /// on it" (Myr Prototype).
     CantBlockUnlessPayManaPerCounter(crate::CounterKind),
@@ -995,6 +1032,12 @@ pub enum Modifier {
     /// permanent matching the filter (Orgg: "can't attack if defending player
     /// controls an untapped creature with power 3 or greater").
     CantAttackIfDefenderControls(&'static Filter),
+    /// The buyback cost of a matching spell costs this much less generic
+    /// mana. Only the buyback cost's own generic part (CR 118.7a), so it does
+    /// nothing for a spell whose buyback was not announced and nothing for
+    /// "Buyback—Sacrifice a land", and the mana part of a smaller cost is
+    /// {0} rather than less (CR 118.7).
+    BuybackCostsLess(u32),
 }
 
 /// What a [`Modifier::CharacteristicPT`] counts.
@@ -1061,7 +1104,8 @@ pub enum PtCount {
 impl Modifier {
     /// The first layer this modifier applies in (CR 613.1).
     ///
-    /// [`Self::AnimateNoncreatureArtifact`] starts in layer 4 and continues
+    /// [`Self::AnimateNoncreatureArtifact`] and
+    /// [`Self::CreatureWithManaValuePT`] start in layer 4 and continue
     /// in layer 7b. The engine keeps both parts together as one effect,
     /// carrying its affected objects forward between layers (CR 613.6).
     ///
@@ -1124,6 +1168,7 @@ impl Modifier {
             | Self::RemoveSupertype(_)
             | Self::AnimateNoncreatureArtifactWithoutAbilitiesUntilEndOfTurnAfterDeparture
             | Self::AnimateNoncreatureArtifact
+            | Self::CreatureWithManaValuePT
             | Self::RemoveType(_)
             | Self::AddSubtype(_)
             | Self::AllCreatureTypes
@@ -1178,6 +1223,8 @@ impl Modifier {
             Self::SwitchPT => Layer::PtSwitch,
             // No layer: rules-modifying effects.
             Self::SpellsCostLess(_)
+            | Self::SpellsCostLessPerCounter(_)
+            | Self::BuybackCostsLess(_)
             | Self::BandsWithOther(_)
             | Self::GraveyardInstantSorceryOnce
             | Self::GraveyardVampireOnce
@@ -1226,6 +1273,7 @@ impl Modifier {
             | Self::CantLoseLife { .. }
             | Self::LifeTotalCantChange { .. }
             | Self::PlayerProtectionFromEverything { .. }
+            | Self::PlayerProtectionFrom { .. }
             | Self::PlayerProtectionFromOpponents { .. }
             | Self::NoLossForZeroLife { .. }
             | Self::LifeGainDrawsInstead { .. }
@@ -1233,6 +1281,7 @@ impl Modifier {
             | Self::ReplacePlayerDamage { .. }
             | Self::DamageLifeLossFloor { .. }
             | Self::AdditionalCounterPlacement { .. }
+            | Self::AdditionalCounterOnEntryByCount { .. }
             | Self::FlipTwoCoinsIgnoreOne
             | Self::DoubleCountersPlacedByYou
             | Self::NextDestructionClearsDamage
@@ -1255,8 +1304,10 @@ impl Modifier {
             | Self::CantAttack
             | Self::CantAttackYou
             | Self::AttackTaxLife { .. }
+            | Self::AttackTaxMana { .. }
             | Self::CantAttackUnlessPayMana(_)
             | Self::CantAttackUnlessPayManaPerCounter(_)
+            | Self::CantBlockUnlessPayMana(_)
             | Self::CantBlockUnlessPayManaPerCounter(_)
             | Self::CantAttackUnlessYouSacrifice { .. }
             | Self::AttackWithoutTappingWhileSourceUntapped { .. }
@@ -1625,6 +1676,7 @@ mod tests {
             (Modifier::GainControl, Layer::Control),
             (Modifier::AddType(TypeSet::ARTIFACT), Layer::Type),
             (Modifier::AnimateNoncreatureArtifact, Layer::Type),
+            (Modifier::CreatureWithManaValuePT, Layer::Type),
             (Modifier::RemoveType(TypeSet::CREATURE), Layer::Type),
             (Modifier::AddSubtype(SubtypeId::new(1)), Layer::Type),
             (Modifier::AllCreatureTypes, Layer::Type),
@@ -1775,6 +1827,7 @@ mod tests {
             Modifier::NextDrawWish,
             Modifier::NextDrawFromTop { count: 3 },
             Modifier::SpellsCostLess(3),
+            Modifier::BuybackCostsLess(2),
             Modifier::SpellsCostMore(3),
             Modifier::SpellsCostMorePerControlled(&Filter::ARTIFACT),
             Modifier::AbilitiesCostMore(3),

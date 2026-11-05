@@ -1,5 +1,5 @@
 //! Distinct cards pay distinct additional costs; maximize usable escape fodder.
-use crate::{state::GameState, zone::ZoneLocation};
+use crate::{engine::cast_wizard::CostChoice, state::GameState, zone::ZoneLocation};
 use baylee_cards_dsl::{CostPart, FaceDef};
 use baylee_core::ids::{ObjectId, PlayerId};
 
@@ -15,6 +15,35 @@ pub(crate) fn additional_card_enters_graveyard(
         && crate::replacement::graveyard_destination(state, card, destination).0 == destination
 }
 
+/// Whether every exile-from-hand part can be paid with a distinct card.
+/// `chosen` holds the answers to the leading parts, in cost order.
+pub(crate) fn pitch_costs_payable(
+    state: &GameState,
+    player: PlayerId,
+    card: ObjectId,
+    parts: &[CostPart],
+    chosen: &[ObjectId],
+) -> bool {
+    let menus: Vec<Vec<_>> = parts
+        .iter()
+        .filter_map(|part| match part {
+            CostPart::ExileFromHand(filter) => Some(*filter),
+            _ => None,
+        })
+        .skip(chosen.len())
+        .map(|filter| {
+            super::pitchable(state, player, card, filter)
+                .into_iter()
+                .filter(|id| !chosen.contains(id))
+                .collect()
+        })
+        .collect();
+    let mut candidates: Vec<_> = menus.iter().flatten().copied().collect();
+    candidates.sort_unstable();
+    candidates.dedup();
+    preferred_assignment(&menus, candidates).is_some()
+}
+
 /// Augmenting paths match cards to cost parts. Visiting graveyard-bound cards
 /// first maximizes their count; later augmentations preserve already matched
 /// cards. This avoids enumerating combinations of a large battlefield.
@@ -25,7 +54,7 @@ pub(crate) fn additional_payment_capacity(
     face: &'static FaceDef,
     chosen: &[ObjectId],
 ) -> Option<usize> {
-    additional_payment_capacity_for(state, player, card, face, None, chosen)
+    additional_payment_capacity_for(state, player, card, face, CostChoice::default(), chosen)
 }
 
 pub(crate) fn additional_payment_capacity_for(
@@ -33,23 +62,22 @@ pub(crate) fn additional_payment_capacity_for(
     player: PlayerId,
     card: ObjectId,
     face: &'static FaceDef,
-    option: Option<crate::choice::CastModeKind>,
+    choice: impl Into<CostChoice>,
     chosen: &[ObjectId],
 ) -> Option<usize> {
-    let life = crate::engine::cast_wizard::wizard_mandatory_parts(face, option).fold(
-        0_i32,
-        |sum, part| {
+    let choice = choice.into();
+    let life =
+        crate::engine::cast_wizard::wizard_cost_parts(face, choice).fold(0_i32, |sum, part| {
             sum.saturating_add(if let CostPart::PayLife(life) = part {
                 i32::from(*life)
             } else {
                 0
             })
-        },
-    );
+        });
     if !state.can_pay_life(player, life) {
         return None;
     }
-    let menus: Vec<Vec<_>> = crate::engine::cast_wizard::additional_card_costs_for(face, option)
+    let menus: Vec<Vec<_>> = crate::engine::cast_wizard::additional_card_costs_for(face, choice)
         .skip(chosen.len())
         .map(|part| {
             crate::engine::cost_wizard::options(state, player, card, part)
@@ -70,7 +98,23 @@ pub(crate) fn additional_payment_capacity_for(
     candidates.sort_by_key(|(_, enters_graveyard)| !enters_graveyard);
     let assignments = preferred_assignment(&menus, candidates.iter().map(|(id, _)| *id))?;
     let mut paid: Vec<_> = chosen.iter().copied().chain(assignments).collect();
-    if crate::engine::cast_wizard::wizard_mandatory_parts(face, option)
+    // A card discarded at random comes out of what the chosen answers leave,
+    // and the card being cast is on the stack by then (CR 601.2a).
+    let random = crate::engine::cast_wizard::wizard_cost_parts(face, choice)
+        .filter(|part| matches!(part, CostPart::DiscardRandom))
+        .count();
+    if random > 0 {
+        let left = state
+            .zones
+            .list(ZoneLocation::Hand(player))
+            .iter()
+            .filter(|id| **id != card && !paid.contains(id))
+            .count();
+        if left < random {
+            return None;
+        }
+    }
+    if crate::engine::cast_wizard::wizard_mandatory_parts(face, choice.option)
         .any(|p| matches!(p, CostPart::DiscardHand))
     {
         paid.extend(

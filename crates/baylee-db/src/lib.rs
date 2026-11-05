@@ -64,6 +64,7 @@
 
 pub mod accounts;
 pub mod auth_mode;
+pub mod banlists;
 pub mod card_blocks;
 pub mod central;
 pub mod confirmations;
@@ -100,6 +101,33 @@ pub use sea_orm;
 /// ten would ask for 360 of them and fail in whichever test happened to be
 /// last.
 pub const DEFAULT_POOL: u32 = 8;
+
+/// The advisory lock [`drop_schema_statement`] takes turns on. Any constant
+/// would do, as long as every suite names this one.
+const SCHEMA_DROP_LOCK: i64 = 0x7363_6865_6d61;
+
+/// The statement that gives a test's whole schema back, one drop at a time
+/// across every process on the server.
+///
+/// A `DROP SCHEMA … CASCADE` holds a lock on every object it reaches until it
+/// commits: 740 for this store's schema (measured 4.11.2026). The lock table
+/// is one pool for the whole server, `max_locks_per_transaction` times
+/// `max_connections`, 6400 at Postgres's defaults, so nine drops at once empty
+/// it and whatever asks next, in any test, is answered "out of shared memory".
+/// Short tests finish together: on 24 cores the store's suite did that in three
+/// runs of five before ban lists and in five of five after them, with nothing
+/// else on the server. Taking turns costs about two seconds a suite.
+///
+/// One string, so the lock is the transaction's: Postgres runs a multi-statement
+/// query as one, and a session lock would need the same pooled connection back.
+/// For tests; a gateway never drops a schema.
+#[must_use]
+pub fn drop_schema_statement(schema: &str) -> String {
+    format!(
+        "SELECT pg_advisory_xact_lock({SCHEMA_DROP_LOCK}); \
+         DROP SCHEMA IF EXISTS \"{schema}\" CASCADE"
+    )
+}
 
 /// Open the database and bring it up to date.
 ///

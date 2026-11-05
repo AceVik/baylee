@@ -160,7 +160,7 @@ fn heliods_intervention_destroys_exactly_the_x_artifacts_or_enchantments_it_targ
 ///
 /// The version of this test before the fix pinned the defect itself: the
 /// question offered the pool's size, the test picked that maximum, and the
-/// cast was reversed at payment (CR 601.2h, 732.1) for want of the fixed
+/// cast was reversed at payment (CR 601.2h, 733.1) for want of the fixed
 /// `{W}{W}`. A cast paid from the floating pool alone no longer offers such
 /// an X. The reversal is still covered where it can still happen, in a
 /// payment window that closes short:

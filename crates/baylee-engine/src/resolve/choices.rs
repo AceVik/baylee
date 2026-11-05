@@ -15,16 +15,21 @@ pub(super) fn exec_choice(
         Effect::ChooseCardName {
             player,
             types,
+            excluded_types,
             remember,
         } => {
             let player = players_of(player, state, you, res).first().copied()?;
             res.awaiting = Some(AwaitingOp::ChooseCardName { remember });
-            Some(Pending::ChooseCardName { player, types })
+            Some(Pending::ChooseCardName {
+                player,
+                types,
+                excluded_types,
+            })
         }
         Effect::GuessChosenNameInHand { who, guesser } => {
             let hand_owner = players_of(who, state, you, res).first().copied()?;
             let guesser = players_of(guesser, state, you, res).first().copied()?;
-            let (_, name) = res.subject.named?;
+            let (printed, name) = res.subject.named?;
             let actual = state
                 .zones
                 .list(ZoneLocation::Hand(hand_owner))
@@ -34,7 +39,11 @@ pub(super) fn exec_choice(
             res.awaiting = Some(AwaitingOp::GuessNamedCardInHand { actual });
             Some(Pending::YesNo {
                 player: guesser,
-                prompt: YesNoPrompt::Generic,
+                prompt: YesNoPrompt::GuessNamedCardInHand {
+                    holder: hand_owner,
+                    card: printed.card(),
+                    face: printed.face(),
+                },
                 source: resolving_ability(state, res),
             })
         }
@@ -425,6 +434,30 @@ pub(super) fn exec_choice(
                 source: resolving_ability(state, res),
             })
         }
+        // "Pay", where the tax above says "may": a pool that covers it is
+        // spent without a word. An empty one is not a refusal, because the
+        // mana can still be made (CR 605.3a), so the player is warned first,
+        // whatever else they have: the answer that loses the game is theirs
+        // to give. `source: None`, so that no standing answer can give it.
+        Effect::PayManaOrLose { cost } => {
+            let what = super::payment_for(state, res);
+            if crate::casting::pay_mana_for(state, you, what, &cost).is_some() {
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::PlayerMayPay {
+                player: you,
+                cost,
+                outcome: ManaPaymentOutcome::Effects {
+                    effects: &[Effect::LoseGame],
+                    on_payment: false,
+                },
+            });
+            Some(Pending::YesNo {
+                player: you,
+                prompt: YesNoPrompt::PayPact { cost },
+                source: None,
+            })
+        }
         Effect::PlayerMayPayManaThen {
             player,
             cost,
@@ -794,7 +827,7 @@ pub(super) fn exec_choice(
             if !search::allowed(state, res, player, player) {
                 return None;
             }
-            res.awaiting = Some(AwaitingOp::MaySearchBasicLand { player });
+            res.awaiting = Some(AwaitingOp::MaySearchBasicLand { player, count: 1 });
             Some(Pending::YesNo {
                 player,
                 prompt: YesNoPrompt::MayDo,

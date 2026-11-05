@@ -51,7 +51,6 @@ pub(super) struct Checkpoint {
     entry_scan_seq: u64,
     entry_questions: VecDeque<(ObjectId, PlayerId, progress::EntryAsk)>,
     delayed_queue: VecDeque<(PlayerId, crate::state::DelayedAction)>,
-    upkeep_payments: VecDeque<crate::state::DelayedAction>,
     synthetic_fx: rustc_hash::FxHashMap<ObjectId, &'static [baylee_cards_dsl::Effect]>,
     cast_wizard: Option<cast_wizard::CastWizard>,
     trigger_queue: VecDeque<trigger::PendingTrigger>,
@@ -117,7 +116,6 @@ impl Checkpoint {
             entry_scan_seq,
             entry_questions,
             delayed_queue,
-            upkeep_payments,
             synthetic_fx,
             cast_wizard,
             trigger_queue,
@@ -166,7 +164,6 @@ impl Checkpoint {
             entry_scan_seq: *entry_scan_seq,
             entry_questions: entry_questions.clone(),
             delayed_queue: delayed_queue.clone(),
-            upkeep_payments: upkeep_payments.clone(),
             synthetic_fx: synthetic_fx.clone(),
             cast_wizard: cast_wizard.clone(),
             trigger_queue: trigger_queue.clone(),
@@ -220,7 +217,6 @@ impl Checkpoint {
             entry_scan_seq,
             entry_questions,
             delayed_queue,
-            upkeep_payments,
             synthetic_fx,
             cast_wizard,
             trigger_queue,
@@ -269,7 +265,6 @@ impl Checkpoint {
         *entry_scan_seq = self.entry_scan_seq;
         *entry_questions = self.entry_questions;
         *delayed_queue = self.delayed_queue;
-        *upkeep_payments = self.upkeep_payments;
         *synthetic_fx = self.synthetic_fx;
         *cast_wizard = self.cast_wizard;
         *trigger_queue = self.trigger_queue;

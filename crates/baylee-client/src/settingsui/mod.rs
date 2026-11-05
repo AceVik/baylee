@@ -628,6 +628,7 @@ fn results(out: &mut Out, view: &View, query: &str) {
 pub(crate) fn show(state: &mut LobbyState, section: Section) {
     if state.settings_section() != section {
         state.set_settings_section(section);
+        state.settings_view.fill.armed = false;
     }
     if state.settings_view.profile_sheet {
         state.settings_view.profile_sheet = false;
@@ -714,7 +715,7 @@ mod tests {
     /// the `ALL` constants: an action missing there is one nobody can bind.
     #[test]
     fn every_action_and_every_rule_has_a_row() {
-        assert_eq!(Action::ALL.len(), 50);
+        assert_eq!(Action::ALL.len(), 51);
         assert_eq!(AutoRule::ALL.len(), 4);
         for action in Action::ALL {
             assert!(!action.label().text(Lang::En).is_empty());

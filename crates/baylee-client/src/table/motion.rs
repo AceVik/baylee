@@ -276,7 +276,7 @@ pub fn glide(
     }
 }
 
-/// The original glide step; returns whether this frame interpolated the card.
+/// The glide step; returns whether the card still needs interpolation.
 fn advance_card(
     transform: &mut Mut<Transform>,
     target: Transform,
@@ -296,6 +296,11 @@ fn advance_card(
             **transform = target;
         }
         return false;
+    }
+    // A paused clock must not write a pose. In particular, quaternion slerp
+    // can round at t=0. Keep this card active so the next timed frame resumes.
+    if t == 0.0 {
+        return true;
     }
     transform.translation = transform.translation.lerp(target.translation, t);
     transform.rotation = transform.rotation.slerp(target.rotation, t);

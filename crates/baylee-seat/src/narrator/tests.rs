@@ -281,8 +281,13 @@ pub(crate) fn priority(view: &PlayerView) -> Pending {
         player: ME,
         legal: Box::new(LegalActions {
             unpaid_abilities: vec![],
-            payable: vec![],
+            // The engine would cast each spell in hand once paid: the Bolt and
+            // the Growth have targets, Rampant Growth needs none.
+            payable: vec![id(50), id(51), id(53)],
+            cast_ways: vec![],
             spell_increases: vec![],
+            spell_reductions: vec![],
+            buyback_less: 0,
             activation_increases: vec![],
             can_pass: true,
             lands: vec![id(52)],
@@ -290,6 +295,8 @@ pub(crate) fn priority(view: &PlayerView) -> Pending {
             mana_abilities: vec![id(21), id(22), id(23), id(30)],
             abilities: vec![(id(30), 0), (id(31), 0)],
             suspendable: Vec::new(),
+            foretellable: Vec::new(),
+            unpaid_foretell: vec![],
             granted_actions: vec![],
         }),
     }
@@ -593,6 +600,45 @@ fn what_the_view_hides_the_message_does_not_say() {
     assert!(!drew.contains('#'), "{drew}");
 }
 
+/// A mana ability with a price of its own is an option like any ability, and
+/// its label says it needs no pass: a plan of Argon's passed after Apprentice
+/// Wizard, as after an ability on the stack, and the mana emptied with the
+/// step. An ability that does use the stack is not told so.
+#[test]
+fn a_priced_mana_ability_says_the_mana_is_there_at_once() {
+    let (mut view, log) = board();
+    view.battlefield.push(card(77, "Apprentice Wizard"));
+    view.battlefield.push(card(78, "Island"));
+    let mut pending = priority(&view);
+    let Pending::Priority { legal, .. } = &mut pending else {
+        unreachable!("priority answers a priority");
+    };
+    legal.mana_abilities.push(id(78));
+    legal.abilities.push((id(77), 0));
+    legal
+        .unpaid_abilities
+        .push((id(77), 0, "{U}".parse().unwrap()));
+    let request = request(view, pending, log);
+    let wake = Narrator::new(&request.context).wake(&request, &[], None);
+    let line = |name: &str| {
+        wake.text
+            .lines()
+            .find(|line| line.contains(name))
+            .unwrap_or_else(|| panic!("{name} in {}", wake.text))
+            .to_string()
+    };
+    assert!(
+        line("Activate Apprentice Wizard").contains("no pass needed"),
+        "{}",
+        wake.text
+    );
+    assert!(
+        !line("Activate Prodigal Sorcerer").contains("no pass needed"),
+        "{}",
+        wake.text
+    );
+}
+
 /// Every option the menu offers resolves to the action it names, and an
 /// id from outside the question is refused with the ids that are in it.
 #[test]
@@ -731,6 +777,88 @@ fn a_block_names_only_what_may_block_what() {
             blockers: Vec::new()
         })
     );
+}
+
+/// Entangler on a blocker: the question says so, and the answer may name it
+/// once for each attacker. The count is the engine's, up to the limit the
+/// question carries (CR 509.1a).
+#[test]
+fn a_creature_that_may_block_more_than_one_is_told_so_and_may() {
+    use baylee_engine::choice::BlockCapacity;
+
+    let (mut view, _) = board();
+    view.active = THEM;
+    view.phase = baylee_view::Phase::Combat;
+    view.step = baylee_view::Step::DeclareBlockers;
+    let attackers = [id(45), id(46), id(47)];
+    view.combat.attackers = attackers
+        .iter()
+        .map(|&creature| AttackerView {
+            creature,
+            defending: baylee_core::ids::Defender::Player(ME),
+            blocked: false,
+        })
+        .collect();
+    let wake = |capacity: Vec<BlockCapacity>| {
+        let pending = Pending::ChooseBlockers {
+            demands: Vec::new(),
+            player: ME,
+            attacker: THEM,
+            blockers: vec![BlockOption {
+                blocker: id(31),
+                attackers: attackers.to_vec(),
+            }],
+            bounds: Vec::new(),
+            capacity,
+            obeying: Vec::new(),
+        };
+        let request = request(
+            view.clone(),
+            pending,
+            LogTail {
+                from: 0,
+                entries: Vec::new(),
+            },
+        );
+        Narrator::new(&request.context).wake(&request, &[], None)
+    };
+    let blocks = |names: &[&str]| Decision {
+        ask: Some("q12".into()),
+        blocks: names
+            .iter()
+            .map(|attacker| ("#31".to_owned(), (*attacker).to_owned()))
+            .collect(),
+        ..Decision::default()
+    };
+    let all = ["#45", "#46", "#47"];
+
+    let any = wake(vec![BlockCapacity {
+        blocker: id(31),
+        most: None,
+    }]);
+    assert!(any.text.contains("any number of them"), "{}", any.text);
+    assert!(any.text.contains("name it once for"), "{}", any.text);
+    assert_eq!(
+        any.menu.resolve(&blocks(&all)).expect("three blocks").act,
+        Act::Now(PlayerAction::DeclareBlockers {
+            blockers: attackers.iter().map(|&a| (id(31), a)).collect()
+        })
+    );
+    let twice = any.menu.resolve(&blocks(&["#45", "#45"]));
+    assert!(twice.is_err(), "the same pair named twice: {twice:?}");
+
+    let two = wake(vec![BlockCapacity {
+        blocker: id(31),
+        most: Some(2),
+    }]);
+    assert!(two.text.contains("up to 2 of them"), "{}", two.text);
+    assert!(two.menu.resolve(&blocks(&all[..2])).is_ok());
+    assert!(two.menu.resolve(&blocks(&all)).is_err());
+
+    let one = wake(Vec::new());
+    assert!(!one.text.contains("of them"), "{}", one.text);
+    assert!(one.menu.resolve(&blocks(&all[..1])).is_ok());
+    assert!(one.menu.resolve(&blocks(&all[..2])).is_err());
 }
 
 /// The model's answer is read leniently where the meaning is plain.
@@ -906,6 +1034,99 @@ fn the_shared_graveyard_arrangement_does_not_mislabel_explore() {
     assert!(text.contains("graveyard and the rest on top of your library, in any order"));
     assert!(!text.contains("Surveil"));
     assert!(!text.contains("701.25"));
+}
+
+/// A multikicker's number says what each one costs and that fewer is an
+/// answer, and a spell on the stack says what it was cast with.
+#[test]
+fn multikicker_is_asked_as_a_count_and_the_stack_says_what_was_paid() {
+    use baylee_engine::choice::NumberPrompt;
+    let (mut view, _) = board();
+    let mut spell = card(95, "Capsize");
+    spell.stack_item = Some(baylee_view::StackItem::Spell);
+    spell.times_kicked = 3;
+    spell.bought_back = true;
+    view.stack = vec![spell];
+    let pending = Pending::ChooseNumber {
+        player: ME,
+        min: 0,
+        max: 4,
+        reason: NumberPrompt::Multikicker {
+            cost: baylee_core::mana::ManaCost::parse("{1}{G}"),
+        },
+    };
+    let request = request(
+        view,
+        pending,
+        LogTail {
+            from: 0,
+            entries: Vec::new(),
+        },
+    );
+    let text = Narrator::new(&request.context)
+        .wake(&request, &[], None)
+        .text;
+    assert!(
+        text.contains("How many times do you pay its multikicker? Each time costs {1}{G} more"),
+        "{text}"
+    );
+    assert!(text.contains("(from 0 to 4)"), "{text}");
+    assert!(text.contains("kicked 3 times"), "{text}");
+    assert!(text.contains("buyback paid"), "{text}");
+}
+
+/// A resolved spell's ending is not a way to cast it: the question says the
+/// spell has resolved, and each answer says what it does, since the outcomes
+/// are what a model has to weigh. Answering takes a position like any mode.
+#[test]
+fn a_spells_ending_says_what_each_answer_does() {
+    use baylee_engine::choice::{CastModeDesc, CastModeKind, SpellEnding};
+    let (mut view, _) = board();
+    let mut spell = card(95, "Capsize");
+    spell.stack_item = Some(baylee_view::StackItem::Spell);
+    let object = spell.id;
+    view.stack = vec![spell];
+    let pending = Pending::ChooseCastMode {
+        player: ME,
+        object,
+        options: [
+            SpellEnding::Hand,
+            SpellEnding::Rebound,
+            SpellEnding::Adventure,
+            SpellEnding::Exile,
+        ]
+        .into_iter()
+        .zip(0..)
+        .map(|(ending, index)| CastModeDesc {
+            index,
+            kind: CastModeKind::SpellEnding(ending),
+            cost: baylee_core::mana::ManaCost::ZERO,
+        })
+        .collect(),
+    };
+    let request = request(
+        view,
+        pending,
+        LogTail {
+            from: 0,
+            entries: Vec::new(),
+        },
+    );
+    let text = Narrator::new(&request.context)
+        .wake(&request, &[], None)
+        .text;
+    assert!(text.contains("has resolved"), "{text}");
+    assert!(!text.contains("How do you cast"), "{text}");
+    assert!(text.contains("goes back to your hand"), "{text}");
+    assert!(
+        text.contains("cast it free at the start of your next upkeep"),
+        "{text}"
+    );
+    assert!(
+        text.contains("cast the creature from exile later"),
+        "{text}"
+    );
+    assert!(text.contains("nothing more comes of it"), "{text}");
 }
 
 /// Log lines already heard are not told twice, and a gap is said.
@@ -1637,4 +1858,103 @@ fn the_card_texts_a_model_was_told_are_kept_for_the_game() {
     for never in ["Black Lotus", "", "  "] {
         assert!(narrator.told_texts(never).is_empty(), "{never:?}");
     }
+}
+
+pub(crate) mod controlled;
+mod event_object;
+mod foretell;
+mod land_triggers;
+mod log_cap;
+mod naming;
+mod owed;
+mod power_surge;
+mod raised;
+mod triage;
+mod upkeep_payments;
+
+/// A vote is told as one, and the ballot cast before it reaches the model
+/// in the log it is narrated (CR 701.38a, 608.2d): the line is client-core's
+/// log writer, the question this crate's own words.
+#[test]
+fn a_vote_is_asked_as_one_after_the_ballot_before_it() {
+    use baylee_engine::choice::ChoicePrompt;
+    let (view, _) = board();
+    let serra = card(45, "Serra Angel");
+    let log = LogTail {
+        from: 0,
+        entries: vec![line(
+            7,
+            LogEvent::Voted {
+                player: THEM,
+                object: known(&serra),
+            },
+        )],
+    };
+    let pending = Pending::ChooseCards {
+        player: ME,
+        options: vec![id(45), id(46)],
+        min: 1,
+        max: 1,
+        prompt: ChoicePrompt::Vote,
+        total: None,
+    };
+    let request = request(view, pending, log.clone());
+    let mut narrator = Narrator::new(&request.context);
+    narrator.hear(&log);
+    let text = narrator.wake(&request, &[], None).text;
+    assert!(text.contains("P2 voted for Serra Angel"), "{text}");
+    assert!(text.contains("Vote: choose the one you vote for"), "{text}");
+}
+
+/// Liar's Pendulum's guess names the card whose name was chosen and whose
+/// hand it is about, as it is said aloud at a table (Argon v Astra: the
+/// guess was asked as a bare "Yes or no?").
+#[test]
+fn a_guess_names_the_chosen_card_and_whose_hand() {
+    use baylee_engine::choice::YesNoPrompt;
+    let (view, log) = board();
+    let pending = Pending::YesNo {
+        player: ME,
+        prompt: YesNoPrompt::GuessNamedCardInHand {
+            holder: THEM,
+            card: identity("Lightning Bolt").index,
+            face: 0,
+        },
+        source: None,
+    };
+    let request = request(view, pending, log);
+    let wake = Narrator::new(&request.context).wake(&request, &[], None);
+    assert!(
+        wake.text
+            .contains("Guess: does P2 have a card named Lightning Bolt in hand?"),
+        "{}",
+        wake.text
+    );
+    assert!(
+        wake.text
+            .contains("Yes: yes, Lightning Bolt is in that hand")
+    );
+    let decide = Decision {
+        ask: Some(format!("q{}", wake.menu.question)),
+        pick: vec!["n".into()],
+        ..Decision::default()
+    };
+    assert_eq!(
+        wake.menu.resolve(&decide).unwrap().act,
+        Act::Now(PlayerAction::YesNo(false))
+    );
+}
+
+/// A melded permanent wears a token definition's art and is two cards, so the
+/// board never calls it a token (report 5.11.2026, Brisela).
+#[test]
+fn a_melded_permanent_is_not_called_a_token() {
+    let mut brisela = token(30, 0, "Brisela, Voice of Nightmares", 9, 10);
+    brisela.types = baylee_core::types::TypeSet::CREATURE;
+    brisela.status = baylee_view::ObjectStatus::MELDED_CARD;
+    let line = super::board::type_line(&brisela);
+    assert!(!line.ends_with(" token"), "{line}");
+    brisela.status = baylee_view::ObjectStatus::TOKEN;
+    let line = super::board::type_line(&brisela);
+    assert!(line.ends_with(" token"), "{line}");
 }

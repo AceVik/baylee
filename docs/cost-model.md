@@ -72,12 +72,21 @@ Four orthogonal concepts:
    (Force of Will), overload, evoke, miracle, flashback, conditional free
    ("{0} if you control your commander"). Conditions checked at legality.
 2. **Additional costs** (any number; optional ones are cast choices):
-   kicker, spree, escalate, mandatory extras.
+   kicker, multikicker, buyback, spree, escalate, mandatory extras.
 3. **Payment assists** (change how mana is paid, not the cost): convoke,
    delve, improvise.
 4. **Total-cost pipeline** (CR 601.2f–h): base or alternative → + additional
    → + increases → − reductions → floors (Trinisphere). Applies to `{0}`
    alternative costs too.
+
+**The planners see the pipeline's two generic steps, not its result.** A seat
+taps lands before it casts, when the engine has priced nothing yet, so
+`LegalActions` publishes per card and way of casting what the wizard will add
+(`spell_increases`) and take off (`spell_reductions`: rules effects and the
+card's own printed reduction, such as affinity). `baylee_ai::spell_price` is
+the one function that applies them — increases, then reductions on the
+generic part only, never below `{0}` (CR 118.7a) — for the house, the LLM
+seat and the client alike (`docs/protocol.md` §"Spell cost reductions").
 
 Casting follows CR 601.2a–h as a stepwise `CastPlan` assembled through
 `ChoiceRequest`s: modes → alternative/additional costs → targets → X →

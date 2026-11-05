@@ -271,7 +271,7 @@ per game and must never be stored:
   "always yes for this one" — be replayed into every future game. Indices
   count **down from `u32::MAX`** for the card-scoped questions that are not
   entries in the ability list at all (`SPELL`, `ENTERS`, `ADDITIONAL_COST`,
-  `MIRACLE`, `UPKEEP_COST`, `SYNTHETIC`, `COMMANDER_ZONE`,
+  `MIRACLE`, `SYNTHETIC`, `COMMANDER_ZONE`,
   `COMMANDER_REPLACE`), so a real ability index and a reserved one can never
   collide.
 

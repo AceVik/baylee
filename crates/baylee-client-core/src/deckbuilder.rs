@@ -167,13 +167,19 @@ pub struct PoolCard {
     /// Rules identity — what `GET /printings` is keyed on.
     #[serde(default)]
     pub oracle_id: String,
-    /// Every other name this card is printed under, across languages.
+    /// The other names this card goes by in the client's language and in
+    /// English: Scryfall's two-face spelling, a printing's own.
     ///
-    /// The pool sends one row per card, not one per printing, so this is how
-    /// a player who knows the card as "Blitzschlag" finds the row a deck
-    /// stores as "Lightning Bolt". Empty when the gateway has no catalog.
+    /// What a search reads beside [`Self::name`] and [`Self::english_name`],
+    /// so it holds those two languages and no third: a search answers in the
+    /// client's language and English and no other (owner, 4.11.2026).
     #[serde(default)]
     pub alt_names: Vec<String>,
+    /// Its names in every other language, which only a pasted deck line is
+    /// read against ([`DeckBuilder::slot_of`]) and no search is. Empty when
+    /// the gateway has no catalog.
+    #[serde(default)]
+    pub foreign_names: Vec<String>,
 }
 
 impl PoolCard {
@@ -877,6 +883,10 @@ pub enum BuildField {
     Search,
     /// The deck's name.
     Name,
+    /// The name of the ban list open in the editor.
+    ListName,
+    /// The search over the pool in the ban list editor.
+    ListSearch,
     /// Printing picker set autocomplete.
     PickerSet,
 }
@@ -907,7 +917,10 @@ pub struct DeckBuilder {
     /// name does not change after it arrives and folding inside the
     /// comparator would fold each name the dozen times a sort reads it.
     keys: Vec<String>,
-    text: crate::textbuf::TextBuffer,
+    /// Which slot holds which registry index, for a problem that names a
+    /// card. Written in `set_pool`, beside `keys`.
+    slots: std::collections::BTreeMap<u32, usize>,
+    search: crate::cardsearch::SearchBox,
     /// [`Self::text`], read as a query.
     ///
     /// Held beside the string rather than parsed where it is used, because
@@ -934,12 +947,30 @@ pub struct DeckBuilder {
     /// marked, never hidden or refused here; the gateway refuses the deck.
     /// Empty offline and from a gateway that does not say.
     blocked: std::collections::BTreeMap<u32, crate::lobby::BlockedCard>,
-    /// The filter-string builder, while the gear inside the box is open.
-    ///
-    /// The same shape as `Browser::builder` and for the same reason: it is a
-    /// *mode* of the search box, not a second field. The box keeps showing
-    /// the string and the gear stays lit while it is open.
-    panel: Option<crate::filterdialog::FilterPanel>,
+    /// What the gateway the pool came from says about its cards beyond their
+    /// text (`GET /pool/facts`, `docs/protocol.md` §"Pool facts"): what the
+    /// rarity, set and format keys read. `None` offline and from a gateway
+    /// with no catalog. An `Arc` because it is lent to a table.
+    pool_facts: Option<std::sync::Arc<crate::cardquery::PoolFacts>>,
+    /// Whether the table has been asked for this session. See
+    /// [`Self::ask_pool_facts`].
+    pool_facts_asked: bool,
+    /// The format the deck is held to, by Scryfall's key; empty until one is
+    /// chosen, and [`Self::format`] then reads it off the leaders.
+    format: String,
+    /// The lists this account may hold a deck to (`GET /banlists`).
+    lists: Vec<baylee_cardtext::ListRow>,
+    /// Those lists as a search reads them; `None` until a gateway has told
+    /// them, which is what `list:` says it cannot be answered by. An `Arc`
+    /// because it is lent to a table.
+    list_shelf: Option<std::sync::Arc<crate::cardquery::ListShelf>>,
+    /// The ban list open in the editor.
+    list_editor: Option<crate::banlist::ListEditor>,
+    /// The list it is held to, if one was chosen.
+    list: Option<legality::ChosenList>,
+    /// What the last check found, kept because every row asks it as it is
+    /// drawn. Written by [`Self::recheck`] alone.
+    report: baylee_cardtext::Report,
     sort: Sort,
     main: Vec<Entry>,
     side: Vec<Entry>,
@@ -975,12 +1006,12 @@ pub struct DeckBuilder {
     /// A loaded deck's commander that the pool resolves but the rules will
     /// not seat. The mark is not taken; the name is kept so it can be said.
     ///
-    /// The gateway refuses such a deck on save (`POST /decks` answers "that
-    /// card cannot be a commander"), so this cannot come from a deck saved
-    /// today — it comes from one saved *before* the card's `CommanderRule`
-    /// changed. Remembered rather than dropped, because a Commander deck
-    /// quietly demoted to Freeform is something the player would otherwise
-    /// find out about at the table.
+    /// The builder offers no such mark, so this comes from a deck saved
+    /// *before* the card's `CommanderRule` changed, or written by something
+    /// else: the gateway stores it and tells (`formats::validate`). Remembered
+    /// rather than dropped, because a Commander deck quietly demoted to
+    /// Freeform is something the player would otherwise find out about at the
+    /// table.
     stale_commander: Option<String>,
     /// The open printing picker, if a card is being picked for.
     picker: Option<Picker>,
@@ -1000,11 +1031,14 @@ pub struct DeckBuilder {
 }
 
 mod builder;
+pub mod legality;
 pub mod statistics;
 pub mod transfer;
 pub mod view;
 pub use view::{Draft, Grouping, STAT_GROUPS, Section, SectionKey};
 
+#[cfg(test)]
+mod legality_tests;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]

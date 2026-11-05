@@ -38,7 +38,8 @@ enum, add the rule that reads it and the test that proves it in the same
 change, or it will sit here looking supported.
 
 Cast machinery: alternative costs (pitch, evoke, commander-free),
-additional costs (kicker), mandatory additional (pay X life), X spells,
+additional costs (kicker, multikicker, buyback), mandatory additional (pay X
+life), X spells,
 modal spells, overload, modal triggers, MDFC faces (cast + land play),
 miracle, delve, convoke (generic), flashback grants, free casts
 (rebound/suspend finish), pitch-card exile.

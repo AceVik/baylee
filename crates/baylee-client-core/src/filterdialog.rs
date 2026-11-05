@@ -30,7 +30,9 @@
 //! [`Term`]s around; it never looks inside one. Deciding what `c:rg` means is
 //! [`crate::cardquery`]'s job and is done once.
 
-use crate::cardquery::{Colors, Flag, Key, Op, Query, Surface, Term, Value, value_of};
+use crate::cardquery::{
+    Colors, Flag, Key, Op, PoolSet, Query, Rarity, ShelfList, Surface, Term, Value, value_of,
+};
 use crate::textbuf::{Dir, Step, TextBuffer};
 
 /// One thing standing in the row of controls a dialog draws.
@@ -72,6 +74,8 @@ pub enum Control {
     Flag,
     /// A mana cost, typed in `{1}{W}` notation.
     Cost,
+    /// One word out of a list: a rarity, a format, a set ([`choices`]).
+    Choice,
 }
 
 impl Control {
@@ -83,6 +87,9 @@ impl Control {
             Key::ManaValue | Key::Power | Key::Toughness | Key::Loyalty => Self::Number,
             Key::Is => Self::Flag,
             Key::Mana => Self::Cost,
+            Key::Rarity | Key::Set | Key::Format | Key::Banned | Key::Restricted | Key::List => {
+                Self::Choice
+            }
             Key::Loose | Key::Name | Key::ExactName | Key::Oracle | Key::Type | Key::Unknown(_) => {
                 Self::Text
             }
@@ -115,13 +122,158 @@ impl Control {
             | (Self::Number, Value::Number(_) | Value::Parity(_)) => Self::Number,
             (Self::Flag, Value::Flag(_)) => Self::Flag,
             (Self::Cost, Value::Cost(_)) => Self::Cost,
+            (Self::Choice, Value::Rarity(_) | Value::Word(_)) => Self::Choice,
             // Everything left over is a value its own control cannot draw: a
             // colour nickname, `c:m`, a word where a flag was expected, a
             // number that is not one. A text box draws all of them, because a
             // text box draws whatever was written.
-            (Self::Colors | Self::Number | Self::Flag | Self::Cost | Self::Text, _) => Self::Text,
+            (
+                Self::Colors | Self::Number | Self::Flag | Self::Cost | Self::Choice | Self::Text,
+                _,
+            ) => Self::Text,
         }
     }
+}
+
+/// One word a choice row may be set to.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Choice<'a> {
+    /// A rarity, always all six.
+    Rarity(Rarity),
+    /// A format, by the key the gateway's table names it with.
+    Format(&'a str),
+    /// A set.
+    Set(&'a PoolSet),
+    /// A ban list.
+    List(&'a ShelfList),
+}
+
+impl<'a> Choice<'a> {
+    /// The word the row holds when this is chosen.
+    #[must_use]
+    pub fn word(self) -> &'a str {
+        match self {
+            Self::Rarity(rarity) => rarity.word(),
+            Self::Format(format) => format,
+            Self::Set(set) => &set.code,
+            Self::List(list) => list.word(),
+        }
+    }
+}
+
+/// A word small enough to ride in an [`Act`], which a button has to be able to
+/// copy: every format key and set code there is fits with room to spare, and
+/// so does the longest name a ban list may have.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ChoiceWord {
+    bytes: [u8; Self::ROOM],
+    len: u8,
+}
+
+impl ChoiceWord {
+    /// The longest word one holds, in bytes: a list's name may be four to a
+    /// character.
+    const ROOM: usize = baylee_cardtext::MAX_LIST_NAME_CHARS * 4;
+
+    /// The word, when it fits.
+    #[must_use]
+    pub fn new(word: &str) -> Option<Self> {
+        let mut bytes = [0; Self::ROOM];
+        bytes
+            .get_mut(..word.len())?
+            .copy_from_slice(word.as_bytes());
+        Some(Self {
+            bytes,
+            len: u8::try_from(word.len()).ok()?,
+        })
+    }
+
+    /// The word it holds.
+    #[must_use]
+    pub fn text(&self) -> &str {
+        std::str::from_utf8(&self.bytes[..usize::from(self.len)]).unwrap_or_default()
+    }
+}
+
+/// The most a set row lists at once: a player narrows them by typing.
+pub const SET_CHOICES: usize = 12;
+
+/// The formats a player reaches for first, in that order; a format the table
+/// holds and this does not name comes after, in its own order.
+const FORMATS_FIRST: [&str; 8] = [
+    "standard",
+    "pioneer",
+    "modern",
+    "legacy",
+    "vintage",
+    "commander",
+    "pauper",
+    "brawl",
+];
+
+/// Where a format comes in a list of them: [`FORMATS_FIRST`] in its order,
+/// and every other format after it.
+#[must_use]
+pub fn format_rank(format: &str) -> usize {
+    FORMATS_FIRST
+        .iter()
+        .position(|first| *first == format)
+        .unwrap_or(FORMATS_FIRST.len())
+}
+
+/// What a choice row of this key offers, narrowed by what the row says.
+///
+/// Rarities are a closed list and are always all there. A format or a set is
+/// what the gateway's table holds, so a list with no table offers none
+/// (the dialog says why: [`FilterPanel::missing_pool_facts`]). A ban list is
+/// what the client holds, and with none it offers none
+/// ([`FilterPanel::missing_lists`]).
+#[must_use]
+pub fn choices<'a>(key: &Key, typed: &str, surface: Surface<'a>) -> Vec<Choice<'a>> {
+    if *key == Key::Rarity {
+        return Rarity::ALL.map(Choice::Rarity).to_vec();
+    }
+    if key.from_lists() {
+        return surface.lists().map_or_else(Vec::new, |lists| {
+            lists
+                .called(typed.trim())
+                .take(SET_CHOICES)
+                .map(Choice::List)
+                .collect()
+        });
+    }
+    let Some(facts) = surface.pool_facts() else {
+        return Vec::new();
+    };
+    let typed = typed.trim().to_lowercase();
+    if key.of_a_format() {
+        let mut formats: Vec<&'a str> = facts
+            .formats()
+            .iter()
+            .map(String::as_str)
+            .filter(|format| format.contains(&typed))
+            .collect();
+        formats.sort_by_key(|format| format_rank(format));
+        return formats.into_iter().map(Choice::Format).collect();
+    }
+    if *key != Key::Set {
+        return Vec::new();
+    }
+    // A code that begins with what was typed first, then any set whose code
+    // or name holds it, the table's newest-first order within each: `m2`
+    // should offer M20 and M21 before the set that merely mentions them.
+    let starts = |set: &&PoolSet| set.code.starts_with(&typed);
+    let holds = |set: &&PoolSet| {
+        !starts(set) && (set.code.contains(&typed) || set.name.to_lowercase().contains(&typed))
+    };
+    facts
+        .sets()
+        .iter()
+        .filter(starts)
+        .chain(facts.sets().iter().filter(holds))
+        .take(SET_CHOICES)
+        .map(Choice::Set)
+        .collect()
 }
 
 /// A filter string as a dialog holds it.
@@ -240,12 +392,12 @@ impl FilterForm {
     /// like a search that found nothing, and this is the one place the dialog
     /// can say so before it happens.
     #[must_use]
-    pub fn unanswerable(&self, surface: Surface) -> Vec<usize> {
+    pub fn unanswerable(&self, surface: Surface<'_>) -> Vec<usize> {
         self.parts
             .iter()
             .enumerate()
             .filter(|(_, part)| match part {
-                FilterPart::Row { term, .. } => !surface.answers(&term.key),
+                FilterPart::Row { term, .. } => !surface.answers_term(term),
                 // A branch is unanswerable only if nothing in it can be
                 // answered, which is `Match::Unknown`'s own rule: one side of
                 // an `or` is enough.
@@ -345,7 +497,7 @@ impl ColorRule {
 
 /// What the "add a condition" button has unfolded.
 ///
-/// Two steps and not one list of thirteen keys: the first offers the five
+/// Two steps and not one list of eighteen keys: the first offers the six
 /// [`Control`]s, the second the keys of that one. It is the same taxonomy the
 /// rows are drawn from rather than a second one invented for the menu, so a
 /// key that grows a control cannot go missing from the menu.
@@ -354,7 +506,7 @@ pub enum Adding {
     /// The button is a button.
     #[default]
     Closed,
-    /// The five kinds are showing.
+    /// The kinds are showing.
     Kinds,
     /// The keys of one kind are showing.
     Keys(Control),
@@ -440,8 +592,46 @@ impl FilterPanel {
 
     /// The rows this surface will answer nothing for.
     #[must_use]
-    pub fn unanswerable(&self, surface: Surface) -> Vec<usize> {
+    pub fn unanswerable(&self, surface: Surface<'_>) -> Vec<usize> {
         self.form.unanswerable(surface)
+    }
+
+    /// Whether a row asks what only the gateway's table answers, on a list
+    /// that has none: its own sentence, because the player can do something
+    /// about it and the general one does not say what.
+    #[must_use]
+    pub fn missing_pool_facts(&self, surface: Surface<'_>) -> bool {
+        crate::cardquery::missing_pool_facts(&self.form.query(), surface)
+    }
+
+    /// Whether a row names a ban list while this list holds none.
+    #[must_use]
+    pub fn missing_lists(&self, surface: Surface<'_>) -> bool {
+        crate::cardquery::missing_lists(&self.form.query(), surface)
+    }
+
+    /// Whether a row cannot be answered for a reason other than the table or
+    /// the lists missing, which [`Self::missing_pool_facts`] and
+    /// [`Self::missing_lists`] have already said.
+    #[must_use]
+    pub fn unanswerable_otherwise(&self, surface: Surface<'_>) -> bool {
+        let no_table = surface.pool_facts().is_none();
+        let no_lists = surface.lists().is_none();
+        let said = |query: &Query| {
+            (no_table && query.mentions(Key::from_pool_facts))
+                || (no_lists && query.mentions(Key::from_lists))
+        };
+        self.form
+            .unanswerable(surface)
+            .into_iter()
+            .any(|at| match self.form.parts.get(at) {
+                Some(FilterPart::Row { term, .. }) => {
+                    !((no_table && term.key.from_pool_facts())
+                        || (no_lists && term.key.from_lists()))
+                }
+                Some(FilterPart::Opaque(query)) => !said(query),
+                None => false,
+            })
     }
 
     /// What to write into the search box, or `None` to leave it alone.
@@ -476,15 +666,36 @@ impl FilterPanel {
     /// with every further keystroke going into a field nothing drew.
     ///
     /// So a row being typed into is a text box until the caret is given back.
+    /// A set or a format row is the one exception and the reason it is safe:
+    /// its value is a word whatever the letters are, and its list is what the
+    /// letters are narrowing.
     #[must_use]
     pub fn control(&self, row: usize) -> Option<Control> {
         let Some(FilterPart::Row { term, .. }) = self.form.parts.get(row) else {
             return None;
         };
         if self.typing.as_ref().is_some_and(|t| t.row == row) {
-            return Some(Control::Text);
+            return Some(if term.key.asks_the_gateway() && term.key != Key::Rarity {
+                Control::Choice
+            } else {
+                Control::Text
+            });
         }
         Some(Control::for_term(term))
+    }
+
+    /// Sets a choice row to a word, or back to nothing when it held that word
+    /// already: a list has no other way of being asked for nothing.
+    ///
+    /// Through [`value_of`], so a row arrives at what the same word typed into
+    /// the box would have made.
+    pub fn choose(&mut self, row: usize, word: ChoiceWord) {
+        let Some(FilterPart::Row { term, .. }) = self.form.parts.get(row) else {
+            return;
+        };
+        let held = term.value.written().eq_ignore_ascii_case(word.text());
+        let value = value_of(&term.key, if held { "" } else { word.text() });
+        self.set_value(row, value);
     }
 
     /// Writes a number into a row in the kind of value its own key reads.
@@ -805,7 +1016,8 @@ fn starting_value(key: &Key) -> Value {
         // No symbol named is every cost, the same way an empty word is every
         // word — `m:""` is written, read back and answered `Yes` to.
         Control::Cost => Value::Cost(Vec::new()),
-        Control::Text => Value::Word(String::new()),
+        // Nothing chosen yet, which is `r:""` and narrows nothing.
+        Control::Text | Control::Choice => Value::Word(String::new()),
     }
 }
 
@@ -834,6 +1046,12 @@ pub const OFFERED: &[Key] = &[
     Key::Loyalty,
     Key::Is,
     Key::Mana,
+    Key::Rarity,
+    Key::Set,
+    Key::Format,
+    Key::Banned,
+    Key::Restricted,
+    Key::List,
 ];
 
 /// The mana symbols a cost row's keyboard offers, as [`Value::Cost`] holds
@@ -867,6 +1085,11 @@ pub const FLAGS: &[Flag] = &Flag::ALL;
 /// that is why a key is an index into [`OFFERED`] rather than a [`Key`]: one
 /// variant of `Key` owns a `String`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::large_enum_variant,
+    reason = "a list's name rides in `Choose`, and boxing it would cost the \
+              `Copy` a button needs; a dialog holds a few dozen of these"
+)]
 pub enum Act {
     /// Turn the minus in front of a row on or off.
     Negate(usize, bool),
@@ -886,6 +1109,8 @@ pub enum Act {
     Parity(usize, Option<bool>),
     /// Write which flag a flag row asks about, by its index in [`FLAGS`].
     SetFlag(usize, usize),
+    /// Set a choice row to this word, or back to nothing.
+    Choose(usize, ChoiceWord),
     /// Unfold the add button one step, or fold it away.
     AddStep(Adding),
     /// Add a row for the key at that index in [`OFFERED`].
@@ -944,6 +1169,7 @@ impl FilterPanel {
                     self.set_value(row, Value::Flag(*flag));
                 }
             }
+            Act::Choose(row, word) => self.choose(row, word),
             Act::Edit(row) => self.edit(row),
             Act::StopTyping => self.stop_typing(),
             Act::AddStep(step) => self.add_step(step),

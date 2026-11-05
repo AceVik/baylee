@@ -60,6 +60,7 @@ question_vocabulary!(
     ChooseTargets,
     ChooseSubtype,
     ChooseCardName,
+    ChooseCardType,
     ChooseColor,
     YesNo,
     ChooseCastMode,
@@ -651,7 +652,7 @@ impl Client {
                     &interaction.prompt(),
                     baylee_client_core::Lang::En,
                     self.statics.as_ref(),
-                    &typed,
+                    typed.as_str(),
                     baylee_client::choices::FaceNames::default(),
                 )
                 .expect("a creature type is a chooser");
@@ -678,7 +679,7 @@ impl Client {
                     &interaction.prompt(),
                     baylee_client_core::Lang::En,
                     self.statics.as_ref(),
-                    &typed,
+                    typed.as_str(),
                     baylee_client::choices::FaceNames::default(),
                 )
                 .expect("a card name is a chooser");
@@ -1480,6 +1481,9 @@ const UNREACHED: &[&str] = &[
     // Drain Power's resolving activation loop has focused native input tests;
     // none of this file's spellbook scenarios casts it.
     "ChooseManaAbility",
+    // Serra's Emissary and Iona have focused chooser tests; none of this
+    // file's deterministic spellbook scenarios casts either card.
+    "ChooseCardType",
     "ChooseDamageEffect",
     "AllocatePrevention",
     "ChooseDamageSource",

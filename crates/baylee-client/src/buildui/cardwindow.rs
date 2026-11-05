@@ -261,6 +261,17 @@ pub(crate) fn window(
             .id();
         commands.entity(right).add_child(said);
     }
+    for sentence in deck.card_problems(slot, lang) {
+        let said = commands
+            .spawn((
+                Text::new(sentence),
+                tf(kit.fonts, m.small),
+                TextColor(tokens::DANGER),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(right).add_child(said);
+    }
 
     let pane = commands
         .spawn((

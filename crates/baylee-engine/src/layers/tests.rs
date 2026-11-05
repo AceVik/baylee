@@ -4,9 +4,11 @@ use baylee_core::color::{Color, ColorSet};
 use baylee_core::ids::EffectId;
 use baylee_core::types::TypeSet;
 
+mod basics;
 mod battle_characteristics;
 mod characteristic_extensions;
 mod indexed;
+mod mana_value_creature;
 
 static ANY_F: Filter = Filter::Any;
 static READS_TYPE: Filter = Filter::HasType(TypeSet::ARTIFACT);

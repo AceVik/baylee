@@ -215,7 +215,11 @@ impl<B: Brain4> LiveSeat4<B> {
                     self.done = true;
                     return Ok(outgoing);
                 }
-                if pending.asked() != Some(self.seat) {
+                // A decision for a player whose turn this seat controls
+                // (Mindslaver, CR 723.5) names that player; the view names
+                // this seat as the one awaited, and the table sends it its view
+                // first.
+                if pending.asked() != Some(self.seat) && !self.awaited() {
                     return Ok(outgoing);
                 }
                 if let Some((last, old_raw)) = &self.last_answered {
@@ -256,6 +260,13 @@ impl<B: Brain4> LiveSeat4<B> {
         self.settle()
     }
 
+    /// Whether the latest view waits for this seat.
+    fn awaited(&self) -> bool {
+        self.memory
+            .view()
+            .is_some_and(|view| view.awaiting == Some(self.seat))
+    }
+
     fn settle(&mut self) -> anyhow::Result<Vec<Envelope>> {
         let mut outgoing = Vec::new();
         if self.game_id.is_some() && self.memory.view().is_some() && !self.ready {
@@ -278,6 +289,9 @@ impl<B: Brain4> LiveSeat4<B> {
             }
             if view.seq > question.seq {
                 self.report.duplicate_questions += 1;
+                return Ok(outgoing);
+            }
+            if question.pending.asked() != Some(self.seat) && view.awaiting != Some(self.seat) {
                 return Ok(outgoing);
             }
             let view = policy_view(view, self.brain.retains_live_context());

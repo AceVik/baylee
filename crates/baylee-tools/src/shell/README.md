@@ -36,7 +36,9 @@ For generic devctl POSTs, put the JSON body in a file or pipe it to
 All answers must be successful HTTP and valid JSON without `error`/`ok:false`.
 There is a 60-second request timeout, 120 seconds for screenshots. Raw output
 redacts password/token/secret/API-key fields recursively; error bodies are
-never printed. Requests do not follow redirects or inherit HTTP proxies.
+never printed. Requests do not follow redirects or inherit HTTP proxies. The
+harness is reached through `baylee_client_e2e::Devctl`, the one driver of it;
+`gateway.rs` holds only the bearer-token read of a local gateway.
 
 ## Fixtures and side effects
 

@@ -120,3 +120,32 @@ fn masked_card_selection_uses_the_entitled_controlled_hand() {
         }
     );
 }
+/// Liar's Pendulum: the house guesses "in hand" only for a card it has
+/// seen in that hand, and "not in hand" otherwise.
+#[test]
+fn the_house_guesses_on_what_it_has_seen_of_that_hand() {
+    let holder = PlayerId::new(1);
+    let bolt = hand_card(1, "Lightning Bolt");
+    let guess = |view: &PlayerView| {
+        agent().act(
+            view,
+            &Pending::YesNo {
+                player: view.seat,
+                prompt: YesNoPrompt::GuessNamedCardInHand {
+                    holder,
+                    card: bolt.card.index,
+                    face: 0,
+                },
+                source: None,
+            },
+        )
+    };
+    let mut view = view(0, &[20, 20], vec![]);
+    assert_eq!(guess(&view), PlayerAction::YesNo(false), "nothing seen");
+    view.shared_hands.push(baylee_view::SharedHand {
+        public: true,
+        player: holder,
+        cards: vec![bolt.clone()],
+    });
+    assert_eq!(guess(&view), PlayerAction::YesNo(true), "seen in it");
+}

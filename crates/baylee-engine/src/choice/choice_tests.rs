@@ -84,6 +84,13 @@ fn a_timed_out_seat_does_nothing_wherever_the_question_allows_it() {
             no.clone(),
         ),
         (yes_no(YesNoPrompt::Kicker), no.clone()),
+        (
+            yes_no(YesNoPrompt::Buyback {
+                cost: baylee_core::mana::ManaCost::parse("{3}"),
+                parts: crate::choice::BuybackParts::default(),
+            }),
+            no.clone(),
+        ),
         (yes_no(YesNoPrompt::PayTax { mana: 1 }), no.clone()),
         (
             yes_no(YesNoPrompt::PayMana {
@@ -122,6 +129,7 @@ fn a_timed_out_seat_does_nothing_wherever_the_question_allows_it() {
             yes_no(YesNoPrompt::ApplyAdditionalCountersNext {
                 permanent: object(),
                 additional: 1,
+                kind: None,
             }),
             None,
         ),
@@ -263,6 +271,13 @@ fn a_timed_out_seat_does_nothing_wherever_the_question_allows_it() {
             None,
         ),
         (
+            Pending::ChooseCardType {
+                player: p,
+                options: vec![],
+            },
+            None,
+        ),
+        (
             Pending::ChooseColor {
                 player: p,
                 options: vec![],
@@ -273,6 +288,7 @@ fn a_timed_out_seat_does_nothing_wherever_the_question_allows_it() {
             Pending::ChooseCardName {
                 player: p,
                 types: baylee_core::types::TypeSet::EMPTY,
+                excluded_types: baylee_core::types::TypeSet::EMPTY,
             },
             None,
         ),
@@ -378,7 +394,7 @@ fn a_timed_out_seat_does_nothing_wherever_the_question_allows_it() {
 }
 
 /// How many kinds [`kind_of`] tells apart.
-const KINDS: usize = 50;
+const KINDS: usize = 52;
 
 /// Which kind of question this is, numbered without gaps. No wildcard
 /// arm: a new `Pending` variant or yes/no prompt does not compile here
@@ -399,6 +415,7 @@ fn kind_of(pending: &Pending) -> usize {
         Pending::ChooseCards { .. } => 7,
         Pending::ChooseTargets { .. } => 8,
         Pending::ChooseSubtype { .. } => 9,
+        Pending::ChooseCardType { .. } => 50,
         Pending::ChooseColor { .. } => 10,
         Pending::ChooseCastMode { .. } => 11,
         Pending::ChooseNumber { .. } => 12,
@@ -414,6 +431,7 @@ fn kind_of(pending: &Pending) -> usize {
                 YesNoPrompt::ProliferatePlayer { .. } => 23,
                 YesNoPrompt::PayLifeOrEnterTapped { .. } => 0,
                 YesNoPrompt::Kicker => 1,
+                YesNoPrompt::Buyback { .. } => 34,
                 YesNoPrompt::ManaAnyType => 26,
                 YesNoPrompt::UseRegenerationShield { .. } => 27,
                 YesNoPrompt::UseShieldCounter { .. } => 28,
@@ -436,6 +454,7 @@ fn kind_of(pending: &Pending) -> usize {
                 YesNoPrompt::PayMana { .. } => 15,
                 YesNoPrompt::PayManaAndLife { .. } => 31,
                 YesNoPrompt::SkipTurn { .. } => 16,
+                YesNoPrompt::GuessNamedCardInHand { .. } => 33,
             }
         }
         Pending::ChoosePile { .. } => 17 + 17,
@@ -655,6 +674,7 @@ fn only_the_questions_whose_answer_cannot_go_stale_are_automatable() {
             | YesNoPrompt::ProliferatePlayer { .. }
             | YesNoPrompt::PayLifeOrEnterTapped { .. }
             | YesNoPrompt::Kicker
+            | YesNoPrompt::Buyback { .. }
             | YesNoPrompt::ManaAnyType
             | YesNoPrompt::PayTax { .. }
             | YesNoPrompt::RemoveCountersInsteadOfUntapping { .. }
@@ -670,6 +690,7 @@ fn only_the_questions_whose_answer_cannot_go_stale_are_automatable() {
             | YesNoPrompt::TopOfLibrary { .. }
             | YesNoPrompt::Discover { .. }
             | YesNoPrompt::SkipTurn { .. }
+            | YesNoPrompt::GuessNamedCardInHand { .. }
             | YesNoPrompt::Generic => false,
         }
     }
@@ -686,6 +707,7 @@ fn only_the_questions_whose_answer_cannot_go_stale_are_automatable() {
         YesNoPrompt::ApplyAdditionalCountersNext {
             permanent: object(),
             additional: 1,
+            kind: None,
         },
         YesNoPrompt::SacrificeToEnter { count: 2 },
         YesNoPrompt::EnterTappedForCounters {
@@ -695,7 +717,16 @@ fn only_the_questions_whose_answer_cannot_go_stale_are_automatable() {
         YesNoPrompt::MayDo,
         YesNoPrompt::Generic,
         YesNoPrompt::SkipTurn { source: object() },
+        YesNoPrompt::GuessNamedCardInHand {
+            holder: PlayerId::new(1),
+            card: baylee_core::ids::CardIndex::new(3),
+            face: 0,
+        },
         YesNoPrompt::Kicker,
+        YesNoPrompt::Buyback {
+            cost: baylee_core::mana::ManaCost::parse("{3}"),
+            parts: crate::choice::BuybackParts::default(),
+        },
         YesNoPrompt::PayLifeOrEnterTapped { amount: 1 },
         YesNoPrompt::PayTax { mana: 2 },
         YesNoPrompt::PayMana {

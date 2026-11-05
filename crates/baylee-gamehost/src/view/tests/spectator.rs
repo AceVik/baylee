@@ -177,8 +177,15 @@ fn a_face_down_card_is_blank_to_a_spectator() {
         .expect("there")
         .status
         .insert(baylee_engine::object::Status::FACE_DOWN);
-    let view =
-        crate::view::spectator_view(engine.state(), 1, None, SeatSet::new(), SeatSet::new(), &[]);
+    let view = crate::view::spectator_view(
+        engine.state(),
+        1,
+        None,
+        SeatSet::new(),
+        SeatSet::new(),
+        &[],
+        &[],
+    );
     let blank = view
         .battlefield
         .iter()
@@ -272,7 +279,7 @@ fn a_spectator_is_told_no_log_line_about_a_private_card() {
     );
 }
 
-/// Word of Command (CR 722.4) shows its caster the target's hand while the
+/// Word of Command (CR 723.4) shows its caster the target's hand while the
 /// caster chooses. A spectator is not the caster.
 #[test]
 fn word_of_commands_hand_is_not_shown_to_a_spectator() {

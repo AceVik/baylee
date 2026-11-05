@@ -134,6 +134,35 @@ impl DamageWork {
                     }
                     Kind::Protection
                 }
+                Modifier::PlayerProtectionFrom { who, from } => {
+                    let DamageTarget::Player(player) = part.view.recipient else {
+                        continue;
+                    };
+                    if !crate::eval::players(who, state, fx.controller)
+                        .is_some_and(|players| players.contains(&player))
+                    {
+                        continue;
+                    }
+                    let Some(source) = state.damage_source(part.view.source, part.source_version)
+                    else {
+                        continue;
+                    };
+                    if !crate::eval::matches_with_context(
+                        from,
+                        state,
+                        source,
+                        fx.controller,
+                        crate::text_changes::RuleContext {
+                            source: fx.source.unwrap_or(part.view.source),
+                            text: state.effect_text(fx),
+                            resolved_name: None,
+                            reference: None,
+                        },
+                    ) {
+                        continue;
+                    }
+                    Kind::Protection
+                }
                 Modifier::PlayerProtectionFromOpponents { who } => {
                     let DamageTarget::Player(player) = part.view.recipient else {
                         continue;

@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/*", "xtask"]
 
 [workspace.package]
-version = "0.1.1-beta.9b"
+version = "0.1.0-beta.9c"
 edition = "2024"
 # Central's reviewed native authentication SDK requires Rust 1.99.
 # CI reads this version rather than repeating a lower renderer-only floor.
@@ -28,8 +28,10 @@ fluent-bundle = "0.16"
 fluent-syntax = "0.12"
 unic-langid = "0.9"
 baylee-account = { path = "crates/baylee-account" }
-central-api = { git = "https://github.com/AceVik/baylee-central.git", rev = "0a941953f8c0d5573e82e0979e7faf1fb9e40299" }
-central-client = { git = "https://github.com/AceVik/baylee-central.git", rev = "0a941953f8c0d5573e82e0979e7faf1fb9e40299" }
+baylee-client-e2e = { path = "crates/baylee-client-e2e" }
+central-api = { git = "https://github.com/AceVik/baylee-central.git", rev = "df00faf8d9f434cfa2bf030b99e11edd04b08e25" }
+central-client = { git = "https://github.com/AceVik/baylee-central.git", rev = "df00faf8d9f434cfa2bf030b99e11edd04b08e25" }
+central-crypto = { git = "https://github.com/AceVik/baylee-central.git", rev = "df00faf8d9f434cfa2bf030b99e11edd04b08e25" }
 baylee-core = { path = "crates/baylee-core" }
 baylee-cardtext = { path = "crates/baylee-cardtext" }
 baylee-deckio = { path = "crates/baylee-deckio" }
@@ -72,7 +74,8 @@ bytes = "1"
 unicode-normalization = "0.1"
 futures-util = "0.3"
 rustc-hash = "2"
-glam = "0.33"
+# Public layout/camera types cross directly into Bevy 0.20.1 (glam 0.33.2).
+glam = "=0.33.2"
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
 rand_chacha = "0.10"
 rand_core = "0.10"
@@ -89,7 +92,7 @@ syn = { version = "3", features = ["full", "visit"] }
 proc-macro2 = { version = "1", features = ["span-locations"] }
 # Native maintenance/asset tools, independent of the renderer.
 regex = "1"
-icu_casemap = "=2.3.0"
+icu_casemap = "=2.4.0"
 csv = "1"
 ctrlc = "3"
 tempfile = "3"
@@ -102,7 +105,7 @@ log = "0.4"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tokio = { version = "1", features = ["full"] }
-parking_lot = "0.12"
+parking_lot = "0.13"
 # Already in the tree under tokio and tempfile; the gateway's server metrics
 # ask it two things `std` has no safe word for: a filesystem's free space
 # (`statvfs`) and the clock ticks a `/proc/<pid>/stat` counts in.
@@ -110,7 +113,7 @@ rustix = { version = "1", features = ["fs", "param"] }
 axum = { version = "0.8", features = ["ws"] }
 # The optional workstation monitor: no GPU context, no process commands,
 # and no parallel process scan competing with the training workers.
-sysinfo = { version = "0.39.6", default-features = false, features = ["system", "disk", "network", "component"] }
+sysinfo = { version = "0.40.1", default-features = false, features = ["system"] }
 nvml-wrapper = "0.13"
 argon2 = "0.6"
 getrandom = "0.4"

@@ -3473,8 +3473,8 @@ new object with no relation to the exile it left (CR 400.7).
 (not on a move from exile to exile).
 
 **The crown stayed with a player who had left.** Nothing implemented
-CR 724.4, so the monarch kept the designation after leaving the game. No
-creature could take it with combat damage (CR 724.2) from a player who was no
+CR 725.4, so the monarch kept the designation after leaving the game. No
+creature could take it with combat damage (CR 725.2) from a player who was no
 longer there, and Palace Jailer's prisoner stayed exiled until some other
 card made an opponent the monarch.
 `sba::eliminate_player` now passes the crown as the monarch leaves
@@ -3724,7 +3724,7 @@ casts first and pays inside the cast (CR 601.2g). The engine offers it as
 into the window `cast_or_make_miracle_mana` opens; triggers wait through the
 window (`advance_payment_window`) and go on the stack above the spell. A
 window passed short reverses the cast and the player keeps priority
-(CR 732.2: `finish_miracle_payment` now calls `after_action` for such a
+(CR 733.2: `finish_miracle_payment` now calls `after_action` for such a
 cast; it handed priority on before). The client is `ManaRun::cast_first`.
 `pain::city_of_brass_as_the_only_colour_still_stops_a_creature_cast` became
 `city_of_brass_as_the_only_colour_pays_for_a_creature_cast_first`. New:
@@ -3797,3 +3797,13 @@ triggered ability (CR 603.7) that is not a mana ability (CR 605.1b), so it
 should go on the stack and be answerable, but `DelayedAction::AddMana`
 (`engine/progress/delayed.rs`) puts the mana straight into the pool before
 anyone gets priority.
+
+### 68. The planners count no mana from Extraplanar Lens — KNOWN coverage gap
+
+Reported by a language-model seat, 4.11.2026: a spell the Lens's doubling pays
+for is not reached. `apply_triggered_mana_bonus` reads the Lens's
+`AddManaLikeEvent` already, and stops at its trigger's filter,
+`SameNameAsLinkedExile`: which card the Lens exiled is engine state
+(`linked_exile_cards`) no `PlayerView` carries, so the filter answers `None`.
+Under-counting is the safe side, and the land still makes its bonus when
+tapped. Closing it needs the view to name a permanent's linked exile.

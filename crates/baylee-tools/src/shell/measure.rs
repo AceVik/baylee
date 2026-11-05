@@ -1,7 +1,8 @@
 //! Hover rebuilds, counted setup presses and real-window quit/Undo flushing.
 use super::{
     common::{self, Report, value_array},
-    devctl::{Devctl, Http, sleep},
+    devctl::{Devctl, sleep},
+    gateway::Gateway,
 };
 use anyhow::{Context, Result, ensure};
 use clap::Args;
@@ -159,8 +160,8 @@ pub(super) fn presses(d: &Devctl) -> Result<()> {
     println!("presses Play -> room -> Start: {count}; game view present");
     Ok(())
 }
-fn decks(http: &Http, token: &str) -> Result<BTreeSet<String>> {
-    let body = http.call("/decks", None, Some(token), Duration::from_secs(60))?;
+fn decks(gateway: &Gateway, token: &str) -> Result<BTreeSet<String>> {
+    let body = gateway.get("/decks", token, Duration::from_secs(60))?;
     let items = if body.is_array() {
         &body
     } else {
@@ -225,14 +226,14 @@ pub(super) fn quit(d: &Devctl, gateway: &str, token: &str, pid: u32) -> Result<(
         "quit-window measurement is macOS-only"
     );
     ensure!(pid > 1 && process_alive(pid)?, "client PID is not live");
-    let http = Http::new(gateway)?;
-    let before = decks(&http, token)?;
+    let server = Gateway::new(gateway)?;
+    let before = decks(&server, token)?;
     common::go(d, "decks", 0.7)?;
     d.settle(8.0)?;
     d.tap("Shared(OpenMenu(Deck(0)))", 0.7)?;
     d.tap("Decks(Duplicate(0))", 2.5)?;
     d.settle(8.0)?;
-    let copied = decks(&http, token)?;
+    let copied = decks(&server, token)?;
     let copy: BTreeSet<_> = copied.difference(&before).cloned().collect();
     ensure!(
         copy.len() == 1 && copied.len() == before.len() + 1,
@@ -252,7 +253,7 @@ pub(super) fn quit(d: &Devctl, gateway: &str, token: &str, pid: u32) -> Result<(
         .find(|n| n.starts_with("Decks(Delete("))
         .context("missing Delete")?;
     d.tap(&delete, 0.7)?;
-    let staged = decks(&http, token)?;
+    let staged = decks(&server, token)?;
     ensure!(
         copy.is_subset(&staged) && d.has("Decks(Undo)")?,
         "copy must still exist while Undo stands"
@@ -260,7 +261,7 @@ pub(super) fn quit(d: &Devctl, gateway: &str, token: &str, pid: u32) -> Result<(
     close_window(pid)?;
     sleep(4.0);
     let alive = process_alive(pid)?;
-    let after = decks(&http, token)?;
+    let after = decks(&server, token)?;
     let mut r = Report::default();
     r.expect(!alive, "client exited after real window close");
     r.expect(

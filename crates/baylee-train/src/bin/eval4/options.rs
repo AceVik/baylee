@@ -21,6 +21,20 @@ struct Args {
     /// Greedy evaluation only; never write v4 PPO rollout labels for v3 actions.
     #[arg(long)]
     legacy_v3: bool,
+    /// Accept a model exported with an older card catalog when this build's
+    /// is a superset: every rule the model knows is unchanged, and the rules
+    /// of cards and tokens added since are left out as an unknown card's
+    /// are (`docs/trained-ai.md` §"Card catalog compatibility"). Recorded in
+    /// run.json and the summary.
+    #[arg(long, conflicts_with = "legacy_v3")]
+    catalog_superset: bool,
+    /// Indices stable, structures may drift: `--catalog-superset`, and also
+    /// accept cards and tokens whose rules changed since the export,
+    /// withdrawing each card's rule trees (left out as an added card's are;
+    /// its DSL summary stays current). run.json and the summary carry the
+    /// drift report: appended cards, changed entries, the withdrawn cards.
+    #[arg(long, conflicts_with = "legacy_v3")]
+    catalog_drift: bool,
     /// Number of deals to play (each deal plays Net + optional House baseline).
     #[arg(long, default_value_t = 40)]
     deals: u64,
@@ -48,9 +62,15 @@ struct Args {
     /// Use unmodified neural outputs; stochastic version-2 sampling requires tau > 0.35.
     #[arg(long)]
     raw_policy: bool,
-    /// Write separate BC-only view-only teacher labels (sharp or expert); requires raw recording.
-    #[arg(long, value_parser = ["sharp", "expert"])]
+    /// Write separate BC-only teacher labels on the neural seat's views; requires
+    /// raw recording. `sharp` or `expert` asks the house afresh on each view;
+    /// `llm:<profile>` seats a language model of `--llm-profiles` that watches
+    /// the seat through its own frames (feature `llm`).
+    #[arg(long)]
     shadow_teacher: Option<String>,
+    /// The seat settings file an `llm:<profile>` shadow teacher is read from.
+    #[arg(long)]
+    llm_profiles: Option<std::path::PathBuf>,
     /// Number of generated decks to build (`0` = use `--decks-manifest` only).
     #[arg(long, default_value_t = 32)]
     generated: usize,
@@ -100,6 +120,96 @@ struct Args {
     /// Max decisions per two seats.
     #[arg(long, default_value_t = 5000)]
     max_decisions: u64,
+    /// Belief-consistent lookahead at the net's priority decisions in main
+    /// phases and combat, as `K,P,H`: the policy's answer and its next K-1,
+    /// each tried in P worlds dealt again from the policy seed, rolled out
+    /// until the seat holds priority in a settled main phase, its next turn
+    /// ends, or H of its own decisions are spent (mana abilities and forced
+    /// answers do not count; `0`: score the answer's own position). Off by
+    /// default; evaluation against the house only. Budgets are counts.
+    #[arg(long)]
+    search: Option<SearchConfig4>,
+    /// How a search chooses: `prior` (the default) adds
+    /// `--search-prior-c · prior / (1 + worlds)` to each mean, so the
+    /// policy's answer stays unless the worlds outweigh the policy's
+    /// confidence; `paired` keeps the policy's answer unless another's mean
+    /// improvement over it, world by world, exceeds
+    /// `max(--search-margin, --search-z · se)`; `mean` takes the best mean
+    /// (v1). Why `prior` is the default: `docs/trained-ai.md` §"Lookahead
+    /// search".
+    #[arg(long, value_enum, default_value_t = SearchSelect::Prior)]
+    search_select: SearchSelect,
+    /// `paired`: the smallest mean improvement that overrides the policy.
+    #[arg(long, default_value_t = 0.05)]
+    search_margin: f64,
+    /// `paired`: standard errors the mean improvement must also exceed.
+    #[arg(long, default_value_t = 1.0)]
+    search_z: f64,
+    /// `prior`: the weight of the policy's prior.
+    #[arg(long, default_value_t = 1.0)]
+    search_prior_c: f64,
+    /// Searched decisions per game at most (`0` = no limit); later ones are
+    /// answered without searching.
+    #[arg(long, default_value_t = 0)]
+    search_max_decisions_per_game: u64,
+    /// Rollouts one searched decision runs at once, each on its own thread
+    /// and a twin of the net whose steps join the `--inference-batch`
+    /// batches; without `--inference-batch` they run one by one. A batch
+    /// then holds up to `--threads × (this + 1)` rows. Batched searches are
+    /// not bitwise reproducible.
+    #[arg(long, default_value_t = SearchConfig4::DEFAULT_THREADS)]
+    search_threads: usize,
+    /// Tries a candidate that casts a spell or activates an ability at each
+    /// of up to this many of its targets, when the seat's next question
+    /// after it is a single target: the policy's own target first, then by
+    /// its raw logits (contract `belief_lookahead_v3`). The chosen target
+    /// answers that question at the table. `0` (the default) leaves targets
+    /// to the policy.
+    #[arg(long, default_value_t = 0, requires = "search")]
+    search_targets: usize,
+}
+
+/// `--search-select`: which [`Selection4`] a search uses.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, clap::ValueEnum)]
+enum SearchSelect {
+    Mean,
+    Paired,
+    Prior,
+}
+
+/// The run's search, its budgets and selection together; `None` without
+/// `--search`.
+fn search_config(args: &Args) -> anyhow::Result<Option<SearchConfig4>> {
+    let Some(config) = args.search else {
+        return Ok(None);
+    };
+    // Every selection parameter is checked, the chosen rule's or not: a
+    // value given wrong is refused, not ignored.
+    let paired = Selection4::Paired {
+        margin: args.search_margin,
+        z: args.search_z,
+    }
+    .validate()?;
+    let prior = Selection4::Prior {
+        c: args.search_prior_c,
+    }
+    .validate()?;
+    let selection = match args.search_select {
+        SearchSelect::Mean => Selection4::Mean,
+        SearchSelect::Paired => paired,
+        SearchSelect::Prior => prior,
+    };
+    let config = config
+        .with_selection(selection)?
+        .with_threads(args.search_threads)?
+        .with_targets(args.search_targets)?;
+    // Only a net on shared batches lends rollout players; without them the
+    // rollouts run one by one, and the run's metadata says so.
+    if args.inference_batch > 0 {
+        Ok(Some(config))
+    } else {
+        config.with_threads(1).map(Some)
+    }
 }
 
 #[derive(Default)]
@@ -120,6 +230,103 @@ struct EvalStats {
     latencies_ms: Vec<f64>,
     coverage: CoverageMatrix4,
     deal_details: Vec<Value>,
+    search: lookahead::SearchTally,
+    rule_refs_left_out: u64,
+}
+
+/// Why `--search` cannot run with `args`, if it cannot.
+fn search_refusal(
+    args: &Args,
+    collection: &collector::Contract,
+    identity: Option<&ModelIdentity>,
+) -> Option<&'static str> {
+    args.search?;
+    if args.legacy_v3 {
+        return Some("--search needs a v4/v5 model");
+    }
+    if collection.uses_seat_pool() {
+        return Some("--search is evaluation against the house only");
+    }
+    if args.shadow_teacher.is_some() {
+        return Some("--search writes no shadow labels");
+    }
+    if matches!(
+        identity.and_then(|identity| identity.critic_semantics.as_ref()),
+        Some(CriticSemantics4::FailureTerminalResearchUtilityV1 { .. })
+    ) {
+        return Some("--search scores leaves with an MTG outcome critic, not a research utility");
+    }
+    None
+}
+
+/// What `run.json` and the summary say about the search, when there is one.
+fn search_metadata(
+    args: &Args,
+    config: Option<SearchConfig4>,
+    identity: Option<&ModelIdentity>,
+) -> Option<Value> {
+    let mut metadata = config?.metadata();
+    metadata["max_decisions_per_game"] = json!(args.search_max_decisions_per_game);
+    // A row's outputs in a batch differ from its outputs alone, and which
+    // rows share a batch depends on timing: a batched search is not
+    // reproducible bit for bit (`docs/trained-ai.md` §"Lookahead search").
+    metadata["bitwise_reproducible"] = json!(args.inference_batch == 0);
+    metadata["critic_semantics"] = json!(identity.and_then(|i| i.critic_semantics.as_ref()));
+    Some(metadata)
+}
+
+/// How every model of the run binds its card catalog to this build's.
+const fn catalog_policy(args: &Args) -> CatalogPolicy4 {
+    match (args.catalog_superset, args.catalog_drift) {
+        (_, true) => CatalogPolicy4::Drift,
+        (true, false) => CatalogPolicy4::Superset,
+        (false, false) => CatalogPolicy4::Exact,
+    }
+}
+
+/// Why `--catalog-superset`/`--catalog-drift` cannot run with `args`, if
+/// they cannot: only an evaluation may bind another catalog. `convert4`
+/// re-encodes every record with this build's whole catalog, so a recorded
+/// probability would belong to another observation than the one converted.
+fn catalog_refusal(args: &Args) -> Option<&'static str> {
+    (catalog_policy(args) != CatalogPolicy4::Exact
+        && args.collection_purpose != collector::Purpose::Evaluation)
+        .then_some(
+            "--catalog-superset and --catalog-drift are for evaluation only: \
+             convert4 re-encodes with this build's catalog",
+        )
+}
+
+/// What `run.json` and the summary say about the card catalog when a run
+/// accepts another than this build's: each model's binding.
+fn catalog_metadata(
+    args: &Args,
+    collection: &collector::Contract,
+) -> anyhow::Result<Option<Value>> {
+    let policy = catalog_policy(args);
+    if policy == CatalogPolicy4::Exact {
+        return Ok(None);
+    }
+    let opponent = collection
+        .opponent_path
+        .as_deref()
+        .map(|path| inspect_catalog(path, policy))
+        .transpose()?
+        .flatten();
+    Ok(Some(json!({
+        "policy": policy,
+        "learner": inspect_catalog(&args.model, policy)?,
+        "opponent": opponent,
+    })))
+}
+
+/// How a run's models are opened.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ModelFormat {
+    /// An archived v3 net (`--legacy-v3`).
+    LegacyV3,
+    /// A v4/v5 net, its card catalog bound under the policy.
+    Net(CatalogPolicy4),
 }
 
 fn parse_profile(name: &str) -> anyhow::Result<AIProfile> {

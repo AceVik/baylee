@@ -211,6 +211,9 @@ pub enum Filter {
     /// `EnterModifier::ChooseColor`). A source with no chosen colour matches
     /// nothing.
     OfSourceChosenColor,
+    /// Has a card type the SOURCE object chose as it entered (Serra's
+    /// Emissary). A source with no chosen card type matches nothing.
+    OfSourceChosenCardType,
     /// Shares at least one colour with a permanent on the battlefield the
     /// inner filter matches, read with the same "you" (Invoke Prejudice:
     /// "a creature spell that doesn't share a color with a creature you

@@ -26,6 +26,9 @@ baylee-ai.workspace = true
 # Deck names to `CardIndex`, and the acceptance decks a bridge brings when
 # told nothing else.
 baylee-cards.workspace = true
+# Every card there is, to tell a real card this build has no script for from
+# a name that is no card at all, when a named card is refused.
+baylee-cards-index.workspace = true
 # `KeywordSet::FLASH`, for when a card in hand may be cast.
 baylee-cards-dsl.workspace = true
 # A deck file in any of the four formats a player can export.

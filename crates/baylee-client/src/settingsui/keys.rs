@@ -79,6 +79,12 @@ pub(crate) const SETTINGS: TabOrder = TabOrder {
         "impressum",
         "switch-gateway",
         "copy-diagnostics",
+        "card-fill",
+        "card-fill-go",
+        "card-fill-empty",
+        "card-fill-pace",
+        "card-fill-reach",
+        "card-fill-budget",
         // Language models: the list, the caps, Save (`seatpanel`)
         "llm",
         // Updates

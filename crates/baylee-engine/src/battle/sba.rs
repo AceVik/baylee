@@ -84,6 +84,7 @@ fn has_stacked_trigger(
                         AbilityDef::Triggered { .. }
                             | AbilityDef::ModalTriggered { .. }
                             | AbilityDef::SagaChapter { .. }
+                            | AbilityDef::Echo { .. }
                     )
                 )
         })

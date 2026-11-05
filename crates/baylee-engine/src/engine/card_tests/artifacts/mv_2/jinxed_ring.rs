@@ -94,6 +94,7 @@ fn trigger_checks_nontokens_and_ownership_including_lands() {
     );
     lk::float(&mut e, P0, &[(ManaColor::Black, 10), (ManaColor::Red, 20)]);
     cast_with_floating(&mut e, P0, rats);
+    e.apply(P0, PlayerAction::YesNo(false)).unwrap();
     lk::settle(&mut e);
     let token = tokens_of(&e, P0)[0];
     lk::cast_at(&mut e, P0, lightning_bolt(), &[token], &[]);

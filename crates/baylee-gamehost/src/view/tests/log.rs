@@ -879,7 +879,7 @@ fn a_permanent_gone_before_a_line_named_it_is_named_as_it_stood() {
     );
 }
 
-/// The monarch's abilities have no source (CR 724.2): there is nothing
+/// The monarch's abilities have no source (CR 725.2): there is nothing
 /// to name one by, and no line says an unknown object did something.
 #[test]
 fn a_trigger_with_no_source_gets_no_line() {
@@ -926,7 +926,7 @@ fn every_seat_sees_the_monarch_and_is_told_when_the_crown_moves() {
     assert_eq!(
         views(&engine),
         [None; 4],
-        "no monarch until an effect makes one (CR 724.1)"
+        "no monarch until an effect makes one (CR 725.1)"
     );
 
     let from = log.len();
@@ -1324,6 +1324,67 @@ fn a_trigger_aimed_in_a_later_question_is_announced_when_it_is_aimed() {
                     && matches!(&targets[..], [LogTarget::Object(LogObject::Known { id, .. })] if *id == elves)
             ),
             "{aimed:?}"
+        );
+    }
+}
+
+/// A trigger about the object its event was about (exalted's "that
+/// creature", `TargetSpec::EventObject`) is not logged as aimed at it: the
+/// card does not target it (CR 115.1). The log said "targeting Grizzly
+/// Bears", and models reported exalted, undying and Spirit Shackle as
+/// targeting (LLM reports, 2-3 Nov 2026).
+#[test]
+fn a_trigger_about_its_event_object_is_not_logged_as_aimed() {
+    let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+    let (mut engine, mut log) =
+        a_logged_main_phase(2, &[], &["Ignoble Hierarch", "Grizzly Bears"], &[]);
+    let hierarch = named(&engine, "Ignoble Hierarch");
+    let bears = named(&engine, "Grizzly Bears");
+    let from = log.len();
+    play_on(
+        &mut engine,
+        &mut log,
+        |pending| match pending {
+            Pending::ChooseAttackers {
+                player, attackers, ..
+            } if *player == me && attackers.contains(&bears) => {
+                Some(PlayerAction::DeclareAttackers {
+                    attackers: vec![(bears, baylee_core::ids::Defender::Player(them))],
+                })
+            }
+            Pending::ChooseAttackers { .. } => {
+                Some(PlayerAction::DeclareAttackers { attackers: vec![] })
+            }
+            Pending::ChooseBlockers { .. } => {
+                Some(PlayerAction::DeclareBlockers { blockers: vec![] })
+            }
+            _ => None,
+        },
+        |engine| {
+            let state = engine.state();
+            state.zones.list(ZoneLocation::Stack).iter().any(|id| {
+                state
+                    .object(*id)
+                    .and_then(|o| o.ability)
+                    .is_some_and(|loc| loc.source == hierarch)
+            })
+        },
+    );
+    for seat in [me, them] {
+        let told = told_since(&log, seat, from);
+        assert!(
+            told.iter().any(|e| matches!(
+                e,
+                LogEvent::Ability { source: LogObject::Known { id, .. }, .. } if *id == hierarch
+            )),
+            "exalted triggered: {told:?}"
+        );
+        assert!(
+            !told.iter().any(|e| matches!(
+                e,
+                LogEvent::Aimed { source: LogObject::Known { id, .. }, .. } if *id == hierarch
+            )),
+            "and aimed at nothing: {told:?}"
         );
     }
 }

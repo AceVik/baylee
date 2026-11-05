@@ -93,6 +93,7 @@ mod river;
 pub use discard::{DiscardReveal, DiscardThen};
 use discard::{discard_or_ask, resume_discard_destination};
 mod counter_move;
+mod dig;
 mod directed_search;
 #[cfg(test)]
 mod directed_search_tests;
@@ -126,8 +127,11 @@ pub(crate) mod hidden_exile;
 mod resume;
 mod search;
 mod search_group;
+mod settle;
 mod shared_land;
 mod upgrade;
+mod vote;
+pub use vote::Ballot;
 
 pub use answers::*;
 pub use awaiting::*;
@@ -461,6 +465,21 @@ pub(crate) fn payment_for(state: &GameState, res: &Resolution) -> crate::casting
     )
 }
 
+/// The permanent an Aura's or an Equipment's ability means by "enchanted
+/// creature" or "equipped creature" as it resolves: the source's host now,
+/// or the host it had as it left (CR 113.7a, CR 608.2h), which is the only
+/// one an Aura sacrificed to pay for the ability has (Thrull Retainer,
+/// Briar Shield). `None` where neither is on the battlefield.
+pub(crate) fn attached_host(state: &GameState, res: &Resolution) -> Option<(ObjectId, u32)> {
+    crate::eval::attached_for_ability(
+        state,
+        res.source,
+        source_version(state, res),
+        source_attachment_lki(state, res.on_stack),
+    )
+    .map(|host| (host.id, host.version))
+}
+
 /// Attachment captured when a waiting ability's source left the battlefield.
 pub(crate) fn source_attachment_lki(
     state: &GameState,
@@ -756,6 +775,21 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
         Amount::LifeTotal(who) => players_of(*who, state, you, res).first().map_or(0, |p| {
             u32::try_from(state.players[usize::from(p.get())].life).unwrap_or(0)
         }),
+        Amount::StartingLifeTotal(who) => {
+            players_of(*who, state, you, res).first().map_or(0, |p| {
+                u32::try_from(state.players[usize::from(p.get())].starting_life).unwrap_or(0)
+            })
+        }
+        Amount::LifeGainedThisTurn(who) => {
+            players_of(*who, state, you, res).first().map_or(0, |p| {
+                state
+                    .per_turn
+                    .life_gained_amount
+                    .get(usize::from(p.get()))
+                    .copied()
+                    .unwrap_or(0)
+            })
+        }
         Amount::ControlledCount { who, filter } => players_of(*who, state, you, res)
             .first()
             .map_or(0, |controller| {
@@ -863,6 +897,15 @@ pub(super) fn amount_for_player(
         Amount::LifeTotal(PlayerRel::Recipient) => {
             u32::try_from(state.players[usize::from(player.get())].life).unwrap_or(0)
         }
+        Amount::StartingLifeTotal(PlayerRel::Recipient) => {
+            u32::try_from(state.players[usize::from(player.get())].starting_life).unwrap_or(0)
+        }
+        Amount::LifeGainedThisTurn(PlayerRel::Recipient) => state
+            .per_turn
+            .life_gained_amount
+            .get(usize::from(player.get()))
+            .copied()
+            .unwrap_or(0),
         Amount::LibrarySize(PlayerRel::Recipient) => {
             u32::try_from(state.zones.list(ZoneLocation::Library(player)).len()).unwrap_or(u32::MAX)
         }
@@ -1448,6 +1491,7 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::PlayerMayPayManaEachThenElse { .. }
         | Effect::UntapChosenPayingEach { .. }
         | Effect::PlayerMayPayManaOr { .. }
+        | Effect::PayManaOrLose { .. }
         | Effect::PlayerMayPayManaThen { .. }
         | Effect::MayPayEnergyOr { .. }
         | Effect::PlayerMayPayLifeOr { .. }

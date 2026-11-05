@@ -329,6 +329,12 @@ fn arrangement_rows(out: &mut Out, table: &baylee_client_core::tableview::TableV
         Press::Settings(SettingsPress::FollowTurn),
     );
     out.row(Row::FollowTurn, control);
+    let control = out.toggle(
+        "follow-control",
+        table.follow_control,
+        Press::Settings(SettingsPress::FollowControl),
+    );
+    out.row(Row::FollowControl, control);
     let mut lines = Vec::new();
     // The widest value a seat count's stepper can show: it keeps that room,
     // so its `+` never moves and its value is never cut.
@@ -616,6 +622,9 @@ pub(crate) fn network(out: &mut Out, view: &View) {
     let text = out.words(&crate::lobby::diagnostics(state), true);
     let both = out.wrap(&[text, copy]);
     out.row(Row::Diagnostics, both);
+    if drawn(view, Row::CardFill) {
+        crate::lobby::card_fill::rows(out, view);
+    }
 }
 
 /// Privacy & Data: the true list of what is kept and sent, report consent,

@@ -34,7 +34,8 @@ baylee-protocol.workspace = true
 baylee-view.workspace = true
 # The header logo's accessible name (`shellkit::header::brand_mark`); bevy_a11y
 # no longer re-exports it, so the same version bevy links.
-accesskit = "0.24"
+# AccessibilityNode exposes Bevy 0.20.1's accesskit types directly.
+accesskit = "=0.24.1"
 bevy = { workspace = true, features = ["bevy_clipboard"] }
 getrandom.workspace = true
 zeroize.workspace = true
@@ -59,6 +60,8 @@ webbrowser.workspace = true
 qrcodegen.workspace = true
 
 [dev-dependencies]
+# Assert wire compatibility against the exact browser SDK crypto build.
+central-crypto.workspace = true
 # The same crate as above, with its view builders switched on. A test target
 # only; `cargo build` of the client never sees the feature.
 baylee-client-core = { workspace = true, features = ["test-support"] }
@@ -172,6 +175,9 @@ sha2.workspace = true
 # a phone, whose store is (`docs/client.md` §"Updating").
 [target.'cfg(not(any(target_arch = "wasm32", target_os = "android", target_os = "ios")))'.dependencies]
 baylee-update.workspace = true
+# The cache fill stops before the disk is full (`src/cachefill.rs`): how much
+# room the cache's disk has left, on every desktop.
+sysinfo = { workspace = true, features = ["disk"] }
 
 # Android never calls `main`: it loads a shared object and calls
 # `android_main`, and `android-activity` — winit's door to that — refuses to

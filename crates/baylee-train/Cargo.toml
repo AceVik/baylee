@@ -33,8 +33,12 @@ play = [
 ]
 # The trained AI playing through ONNX Runtime (`netplay`, the `arena` bin).
 # Not default and in no gate: it downloads the runtime when it builds, and
-# only the trainer's machine needs it.
-onnx = ["play", "dep:ort", "dep:baylee-ai"]
+# only the trainer's machine needs it. It also turns on the engine's
+# `simulation` (`Engine::fork_for`, through `baylee-gamehost/simulation`) for
+# the net's lookahead (`netplay4::search`, `eval4 --search`). Not `play`:
+# that is a default, and `cargo build-servers`/`build-client` select
+# `--workspace`, so a default of this crate unifies into every shipped binary.
+onnx = ["play", "dep:ort", "dep:baylee-ai", "baylee-gamehost/simulation"]
 # The same on NVIDIA GPUs (CUDA 13; the runtime finds the CUDA and cuDNN
 # libraries on LD_LIBRARY_PATH): the batch servers of `--gpu-batch` run there,
 # and `BAYLEE_EP=cpu` keeps them on the CPU. A v2/v4 player goes to the GPU only
@@ -43,7 +47,7 @@ onnx-cuda = ["onnx", "ort/cuda"]
 # A language model in an arena chair (`arena --llm`), through the seat
 # bridge's mind (`baylee_seat::llm::ApiMind`). In no gate: it is measured on
 # the trainer's machine against a model server on loopback.
-llm = ["onnx", "dep:baylee-seat", "dep:tokio"]
+llm = ["onnx", "dep:baylee-seat", "dep:tokio", "dep:baylee-protocol", "dep:prost"]
 # Local neural opponent over the ordinary gateway seat protocol.
 live-seat = [
     "onnx", "dep:baylee-seat", "dep:tokio", "dep:baylee-protocol",
@@ -122,6 +126,11 @@ path = "src/bin/inspect.rs"
 required-features = ["play"]
 
 [[bin]]
+name = "gamelog4"
+path = "src/bin/gamelog4/main.rs"
+required-features = ["llm"]
+
+[[bin]]
 name = "convert"
 path = "src/bin/convert.rs"
 required-features = ["play"]
@@ -169,6 +178,11 @@ required-features = ["play"]
 [[bin]]
 name = "deck_catalog4"
 path = "src/bin/deck_catalog4.rs"
+required-features = ["play"]
+
+[[bin]]
+name = "bughunt_decks"
+path = "src/bin/bughunt_decks.rs"
 required-features = ["play"]
 
 [[bin]]

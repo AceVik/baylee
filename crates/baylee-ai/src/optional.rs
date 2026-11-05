@@ -47,16 +47,57 @@ fn blocker_strength(o: &PublicObject) -> i64 {
 /// else is assumed to hold, as before, because the engine is the one that
 /// knows.
 fn closed(view: &PlayerView, condition: &Condition) -> bool {
+    let me = baylee_client_core::decision::resource_player(view);
     match condition {
-        Condition::MaxSpeed => view.seat(view.seat).is_none_or(|seat| seat.speed != 4),
-        Condition::YourTurn => view.active != view.seat,
-        Condition::DuringStep(step) => !during(view.step, *step),
+        Condition::MaxSpeed => view.seat(me).is_none_or(|seat| seat.speed != 4),
+        Condition::YourTurn => view.active != me,
+        Condition::OpponentsTurn => view.active == me,
+        Condition::DuringCombat => view.phase != baylee_view::Phase::Combat,
+        Condition::DuringStep(step) => !during(view, *step),
+        Condition::BeforeStep(step) => {
+            turn_position(view.phase, view.step) >= baylee_engine::turn::position_of(*step)
+        }
+        Condition::ControlCount(filter, min) => {
+            let agent = HeuristicAgent::new(crate::AIProfile::default());
+            view.battlefield_of(me)
+                .filter(|o| !o.status.is_phased_out())
+                .filter(|o| {
+                    agent.filter_matches(
+                        filter,
+                        view,
+                        o,
+                        baylee_cards_dsl::ZoneRef::Battlefield,
+                        None,
+                    ) != Some(false)
+                })
+                .count()
+                < usize::from(*min)
+        }
+        Condition::BattlefieldCountAtMost(filter, max) => {
+            let agent = HeuristicAgent::new(crate::AIProfile::default());
+            view.battlefield
+                .iter()
+                .filter(|o| !o.status.is_phased_out())
+                .filter(|o| {
+                    agent.filter_matches(
+                        filter,
+                        view,
+                        o,
+                        baylee_cards_dsl::ZoneRef::Battlefield,
+                        None,
+                    ) == Some(true)
+                })
+                .count()
+                > usize::from(*max)
+        }
         Condition::All(parts) => parts.iter().any(|c| closed(view, c)),
+        Condition::Any(parts) => parts.iter().all(|c| closed(view, c)),
         _ => false,
     }
 }
 
-fn during(now: Step, step: StepKind) -> bool {
+fn during(view: &PlayerView, step: StepKind) -> bool {
+    let now = view.step;
     match step {
         StepKind::Upkeep => now == Step::Upkeep,
         StepKind::Draw => now == Step::Draw,
@@ -66,7 +107,29 @@ fn during(now: Step, step: StepKind) -> bool {
         StepKind::CombatDamage => matches!(now, Step::CombatDamage | Step::CombatDamageFirst),
         StepKind::CombatEnd => now == Step::CombatEnd,
         StepKind::End => now == Step::End,
-        StepKind::FirstMain => true,
+        StepKind::FirstMain => now == Step::Main && view.phase == baylee_view::Phase::FirstMain,
+    }
+}
+
+const fn turn_position(phase: baylee_view::Phase, step: Step) -> u8 {
+    match step {
+        Step::Untap => 0,
+        Step::Upkeep => 1,
+        Step::Draw => 2,
+        Step::Main => match phase {
+            baylee_view::Phase::SecondMain | baylee_view::Phase::Ending => 10,
+            baylee_view::Phase::Beginning
+            | baylee_view::Phase::FirstMain
+            | baylee_view::Phase::Combat => 3,
+        },
+        Step::CombatBegin => 4,
+        Step::DeclareAttackers => 5,
+        Step::DeclareBlockers => 6,
+        Step::CombatDamageFirst => 7,
+        Step::CombatDamage => 8,
+        Step::CombatEnd => 9,
+        Step::End => 11,
+        Step::Cleanup => 12,
     }
 }
 
@@ -127,7 +190,7 @@ pub(crate) fn not_now(
 /// branches: what a yes would do.
 // `Err` names a choice whose original resolution controller is not in the
 // decision context. The deciding seat must not become the meaning of "you".
-fn may_branch(effects: &[Effect]) -> Option<Result<&'static [Effect], ()>> {
+pub(crate) fn may_branch(effects: &[Effect]) -> Option<Result<&'static [Effect], ()>> {
     effects.iter().find_map(|effect| match effect {
         Effect::MayDo { effects } | Effect::MayDoOnceEachTurn { effects } => Some(Ok(*effects)),
         Effect::MayDoFor { .. } => Some(Err(())),
@@ -140,7 +203,7 @@ fn may_branch(effects: &[Effect]) -> Option<Result<&'static [Effect], ()>> {
 
 /// Whether the ability `source` names is Island Sanctuary's "you may skip
 /// that draw" replacement.
-fn is_draw_skip(source: Option<AbilityRef>) -> bool {
+pub(crate) fn is_draw_skip(source: Option<AbilityRef>) -> bool {
     let Some(source) = source else {
         return false;
     };
@@ -185,7 +248,7 @@ pub(crate) fn self_draws(view: &PlayerView, effects: &[Effect], x: u32) -> u32 {
 /// seat's library cannot spare the draw or the creatures the restriction
 /// would keep home (no flying, no islandwalk) threaten this seat's life:
 /// their power is half of it or more.
-fn skips_draw(view: &PlayerView, hostile: impl Fn(PlayerId) -> bool) -> bool {
+pub(crate) fn skips_draw(view: &PlayerView, hostile: impl Fn(PlayerId) -> bool) -> bool {
     let Some(seat) = view.seat(view.seat) else {
         return false;
     };

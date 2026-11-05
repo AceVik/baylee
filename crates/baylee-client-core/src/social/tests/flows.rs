@@ -1635,3 +1635,24 @@ fn a_group_invite_is_listed_at_once_and_its_toast_goes_with_it() {
         Effect::Withdraw(crate::social::ToastAbout::GroupInvite(id)) if *id == group.id
     )));
 }
+
+#[test]
+fn a_wrong_receipt_cannot_remove_the_pending_send_before_a_valid_receipt() {
+    let (mut gw, mut alice, _) = pair();
+    alice.drop_answers = true;
+    alice.say(&mut gw, "/w Bob keep the pending send");
+    let id = only_key(&alice, DM_AB).id;
+    let frame = |id| Down::Sent {
+        req: 1,
+        id,
+        at: alice.now,
+    };
+    let _ = alice.social.on_frame(
+        frame("01931234-5678-7000-8000-000000000001".into()),
+        alice.now,
+        &mut alice.rng,
+    );
+    assert_eq!(last_state(&alice, DM_AB), LineState::Pending);
+    let _ = alice.social.on_frame(frame(id), alice.now, &mut alice.rng);
+    assert_eq!(last_state(&alice, DM_AB), LineState::Final);
+}

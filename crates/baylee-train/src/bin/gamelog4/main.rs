@@ -1,0 +1,111 @@
+//! Reads evaluated games the way a player would: turn by turn, both boards
+//! at the start of each turn, the game's own log lines, and every decision
+//! of the evaluated seat marked by who made it (the net, its search, a
+//! house fallback). `deals` lists the deals the net lost where the house,
+//! playing the same seat of the same deal, won; `patterns` counts recurring
+//! mistakes over them.
+//!
+//! ```text
+//! gamelog4 deals --summary eval-s1r.json
+//! gamelog4 show --run eval-s1r-records --game 17
+//! gamelog4 patterns --run eval-s1r-records --summary eval-s1r.json
+//! ```
+//!
+//! A record is omniscient, so both hands are shown: this is for studying
+//! the net, never for a seat.
+
+use std::path::PathBuf;
+
+use clap::{Parser, Subcommand};
+
+mod board;
+mod game;
+mod losses;
+mod names;
+mod patterns;
+mod show;
+
+#[derive(Parser, Debug)]
+#[command(about = "Reads evaluated games turn by turn")]
+struct Args {
+    #[command(subcommand)]
+    command: Command,
+}
+
+#[derive(Subcommand, Debug)]
+enum Command {
+    /// Lists deals of an eval4 summary.
+    Deals {
+        /// eval4's summary (`--out`) of a run with a house baseline.
+        #[arg(long)]
+        summary: PathBuf,
+        /// Which deals.
+        #[arg(long, value_enum, default_value_t = losses::Which::Lost)]
+        which: losses::Which,
+    },
+    /// Prints one game of an eval4 `--record-out` directory.
+    Show {
+        /// The run's record directory (`games.jsonl` and `records/`).
+        #[arg(long)]
+        run: PathBuf,
+        /// The game's deal (`i` in `games.jsonl`, `deal` in the summary).
+        #[arg(long)]
+        game: u64,
+        /// The first turn to print.
+        #[arg(long, default_value_t = 0)]
+        from_turn: u32,
+        /// The last turn to print.
+        #[arg(long)]
+        to_turn: Option<u32>,
+        /// Also print the evaluated seat's forced answers.
+        #[arg(long)]
+        forced: bool,
+    },
+    /// Counts recurring mistakes over deals of a summary.
+    Patterns {
+        /// The run's record directory.
+        #[arg(long)]
+        run: PathBuf,
+        /// eval4's summary of the same run.
+        #[arg(long)]
+        summary: PathBuf,
+        /// Which deals.
+        #[arg(long, value_enum, default_value_t = losses::Which::Lost)]
+        which: losses::Which,
+        /// Games replayed at once.
+        #[arg(long, default_value_t = 8)]
+        threads: usize,
+        /// List each answer of this spell or ability (its name) aimed at
+        /// the net's own side, with life totals, stack and boards.
+        #[arg(long)]
+        focus: Option<String>,
+    },
+}
+
+fn main() -> anyhow::Result<()> {
+    match Args::parse().command {
+        Command::Deals { summary, which } => losses::list(&summary, which),
+        Command::Show {
+            run,
+            game,
+            from_turn,
+            to_turn,
+            forced,
+        } => show::show(
+            &run,
+            game,
+            &show::Shown {
+                from_turn,
+                to_turn: to_turn.unwrap_or(u32::MAX),
+                forced,
+            },
+        ),
+        Command::Patterns {
+            run,
+            summary,
+            which,
+            threads,
+            focus,
+        } => patterns::count(&run, &summary, which, threads, focus.as_deref()),
+    }
+}

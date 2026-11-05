@@ -389,6 +389,7 @@ fn a_painlands_written_row_in_a_payment_window_waits_for_go() {
             source: wastes,
             tap: Tap::Ability(1),
             color: Some(ManaColor::Blue),
+            second: None,
         }],
         "exactly the Blue tap of ability 1 is staged"
     );

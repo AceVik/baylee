@@ -118,6 +118,50 @@ fn best(
         .map(|(_, handle)| handle)
 }
 
+/// The offered activation worth least to the seat `view` belongs to, aimed
+/// at what is worth least to it, when that is a loss of more than
+/// [`THRESHOLD`]; `None` otherwise, which is most of the time.
+///
+/// What a controller activates for a player it plays against (CR 723.5,
+/// [`crate::controlled`]): `view` is that player's side of the table, so the
+/// measure that weighs this seat's own activations weighs theirs, and the
+/// one taken is the one that costs them most — a sacrifice outlet fed their
+/// own creature, a burn ability pointed at their own face. Only an ability
+/// whose cost consumes something is taken, loyalty included, so the same
+/// offer cannot come back unchanged; a free one this seat would take for
+/// itself ([`settles`]) is a gain for them and never a loss.
+pub(crate) fn against(
+    view: &PlayerView,
+    legal: &LegalActions,
+    agent: &crate::HeuristicAgent,
+) -> Option<(ObjectId, u32)> {
+    legal
+        .abilities
+        .iter()
+        .copied()
+        .filter_map(|(source, index)| {
+            if on_the_stack(view, source, index) {
+                return None;
+            }
+            let def = printed(view, source, index)?;
+            if !payment::reachable(view, legal, source, def) {
+                return None;
+            }
+            if !matches!(def, AbilityDef::Loyalty { .. }) && !consumes(activated(def)?.0) {
+                return None;
+            }
+            let worth = agent.activation_worth_at(
+                view,
+                Origin::of(view, source),
+                def,
+                crate::worth::Pick::Worst,
+            )?;
+            (worth < -THRESHOLD).then_some((worth, (source, index)))
+        })
+        .min_by_key(|(worth, handle)| (*worth, *handle))
+        .map(|(_, handle)| handle)
+}
+
 /// Whether an earlier activation of this very ability — the same source,
 /// the same index — is still on the stack, waiting to resolve.
 ///
@@ -200,15 +244,20 @@ pub(crate) fn printed(
     object: ObjectId,
     index: u32,
 ) -> Option<&'static AbilityDef> {
-    let object = view.object(object)?;
-    if let Some(slot) = baylee_engine::choice::granted_slot(index) {
-        let grant = object.grant(slot)?;
-        let rules = grant.rules?;
-        return baylee_cards::by_index(rules.card)?
-            .abilities_for_face(usize::from(rules.face))
-            .get(usize::try_from(grant.ability?).ok()?);
+    if let Some(object) = view.object(object) {
+        if let Some(slot) = baylee_engine::choice::granted_slot(index) {
+            let grant = object.grant(slot)?;
+            let rules = grant.rules?;
+            return baylee_cards::by_index(rules.card)?
+                .abilities_for_face(usize::from(rules.face))
+                .get(usize::try_from(grant.ability?).ok()?);
+        }
+        return printed_list(object).get(usize::try_from(index).ok()?);
     }
-    printed_list(object).get(usize::try_from(index).ok()?)
+    let held = baylee_client_core::decision::known_cards(view).find(|c| c.id == object)?;
+    baylee_cards::by_index(held.card.index)?
+        .abilities_for_face(usize::from(held.card.face))
+        .get(usize::try_from(index).ok()?)
 }
 
 /// The list an object's abilities are printed on, which is what an offered
@@ -226,6 +275,10 @@ pub(crate) fn printed_list(object: &PublicObject) -> &'static [AbilityDef] {
     if let Some(rules) = object.rules {
         return baylee_cards::by_index(rules.card)
             .map_or(&[], |def| def.abilities_for_face(usize::from(rules.face)));
+    }
+    if let Some(card) = object.card.filter(|_| !object.status.is_face_down()) {
+        return baylee_cards::by_index(card.index)
+            .map_or(&[], |def| def.abilities_for_face(usize::from(card.face)));
     }
     object
         .token

@@ -67,8 +67,12 @@ impl<L: CardLookup> Engine<L> {
         // `casting::can_cast` uses, or the spell is offered in
         // `LegalActions` and then refused here as "no way to cast this
         // spell" — which is what happened, and it is why the count lives in
-        // one function rather than in each of them.
+        // one function rather than in each of them. A creature also pays a
+        // coloured symbol of its colour (CR 702.51a), which `less` applies
+        // the same way `can_cast` does (`casting::keyword_priced`).
         let reduction = casting::keyword_reduction(&self.state, face, player, card);
+        let less =
+            |cost: ManaCost| casting::keyword_priced(&self.state, face, player, &cost, reduction);
         let allowance = adjustment.allowance(
             &self.state,
             casting::SpendFor::Spell(card),
@@ -90,7 +94,7 @@ impl<L: CardLookup> Engine<L> {
                     player,
                     casting::SpendFor::Spell(card),
                     pool,
-                    &price(*cost).with_less_generic(reduction),
+                    &less(price(*cost)),
                     &[],
                     Some(allowance),
                 )
@@ -103,7 +107,7 @@ impl<L: CardLookup> Engine<L> {
                         player,
                         casting::SpendFor::Spell(card),
                         pool,
-                        &price(*cost).with_less_generic(reduction),
+                        &less(price(*cost)),
                         &face.mana_cost,
                         allowance,
                     )
@@ -174,6 +178,15 @@ impl<L: CardLookup> Engine<L> {
             }
             if let Some(flashback) = face.flashback
                 && afford(&flashback.with_x(0))
+                && casting::additional_payment_capacity_for(
+                    &self.state,
+                    player,
+                    card,
+                    face,
+                    Some(CastModeKind::Flashback),
+                    &[],
+                )
+                .is_some()
             {
                 options.push(CastModeDesc {
                     index: 0,
@@ -223,12 +236,37 @@ impl<L: CardLookup> Engine<L> {
                 .iter()
                 .any(|a| matches!(a, baylee_cards_dsl::AbilityDef::Spell { .. }))
             && !face.types.is_permanent();
+        let foretell_cost = face
+            .foretell
+            .filter(|_| casting::foretell_permission(&self.state, player, card));
+        if let Some(cost) = foretell_cost
+            && casting::can_cast_form_paying(
+                &self.state,
+                &self.lookup,
+                player,
+                card,
+                Some(casting::SpellForm::Foretell(cost)),
+                paying,
+            )
+            .is_ok()
+            && afford(&cost.with_x(0))
+            && casting::face_has_a_legal_target(&self.state, &self.lookup, player, card, 0)
+        {
+            options.push(CastModeDesc {
+                index: options.len() as u32,
+                kind: CastModeKind::Foretell,
+                cost: price(cost),
+            });
+        }
         // Normal cost (X probed with 0; the real check happens at payment).
         // Guarded by the same CR 202.1b question `can_cast` asks, and for the
         // reason every probe in this function is paired with one there: an
         // option offered here that the offer does not know about is a mode a
-        // player can pick and be refused for.
+        // player can pick and be refused for. Foretell alone grants only its
+        // alternative cost; a separate play permission can also grant Normal.
         if !modal_only
+            && (foretell_cost.is_none()
+                || casting::play_permission(&self.state, player, card).is_some())
             && !face.types.contains(baylee_core::types::TypeSet::LAND)
             && (commanded
                 || casting::can_cast_form_paying(
@@ -275,7 +313,7 @@ impl<L: CardLookup> Engine<L> {
                     player,
                     casting::SpendFor::KickedSpell(card, 0, None),
                     kicked_pool,
-                    &price(cost).with_x(0).with_less_generic(reduction),
+                    &less(price(cost).with_x(0)),
                     &[],
                     Some(allowance),
                 )
@@ -285,7 +323,7 @@ impl<L: CardLookup> Engine<L> {
                         player,
                         casting::SpendFor::KickedSpell(card, 0, None),
                         kicked_pool,
-                        &price(cost).with_x(0).with_less_generic(reduction),
+                        &less(price(cost).with_x(0)),
                         &face.mana_cost,
                         allowance,
                     ))
@@ -375,6 +413,15 @@ impl<L: CardLookup> Engine<L> {
             // spell".
             if !condition_ok
                 || !self.can_afford(player, card, &taxed, casting::SpendFor::Spell(card))
+                || casting::additional_payment_capacity_for(
+                    &self.state,
+                    player,
+                    card,
+                    face,
+                    Some(CastModeKind::Alternative(i)),
+                    &[],
+                )
+                .is_none()
             {
                 continue;
             }
@@ -400,7 +447,7 @@ impl<L: CardLookup> Engine<L> {
                 options.push(CastModeDesc {
                     index: (options.len()) as u32,
                     kind: CastModeKind::Dash,
-                    cost: taxed.mana,
+                    cost: price(dash),
                 });
             }
         }
@@ -425,7 +472,7 @@ impl<L: CardLookup> Engine<L> {
                 options.push(CastModeDesc {
                     index: (options.len()) as u32,
                     kind: CastModeKind::Mutate,
-                    cost: taxed.mana,
+                    cost: price(mutate),
                 });
             }
         }
@@ -574,6 +621,12 @@ impl<L: CardLookup> Engine<L> {
             && casting::spell_condition_allows(&self.state, player, card, def, 0);
         options.retain(|o| match o.kind {
             CastModeKind::PlayLandFace(_) => true,
+            CastModeKind::Foretell => {
+                casting::permitted_spell_types(&self.state, player, card, face.types, 0)
+                    && (commanded
+                        || casting::timing_allows(&self.state, player, face.types, face.keywords))
+                    && casting::spell_condition_allows(&self.state, player, card, def, 0)
+            }
             CastModeKind::Face(i) | CastModeKind::EscapeGranted { face: i, .. } => {
                 (commanded || casting::face_timing_allows(&self.state, player, card, def, i))
                     && casting::spell_condition_allows(&self.state, player, card, def, i)
@@ -625,11 +678,8 @@ impl<L: CardLookup> Engine<L> {
         if commanded {
             options.retain(|o| {
                 matches!(o.kind, CastModeKind::PlayLandFace(_))
-                    || self.commanded_cost_feasible(
-                        player,
-                        card,
-                        &o.cost.with_x(0).with_less_generic(reduction),
-                    ) != Some(false)
+                    || self.commanded_cost_feasible(player, card, &less(o.cost.with_x(0)))
+                        != Some(false)
             });
         }
         for (i, option) in options.iter_mut().enumerate() {

@@ -53,6 +53,9 @@ pub enum CastModeKind {
     Disguise,
     /// Miracle cast (CR 702.94).
     Miracle,
+    /// Cast a foretold card from exile for its foretell cost after the turn
+    /// it was exiled (CR 702.143a). This is an alternative cost.
+    Foretell,
     /// Cast from the graveyard for the card's printed flashback cost
     /// (CR 702.34a). A *granted* flashback is paid with the mana cost and is
     /// offered as [`Self::Normal`].
@@ -94,6 +97,29 @@ pub enum CastModeKind {
         /// Other graveyard cards required by the chosen grant.
         exile: u8,
     },
+    /// How a resolved instant or sorcery leaves the stack, chosen because
+    /// more than one "instead" wants the same move (CR 616.1e). Not a way of
+    /// casting: the spell has already resolved.
+    SpellEnding(SpellEnding),
+}
+
+/// One way a resolved instant or sorcery can leave the stack in place of the
+/// graveyard of CR 608.2n. Each replaces that one move, so each applied leaves
+/// nothing for the others to replace (CR 616.1f), and which applies is its
+/// controller's choice (CR 616.1, 616.1e).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, serde::Serialize, serde::Deserialize)]
+pub enum SpellEnding {
+    /// Its owner's hand: its buyback cost was paid (CR 702.27a).
+    Hand,
+    /// Exile, and a free cast at the beginning of its controller's next
+    /// upkeep: it has rebound and was cast from hand (CR 702.88a).
+    Rebound,
+    /// Exile on an adventure, from where its controller may play it
+    /// (CR 715.3d).
+    Adventure,
+    /// Exile and nothing more: an effect that replaces the graveyard, such
+    /// as Yawgmoth's Will's or Dauthi Voidwalker's.
+    Exile,
 }
 
 /// Why a [`Pending::ChooseCards`] is presented (UI hint).
@@ -346,6 +372,11 @@ pub enum ChoicePrompt {
         /// The N of "Crew N".
         power: u8,
     },
+    /// A vote (CR 701.38a): the menu holds the choices this player may vote
+    /// for, and the one named is their ballot. Asked of each player in turn
+    /// order; the ballots cast before it are public (CR 608.2d), journaled as
+    /// `GameEvent::Voted` and read by `Engine::ballots`.
+    Vote,
     /// Generic selection.
     Generic,
     /// Choose the Army that receives amass counters and the named subtype.
@@ -441,6 +472,15 @@ pub enum NumberPrompt {
     Sacrifices,
     /// A bounded number chosen by a resolving or entry instruction.
     Choice,
+    /// How many times to pay a spell's multikicker cost (CR 702.33c), which
+    /// is how many times it was kicked. The maximum is what the floating
+    /// mana pays for, or the engine's ceiling while there is more mana to
+    /// make, as an X's is: a count nothing can pay reverses the cast
+    /// (CR 601.2h, 733.1).
+    Multikicker {
+        /// The cost paid each time.
+        cost: baylee_core::mana::ManaCost,
+    },
 }
 
 /// Why a [`Pending::ChooseTargets`] is presented (UI hint).
@@ -496,6 +536,52 @@ impl TargetPrompt {
     }
 }
 
+/// What a buyback cost asks besides mana, in the words a question can carry:
+/// the card's own [`baylee_cards_dsl::CostPart`]s hold `'static` filters,
+/// which no wire can, and a reader that cannot look the card up still has to
+/// name the whole price.
+#[derive(
+    Clone, Copy, PartialEq, Eq, Hash, Debug, Default, serde::Serialize, serde::Deserialize,
+)]
+pub struct BuybackParts {
+    /// Life paid. Four bytes in all keep `Pending` the size it was: no
+    /// printed buyback asks more than four life.
+    pub life: u8,
+    /// Permanents sacrificed.
+    pub sacrifices: u8,
+    /// Cards discarded, chosen by the caster.
+    pub discards: u8,
+    /// Cards discarded at random.
+    pub random_discards: u8,
+}
+
+impl BuybackParts {
+    /// The count of each part of a printed buyback cost.
+    #[must_use]
+    pub fn of(parts: &[baylee_cards_dsl::CostPart]) -> Self {
+        use baylee_cards_dsl::CostPart;
+        parts.iter().fold(Self::default(), |sum, part| match part {
+            CostPart::PayLife(n) => Self {
+                life: sum.life.saturating_add(u8::try_from(*n).unwrap_or(u8::MAX)),
+                ..sum
+            },
+            CostPart::Sacrifice(_) => Self {
+                sacrifices: sum.sacrifices.saturating_add(1),
+                ..sum
+            },
+            CostPart::Discard(_) => Self {
+                discards: sum.discards.saturating_add(1),
+                ..sum
+            },
+            CostPart::DiscardRandom => Self {
+                random_discards: sum.random_discards.saturating_add(1),
+                ..sum
+            },
+            _ => sum,
+        })
+    }
+}
+
 /// What a [`Pending::YesNo`] asks.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, serde::Serialize, serde::Deserialize)]
 pub enum YesNoPrompt {
@@ -522,8 +608,10 @@ pub enum YesNoPrompt {
     ApplyAdditionalCountersNext {
         /// Permanent receiving counters.
         permanent: ObjectId,
-        /// Additional counters of each kind in this placement.
+        /// Additional counters of the specified kind, or each kind in this placement.
         additional: u16,
+        /// An entry replacement's counter kind; none adds to every existing kind.
+        kind: Option<baylee_cards_dsl::CounterKind>,
     },
     /// Use a one-shot shield rather than a standing regeneration replacement.
     UseRegenerationShield {
@@ -656,12 +744,32 @@ pub enum YesNoPrompt {
         /// The tapped permanent whose replacement effect is offered.
         source: baylee_core::ids::ObjectId,
     },
+    /// Liar's Pendulum: the guess whether `holder` has a card with the
+    /// name chosen for it in hand. The name was chosen aloud, so the
+    /// question carries it (`card`'s face `face`); yes guesses it is there.
+    GuessNamedCardInHand {
+        /// Whose hand the guess is about.
+        holder: PlayerId,
+        /// The card whose name was chosen.
+        card: baylee_core::ids::CardIndex,
+        /// Which of its faces names it.
+        face: u8,
+    },
     /// Generic yes/no (optional effects).
     Generic,
     /// Pay the full sacrifice required before this card may enter the battlefield.
     SacrificeToEnter {
         /// Number of eligible permanents that must be sacrificed together.
         count: u8,
+    },
+    /// Pay this spell's buyback cost (CR 702.27a)? Asked with the other
+    /// additional costs (CR 601.2b), and only of a spell that can pay it.
+    Buyback {
+        /// The mana part of the cost as it stands, after anything that
+        /// reduces it (`Modifier::BuybackCostsLess`).
+        cost: baylee_core::mana::ManaCost,
+        /// What it asks besides mana. The objects are asked after a yes.
+        parts: BuybackParts,
     },
 }
 
@@ -715,6 +823,7 @@ impl YesNoPrompt {
             | Self::PayEnergy { .. }
             | Self::PayLifeOrEnterTapped { .. }
             | Self::Kicker
+            | Self::Buyback { .. }
             | Self::ManaAnyType
             | Self::PayTax { .. }
             | Self::PayMana { .. }
@@ -729,7 +838,8 @@ impl YesNoPrompt {
             | Self::Generic => true,
             // Declining discover moves the card into the hand: a card for
             // the player, but not nothing, and a free spell is not a
-            // question to answer by the clock.
+            // question to answer by the clock. A guess is a guess either
+            // way: "no" is not passing it up.
             Self::RemoveCountersInsteadOfUntapping { .. }
             | Self::UseDamageClearingReplacement { .. }
             | Self::UseShieldCounter { .. }
@@ -738,7 +848,8 @@ impl YesNoPrompt {
             | Self::CommanderReplace { .. }
             | Self::PayPact { .. }
             | Self::TopOfLibrary { .. }
-            | Self::Discover { .. } => false,
+            | Self::Discover { .. }
+            | Self::GuessNamedCardInHand { .. } => false,
         }
     }
 }

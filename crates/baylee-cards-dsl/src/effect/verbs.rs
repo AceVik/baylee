@@ -805,6 +805,8 @@ impl Effect {
             } => (core::slice::from_ref(*effect), NONE),
             Effect::GainLife { .. }
             | Effect::GainLifeFor { .. }
+            | Effect::SetLifeTotal { .. }
+            | Effect::RaiseLifeTotalTo { .. }
             | Effect::Exile { .. }
             | Effect::Blink { .. }
             | Effect::LookAtTopPick { .. }
@@ -816,12 +818,14 @@ impl Effect {
             | Effect::RechooseGraveyardCard { .. }
             | Effect::ExileTop { .. }
             | Effect::RevealUntilNamed { .. }
+            | Effect::RevealUntilMatching { .. }
             | Effect::LookAtTopFind { .. }
             | Effect::ChooseFromYourGraveyard { .. }
             | Effect::LookAtTopKeepBottomPlay { .. }
             | Effect::ChooseExiledToPlay { .. }
             | Effect::PayLifeOrPutBackDrawn { .. }
             | Effect::RevealTopAndSort { .. }
+            | Effect::RevealTopAllMatching { .. }
             | Effect::RevealUntil { .. }
             | Effect::Cascade
             | Effect::MayCastTarget { .. }
@@ -865,6 +869,7 @@ impl Effect {
             | Effect::DamageEqualToPower { .. }
             | Effect::EventObjectDealsDamageEqualToPower { .. }
             | Effect::EventObjectDealsDamage { .. }
+            | Effect::SacrificeEventDealDamageToEachBlocker { .. }
             | Effect::DealDamageToTargetController { .. }
             | Effect::DealDamageToAttached { .. }
             | Effect::DealDamageEach { .. }
@@ -1009,6 +1014,7 @@ impl Effect {
             | Effect::SacrificeFilter { .. }
             | Effect::SacrificeAll { .. }
             | Effect::RollDiePutTargetIntoLibraryBeneathTop { .. }
+            | Effect::PutTargetIntoLibraryBeneathTop { .. }
             | Effect::ReturnChosenToHand { .. }
             | Effect::UntapChosen { .. }
             | Effect::DrainAllCountersIntoSelf
@@ -1064,6 +1070,8 @@ impl Effect {
             | Effect::DestroyAllWithManaValue { .. }
         | Effect::DestroyAll { .. }
             | Effect::ExileAll { .. }
+            | Effect::ExileMostVotedNotControlledByYou { .. }
+            | Effect::ExileAttackingForThenMaySearchBasicLands { .. }
             | Effect::DestroyOthersNamedLike { .. }
             | Effect::ExileGraveyard { .. }
             | Effect::GraveyardToTop { .. }
@@ -1110,6 +1118,8 @@ impl Effect {
             | Effect::ControlPlayerNextTurn { .. }
             | Effect::BecomeCopyOfTarget { .. }
             | Effect::ChangeTextWord { .. }
+            | Effect::ChangeTextWordThisTurn { .. }
+            | Effect::TopOfYourGraveyard { .. }
             | Effect::CopyThisSpell { .. }
             | Effect::RemoveAllCountersSelf { .. }
             | Effect::AttachSelf { .. }
@@ -1164,6 +1174,7 @@ impl Effect {
             | Effect::AddManaAmountFor { .. }
             | Effect::ExchangeControlOfEventAndTarget
             | Effect::UnattachAllEquipmentFromTarget
+            | Effect::SkipNextCombatPhase { .. }
             | Effect::ChoosePhaseToSkipThisTurn
             | Effect::FlipCoinsUntilLossOrStopCumulative
             | Effect::AttachedGainControlBy { .. }
@@ -1177,7 +1188,8 @@ impl Effect {
             | Effect::MayCopyCastLinkedExile
             | Effect::ReturnLinkedExile { .. }
             | Effect::SacrificeObject { .. }
-            | Effect::PayCostOrLoseLater { .. }
+            | Effect::AtNextUpkeepPrinted { .. }
+            | Effect::PayManaOrLose { .. }
             | Effect::CreateEmblem { .. }
             | Effect::BecomeMonarch(_)
             | Effect::IncreaseSpeed
@@ -1191,6 +1203,7 @@ impl Effect {
             | Effect::RemoveAllCountersFilter { .. }
             | Effect::PutTargetOnTopOfLibrary
             | Effect::PumpFilter { .. }
+            | Effect::PumpFilterPerKeyword { .. }
             | Effect::ProtectionFromChosenColor { .. }
             | Effect::Regenerate { .. }
             | Effect::PumpTarget { .. }

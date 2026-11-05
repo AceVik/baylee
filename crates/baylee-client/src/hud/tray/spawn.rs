@@ -29,6 +29,8 @@ pub(super) fn spawn_tray(
     mode: ViewMode,
     scroll_y: f32,
     lit: &[(ObjectId, crate::Reach)],
+    facts: Option<&baylee_client_core::cardquery::PoolFacts>,
+    lists: Option<&baylee_client_core::cardquery::ListShelf>,
 ) -> Entity {
     // The catalog reaching the panel's own decisions, which is the half
     // `Browser` cannot do for itself: it decides in `baylee-client-core`,
@@ -42,14 +44,13 @@ pub(super) fn spawn_tray(
         let text = faces.texts.face(card.card.index, card.card.face);
         Some(baylee_client_core::card_face::shown_name(&card.name, text.as_ref()).to_string())
     };
-    let mut rows = browser.rows(
-        view,
-        interaction,
-        Names {
-            shown: &shown,
-            hand: &hand_name,
-        },
-    );
+    let names = Names {
+        shown: &shown,
+        hand: &hand_name,
+        facts,
+        lists,
+    };
+    let mut rows = browser.rows(view, interaction, names);
     // Own-hand arrangement rows are not browser tabs but use the same wording.
     for row in rows
         .iter_mut()
@@ -582,7 +583,7 @@ pub(super) fn spawn_tray(
             commands,
             fonts,
             panel,
-            baylee_client_core::cardquery::Surface::ZONE,
+            names.surface(),
             // The zone dialog filters once. Its tabs pick a zone rather than
             // narrowing one, so there is no second truth to declare.
             None,
@@ -637,10 +638,15 @@ pub(super) fn spawn_tray(
                 Pickable::IGNORE,
             ))
             .id();
+        // Empty because nothing could be asked is not the pile being empty.
+        let lacking = baylee_client_core::cardsearch::lacking(
+            &baylee_client_core::cardquery::parse(browser.filter()),
+            names.surface(),
+        );
         let words = dialog_text(
             commands,
             fonts,
-            Phrase::BrowseEmpty.text(lang),
+            lacking.unwrap_or(Phrase::BrowseEmpty).text(lang),
             11.5,
             palette::DIALOG_SOFT,
         );

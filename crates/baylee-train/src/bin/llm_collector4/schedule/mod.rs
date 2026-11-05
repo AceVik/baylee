@@ -4,7 +4,7 @@ use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use anyhow::{Context as _, bail, ensure};
+use anyhow::{Context as _, anyhow, bail, ensure};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
@@ -218,6 +218,25 @@ pub fn collector_room_setup(formats: [&str; 2]) -> anyhow::Result<baylee_core::p
         free_mulligans,
         ..Default::default()
     })
+}
+
+/// [`collector_room_setup`] with every player's starting life `life`
+/// instead of the format's (`collect --starting-life`), within the room
+/// setup's own bound (`RoomSetup::validate`, 1–999). A run that asks for it
+/// freezes it in each attempt's request, so the table and the audit hold
+/// the game to it.
+pub fn collector_room_setup_with(
+    formats: [&str; 2],
+    life: Option<i32>,
+) -> anyhow::Result<baylee_core::preset::RoomSetup> {
+    let mut setup = collector_room_setup(formats)?;
+    if let Some(life) = life {
+        setup.starting_life = life;
+        setup
+            .validate(2)
+            .map_err(|reason| anyhow!("--starting-life {life}: {reason}"))?;
+    }
+    Ok(setup)
 }
 
 /// What a seat of one pairing entry is asked to play: for a profile, as the
@@ -502,6 +521,9 @@ pub struct Scheduler {
     decks: Vec<DeckEntry>,
     call_timeout_seconds: u64,
     game_timeout_seconds: u64,
+    /// Every player's starting life in place of the format's, when the
+    /// run asks for one (`--starting-life`).
+    starting_life: Option<i32>,
     next_index: usize,
     /// The operator's limit: attempts, counted over the whole root, whose
     /// seats send reports; `None`, every attempt's do.
@@ -649,6 +671,7 @@ impl Scheduler {
             decks,
             call_timeout_seconds,
             game_timeout_seconds,
+            starting_life: None,
             next_index: max_idx.map_or(0, |m| m + 1),
             report_games: None,
             in_flight: BTreeMap::new(),
@@ -671,6 +694,20 @@ impl Scheduler {
     /// seats' reports ([`Self::with_report_games`]).
     fn sends_reports(&self, index: usize) -> bool {
         self.report_games.is_none_or(|games| index < games)
+    }
+
+    /// The same run with every player starting at `life` instead of the
+    /// format's starting life (`--starting-life`), checked against every
+    /// deck format of the manifest now rather than at the first game.
+    ///
+    /// # Errors
+    /// When `life` is outside the room setup's bound.
+    pub fn with_starting_life(mut self, life: Option<i32>) -> anyhow::Result<Self> {
+        for deck in &self.decks {
+            collector_room_setup_with([&deck.format, &deck.format], life)?;
+        }
+        self.starting_life = life;
+        Ok(self)
     }
 
     /// Whether any pairing seats the house (`house:<level>`), so that a
@@ -918,7 +955,10 @@ impl Scheduler {
             .clone()
             .map(|p| self.pairing_plan.chains[&p].clone());
 
-        let room_setup = collector_room_setup([&seat0_deck.format, &seat1_deck.format])?;
+        let room_setup = collector_room_setup_with(
+            [&seat0_deck.format, &seat1_deck.format],
+            self.starting_life,
+        )?;
         let index = self.next_index;
         self.next_index += 1;
         let attempt_id = format!("attempt-{index:09}");
@@ -938,6 +978,7 @@ impl Scheduler {
             "declared_deck_format": seat0_deck.format,
             "schedule_format": chosen_fmt,
             "room_setup": room_setup,
+            "starting_life_override": self.starting_life,
             "decks": [seat0_deck, seat1_deck],
             "profiles": chosen_profiles,
             "models": chosen_models,
@@ -1730,6 +1771,49 @@ mod tests {
         assert_eq!(a0.format, "Commander");
         assert_eq!(a1.format, "Constructed");
         assert_eq!(a2.format, "Highlander");
+        assert_eq!(a0.request["starting_life_override"], Value::Null);
+
+        // `--starting-life` replaces every format's starting life, within the
+        // room setup's bound, and is frozen in each request so the table and
+        // the audit hold the game to it.
+        let long = Scheduler::new(
+            dir.path().join("long"),
+            "http://127.0.0.1:28768".to_owned(),
+            dir.path().join("profiles.json"),
+            None,
+            &manifest,
+            90,
+            3600,
+        )
+        .unwrap();
+        assert!(
+            long.with_starting_life(Some(1000)).is_err(),
+            "past the bound"
+        );
+        let mut long = Scheduler::new(
+            dir.path().join("long"),
+            "http://127.0.0.1:28768".to_owned(),
+            dir.path().join("profiles.json"),
+            None,
+            &manifest,
+            90,
+            3600,
+        )
+        .unwrap()
+        .with_starting_life(Some(999))
+        .unwrap();
+        for slot in 0..3 {
+            let a = long.next_assignment(slot).unwrap();
+            assert_eq!(a.request["room_setup"]["starting_life"], 999);
+            assert_eq!(a.request["starting_life_override"], 999);
+            assert_eq!(
+                collector_room_setup_with([&a.format, &a.format], Some(999))
+                    .unwrap()
+                    .free_mulligans,
+                a.request["room_setup"]["free_mulligans"].as_u64().unwrap() as u8,
+                "the format keeps its own mulligans"
+            );
+        }
     }
 
     /// A scheduler in `dir` over 12 decks and three profiles, each paired

@@ -34,7 +34,8 @@ pub use mana::{ManaAbilityChoice, ManaChoiceId};
 pub use answers::{AnswerFault, timeout_answer};
 pub use automation::{PriorityHold, SeatAutomation, StandingAnswer};
 pub use prompts::{
-    CastModeDesc, CastModeKind, ChoicePrompt, NumberPrompt, TargetPrompt, YesNoPrompt,
+    BuybackParts, CastModeDesc, CastModeKind, ChoicePrompt, NumberPrompt, SpellEnding,
+    TargetPrompt, YesNoPrompt,
 };
 
 /// One creature that may block, and the attackers it may be assigned to.
@@ -421,6 +422,15 @@ pub enum Pending {
         player: PlayerId,
         /// Required printed card types; empty permits any card name.
         types: baylee_core::types::TypeSet,
+        /// Printed card types a named face must not have; empty excludes nothing.
+        excluded_types: baylee_core::types::TypeSet,
+    },
+    /// Choose one card type as a permanent enters (CR 205.2a).
+    ChooseCardType {
+        /// Choosing player.
+        player: PlayerId,
+        /// Every legal card type, in stable rules order.
+        options: Vec<baylee_core::types::TypeSet>,
     },
     /// Choose a mana color (choice-restricted mana abilities).
     ChooseColor {
@@ -538,6 +548,7 @@ impl Pending {
             | Self::ChooseTargets { player, .. }
             | Self::ChooseSubtype { player, .. }
             | Self::ChooseCardName { player, .. }
+            | Self::ChooseCardType { player, .. }
             | Self::ChooseColor { player, .. }
             | Self::YesNo { player, .. }
             | Self::ChooseCastMode { player, .. }
@@ -658,6 +669,12 @@ pub const fn is_special_action(index: u32) -> bool {
 // answers once and for good, so it is a wire constant and belongs in
 // `baylee-core` beside the other reserved handles.
 
+/// For `skip_serializing_if`: a zero is not written.
+#[allow(clippy::trivially_copy_pass_by_ref)] // serde passes the field by reference
+const fn is_zero(value: &u32) -> bool {
+    *value == 0
+}
+
 /// Everything a player may legally do with priority (precomputed).
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct LegalActions {
@@ -675,15 +692,43 @@ pub struct LegalActions {
     /// except that the mana is not floating yet. Offered only while the seat
     /// has a mana ability to activate. `CastSpell` for one runs the cast's
     /// choices, then opens a payment window (`PlayerView::owed`); passing
-    /// in it with the cost unpaid reverses the cast (CR 601.2h, 732.1).
+    /// in it with the cost unpaid reverses the cast (CR 601.2h, 733.1).
     /// Whether the seat's sources can make that mana is not checked: that
     /// is the planner's question. Never in `castable` as well.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub payable: Vec<ObjectId>,
+    /// Every way of casting a card of [`Self::castable`] or [`Self::payable`]
+    /// that prints a price of its own (entwine, overload, a kicker with its
+    /// own targets, an alternative cost with mana in it, a back face), each
+    /// at its whole price, listed only for such a card.
+    ///
+    /// A planning hint, as [`Self::unpaid_abilities`] is. The mode question
+    /// (`Pending::ChooseCastMode`) lists the ways the *pool* pays, so a seat
+    /// that taps for the printed cost never sees the dearer way; this is that
+    /// list with every rule asked but the mana, targets included (CR 601.2c),
+    /// so a planner can tap for the price it wants first. A way whose mana is
+    /// floating when the cast is sent is on that question.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub cast_ways: Vec<(ObjectId, CastModeDesc)>,
     /// Public rules-effect increases, excluding commander tax, for mana planning.
     /// Form-specific entries override Normal; alternatives use Normal's color.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub spell_increases: Vec<(ObjectId, CastModeKind, u32)>,
+    /// Generic reductions for mana planning, the other half of
+    /// [`Self::spell_increases`] (CR 601.2f: increases first, then
+    /// reductions, which take off generic mana only and stop at `{0}`):
+    /// rules effects (Goblin Warchief) and the card's own printed reduction
+    /// (affinity), which the view cannot evaluate. Same identities and the
+    /// same override rule as the increases. Read it through
+    /// [`Self::spell_reduction`]; it never changes what `spell_increases`
+    /// says, so a reader of that field alone keeps its meaning (protocol 11).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub spell_reductions: Vec<(ObjectId, CastModeKind, u32)>,
+    /// Generic mana that comes off a buyback cost, and off nothing else
+    /// (`Modifier::BuybackCostsLess`, CR 118.7a), for a planner pricing a
+    /// spell before it is cast; the question names the price itself.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub buyback_less: u32,
     /// Generic activation increases on controlled permanents. Simple mana
     /// planners must not count a taxed mana ability as free production.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -716,6 +761,17 @@ pub struct LegalActions {
     pub unpaid_abilities: Vec<(ObjectId, u32, baylee_core::mana::ManaCost)>,
     /// Cards suspendable from hand.
     pub suspendable: Vec<ObjectId>,
+    /// Cards with foretell that may be exiled face down for {2} right now.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub foretellable: Vec<ObjectId>,
+    /// Cards with foretell that may be exiled face down once {2} is made:
+    /// every rule `foretellable` asks holds except that the mana is not
+    /// floating yet, and the seat has a mana ability to activate
+    /// (CR 702.143a, 605.3a). Planning hints, never accepted actions, as
+    /// `unpaid_abilities` are: a client makes the mana, and the card is then
+    /// `foretellable`. Never in `foretellable` as well.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub unpaid_foretell: Vec<ObjectId>,
 }
 
 impl LegalActions {
@@ -731,18 +787,30 @@ impl LegalActions {
     /// Additional generic mana for a prospective cast, before reductions.
     #[must_use]
     pub fn spell_increase(&self, card: ObjectId, kind: CastModeKind) -> u32 {
-        if matches!(kind, CastModeKind::PlayLandFace(_)) {
-            return 0;
-        }
-        self.spell_increases
-            .iter()
-            .find(|(id, mode, _)| *id == card && *mode == kind)
-            .or_else(|| {
-                self.spell_increases
-                    .iter()
-                    .find(|(id, mode, _)| *id == card && *mode == CastModeKind::Normal)
-            })
-            .map_or(0, |(_, _, n)| *n)
+        by_cast_mode(&self.spell_increases, card, kind)
+    }
+
+    /// Generic mana a prospective cast is reduced by, after its increases
+    /// (CR 601.2f).
+    #[must_use]
+    pub fn spell_reduction(&self, card: ObjectId, kind: CastModeKind) -> u32 {
+        by_cast_mode(&self.spell_reductions, card, kind)
+    }
+
+    /// Whether this seat may cast `card` once its mana is made: it is in
+    /// [`Self::castable`], or in [`Self::payable`], where every rule but the
+    /// mana has been asked — timing, additional costs, and a legal target
+    /// for each target the spell must have (CR 601.2c).
+    ///
+    /// The question a planner asks before it taps a land for a cast, and the
+    /// engine's answer to it rather than the planner's reading of the board.
+    /// A card outside both lists is one the engine refuses after the lands
+    /// are tapped, which spends the mana on nothing: Terror with no
+    /// nonblack creature to point at, an Aura with nothing to enchant
+    /// (CR 303.4a), Disenchant over a board of creatures (NEW-04).
+    #[must_use]
+    pub fn castable_once_paid(&self, card: ObjectId) -> bool {
+        self.castable.contains(&card) || self.payable.contains(&card)
     }
 
     /// Whether passing is the only thing this seat could do.
@@ -757,6 +825,7 @@ impl LegalActions {
             && self.castable.is_empty()
             && self.abilities.is_empty()
             && self.suspendable.is_empty()
+            && self.foretellable.is_empty()
     }
 
     /// Whether there is any mana to make here.
@@ -777,6 +846,22 @@ impl LegalActions {
                 .iter()
                 .any(|offer| matches!(offer.effect, GrantedActionKind::AddMana { .. }))
     }
+}
+
+/// One `(card, mode, amount)` list read for one way of casting: the mode's
+/// own entry, else `Normal`'s, which every alternative cost shares. Playing a
+/// land face is no cast and costs nothing (CR 305.1).
+fn by_cast_mode(list: &[(ObjectId, CastModeKind, u32)], card: ObjectId, kind: CastModeKind) -> u32 {
+    if matches!(kind, CastModeKind::PlayLandFace(_)) {
+        return 0;
+    }
+    list.iter()
+        .find(|(id, mode, _)| *id == card && *mode == kind)
+        .or_else(|| {
+            list.iter()
+                .find(|(id, mode, _)| *id == card && *mode == CastModeKind::Normal)
+        })
+        .map_or(0, |(_, _, n)| *n)
 }
 
 /// A player's answer to a [`Pending`] request.
@@ -897,12 +982,20 @@ pub enum PlayerAction {
         /// The card to suspend.
         card: ObjectId,
     },
+    /// Pay {2} and exile a card with foretell from hand face down. This is
+    /// a special action, available with priority during its owner's turn.
+    Foretell {
+        /// The card to foretell.
+        card: ObjectId,
+    },
     /// Answer a [`Pending::Arrange`]: one list per pile, in the pile order
     /// the question gave, library piles listed top to bottom.
     Arrange {
         /// The cards in each pile.
         piles: Vec<Vec<ObjectId>>,
     },
+    /// Choose one card type.
+    ChooseCardType(baylee_core::types::TypeSet),
     /// Choose a mana color.
     ChooseColor(baylee_core::mana::ManaColor),
     /// Choose a creature type (Roaming Throne & co.).
@@ -930,9 +1023,9 @@ pub enum PlayerAction {
     /// Take back the spell this seat is casting (`Engine::cancellable_cast`,
     /// `PlayerView::casting`): legal in every question of a cast it began
     /// from priority, its own choices and its payment window alike. The cast
-    /// is reversed as CR 732.1 reverses one: the card stays where it was, the
+    /// is reversed as CR 733.1 reverses one: the card stays where it was, the
     /// costs chosen for it are not paid, and the mana abilities activated
-    /// for it are reversed with it. The seat keeps priority (CR 732.2).
+    /// for it are reversed with it. The seat keeps priority (CR 733.2).
     CancelCast,
     /// Offer a draw to every other player still in the game (CR 104.4i).
     OfferDraw,

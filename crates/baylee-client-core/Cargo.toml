@@ -13,6 +13,10 @@ workspace = true
 fluent-bundle.workspace = true
 unic-langid.workspace = true
 baylee-cardtext.workspace = true
+# The one deck check (`baylee_cards::formats`), asked after every edit in the
+# deck builder, and a card by its index where a refusal names one the pool of
+# this session has not told it.
+baylee-cards.workspace = true
 baylee-cards-dsl.workspace = true
 baylee-core.workspace = true
 # Deck import and export: the formats, detection and URL sources.

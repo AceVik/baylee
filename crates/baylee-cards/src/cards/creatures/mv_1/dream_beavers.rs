@@ -27,11 +27,10 @@ card!(
         &[
             Effect::LoseLife {
                 amount: Amount::Fixed(1),
-                target: PlayerRel::Chosen
+                target: PlayerRel::Opponent
             },
             Effect::gain_life(1),
             Effect::scry(1)
-        ],
-        targets = Some(TargetReq::one(TargetSpec::AnyOpponent))
+        ]
     ),],
 );

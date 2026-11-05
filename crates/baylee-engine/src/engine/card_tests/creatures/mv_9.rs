@@ -3,6 +3,8 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
+mod iona_shield_of_emeria;
+
 mod fire_dragon;
 mod kuro_pitlord;
 mod leviathan;

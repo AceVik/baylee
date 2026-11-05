@@ -16,6 +16,7 @@ use crate::choice::{
 use baylee_cards_dsl::{AltCondition, CostPart, SpellMode, TargetReq, TargetSpec};
 use baylee_core::mana::ManaCost;
 
+mod announced_costs;
 mod commit;
 mod division;
 mod grants;
@@ -28,7 +29,8 @@ mod stages;
 mod transformed;
 use pricing::FrozenReduction;
 
-/// The current replicate-copy limit. Ordinary X choices are bounded by
+/// The most times a repeatable additional cost is announced: replicate's copies
+/// and multikicker's payments. Ordinary X choices are bounded by
 /// resources, never this limit.
 pub(crate) const REPLICATE_CEILING: u32 = 50;
 
@@ -62,6 +64,12 @@ pub(crate) enum WizardStage {
     ChoosePlayer,
     /// Kicker yes/no.
     Kicker,
+    /// Buyback yes/no (CR 702.27a). Skipped when the face prints none or
+    /// nothing could pay it.
+    Buyback,
+    /// How many times to pay the multikicker cost (CR 702.33c). Skipped when
+    /// the face prints none or nothing could pay it once.
+    Multikicker,
     /// How many times to pay the replicate cost (CR 702.56a), announced
     /// with the other additional costs (CR 601.2b) and so before targets.
     /// Skipped when the face has none or the pool pays for none.
@@ -130,6 +138,13 @@ pub(crate) struct CastWizard {
     pub x: u32,
     /// Whether the kicker was taken.
     pub kicked: bool,
+    /// How many times the multikicker cost is paid. Above zero the spell is
+    /// kicked (CR 702.33d), so `kicked` is true beside it.
+    pub multikicked: u8,
+    /// What comes off the buyback cost's generic mana, when it was announced
+    /// (CR 601.2b); `None` for a spell whose buyback was not. A number and
+    /// not the price, because this rides in every `Engine` by value.
+    pub buyback: Option<u32>,
     /// How many times the replicate cost is paid.
     pub replicated: u8,
     /// Cards chosen for pitch (exile-from-hand).
@@ -148,9 +163,9 @@ pub(crate) struct CastWizard {
     pub escape_exiles: SmallVec<[ObjectId; 8]>,
     /// Permanents chosen to tap for convoke or a waterbend ({1} each).
     pub convoke_taps: SmallVec<[ObjectId; 8]>,
-    /// Permanents chosen to pay the additional cost's sacrifices, one per
-    /// asking part in the order the face prints them.
-    pub sacrifices: SmallVec<[ObjectId; 1]>,
+    /// Objects chosen for asking cost parts, one answer per object in cost
+    /// order. A `TapN` part consumes N distinct answers.
+    pub cost_objects: SmallVec<[ObjectId; 4]>,
     /// How each Phyrexian symbol of the chosen option's cost is paid, in the
     /// cost's own order: `true` is 2 life, `false` its mana (CR 107.4f),
     /// announced with the other costs (CR 601.2b) and charged as the cost
@@ -185,6 +200,58 @@ pub(crate) struct CastWizard {
 }
 
 impl CastWizard {
+    /// A cast nothing has been answered for yet, standing at `stage` with
+    /// `options` to choose from: paid out of the pool at its full price by
+    /// nobody's effect. Each way of starting a cast says what it changes
+    /// beside this, so a new answer the wizard keeps is written once.
+    fn new(
+        card: ObjectId,
+        player: PlayerId,
+        stage: WizardStage,
+        options: Vec<CastModeDesc>,
+    ) -> Self {
+        Self {
+            card,
+            player,
+            option: None,
+            announced: None,
+            forced_face: None,
+            north_star: None,
+            permission: None,
+            permissions: Vec::new(),
+            reduction: None,
+            target_references: crate::sources::TargetReferences::default(),
+            division: Vec::new(),
+            targets: SmallVec::new(),
+            second_targets: SmallVec::new(),
+            second_target_players: baylee_core::ids::SeatSet::new(),
+            target_players: baylee_core::ids::SeatSet::new(),
+            chosen_player: None,
+            x: 0,
+            kicked: false,
+            multikicked: 0,
+            buyback: None,
+            replicated: 0,
+            pitch: SmallVec::new(),
+            returned: None,
+            beheld: None,
+            behold_paid_mana: false,
+            delve_exiles: SmallVec::new(),
+            escape_exiles: SmallVec::new(),
+            convoke_taps: SmallVec::new(),
+            cost_objects: SmallVec::new(),
+            phyrexian: SmallVec::new(),
+            stage,
+            options,
+            free: false,
+            masked: false,
+            by_effect: None,
+            started: None,
+            paying: casting::Paying::FromThePool,
+            window_start: None,
+        }
+    }
+
     pub(super) fn face_index(&self) -> usize {
         if let Some(face) = self.forced_face {
             return usize::from(face);
@@ -244,6 +311,16 @@ impl CastWizard {
         .wrapping_add(self.chosen_player.map_or(0, |p| u64::from(p.get()) + 1))
         .wrapping_mul(2)
         .wrapping_add(u64::from(self.paying == casting::Paying::DuringTheCast));
+        // Only where there is one: a record already written holds this number
+        // without them, and it must go on replaying.
+        if self.multikicked != 0 || self.buyback.is_some() {
+            hash = hash
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&(
+                    self.multikicked,
+                    self.buyback,
+                )));
+        }
         hash = hash
             .wrapping_mul(2)
             .wrapping_add(u64::from(self.reduction.is_some()));
@@ -270,7 +347,7 @@ impl CastWizard {
             self.delve_exiles.as_slice(),
             self.escape_exiles.as_slice(),
             self.convoke_taps.as_slice(),
-            self.sacrifices.as_slice(),
+            self.cost_objects.as_slice(),
         ] {
             hash = hash.wrapping_mul(31).wrapping_add(targets.len() as u64);
             for target in targets {
@@ -322,54 +399,20 @@ pub(crate) enum EffectCast {
     AnyMana,
 }
 
-/// The cost parts [`Engine::finish_cast`] pays out of a chosen **alternative**
-/// cost.
-///
-/// A spell has three cost lists and no two of them are paid by the same code,
-/// so "the wizard pays it" is a claim that has to name which list. Everything
-/// the option scan lets through and this predicate does not name is paid by
-/// nobody — including a sacrifice or a discard, which an *activation* can now
-/// ask about (`engine::cost_wizard`) and a spell's alternative cost still
-/// cannot. That is the reason the pool-wide guard below is the gate here and
-/// `can_afford` is not: `can_afford` used to refuse those two parts on every
-/// board and no longer does, so what stops a spell being cast for free is a
-/// build failure and not a board question.
-///
-/// It is a *dead offer* only when the printed cost is unaffordable, which is
-/// the one case `casting.rs` reads this list at all: its `any_alt` probe sits
-/// inside `if !probe(printed)`, so a card whose mana cost is payable is
-/// castable on its own and a refused alternative costs it one mode. A card
-/// that had nothing else is put in `legal.castable` by that probe and then
-/// finds the wizard with no option to give it — the shape the
-/// `AltCondition::CommanderControlled` bug had, and the shape a Force of Will
-/// with nothing blue to pitch had until that probe learned to ask about the
-/// cost's parts as well as its mana.
-///
-/// Held pool-wide by
+/// The non-mana parts the wizard pays for an alternative casting cost.
+/// Pool-wide coverage is enforced by
 /// `offer_tests::no_spell_cost_list_carries_a_part_its_payment_walks_past`.
 pub(crate) const fn paid_as_an_alternative_cost(part: &CostPart) -> bool {
-    matches!(part, CostPart::PayLife(_) | CostPart::ExileFromHand(_))
+    matches!(
+        part,
+        CostPart::PayLife(_)
+            | CostPart::ExileFromHand(_)
+            | CostPart::Sacrifice(_)
+            | CostPart::TapN { .. }
+    )
 }
 
-/// The cost parts [`Engine::finish_cast`] pays out of
-/// `FaceDef.mandatory_additional_costs`.
-///
-/// Toxic Deluge's `PayLifeX`, and the "as an additional cost to cast this
-/// spell, sacrifice a creature" of Natural Order, Eldritch Evolution,
-/// Neoform and Crop Rotation. The sacrifice is the one part here that names
-/// an object, so it is the one that is *gated*: the `Sacrifice` stage asks
-/// which permanent pays it from `cost_wizard::options`, and
-/// `casting::can_cast_form` refuses the cast on a board where that list is
-/// empty — the same reader, so the offer and the question agree.
-///
-/// The rest of the list has no gate at all: nothing runs `can_afford` over
-/// it.
-///
-/// Which is why the one bound this list has is on the *question* instead: the
-/// `XValue` stage caps X at the caster's life total (CR 119.4), because
-/// `finish_cast` below subtracts what it is given and reads no total. A
-/// `PayLife(n)` written here has no such stage and would still be paid past
-/// zero — it belongs beside the X the day a card prints one.
+/// The non-mana parts the wizard pays for mandatory additional costs.
 pub(crate) const fn paid_as_a_mandatory_additional_cost(part: &CostPart) -> bool {
     matches!(
         part,
@@ -381,6 +424,19 @@ pub(crate) const fn paid_as_a_mandatory_additional_cost(part: &CostPart) -> bool
             | CostPart::Discard(_)
             | CostPart::DiscardHand
             | CostPart::DiscardLastDrawnThisTurn
+            | CostPart::TapN { .. }
+    )
+}
+
+/// The non-mana parts the wizard pays for a buyback cost, the last of them
+/// after everything else because it is random (CR 601.2h).
+pub(crate) const fn paid_as_a_buyback_cost(part: &CostPart) -> bool {
+    matches!(
+        part,
+        CostPart::PayLife(_)
+            | CostPart::Sacrifice(_)
+            | CostPart::Discard(_)
+            | CostPart::DiscardRandom
     )
 }
 
@@ -399,27 +455,93 @@ pub(crate) fn wizard_mandatory_parts(
         .chain(entwine_parts.iter())
 }
 
-/// The parts of a spell's additional cost that ask which permanent pays
-/// them, in printed order: the questions the `Sacrifice` stage puts.
+/// The non-mana parts of the alternative cost chosen for this cast.
+/// Flashback is an alternative cost too, including one with no mana component.
+pub(crate) fn wizard_alternative_parts(
+    face: &'static baylee_cards_dsl::FaceDef,
+    option: Option<CastModeKind>,
+) -> &'static [CostPart] {
+    match option {
+        Some(CastModeKind::Alternative(index)) => face.alternative_costs[index].cost.parts,
+        Some(CastModeKind::Flashback) => face.flashback_parts,
+        _ => &[],
+    }
+}
+
+/// The non-mana parts of the buyback cost, when it is being paid.
+pub(crate) fn wizard_buyback_parts(
+    face: &'static baylee_cards_dsl::FaceDef,
+    paid: bool,
+) -> &'static [CostPart] {
+    match face.buyback {
+        Some(cost) if paid => cost.parts,
+        _ => &[],
+    }
+}
+
+/// Which of a face's non-mana costs a cast pays: the way it is cast, and
+/// whether it announced its buyback, the one optional cost with parts.
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct CostChoice {
+    /// The chosen way of casting.
+    pub option: Option<CastModeKind>,
+    /// Whether the buyback cost is paid.
+    pub buyback: bool,
+}
+
+impl From<Option<CastModeKind>> for CostChoice {
+    fn from(option: Option<CastModeKind>) -> Self {
+        Self {
+            option,
+            buyback: false,
+        }
+    }
+}
+
+/// Every non-mana cost part the selected way of casting must pay. Alternative
+/// parts precede mandatory additional parts and those precede buyback's,
+/// matching the payment below.
+pub(crate) fn wizard_cost_parts(
+    face: &'static baylee_cards_dsl::FaceDef,
+    choice: impl Into<CostChoice>,
+) -> impl Iterator<Item = &'static CostPart> {
+    let CostChoice { option, buyback } = choice.into();
+    wizard_alternative_parts(face, option)
+        .iter()
+        .chain(wizard_mandatory_parts(face, option))
+        .chain(wizard_buyback_parts(face, buyback))
+}
+
+/// The object questions of a spell's cost, in payment order. `TapN` expands
+/// into N questions so offer, choice and payment share one answer per object.
 pub(crate) fn additional_card_costs(
     face: &'static baylee_cards_dsl::FaceDef,
 ) -> impl Iterator<Item = &'static CostPart> {
-    additional_card_costs_for(face, None)
+    additional_card_costs_for(face, CostChoice::default())
 }
 
 pub(crate) fn additional_card_costs_for(
     face: &'static baylee_cards_dsl::FaceDef,
-    option: Option<CastModeKind>,
+    choice: impl Into<CostChoice>,
 ) -> impl Iterator<Item = &'static CostPart> {
-    wizard_mandatory_parts(face, option).filter(|p| {
-        matches!(
-            p,
-            CostPart::Sacrifice(_)
-                | CostPart::ExilePermanent(_)
-                | CostPart::ExileFromGraveyard(_)
-                | CostPart::Discard(_)
-        )
-    })
+    wizard_cost_parts(face, choice)
+        .filter(|p| {
+            matches!(
+                p,
+                CostPart::Sacrifice(_)
+                    | CostPart::ExilePermanent(_)
+                    | CostPart::ExileFromGraveyard(_)
+                    | CostPart::Discard(_)
+                    | CostPart::TapN { .. }
+            )
+        })
+        .flat_map(|part| {
+            let count = match part {
+                CostPart::TapN { count, .. } => usize::try_from(*count).unwrap_or(usize::MAX),
+                _ => 1,
+            };
+            std::iter::repeat_n(part, count)
+        })
 }
 
 impl<L: CardLookup> Engine<L> {
@@ -436,46 +558,14 @@ impl<L: CardLookup> Engine<L> {
             && self.compute_legal(player).payable.contains(&card);
         let options = self.cast_options(player, card, pay_in_window)?;
         let mut wizard = CastWizard {
-            card,
-            player,
-            option: None,
-            announced: None,
-            forced_face: None,
-            north_star: None,
-            permission: None,
-            permissions: Vec::new(),
-            reduction: None,
-            target_references: crate::sources::TargetReferences::default(),
-            division: Vec::new(),
-            targets: SmallVec::new(),
-            second_targets: SmallVec::new(),
-            second_target_players: baylee_core::ids::SeatSet::new(),
-            target_players: baylee_core::ids::SeatSet::new(),
-            chosen_player: None,
-            x: 0,
-            kicked: false,
-            replicated: 0,
-            pitch: SmallVec::new(),
-            returned: None,
-            beheld: None,
-            behold_paid_mana: false,
-            delve_exiles: SmallVec::new(),
-            escape_exiles: SmallVec::new(),
-            convoke_taps: SmallVec::new(),
-            sacrifices: SmallVec::new(),
-            phyrexian: SmallVec::new(),
-            stage: WizardStage::ChooseMode,
-            options,
-            free: false,
-            masked: false,
             by_effect: self.commanded_card(card).then_some(EffectCast::Plain),
-            window_start: None,
             paying: if pay_in_window {
                 casting::Paying::DuringTheCast
             } else {
                 casting::Paying::FromThePool
             },
             started: (!self.commanded_card(card)).then(|| self.cast_start()),
+            ..CastWizard::new(card, player, WizardStage::ChooseMode, options)
         };
         if wizard.options.len() == 1 {
             wizard.option = Some(wizard.options[0].kind);
@@ -507,47 +597,17 @@ impl<L: CardLookup> Engine<L> {
         }
         let cost =
             casting::spell_adjustment(&self.state, player, &projected).price(ManaCost::ZERO, 0);
+        let options = vec![CastModeDesc {
+            index: 0,
+            kind: CastModeKind::Normal,
+            cost,
+        }];
         self.cast_wizard = Some(CastWizard {
-            card,
-            player,
             option: Some(CastModeKind::Normal),
-            announced: None,
-            forced_face: None,
-            north_star: None,
-            permission: None,
-            permissions: Vec::new(),
-            reduction: None,
-            target_references: crate::sources::TargetReferences::default(),
-            division: Vec::new(),
-            targets: SmallVec::new(),
-            second_targets: SmallVec::new(),
-            second_target_players: baylee_core::ids::SeatSet::new(),
-            target_players: baylee_core::ids::SeatSet::new(),
-            chosen_player: None,
-            x: 0,
-            kicked: false,
-            replicated: 0,
-            pitch: SmallVec::new(),
-            returned: None,
-            beheld: None,
-            behold_paid_mana: false,
-            delve_exiles: SmallVec::new(),
-            escape_exiles: SmallVec::new(),
-            convoke_taps: SmallVec::new(),
-            sacrifices: SmallVec::new(),
-            phyrexian: SmallVec::new(),
-            stage: WizardStage::Done,
-            options: vec![CastModeDesc {
-                index: 0,
-                kind: CastModeKind::Normal,
-                cost,
-            }],
             free: true,
             masked: true,
             by_effect: Some(EffectCast::Plain),
-            window_start: None,
-            paying: casting::Paying::FromThePool,
-            started: None,
+            ..CastWizard::new(card, player, WizardStage::Done, options)
         });
         self.advance_cast_wizard()
     }
@@ -571,7 +631,7 @@ impl<L: CardLookup> Engine<L> {
     ///
     /// Choosing the targets is a step of casting (CR 601.2c), and a spell
     /// that cannot take it cannot be cast: the attempt is illegal and is
-    /// reversed (CR 601.2, CR 732.1). A "yes" to such a miracle can only
+    /// reversed (CR 601.2, CR 733.1). A "yes" to such a miracle can only
     /// come back as a "no", so the question has one outcome and is not
     /// asked. Banishing Stroke drawn onto a board with no artifact, creature
     /// or enchantment was asked anyway; the house said yes, the engine
@@ -590,7 +650,12 @@ impl<L: CardLookup> Engine<L> {
         };
         if let Some(req) = self.wizard_target_req(&wizard) {
             let (min, max) = req.bounds(wizard.x);
-            let players = eval::target_player_options(&self.state, &req.spec, player);
+            let players = eval::target_player_options_from(
+                &self.state,
+                &req.spec,
+                player,
+                eval::live_context(&self.state, card),
+            );
             if matches!(req.spec, TargetSpec::AnyPlayer | TargetSpec::AnyOpponent) {
                 // The `ChoosePlayer` stage: one player, from this list.
                 if players.is_empty() {
@@ -629,47 +694,13 @@ impl<L: CardLookup> Engine<L> {
             cost: self.front_spell_price(player, card, cost),
         }];
         Some(CastWizard {
-            card,
-            player,
             option: Some(CastModeKind::Miracle),
-            announced: None,
-            forced_face: None,
-            north_star: None,
-            permission: None,
-            permissions: Vec::new(),
-            reduction: None,
-            target_references: crate::sources::TargetReferences::default(),
-            division: Vec::new(),
-            targets: SmallVec::new(),
-            second_targets: SmallVec::new(),
-            second_target_players: baylee_core::ids::SeatSet::new(),
-            target_players: baylee_core::ids::SeatSet::new(),
-            chosen_player: None,
-            x: 0,
-            kicked: false,
-            replicated: 0,
-            pitch: SmallVec::new(),
-            returned: None,
-            beheld: None,
-            behold_paid_mana: false,
-            delve_exiles: SmallVec::new(),
-            escape_exiles: SmallVec::new(),
-            convoke_taps: SmallVec::new(),
-            sacrifices: SmallVec::new(),
-            phyrexian: SmallVec::new(),
             // A miracle cost is paid "rather than its mana cost" (CR 702.94a),
             // which makes it an alternative cost, and an alternative cost
             // with an {X} in it announces X like any other (CR 107.3a) —
             // Entreat the Dead's `{X}{B}{B}` was cast for X = 0 and returned
             // nobody. `XValue` falls through to `Targets` when there is none.
-            stage: WizardStage::XValue,
-            options,
-            free: false,
-            masked: false,
-            by_effect: None,
-            window_start: None,
-            paying: casting::Paying::FromThePool,
-            started: None,
+            ..CastWizard::new(card, player, WizardStage::XValue, options)
         })
     }
 
@@ -788,47 +819,15 @@ impl<L: CardLookup> Engine<L> {
             [only] => (Some(only.kind), WizardStage::XValue),
             _ => (None, WizardStage::ChooseMode),
         };
-        let mut wizard = CastWizard {
-            card,
-            player,
+        // `XValue` fixes a waived mana-cost X at zero, but still asks about
+        // independent additional costs such as Toxic Deluge's X life.
+        let wizard = CastWizard {
             option,
-            announced: None,
             forced_face,
-            north_star: None,
-            permission: None,
-            permissions: Vec::new(),
-            reduction: None,
-            target_references: crate::sources::TargetReferences::default(),
-            division: Vec::new(),
-            targets: SmallVec::new(),
-            second_targets: SmallVec::new(),
-            second_target_players: baylee_core::ids::SeatSet::new(),
-            target_players: baylee_core::ids::SeatSet::new(),
-            chosen_player: None,
-            x: 0,
-            kicked: false,
-            replicated: 0,
-            pitch: SmallVec::new(),
-            returned: None,
-            beheld: None,
-            behold_paid_mana: false,
-            delve_exiles: SmallVec::new(),
-            escape_exiles: SmallVec::new(),
-            convoke_taps: SmallVec::new(),
-            sacrifices: SmallVec::new(),
-            phyrexian: SmallVec::new(),
-            // `XValue` fixes a waived mana-cost X at zero, but still asks
-            // about independent additional costs such as Toxic Deluge's X life.
-            stage,
-            options,
             free: true,
-            masked: false,
             by_effect: by_effect.then_some(EffectCast::Plain),
-            window_start: None,
-            paying: casting::Paying::FromThePool,
-            started: None,
+            ..CastWizard::new(card, player, stage, options)
         };
-        let _ = &mut wizard;
         self.cast_wizard = Some(wizard);
         self.advance_cast_wizard()
     }
@@ -861,49 +860,17 @@ impl<L: CardLookup> Engine<L> {
         }
         let single = options.len() <= 1;
         let option = options.first().map(|o| o.kind);
+        // `XValue` asks nothing of a free wizard (CR 107.3b); from there on it
+        // is every other cast.
+        let stage = if single {
+            WizardStage::XValue
+        } else {
+            WizardStage::ChooseMode
+        };
         let wizard = CastWizard {
-            card,
-            player,
             option: if single { option } else { None },
-            announced: None,
-            forced_face: None,
-            north_star: None,
-            permission: None,
-            permissions: Vec::new(),
-            reduction: None,
-            target_references: crate::sources::TargetReferences::default(),
-            division: Vec::new(),
-            targets: SmallVec::new(),
-            second_targets: SmallVec::new(),
-            second_target_players: baylee_core::ids::SeatSet::new(),
-            target_players: baylee_core::ids::SeatSet::new(),
-            chosen_player: None,
-            x: 0,
-            kicked: false,
-            replicated: 0,
-            pitch: SmallVec::new(),
-            returned: None,
-            beheld: None,
-            behold_paid_mana: false,
-            delve_exiles: SmallVec::new(),
-            escape_exiles: SmallVec::new(),
-            convoke_taps: SmallVec::new(),
-            sacrifices: SmallVec::new(),
-            phyrexian: SmallVec::new(),
-            // `XValue` asks nothing of a free wizard (CR 107.3b); from there
-            // on it is every other cast.
-            stage: if single {
-                WizardStage::XValue
-            } else {
-                WizardStage::ChooseMode
-            },
-            options,
             free: true,
-            masked: false,
-            by_effect: None,
-            window_start: None,
-            paying: casting::Paying::FromThePool,
-            started: None,
+            ..CastWizard::new(card, player, stage, options)
         };
         self.cast_wizard = Some(wizard);
         self.advance_cast_wizard()
@@ -921,7 +888,7 @@ impl<L: CardLookup> Engine<L> {
     ///
     /// `opened` is where that window began. The wizard carries it, so a
     /// second window its Done stage opens for what the pool still lacks
-    /// gives back what both made if it closes without the cast (CR 732.1).
+    /// gives back what both made if it closes without the cast (CR 733.1).
     pub(crate) fn start_paid_cast(
         &mut self,
         player: PlayerId,
@@ -940,43 +907,13 @@ impl<L: CardLookup> Engine<L> {
         if !casting::may_begin_casting(&self.state, player) {
             return Err(EngineError::IllegalAction("no more spells this turn"));
         }
+        let options = vec![CastModeDesc {
+            index: 0,
+            kind: CastModeKind::Normal,
+            cost: self.front_spell_price(player, card, cost),
+        }];
         let wizard = CastWizard {
-            card,
-            player,
             option: Some(CastModeKind::Normal),
-            announced: None,
-            forced_face: None,
-            north_star: None,
-            permission: None,
-            permissions: Vec::new(),
-            reduction: None,
-            target_references: crate::sources::TargetReferences::default(),
-            division: Vec::new(),
-            targets: SmallVec::new(),
-            second_targets: SmallVec::new(),
-            second_target_players: baylee_core::ids::SeatSet::new(),
-            target_players: baylee_core::ids::SeatSet::new(),
-            chosen_player: None,
-            x: 0,
-            kicked: false,
-            replicated: 0,
-            pitch: SmallVec::new(),
-            returned: None,
-            beheld: None,
-            behold_paid_mana: false,
-            delve_exiles: SmallVec::new(),
-            escape_exiles: SmallVec::new(),
-            convoke_taps: SmallVec::new(),
-            sacrifices: SmallVec::new(),
-            phyrexian: SmallVec::new(),
-            stage: WizardStage::XValue,
-            options: vec![CastModeDesc {
-                index: 0,
-                kind: CastModeKind::Normal,
-                cost: self.front_spell_price(player, card, cost),
-            }],
-            free: false,
-            masked: false,
             by_effect: Some(if any_mana {
                 EffectCast::AnyMana
             } else if then_no_more_spells {
@@ -985,8 +922,7 @@ impl<L: CardLookup> Engine<L> {
                 EffectCast::Plain
             }),
             window_start: Some(opened),
-            paying: casting::Paying::FromThePool,
-            started: None,
+            ..CastWizard::new(card, player, WizardStage::XValue, options)
         };
         self.cast_wizard = Some(wizard);
         self.advance_cast_wizard()
@@ -1130,7 +1066,7 @@ impl<L: CardLookup> Engine<L> {
     /// pay, and a count the payment then cannot cover unwinds the whole
     /// cast (CR 601.2h), as a printed X too large does. Capped at
     /// [`REPLICATE_CEILING`], which is also how many copies the trigger can list.
-    fn replicate_bound(
+    pub(super) fn replicate_bound(
         &self,
         wizard: &CastWizard,
         face: &baylee_cards_dsl::FaceDef,
@@ -1188,7 +1124,7 @@ impl<L: CardLookup> Engine<L> {
     /// the rest of the checklist then finds. A step the caster cannot
     /// complete — the total cost with the X they named, the targets their
     /// mode needs — makes the casting illegal, and the game returns to the
-    /// moment before it was proposed (CR 601.2, CR 732.1): that is the
+    /// moment before it was proposed (CR 601.2, CR 733.1): that is the
     /// answer's consequence, not a reason to refuse it.
     ///
     /// It used to be refused *and* reversed, which is the one combination a
@@ -1199,7 +1135,7 @@ impl<L: CardLookup> Engine<L> {
     /// What taking it costs: the reason is no longer handed back. Nobody read
     /// it — gamehost's `Session` answers every refusal with the same "illegal
     /// action for your seat" — and the caster now sees the priority they are
-    /// back at instead. The reversal journals nothing, as CR 732.1 has it:
+    /// back at instead. The reversal journals nothing, as CR 733.1 has it:
     /// an undone action leaves nothing behind.
     pub(crate) fn continue_cast_wizard(&mut self) {
         // Read before the stages run: `finish_cast` nulls the wizard itself
@@ -1211,7 +1147,7 @@ impl<L: CardLookup> Engine<L> {
     }
 
     /// Returns the game to the moment before a cast was proposed (CR 601.2,
-    /// CR 732.1), once the cast has turned out to be illegal part-way.
+    /// CR 733.1), once the cast has turned out to be illegal part-way.
     pub(crate) fn reverse_cast(&mut self, caster: Option<PlayerId>) {
         // The X the card was given as it was announced goes with the rest
         // of the cast: a card that never left its zone announced nothing.
@@ -1372,9 +1308,9 @@ impl<L: CardLookup> Engine<L> {
     /// activate mana abilities before paying (CR 601.2g), and is not sent
     /// back to priority for want of mana they could have made. From then on
     /// it is paid as a cast from `payable` is, so a window closed short
-    /// hands the caster their priority back (CR 732.1).
+    /// hands the caster their priority back (CR 733.1).
     fn cast_or_make_miracle_mana(&mut self, wizard: CastWizard) -> Result<(), EngineError> {
-        let cost = wizard_paid_total(self.wizard_face(&wizard), &wizard);
+        let cost = self.wizard_paid(&wizard);
         if self.commanded_card(wizard.card) || !self.wizard_pool_can_pay(&wizard, cost) {
             let mut legal = self.compute_legal(wizard.player);
             self.narrow_to_mana(&mut legal);
@@ -1399,10 +1335,8 @@ impl<L: CardLookup> Engine<L> {
                 self.mana_window = Some(super::PaymentWindow {
                     player,
                     suspended: super::PaymentContinuation::Miracle {
-                        cost: self.north_star_payment(
-                            &wizard,
-                            self.restricted_x_payment(&wizard, cost).0,
-                        ),
+                        cost: self
+                            .north_star_payment(&wizard, self.miracle_window_cost(&wizard, cost)),
                         wizard: Box::new(wizard),
                         version,
                         opened,
@@ -1416,7 +1350,7 @@ impl<L: CardLookup> Engine<L> {
                 // A commanded card is played only "if able" (Word of
                 // Command). A price its player's lands cannot pay at all is
                 // a casting that cannot comply with CR 601.2g-h: it is
-                // reversed (CR 732.1) before anything is tapped, and the
+                // reversed (CR 733.1) before anything is tapped, and the
                 // card stays where it was.
                 if self.commanded_payment_feasible() == Some(false) {
                     self.mana_window = None;
@@ -1435,7 +1369,7 @@ impl<L: CardLookup> Engine<L> {
     /// The captured version also protects casts from graveyard or exile.
     ///
     /// A window that closes without the cast gives back what was made in it
-    /// (CR 732.1, `Engine::give_back_window`): declining a miracle the
+    /// (CR 733.1, `Engine::give_back_window`): declining a miracle the
     /// player had begun to pay for leaves the lands they tapped untapped and
     /// nothing floating.
     pub(super) fn finish_miracle_payment(
@@ -1451,11 +1385,7 @@ impl<L: CardLookup> Engine<L> {
         if !current || self.finish_cast(wizard).is_err() {
             // Read before anything is put back: the pool as the window
             // closed is what was short, if anything was.
-            let reason = if current
-                && !self.wizard_pool_can_pay(
-                    wizard,
-                    wizard_paid_total(self.wizard_face(wizard), wizard),
-                ) {
+            let reason = if current && !self.wizard_pool_can_pay(wizard, self.wizard_paid(wizard)) {
                 crate::event::CastCancelReason::Unpaid
             } else {
                 crate::event::CastCancelReason::Illegal
@@ -1473,7 +1403,7 @@ impl<L: CardLookup> Engine<L> {
                 return Err(EngineError::IllegalAction("generated mana remains unspent"));
             }
             // A cast begun from priority is put back whole, its mana
-            // abilities with it (CR 732.1); any other gives back the taps.
+            // abilities with it (CR 733.1); any other gives back the taps.
             if self.rewind_cast(wizard) {
                 self.state.journal.record(GameEvent::CastCancelled {
                     player: wizard.player,
@@ -1487,7 +1417,7 @@ impl<L: CardLookup> Engine<L> {
                 card.x_value = 0;
             }
             // A cast from priority that could not be paid is reversed, and
-            // the player who had priority keeps it (CR 732.2).
+            // the player who had priority keeps it (CR 733.2).
             if !self.finish_nested_cast() && wizard.paying == casting::Paying::DuringTheCast {
                 self.after_action(wizard.player);
             }
@@ -1539,6 +1469,24 @@ impl<L: CardLookup> Engine<L> {
                 self.wizard_second_target_req(wizard),
             ),
             reference,
+        )
+    }
+
+    /// The colours each permanent the cast taps for convoke pays with
+    /// (CR 702.51a): `casting::tap_colors` of its chosen taps.
+    pub(super) fn convoke_tap_colors(
+        &self,
+        wizard: &CastWizard,
+    ) -> Vec<baylee_core::color::ColorSet> {
+        casting::tap_colors(&self.state, self.wizard_face(wizard), &wizard.convoke_taps)
+    }
+
+    /// What the pool pays for the cast at its payment ([`wizard_paid_total`]).
+    pub(super) fn wizard_paid(&self, wizard: &CastWizard) -> ManaCost {
+        wizard_paid_total(
+            self.wizard_face(wizard),
+            wizard,
+            &self.convoke_tap_colors(wizard),
         )
     }
 
@@ -1635,20 +1583,11 @@ impl<L: CardLookup> Engine<L> {
         Some(req)
     }
 
-    fn wizard_pitch_filter(
-        &self,
-        wizard: &CastWizard,
-    ) -> Option<&'static baylee_cards_dsl::Filter> {
+    fn wizard_pitch_parts(&self, wizard: &CastWizard) -> &'static [CostPart] {
         let Some(CastModeKind::Alternative(i)) = wizard.option else {
-            return None;
+            return &[];
         };
-        let face = self.wizard_face(wizard);
-        face.alternative_costs.get(i).and_then(|alt| {
-            alt.cost.parts.iter().find_map(|p| match p {
-                CostPart::ExileFromHand(f) => Some(*f),
-                _ => None,
-            })
-        })
+        self.wizard_face(wizard).alternative_costs[i].cost.parts
     }
 
     /// Pays everything and puts the spell on the stack, or, refused, pays
@@ -1657,11 +1596,11 @@ impl<L: CardLookup> Engine<L> {
     /// The mana is paid first and all at once, and every refusal after it (a
     /// delve, pitch or sacrifice answer naming an object that is gone, the
     /// card itself gone) used to leave what was paid by then spent while the
-    /// cast was reversed. CR 732.1 cancels "any payments already made", so
+    /// cast was reversed. CR 733.1 cancels "any payments already made", so
     /// the game is kept before the first of them and put back on a refusal,
     /// with the spell-rider abilities the mana put on the stack.
     fn finish_cast(&mut self, wizard: &CastWizard) -> Result<(), EngineError> {
-        let cost = wizard_paid_total(self.wizard_face(wizard), wizard);
+        let cost = self.wizard_paid(wizard);
         if self.wizard_pool_can_pay(wizard, cost) && self.ask_escape_payment(wizard)? {
             return Ok(());
         }
@@ -1777,6 +1716,43 @@ impl<L: CardLookup> Engine<L> {
         )
     }
 
+    /// Materializes a color-restricted X payment (`x_mana_color` or
+    /// `x_mana_colors`) into colored or hybrid mana symbols on the cost
+    /// exposed by [`super::PaymentContinuation::Miracle`], so that
+    /// [`Self::payment_window`] (`view.owed`) and client/seat mana planners
+    /// know which units of X require colored mana (e.g. Drain Life's
+    /// "Spend only black mana on X").
+    pub(super) fn miracle_window_cost(&self, wizard: &CastWizard, total: ManaCost) -> ManaCost {
+        let (cost, Some(restriction)) = self.restricted_x_payment(wizard, total) else {
+            return total;
+        };
+        if restriction.amount == 0 {
+            return cost;
+        }
+        let bits = restriction.types;
+        let symbol = match bits.count_ones() {
+            1 => {
+                let color = baylee_core::color::Color::ALL[bits.trailing_zeros() as usize];
+                Some(baylee_core::mana::ManaSymbol::of_color(color))
+            }
+            2 => {
+                let first = baylee_core::color::Color::ALL[bits.trailing_zeros() as usize];
+                let rest = bits & (bits - 1);
+                let second = baylee_core::color::Color::ALL[rest.trailing_zeros() as usize];
+                Some(baylee_core::mana::ManaSymbol::Hybrid(
+                    baylee_core::color::ColorPair::new(first, second),
+                ))
+            }
+            _ => None,
+        };
+        if let Some(symbol) = symbol {
+            cost.with_less_generic(restriction.amount)
+                .with_symbol(symbol, restriction.amount)
+        } else {
+            cost
+        }
+    }
+
     /// The X menu and payment ask the same actual-mana constraint.
     fn restricted_x_affordable(&self, wizard: &CastWizard) -> bool {
         let face = self.wizard_face(wizard);
@@ -1858,11 +1834,21 @@ fn wizard_total_cost(face: &baylee_cards_dsl::FaceDef, wizard: &CastWizard) -> M
         .with_less_generic(wizard.reduction.map_or(0, |reduction| reduction.remainder))
 }
 
-/// What the pool pays for the cast at its payment: the total less the
-/// generic that delve and convoke already paid.
-fn wizard_paid_total(face: &baylee_cards_dsl::FaceDef, wizard: &CastWizard) -> ManaCost {
-    wizard_total_cost(face, wizard)
-        .with_less_generic((wizard.delve_exiles.len() + wizard.convoke_taps.len()) as u32)
+/// What the pool pays for the cast at its payment: the total less what
+/// delve and convoke already paid. A convoke tap pays a coloured symbol of
+/// its colour where it can (CR 702.51a; `tap_colors` from
+/// [`Engine::convoke_tap_colors`]), and generic mana otherwise; delve's
+/// exiles pay generic mana (CR 702.66a).
+pub(super) fn wizard_paid_total(
+    face: &baylee_cards_dsl::FaceDef,
+    wizard: &CastWizard,
+    tap_colors: &[baylee_core::color::ColorSet],
+) -> ManaCost {
+    let (cost, colored) = wizard_total_cost(face, wizard).convoked_colored(tap_colors);
+    let generic = u32::try_from(wizard.delve_exiles.len() + wizard.convoke_taps.len())
+        .unwrap_or(u32::MAX)
+        .saturating_sub(colored);
+    cost.with_less_generic(generic)
 }
 
 fn wizard_total_before_reduction(
@@ -1896,6 +1882,12 @@ fn wizard_total_before_reduction(
             total = total.combine(&add.mana);
         }
     }
+    if let Some(multikicker) = face.multikicker {
+        total = total.combine_n(&multikicker, u32::from(wizard.multikicked));
+    }
+    if let (Some(less), Some(buyback)) = (wizard.buyback, face.buyback) {
+        total = total.combine(&buyback.mana.with_less_generic(less));
+    }
     if let Some(replicate) = face.replicate {
         total = total.combine_n(&replicate, u32::from(wizard.replicated));
     }
@@ -1923,10 +1915,14 @@ fn targeted_mode(abilities: &'static [AbilityDef], set: u8, nth: usize) -> Optio
 
 /// Whether this cast pays mana at all. A free cast pays none of its mana
 /// cost (CR 601.2h pays nothing it was not asked for), but an additional
-/// cost it chose is still paid (CR 118.9d, 601.2f): a kicker, and the
-/// replicate cost however many times it was announced.
+/// cost it chose is still paid (CR 118.9d, 601.2f): a kicker, a buyback, and
+/// the replicate cost however many times it was announced.
 const fn pays_mana(wizard: &CastWizard) -> bool {
-    !wizard.free || wizard.kicked || wizard.replicated > 0 || wizard.behold_paid_mana
+    !wizard.free
+        || wizard.kicked
+        || wizard.buyback.is_some()
+        || wizard.replicated > 0
+        || wizard.behold_paid_mana
 }
 
 /// What the cast's mana pays for, which restricted mana asks (CR 106.6):
@@ -1958,6 +1954,10 @@ pub(super) fn spend_for(
         Some(CastModeKind::Disguise) => {
             casting::SpendFor::SpellAs(wizard.card, casting::SpellForm::Disguise)
         }
+        Some(CastModeKind::Foretell) => casting::SpendFor::SpellAs(
+            wizard.card,
+            casting::SpellForm::Foretell(face.foretell.expect("foretell option")),
+        ),
         _ if wizard.face_index() != 0 => {
             casting::SpendFor::SpellOnFace(wizard.card, wizard.face_index())
         }

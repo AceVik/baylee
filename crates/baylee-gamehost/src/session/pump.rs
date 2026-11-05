@@ -86,33 +86,10 @@ impl Session {
             let Some(pending) = self.engine.pending_for(player).cloned() else {
                 return out;
             };
-            let action = match &self.seats[player.get() as usize] {
-                // Both receive a filtered view. Scouting checks the live
-                // seat kind separately and denies a human's stand-in.
-                SeatKind::Ai(agent) | SeatKind::StandIn(agent) => {
-                    let view = self.agent_view(player, &pending);
-                    let context = self.engine.decision_context();
-                    let scouting = agent.scouting_request(&pending).and_then(|mut request| {
-                        if self.fair_scouting {
-                            request.opponents = false;
-                            request.hands = false;
-                            request.library = baylee_ai::intelligence::LibraryAccess::None;
-                        }
-                        crate::scouting::request(
-                            &self.seats,
-                            &self.scouting_decks,
-                            self.engine.state(),
-                            player,
-                            request,
-                        )
-                    });
-                    scouting.as_ref().map_or_else(
-                        || agent.act_with_context(&view, &pending, &context),
-                        |report| agent.act_with_scouting(&view, &pending, &context, report),
-                    )
-                }
-                // Both answer over a socket, so `pump` returned above.
-                SeatKind::Human | SeatKind::Driven(_) => unreachable!(),
+            // `house_seat` is a chair the house plays: one answered over a
+            // socket returned above.
+            let Some(action) = self.table().house_answer(player, &pending) else {
+                return out;
             };
             let by = self.seats[player.get() as usize]
                 .is_away()
@@ -212,9 +189,9 @@ impl Session {
             );
             return false;
         };
-        let fallback = baylee_engine::choice::timeout_answer(pending)
-            .filter(|answer| *answer != refused)
-            .or_else(|| self.house_action(player))
+        let fallback = self
+            .table()
+            .refusal_fallback(player, pending, &refused)
             .expect("refused AI action left no decision");
         let asked = self.answering(player, &fallback);
         let kept = self.record.is_some().then(|| fallback.clone());

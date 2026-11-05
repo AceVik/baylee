@@ -5,6 +5,7 @@ use super::press::Cx;
 #[allow(clippy::wildcard_imports)] // the lobby's own vocabulary
 use super::*;
 use crate::buildui::{BuildMenu, DeckTab, Pane};
+use baylee_client_core::lobby::ListFor;
 
 /// A control of the deck builder, its printing picker, and its import and
 /// export dialogs.
@@ -91,6 +92,36 @@ pub(crate) enum BuildPress {
     SetLit(Option<baylee_client_core::deckbuilder::Group>),
     /// Draw a sample hand of seven.
     DrawSeven,
+    /// Open the deck check's sheet.
+    OpenCheck,
+    /// Put the deck check's sheet away.
+    CloseCheck,
+    /// Hold the deck to the format at this place in the picker.
+    SetFormat(usize),
+    /// A problem pressed: its card, by pool slot.
+    CheckCard(usize),
+    /// Hold the deck to the list at this place, or to none.
+    ListChoose(Option<usize>),
+    /// Start a new list.
+    ListNew,
+    /// Read or edit the list at this place.
+    ListOpen(usize),
+    /// Make a list of one's own from the one at this place.
+    ListCopyOf(usize),
+    /// The list being edited is for the format at this place in the picker.
+    ListFormat(usize),
+    /// Put this pool card on the list being edited.
+    ListPut(usize, baylee_cardtext::ListStatus),
+    /// Move the word of the entry at this place on to the next.
+    ListCycle(usize),
+    /// Take the entry at this place off the list.
+    ListRemove(usize),
+    /// Save the list being edited.
+    ListSave,
+    /// Delete the list being edited.
+    ListDelete,
+    /// Put the editor away.
+    ListClose,
     /// The phone's Stats sheet.
     OpenStatsSheet,
     /// Put the phone's Stats sheet away.
@@ -249,7 +280,7 @@ impl BuildPress {
                 // A tap in the search box shuts the builder and takes the
                 // caret, which is the way back out of it — the same rule the
                 // zone browser's box follows.
-                if field == BuildField::Search {
+                if matches!(field, BuildField::Search | BuildField::ListSearch) {
                     deck.close_panel();
                 }
                 deck.focus_on(field);
@@ -575,6 +606,113 @@ impl BuildPress {
             BuildPress::DrawSeven => {
                 state.build.hand = state.lobby.builder().sample_hand(crate::host::fresh_seed());
                 state.build.reveal_hand = true;
+            }
+            BuildPress::ListChoose(None) => state.lobby.builder_mut().set_list(None),
+            BuildPress::ListChoose(Some(at)) => {
+                let id = state.lobby.builder().lists().get(at).map(|r| r.id.clone());
+                let request = id.map(|id| LobbyRequest::LoadBanlist {
+                    id,
+                    into: ListFor::Deck,
+                });
+                dispatch(state, mailbox, request);
+            }
+            BuildPress::ListNew => {
+                let name = Phrase::ListNewName.text(state.lobby.lang());
+                state.lobby.builder_mut().open_new_list(name);
+                crate::buildui::move_nav(state, crate::buildui::Nav::Field);
+            }
+            BuildPress::ListOpen(at) => {
+                let id = state.lobby.builder().lists().get(at).map(|r| r.id.clone());
+                let request = id.map(|id| LobbyRequest::LoadBanlist {
+                    id,
+                    into: ListFor::Editor,
+                });
+                dispatch(state, mailbox, request);
+            }
+            BuildPress::ListCopyOf(at) => {
+                let lang = state.lobby.lang();
+                let deck = state.lobby.builder();
+                let request = deck.lists().get(at).map(|row| {
+                    let name = deck.list_name(row, lang);
+                    LobbyRequest::CopyBanlist {
+                        id: row.id.clone(),
+                        name: Phrase::ListCopyName.fill(lang, &[&name]),
+                        format: row.format.clone(),
+                    }
+                });
+                dispatch(state, mailbox, request);
+            }
+            BuildPress::ListFormat(at) => {
+                let chosen = state.lobby.builder().format_choices().get(at).cloned();
+                if let Some(format) = chosen {
+                    state
+                        .lobby
+                        .builder_mut()
+                        .edit_list(|list, _| list.set_format(&format));
+                }
+            }
+            BuildPress::ListPut(slot, status) => {
+                state.lobby.builder_mut().edit_list(|list, pool| {
+                    if let Some(card) = pool.get(slot) {
+                        list.put(card, Some(status));
+                    }
+                });
+            }
+            BuildPress::ListCycle(at) => {
+                state
+                    .lobby
+                    .builder_mut()
+                    .edit_list(|list, _| list.cycle(at));
+            }
+            BuildPress::ListRemove(at) => {
+                state
+                    .lobby
+                    .builder_mut()
+                    .edit_list(|list, _| list.remove(at));
+            }
+            BuildPress::ListSave => {
+                let request = state
+                    .lobby
+                    .builder()
+                    .list_editor()
+                    .and_then(baylee_client_core::banlist::ListEditor::save);
+                dispatch(state, mailbox, request);
+            }
+            BuildPress::ListDelete => {
+                let id = state
+                    .lobby
+                    .builder()
+                    .list_editor()
+                    .and_then(|list| list.id().map(str::to_owned));
+                dispatch(
+                    state,
+                    mailbox,
+                    id.map(|id| LobbyRequest::DeleteBanlist { id }),
+                );
+            }
+            BuildPress::ListClose => state.lobby.builder_mut().close_list(),
+            BuildPress::OpenCheck => {
+                state.build.check_sheet = true;
+                if state.lobby.token().is_some() {
+                    dispatch(state, mailbox, Some(LobbyRequest::ListBanlists));
+                }
+            }
+            BuildPress::CloseCheck => {
+                if state.build.check_sheet {
+                    state.build.check_sheet = false;
+                }
+            }
+            BuildPress::SetFormat(at) => {
+                let chosen = state.lobby.builder().format_choices().get(at).cloned();
+                if let Some(format) = chosen {
+                    state.lobby.builder_mut().set_format(&format);
+                }
+            }
+            BuildPress::CheckCard(slot) => {
+                state.build.check_sheet = false;
+                state.build.window_back = false;
+                let request = state.lobby.builder_mut().inspect(slot);
+                dispatch(state, mailbox, request);
             }
             BuildPress::OpenStatsSheet => state.build.stats_sheet = true,
             BuildPress::CloseStatsSheet => {

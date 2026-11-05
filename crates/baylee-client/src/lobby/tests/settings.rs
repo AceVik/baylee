@@ -726,7 +726,7 @@ fn a_profile_is_edited_on_its_sheet_with_advanced_behind_a_disclosure() {
 }
 
 /// Opens the settings screen at `section`, signed in, with a settings file.
-fn settings_at(section: baylee_client_core::settings_map::Section) -> App {
+pub(super) fn settings_at(section: baylee_client_core::settings_map::Section) -> App {
     let mut app = headless();
     app.insert_resource(crate::settings::ClientSettings::default());
     stocked(&mut app);

@@ -92,8 +92,10 @@ mod tests {
             knowledge: BTreeMap::new(),
             seen_hashes: BTreeMap::from([((0, hash), 3)]),
             last_announced_source: BTreeMap::new(),
+            observed_values: BTreeMap::new(),
             coverage: CoverageMatrix4::default(),
             last_fallback: None,
+            rule_refs_left_out: 0,
         };
         let answer = net.act_detailed(&view, &pending, &[]);
         assert_eq!(answer.provenance.source, SourceKind4::House);

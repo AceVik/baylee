@@ -3,7 +3,9 @@
 use super::{Table, object_name, tag, words};
 use baylee_core::ids::{Defender, ObjectId, PlayerId};
 use baylee_core::types::{SubtypeSet, TypeSet};
-use baylee_view::{DayNight, HandObject, ManaPoolView, PublicObject, StackItem, Step, TargetRef};
+use baylee_view::{
+    DayNight, HandObject, ManaPoolView, ObjectStatus, PublicObject, StackItem, Step, TargetRef,
+};
 use std::fmt::Write as _;
 
 /// The most cards one graveyard or exile line names; older ones are
@@ -111,23 +113,37 @@ fn pool(pool: &ManaPoolView) -> String {
 }
 
 /// Which zone an object is in, in words.
-pub(super) fn zone(table: &Table<'_>, id: ObjectId) -> &'static str {
+pub(super) fn zone(table: &Table<'_>, id: ObjectId) -> String {
     let view = table.view;
     if view.battlefield.iter().any(|o| o.id == id) {
-        "on the battlefield"
+        "on the battlefield".into()
     } else if view.stack.iter().any(|o| o.id == id) {
-        "on the stack"
+        "on the stack".into()
     } else if view.command.iter().flatten().any(|o| o.id == id) {
-        "in the command zone"
+        "in the command zone".into()
     } else if view.graveyards.iter().flatten().any(|o| o.id == id) {
-        "in a graveyard"
+        "in a graveyard".into()
     } else if view.exile.iter().flatten().any(|o| o.id == id) {
-        "in exile"
-    } else if view.hand.iter().any(|c| c.id == id) {
-        "in your hand"
+        "in exile".into()
+    } else if let Some(owner) = hand_owner(table, id) {
+        format!("in {} hand", table.whose(owner))
     } else {
-        "somewhere you cannot see"
+        "somewhere you cannot see".into()
     }
+}
+
+/// Whose hand a card the seat sees in a hand is in: its own, a hand shown
+/// to it, or the hand of a player whose turn it controls.
+pub(super) fn hand_owner(table: &Table<'_>, id: ObjectId) -> Option<PlayerId> {
+    let view = table.view;
+    if view.hand.iter().any(|c| c.id == id) {
+        return Some(table.me());
+    }
+    view.controlled_hands
+        .iter()
+        .chain(&view.shared_hands)
+        .find(|h| h.cards.iter().any(|c| c.id == id))
+        .map(|h| h.player)
 }
 
 /// The battlefield per controller, the stack, the hand, the other zones and
@@ -140,17 +156,29 @@ pub(super) fn board(table: &Table<'_>, out: &mut String) {
         battlefield(table, p, out);
     }
     stack(table, out);
-    hand(table, "Your hand", &view.hand, out);
+    hand(table, "Your hand", table.me(), &view.hand, out);
     for shared in &view.shared_hands {
         let title = format!("{} hand (shown to you)", table.whose(shared.player));
-        hand(table, &capitalised(&title), &shared.cards, out);
+        hand(
+            table,
+            &capitalised(&title),
+            shared.player,
+            &shared.cards,
+            out,
+        );
     }
     for controlled in &view.controlled_hands {
         let title = format!(
             "{} hand (you decide for this player)",
             table.whose(controlled.player)
         );
-        hand(table, &capitalised(&title), &controlled.cards, out);
+        hand(
+            table,
+            &capitalised(&title),
+            controlled.player,
+            &controlled.cards,
+            out,
+        );
     }
     zones(table, out);
     combat(table, out);
@@ -254,7 +282,12 @@ pub(super) fn type_line(object: &PublicObject) -> String {
         let _ = write!(out, " — {subtypes}");
     }
     let face_down = object.status.is_face_down();
-    if object.token.is_some() || (object.card.is_none() && object.rules.is_none() && !face_down) {
+    // A melded permanent wears a token definition's art and is two cards.
+    let melded = object.status.contains(ObjectStatus::MELDED_CARD);
+    if !melded
+        && (object.token.is_some()
+            || (object.card.is_none() && object.rules.is_none() && !face_down))
+    {
         out.push_str(" token");
     }
     out
@@ -387,11 +420,22 @@ pub(super) fn stack_line(table: &Table<'_>, object: &PublicObject) -> String {
         line
     } else {
         let kind = words::types(object.types, baylee_core::types::SupertypeSet::EMPTY);
-        format!(
+        let mut line = format!(
             "{} {} · {owner} {kind} spell",
             tag(object.id),
             object_name(object)
-        )
+        );
+        match object.times_kicked {
+            0 => {}
+            1 => line.push_str(", kicked"),
+            times => {
+                let _ = write!(line, ", kicked {times} times");
+            }
+        }
+        if object.bought_back {
+            line.push_str(", buyback paid: it returns to its owner's hand as it resolves");
+        }
+        line
     };
     if !object.targets.is_empty() {
         let targets: Vec<String> = object
@@ -402,24 +446,85 @@ pub(super) fn stack_line(table: &Table<'_>, object: &PublicObject) -> String {
                 TargetRef::Player(p) => table.player(p),
             })
             .collect();
-        let _ = write!(line, " · targets {}", targets.join(", "));
+        if names_without_targeting(object) {
+            let _ = write!(line, " · about {} (not a target)", targets.join(", "));
+        } else {
+            let _ = write!(line, " · targets {}", targets.join(", "));
+        }
     }
     line
 }
 
-fn hand(table: &Table<'_>, title: &str, cards: &[HandObject], out: &mut String) {
+/// Whether the objects a stack ability carries as its targets are ones it
+/// is about without targeting them (CR 115.1): the object its trigger
+/// event was about, "that creature" or the enchanted creature, which a
+/// card's script writes as `TargetSpec::EventObject` (exalted, Spirit
+/// Shackle); a ward trigger's spell; or the card a rule's own trigger is
+/// about, the dying card for undying and persist, the creature for prowess
+/// (`AbilityRef::SYNTHETIC`). The engine binds those as the ability's
+/// targets and the view shows them so; nothing makes them illegal, and
+/// "targets" sent models to report the triggers as targeting (LLM reports,
+/// 2-3 Nov 2026). The game log says the same of them (an `Aimed` line,
+/// `baylee_gamehost::log`).
+fn names_without_targeting(object: &PublicObject) -> bool {
+    use baylee_cards_dsl::{AbilityDef, TargetReq, TargetSpec};
+    let Some(StackItem::Ability {
+        source,
+        ability: Some(ability),
+        rules,
+        ..
+    }) = object.stack_item
+    else {
+        return false;
+    };
+    let objects = || {
+        object.targets.iter().map(|target| match target {
+            TargetRef::Object(reference) => Some(reference.object),
+            TargetRef::Player(_) => None,
+        })
+    };
+    if ability.index == baylee_core::ids::AbilityRef::SYNTHETIC {
+        // A rule's trigger about its own source. Granted and reflexive
+        // abilities are synthetic too and may target, so nothing else is
+        // read as untargeted here.
+        return objects().all(|id| id == Some(source));
+    }
+    let face = rules
+        .filter(|rules| rules.card == ability.card)
+        .map_or(0, |rules| usize::from(rules.face));
+    let Some(def) = baylee_cards::by_index(ability.card).and_then(|def| {
+        def.abilities_for_face(face)
+            .get(usize::try_from(ability.index).ok()?)
+    }) else {
+        return false;
+    };
+    let untargeted =
+        |req: &Option<TargetReq>| req.is_none_or(|req| matches!(req.spec, TargetSpec::EventObject));
+    let objects_only = objects().all(|id| id.is_some());
+    match def {
+        AbilityDef::Ward { .. } => objects_only,
+        AbilityDef::Triggered {
+            targets,
+            second_targets,
+            ..
+        } => objects_only && untargeted(targets) && untargeted(second_targets),
+        _ => false,
+    }
+}
+
+fn hand(table: &Table<'_>, title: &str, owner: PlayerId, cards: &[HandObject], out: &mut String) {
     if cards.is_empty() {
         let _ = writeln!(out, "{title}: empty");
         return;
     }
     let _ = writeln!(out, "{title}:");
     for card in cards {
-        let _ = writeln!(out, "  {}", hand_line(table, card));
+        let _ = writeln!(out, "  {}", hand_line(table, card, owner));
     }
 }
 
-/// A card in a hand: "#50 Lightning Bolt {R} · Instant".
-pub(super) fn hand_line(table: &Table<'_>, card: &HandObject) -> String {
+/// A card in `owner`'s hand: "#50 Lightning Bolt {R} · Instant".
+pub(super) fn hand_line(table: &Table<'_>, card: &HandObject, owner: PlayerId) -> String {
     let printed = baylee_cards::by_index(card.card.index)
         .and_then(|def| def.faces.get(usize::from(card.card.face)));
     let mut line = format!("{} {}", tag(card.id), card.name);
@@ -438,7 +543,7 @@ pub(super) fn hand_line(table: &Table<'_>, card: &HandObject) -> String {
         let _ = write!(line, " · {stats}");
     }
     if card.commander {
-        let _ = write!(line, " · {} commander", table.whose(table.me()));
+        let _ = write!(line, " · {} commander", table.whose(owner));
     }
     line
 }
@@ -452,7 +557,7 @@ fn zones(table: &Table<'_>, out: &mut String) {
         }
         let p = PlayerId::new(u8::try_from(seat).unwrap_or(u8::MAX));
         let title = capitalised(&format!("{} graveyard", table.whose(p)));
-        zone_line(table, &title, cards, out);
+        zone_line(table, &title, cards, ZONE_NAMES, out);
     }
     for (seat, cards) in view.exile.iter().enumerate() {
         if cards.is_empty() {
@@ -460,7 +565,7 @@ fn zones(table: &Table<'_>, out: &mut String) {
         }
         let p = PlayerId::new(u8::try_from(seat).unwrap_or(u8::MAX));
         let title = format!("Exiled cards {} owns", table.player(p)).replace("you owns", "you own");
-        zone_line(table, &title, cards, out);
+        zone_line(table, &title, cards, ZONE_NAMES, out);
     }
     for (seat, cards) in view.command.iter().enumerate() {
         if cards.is_empty() {
@@ -468,19 +573,37 @@ fn zones(table: &Table<'_>, out: &mut String) {
         }
         let p = PlayerId::new(u8::try_from(seat).unwrap_or(u8::MAX));
         let title = capitalised(&format!("{} command zone", table.whose(p)));
-        zone_line(table, &title, cards, out);
+        zone_line(table, &title, cards, ZONE_NAMES, out);
     }
     if !view.looking_at.is_empty() {
-        zone_line(table, "You are looking at", &view.looking_at, out);
+        zone_line(
+            table,
+            "You are looking at",
+            &view.looking_at,
+            view.looking_at.len(),
+            out,
+        );
     }
     if !view.library_tops.is_empty() {
-        zone_line(table, "Known top of a library", &view.library_tops, out);
+        zone_line(
+            table,
+            "Known top of a library",
+            &view.library_tops,
+            ZONE_NAMES,
+            out,
+        );
     }
 }
 
 /// One zone on one line, newest last: "Your graveyard (3): Shock #12, …".
-fn zone_line(table: &Table<'_>, title: &str, cards: &[PublicObject], out: &mut String) {
-    let older = cards.len().saturating_sub(ZONE_NAMES);
+fn zone_line(
+    table: &Table<'_>,
+    title: &str,
+    cards: &[PublicObject],
+    max_names: usize,
+    out: &mut String,
+) {
+    let older = cards.len().saturating_sub(max_names);
     let mut named: Vec<String> = cards[older..]
         .iter()
         .map(|object| {

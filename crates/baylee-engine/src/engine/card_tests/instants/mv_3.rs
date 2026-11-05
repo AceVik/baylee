@@ -20,6 +20,7 @@ mod capsize;
 mod carrion;
 mod chord_of_calling;
 mod consume_strength;
+mod corpse_dance;
 mod crash;
 mod daring_leap;
 mod dark_banishing;

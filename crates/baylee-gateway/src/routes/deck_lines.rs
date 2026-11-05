@@ -15,8 +15,8 @@ pub(crate) struct DeckBody {
     pub(crate) name: String,
     /// @description Main-deck lines, 1–250 of them: `N Card Name`, a card
     /// named as this pool or Scryfall spells it, optionally with a printing,
-    /// finish, language or note (`docs/deck-format.md`). At most four copies
-    /// of a card that is not a basic land, and 250 cards in all.
+    /// finish, language or note (`docs/deck-format.md`). At most 250 cards in
+    /// all; how many copies a format takes is told, not refused.
     /// @openapi
     /// ```yaml
     /// minItems: 1
@@ -147,25 +147,6 @@ pub(crate) struct ParsedLine {
     pub(crate) print: baylee_core::deckrow::PrintChoice,
 }
 
-/// Parses and validates deck lines. Shared by `validate_deck` and
-/// `loaded_deck` so a deck can never pass one and explode the other:
-/// counts are parsed here (1–4, unlimited for basic lands) and the
-/// expanded total is capped at [`MAX_DECK_CARDS`].
-///
-/// The row grammar lives in `baylee_core::deckrow`, so a stored deck, an
-/// exported file and an imported one are read by the same code. A row that
-/// names only a card is the old form and still means what it meant.
-///
-/// The copy limit is counted **per card, not per row**. Once a printing became
-/// part of a row's identity, `4 Lightning Bolt (LEA)` and `4 Lightning Bolt
-/// (M10)` were two rows that each passed a per-row check — eight Bolts through
-/// a route whose own error message says 1–4. The client's builder had it right
-/// all along ("the copy limit is on the *card*", `deckbuilder/builder.rs`); it
-/// was this side that counted the wrong thing, and being the enforcing side is
-/// what made it a way to cheat rather than a display bug.
-///
-/// Per *list*, because this runs once for the deck and once for the sideboard
-/// — which is the same split `DeckBuilder::add_print` applies.
 /// Which of the two facts a name the pool does not know actually stands for.
 ///
 /// `baylee_cards::decks::by_name` answers `None` for a typo and for Black
@@ -197,11 +178,22 @@ pub(crate) fn no_such_card(name: &str, if_no_card: &'static str) -> &'static str
     }
 }
 
+/// Parses deck lines. Shared by `validate_deck` and `loaded_deck` so a deck
+/// can never pass one and explode the other: the expanded total is capped at
+/// [`MAX_DECK_CARDS`], which is what a game has to be able to build.
+///
+/// How many copies of a card a deck may hold is not asked here. That is a
+/// format's question, and saving a deck is never refused for it
+/// (`docs/banlists-and-formats.md`): `baylee_cards::formats::validate` counts
+/// them per card over every row and printing, and says so.
+///
+/// The row grammar lives in `baylee_core::deckrow`, so a stored deck, an
+/// exported file and an imported one are read by the same code. A row that
+/// names only a card is the old form and still means what it meant.
 pub(crate) fn parse_deck_lines(
     lines: &[String],
 ) -> Result<Vec<ParsedLine>, (StatusCode, Json<ErrorBody>)> {
     let mut out = Vec::with_capacity(lines.len());
-    let mut copies: std::collections::BTreeMap<u32, u32> = std::collections::BTreeMap::new();
     let mut total: u32 = 0;
     for line in lines {
         let row = baylee_core::deckrow::parse(line).map_err(|e| match e {
@@ -243,29 +235,8 @@ pub(crate) fn parse_deck_lines(
 
         baylee_cards::print_rules::validate_choices(index, row.print.choices)
             .map_err(|why| crate::err_saying(StatusCode::BAD_REQUEST, why))?;
-        let basic_land = baylee_cards::by_index(index).is_some_and(|def| {
-            def.faces[0]
-                .supertypes
-                .contains(baylee_core::types::SupertypeSet::BASIC)
-                && def.faces[0]
-                    .types
-                    .contains(baylee_core::types::TypeSet::LAND)
-        });
         if count == 0 {
-            return Err(err(
-                StatusCode::BAD_REQUEST,
-                "invalid card count (1-4, unlimited for basic lands)",
-            ));
-        }
-        if !basic_land {
-            let seen = copies.entry(index.get()).or_insert(0);
-            *seen = seen.saturating_add(count);
-            if *seen > 4 {
-                return Err(err(
-                    StatusCode::BAD_REQUEST,
-                    "invalid card count (1-4, unlimited for basic lands)",
-                ));
-            }
+            return Err(err(StatusCode::BAD_REQUEST, "invalid card count"));
         }
         total = total
             .checked_add(count)
@@ -295,11 +266,10 @@ pub(crate) fn validate_deck(body: &DeckBody) -> Result<(), (StatusCode, Json<Err
     // The same parser, so a sideboard cannot hold what a deck could not.
     parse_deck_lines(&body.cards)?;
     parse_deck_lines(&body.sideboard)?;
-    // Three questions, not one. Every name has to resolve, every card it
-    // resolves to has to be allowed to lead a deck (CR 903.3) — the check
-    // used to stop at the first, so any card in the pool could be named as a
-    // commander and the engine would seat it without complaint — and a
-    // second one has to be allowed to lead it *with the first*.
+    // Every name has to resolve. Whether a card may lead, alone or with the
+    // other, is the format's question and not a reason to refuse a save: a
+    // deck stored before a card's rule changed has to be able to save again,
+    // and `formats::validate` says what is wrong with it.
     let named = body.commander_names();
     if named.len() > 2 {
         return Err(err(
@@ -318,21 +288,7 @@ pub(crate) fn validate_deck(body: &DeckBody) -> Result<(), (StatusCode, Json<Err
         let Some(leader) = baylee_cards::decks::leader_of(index) else {
             return Err(err(StatusCode::BAD_REQUEST, "unknown commander"));
         };
-        if !leader.eligible {
-            return Err(err(
-                StatusCode::BAD_REQUEST,
-                "that card cannot be a commander",
-            ));
-        }
         leaders.push(leader);
-    }
-    if let [first, second] = leaders.as_slice()
-        && !baylee_cards::decks::may_lead_together(first, second)
-    {
-        return Err(err(
-            StatusCode::BAD_REQUEST,
-            "those two cards cannot lead one deck",
-        ));
     }
     if !leaders.is_empty() {
         let allowed = leaders

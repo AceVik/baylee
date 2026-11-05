@@ -84,6 +84,13 @@ activations, confirm them with the player and recheck the actual offer after
 making mana. Older clients ignore this additive field and retain manual
 payment. The cost uses the existing protocol-8 notation.
 
+`LegalActions.unpaid_foretell` is the same kind of hint for foretell's {2}
+(CR 702.143a): an optional, default-empty list of hand cards that would be
+in `foretellable` once {2} is floating, offered only while the seat has a
+mana ability to activate (CR 605.3a). It never authorizes
+`PlayerAction::Foretell`: only membership in `foretellable` does, so a client
+makes the mana first. Older clients ignore it.
+
 ## Ward life payments (protocol 7)
 
 `Pending::YesNo` can carry `PayLife { amount }`. The client displays the
@@ -375,6 +382,66 @@ an ingest on its next request. (The gateway's own fill from Scryfall did not mov
 second gateway served the older pick until the next ingest; #270 removed
 the fill.) `crates/baylee-gateway/src/texts.rs` has the mechanism.
 
+## Pool facts (`GET /pool/facts`)
+
+What a client filters a pool card by beyond its text: what each format says
+about it, and the sets and rarities it was printed in. For a signed-in session
+only, a guest's included, like `/pool`.
+
+```
+GET /pool/facts              the whole table
+GET /pool/facts?have=<version>   304 with no body while that is the table
+```
+
+```json
+{"version": "b768281be93d5f67",
+ "formats": ["commander", "modern", "vintage"],
+ "sets": [{"code": "m21", "name": "Core Set 2021"},
+          {"code": "lea", "name": "Limited Edition Alpha"}],
+ "verdicts": ["bnr", "lll"],
+ "cards": [[42, 1, 2, 9], [97, 0, 10]]}
+```
+
+`baylee_cardtext::PoolFactsBody` is the one type both ends link, pinned there.
+
+- `version` is 16 hex digits of a SHA-256 of the rest of the answer. A hash and
+  not the catalog's stamp, because the stamp goes back when a catalog is
+  restored and two gateways on two catalogs can hold the same one.
+- `formats` are Scryfall's keys, sorted, as the catalog stores them. They follow
+  the feed: a new format needs no release of anything.
+- `sets` are the sets the pool was printed in, newest first.
+- `verdicts` are the distinct verdict strings, one letter per format in
+  `formats` order: `l` legal, `b` banned, `r` restricted, `n` not legal, `-`
+  nothing stored. Each stands for a few dozen cards, which is the point.
+- `cards` holds one row per pool card the catalog knows, ascending by registry
+  index (a `/pool` row's `index`): `[index, place in verdicts, printing…]`. A
+  printing is a place in `sets` times 8 plus a rarity: 0 `common`, 1 `uncommon`,
+  2 `rare`, 3 `special`, 4 `mythic`, 5 `bonus`, 7 none stored. Each `(set,
+  rarity)` pair is listed once, whatever the languages and reprints behind it.
+
+In the example card 42 is legal in all three formats, rare in `m21` (`0 × 8 +
+2`) and uncommon in `lea` (`1 × 8 + 1`); card 97 is banned in Commander, not
+legal in Modern, restricted in Vintage, and rare in `lea`.
+
+**A card the table lacks has no row**, and that is not a card with no verdicts:
+a client answers nothing about it, a term and its negation alike. A card with
+printings and no stored verdict has a row of `-`.
+
+Without a filled catalog, or while the catalog cannot be read, the answer is
+`200` with an empty table (`version` empty, every list empty), for the reason
+`/pool` serves the registry alone. A client takes that as having no table and
+says these filters are not available. An older gateway answers `404`, which a
+client takes the same way.
+
+The table is built once per catalog stamp and kept as its bytes, read again as
+§"How long an answer is held" describes; it does not depend on the language.
+`crates/baylee-gateway/src/poolfacts.rs` has the mechanism. A verdict is a
+card's, merged over its printings (`docs/banlists-and-formats.md`). What the
+table leaves out of a printing is deliberate: `docs/legal.md` §3.
+
+`PROTOCOL_VERSION` does not move: this is a new HTTP route, and an older client
+never asks it.
+
 ## Card art (`GET /art/…`)
 
 The gateway mirrors printing images on disk, and the route is a **mirror of
@@ -428,9 +495,9 @@ Four properties are load-bearing:
 - **It is a cache keyed by an id, never a proxy.** The only thing a caller may
   name is a printing id; the origin URL is rebuilt from the fixed shape above,
   so there is nothing to point at another host with.
-- **One rate limiter for the whole gateway**, not one per game: `docs/legal.md`
-  §3 allows ten requests a second, and four tables starting at once must not
-  leave at four times that. Inside it each account has a share of its own,
+- **One rate limiter for the whole gateway**, not one per game: ten requests a
+  second by our own courtesy (`docs/legal.md` §3: Scryfall's image hosts have no
+  limit), and four tables starting at once must not leave at four times that. Inside it each account has a share of its own,
   300 trips to the origin a minute (half the gateway's), so one player cannot
   spend all of it; what the mirror already holds costs nothing, and a spent
   share answers 429. Per account and not per session, since a session is one
@@ -441,6 +508,14 @@ Four properties are load-bearing:
   would otherwise hand one player's copy to anyone who asks. `*` is what every
   route here answers: the session rides in a header, never in a cookie, and
   no `Allow-Credentials` is ever sent beside it.
+
+### What a client's disk cache makes of this
+
+A desktop client's background fill never asks this route: it goes straight to
+Scryfall's image hosts (`docs/client.md`, "The cache fills itself"). A client
+files a picture by its path below the base, so the mirror's path shape above is
+also what lets a draw from here find the copy the fill brought from Scryfall,
+and `images::art_path` is where the back's two shapes are made one.
 
 ### Warming a table
 
@@ -688,13 +763,26 @@ the cast's own questions (mode, X, targets) and then opens a payment window
 trigger that mana sets off (City of Brass, a painland beside "whenever
 you're dealt damage") waits until the spell is cast (CR 601.2i) and goes on
 the stack above it. Passing the window with the cost unpaid reverses the
-cast (CR 601.2h, 732.1) as `CancelCast` does (below), and the player keeps
-priority (CR 732.2). Whether the seat's sources can
-make that mana is not checked; a client plans it (`manaplan`). The field is
+cast (CR 601.2h, 733.1) as `CancelCast` does (below), and the player keeps
+priority (CR 733.2). Whether the seat's sources can
+make that mana is not checked; a client plans it (`manaplan`). The reverse
+holds as well: a planner taps toward nothing outside `castable` and
+`payable` (`LegalActions::castable_once_paid`), because a card in neither has
+failed a rule other than mana, such as having no legal target (CR 601.2c). The
+house, the LLM seat and the client all read it that way. The field is
 an additive JSON field defaulted when absent, and an old client never sends
 `CastSpell` for a card outside `castable`, so engine and clients may deploy
 in either order. During the window the card is still in its zone; the
 engine moves it to the stack as the cost is paid, not first (CR 601.2a).
+
+`cast_ways` lists, for a card of either list that prints a price of its own
+(entwine, overload and any other mode with its own cost, a kicker with its own
+targets, an alternative cost with mana in it, dash, mutate, a prototype, a back
+face), every way it may be cast with every rule asked but the mana, each at its
+whole price. It is a planning hint, as `unpaid_abilities` is: the mode question
+lists what the *pool* pays, so a planner that taps first and wants a dearer way
+has to tap for it before it casts. The field is additive and defaulted when
+absent, and empty for every other card.
 
 A card in `castable` may cost more than what floats once its X is announced
 (CR 601.2b). While the seat still has a mana source to tap, its X question
@@ -718,7 +806,7 @@ mana ability inside the window asks its colour (answer that first) and for
 every cast an effect makes (rebound, a miracle, "you may cast it"), which only
 the effect can take back.
 
-The cast is reversed as CR 732.1 reverses an action that is not completed:
+The cast is reversed as CR 733.1 reverses an action that is not completed:
 the card stays where it was (the engine moves it to the stack only as the
 cost is paid), the costs chosen for it are not paid (a sacrifice chosen in
 the wizard was never made), and the mana abilities activated for it are
@@ -729,9 +817,9 @@ reversed mana ability did beside its mana is undone with it, since "no
 abilities trigger and no effects apply as a result of an undone action": a
 painland's damage is not dealt and City of Brass's trigger never goes on the
 stack. A cast whose mana touched a library (moved a card to or from it,
-shuffled it, revealed from it), which CR 732.1 forbids reversing, is still
+shuffled it, revealed from it), which CR 733.1 forbids reversing, is still
 taken back and its mana abilities stand. The player keeps priority
-(CR 732.2). The journal records `GameEvent::CastCancelled` with its
+(CR 733.2). The journal records `GameEvent::CastCancelled` with its
 `reason`: `Withdrawn` for `CancelCast`, `Unpaid` for a window passed short
 (CR 601.2h allows no partial payment), `Illegal` when the card moved or an
 object a cost named is gone. The game log writes no line, because the card never left its zone and naming it would
@@ -1326,7 +1414,7 @@ lost:
 - an ability that has left the stack before the log read it is named by its
   source alone (`ability: None`).
 
-A triggered ability with no source, the monarch's two (CR 724.2), gets no
+A triggered ability with no source, the monarch's two (CR 725.2), gets no
 line of its own; what it does has its lines. The crown moving is one of
 them: `LogEvent::BecameMonarch { player }` (view version 55), told to every
 seat, once per change. Who holds it now is `PlayerView::monarch`, in every
@@ -1431,9 +1519,10 @@ earlier draws. While a hand is shown, the view names a card that the log
 line for its draw still tells that teammate as `Hidden`. That leaks nothing
 and adds no knowledge after the fact.
 
-A seat socket has no frame-rate bound yet (#284). A client toggling its
-setting makes the engine build its teammate's views as fast as it sends, the
-same as any other frame today. Only settings that change nothing are free.
+A seat socket has a burst allowance of 512 frames and then 240 frames per
+second (#284), counted across game and transport frames. Exceeding the
+allowance closes the socket with code 1008. Changing a sharing setting still
+builds the teammate's views; only settings that change nothing are free.
 
 Tests: the hidden-information guarantees are in `crates/baylee-gamehost/src/view.rs`,
 one per rule ("a teammate's hand is shown only while it is shared"). The
@@ -2109,7 +2198,7 @@ as `Session::seat_view` builds it for a socket at it):
    exiled face down and may look at), by name;
 5. its **log** as it was told it: its draws and the cards it was shown, by
    name;
-6. a hand it saw while **controlling** another player (CR 722.4,
+6. a hand it saw while **controlling** another player (CR 723.4,
    `controlled_hands`), only where that player is in **S**;
 7. its own answers' bookkeeping (what its policies answered, whether the
    clock or a stand-in answered for it).
@@ -2431,6 +2520,26 @@ handed over with from outside the client (`?game=…&token=…`,
 browser's history see. The client's own lobby never builds that URL; it
 hands the seat over in memory. Moving that handover off the address is not
 part of #294.
+
+### Once a socket is open
+
+A ticket authorizes opening a socket; it does not replace the checks while
+the socket remains open. A seat socket checks its complete capability after
+receiving each binary game envelope and before forwarding it: the current seat
+token and, for a Central-bound seat, its original session and Central lease.
+It also checks every five seconds to close an idle socket whose authorization
+has ended. Reclaiming the chair cannot update an older socket's frozen session.
+
+The final ownership check and engine enqueue share the lobby lock. The remote
+authorization check precedes that lock, so a frame already checked when a
+withdrawal occurs can still be forwarded. There is no five-second cache of
+authorization for subsequent game frames.
+
+Transport pings and pongs spend the same frame allowance but are not forwarded
+to the engine and need no per-frame database check. The flood regression uses
+these control frames so database latency cannot pace the test below its rate
+limit; it asserts both the burst floor and the elapsed-time ceiling from the
+gateway's actual received-frame count.
 
 ## Accounts are Baylee Central's (the cutover)
 
@@ -3260,6 +3369,16 @@ vendor as where the game data goes, and a fallback plays on in that chair.
 
 ## Friends and chat (beta.8)
 
+For Central accounts, the native adapter routes personal contacts, direct messages,
+key lookup and personal groups to Central's authenticated `operation: social` API.
+The pinned `central-api::{social, chat, groups}` enums specify that transport. The
+browser uses the same API with its separate cookie-session gate. Durable inbox
+reads have a Central-only cursor and no destructive ACK. Personal key pins and
+confirmations are separate from game/gateway pins. See
+[Central chat synchronization](central-chat-sync.md) for identity derivation,
+retained history, migration and quota boundaries. The gateway protocol below
+continues to serve legacy accounts, public/game chat, presence and table invitations.
+
 Friends, presence for friends, whispers, groups and table chat, every
 message body end-to-end encrypted, and one public lobby chat that is not
 (below). The types are
@@ -3711,6 +3830,7 @@ from a curl recipe into a contract:
 | fetch one | `GET /images/{id}` | the stored JPEG |
 | what a table wears | `GET /games/{id}/cosmetics`, `Authorization: Bearer <seat token>` | `{"<seat>":{sleeve, playmat}}` |
 | the card pool | `GET /pool?lang=de` | `{total, pool_hash, lang, has_text, cards:[…]}` |
+| what a pool card is filtered by | `GET /pool/facts?have=` (§"Pool facts") | `{version, formats, sets, verdicts, cards}`; `304` when `have` is the version |
 | a card's printings | `GET /printings?card=42` | `{card, english_name, from_catalog, printings:[…]}` |
 | tables | `GET /lobby/games?q=&offset=&limit=` | `{games:[{id, name, host, yours, state, seats:[…]}], total, offset, limit}` |
 | a socket ticket | `POST /ws-ticket` `{"socket":"lobby"}` or `{"socket":"seat","game"}` (§"Opening a socket: tickets") | `{ticket, expires_in}` |
@@ -3893,7 +4013,7 @@ cannot acquire or exercise a seat capability again; already queued final views
 may still be delivered to its existing connection.
 
 `/pool` is the deck builder's card list. It answers a signed-in session
-only (#270), as `/printings`, `/catalog/text` and `/art` do: its rows carry
+only (#270), as `/pool/facts`, `/printings`, `/catalog/text` and `/art` do: its rows carry
 the catalog's text and names, which are Scryfall's data, and one rule for
 every route that answers such data is simpler than an exception. A guest's
 session is enough. The client fetches it once a session and forgets it at
@@ -3917,14 +4037,15 @@ whatever the ability costs or does beside the mana, and what only a game
 can answer (a Command Tower's commanders, a chosen colour) is left out
 rather than guessed. Absent for every other card.
 
-Each row also carries `oracle_id` and `alt_names` — every *other* name the
-card is printed under: the languages a configured catalog holds, and, for a
-card with two faces, its whole `A // B` spelling. That is what lets the
-builder show **one row per card** and still find it when a player types the
-name on the card in their hand: searching printings instead would list the
-same card once per set it appeared in, which is the wrong answer to "do I own
-this". `alt_names` is omitted when empty, because for two hundred cards in a
-dozen languages it is otherwise the largest field in the response.
+Each row also carries `oracle_id` and `alt_names`: the card's other names in
+the served language and English, and, for a card with two faces, its whole
+`A // B` spelling. That is what lets the builder show **one row per card** and
+still find it when a player types the name on the card in their hand:
+searching printings instead would list the same card once per set it appeared
+in, which is the wrong answer to "do I own this". A search matches the
+client's language and English and no other, so a name in any other language
+goes to `foreign_names`, which a pasted deck line is read against and no search
+is. Both are omitted when empty.
 
 The whole spelling is there **without a catalog**, because it comes off the
 registry rather than out of an ingest — the same reason `POST /decks` takes
@@ -4096,6 +4217,111 @@ the network, a lid closed). No departure request is sent, so the gateway waits:
 `docs/client.md` §"Restarting into an update" still holds: the restarted
 client asks for its chair again (`POST …/seat`) inside the window, and a
 paused game simply goes on.
+
+### Ban lists
+
+What a table holds a deck to (`docs/banlists-and-formats.md`). All of it is for
+a signed-in session, a guest's included, and it is new routes and additive
+fields: `PROTOCOL_VERSION` and `VIEW_VERSION` do not move.
+
+```
+GET    /banlists                   the official lists and the caller's own
+POST   /banlists                   {name, format, copy_of?, entries?}: a new list
+GET    /banlists/{id}              a list and every card on it
+PUT    /banlists/{id}              {name?, format?, entries?}: all of it or none
+DELETE /banlists/{id}              204
+POST   /lobby/games/{id}/list      {list_id?, format?}: the host picks
+GET    /lobby/games/{id}/list      the table's list, for those at the table
+```
+
+```json
+{"id": "019…", "name": "Kitchen table", "format": "commander", "builtin": false,
+ "mine": true, "version": 4, "updated_at": 1793810327, "cards": 1,
+ "entries": [{"oracle_id": "…", "status": "banned_as_commander",
+              "index": 229, "name": "Sol Ring"}]}
+```
+
+`status` is `banned`, `restricted` (one copy) or `banned_as_commander`. A list
+keys on the oracle id; `index` is `null` for a card this build has no definition
+for, and such a card stays on the list. `baylee_cardtext::{ListBody, ListRow,
+ListEntry}` are the shapes both ends link.
+
+A row of `GET /banlists` also carries `indices`, the registry index of each of its
+cards this pool holds, sorted, so a client can answer `list:` for every list it may
+read from that one answer; a list with none leaves the key out.
+
+**An official list** (`builtin`) is one row per format the feed names, brought in
+step with `card_legalities` when the catalog's stamp moves: the pool's cards it bans
+or restricts, read by whoever asks, written by nobody. `PUT` answers `403`,
+and `DELETE` `404`, because it is nobody's. Without a catalog there are none.
+
+**An own list** is its owner's alone. A list that is not the caller's and one that
+does not exist answer alike, `404 no such list`, on every route, so an id proves
+nothing. Nothing on any route says whose a list is; `mine` is "is it yours".
+`copy_of` takes an official list or one of the caller's own, and a copy stands on
+its own after that. A list holds at most 2000 cards and an account 50 lists; a
+name is 1 to 60 characters; a format reads as a key (`freeform` for none).
+
+`version` counts up with the cards and the format, not with a rename, and an
+ingest that changes nothing moves nothing.
+
+**A table.** `POST …/list` is the host's: a list the host may read, or `null` for
+none, and the format (absent: the list's; with a list it must be the list's unless
+that is `freeform`). A change takes back every chair's ready. The listing says, on
+every row:
+
+```json
+"rules": {"format": "commander",
+          "list": {"builtin": false, "name": null, "version": null, "frozen": false}}
+```
+
+Anyone who can see the table sees that it has a list and whether it is official,
+because deciding to sit down means knowing that. What an own list is called, its
+`version` and its cards are for those at the table (`GET …/list`, a `403` for
+anyone else). A room holds its own copy, read again before every check while it
+waits: its owner editing the list reaches a waiting room, and deleting the list
+or the account leaves the room the copy it last read.
+
+**The check** is `baylee_cards::formats::validate`, against the list and the
+format, the gateway's own and the one that counts. It stands at every door a deck
+comes through: `POST …/join` (after the password, so a locked room says nothing to
+a stranger), `POST …/seats/{seat}`, a seat bridge's own deck as it redeems its chair,
+`POST …/ready` and the start. Without a list
+there is no check and every deck may sit down. What could not be asked (no catalog,
+a format whose shape this build does not know) does not refuse anything.
+
+A deck turned away is a `409` that says why, to the player whose deck it is:
+
+```json
+{"error": "the deck “Ringed” does not keep to the list “No rings”: Sol Ring",
+ "refused": {"list": "No rings", "format": "commander",
+             "problems": [{"kind": "list_banned", "card": 229},
+                          {"kind": "wrong_size", "have": 60, "need": 100}]}}
+```
+
+`kind` is one of `baylee_cardtext::Problem`'s, and the client words it; `error` is
+for one that cannot. A seated deck the list later rejects stays in its chair and is
+refused at its next ready. At the start a deck that no longer passes loses its
+chair's ready and the `409` names the seat and never the cards: the host does not
+read another player's deck.
+
+**Frozen.** `POST …/start` writes the version the decks passed onto the game, and
+nothing reads the list for it again: an edit, a deletion or an ingest cannot reach
+a running game, whose row says `"frozen": true` and whose `GET …/list` answers that
+version. A rematch is a new game and reads the list afresh.
+
+**A deck is never refused for being illegal.** `POST /decks` and `PUT /decks/{id}`
+ask only what a game could not be built from: a line that does not read, a card
+this pool lacks, 250 cards a list. Copies and who may lead are the format's
+questions, and `GET /decks` says how each deck stands in its own format now, so one
+that became illegal later is told:
+
+```json
+"legality": {"standing": "illegal", "problems": [{"kind": "banned", "card": 229}]}
+```
+
+`standing` is `legal`, `illegal` or `unknown` (no catalog, or a format whose shape
+this build does not know). A deck of `freeform` has nothing to keep to.
 
 ### Which clock a table plays at
 
@@ -4874,6 +5100,43 @@ offers `0..=max`, where `max` is the most payments the caster's mana can
 cover; the copies then ask their new targets as the trigger resolves, with
 the question every copy asks.
 
+`NumberPrompt::Multikicker { cost }` is the same question for a multikicker
+(CR 702.33c), and it is a variant a reader before `VIEW_VERSION` 85 cannot
+parse. Its `max` is what the floating mana pays once nothing is left to tap,
+and the engine's ceiling of 50 (`REPLICATE_CEILING`) while something is, as an
+X's is: a client that plans its mana narrows it (`Interaction::cap_number`),
+and a count the window cannot reach reverses the cast. So 50 is the most a
+spell can be kicked in one cast while lands remain. No printed multikicker asks
+for a count near it, and the rule itself sets no limit.
+
+### Where a resolved spell goes
+
+`Pending::ChooseCastMode` also asks where a resolved instant or sorcery goes,
+with every option a `CastModeKind::SpellEnding(SpellEnding)` (`VIEW_VERSION`
+85), when more than one "instead" wants the move to the graveyard: `Hand`
+(buyback), `Rebound`, `Adventure`, or `Exile` (an effect that replaces the
+graveyard). `player` is the spell's controller (CR 616.1), so a controlled
+player's question is answered by their controller, and `object` is the spell,
+still on the stack with its effects done. The answer is
+`PlayerAction::ChooseMode` with the option's position. It is not a way to cast:
+`cost` is zero, nothing can be cancelled, and no question follows it.
+
+### What a buyback question carries
+
+`YesNoPrompt::Buyback { cost, parts }` (`VIEW_VERSION` 85) is asked as a spell
+is cast, with the other additional costs, and only when a yes could be paid.
+`cost` is the mana as it stands, after `Modifier::BuybackCostsLess`; `parts`
+(`BuybackParts`) counts what else it asks, because the card's own cost parts
+hold `'static` filters no wire can carry and a reader must still be able to
+name the whole price. The objects are asked after a yes, as `ChooseCards`.
+`source` is the card's `AbilityRef::ADDITIONAL_COST`, and no standing answer is
+stored under it. `LegalActions::buyback_less` tells a planner what comes off
+the buyback cost before the cast begins; absent means none.
+
+`PublicObject::times_kicked` and `PublicObject::bought_back` say, for a spell
+on the stack, what was announced for it (CR 601.2b). Every seat is told; both
+are absent on anything else, so they cost a view nothing.
+
 ### What a question holds an answer to
 
 `apply` refuses an answer only for a reason its question states, and takes
@@ -4977,6 +5240,29 @@ The same version adds default-empty `activation_increases` entries
 These keep mana planners from treating taxed activations as free mana sources;
 manual activations remain governed by the authoritative legal-action lists.
 
+### Spell cost reductions (compatible addition)
+
+`LegalActions.spell_reductions` is the other half of `spell_increases`: the
+same `(ObjectId, CastModeKind, u32)` shape, the same identities (the acting
+seat's own candidate zones and play permissions) and the same override rule
+(`Normal` applies to alternative costs and flashback; face, prototype and
+disguise entries override it and may be zero). The amount is the generic mana
+the cast's total cost is reduced by: rules effects (Goblin Warchief's "Goblin
+spells you cast cost {1} less", `SpellsCostLessPerCounter`) and the card's own
+printed reduction (affinity, Surgical Metamorph), which the view cannot
+evaluate. A disguise cast has no printed reduction. It defaults to empty and is
+omitted when empty, and it never changes what `spell_increases` says: an entry
+in the increases still means only the increases.
+
+A planner prices a cast as CR 601.2f determines its total cost: increases
+first, then reductions, which take off generic mana only and never go below
+`{0}` (CR 118.7a). In the workspace that is one function,
+`baylee_ai::spell_price`, which the house, the LLM seat's reach and the
+client's planner all call. An older planner that ignores the field prices
+the printed cost, which is what every planner did before it existed: it
+offers a reduced spell late and taps one land too many, and the engine
+still charges the right price. No protocol or view version moves.
+
 Protocol 12 adds `ChoicePrompt::RemoveLandCounters`, identifying the land whose
 linked counters will be removed. The German/English client and seat narrator
 explain the consequence before confirmation. No view schema change is needed.
@@ -4995,3 +5281,35 @@ The public object's `TOKEN` status distinguishes an actual token permanent from
 identifier. Image identity alone is not rules identity. Internal merged
 components are omitted from the command-zone view; the battlefield permanent
 shows its top printing and retains its existing object handle.
+
+## Votes (protocol 37, view 83)
+
+A vote (CR 701.38a: each player, starting with a specified player and
+proceeding in turn order, chooses one of the choices) is asked of each voter
+in turn as `Pending::ChooseCards` with `ChoicePrompt::Vote`, `min == max == 1`;
+the options are what that player may vote for. A player with no legal choice
+is not asked. Each ballot is announced as it is cast (CR 608.2d), so the next
+voter knows every vote before theirs, and nothing about a vote is hidden:
+
+- `LogEvent::Voted { player, object }` is written to every seat's log as the
+  ballot is cast, not when the vote is counted. `object` is a `LogObject`
+  with the ordinary visibility of what was voted for.
+- `PlayerView::ballots` (and `SpectatorView::ballots`) is the vote in
+  progress: every `Ballot { voter, choice }` cast so far, in the order cast,
+  the same in every seat's view and a spectator's. It is empty outside a
+  vote, absent on the wire while empty and read as empty when absent.
+
+The prompt and the log line are enum variants an older reader cannot
+decode, so `PROTOCOL_VERSION` is 37 and `VIEW_VERSION` 83; `ballots` alone
+would be additive. The client heads the question "Cast your vote" and ends
+the prompt line, the voter's and every waiting seat's, with the tally
+("Votes so far: …"); the LLM seat reads the prompt in its own words and the
+ballots in the log it is narrated.
+
+Protocol 37 also distinguishes the counter kind in
+`YesNoPrompt::ApplyAdditionalCountersNext`: `kind: Some(kind)` introduces
+that kind through an entry replacement, while `kind: None` adds to each
+kind already being placed. The client and LLM narrator name the specific
+kind when present. Replacement applicability is recalculated after each
+choice (CR 616.1f); an entry replacement must introduce the first counters
+before a counter doubler can apply.

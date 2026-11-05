@@ -260,6 +260,29 @@ fn a_creature_type_choice_is_answerable() {
     );
 }
 
+#[test]
+fn a_card_type_choice_is_answerable() {
+    let options = vec![
+        baylee_core::types::TypeSet::INSTANT,
+        baylee_core::types::TypeSet::CREATURE,
+        baylee_core::types::TypeSet::SORCERY,
+    ];
+    let mut i = interaction(Pending::ChooseCardType {
+        player: me(),
+        options: options.clone(),
+    });
+    assert!(!i.can_confirm());
+    assert!(!i.choose_index(options.len()));
+    assert!(i.choose_index(1));
+    assert_eq!(i.chosen_index(), Some(1));
+    assert_eq!(
+        i.confirm(),
+        Some(PlayerAction::ChooseCardType(
+            baylee_core::types::TypeSet::CREATURE
+        ))
+    );
+}
+
 /// Every choice answered by position answers the same way, which is what
 /// lets one chooser row in the renderer serve all four.
 #[test]
@@ -422,4 +445,21 @@ fn named_custom_counters_remain_distinguishable_in_the_counter_chooser() {
         let unique: std::collections::BTreeSet<_> = names.iter().collect();
         assert_eq!(unique.len(), names.len());
     }
+}
+
+/// A multikicker's range is capped as an X's is: the engine leaves it open
+/// while a land is untapped, and the player is shown what the lands pay.
+#[test]
+fn a_multikicker_count_is_capped_as_an_x_is() {
+    let mut i = interaction(Pending::ChooseNumber {
+        player: me(),
+        min: 0,
+        max: 50,
+        reason: baylee_engine::choice::NumberPrompt::Multikicker {
+            cost: baylee_core::mana::ManaCost::parse("{1}{G}"),
+        },
+    });
+    i.cap_number(2);
+    assert_eq!(i.set_number(9), 2);
+    assert_eq!(i.confirm(), Some(PlayerAction::ChooseNumber(2)));
 }

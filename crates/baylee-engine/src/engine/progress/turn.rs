@@ -45,7 +45,7 @@ impl<L: CardLookup> Engine<L> {
                 .delayed
                 .retain(|d| !d.when.lapses_with_the_turn());
             // Control of a player's turn ends as the next one begins, and
-            // one waiting for this player's turn begins it (CR 722.1).
+            // one waiting for this player's turn begins it (CR 723.1).
             self.begin_turn_controls();
         }
         // Only the seat whose turn this is: summoning sickness is measured
@@ -343,7 +343,7 @@ impl<L: CardLookup> Engine<L> {
         self.awaiting_answer = true;
     }
 
-    /// Queues delayed actions (suspend finishes, pact payments) when the
+    /// Queues delayed actions (suspend finishes, a pact's price) when the
     /// upkeep step begins.
     pub(crate) fn queue_upkeep_delayed(&mut self) {
         let active = self.state.turn.active;
@@ -407,18 +407,8 @@ impl<L: CardLookup> Engine<L> {
                 } else {
                     self.state.delayed.remove(i)
                 };
-                // A payment waits for this upkeep's priority window; see
-                // `upkeep_payments`. Everything else does what it does now.
-                if matches!(
-                    trigger.action,
-                    crate::state::DelayedAction::PayCostOrLose { .. }
-                        | crate::state::DelayedAction::PayCostOrSacrifice { .. }
-                ) {
-                    self.upkeep_payments.push_back(trigger.action);
-                } else {
-                    self.delayed_queue
-                        .push_back((trigger.controller, trigger.action));
-                }
+                self.delayed_queue
+                    .push_back((trigger.controller, trigger.action));
             } else {
                 i += 1;
             }
@@ -426,7 +416,7 @@ impl<L: CardLookup> Engine<L> {
     }
 
     /// The name a synthetic ability on the stack goes by: its source's, or,
-    /// for the monarch's abilities, which have none (CR 724.2), the
+    /// for the monarch's abilities, which have none (CR 725.2), the
     /// designation's. Falling back to name `0` named them after whatever
     /// card was interned first.
     pub(super) fn synthetic_source_name(

@@ -3,6 +3,53 @@
 
 use super::*;
 
+/// Buyback (CR 702.27a) is a field of the face, mana or parts, and a card
+/// that prints it is read in full.
+#[test]
+fn buyback_is_read_onto_the_face_in_mana_or_in_parts() {
+    let cost = |line: &str| {
+        read(&format!(
+            "Name:X\nManaCost:U\nTypes:Instant\nK:Buyback:{line}\nA:SP$ Draw | NumCards$ 1"
+        ))
+        .buyback
+    };
+    assert_eq!(cost("3").as_deref(), Some("Some(cost!(\"{3}\"))"));
+    assert_eq!(cost("2 U").as_deref(), Some("Some(cost!(\"{2}{U}\"))"));
+    assert_eq!(
+        cost("PayLife<4>").as_deref(),
+        Some("Some(cost!(PayLife(4)))")
+    );
+    let land = cost("Sac<1/Land/land>").expect("a land is a cost the cast pays");
+    assert!(land.contains("Sacrifice("), "{land}");
+}
+
+/// A part the cast does not pay would be a free buyback, so it is refused.
+#[test]
+fn buyback_refuses_a_part_the_cast_does_not_pay() {
+    assert!(refused(
+        "Name:X\nManaCost:U\nTypes:Instant\nK:Buyback:T\nA:SP$ Draw | NumCards$ 1"
+    ));
+}
+
+/// Multikicker (CR 702.33c) is a mana cost on the face, and "for each time it
+/// was kicked" is the count the spell announced.
+#[test]
+fn multikicker_and_its_count_are_read() {
+    let body = read(
+        "Name:X\nManaCost:1 G\nTypes:Creature\nPT:1/1\nK:Multikicker:1 G\n\
+         K:etbCounter:P1P1:X\nSVar:X:Count$TimesKicked",
+    );
+    assert_eq!(body.multikicker.as_deref(), Some("Some(mana!(\"{1}{G}\"))"));
+    assert!(
+        body.enter_modifiers[0].contains("Amount::TimesKicked"),
+        "{:?}",
+        body.enter_modifiers
+    );
+    assert!(refused(
+        "Name:X\nManaCost:1 G\nTypes:Creature\nPT:1/1\nK:Multikicker:Sac<1/Land/land>"
+    ));
+}
+
 /// `Amount$ X` over `SVar:X:Count$Valid …` is a counted mana amount.
 ///
 /// Cabal Coffers' sentence, and the DSL has been able to say it since
@@ -1010,5 +1057,23 @@ fn a_refused_script_always_says_why() {
             "the near miss is supposed to be read: {script}"
         );
         assert_eq!(refusal_reason(&parsed, &cats(), None), None, "{script}");
+    }
+}
+
+/// Doomskar's `K:Foretell:1 W W` is the later cast cost. The fixed {2}
+/// special action belongs to the engine, and a non-mana or extended spelling
+/// remains an honest stub rather than silently charging a different price.
+#[test]
+fn foretell_reads_only_its_complete_mana_cost() {
+    let body = read("Name:Doomskar\nTypes:Sorcery\nK:Foretell:1 W W");
+    assert_eq!(body.foretell.as_deref(), Some("Some(mana!(\"{1}{W}{W}\"))"));
+    assert!(!body.is_empty());
+    for script in [
+        "Name:X\nTypes:Sorcery\nK:Foretell:",
+        "Name:X\nTypes:Sorcery\nK:Foretell:Sac<1/Creature>",
+        "Name:X\nTypes:Sorcery\nK:Foretell:1 W W:Unexpected",
+    ] {
+        let parsed = parse(script);
+        assert!(transcode(&parsed, &cats(), None).is_none(), "{script}");
     }
 }

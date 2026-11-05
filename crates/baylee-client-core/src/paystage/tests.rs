@@ -20,6 +20,7 @@ fn step(n: u32) -> Step {
         source: id(n),
         tap: Tap::Intrinsic,
         color: None,
+        second: None,
     }
 }
 
@@ -94,6 +95,7 @@ fn toggling_a_staged_permanent_again_unstages_it_whatever_it_asks() {
         source: id(2),
         tap: Tap::Ability(1),
         color: Some(ManaColor::Blue),
+        second: None,
     };
     assert!(!staging.toggle(other_mode), "the second click un-stages");
     assert_eq!(sources_of(&staging), [id(1), id(3)]);
@@ -133,6 +135,7 @@ fn worth_of_a_fixed_source_counts_its_amount() {
         source: id(1),
         tap: Tap::Ability(0),
         color: None,
+        second: None,
     };
     assert_eq!(worth(&tap, &[sol_ring]), [(ManaColor::Colorless, 2)]);
 }
@@ -149,6 +152,7 @@ fn worth_of_a_bundle_is_one_of_each_colour() {
         source: id(1),
         tap: Tap::Ability(0),
         color: None,
+        second: None,
     };
     assert_eq!(
         worth(&tap, &[karoo]),
@@ -165,6 +169,7 @@ fn worth_of_a_choice_needs_the_colour_answered() {
         source: id(1),
         tap: Tap::Ability(0),
         color: Some(ManaColor::Red),
+        second: None,
     };
     let unanswered = Step { color: None, ..red };
     assert_eq!(worth(&red, &sources), [(ManaColor::Red, 1)]);
@@ -180,16 +185,19 @@ fn worth_of_a_painland_follows_the_mode_staged() {
         source: id(1),
         tap: Tap::Ability(1),
         color: Some(ManaColor::White),
+        second: None,
     };
     let free = Step {
         source: id(1),
         tap: Tap::Ability(0),
         color: None,
+        second: None,
     };
     assert_eq!(worth(&dear, &sources), [(ManaColor::White, 1)]);
     assert_eq!(worth(&free, &sources), [(ManaColor::Colorless, 1)]);
     let unanswered = Step {
         color: None,
+        second: None,
         ..dear
     };
     assert!(
@@ -208,12 +216,14 @@ fn worth_never_over_counts_what_it_cannot_read() {
         source: id(99),
         tap: Tap::Intrinsic,
         color: None,
+        second: None,
     };
     assert!(worth(&not_listed, &sources).is_empty(), "no such source");
     let wrong_colour = Step {
         source: id(1),
         tap: Tap::Intrinsic,
         color: Some(ManaColor::Red),
+        second: None,
     };
     assert!(
         worth(&wrong_colour, &sources).is_empty(),
@@ -223,6 +233,7 @@ fn worth_never_over_counts_what_it_cannot_read() {
         source: id(2),
         tap: Tap::Ability(0),
         color: Some(ManaColor::Colorless),
+        second: None,
     };
     assert!(
         worth(&colourless_from_five, &sources).is_empty(),
@@ -232,6 +243,7 @@ fn worth_never_over_counts_what_it_cannot_read() {
         source: id(1),
         tap: Tap::Ability(5),
         color: None,
+        second: None,
     };
     assert!(worth(&wrong_mode, &sources).is_empty(), "no such mode");
 }
@@ -353,6 +365,7 @@ fn wire_turns_each_step_into_its_action_in_staging_order() {
         source: id(2),
         tap: Tap::Ability(3),
         color: Some(ManaColor::Blue),
+        second: None,
     };
     let staging = staged(&[ability, step(1)]);
     let wire = staging
@@ -382,6 +395,7 @@ fn wire_refuses_a_tap_that_is_no_longer_offered() {
         source: id(2),
         tap: Tap::Ability(1),
         color: None,
+        second: None,
     }]);
     assert_eq!(
         ability.wire(&offered(&[2], &[(2, 0)])),

@@ -4,6 +4,11 @@ Documentation=https://github.com/AceVik/baylee
 
 [Service]
 Type=simple
+# For a phone on a trusted LAN, bind the machine's explicit LAN address and
+# allow any name the phone uses for it, e.g.
+#   --bind 192.168.0.103:8787 --allow-host bigace.local:8787
+# Add `--pipeline /absolute/train_ops/execution-dir` (repeatable) for the
+# training panel. See docs/workstation-monitor.md.
 ExecStart=%h/.local/lib/baylee-monitor/baylee-monitor --bind 127.0.0.1:8787
 Restart=on-failure
 RestartSec=5

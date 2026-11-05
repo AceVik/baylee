@@ -23,6 +23,19 @@
 //! learns no person and no game, and a name never stands where an
 //! instruction could.
 //!
+//! # A decision for a controlled player
+//!
+//! A decision the seat makes for the player whose turn it controls
+//! (Mindslaver, CR 723.5) is told as one: a line under the header says
+//! whom it is for, that it may go against that player's interest, uses
+//! that player's cards and mana only, and that the seat cannot concede for
+//! them (CR 723.6; [`Table::controlled_line`]). "You" stays the seat
+//! throughout: the controlled player's hand, pool, lands, commander,
+//! library and turn are "P2's", never "your" ([`Table::decider`]), the
+//! hand the seat sees through control is told under P2's name, and the
+//! options cast, tap and declare with P2's objects. A concession is not an
+//! answer there ([`Menu::resolve`]).
+//!
 //! # Ids
 //!
 //! An object is `#` and its arena slot, which names one live object at a
@@ -65,7 +78,8 @@ use baylee_view::{
 use std::collections::BTreeSet;
 use std::fmt::Write as _;
 
-/// The most log lines one wake carries; older ones are counted, not told.
+/// The most log lines one wake carries, counted as written (after identical
+/// lines are folded); older ones are counted, not told.
 pub const LOG_LINES: usize = 40;
 
 /// A rough token count for English text: one token per three characters,
@@ -242,6 +256,9 @@ impl Narrator {
         let mut text = String::new();
         let headline = table.headline(request);
         let _ = writeln!(text, "{}", table.header(request, stops_summary));
+        if let Some(line) = table.controlled_line() {
+            let _ = writeln!(text, "{line}");
+        }
         for note in notes {
             let _ = writeln!(text, "{note}");
         }
@@ -302,7 +319,6 @@ impl Narrator {
             return Vec::new();
         }
         let mut book = LogBook::new();
-        let whole = entries.len();
         book.append(&LogTail { from: 0, entries }, table.view);
         let statics = table.statics();
         let wording = Wording {
@@ -346,8 +362,10 @@ impl Narrator {
         if gap {
             out.push("(some earlier lines were lost on the way)".to_string());
         }
-        if whole > LOG_LINES {
-            let dropped = whole - LOG_LINES;
+        // The cap counts lines as written: entries the book merged or that
+        // were folded above are fewer lines than were heard.
+        if lines.len() > LOG_LINES {
+            let dropped = lines.len() - LOG_LINES;
             lines.drain(..dropped);
             out.push(format!("({dropped} earlier lines not shown)"));
         }
@@ -656,6 +674,52 @@ impl<'a> Table<'a> {
         self.view.seat
     }
 
+    /// The player this decision is made for, whose cards and mana it uses:
+    /// the seat, or the player whose turn it controls (CR 723.5).
+    pub fn decider(&self) -> PlayerId {
+        baylee_client_core::decision::resource_player(self.view)
+    }
+
+    /// The player this decision is made for, when that is not the seat.
+    pub fn controlled(&self) -> Option<PlayerId> {
+        Some(self.decider()).filter(|p| *p != self.me())
+    }
+
+    /// The decider's possessive at the start of a sentence: "Your" or
+    /// "P2's".
+    pub fn decider_whose_cap(&self) -> String {
+        if self.controlled().is_some() {
+            self.whose(self.decider())
+        } else {
+            "Your".into()
+        }
+    }
+
+    /// `text` written for the decider: unchanged in the seat's own
+    /// decision; in a controlled one, "your" is the controlled player's and
+    /// "you control" what that player controls. For the fixed sentences
+    /// the menu shares with the seat's own decisions (a search, a pile).
+    pub fn for_decider(&self, text: &str) -> String {
+        let Some(p) = self.controlled() else {
+            return text.to_string();
+        };
+        let name = Self::player_id(p);
+        text.replace("you control", &format!("{name} controls"))
+            .replace("Your ", &format!("{name}'s "))
+            .replace("your ", &format!("{name}'s "))
+    }
+
+    /// The line under the header of a decision for a controlled player
+    /// (CR 723.5, 723.6); `None` in the seat's own.
+    pub fn controlled_line(&self) -> Option<String> {
+        let p = Self::player_id(self.controlled()?);
+        Some(format!(
+            "You control {p} this turn (Mindslaver, CR 723.5): decide this for {p}, with {p}'s \
+             cards and mana only. You may play it against {p}'s interest. You cannot concede \
+             for {p}. Your own decisions stay yours."
+        ))
+    }
+
     /// A player as a subject: "you" or "P2".
     pub fn player(&self, p: PlayerId) -> String {
         if p == self.me() {
@@ -681,7 +745,12 @@ impl<'a> Table<'a> {
 
     /// Whether `p` plays on this seat's side.
     pub fn ally(&self, p: PlayerId) -> bool {
-        if p == self.me() {
+        self.same_side(p, self.me())
+    }
+
+    /// Whether `a` and `b` play on one side: the same player, or one team.
+    pub fn same_side(&self, a: PlayerId, b: PlayerId) -> bool {
+        if a == b {
             return true;
         }
         let side = |p: PlayerId| {
@@ -691,7 +760,7 @@ impl<'a> Table<'a> {
                 .copied()
                 .flatten()
         };
-        matches!((side(p), side(self.me())), (Some(a), Some(b)) if a == b)
+        matches!((side(a), side(b)), (Some(x), Some(y)) if x == y)
     }
 
     /// An object's name as the view shows it, wherever it is.
@@ -809,13 +878,17 @@ impl<'a> Table<'a> {
     }
 
     fn headline(&self, request: &Request) -> String {
-        format!(
+        let mut line = format!(
             "q{} · {} · {} · {}",
             request.question,
             self.turn(),
             words::step_name(self.view.phase, self.view.step),
             crate::scripted::kind(&request.pending),
-        )
+        );
+        if let Some(p) = self.controlled() {
+            let _ = write!(line, " for {}", Self::player_id(p));
+        }
+        line
     }
 }
 

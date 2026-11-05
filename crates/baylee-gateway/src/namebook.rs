@@ -111,7 +111,7 @@ mod tests {
         let schema = format!("t_namebook_{}", std::process::id());
         let admin = Database::connect(&url).await.expect("connecting");
         admin
-            .execute_unprepared(&format!("DROP SCHEMA IF EXISTS \"{schema}\" CASCADE"))
+            .execute_unprepared(&baylee_db::drop_schema_statement(&schema))
             .await
             .expect("clearing a schema");
         admin
@@ -158,7 +158,7 @@ mod tests {
         assert!(!unknown.contains_key(&nobody));
 
         admin
-            .execute_unprepared(&format!("DROP SCHEMA \"{schema}\" CASCADE"))
+            .execute_unprepared(&baylee_db::drop_schema_statement(&schema))
             .await
             .expect("dropping the schema");
     }

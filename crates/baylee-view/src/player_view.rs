@@ -45,6 +45,16 @@ pub struct LostSeat {
     pub remaining_ms: Option<u32>,
 }
 
+/// One player's vote in the vote in progress, as [`PlayerView::ballots`]
+/// tells it (CR 701.38a).
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
+pub struct Ballot {
+    /// The voter.
+    pub voter: PlayerId,
+    /// What they voted for: an object this view shows.
+    pub choice: ObjectId,
+}
+
 // ---------------------------------------------------------------------- view
 
 /// The complete, hidden-information-filtered state of a game as one seat sees
@@ -60,7 +70,7 @@ pub struct PlayerView {
     /// This may differ from the viewing seat under CR 722.
     #[serde(default)]
     pub decision_player: Option<PlayerId>,
-    /// Hands inspected through current control of another player (CR 722.4).
+    /// Hands inspected through current control of another player (CR 723.4).
     /// Separate from voluntary team sharing; rebuilt for every decision.
     #[serde(default)]
     pub controlled_hands: Vec<SharedHand>,
@@ -289,6 +299,18 @@ pub struct PlayerView {
     pub command: Vec<Vec<PublicObject>>,
     /// Combat, when combat is declared.
     pub combat: CombatView,
+    /// The ballots of the vote in progress, in the order they were cast,
+    /// and empty outside a vote (CR 701.38a: each player in turn order).
+    ///
+    /// **Public**, the same in every seat's view and a spectator's: each
+    /// vote is announced as it is cast (CR 608.2d), so a player votes knowing
+    /// every ballot before theirs. The game log tells the same line by line
+    /// ([`LogEvent::Voted`](crate::LogEvent::Voted)); this is the tally a
+    /// client can draw beside the question without reading the log.
+    ///
+    /// Additive: absent on the wire while empty, and read as empty when absent.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ballots: Vec<Ballot>,
     /// Cards this seat is being *shown*, which live in no zone it can see.
     ///
     /// A library search, a scry, an opponent's revealed hand: the engine asks
@@ -329,6 +351,45 @@ pub struct PlayerView {
     /// Added to support Teferi, Time Raveler's +1 ability correctly.
     #[serde(default)]
     pub sorceries_have_flash: bool,
+    /// The card types of spells this seat may cast as though they had flash
+    /// by an effect it controls (`Modifier::SpellsHaveFlash`): every type
+    /// under Alchemist's Refuge or Leyline of Anticipation, creatures under
+    /// Vivien, Champion of the Wilds. Empty in the ordinary case, and then
+    /// not written. Teferi's +1 stays [`Self::sorceries_have_flash`].
+    #[serde(default, skip_serializing_if = "no_types")]
+    pub flash_types: baylee_core::types::TypeSet,
+    /// Every player whose decisions another player makes now (Mindslaver,
+    /// CR 723), as the table sees it: public, so every seat and spectator
+    /// is told for the whole controlled turn. Empty in the ordinary case,
+    /// and then not written.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub controls: Vec<PlayerControl>,
+    /// The abilities on [`Self::stack`] whose text has someone other than
+    /// their controller choose the targets: Confusion in the Ranks, The
+    /// Abyss, Preacher. A stack object says who controls it, and a reader
+    /// would take that for who aimed it; one of these aimed at its own
+    /// controller is that player's to answer as an opposing spell is. Empty
+    /// in the ordinary case, and then not written.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub foreign_targets: Vec<ObjectId>,
+}
+
+/// One player whose decisions another makes (CR 723.5).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PlayerControl {
+    /// The controlled player.
+    pub player: PlayerId,
+    /// Who decides for them.
+    pub controller: PlayerId,
+    /// The card whose effect gave the control, where one did (Mindslaver).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<CardIndex>,
+}
+
+/// `skip_serializing_if` for a [`baylee_core::types::TypeSet`] field.
+#[allow(clippy::trivially_copy_pass_by_ref)] // serde hands the field by reference
+const fn no_types(types: &baylee_core::types::TypeSet) -> bool {
+    types.is_empty()
 }
 
 /// Authoritative context, sent only to the seat choosing targets.

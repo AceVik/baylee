@@ -210,13 +210,14 @@ impl<L: CardLookup> Engine<L> {
     pub(super) fn commanded_pool_completes(&self) -> bool {
         let Some(super::PaymentWindow {
             player,
-            suspended: super::PaymentContinuation::Miracle { wizard, cost, .. },
+            suspended: super::PaymentContinuation::Miracle { wizard, .. },
         }) = self.mana_window.as_ref()
         else {
             return false;
         };
         let face = self.wizard_face(wizard);
-        let (cost, restriction) = self.restricted_x_payment(wizard, *cost);
+        let total = self.wizard_paid(wizard);
+        let (cost, restriction) = self.restricted_x_payment(wizard, total);
         let cost = self.north_star_payment(wizard, cost);
         crate::casting::plan_mana_scoped(
             &self.state,
@@ -418,7 +419,7 @@ impl<L: CardLookup> Engine<L> {
                         .map(|entry| (entry.controller, entry.player))
                 })
                 .or_else(|| {
-                    // The last one created is the one that works (CR 722.1a),
+                    // The last one created is the one that works (CR 723.1a),
                     // and only during the turn it was stamped with.
                     self.state
                         .turn_controls
@@ -453,6 +454,38 @@ impl<L: CardLookup> Engine<L> {
             .iter()
             .filter(|p| p.id != viewer && !p.has_lost() && self.may_inspect_private(viewer, p.id))
             .map(|p| p.id)
+            .collect()
+    }
+
+    /// Every player whose decisions another player makes right now, with
+    /// that player and the card whose effect gave the control, where one
+    /// did. Public (CR 723: the effect that gives it is public), so every
+    /// seat is told, not only the two it concerns.
+    #[must_use]
+    pub fn player_controls(
+        &self,
+    ) -> Vec<(PlayerId, PlayerId, Option<baylee_core::ids::CardIndex>)> {
+        self.state
+            .players
+            .iter()
+            .filter(|p| !p.has_lost())
+            .filter_map(|p| {
+                let controller = self.controlled_actor(p.id);
+                (controller != p.id).then(|| {
+                    let source = self
+                        .state
+                        .turn_controls
+                        .iter()
+                        .rev()
+                        .find(|entry| {
+                            entry.player == p.id
+                                && entry.controller == controller
+                                && entry.began == Some(self.state.turn.number)
+                        })
+                        .and_then(|entry| entry.source);
+                    (p.id, controller, source)
+                })
+            })
             .collect()
     }
 
@@ -514,9 +547,9 @@ impl<L: CardLookup> Engine<L> {
     /// A turn has just begun (`begin_turn`, with its number and active player
     /// set): a control that covered the turn before ends, since it lasts
     /// "until the beginning of the next turn", whoever takes it, and one
-    /// waiting for the active player's next actual turn begins it (CR 722.1).
+    /// waiting for the active player's next actual turn begins it (CR 723.1).
     /// A skipped turn never begins, so the control waits on past it
-    /// (CR 722.1b), and another player's turn, extra or not, leaves it
+    /// (CR 723.1b), and another player's turn, extra or not, leaves it
     /// waiting.
     pub(super) fn begin_turn_controls(&mut self) {
         let number = self.state.turn.number;

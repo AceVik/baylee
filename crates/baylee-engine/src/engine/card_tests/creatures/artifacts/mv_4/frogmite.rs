@@ -29,3 +29,25 @@ fn frogmite_costs_zero_with_four_artifacts_you_control() {
     assert!(on_battlefield(&engine, p0, frog).is_some());
     assert_eq!(engine.state().players[0].mana_pool.total(), 0);
 }
+
+/// Affinity is the card's own reduction, and the view cannot count it for a
+/// planner: the engine publishes it beside the rules effects' (NEW-03).
+#[test]
+fn frogmite_publishes_its_affinity_to_the_planners() {
+    let p0 = PlayerId::new(0);
+    let frog = frogmite();
+    let ring = sol_ring();
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[ring, ring, forest()])
+        .hand(0, &[frog])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let frog_card = in_hand(&engine, p0, frog).unwrap();
+    assert_eq!(
+        priority_offer(&engine).spell_reduction(frog_card, CastModeKind::Normal),
+        2,
+        "two Sol Rings: {{4}} less two"
+    );
+}

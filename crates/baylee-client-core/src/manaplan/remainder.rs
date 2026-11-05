@@ -72,10 +72,11 @@ fn owed(symbols: &[ManaSymbol], pool: &ManaPoolView, generic_twobrid: bool) -> V
     let order: Vec<usize> = (0..floating.len()).collect();
     let mut demands: Vec<usize> = (0..needs.len()).collect();
     demands.sort_by_key(|&n| needs[n].count());
+    let fits = |demand: usize, unit: usize| needs[demand].overlaps(floating[unit].colors);
     let mut taken: Vec<Option<usize>> = vec![None; floating.len()];
     for &demand in &demands {
         let mut seen = vec![false; floating.len()];
-        augment(demand, &needs, &floating, &order, &mut taken, &mut seen);
+        augment(demand, &fits, &order, &mut taken, &mut seen);
     }
     let mut paid = vec![false; needs.len()];
     for &demand in taken.iter().flatten() {

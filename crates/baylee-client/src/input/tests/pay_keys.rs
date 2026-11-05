@@ -34,6 +34,7 @@ fn with_a_forest_staged() -> (crate::Duel, ObjectId) {
         source: forest,
         tap: Tap::Intrinsic,
         color: None,
+        second: None,
     }));
     (duel, forest)
 }
@@ -126,6 +127,7 @@ fn space_with_the_cost_covered_by_hand_goes_at_once() {
         source: second,
         tap: Tap::Intrinsic,
         color: None,
+        second: None,
     }));
     pressed(&mut duel, bevy::prelude::KeyCode::Space);
     assert_eq!(

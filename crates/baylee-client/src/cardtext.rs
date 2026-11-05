@@ -27,7 +27,7 @@
 //! predates them, is not asked again until the language or the game changes:
 //! a retry per card drawn against a dead endpoint is noise, not a recovery.
 //! Until then Scryfall is asked instead ([`scryfall::search`]), one card at a
-//! time and three a second at most, and its printings go through the
+//! time and under two a second, and its printings go through the
 //! gateway's own rule ([`baylee_cardtext::card_entry`]), so an offline game
 //! in German reads the German the gateway would have served.
 //!
@@ -578,10 +578,11 @@ pub fn poll(mut texts: ResMut<CardTexts>) {
 
 /// How long the Scryfall door waits between two requests, in seconds.
 ///
-/// Scryfall asks clients for no more than ten a second. A game asking while
-/// it is being played is a guest there, and a hand of seven is two seconds
-/// of it at this pace.
-const PACE: f64 = 0.3;
+/// The door asks `/cards/search`, which Scryfall holds to two a second
+/// (`docs/legal.md` §3), and a little under that here. A game asking while it
+/// is being played is a guest there, and a hand of seven is four seconds of it
+/// at this pace.
+const PACE: f64 = 0.6;
 
 /// Asks Scryfall about the next card the view names without text, if the
 /// door is open; see [`Door`].

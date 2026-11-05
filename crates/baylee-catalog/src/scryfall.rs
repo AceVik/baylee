@@ -86,11 +86,15 @@ pub struct Card {
     pub games: Vec<String>,
     /// Format to legality (`legal`, `banned`, `restricted`, `not_legal`).
     ///
-    /// Only Vintage's is stored, and only one thing is asked of it: whether
-    /// the card is in a format's pool **at all**. `not_legal` means no format
-    /// has ever heard of it, which is what separates an Un-set's acorn cards
-    /// from the tournament-legal cards printed in the same joke set — a line
-    /// neither `set_type` nor the border colour draws, because Unfinity
+    /// The whole map is stored, per card (`card_legalities`), the printings
+    /// of a card merged (`rows::VERDICT_ORDER`): 23 formats on the feed of
+    /// 4.11.2026, and what arrives is kept, so a new one needs no release.
+    /// The pool's table reads it (`Catalog::pool_facts`), and so does the
+    /// corpus, which asks Vintage's for something much weaker: whether the
+    /// card is in a format's pool **at all**. `not_legal` there means no
+    /// format has ever heard of it, which is what separates an Un-set's acorn
+    /// cards from the tournament-legal cards printed in the same joke set — a
+    /// line neither `set_type` nor the border colour draws, because Unfinity
     /// prints both, black-bordered, side by side. `banned` is a real card.
     #[serde(default)]
     pub legalities: std::collections::BTreeMap<String, String>,

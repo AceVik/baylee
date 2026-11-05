@@ -13,15 +13,6 @@ ignore = [
     # `cargo-audit` reports it as a warning, which is why only one of the
     # two jobs went red on it.
     "RUSTSEC-2026-0192",
-    # `ruzstd` 0.8.3, a decompression bomb (a tiny input exhausts memory). It
-    # reaches us only through `bevy_image`'s `zstd_rust`, which `tonemapping_luts`
-    # needs for bevy's own LUTs: KTX2 files compiled into the binary, trusted
-    # input. The client loads no KTX2 or zstd from anywhere else (card art is
-    # JPEG/PNG/WebP through `artreader.rs`), so no untrusted byte reaches the
-    # decoder. The fix is ruzstd 0.9.1, which bevy_image cannot take: 0.19
-    # and 0.20 both ask `ruzstd = "0.8.0"` (checked at the 0.20 upgrade);
-    # drop this line with the bevy release that moves (accepted 13.10.2026).
-    "RUSTSEC-2026-0344",
     # crypto-bigint's timing advisory is unreachable in the reviewed Central
     # Ristretto255/SHA-512 suite: OPRF and DH use curve25519-dalek arithmetic;
     # the elliptic-curve helper reached here only expands hashes into bytes.

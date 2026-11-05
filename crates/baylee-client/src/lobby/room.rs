@@ -12,6 +12,7 @@ use baylee_client_core::lobby::room::Adjustment;
 use baylee_client_core::tour::Anchor;
 mod cards;
 mod llm;
+mod rules;
 
 /// Mirror the gateway: a host chooses for automated and open chairs,
 /// while a person keeps control of their own deck.
@@ -350,6 +351,7 @@ pub(super) fn draw(
         let l = super::parts::line(commands, kit, &line, kit.m.text, tokens::INK);
         commands.entity(rail).add_child(l);
     }
+    rules::draw(commands, rail, state, kit, index, game);
     if game.yours {
         let edit = controls::button(
             commands,
@@ -477,6 +479,10 @@ pub(super) fn draw(
     } else if let Some(chair) = state.chair_sheet {
         chair_sheet(commands, root, state, fonts, m, kit, index, chair);
     }
+    if state.lists_sheet {
+        rules::chooser(commands, root, state, kit, index);
+    }
+    rules::sheet(commands, root, state, kit);
     super::play::sheet_over(commands, root, state, m, kit);
 }
 
@@ -1415,6 +1421,16 @@ pub(crate) enum RoomPress {
     SaveRoom(bool),
     /// Apply a chosen deck directly to this seat.
     RoomDeck(usize, u32, usize),
+    /// Open the host's choice of a list.
+    OpenLists,
+    /// Put it away.
+    CloseLists,
+    /// Hold the room at this place to the list at that one, or to none.
+    ChooseList(usize, Option<usize>),
+    /// Read the table's list.
+    ReadList(usize),
+    /// Put the table's list away.
+    CloseList,
     /// Toggle the deck choices for a seat.
     RoomDeckPicker(u32),
     /// Expand or collapse a seat's optional starting-position editor.
@@ -1678,6 +1694,34 @@ impl RoomPress {
                     state.settings = super::SettingsPane::Open;
                 }
             }
+            RoomPress::OpenLists => {
+                state.lists_sheet = true;
+                dispatch(state, mailbox, Some(LobbyRequest::ListBanlists));
+            }
+            RoomPress::CloseLists => state.lists_sheet = false,
+            RoomPress::ChooseList(index, at) => {
+                state.lists_sheet = false;
+                let id = at.and_then(|at| {
+                    state
+                        .lobby
+                        .builder()
+                        .lists()
+                        .get(at)
+                        .map(|row| row.id.clone())
+                });
+                let game = state.lobby.games().get(index).map(|g| g.id.clone());
+                let request = game.and_then(|game| state.lobby.choose_room_list(&game, id));
+                dispatch(state, mailbox, request);
+            }
+            RoomPress::ReadList(index) => {
+                let game = state.lobby.games().get(index).map(|g| g.id.clone());
+                dispatch(
+                    state,
+                    mailbox,
+                    game.map(|game_id| LobbyRequest::LoadRoomList { game_id }),
+                );
+            }
+            RoomPress::CloseList => state.lobby.close_room_list(),
             RoomPress::CloseChair => {
                 state.chair_sheet = None;
                 state.hosted_sheet = false;

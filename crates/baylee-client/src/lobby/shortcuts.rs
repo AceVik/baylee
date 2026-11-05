@@ -118,6 +118,8 @@ fn builder_modal(state: &LobbyState) -> bool {
         || deck.inspecting().is_some()
         || state.confirm_leave
         || state.build.stats_sheet
+        || state.build.check_sheet
+        || deck.list_editor().is_some()
 }
 
 /// Writes [`ShellStack`] from the lobby every frame, and stands it down

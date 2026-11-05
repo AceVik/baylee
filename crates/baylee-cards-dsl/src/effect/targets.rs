@@ -187,6 +187,9 @@ pub enum TargetSpec {
     Spell(&'static Filter),
     /// A spell on the stack OR a permanent on the battlefield (Venser).
     StackOrBattlefield(&'static Filter),
+    /// A permanent on the battlefield or a card in any graveyard, chosen
+    /// together from one target list (Angel of Serenity).
+    ObjectOrCardInAnyGraveyard(&'static Filter),
     /// A card in a graveyard matching the filter.
     CardInGraveyard(&'static Filter, PlayerRel),
     /// A second target group, restricted to the first targeted player's graveyard.
@@ -229,6 +232,13 @@ pub enum TargetSpec {
     /// choice at all. "Target opponent" printed on a card is one opponent,
     /// picked, and in a game of four that is three different things.
     AnyOpponent,
+    /// "Target opponent who controls more [filter] than the active player"
+    /// (Oath of Druids). The trigger binds the active player before offering
+    /// targets; an unbound occurrence offers nobody.
+    OpponentWithMoreThanActivePlayer(&'static Filter),
+    /// The bound form of [`Self::OpponentWithMoreThanActivePlayer`], retained
+    /// on the stack so target legality compares with the triggering player.
+    OpponentWithMoreThanPlayer(&'static Filter, baylee_core::ids::PlayerId),
     /// "Any target" (CR 115.4): a creature, a planeswalker, a battle, **or
     /// a player** — one choice over a set that spans objects and players.
     ///

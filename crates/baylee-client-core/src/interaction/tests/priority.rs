@@ -8,7 +8,10 @@ fn priority_confirms_as_a_pass_and_exposes_the_legal_actions() {
     let legal = LegalActions {
         unpaid_abilities: vec![],
         payable: vec![],
+        cast_ways: vec![],
         spell_increases: vec![],
+        spell_reductions: vec![],
+        buyback_less: 0,
         activation_increases: vec![],
         can_pass: true,
         lands: vec![obj(1)],
@@ -16,6 +19,8 @@ fn priority_confirms_as_a_pass_and_exposes_the_legal_actions() {
         mana_abilities: vec![obj(3)],
         abilities: vec![(obj(4), 1)],
         suspendable: vec![],
+        foretellable: vec![],
+        unpaid_foretell: vec![],
         granted_actions: vec![],
     };
     let i = interaction(Pending::Priority {
@@ -31,7 +36,10 @@ fn playing_a_card_maps_to_the_right_action_and_refuses_illegal_ones() {
     let legal = LegalActions {
         unpaid_abilities: vec![],
         payable: vec![],
+        cast_ways: vec![],
         spell_increases: vec![],
+        spell_reductions: vec![],
+        buyback_less: 0,
         activation_increases: vec![],
         can_pass: true,
         lands: vec![obj(1)],
@@ -39,6 +47,8 @@ fn playing_a_card_maps_to_the_right_action_and_refuses_illegal_ones() {
         mana_abilities: vec![],
         abilities: vec![],
         suspendable: vec![],
+        foretellable: vec![],
+        unpaid_foretell: vec![],
         granted_actions: vec![],
     };
     let i = interaction(Pending::Priority {
@@ -77,7 +87,10 @@ fn an_offered_ability_at_index_zero_beats_a_granted_mana_ability() {
         legal: Box::new(LegalActions {
             unpaid_abilities: vec![],
             payable: vec![],
+            cast_ways: vec![],
             spell_increases: vec![],
+            spell_reductions: vec![],
+            buyback_less: 0,
             activation_increases: vec![],
             can_pass: true,
             lands: vec![],
@@ -87,6 +100,8 @@ fn an_offered_ability_at_index_zero_beats_a_granted_mana_ability() {
             mana_abilities: vec![strand],
             abilities: vec![(strand, 0)],
             suspendable: vec![],
+            foretellable: vec![],
+            unpaid_foretell: vec![],
             granted_actions: vec![],
         }),
     });
@@ -109,7 +124,10 @@ fn index_zero_is_the_mana_shortcut_when_nothing_else_was_offered_there() {
         legal: Box::new(LegalActions {
             unpaid_abilities: vec![],
             payable: vec![],
+            cast_ways: vec![],
             spell_increases: vec![],
+            spell_reductions: vec![],
+            buyback_less: 0,
             activation_increases: vec![],
             can_pass: true,
             lands: vec![],
@@ -117,6 +135,8 @@ fn index_zero_is_the_mana_shortcut_when_nothing_else_was_offered_there() {
             mana_abilities: vec![forest],
             abilities: vec![],
             suspendable: vec![],
+            foretellable: vec![],
+            unpaid_foretell: vec![],
             granted_actions: vec![],
         }),
     });
@@ -136,7 +156,10 @@ fn a_card_offered_as_both_a_land_and_a_spell_is_not_a_one_click_land() {
         legal: Box::new(LegalActions {
             unpaid_abilities: vec![],
             payable: vec![],
+            cast_ways: vec![],
             spell_increases: vec![],
+            spell_reductions: vec![],
+            buyback_less: 0,
             activation_increases: vec![],
             can_pass: true,
             lands: vec![plains, mdfc],
@@ -144,6 +167,8 @@ fn a_card_offered_as_both_a_land_and_a_spell_is_not_a_one_click_land() {
             mana_abilities: vec![],
             abilities: vec![],
             suspendable: vec![],
+            foretellable: vec![],
+            unpaid_foretell: vec![],
             granted_actions: vec![],
         }),
     });
@@ -161,7 +186,10 @@ fn activating_an_ability_requires_it_to_have_been_offered() {
     let legal = LegalActions {
         unpaid_abilities: vec![],
         payable: vec![],
+        cast_ways: vec![],
         spell_increases: vec![],
+        spell_reductions: vec![],
+        buyback_less: 0,
         activation_increases: vec![],
         can_pass: true,
         lands: vec![],
@@ -169,6 +197,8 @@ fn activating_an_ability_requires_it_to_have_been_offered() {
         mana_abilities: vec![obj(5)],
         abilities: vec![(obj(6), 2)],
         suspendable: vec![],
+        foretellable: vec![],
+        unpaid_foretell: vec![],
         granted_actions: vec![],
     };
     let i = interaction(Pending::Priority {
@@ -211,4 +241,20 @@ fn sparse_granted_identity_is_sent_unchanged_and_removed_ids_are_rejected() {
     );
     assert_eq!(i.activate(source, old), None);
     assert_eq!(i.activate(source, 0), None);
+}
+
+#[test]
+fn foretell_maps_only_an_offered_card_to_its_special_action() {
+    let card = obj(9);
+    let i = interaction(Pending::Priority {
+        player: me(),
+        legal: Box::new(LegalActions {
+            foretellable: vec![card],
+            unpaid_foretell: vec![],
+            ..Default::default()
+        }),
+    });
+    assert_eq!(i.foretell(card), Some(PlayerAction::Foretell { card }));
+    assert_eq!(i.foretell(obj(10)), None);
+    assert_eq!(i.play_card(card), None, "foretell is not a cast");
 }

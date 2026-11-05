@@ -263,7 +263,10 @@ pub fn question(pending: &Pending, hand: usize) -> (i16, u32) {
             8,
             n(options.len() + player_options.len() + usize::from(*min == 0)),
         ),
+        // A card type is a type choice too: the subtype's kind, so the
+        // question numbers the trained nets read stay as they are.
         Pending::ChooseSubtype { options, .. } => (9, n(options.len())),
+        Pending::ChooseCardType { options, .. } => (9, n(options.len())),
         Pending::ChooseColor { options, .. } => (10, n(options.len())),
         Pending::YesNo { .. } => (11, 2),
         Pending::ChooseCastMode { options, .. } => (12, n(options.len())),
@@ -292,6 +295,7 @@ pub fn seat_view(
         seq,
         Some(pending),
         &SeatContext {
+            controls: &baylee_gamehost::view::player_controls(engine),
             decision_player: pending.asked(),
             controlled_players: engine.controlled_players(seat),
             awaiting: awaiting_for(engine, seat),
@@ -300,6 +304,7 @@ pub fn seat_view(
             owed: owed_payment(engine),
             library_reveal_blocked: engine.library_reveal_blocked(),
             inspected_cards: engine.inspected_cards(),
+            ballots: engine.ballots(),
             decision_remaining_ms: None,
             policy_acts: &[],
         },

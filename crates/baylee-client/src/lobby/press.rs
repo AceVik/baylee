@@ -47,6 +47,8 @@ pub(crate) enum SharedPress {
     Focus(Field),
     /// Show a masked field in the clear, or cover it again.
     Reveal(Field),
+    /// Put away why a table's list turned a deck away.
+    CloseRefusal,
     /// Speak this language from now on.
     PickLang(Lang),
     ConfirmDestructive,
@@ -115,6 +117,7 @@ impl SharedPress {
             // An empty part of the artwork dialog dismisses its set
             // autocomplete.
             SharedPress::PickerNothing => state.lobby.builder_mut().picker_close_sets(),
+            SharedPress::CloseRefusal => state.lobby.close_refusal(),
             // A link's gateway, said yes to: asked about itself as a typed
             // address is, and saved only when a gateway answers.
             SharedPress::ConfirmDestructive

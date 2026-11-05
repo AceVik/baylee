@@ -742,6 +742,12 @@ impl Writer<'_> {
                 Phrase::LogCardsKept,
                 vec![self.objects(cards)],
             ),
+            LogEvent::Voted { player, object } => self.about(
+                *player,
+                Phrase::LogVotedYou,
+                Phrase::LogVoted,
+                vec![self.object(object)],
+            ),
             LogEvent::Revealed { player, cards } => self.about(
                 *player,
                 Phrase::LogRevealedYou,

@@ -648,6 +648,7 @@ fn the_payment_shelf_follows_what_is_staged() {
         source: forest,
         tap: Tap::Intrinsic,
         color: None,
+        second: None,
     }));
     for lang in [Lang::En, Lang::De] {
         let answers = answers_for(&duel, lang, false, false, false);
@@ -697,6 +698,7 @@ fn the_pay_now_label_counts_only_the_taps_still_to_stage() {
         source: forest,
         tap: Tap::Intrinsic,
         color: None,
+        second: None,
     }));
     let answers = answers_for(&duel, Lang::En, false, false, false);
     assert!(
@@ -705,5 +707,54 @@ fn the_pay_now_label_counts_only_the_taps_still_to_stage() {
             .any(|(says, label)| *says == Says::Answer(PromptAction::Confirm)
                 && *label == Phrase::PayStage.fill(Lang::En, &["1"])),
         "one tap still to stage: {answers:?}"
+    );
+}
+
+/// A question asked of a player this seat controls (CR 723.5) names that
+/// player and then asks it, "For Seat 1: Your move", and it is their move
+/// on their own turn; this seat's own question in that turn is its own.
+#[test]
+fn a_controlled_players_question_is_named_for_them() {
+    use baylee_engine::choice::{LegalActions, Pending};
+    let view = baylee_client_core::test_support::ViewBuilder::new(2)
+        .controlling(1, vec![])
+        .build();
+    let mut duel = Duel::default();
+    duel.receive_view(view.clone());
+    duel.receive_choice(Pending::Priority {
+        player: PlayerId::new(1),
+        legal: Box::new(LegalActions {
+            can_pass: true,
+            ..LegalActions::default()
+        }),
+    });
+    let texts = crate::cardtext::CardTexts::default();
+    let who = baylee_client_core::i18n::seat_name(Lang::En, None, PlayerId::new(1));
+    let question = Phrase::YourMove.text(Lang::En);
+    assert_eq!(
+        shelf_headline(&duel, Lang::En, &texts).unwrap(),
+        Phrase::ForPlayer.fill(Lang::En, &[&who, question]),
+    );
+    let who_de = baylee_client_core::i18n::seat_name(Lang::De, None, PlayerId::new(1));
+    assert!(
+        shelf_headline(&duel, Lang::De, &texts)
+            .unwrap()
+            .starts_with(&format!("Für {who_de}:"))
+    );
+
+    let mut mine = view;
+    mine.decision_player = Some(mine.seat);
+    duel.receive_view(mine);
+    duel.receive_choice(Pending::Priority {
+        player: PlayerId::new(0),
+        legal: Box::new(LegalActions {
+            can_pass: true,
+            ..LegalActions::default()
+        }),
+    });
+    assert_eq!(
+        shelf_headline(&duel, Lang::En, &texts).unwrap(),
+        Phrase::YouMayRespond.text(Lang::En),
+        "my own priority on their turn is a response, named for nobody"
     );
 }

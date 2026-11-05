@@ -155,6 +155,9 @@ fn least(
         Pending::ChooseSubtype { options, .. } => {
             options.first().map(|s| PlayerAction::ChooseSubtype(*s))
         }
+        Pending::ChooseCardType { options, .. } => options
+            .first()
+            .map(|card_type| PlayerAction::ChooseCardType(*card_type)),
         Pending::ChooseColor { options, .. } => {
             options.first().map(|c| PlayerAction::ChooseColor(*c))
         }

@@ -1,4 +1,7 @@
-use super::{BTreeMap, Context, Label, ShadowBc4, Value, ensure, expected_contract, sha};
+use super::{
+    BTreeMap, Context, Label, ShadowBc4, Value, ensure, expected_contract, llm_contract,
+    mind_answers, sha,
+};
 
 pub(super) fn load(
     run: &[u8],
@@ -6,14 +9,24 @@ pub(super) fn load(
     record: &[u8],
     game: &str,
     catalog: &str,
+    transcript: Option<&[u8]>,
 ) -> anyhow::Result<ShadowBc4> {
     ensure!(
-        bytes.len() <= 64 * 1024 * 1024,
+        bytes.len() <= 64 * 1024 * 1024 && transcript.is_none_or(|t| t.len() <= 64 * 1024 * 1024),
         "Shadow sidecar exceeds bounded game limit"
     );
     let mut lines = bytes.split(|b| *b == b'\n').filter(|l| !l.is_empty());
     let header: Value = serde_json::from_slice(lines.next().context("Missing shadow header")?)?;
     validate_header(run, &header, game, catalog)?;
+    // A watching model's labels are bound to its own answers in its seat
+    // transcript; the house's are reconstructed during replay.
+    let watched = llm_contract(&header["contract"]);
+    ensure!(
+        watched == transcript.is_some(),
+        "A watching model's labels need its transcript, and only those"
+    );
+    let answers = transcript.map(mind_answers).transpose()?;
+    let source = if watched { "llm" } else { "house" };
     let record_sha256 = sha(record);
     let mut labels = BTreeMap::new();
     let mut complete = None;
@@ -28,10 +41,18 @@ pub(super) fn load(
                 ensure!(
                     label.kind == "label"
                         && label.usage == "bc_only"
-                        && label.teacher_source == "house"
-                        && !label.teacher_has_logprob,
+                        && label.teacher_source == source
+                        && !label.teacher_has_logprob
+                        && label.teacher_question.is_some() == watched,
                     "Invalid label provenance"
                 );
+                if let (Some(answers), Some(question)) = (&answers, label.teacher_question) {
+                    ensure!(
+                        answers.get(&question)
+                            == Some(&serde_json::to_value(&label.teacher_action)?),
+                        "Shadow label is not the watching model's answer"
+                    );
+                }
                 ensure!(
                     last_offset.is_none_or(|last| label.record_byte_offset > last),
                     "Duplicate/unordered shadow offsets"
@@ -70,7 +91,8 @@ pub(super) fn load(
             && complete["ppo_certification"] == false
             && complete["record_sha256"] == record_sha256
             && complete["record_bytes"].as_u64() == Some(record.len() as u64)
-            && complete["counts"]["labels"].as_u64() == Some(labels.len() as u64),
+            && complete["counts"]["labels"].as_u64() == Some(labels.len() as u64)
+            && complete["transcript_sha256"].as_str() == transcript.map(sha).as_deref(),
         "Shadow completion/record/count mismatch"
     );
     let last = record
@@ -174,10 +196,13 @@ fn validate_header(run: &[u8], header: &Value, game: &str, catalog: &str) -> any
     let profile = header["contract"]["teacher"]
         .as_str()
         .context("Missing teacher profile")?;
+    let known = if matches!(profile, "sharp" | "expert") {
+        header["contract"] == expected_contract(profile)
+    } else {
+        llm_contract(&header["contract"])
+    };
     ensure!(
-        matches!(profile, "sharp" | "expert")
-            && header["contract"] == expected_contract(profile)
-            && run_value["shadow_teacher"] == expected_contract(profile),
+        known && run_value["shadow_teacher"] == header["contract"],
         "Unknown shadow teacher contract"
     );
     ensure!(

@@ -7,8 +7,6 @@
 //! pairs, candidate references `-1`, zero rule references). Rows never mix
 //! in the graph. One row alone is packed exactly as a step always was.
 
-use std::collections::BTreeMap;
-
 use ort::session::Session;
 use ort::value::Tensor;
 
@@ -20,6 +18,9 @@ use crate::features4::{
 
 /// One step's model inputs at its own extents.
 pub(super) struct StepRow {
+    /// Rule references left out because the model's catalog does not
+    /// know them.
+    pub(super) rules_left_out: u64,
     /// Thinking steps `K`; `0` is an observation update.
     pub(super) k_val: u8,
     entities: usize,
@@ -51,6 +52,35 @@ pub(super) struct StepRow {
     h_in: Vec<f32>,
 }
 
+/// Packed rule references: entity and candidate widths, their values, and
+/// how many references the model's catalog left out.
+type RuleInputs = (Option<(usize, usize)>, Vec<i64>, Vec<i64>, u64);
+
+/// The rule references of a step's entities and candidates, packed against
+/// the model's bound catalog.
+fn rule_inputs(
+    state: &EncodedState4,
+    cands: &EncodedCandidates4,
+    entities: usize,
+    candidates: usize,
+    roots: &structure::RuleRoots,
+) -> anyhow::Result<RuleInputs> {
+    let (er, entity_rules, entity_left_out) =
+        structure::pack(&state.entity_rule_refs, entities, roots)?;
+    let refs = cands
+        .candidates
+        .iter()
+        .map(|c| crate::cardstructure::refs::candidate_refs(c, state))
+        .collect::<Vec<_>>();
+    let (cr, cand_rules, cand_left_out) = structure::pack(&refs, candidates, roots)?;
+    Ok((
+        Some((er, cr)),
+        entity_rules,
+        cand_rules,
+        entity_left_out + cand_left_out,
+    ))
+}
+
 impl StepRow {
     /// Packs one step. Every axis keeps at least one (masked) slot.
     ///
@@ -62,7 +92,7 @@ impl StepRow {
         h_in: &[f32],
         k_val: u8,
         encoder_version: u32,
-        rule_roots: Option<&BTreeMap<String, u32>>,
+        rule_roots: Option<&structure::RuleRoots>,
     ) -> anyhow::Result<Self> {
         let entities = state.entity_feat.len().max(1);
         let (default_entity_width, default_global_width) = abi::widths(encoder_version);
@@ -127,21 +157,13 @@ impl StepRow {
             pair_mask[i] = b_idx >= 0 && a_idx >= 0;
         }
 
-        let (rule_widths, entity_rules, cand_rules) = match rule_roots {
-            Some(roots) => {
-                let (er, entity_rules) = structure::pack(&state.entity_rule_refs, entities, roots)?;
-                let refs = cands
-                    .candidates
-                    .iter()
-                    .map(|c| crate::cardstructure::refs::candidate_refs(c, state))
-                    .collect::<Vec<_>>();
-                let (cr, cand_rules) = structure::pack(&refs, candidates, roots)?;
-                (Some((er, cr)), entity_rules, cand_rules)
-            }
-            None => (None, Vec::new(), Vec::new()),
+        let (rule_widths, entity_rules, cand_rules, rules_left_out) = match rule_roots {
+            Some(roots) => rule_inputs(state, cands, entities, candidates, roots)?,
+            None => (None, Vec::new(), Vec::new(), 0),
         };
 
         Ok(Self {
+            rules_left_out,
             k_val,
             entities,
             entity_width,

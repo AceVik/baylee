@@ -53,8 +53,8 @@ pub use effect::{
 };
 pub use filter::{Filter, OriginalExpansion, ZoneRef};
 pub use manaread::{
-    SimpleMana, mana_bundle, mana_made, mana_offer, mana_shape, mana_with_riders, mana_written,
-    simple_mana, tap_only,
+    Conversion, SimpleMana, mana_bundle, mana_conversion, mana_made, mana_offer, mana_shape,
+    mana_with_riders, mana_written, simple_mana, tap_only,
 };
 // Re-exported so the authoring macros can name them through `$crate`, and so
 // a card file needs exactly one import (see `build::prelude`).
@@ -157,32 +157,43 @@ impl CardDef {
         }
     }
 
-    /// Whether `face` has an ability its controller activates on the
-    /// battlefield that is not a mana ability (CR 605.1a): Karakas's bounce,
-    /// a creature land's animation, Mind Stone's draw. A permanent like that
-    /// is used for more than mana, so a mana planner taps it last
+    /// What `face` is wanted for besides its mana: the abilities its
+    /// controller activates on the battlefield that are not mana abilities
+    /// (CR 605.1a), Karakas's bounce, a creature land's animation, Mind
+    /// Stone's draw. A mana planner keeps such a permanent back
     /// (`manaplan::prioritize`). Statics (Urborg) and abilities activated
     /// from elsewhere (cycling) do not count: tapping for mana costs them
     /// nothing.
     #[must_use]
-    pub fn activates_beyond_mana(&self, face: usize) -> bool {
+    pub fn use_beyond_mana(&self, face: usize) -> UseBeyondMana {
         use crate::ability::{AbilityDef, ActivationZone};
-        self.abilities_for_face(face).iter().any(|ability| {
-            !ability.is_mana_ability()
-                && matches!(
-                    ability,
-                    AbilityDef::Activated {
-                        zone: ActivationZone::Battlefield | ActivationZone::BattlefieldOwner,
-                        ..
-                    } | AbilityDef::ActivatedConditional {
-                        zone: ActivationZone::Battlefield | ActivationZone::BattlefieldOwner,
-                        ..
-                    } | AbilityDef::ModalActivated {
-                        zone: ActivationZone::Battlefield | ActivationZone::BattlefieldOwner,
-                        ..
-                    }
-                )
-        })
+        self.abilities_for_face(face)
+            .iter()
+            .filter(|ability| !ability.is_mana_ability())
+            .filter_map(|ability| match ability {
+                AbilityDef::Activated {
+                    zone: ActivationZone::Battlefield | ActivationZone::BattlefieldOwner,
+                    cost,
+                    ..
+                }
+                | AbilityDef::ActivatedConditional {
+                    zone: ActivationZone::Battlefield | ActivationZone::BattlefieldOwner,
+                    cost,
+                    ..
+                }
+                | AbilityDef::ModalActivated {
+                    zone: ActivationZone::Battlefield | ActivationZone::BattlefieldOwner,
+                    cost,
+                    ..
+                } => Some(if cost.mana == ManaCost::ZERO {
+                    UseBeyondMana::Free
+                } else {
+                    UseBeyondMana::Paid
+                }),
+                _ => None,
+            })
+            .max()
+            .unwrap_or(UseBeyondMana::Nothing)
     }
 
     /// Whether this is a split card with one shared type line (CR 709.5), a
@@ -234,12 +245,19 @@ impl CardDef {
     /// permanent that is already turned over.
     #[must_use]
     pub fn keywords_for_face(&self, face: usize) -> KeywordSet {
-        let keywords = if face == 0 {
+        let mut keywords = if face == 0 {
             let own = self.faces.first().map_or(KeywordSet::EMPTY, |f| f.keywords);
             if own.is_empty() { self.keywords } else { own }
         } else {
             self.faces[face.min(self.faces.len() - 1)].keywords
         };
+        // Generic partner is a keyword ability, not only deckbuilding
+        // metadata. Keeping it in the same projection as every other keyword
+        // lets copy effects, ability removal and rules that count abilities
+        // all observe it. `PartnerWith` is deliberately a different ability.
+        if face == 0 && self.partner == PartnerKind::Partner {
+            keywords = keywords.union(KeywordSet::PARTNER);
+        }
         if self
             .faces
             .get(face.min(self.faces.len().saturating_sub(1)))
@@ -297,6 +315,19 @@ impl Default for CardDef {
     }
 }
 
+/// What a permanent is wanted for besides its mana
+/// ([`CardDef::use_beyond_mana`]), the stronger claim on staying untapped last.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum UseBeyondMana {
+    /// Nothing: a plain land, a static one (Urborg).
+    Nothing,
+    /// An ability that costs mana of its own: Mind Stone's draw. Keeping the
+    /// permanent up is worth something only with that mana beside it.
+    Paid,
+    /// An ability that costs no mana: Karakas's bounce.
+    Free,
+}
+
 /// Prototype's alternative characteristics (CR 718.3).
 #[derive(Clone, Copy, Debug)]
 pub struct Prototype {
@@ -349,6 +380,26 @@ pub struct FaceDef {
     /// and the engine writes a counted `Effect::CopyThisSpell` instruction
     /// on the cast trigger. Every printed replicate cost is mana.
     pub replicate: Option<ManaCost>,
+    /// Multikicker (CR 702.33c): "you may pay an additional [cost] any
+    /// number of times as you cast this spell". A multikicker cost is a
+    /// kicker cost, so a spell paid once or more has been kicked (702.33d):
+    /// `Effect::IfKicked` and `Filter::Kicked` read it as they read kicker,
+    /// and `Amount::TimesKicked` is how many times.
+    ///
+    /// A face field for the reason [`Self::replicate`] gives. Every printed
+    /// multikicker cost is mana, one of them a hybrid symbol.
+    pub multikicker: Option<ManaCost>,
+    /// Buyback (CR 702.27a): "you may pay an additional [cost] as you cast
+    /// this spell" and "if the buyback cost was paid, put this spell into
+    /// its owner's hand instead of into that player's graveyard as it
+    /// resolves".
+    ///
+    /// A face field and not an ability: both halves function on the stack
+    /// and neither can be aimed at anything, so the wizard asks it with the
+    /// other additional costs (CR 601.2b) and `Engine::finalize_spell` reads
+    /// the answer. Printed buyback costs are mana or a list of parts
+    /// ("Sacrifice a land", "Pay 3 life, Discard a card at random").
+    pub buyback: Option<crate::cost::Cost>,
     /// Only actual mana of this color may pay the X portion. Cost
     /// reductions still reduce that generic portion before mana is paid.
     pub x_mana_color: Option<baylee_core::color::Color>,
@@ -414,14 +465,21 @@ pub struct FaceDef {
     /// `layout`). The engine reads it as that: such a face's mana value is
     /// its front face's (CR 202.3b, `Characteristics::front_mana_value`).
     pub castable_from_hand: bool,
+    /// Foretell cost: pay {2} to exile this from hand face down during its
+    /// owner's turn, then cast it after that turn for this alternative cost.
+    /// The permission is part of the exiled incarnation, not a suspend counter.
+    pub foretell: Option<ManaCost>,
     /// Miracle cost: when revealed as the first card drawn this turn, the
     /// card may be cast for this cost (CR 702.94).
     pub miracle: Option<ManaCost>,
     /// Flashback (CR 702.34a): this card may be cast from its owner's
     /// graveyard for this cost rather than its mana cost, and is exiled
-    /// instead of going anywhere else afterwards. Mana only: a flashback
-    /// that costs something other than mana is not written here.
+    /// instead of going anywhere else afterwards. A non-mana-only flashback
+    /// cost uses [`ManaCost::ZERO`] here and [`Self::flashback_parts`] below.
     pub flashback: Option<ManaCost>,
+    /// Non-mana parts of this face's flashback cost, paid while casting.
+    /// Empty for an ordinary mana-only flashback cost.
+    pub flashback_parts: &'static [crate::cost::CostPart],
     /// Beam me up: graveyard alternative mana cost plus returning a creature.
     /// The spell is exiled whenever it leaves the stack after paying this cost.
     pub beam_me_up: Option<ManaCost>,
@@ -494,6 +552,8 @@ impl FaceDef {
         prototype: None,
         disguise: None,
         replicate: None,
+        multikicker: None,
+        buyback: None,
         x_mana_color: None,
         x_mana_colors: None,
         extra_target_cost: 0,
@@ -515,8 +575,10 @@ impl FaceDef {
         keywords: KeywordSet::EMPTY,
         color_indicator: ColorSet::EMPTY,
         castable_from_hand: true,
+        foretell: None,
         miracle: None,
         flashback: None,
+        flashback_parts: &[],
         beam_me_up: None,
         delve: false,
         convoke: false,
@@ -692,6 +754,10 @@ pub enum EnterModifier {
     /// as the card and face it was read off, and
     /// [`crate::Modifier::ChosenNameCantActivate`] reads it back.
     ChooseCardName,
+    /// "As this enters, choose a card type" (Serra's Emissary, CR 205.2a).
+    /// The answer belongs to this permanent and is read by
+    /// [`crate::Filter::OfSourceChosenCardType`].
+    ChooseCardType,
     /// "As this enters, choose a color" (Uncharted Haven, Shimmerdrift Vale,
     /// the Gates).
     ///

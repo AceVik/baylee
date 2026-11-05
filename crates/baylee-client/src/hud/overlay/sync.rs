@@ -175,6 +175,7 @@ pub fn sync_overlay(
         && revision.cast_menu == cast_menu
         && revision.window == canvas
         && revision.keep_out == keep_out_gate
+        && revision.perspective == duel.perspective_epoch
         && !tree.root.is_empty()
     {
         return;
@@ -208,6 +209,7 @@ pub fn sync_overlay(
     revision.cast_menu = cast_menu;
     revision.window = canvas;
     revision.keep_out = keep_out_gate;
+    revision.perspective = duel.perspective_epoch;
 
     let (Some(board), Some(view)) = (duel.board.as_ref(), duel.view.as_ref()) else {
         // Nothing to draw yet, or nothing left: the tree describes a game
@@ -383,6 +385,17 @@ pub fn sync_overlay(
             cards.as_mut(),
             skirt,
         );
+        // Shown from a controlled player's chair (CR 723.5): the hand says
+        // whose it is, in a frame of its own, under the cards.
+        if let Some(player) = duel.perspective.other() {
+            let name = baylee_client_core::i18n::seat_name(lang, duel.statics.as_ref(), player);
+            let frame = crate::hud::hand::control_frame(
+                &mut commands,
+                &fonts,
+                &Phrase::ControlHandOf.fill(lang, &[&name]),
+            );
+            commands.entity(hand_zone).insert_children(1, &frame);
+        }
         commands.entity(root).add_child(hand_zone);
 
         // ---- card preview: a speech-bubble tooltip over the hovered

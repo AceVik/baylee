@@ -64,12 +64,26 @@ struct StoredDeck {
     /// puts it right.
     #[serde(default)]
     commanders: Vec<String>,
+    /// What it plays; a file written before there was a choice says nothing,
+    /// and the deck is read off its commanders ([`StoredDeck::format`]).
+    #[serde(default)]
+    format: Option<String>,
     #[serde(default)]
     sleeve: Option<String>,
     #[serde(default)]
     playmat: Option<String>,
     #[serde(default)]
     updated_at: u64,
+}
+
+impl StoredDeck {
+    /// What it plays: what it says, else the gateway's reading of a deck
+    /// that says nothing.
+    fn format(&self) -> String {
+        self.format
+            .clone()
+            .unwrap_or_else(|| baylee_cards::decks::format_of(&self.commanders).to_string())
+    }
 }
 
 /// The offline deck file.
@@ -244,9 +258,10 @@ impl Offline {
                         let digest =
                             baylee_cards::digest::digest(&d.cards, &d.sideboard, &d.commanders);
                         DeckSummary {
+                            legality: client_core::lobby::DeckLegality::default(),
                             id: d.id.clone(),
                             name: d.name.clone(),
-                            format: baylee_cards::decks::format_of(&d.commanders).to_string(),
+                            format: d.format(),
                             cards: d.cards.len(),
                             sideboard: d.sideboard.len(),
                             copies: digest.copies,
@@ -285,6 +300,7 @@ impl Offline {
                     cards: d.cards.clone(),
                     sideboard: d.sideboard.clone(),
                     commanders: d.commanders.clone(),
+                    format: d.format(),
                 },
             ),
             LobbyRequest::SaveDeck {
@@ -293,7 +309,8 @@ impl Offline {
                 cards,
                 sideboard,
                 commanders,
-            } => self.save_deck(deck_id, name, cards, sideboard, commanders),
+                format,
+            } => self.save_deck(deck_id, name, cards, sideboard, commanders, format),
             LobbyRequest::DeleteDeck { deck_id } => {
                 self.decks.retain(|d| d.id != deck_id);
                 self.forget_deck(&deck_id);
@@ -311,6 +328,17 @@ impl Offline {
             // sign-in flow asks, but the performer still answers exhaustively.
             LobbyRequest::ListSeats => {
                 LobbyEvent::Seats(client_core::lobby::resume::Listing::default())
+            }
+            // Lists are a gateway's: offline a deck is held to its format's
+            // shape, and the builder says what it could not ask.
+            LobbyRequest::ListBanlists => LobbyEvent::Banlists(Vec::new()),
+            LobbyRequest::LoadRoomList { .. } => LobbyEvent::RoomList(None),
+            LobbyRequest::LoadBanlist { .. }
+            | LobbyRequest::CopyBanlist { .. }
+            | LobbyRequest::SaveBanlist { .. }
+            | LobbyRequest::DeleteBanlist { .. }
+            | LobbyRequest::ChooseRoomList { .. } => {
+                LobbyEvent::Failed(Phrase::ListNeedsGateway.text(lang).to_string())
             }
             LobbyRequest::CreateGame {
                 deck_id,
@@ -417,6 +445,7 @@ impl Offline {
         cards: Vec<String>,
         sideboard: Vec<String>,
         commanders: Vec<String>,
+        format: Option<String>,
     ) -> LobbyEvent {
         // An edit of a built-in becomes a deck of the player's own. The file
         // it came from is read every launch, so writing over it would be a
@@ -432,6 +461,7 @@ impl Offline {
             cards,
             sideboard,
             commanders,
+            format,
             sleeve: None,
             playmat: None,
             updated_at: 0,
@@ -484,7 +514,8 @@ impl Offline {
             ),
             Request::Copy(id) if id.starts_with(BUILTIN) => {
                 if let Some(d) = self.deck(&id).cloned() {
-                    match self.save_deck(None, d.name, d.cards, d.sideboard, d.commanders) {
+                    match self.save_deck(None, d.name, d.cards, d.sideboard, d.commanders, d.format)
+                    {
                         LobbyEvent::DeckSaved { deck_id: Some(id) } => Reply::Copied(id),
                         _ => Reply::Failed(Phrase::LibraryReadFailed.text(lang).into()),
                     }
@@ -679,6 +710,7 @@ impl Offline {
     /// The room as the game list describes it.
     fn summary(&self, room: &Room, lang: Lang) -> GameSummary {
         GameSummary {
+            rules: client_core::lobby::TableRules::default(),
             id: ROOM.to_string(),
             name: room.name.clone(),
             host: Some(Phrase::You.text(lang).to_string()),
@@ -769,6 +801,7 @@ fn builtin_decks() -> Vec<StoredDeck> {
                     .filter_map(|c| baylee_cards::by_index(c.index))
                     .map(|def| def.name().to_string())
                     .collect(),
+                format: None,
                 sleeve: None,
                 playmat: None,
                 updated_at: 0,
@@ -805,7 +838,7 @@ fn rows_of(cards: &[baylee_cards::decks::DeckCard]) -> Vec<String> {
 /// there is no JSON in between to make them the same type. This is that
 /// crossing, written once and checked by the compiler, which is the reason
 /// not to reach for a serialize-then-parse round trip.
-pub(super) fn pool_row(card: &baylee_cards::pool::PoolCard) -> client_core::deckbuilder::PoolCard {
+pub(crate) fn pool_row(card: &baylee_cards::pool::PoolCard) -> client_core::deckbuilder::PoolCard {
     use client_core::deckbuilder::Coverage;
     client_core::deckbuilder::PoolCard {
         index: card.index,
@@ -834,6 +867,7 @@ pub(super) fn pool_row(card: &baylee_cards::pool::PoolCard) -> client_core::deck
         scryfall_id: card.scryfall_id.to_string(),
         oracle_id: card.oracle_id.to_string(),
         alt_names: card.alt_names.clone(),
+        foreign_names: card.foreign_names.clone(),
     }
 }
 
@@ -1101,6 +1135,7 @@ mod tests {
             cards: vec!["4 Island".to_string()],
             sideboard: vec![],
             commanders: vec![],
+            format: None,
         }) else {
             panic!("saving answers a save")
         };
@@ -1135,6 +1170,7 @@ mod tests {
             ],
             sideboard: vec!["2 Forest".to_string()],
             commanders: vec![leader.english_name.clone()],
+            format: None,
         }) else {
             panic!("saving answers a save")
         };
@@ -1173,6 +1209,7 @@ mod tests {
             cards: vec!["4 Island".to_string()],
             sideboard: vec![],
             commanders: vec![],
+            format: None,
         }) else {
             panic!("saving answers a save")
         };

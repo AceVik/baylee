@@ -63,11 +63,14 @@ use std::fmt::Write as _;
 
 /// What `/catalog/text` answers: the one wire shape both ends link, from
 /// the crate that also holds the rule a printing is picked by.
-pub use baylee_cardtext::{CardTextEntry, FaceText};
+pub use baylee_cardtext::{
+    CardLine, CardTextEntry, FaceText, Legality, ListStatus, PoolFacts, PoolFactsBody, PoolSet,
+    Rarity,
+};
 use baylee_cardtext::{TextFace, TextPrinting, card_entry};
 use rows::{
-    CARD_COLUMNS, FACE_COLUMNS, LEGALITY_COLUMNS, cards_statement, face_rows, faces_statement,
-    legalities_statement, rows_per_statement,
+    CARD_COLUMNS, FACE_COLUMNS, LEGALITY_COLUMNS, Verdicts, cards_statement, face_rows,
+    faces_statement, legalities_statement, merge_verdicts, rows_per_statement,
 };
 pub use schema::Readiness;
 use schema::{
@@ -75,7 +78,8 @@ use schema::{
     take_the_projection_lock, take_the_schema_lock,
 };
 use sql::{
-    BIGRAMS_BODY, CORPUS_SQL, MINE_ROUNDS, NORM_BODY, PROJECT_LOCK, PROJECT_SQL, SCHEMA_LOCK,
+    BIGRAMS_BODY, CORPUS_SQL, MINE_ROUNDS, NORM_BODY, OFFICIAL_ENTRIES_SQL, OFFICIAL_FORMATS_SQL,
+    POOL_PRINTED_SQL, POOL_SETS_SQL, POOL_VERDICTS_SQL, PROJECT_LOCK, PROJECT_SQL, SCHEMA_LOCK,
     TEXT_SQL, search_sql,
 };
 
@@ -225,6 +229,17 @@ pub struct LocalName {
     pub name: String,
 }
 
+/// What the catalog holds for the pool's table (`GET /pool/facts`), by card.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct PoolRecords {
+    /// The sets these cards were printed in, newest first.
+    pub sets: Vec<PoolSet>,
+    /// Each card's verdicts, format to Scryfall's word.
+    pub verdicts: std::collections::BTreeMap<String, std::collections::BTreeMap<String, String>>,
+    /// Each card's `(set code, rarity word)` pairs.
+    pub printed: std::collections::BTreeMap<String, Vec<(String, String)>>,
+}
+
 /// A connection to the card catalog.
 #[derive(Clone, Debug)]
 pub struct Catalog {
@@ -243,8 +258,9 @@ pub struct Catalog {
 ///
 /// Bump it whenever the projection's *content* changes — the fill query, one
 /// of the two function bodies, or a column's meaning. 4 is #35: `names->>'en'`
-/// became the Oracle name rather than the newest printing's styling.
-const SCHEMA_VERSION: i32 = 5;
+/// became the Oracle name rather than the newest printing's styling. 6 is
+/// `card_search_text`: rules text per language.
+const SCHEMA_VERSION: i32 = 6;
 
 /// The key `SCHEMA_VERSION` is stamped under.
 const VERSION_KEY: &str = "search_projection";
@@ -454,7 +470,7 @@ impl Catalog {
     /// Gives the planner the row counts the rebuild just changed.
     async fn analyze_projection(&self) -> Result<()> {
         self.db
-            .execute_unprepared("ANALYZE card_search")
+            .execute_unprepared("ANALYZE card_search, card_search_text")
             .await
             .context("analyzing the projection")?;
         Ok(())
@@ -760,7 +776,7 @@ impl Catalog {
     /// a row, **2742 ms** for `稲妻` and 2132 ms for `li`. The cost was never
     /// the tokenizer and no extension would have moved it.
     ///
-    /// So the two questions are asked separately over one projection and
+    /// So the two questions are asked separately, each of its own projection, and
     /// unioned. A name match also carries a *tier* — the whole name, a name
     /// starting with the query, a word inside a name starting with it, or the
     /// query anywhere in a name — and a rules-text match ranks below all
@@ -932,6 +948,81 @@ impl Catalog {
             .collect()
     }
 
+    /// What the catalog holds about the named cards for the pool's table:
+    /// what each format says and which `(set, rarity)` pairs they were
+    /// printed in, and nothing else of a printing (`docs/legal.md` §3).
+    ///
+    /// # Errors
+    /// When a query fails or a stored row cannot be read.
+    pub async fn pool_records(&self, oracle_ids: &[String]) -> Result<PoolRecords> {
+        let mut records = PoolRecords::default();
+        if oracle_ids.is_empty() {
+            return Ok(records);
+        }
+        let asked = oracle_ids.join(",");
+        let rows = |sql: &'static str, what: &'static str| {
+            let statement = Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                sql,
+                [Value::from(asked.clone())],
+            );
+            async move { self.db.query_all_raw(statement).await.context(what) }
+        };
+        for row in rows(POOL_SETS_SQL, "listing the pool's sets").await? {
+            records.sets.push(PoolSet {
+                code: row.try_get("", "set_code")?,
+                name: row.try_get("", "set_name")?,
+            });
+        }
+        for row in rows(POOL_VERDICTS_SQL, "reading the pool's verdicts").await? {
+            let verdicts: String = row.try_get("", "verdicts")?;
+            records.verdicts.insert(
+                row.try_get("", "oracle_id")?,
+                serde_json::from_str(&verdicts).context("reading a stored verdict")?,
+            );
+        }
+        for row in rows(POOL_PRINTED_SQL, "reading the pool's printings").await? {
+            let oracle_id: String = row.try_get("", "oracle_id")?;
+            records
+                .printed
+                .entry(oracle_id)
+                .or_default()
+                .push((row.try_get("", "set_code")?, row.try_get("", "rarity")?));
+        }
+        Ok(records)
+    }
+
+    /// Every format the feed names, each with the cards it bans and restricts
+    /// by oracle id: what the official ban lists are made of. A format that
+    /// bans nothing is still in it, as an empty list.
+    ///
+    /// # Errors
+    /// When a query fails or a stored row cannot be read.
+    pub async fn official_lists(
+        &self,
+    ) -> Result<std::collections::BTreeMap<String, Vec<(String, ListStatus)>>> {
+        let mut lists: std::collections::BTreeMap<String, Vec<(String, ListStatus)>> =
+            std::collections::BTreeMap::new();
+        let rows = |sql: &'static str, what: &'static str| {
+            let statement = Statement::from_string(DbBackend::Postgres, sql);
+            async move { self.db.query_all_raw(statement).await.context(what) }
+        };
+        for row in rows(OFFICIAL_FORMATS_SQL, "listing the feed's formats").await? {
+            lists.entry(row.try_get("", "format")?).or_default();
+        }
+        for row in rows(OFFICIAL_ENTRIES_SQL, "reading the formats' bans").await? {
+            let word: String = row.try_get("", "word")?;
+            let Some(status) = ListStatus::of(&word) else {
+                continue;
+            };
+            lists
+                .entry(row.try_get("", "format")?)
+                .or_default()
+                .push((row.try_get("", "oracle_id")?, status));
+        }
+        Ok(lists)
+    }
+
     /// Inserts or updates a batch of printings.
     ///
     /// # Errors
@@ -950,26 +1041,45 @@ impl Catalog {
     /// The `card_legalities` half of a batch upsert.
     ///
     /// One row per card and not per printing, so a batch of 500 printings of
-    /// forty cards writes forty rows. The batch is deduplicated here rather
-    /// than left to `ON CONFLICT`, because Postgres refuses a statement that
-    /// names one key twice ("cannot affect row a second time") — and every
-    /// printing of a card carries the same answer, so the first is as good as
-    /// any.
+    /// forty cards writes forty rows. The batch is merged here rather than
+    /// left to `ON CONFLICT`, because Postgres refuses a statement that names
+    /// one key twice ("cannot affect row a second time"). A merge and not the
+    /// first printing's answer, because a card's printings need not agree:
+    /// see [`rows::VERDICT_ORDER`].
     async fn upsert_legalities(&self, cards: &[&scryfall::Card]) -> Result<()> {
-        let mut seen: std::collections::BTreeMap<&str, &scryfall::Card> =
+        let mut seen: std::collections::BTreeMap<&str, Verdicts> =
             std::collections::BTreeMap::new();
         for card in cards {
             if let Some(oracle_id) = card.oracle_identity()
                 && !card.legalities.is_empty()
             {
-                seen.entry(oracle_id).or_insert(card);
+                merge_verdicts(seen.entry(oracle_id).or_default(), &card.legalities);
             }
         }
-        let rows: Vec<(&str, &scryfall::Card)> = seen.into_iter().collect();
+        let rows: Vec<(&str, Verdicts)> = seen.into_iter().collect();
         for chunk in rows.chunks(rows_per_statement(LEGALITY_COLUMNS)) {
             self.execute_chunk(legalities_statement(chunk), "upserting legalities")
                 .await?;
         }
+        Ok(())
+    }
+
+    /// Forgets every format's verdict on every card, so what an ingest writes
+    /// next is all there is.
+    ///
+    /// A batch merges into what is stored, because one card's printings reach
+    /// it across batches. So the old rows have to go first, or a lifted ban
+    /// would go on winning over the new `legal` for as long as the catalog
+    /// lived. [`ingest::from_feed`] calls it when the first batch is in hand:
+    /// a feed that never opens leaves the verdicts standing.
+    ///
+    /// # Errors
+    /// When the statement fails.
+    pub async fn forget_verdicts(&self) -> Result<()> {
+        self.db
+            .execute_unprepared("TRUNCATE card_legalities")
+            .await
+            .context("forgetting the stored verdicts")?;
         Ok(())
     }
 

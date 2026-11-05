@@ -132,3 +132,80 @@ fn chord_of_calling_announces_x_and_chords_a_creature_of_that_mana_value_onto_th
         "it was put onto the battlefield, not into a graveyard"
     );
 }
+
+/// Chord of Calling is convoked with its green creatures: each tapped
+/// creature pays a green mana of `{G}{G}{G}` (CR 702.51a), not only generic
+/// mana. One Forest and three Grizzly Bears cast it at X = 0, two Bears and
+/// the Forest paying `{G}{G}{G}`; before #230 the taps paid generic mana
+/// alone, so this board was never offered the spell, and the models that
+/// played Chord reported it as uncastable whenever their lands alone could
+/// not make the green.
+#[test]
+fn chord_of_calling_is_convoked_with_green_creatures_for_its_green_mana() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(41, llanowar_elves())
+        .battlefield(
+            0,
+            &[forest(), grizzly_bears(), grizzly_bears(), grizzly_bears()],
+        )
+        .hand(0, &[chord_of_calling()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        1,
+        "the Forest's green, and the Bears make no mana"
+    );
+    let chord = in_hand(&engine, p0, chord_of_calling()).expect("in hand");
+    assert!(
+        matches!(engine.pending(), Pending::Priority { legal, .. } if legal.castable.contains(&chord)),
+        "one green floating and three green creatures pay {{G}}{{G}}{{G}}"
+    );
+
+    cast_with_floating(&mut engine, p0, chord_of_calling());
+    let Pending::ChooseNumber { .. } = engine.pending().clone() else {
+        panic!("X is announced first, got {:?}", engine.pending())
+    };
+    engine
+        .apply(p0, PlayerAction::ChooseNumber(0))
+        .expect("X = 0 is a value the question offers");
+    let Pending::ChooseTargets {
+        options,
+        max,
+        reason,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("convoke asks for its taps, got {:?}", engine.pending())
+    };
+    assert_eq!(reason, crate::choice::TargetPrompt::Convoke);
+    assert_eq!(options.len(), 3, "every Bear may be the one tapped");
+    assert_eq!(max, 3, "the Bears may pay all three green symbols");
+    let tapped: Vec<ObjectId> = options.iter().copied().take(2).collect();
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: tapped.clone(),
+                players: vec![],
+            },
+        )
+        .expect("two Bears and the Forest's green pay {G}{G}{G}");
+    assert!(
+        !engine.state().zones.stack_is_empty(),
+        "the spell reached the stack"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the Forest's green paid the third symbol"
+    );
+    assert!(
+        options
+            .iter()
+            .all(|id| is_tapped(&engine, *id) == tapped.contains(id)),
+        "the taps chosen are the taps spent"
+    );
+}

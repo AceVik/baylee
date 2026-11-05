@@ -1,4 +1,5 @@
-//! Ward across the real engine boundary, and the payment window behind it.
+//! Ward across the real engine boundary, and the payment window behind it;
+//! and the other tax a countered spell asks, Power Sink's (NEW-15).
 //!
 //! The unit test beside `policy::pays_tax` builds ward's question; this one
 //! earns it. Ward is synthesised as a trigger on the **caster**
@@ -135,4 +136,133 @@ fn the_agent_pays_ward_and_its_removal_resolves() {
          toward the price — check that `SeatContext::owed` is fed here, \
          because a `None` there looks exactly like an agent that cannot pay."
     );
+}
+
+/// Seat 1's script for Power Sink: float `{X}{U}`, cast it at seat 0's spell
+/// the moment there is one on the stack, announce `x` and aim it there.
+/// `cast` records that it was cast; everything else seat 1 is asked passes.
+fn power_sink_script(
+    view: &baylee_gamehost::PlayerView,
+    pending: &Pending,
+    x: u32,
+    cast: &mut bool,
+) -> PlayerAction {
+    let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+    let theirs = |id: baylee_core::ids::ObjectId| {
+        view.stack.iter().any(|o| o.id == id && o.controller == me)
+    };
+    match pending {
+        Pending::Mulligan { .. } => PlayerAction::MulliganKeep,
+        Pending::Priority { .. } => {
+            let sink = view
+                .hand
+                .iter()
+                .find(|c| c.card.index == entry("Power Sink").card)
+                .map(|c| c.id);
+            match sink {
+                Some(card) if !*cast && view.stack.iter().any(|o| theirs(o.id)) => {
+                    if view.seats[1].mana_pool.total() < u64::from(x) + 1 {
+                        let source = view
+                            .battlefield_of(them)
+                            .find(|o| {
+                                o.name == "Island"
+                                    && !o.status.contains(baylee_view::ObjectStatus::TAPPED)
+                            })
+                            .expect("an untapped Island")
+                            .id;
+                        PlayerAction::ActivateManaAbility { source }
+                    } else {
+                        *cast = true;
+                        PlayerAction::CastSpell { card }
+                    }
+                }
+                _ => PlayerAction::PassPriority,
+            }
+        }
+        Pending::ChooseNumber { .. } => PlayerAction::ChooseNumber(x),
+        Pending::ChooseTargets { options, .. } => PlayerAction::ChooseObjects {
+            objects: options
+                .iter()
+                .copied()
+                .filter(|id| theirs(*id))
+                .take(1)
+                .collect(),
+        },
+        other => panic!("seat 1 is not scripted for {other:?}"),
+    }
+}
+
+/// Power Sink: "Counter target spell unless its controller pays {X}. If that
+/// player doesn't, they tap all lands with mana abilities they control and
+/// lose all unspent mana." Refusing costs the house its spell, as ward's
+/// refusal does, and the house refused even `{0}`: `pays_tax` recognised a
+/// counter only as the bare effect of the "unless" (CR 118.12a), and Power
+/// Sink's is a sequence that starts with it (NEW-15, 3.11.2026). Seat 1
+/// casts it at the house's Grizzly Bears with X = 0 and with an X the two
+/// Forests left over pay.
+#[test]
+fn the_agent_pays_power_sinks_tax_to_keep_its_spell() {
+    let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+    let bears = entry("Grizzly Bears").card;
+    for x in [0, 2] {
+        let mut preset = table(
+            &["Grizzly Bears"],
+            &["Forest", "Forest", "Forest", "Forest"],
+            &["Island", "Island", "Island"],
+        );
+        preset.house_rules.starting_player = Some(0);
+        preset.seats[1].starting_hand = Some(vec![entry("Power Sink")]);
+        let mut engine = Engine::new(&preset, RegistryLookup).unwrap();
+        let agent = HeuristicAgent::new(AIProfile::EXPERT);
+        let (mut answered, mut cast) = (None, false);
+        for seq in 0..400 {
+            let pending = engine.pending().clone();
+            let Some(seat) = pending_player(&pending) else {
+                break;
+            };
+            let ctx = SeatContext {
+                awaiting: Some(seat),
+                owed: owed_payment(&engine),
+                ..Default::default()
+            };
+            let view = player_view(engine.state(), seat, seq, Some(&pending), &ctx, &[]);
+            if view.turn > 1 {
+                break;
+            }
+            let action = if seat == them {
+                power_sink_script(&view, &pending, x, &mut cast)
+            } else if matches!(pending, Pending::Mulligan { .. }) {
+                PlayerAction::MulliganKeep
+            } else {
+                agent.act_with_context(&view, &pending, &engine.decision_context())
+            };
+            if matches!(
+                pending,
+                Pending::YesNo {
+                    prompt: YesNoPrompt::PayTax { .. },
+                    ..
+                }
+            ) {
+                answered = Some(action.clone());
+            }
+            engine
+                .apply(seat, action)
+                .expect("every answer comes from the engine's own offer");
+        }
+        assert!(cast, "X = {x}: seat 1 never cast Power Sink at the Bears");
+        assert_eq!(
+            answered,
+            Some(PlayerAction::YesNo(true)),
+            "X = {x}: the house refused to pay what keeps its spell"
+        );
+        let state = engine.state();
+        assert!(
+            state
+                .battlefield_view()
+                .into_iter()
+                .filter_map(|id| state.object(id))
+                .any(|o| o.controller == me && o.card.is_some_and(|c| c.index == bears)),
+            "X = {x}: the Bears were countered after all"
+        );
+    }
 }

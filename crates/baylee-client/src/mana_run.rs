@@ -22,6 +22,8 @@ pub struct ManaRun {
     pub(super) steps: std::collections::VecDeque<baylee_client_core::manaplan::Step>,
     /// The colour to answer with while an ability is asking for one.
     asking: Option<baylee_core::mana::ManaColor>,
+    /// The colour for the same ability's second question, when it asks two.
+    asking_next: Option<baylee_core::mana::ManaColor>,
     /// The card all of this is for — the spell being paid for, or, under
     /// [`RunEnd::Float`], the permanent whose own mana was asked for.
     card: ObjectId,
@@ -52,6 +54,7 @@ impl ManaRun {
         Self {
             steps: plan.steps.into(),
             asking: None,
+            asking_next: None,
             card,
             then,
             cast_first: None,
@@ -65,10 +68,18 @@ impl ManaRun {
         Self {
             steps: std::collections::VecDeque::new(),
             asking: None,
+            asking_next: None,
             card,
             then: RunEnd::Cast,
             cast_first: Some(CastFirst::Unsent),
         }
+    }
+
+    /// The action a completed plan is paying for.
+    #[cfg(test)]
+    #[must_use]
+    pub(crate) const fn then(&self) -> RunEnd {
+        self.then
     }
 
     /// The spell being paid for — the HUD says so while it happens.
@@ -129,7 +140,9 @@ pub fn advance_mana_run(duel: &mut Duel) {
     let Some(interaction) = duel.interaction.as_ref() else {
         return;
     };
-    let seat = duel.seat().unwrap_or(PlayerId::new(0));
+    // The player this seat taps and casts for: itself, or the player it
+    // controls (CR 723.5a), whose priority the run is spent in.
+    let seat = duel.actor().unwrap_or(PlayerId::new(0));
     let pending = interaction.pending().clone();
     if let Some(phase) = duel.mana_run.as_ref().and_then(|r| r.cast_first)
         && advance_cast_first(duel, phase, &pending, seat)
@@ -147,7 +160,7 @@ pub fn advance_mana_run(duel: &mut Duel) {
                 Some(color) => {
                     action = Some(PlayerAction::ChooseColor(color));
                     if let Some(run) = duel.mana_run.as_mut() {
-                        run.asking = None;
+                        run.asking = run.asking_next.take();
                     }
                 }
                 None => abort = Some(Phrase::PlanColourGone),
@@ -161,6 +174,7 @@ pub fn advance_mana_run(duel: &mut Duel) {
                     abort = Some(Phrase::PlanLandGone);
                 } else if let Some(run) = duel.mana_run.as_mut() {
                     run.asking = step.color;
+                    run.asking_next = step.second;
                 }
             } else {
                 // Every tap is made; the mana is floating and the engine is
@@ -186,6 +200,9 @@ pub fn advance_mana_run(duel: &mut Duel) {
                     Some((card, RunEnd::Suspend)) if legal.suspendable.contains(&card) => {
                         action = Some(PlayerAction::Suspend { card });
                     }
+                    Some((card, RunEnd::Foretell)) if legal.foretellable.contains(&card) => {
+                        action = Some(PlayerAction::Foretell { card });
+                    }
                     // Nothing is owed at the end of a pour, and there is
                     // nothing to check either: the mana is in the pool, which
                     // is a thing the player can see and spend.
@@ -195,6 +212,9 @@ pub fn advance_mana_run(duel: &mut Duel) {
                     }
                     Some((_, RunEnd::Suspend)) => {
                         abort = Some(Phrase::PlanSuspendRefused);
+                    }
+                    Some((_, RunEnd::Foretell)) => {
+                        abort = Some(Phrase::PlanForetellRefused);
                     }
                     None => abort = Some(Phrase::PlanCardGone),
                 }
@@ -320,7 +340,7 @@ pub fn take_the_chosen_cast_mode(duel: &mut Duel) {
     let Some((card, kind)) = duel.cast_answer else {
         return;
     };
-    let seat = duel.seat().unwrap_or(PlayerId::new(0));
+    let seat = duel.actor().unwrap_or(PlayerId::new(0));
     let Some(interaction) = duel.interaction.as_ref() else {
         return;
     };
@@ -390,39 +410,61 @@ pub fn mana_for(duel: &Duel, card: ObjectId) -> Option<baylee_client_core::manap
 
 /// What casting `card` the ordinary way costs this seat: a hand card's
 /// printed cost, a graveyard card's flashback cost, an exiled card's printed
-/// cost, or a commander's cost plus its tax, each with what effects add to
-/// the spell.
+/// cost, or a commander's cost plus its tax, each priced as the engine
+/// charges it: what effects add, less what they take off
+/// (`baylee_ai::spell_price`, CR 601.2f). The hand, graveyard and command
+/// zone are the deciding player's: the controlled player's while this seat
+/// casts for them (CR 723.5a).
 pub(super) fn spell_cost(
     view: &PlayerView,
     legal: &baylee_engine::choice::LegalActions,
     card: ObjectId,
 ) -> Option<baylee_core::mana::ManaCost> {
-    let cost = if let Some(hand_card) = baylee_client_core::decision::hand(view)
+    let caster = baylee_client_core::decision::resource_player(view);
+    let (cost, identity) = if let Some(hand_card) = baylee_client_core::decision::hand(view)
         .iter()
         .find(|c| c.id == card)
     {
-        manasources::hand_cost(hand_card)?
+        (manasources::hand_cost(hand_card)?, Some(hand_card.card))
     } else if let Some(buried) = view
         .graveyards
-        .get(view.seat.get() as usize)
+        .get(caster.get() as usize)
         .and_then(|zone| zone.iter().find(|o| o.id == card))
     {
-        buried.flashback?
+        let cost = buried.flashback.or_else(|| {
+            legal
+                .payable
+                .contains(&card)
+                .then(|| {
+                    buried
+                        .card
+                        .and_then(reach::printed_face)
+                        .map(|f| f.mana_cost)
+                })
+                .flatten()
+        })?;
+        (cost, buried.card)
     } else if let Some(exiled) = view.exile.iter().flatten().find(|o| o.id == card) {
-        reach::printed_face(exiled.card?)?.mana_cost
+        (reach::printed_face(exiled.card?)?.mana_cost, exiled.card)
     } else {
         let commander = view
-            .seat(view.seat)?
+            .seat(caster)?
             .commanders
             .iter()
             .find(|c| c.object == card)?;
-        commander_cost(commander)?.with_more_generic(2 * commander.casts)
+        (
+            commander_cost(commander)?.with_more_generic(2 * commander.casts),
+            commander.card,
+        )
     };
-    Some(
-        cost.with_more_generic(
-            legal.spell_increase(card, baylee_engine::choice::CastModeKind::Normal),
-        ),
-    )
+    Some(baylee_ai::spell_price(
+        view,
+        card,
+        identity,
+        legal,
+        baylee_engine::choice::CastModeKind::Normal,
+        cost,
+    ))
 }
 
 /// The taps that would make `card` suspendable, if any.
@@ -443,4 +485,31 @@ pub fn suspend_mana_for(duel: &Duel, card: ObjectId) -> Option<baylee_client_cor
         .seat(baylee_client_core::decision::resource_player(view))?
         .mana_pool;
     baylee_client_core::manaplan::plan(&cost, &pool, &manasources::sources(view, legal))
+}
+
+/// The taps for foretell's fixed {2} special action, never its later cast cost.
+#[must_use]
+pub fn foretell_mana_for(
+    duel: &Duel,
+    card: ObjectId,
+) -> Option<baylee_client_core::manaplan::Plan> {
+    let view = duel.view.as_ref()?;
+    let legal = duel.interaction.as_ref()?.legal_actions()?;
+    let hand_card = baylee_client_core::decision::hand(view)
+        .iter()
+        .find(|c| c.id == card)?;
+    let def = baylee_cards::by_index(hand_card.card.index)?;
+    let face = def
+        .faces
+        .get(usize::from(hand_card.card.face))
+        .or_else(|| def.faces.first())?;
+    face.foretell?;
+    let pool = view
+        .seat(baylee_client_core::decision::resource_player(view))?
+        .mana_pool;
+    baylee_client_core::manaplan::plan(
+        &baylee_core::mana::ManaCost::parse("{2}"),
+        &pool,
+        &manasources::sources(view, legal),
+    )
 }

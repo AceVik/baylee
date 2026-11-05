@@ -10,6 +10,9 @@ ChooseEntryOrder = Die Ersatzeffekte welches Permanents möchtest du zuerst anwe
 ChooseEntryReplacement = Welchen Ersatzeffekt möchtest du als Nächstes anwenden?
 ChooseDredge = Eine Karte ausgraben, statt zu ziehen? Wähle eine aus deinem Friedhof oder bestätige ohne Auswahl, um normal zu ziehen.
 ChooseDrawReplacement = Welchen Ersatzeffekt möchtest du als Nächstes auf dieses Ziehen anwenden?
+CastYourVote = Gib deine Stimme ab: Wähle eine Option.
+VotesSoFar = Bisherige Stimmen: { $ballots }
+BallotFor = { $voter } für { $choice }
 SacrificeToEnter =
     { $count ->
         [one] { $count } passendes Permanent opfern, damit diese Karte ins Spiel kommt?
@@ -652,6 +655,11 @@ RailCleanup = Aufräumen
 MutateOnTop = Obenauf legen
 MutateUnderneath = Darunter legen
 ChooseMutatePosition = Position beim Mutieren wählen
+ChooseSpellEnding = Wohin geht der Zauberspruch?
+SpellEndingHand = Zurück auf deine Hand (Rückkauf)
+SpellEndingRebound = Ins Exil, in deiner nächsten Versorgung kostenlos wirken
+SpellEndingAdventure = Ins Exil, auf ein Abenteuer
+SpellEndingExile = Ins Exil
 ChooseDungeon = Gewölbe wählen
 ChooseDungeonRoom = Nächsten Raum wählen
 ColorWhite = Weiß
@@ -832,6 +840,20 @@ RequiredManaProgress =
        *[other] Verpflichtend – { $count } Aktivierungen ausgeführt
     }
 DecidingFor = Du entscheidest für { $player }
+ForPlayer = Für { $player }: { $question }
+ControlTakesYourTurn = { $player } steuert deinen Zug
+ControlDecidesForYou = { $player } entscheidet für dich
+ControlDecidesForOther = { $controller } entscheidet für { $player }
+ControlUnderYours = Unter deiner Kontrolle
+ControlUnderYoursShown = Angezeigt · unter deiner Kontrolle
+ControlledBy = Gesteuert von { $player }
+ControlHandOf = Hand von { $player } · unter deiner Kontrolle
+ControlChipHint = Drücken, um vom Platz von { $player } aus zu spielen: Hand, Mana und Fragen dieses Spielers
+ControlChipHintBack = Drücken, um zur eigenen Hand zurückzukehren
+ControlTurnOf = Zug von { $player } — gesteuert von { $controller }
+RowFollowControl = Dem gesteuerten Spieler folgen
+HelpFollowControl = Steuerst du einen anderen Spieler (Mindslaver), zeigt der Tisch dessen Hand, Mana und Fragen, sobald eine seiner Entscheidungen ansteht, und wieder deine, sobald eine eigene kommt. Ein Platz, den du an seinem Chip wählst, bleibt bis zur nächsten Entscheidung. Aus bleibt der Tisch, wo du ihn hinstellst.
+ActCyclePerspective = Vom nächsten gesteuerten Platz aus spielen
 DamageTurnFaceUp = Vor dem Schaden aufdecken
 GrantedPaymentHint = Mana erzeugen oder passen.
 PrepareManaPayment = Du kannst Mana erzeugen, um bis zu { $amount } Schaden zu verhindern. Passe, um den Betrag zu wählen.
@@ -1123,6 +1145,7 @@ ChooseBetween = Wähle { $min }–{ $max } { $noun }
 ChooseCreatureType = Wähle einen Kreaturentyp
 ChooseBasicLandType = Wähle einen Standardlandtyp
 ChooseLandType = Wähle einen Landtyp
+ChooseCardType = Wähle einen Kartentyp
 ChooseCardName = Wähle einen Kartennamen
 ChooseColour = Wähle eine Farbe
 ChooseColours = Wähle eine oder mehrere Farben
@@ -1133,6 +1156,30 @@ DamageShare = Schaden an Ziel { $position } von { $total }, noch { $remaining } 
 CombatDamageShare = Kampfschaden an Kreatur { $position } von { $total }, noch { $remaining } zu verteilen ({ $min }–{ $max })
 CombatDamageShareNamed = Kampfschaden von { $source } an { $recipient } ({ $position } von { $total }), noch { $remaining } zu verteilen ({ $min }–{ $max })
 ReplicateHowOften = Reproduktion { $cost }: wie oft zahlen? ({ $min }–{ $max })
+MultikickerHowOften = Mehrfachbonus { $cost }: wie oft zahlen? ({ $min }–{ $max })
+BuybackAsk = Rückkauf: { $price }? Der Zauberspruch kehrt beim Verrechnen auf deine Hand zurück.
+BuybackPriceLife = { $amount } Lebenspunkte zahlen
+BuybackPriceSacrifice =
+    { $count ->
+        [one] ein Permanent opfern
+       *[other] { $count } Permanents opfern
+    }
+BuybackPriceDiscard =
+    { $count ->
+        [one] eine Karte abwerfen
+       *[other] { $count } Karten abwerfen
+    }
+BuybackPriceDiscardRandom =
+    { $count ->
+        [one] eine zufällige Karte abwerfen
+       *[other] { $count } zufällige Karten abwerfen
+    }
+StackBoughtBack = Rückkauf bezahlt: kehrt beim Verrechnen auf die Hand zurück
+StackKicked =
+    { $count ->
+        [one] Mit Bonus
+       *[other] { $count }-mal mit Bonus
+    }
 ChoosePlayer = Wähle einen Spieler
 ChooseHowToCast = Wähle, wie gewirkt wird
 ChoosePileForHand = Wähle einen Haufen für deine Hand; der andere kommt auf deinen Friedhof
@@ -1143,6 +1190,7 @@ CastBackFace = Rückseite
 CastLandFace = Als Land spielen
 CastMiracle = Mirakulum
 CastFlashback = Rückblende
+CastForetell = Vorhersage
 CastBeamMeUp = Beam mich hoch
 DifferentManaValues = Wähle Ziele mit unterschiedlichen Manabeträgen
 CastDash = Sturmangriff
@@ -1201,11 +1249,13 @@ ApplyAdditionalCountersNext =
         [one] zusätzliche Marke
        *[other] zusätzliche Marken
     } jeder Art hinzufügen? „Nein“ wendet zuerst einen anderen Ersatzeffekt an.
+ApplyAdditionalCountersOfKindNext = Als Nächstes { $count } zusätzliche { $kind } hinzufügen? „Nein“ wendet zuerst einen anderen Ersatzeffekt an.
 UseTheOptionalAbility = Diese Fähigkeit ist optional. Einsetzen?
 TopOfLibraryOrBottom = Deine Karte kommt in deine Bibliothek. Oben drauf? („Nein“ legt sie nach unten.)
 TakeOneOfType = Nimm bis zu eine Karte vom Typ { $card_type } auf deine Hand
 CastDiscovered = Du hast diese Karte entdeckt. Wirken, ohne ihre Manakosten zu bezahlen? („Nein“ nimmt sie auf deine Hand.)
 SkipTurnToUntap = Diesen Zug überspringen, um dieses Permanent zu enttappen?
+GuessNamedCardInHand = Rate: Hat { $player } eine Karte mit dem gewählten Namen auf der Hand?
 YesOrNo = Ja oder nein?
 OfferADraw = Unentschieden anbieten
 Concede = Aufgeben
@@ -1216,6 +1266,8 @@ AllowSpectators = Zuschauer erlauben
 StoppedWatching = Du schaust nicht mehr zu
 YouAreWatching = Du schaust zu
 ConcedeConfirm = Aufgeben? Nochmal drücken
+ConcedeYourself = Selbst aufgeben
+ConcedeYourselfConfirm = Selbst aufgeben? Nochmal drücken
 LeaveTable = Tisch verlassen
 LeftTheTable = Du hast den Tisch verlassen
 LeaveTableConfirm = Verlassen? Nochmal drücken
@@ -1248,6 +1300,8 @@ SuspendedCard =
        *[other] Zeitmarken
     } · ansehen
 ArmedSuspendNow = Diese Karte aussetzen
+ArmedForetell = { $cost } zahlen und Vorhersage nutzen
+ArmedForetellNow = Vorhersage für diese Karte nutzen
 ArmedCancel = Doch nicht
 AimNext = Nächstes Ziel
 Attack = Angreifen
@@ -1345,6 +1399,7 @@ PlanLandGone = Ein Land, mit dem der Plan gerechnet hat, lässt sich nicht mehr 
 PlanColourGone = Diese Quelle kann die Farbe nicht erzeugen, die der Plan wollte
 PlanSpellRefused = Das Mana steht bereit, aber der Zauberspruch lässt sich nicht wirken
 PlanSuspendRefused = Das Mana steht bereit, aber die Karte lässt sich nicht aussetzen
+PlanForetellRefused = Das Mana steht bereit, aber Vorhersage lässt sich nicht mehr nutzen
 PlanCardGone = Der Ablauf hat die Karte verloren, für die er bezahlt hat
 PlanQuestionChanged = Das Spiel hat etwas anderes gefragt
 ManaPool = Manavorrat
@@ -1467,6 +1522,12 @@ FilterClear = Leeren
 FilterAsTyped = wie getippt
 FilterUnanswerable = Eine Bedingung kann hier nicht geprüft werden – die Liste bleibt leer, solange sie steht.
 FilterAlsoChips = Zusätzlich grenzen Chips diese Liste ein: { $chips }
+
+# Arguments: types
+NameOnlyTypes = Diese Frage nimmt nur: { $types }
+
+# Arguments: types
+NameNoTypes = Diese Frage lässt aus: { $types }
 FilterChipPlayable = nur spielbare
 FilterChipCmc = Manabetrag { $mana_value }
 FilterChipCmcUp = Manabetrag { $mana_value } oder mehr
@@ -1487,6 +1548,41 @@ FilterKeyManaValue = Manabetrag
 FilterKeyPower = Stärke
 FilterKeyToughness = Widerstandskraft
 FilterKeyLoyalty = Loyalität
+FilterKindPrinting = Druck, Format und Liste
+FilterKeyRarity = Seltenheit
+FilterKeySet = Erweiterung
+FilterKeyFormat = Legal in
+FilterKeyBanned = Gebannt in
+FilterKeyRestricted = Beschränkt in
+FilterNoPoolFacts = Seltenheit, Erweiterung und Format brauchen den Kartenkatalog des Gateways, der hier nicht verfügbar ist. Die Liste bleibt leer, solange eine solche Bedingung steht.
+RarityCommon = Häufig
+RarityUncommon = Nicht so häufig
+RarityRare = Selten
+RaritySpecial = Spezial
+RarityMythic = Sagenhaft selten
+RarityBonus = Bonus
+PlayFormatAlchemy = Alchemy
+PlayFormatBrawl = Brawl
+PlayFormatCommander = Commander
+PlayFormatCompetitiveBrawl = Competitive Brawl
+PlayFormatDuel = Duel Commander
+PlayFormatFuture = Future Standard
+PlayFormatGladiator = Gladiator
+PlayFormatHistoric = Historic
+PlayFormatLegacy = Legacy
+PlayFormatModern = Modern
+PlayFormatOathbreaker = Oathbreaker
+PlayFormatOldschool = Old School
+PlayFormatPauper = Pauper
+PlayFormatPauperCommander = Pauper Commander
+PlayFormatPenny = Penny Dreadful
+PlayFormatPioneer = Pioneer
+PlayFormatPredh = PreDH
+PlayFormatPremodern = Premodern
+PlayFormatStandard = Standard
+PlayFormatStandardBrawl = Standard Brawl
+PlayFormatTimeless = Timeless
+PlayFormatVintage = Vintage
 FilterAtLeast = mindestens
 FilterExactly = genau
 FilterAtMost = höchstens
@@ -1752,6 +1848,8 @@ LogTurnedFaceUp = { $object } wurde aufgedeckt
 LogTransformed = { $object } wurde transformiert
 LogCardsKeptYou = { $you_subject } hast gewählt, { $cards } zu behalten
 LogCardsKept = { $player } hat gewählt, { $cards } zu behalten
+LogVotedYou = { $you_subject } hast für { $object } gestimmt
+LogVoted = { $player } hat für { $object } gestimmt
 LogRevealedYou = { $you_subject } hast { $cards } offen vorgezeigt
 LogRevealed = { $player } hat { $cards } offen vorgezeigt
 LogShuffledYou = { $you_subject } hast deine Bibliothek gemischt
@@ -2506,6 +2604,10 @@ BuildSyntaxPartial = spielbar mit bekannter Lücke
 BuildSyntaxNot = nicht
 BuildSyntaxExact = genau dieser Name
 BuildSyntaxOr = eines von beiden
+BuildSyntaxRarity = Seltenheit eines Drucks
+BuildSyntaxSet = in dieser Erweiterung gedruckt
+BuildSyntaxFormat = in diesem Format spielbar
+BuildSyntaxBanned = in diesem Format gebannt (auch restricted:)
 BuildFilters = Filter
 BuildRailType = Kartentyp
 BuildRailMana = Manabetrag
@@ -2906,3 +3008,144 @@ MemorialZoomOut = Verkleinern
 MemorialFit = Einpassen
 MemorialZoomMinimum = Das Foto ist vollständig sichtbar.
 MemorialZoomMaximum = Maximale Vergrößerung erreicht.
+RowCardFill = Kartenbilder im Hintergrund
+HelpCardFill = Lädt die Bilder aller vollständig umgesetzten Karten direkt von Scryfall, damit Deckbau und Tisch sie sofort zeigen. Scryfall sieht dabei die Adresse dieses Geräts, wie bei jedem Bild. Ruht während einer Partie. Aus behält, was schon da ist.
+RowCardFillPace = Downloadtempo
+HelpCardFillPace = Wie viele Bilder gleichzeitig geladen werden: Gemächlich 1, Gleichmäßig 2, Zügig 3. Ein Bild, das du gerade ansiehst, geht immer vor.
+CardFillPaceGentle = Gemächlich
+CardFillPaceSteady = Gleichmäßig
+CardFillPaceBrisk = Zügig
+RowCardFillReach = Welche Bilder
+HelpCardFillReach = Vorschaubilder sind für den ganzen Pool etwa 150 MB und machen die Listen schnell. Große Bilder kommen mit etwa 1,1 GB dazu und machen die Vorschau schnell.
+CardFillReachThumbnails = Vorschaubilder
+CardFillReachEverything = Auch große
+RowCardFillBudget = Größe des Caches
+HelpCardFillBudget = Der Download im Hintergrund hält bei dieser Größe an, und sobald weniger als 2 GB auf der Festplatte frei sind. Bilder, die du öffnest, werden trotzdem behalten.
+CardFillBudget = { $size } GB
+CardFillPause = Anhalten
+CardFillResume = Fortsetzen
+CardFillTryAgain = Erneut versuchen
+CardFillEmpty = Cache leeren
+CardFillEmptyAsk = Das löscht alle Kartenbilder auf diesem Gerät. Sie werden neu geladen, wenn sie gebraucht werden.
+CardFillEmptySure = Ja, alle löschen
+CardFillStatusOff = Aus
+CardFillStatusPaused = Angehalten
+CardFillStatusMatch = Ruht während einer Partie
+CardFillStatusChecking = Prüft, was schon da ist
+CardFillStatusRunning = Lädt
+CardFillStatusCooling = Der Server braucht eine Pause, weiter in { $time }
+CardFillStatusFinished = Alle Bilder sind da
+CardFillStopNoCache = Angehalten: Dieses Gerät hat keinen Cache-Ordner
+CardFillStopCannotWrite = Angehalten: In den Cache-Ordner kann nicht geschrieben werden
+CardFillStopBudget = Angehalten: Die Größengrenze ist erreicht
+CardFillStopDisk = Angehalten: Weniger als 2 GB auf der Festplatte frei
+CardFillStopUnreachable = Angehalten: Der Bildserver ist nicht erreichbar
+CardFillStopBusy = Angehalten: Der Bildserver blieb zu beschäftigt
+CardFillStopServer = Angehalten: Der Bildserver scheitert immer wieder ({ $code })
+CardFillStopRefused = Angehalten: Der Bildserver hat abgelehnt ({ $code })
+CardFillCards = { $done } von { $total } Karten
+CardFillRoundThumbnails = Vorschaubilder, Runde { $round } von { $rounds }
+CardFillRoundLarge = große Bilder, Runde { $round } von { $rounds }
+CardFillMissing = { $count ->
+        [one] ein Bild, das der Server nicht hat
+       *[other] { $count } Bilder, die der Server nicht hat
+    }
+CardFillDownloaded = { $size } geladen
+CardFillHours = { $hours } h { $minutes } min
+CardFillMinutes = { $minutes } min
+CardFillSeconds = { $seconds } s
+CardFillElapsed = bisher { $time }
+CardFillLeft = noch etwa { $time }
+CardFillCache = Cache: { $used } von { $budget }
+CardFillIndicator = Kartenbilder: { $status } · { $detail }
+CheckFormat = Format
+CheckNoFormat = Kein Format
+CheckList = Bannliste
+CheckNoList = Die des Formats
+CheckFree = Kein Format gewählt, also wird nichts geprüft.
+CheckLegal = Legal für { $name }
+CheckIllegal =
+    { $count ->
+        [one] Nicht legal für { $name }: ein Problem
+       *[other] Nicht legal für { $name }: { $count } Probleme
+    }
+CheckUnknown = Ob das für { $name } legal ist, lässt sich nicht sagen
+CheckCountAtLeast = { $have } Karten, mindestens { $need }
+CheckCountExactly = { $have } von { $need } Karten
+CheckCount = { $have } Karten
+CheckWaitsForPool = Die Prüfung wartet auf den Kartenpool.
+CheckNoStatuses = Bann, Beschränkung und welche Karten das Format kennt, konnten nicht geprüft werden: Dafür braucht es die Kartentabelle des Gateways.
+CheckNoShape = Deckgröße, Kopien und Anführer dieses Formats werden hier nicht geprüft.
+CheckCardsUnknown =
+    { $count ->
+        [one] Eine Karte konnte nicht geprüft werden: Die Tabelle sagt zu ihr in diesem Format nichts.
+       *[other] { $count } Karten konnten nicht geprüft werden: Die Tabelle sagt zu ihnen in diesem Format nichts.
+    }
+CheckUnscripted =
+    { $count ->
+        [one] Eine Karte hat kein Skript: Sie ist erlaubt und bewirkt im Spiel nichts.
+       *[other] { $count } Karten haben kein Skript: Sie sind erlaubt und bewirken im Spiel nichts.
+    }
+ProblemUnknownCard = { $card } kennt dieser Build nicht.
+ProblemTooFew = { $have } Karten im Deck; es braucht mindestens { $need }.
+ProblemWrongSize = { $have } Karten im Deck; es braucht genau { $need }.
+ProblemTooManyCopies = { $card }: { $have } Kopien, höchstens { $limit } erlaubt.
+ProblemSideboardTooBig = { $have } Karten im Sideboard; höchstens { $limit } erlaubt.
+ProblemNoSideboard = { $have } Karten im Sideboard; dieses Format hat keines.
+ProblemNoLeader = Das Deck hat keinen Commander.
+ProblemLeaders = { $have } Commander; ein Deck hat einen oder zwei, die gemeinsam führen dürfen.
+ProblemNotALeader = { $card } kann kein Commander sein.
+ProblemCannotLeadTogether = { $card } und { $other } können kein Deck gemeinsam führen.
+ProblemOutsideIdentity = { $card } liegt außerhalb der Farbidentität des Commanders.
+ProblemLeadersNotTaken = Dieses Format hat keine Commander.
+ProblemBanned = { $card } ist in { $format } gebannt.
+ProblemRestricted = { $card } ist in { $format } beschränkt: eine Kopie, nicht { $have }.
+ProblemNotLegal = { $card } ist in { $format } nicht legal.
+ProblemListBanned = { $card } ist durch { $list } gebannt.
+ProblemListRestricted = { $card } ist durch { $list } beschränkt: eine Kopie, nicht { $have }.
+ProblemListBannedAsCommander = { $card } darf unter { $list } kein Deck führen.
+BadgeBanned = Gebannt
+BadgeRestricted = Beschränkt
+BadgeNotLegal = Nicht legal
+BadgeTooMany = Zu viele
+BadgeOffColour = Falsche Farbe
+BadgeNoLeader = Kein Anführer
+CheckOpen = Format und Liste
+CheckTitle = Woran dieses Deck gemessen wird
+CheckMore =
+    { $count ->
+        [one] und eins mehr
+       *[other] und { $count } mehr
+    }
+RefusedNote = Die Liste { $list } weist dieses Deck ab.
+RefusedTitle = Dieses Deck hält sich nicht an { $list }
+ListNone = Keine
+ListNew = Neue Liste
+ListCopy = Kopieren
+ListEdit = Bearbeiten
+ListRead = Ansehen
+ListDelete = Liste löschen
+ListSave = Liste speichern
+ListNameLabel = Name
+ListSearchLabel = Karte suchen
+ListOfficial = Offiziell
+ListEmpty = Keine Karten auf dieser Liste.
+ListStatusBanned = Gebannt
+ListStatusRestricted = Beschränkt: eine Kopie
+ListStatusBannedAsCommander = Als Commander gebannt
+ListTitle = Bannliste
+ListTitleOfficial = Offizielle Liste
+ListCopyName = Kopie von { $name }
+ListNewName = Meine Liste
+RoomRulesList = Bannliste: { $list }
+RoomRulesNoList = Keine Bannliste: Jedes Deck darf Platz nehmen
+RoomRulesOwnList = Bannliste: die des Gastgebers
+RoomRulesFrozen = Für dieses Spiel auf Version { $version } festgelegt
+RoomRulesChoose = Bannliste…
+RoomRulesRead = Liste ansehen
+RoomListTitle = Woran dieser Tisch ein Deck misst
+DeckTileIllegal = Nicht legal
+ListNeedsGateway = Bannlisten liegen auf einem Gateway; melde dich bei einem an.
+FilterKeyList = Auf Bannliste
+FilterNoLists = Bannlisten kommen vom Gateway, und hier sind keine. Die Liste bleibt leer, solange eine solche Bedingung steht.
+BuildSyntaxList = auf dieser Bannliste

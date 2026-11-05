@@ -338,7 +338,18 @@ fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
     // old readers ignore the field, so this does not require a version bump.
     // `announced_x` has the same default/omission compatibility, and is only
     // populated by a separate experimental native projection, never sockets.
-    const RECORDED: (u32, u64) = (82, 17_593_544_635_232_560_164);
+    // Version 83 adds public ballots and the Voted log variant; old readers
+    // cannot decode that variant. The version changelog names the wire change.
+    // `PlayerView::flash_types` (Alchemist's Refuge and the like) is additive,
+    // defaulted and omitted while empty: a reader of 83 without it ignores it
+    // and stays conservative, so 83 still named the shape.
+    // 84: Liar's Pendulum's guess as its own imported engine prompt.
+    // `PlayerView::controls` and `SpectatorView::controls`: additive, defaulted
+    // and omitted while empty, so 84 still names the shape.
+    // `PlayerView::foreign_targets`: additive and omitted while empty, likewise.
+    // 85: buyback and multikicker as imported engine prompts, and what a spell
+    // on the stack was cast with, additive and omitted when there is none.
+    const RECORDED: (u32, u64) = (85, 14_644_063_972_652_947_199);
 
     let samples = core_samples();
     let sampled: std::collections::BTreeSet<String> =

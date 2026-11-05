@@ -107,7 +107,7 @@ impl Language {
 }
 
 /// The pool's cards, by oracle id, sorted, each once.
-fn pool_cards() -> &'static [String] {
+pub(crate) fn pool_cards() -> &'static [String] {
     static CARDS: std::sync::OnceLock<Vec<String>> = std::sync::OnceLock::new();
     CARDS.get_or_init(|| {
         let mut cards: Vec<String> = baylee_cards::pool::rows()

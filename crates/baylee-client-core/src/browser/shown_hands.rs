@@ -23,7 +23,7 @@ pub(super) fn rows(
         let shown = (names.hand)(card).unwrap_or_else(|| card.name.clone());
         let selectable = mine.is_some_and(|it| it.selectable().contains(&card.id));
         if (opening == Opening::ForChoice && mine.is_some() && !selectable)
-            || (!query.is_anything() && !shown_hand_matches(query, card, &shown))
+            || (!query.is_anything() && !shown_hand_matches(query, card, &shown, names.surface()))
         {
             continue;
         }
@@ -49,7 +49,12 @@ pub(super) fn rows(
 }
 
 /// A revealed hand exposes printed facts rather than battlefield projections.
-fn shown_hand_matches(query: &Query, card: &baylee_view::HandObject, shown: &str) -> bool {
+fn shown_hand_matches(
+    query: &Query,
+    card: &baylee_view::HandObject,
+    shown: &str,
+    surface: Surface<'_>,
+) -> bool {
     let line = crate::card_face::projected_type_line(&crate::card_face::Characteristics {
         types: card.types,
         ..Default::default()
@@ -81,8 +86,11 @@ fn shown_hand_matches(query: &Query, card: &baylee_view::HandObject, shown: &str
             toughness: None,
             loyalty: None,
             flags,
+            // A shown hand names its cards to this seat: the view's own word
+            // is what lets this row be asked at all.
+            card: Some(card.card.index.get()),
         },
-        Surface::ZONE,
+        surface,
     )
     .shown()
 }

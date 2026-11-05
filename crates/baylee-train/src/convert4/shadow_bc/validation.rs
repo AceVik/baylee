@@ -54,23 +54,27 @@ pub(super) fn target(
     let profile = shadow.header["contract"]["teacher"]
         .as_str()
         .context("Teacher")?;
-    let teacher = HeuristicAgent::new(if profile == "sharp" {
-        AIProfile::SHARP
-    } else {
-        AIProfile::EXPERT
-    })
-    .with_teams(teams.to_vec())
-    .with_seed(
-        shadow.header["teacher_seed"]
-            .as_u64()
-            .context("Teacher seed")?
-            ^ decision_seq.rotate_left(17)
-            ^ u64::from(seat),
-    );
-    ensure!(
-        teacher.act(view, pending) == label.teacher_action && teacher.fallbacks() == 0,
-        "Shadow teacher answer mismatch/refit"
-    );
+    // A watching model's answer was bound to its seat transcript at load;
+    // the house's is asked again here.
+    if label.teacher_question.is_none() {
+        let teacher = HeuristicAgent::new(if profile == "sharp" {
+            AIProfile::SHARP
+        } else {
+            AIProfile::EXPERT
+        })
+        .with_teams(teams.to_vec())
+        .with_seed(
+            shadow.header["teacher_seed"]
+                .as_u64()
+                .context("Teacher seed")?
+                ^ decision_seq.rotate_left(17)
+                ^ u64::from(seat),
+        );
+        ensure!(
+            teacher.act(view, pending) == label.teacher_action && teacher.fallbacks() == 0,
+            "Shadow teacher answer mismatch/refit"
+        );
+    }
     ensure!(
         pending.answer_fault(&label.teacher_action).is_none(),
         "Illegal shadow teacher answer"

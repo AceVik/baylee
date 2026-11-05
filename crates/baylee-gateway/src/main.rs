@@ -12,6 +12,7 @@ mod admission;
 mod art;
 mod auth;
 mod authmode;
+mod banlists;
 mod blocks;
 mod central;
 mod chair;
@@ -29,6 +30,7 @@ mod moderation;
 mod namebook;
 mod openapi;
 mod pool;
+mod poolfacts;
 mod presence;
 mod record;
 mod recordexport;
@@ -163,6 +165,12 @@ struct AppState {
     /// The pool's card text per language, until the catalog's data stamp
     /// moves. See `texts.rs`.
     texts: texts::TextCache,
+    /// The pool's table (`GET /pool/facts`), until the catalog's data stamp
+    /// moves. See `poolfacts.rs`.
+    pool_facts: poolfacts::PoolFactsCache,
+    /// Where the official ban lists stand against the catalog. See
+    /// `banlists.rs`.
+    official_lists: banlists::OfficialLists,
     /// The disk mirror of card art (`BAYLEE_ART_PATH`, `off` to disable).
     ///
     /// An `Arc` of its own because the warming task outlives the request that
@@ -253,6 +261,20 @@ impl AppState {
     /// route ends up waiting on a slow client.
     pub(crate) fn lobby_moved(&self) {
         let _ = self.lobby_changed.send(());
+    }
+
+    /// The pool's table as a deck check reads it; `None` without a filled
+    /// catalog, or while it cannot be read, and the check then says what it
+    /// could not ask.
+    pub(crate) async fn pool_table(&self) -> Option<Arc<baylee_catalog::PoolFacts>> {
+        let catalog = self.catalog.as_ref()?;
+        match self.pool_facts.get(catalog).await {
+            Ok(held) => held.table.clone(),
+            Err(e) => {
+                tracing::warn!(%e, "reading the pool's table failed; a deck check goes without");
+                None
+            }
+        }
     }
 
     /// Whether this gateway is connected to Baylee Central
@@ -426,6 +448,8 @@ async fn main() {
         ),
         catalog,
         texts: texts::TextCache::default(),
+        pool_facts: poolfacts::PoolFactsCache::default(),
+        official_lists: banlists::OfficialLists::default(),
         art: Arc::new(art::ArtCache::from_env()),
         deck_images: Arc::new(cosmetics::Store::from_env()),
         feedback,
@@ -508,6 +532,7 @@ async fn main() {
         .route("/info", get(info))
         .merge(account_routes())
         .merge(deck_routes())
+        .merge(banlists::routes())
         .merge(report::routes())
         .merge(report::direct::routes())
         .merge(social::routes::routes())
@@ -524,6 +549,10 @@ async fn main() {
         .route("/lobby/depart", post(departure::depart))
         .route("/lobby/games/{id}/join", post(join_game))
         .route("/lobby/games/{id}/configure", post(room::configure))
+        .route(
+            "/lobby/games/{id}/list",
+            get(routes::room_list::read).post(routes::room_list::choose),
+        )
         .route("/lobby/games/{id}/seat", post(take_seat))
         .route("/lobby/games/{id}/seats/{seat}", post(set_seat))
         .route("/lobby/games/{id}/ready", post(set_ready))
@@ -555,6 +584,7 @@ async fn main() {
         .route("/agent/ws", get(engine::agent_ws))
         .route("/engine/ws", get(engine::engine_ws))
         .route("/pool", get(pool::pool))
+        .route("/pool/facts", get(poolfacts::pool_facts))
         .route("/printings", get(pool::printings))
         .route("/catalog/text", get(catalog_text))
         .route("/catalog/search", get(catalog_search))
@@ -908,6 +938,10 @@ struct ErrorBody {
     /// @openapi enum: [central, gateway]
     #[serde(skip_serializing_if = "Option::is_none")]
     terms_required: Option<&'static str>,
+    /// Why a table's list turned a deck away: only on the `409` of a route
+    /// that sat a deck down, and only to the player whose deck it is.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    refused: Option<Box<baylee_cardtext::DeckRefusal>>,
 }
 
 fn err(status: StatusCode, message: &'static str) -> (StatusCode, Json<ErrorBody>) {
@@ -917,6 +951,7 @@ fn err(status: StatusCode, message: &'static str) -> (StatusCode, Json<ErrorBody
             error: std::borrow::Cow::Borrowed(message),
             ban: None,
             terms_required: None,
+            refused: None,
         }),
     )
 }
@@ -932,6 +967,7 @@ fn err_saying(status: StatusCode, message: String) -> (StatusCode, Json<ErrorBod
             error: std::borrow::Cow::Owned(message),
             ban: None,
             terms_required: None,
+            refused: None,
         }),
     )
 }

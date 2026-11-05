@@ -161,9 +161,13 @@ fn moves_library(effect: &Effect) -> bool {
         | Effect::SearchOpponentSplits { .. }
         | Effect::SearchLibraryOrGraveyard { .. } => true,
         Effect::RevealUntil { found, .. } => outside_library(*found),
-        Effect::RevealTopAndSort {
+        Effect::RevealUntilMatching {
+            matched, otherwise, ..
+        }
+        | Effect::RevealTopAndSort {
             matched, otherwise, ..
         } => outside_library(*matched) || outside_library(*otherwise),
+        Effect::RevealTopAllMatching { found, .. } => outside_library(found.dest),
         Effect::LookAtTopMayPut {
             matched, otherwise, ..
         } => outside_library(matched.dest) || outside_library(*otherwise),
@@ -175,7 +179,7 @@ fn moves_library(effect: &Effect) -> bool {
         }
         // Scry, reordering, revealing and shuffling alone do not move a card
         // to/from this zone. They can nevertheless be irreversible under
-        // CR 732.1; that is a separate question from being a mana ability.
+        // CR 733.1; that is a separate question from being a mana ability.
         _ => {
             let (then, otherwise) = immediate_branches(effect);
             then.iter().chain(otherwise).any(moves_library)

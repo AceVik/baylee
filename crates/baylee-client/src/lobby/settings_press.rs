@@ -97,6 +97,8 @@ pub(crate) enum SettingsPress {
     Arrangement(baylee_client_core::tableview::Arrangement),
     /// Graphics: *Tisch folgt dem Zug* (DESIGN-v8 §1.1).
     FollowTurn,
+    /// Graphics: *Dem gesteuerten Spieler folgen* (CR 723.5).
+    FollowControl,
     /// Graphics: the arrangement remembered for a seat count, stepped by
     /// one through *Default* and the eight (DESIGN-v8 §2.6).
     ArrangementForSeats(u8, i8),
@@ -120,6 +122,8 @@ pub(crate) enum SettingsPress {
     CopyDiagnostics,
     /// Network: the gateway's legal notice (Impressum) in the browser.
     OpenImpressum,
+    /// Network: a control of the card cache's fill.
+    Fill(super::card_fill::FillPress),
     /// Privacy: what a report may carry.
     Consent(baylee_client_core::bugreport::Category),
     /// Privacy: the anonymous offline count on or off.
@@ -196,6 +200,7 @@ impl SettingsPress {
     /// A press on a device row (Graphics, Audio, Display, Privacy): the
     /// settings file written when it differs, and whether it changed —
     /// `None` for every other press.
+    #[allow(clippy::too_many_lines)] // one arm per device row, read top to bottom
     fn on_device(
         self,
         state: &LobbyState,
@@ -257,6 +262,10 @@ impl SettingsPress {
                 s.table.follow = !s.table.follow;
                 true
             }),
+            SettingsPress::FollowControl => device(settings, |s| {
+                s.table.follow_control = !s.table.follow_control;
+                true
+            }),
             SettingsPress::ArrangementForSeats(seats, step) => device(settings, |s| {
                 let seats = usize::from(seats);
                 let now = s.table.arrangement_by_seats.get(seats);
@@ -299,6 +308,9 @@ impl SettingsPress {
                 s.reports.crashes = crash;
                 differs
             }),
+            SettingsPress::Fill(press) if press.on_device() => {
+                device(settings, |s| press.apply(&mut s.card_fill))
+            }
             _ => return None,
         })
     }
@@ -355,6 +367,7 @@ impl SettingsPress {
             SettingsPress::OpenImpressum => {
                 super::source::open(super::front::FrontPress::OpenImpressum, state);
             }
+            SettingsPress::Fill(press) if !press.on_device() => press.act(state),
             SettingsPress::SwitchGateway => {
                 state.settings = SettingsPane::Closed;
                 if state.lobby.token().is_some() || state.lobby.offline() {
@@ -499,6 +512,7 @@ impl SettingsPress {
             | SettingsPress::CopyHandle
             | SettingsPress::CopyDiagnostics
             | SettingsPress::OpenImpressum
+            | SettingsPress::Fill(_)
             | SettingsPress::SwitchGateway
             | SettingsPress::RebindShell(_)
             | SettingsPress::ResetShell(_)
@@ -521,6 +535,7 @@ impl SettingsPress {
             | SettingsPress::VisitCamera(_)
             | SettingsPress::Arrangement(_)
             | SettingsPress::FollowTurn
+            | SettingsPress::FollowControl
             | SettingsPress::ArrangementForSeats(..)
             | SettingsPress::TextSize(_)
             | SettingsPress::PreviewSize(_)

@@ -2,10 +2,10 @@
 //! scouting summary may adjust values without supplying actionable hidden ids.
 
 use baylee_cards_dsl::{
-    AbilityDef, Effect, FaceDef, Filter, KeywordSet, ManaSource, ReplacementRule,
+    AbilityDef, CostPart, Effect, FaceDef, Filter, KeywordSet, ManaSource, ReplacementRule,
 };
 use baylee_client_core::decision::{hand, known_cards, resource_player};
-use baylee_client_core::manaplan::{self, Source, Tap};
+use baylee_client_core::manaplan::{self, Converter, Source, Tap};
 use baylee_core::ids::ObjectId;
 use baylee_core::mana::{ManaColor, ManaCost, ManaPayment};
 use baylee_core::preset::HoldUp;
@@ -16,8 +16,14 @@ use baylee_view::{CardIdentity, PlayerView};
 
 use crate::HeuristicAgent;
 
+mod mana_effects;
 mod x_exact;
 mod x_targets;
+
+#[cfg(test)]
+use mana_effects::spell_mana_increase;
+pub(crate) use mana_effects::{apply_triggered_mana_bonus, spell_price, taps_set_off_a_trigger};
+use mana_effects::{tap_destroys_or_locks, tap_trigger_harm};
 
 fn own_main_phase(view: &PlayerView) -> bool {
     view.active == view.seat
@@ -124,7 +130,7 @@ fn draw_answer(
     }
 }
 
-fn identity(view: &PlayerView, id: ObjectId) -> Option<CardIdentity> {
+pub(crate) fn identity(view: &PlayerView, id: ObjectId) -> Option<CardIdentity> {
     known_cards(view)
         .find(|c| c.id == id)
         .map(|c| c.card)
@@ -242,6 +248,37 @@ impl HeuristicAgent {
                 .max_by_key(|&x| (self.life_sweep_value(view, x), std::cmp::Reverse(x)))
                 .unwrap_or(min);
         }
+        let library = seat.library_count;
+        let lower = Self::largest_x(view, min, max, context, |x| {
+            crate::tactics::meaning(context.effects, x).draws(view) < library
+        });
+        if let (Some(source), Some(printed)) = (context.source, context.printed)
+            && context.whole_spell
+            && let Some(values) = self.exact_x_values(view, source, printed.card(), printed.face())
+        {
+            return values
+                .into_iter()
+                .filter(|&x| x >= min && x <= lower)
+                .max()
+                .unwrap_or(min);
+        }
+        lower
+    }
+
+    /// The largest X from `min` to `max` the resource player's mana pays
+    /// for the cost `context` names, among those `allowed` keeps; `min`
+    /// where the cost has no X. `allowed` is monotone the way affordability
+    /// is: a draw that is safe at X is safe below it.
+    pub(crate) fn largest_x(
+        view: &PlayerView,
+        min: u32,
+        max: u32,
+        context: &baylee_engine::engine::DecisionContext<'_>,
+        allowed: impl Fn(u32) -> bool,
+    ) -> u32 {
+        let Some(seat) = view.seat(resource_player(view)) else {
+            return min;
+        };
         let Some(cost) = context
             .cost
             .filter(baylee_core::mana::ManaCost::has_variable)
@@ -270,23 +307,11 @@ impl HeuristicAgent {
             .min(u32::try_from(reachable).unwrap_or(u32::MAX));
         while lower < upper {
             let x = lower + (upper - lower).div_ceil(2);
-            if manaplan::plan(&cost.with_x(x), &seat.mana_pool, &sources).is_some()
-                && crate::tactics::meaning(context.effects, x).draws(view) < seat.library_count
-            {
+            if manaplan::plan(&cost.with_x(x), &seat.mana_pool, &sources).is_some() && allowed(x) {
                 lower = x;
             } else {
                 upper = x - 1;
             }
-        }
-        if let (Some(source), Some(printed)) = (context.source, context.printed)
-            && context.whole_spell
-            && let Some(values) = self.exact_x_values(view, source, printed.card(), printed.face())
-        {
-            return values
-                .into_iter()
-                .filter(|&x| x >= min && x <= lower)
-                .max()
-                .unwrap_or(min);
         }
         lower
     }
@@ -642,7 +667,7 @@ impl HeuristicAgent {
             return color;
         }
         let may_pay = |id: ObjectId| {
-            only_for.is_none_or(|filter| self.admits(view, filter, context.source, id))
+            only_for.is_none_or(|restriction| self.admits(view, &restriction, context.source, id))
         };
         if self.profile.mulligan_skill >= 2
             && let Some(color) = self.planned_color(view, options, &may_pay)
@@ -739,8 +764,9 @@ impl HeuristicAgent {
         let best = restricted
             .iter()
             .filter(|o| {
-                o.only_for
-                    .is_some_and(|filter| self.admits(view, filter, Some(o.source.id), spell))
+                o.only_for.as_ref().is_some_and(|restriction| {
+                    self.admits(view, restriction, Some(o.source.id), spell)
+                })
             })
             .min_by_key(|o| {
                 (
@@ -771,13 +797,35 @@ impl HeuristicAgent {
         view: &PlayerView,
         legal: &LegalActions,
     ) -> Option<PlayerAction> {
+        let reserve = self.reserve(view, own_main_phase(view));
+        self.spend_on(view, legal, reserve, |view, id, card, _| {
+            Some(self.spell_score(view, card) + self.noise(view, id))
+        })
+    }
+
+    /// The spell worth casting most by `score`, or the next mana ability
+    /// toward it: [`Self::spell_or_mana`] with the scoring handed in.
+    ///
+    /// `score` is asked of each spell the view could cast, with the mana
+    /// `available` to pay for it (an X comes out of that), and a spell it
+    /// scores at nothing or below — or does not score — stays where it is.
+    /// The rest is the one planner for both scorings: what is affordable,
+    /// what floats first, which source taps next, and the `reserve` a main
+    /// phase keeps up for an instant.
+    #[allow(clippy::too_many_lines)]
+    pub(crate) fn spend_on(
+        &self,
+        view: &PlayerView,
+        legal: &LegalActions,
+        reserve: u32,
+        score: impl Fn(&PlayerView, ObjectId, CardIdentity, u64) -> Option<i64>,
+    ) -> Option<PlayerAction> {
         let seat = view.seat(resource_player(view))?;
         let pool = &seat.mana_pool;
         let (restricted, plain) = split_restricted(offers(view, legal));
-        let plain = usable(plain);
+        let plain = usable(view, legal, plain);
         let main = own_main_phase(view);
         let available = pool.total() + plain.iter().map(|s| u64::from(s.amount)).sum::<u64>();
-        let reserve = self.reserve(view, main);
         let mut best: Option<(i64, PlayerAction)> = None;
         for id in own_casts(view).chain(legal.castable.iter().copied()) {
             let Some(card) = identity(view, id) else {
@@ -793,24 +841,34 @@ impl HeuristicAgent {
             if !legal.castable.contains(&id) && (!main && !instant || !f.castable_from_hand) {
                 continue;
             }
+            // Nothing is tapped for a card the engine would not cast once it
+            // is paid for: a spell with no legal target, say (CR 601.2c).
+            if !legal.castable_once_paid(id) {
+                continue;
+            }
             if view.sorcery_lock.is_some() && !main {
                 continue;
             }
-            let score = self.spell_score(view, card) + self.noise(view, id);
-            if score <= 0 {
+            let Some(score) = score(view, id, card, available).filter(|score| *score > 0) else {
                 continue;
-            }
+            };
             // What the reserve leaves to spend on this spell.
             let budget = if main && !instant {
                 available.saturating_sub(u64::from(reserve))
             } else {
                 available
             };
-            let printed = spell_cost(view, id, f).with_more_generic(
-                legal.spell_increase(id, baylee_engine::choice::CastModeKind::Normal),
+            let printed = spell_price(
+                view,
+                id,
+                Some(card),
+                legal,
+                baylee_engine::choice::CastModeKind::Normal,
+                spell_cost(view, id, f),
             );
             let (cost, floats_first) = aim(
                 view,
+                legal,
                 card,
                 f,
                 printed,
@@ -1370,7 +1428,7 @@ impl HeuristicAgent {
             // are untapped again by then, and not paying it loses the game.
             // So it is a free spell exactly when every source this seat has
             // makes the price, and even then it is next turn's mana spent.
-            if let Effect::PayCostOrLoseLater { cost } = effect {
+            if let Some(cost) = deferred_price(spells, effect) {
                 if !pays_next_turn(view, cost) {
                     return -10_000;
                 }
@@ -1567,7 +1625,7 @@ pub(crate) fn mana_ability_harm(
     let Some(object) = view.object(id) else {
         return 0;
     };
-    let tap_harm = tap_trigger_harm(object);
+    let tap_harm = tap_trigger_harm(view, object);
     let Some(index) = ability_index else {
         return tap_harm;
     };
@@ -1656,20 +1714,6 @@ fn effects_self_harm(effects: &[Effect], controller_is_you: bool) -> i32 {
         .fold(0_i32, i32::saturating_add)
 }
 
-fn tap_trigger_harm(object: &baylee_view::PublicObject) -> i32 {
-    crate::activate::printed_list(object)
-        .iter()
-        .map(|ability| match ability {
-            AbilityDef::Triggered {
-                trigger: baylee_cards_dsl::Trigger::BecomesTapped(Filter::This),
-                effects,
-                ..
-            } => effects_self_harm(effects, true).max(0),
-            _ => 0,
-        })
-        .fold(0_i32, i32::saturating_add)
-}
-
 fn plan_survives(view: &PlayerView, steps: &[manaplan::Step], spell_harm: i32) -> bool {
     let Some(seat) = view.seat(resource_player(view)) else {
         return true;
@@ -1735,6 +1779,8 @@ fn card_as_object(
         attached_to: None,
         targets: Vec::new(),
         stack_item: None,
+        times_kicked: 0,
+        bought_back: false,
         summoning_sick: false,
         ability_mana_spending: baylee_core::mana::ManaSpending::EXACT,
         granted_mana: None,
@@ -1914,7 +1960,7 @@ pub(crate) fn priced(cost: &baylee_cards_dsl::Cost) -> bool {
 /// Restricted taps are left out: what their mana may pay for is a question
 /// about one spell, which [`HeuristicAgent::paying_for`] asks.
 pub(crate) fn sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
-    usable(split_restricted(offers(view, legal)).1)
+    usable(view, legal, split_restricted(offers(view, legal)).1)
 }
 
 /// The restricted taps and the rest. Moved out only when there are any: this
@@ -1932,10 +1978,11 @@ fn split_restricted(mut offers: Vec<Offer>) -> (Vec<Offer>, Vec<Offer>) {
 struct Offer {
     source: Source,
     /// What its mana may be spent on, when it is restricted (CR 106.6).
-    only_for: Option<&'static Filter>,
+    only_for: Option<baylee_cards_dsl::ManaRestriction>,
 }
 
 /// Every offered simple mana tap, restricted ones with their filter.
+#[allow(clippy::too_many_lines)]
 fn offers(view: &PlayerView, legal: &LegalActions) -> Vec<Offer> {
     // The price rides on `manaplan::Source` itself. It used to be paired
     // with the source only until the dedup had run, because the solver asked
@@ -1964,14 +2011,13 @@ fn offers(view: &PlayerView, legal: &LegalActions) -> Vec<Offer> {
         if harm > 0 && harm >= life {
             continue;
         }
-        if let Some(color) = view
-            .object(id)
-            .and_then(|o| manaplan::basic_land_color(&o.subtypes))
+        if let Some(object) = view.object(id)
+            && let Some(mut source) = manaplan::intrinsic_source(id, &object.subtypes)
         {
             // CR 305.6: the intrinsic tap of a basic land type costs the tap
-            // and nothing else.
-            let mut source = Source::fixed(id, Tap::Intrinsic, color);
-            if harm > 0 {
+            // and nothing else, and a land with two types (a Swamp under
+            // Yavimaya) makes either colour.
+            if harm > 0 || taps_set_off_a_trigger(view, object) {
                 source.priced = true;
             }
             result.push(Offer {
@@ -2007,8 +2053,9 @@ fn offers(view: &PlayerView, legal: &LegalActions) -> Vec<Offer> {
         };
         if let Some((colors, amount, priced, only_for)) = source {
             // A tap that sets off the permanent's own trigger (City of
-            // Brass) puts that trigger on the stack before the spell.
-            let priced = priced || taps_set_off_a_trigger(object);
+            // Brass) or a board trigger (Psychic Venom, Manabarbs) puts
+            // that trigger on the stack before the spell.
+            let priced = priced || harm > 0 || taps_set_off_a_trigger(view, object);
             result.push(Offer {
                 source: Source {
                     id,
@@ -2024,6 +2071,7 @@ fn offers(view: &PlayerView, legal: &LegalActions) -> Vec<Offer> {
                     priced,
                     preserve: 0,
                     dear: None,
+                    converter: None,
                 },
                 only_for,
             });
@@ -2033,20 +2081,42 @@ fn offers(view: &PlayerView, legal: &LegalActions) -> Vec<Offer> {
     let costs: Vec<_> = view
         .hand
         .iter()
-        .filter_map(|o| face(o.card).map(|f| f.mana_cost))
+        .filter_map(|o| {
+            face(o.card).map(|f| {
+                if let Some(color) = f.x_mana_color {
+                    f.mana_cost.combine(&ManaCost::from_symbol(
+                        baylee_core::mana::ManaSymbol::of_color(color),
+                    ))
+                } else {
+                    f.mana_cost
+                }
+            })
+        })
         .collect();
     let mut ranked: Vec<_> = result.iter().map(|offer| offer.source.clone()).collect();
     // The registry's answer, as the client's: a land used for more than
     // mana (Karakas) is tapped last.
     manaplan::prioritize(&mut ranked, view, &costs, &|face| {
-        baylee_cards::by_index(face.card)
-            .is_some_and(|def| def.activates_beyond_mana(usize::from(face.face)))
+        baylee_cards::by_index(face.card).map_or(baylee_cards_dsl::UseBeyondMana::Nothing, |def| {
+            def.use_beyond_mana(usize::from(face.face))
+        })
     });
     for ((offer, source), harm) in result.iter_mut().zip(ranked).zip(harms) {
         let pain_penalty = u32::try_from(harm.max(0))
             .unwrap_or(u32::MAX)
             .saturating_mul(20_000);
-        offer.source.preserve = source.preserve.saturating_add(pain_penalty);
+        let lock_penalty = if view
+            .object(offer.source.id)
+            .is_some_and(|o| tap_destroys_or_locks(view, o))
+        {
+            15_000
+        } else {
+            0
+        };
+        offer.source.preserve = source
+            .preserve
+            .saturating_add(pain_penalty)
+            .saturating_add(lock_penalty);
     }
     result
 }
@@ -2056,7 +2126,12 @@ fn printed_mana_offer(
     id: ObjectId,
     index: u32,
     object: &baylee_view::PublicObject,
-) -> Option<(Vec<ManaColor>, u8, bool, Option<&'static Filter>)> {
+) -> Option<(
+    Vec<ManaColor>,
+    u8,
+    bool,
+    Option<baylee_cards_dsl::ManaRestriction>,
+)> {
     let a = crate::activate::printed(view, id, index)?;
     let (AbilityDef::Activated {
         cost,
@@ -2100,22 +2175,54 @@ fn printed_mana_offer(
     ))
 }
 
-/// Whether `object` prints "whenever this becomes tapped": City of Brass.
-fn taps_set_off_a_trigger(object: &baylee_view::PublicObject) -> bool {
-    crate::activate::printed_list(object).iter().any(|ability| {
-        matches!(
-            ability,
-            AbilityDef::Triggered {
-                trigger: baylee_cards_dsl::Trigger::BecomesTapped(filter),
-                ..
-            } if matches!(filter, Filter::This)
+/// The paid mana abilities on offer, each read as the trade it is
+/// (`baylee_cards_dsl::mana_conversion`): the ones the pool pays now
+/// (`legal.abilities`) and the ones waiting on mana that does not float yet
+/// (`legal.unpaid_abilities`), which is where a filter land's stands on an
+/// empty pool. One the seat's life could not survive the tap of is left out,
+/// as [`offers`] leaves out a source.
+pub(crate) fn converters(view: &PlayerView, legal: &LegalActions) -> Vec<(ObjectId, Converter)> {
+    let life = view
+        .seat(resource_player(view))
+        .map_or(i32::MAX, |s| s.life);
+    legal
+        .abilities
+        .iter()
+        .copied()
+        .chain(
+            legal
+                .unpaid_abilities
+                .iter()
+                .map(|&(id, index, _)| (id, index)),
         )
-    })
+        .filter(|&(id, _)| legal.activation_increase(id) == 0)
+        .filter_map(|(id, index)| {
+            let (AbilityDef::Activated { cost, effects, .. }
+            | AbilityDef::ActivatedConditional { cost, effects, .. }) =
+                crate::activate::printed(view, id, index)?
+            else {
+                return None;
+            };
+            let conversion = baylee_cards_dsl::mana_conversion(cost, effects)?;
+            let harm = mana_ability_harm(view, id, Some(index));
+            (harm <= 0 || harm < life).then_some((
+                id,
+                Converter {
+                    tap: Tap::Ability(index),
+                    cost: conversion.cost,
+                    colors: conversion.colors,
+                    bundle: conversion.bundle,
+                    picks: conversion.picks,
+                },
+            ))
+        })
+        .collect()
 }
 
 /// One source per permanent, the mode [`sources`] explains, with its priced
-/// alternative kept beside it (`manaplan::keep_one_per_permanent`).
-fn usable(offers: Vec<Offer>) -> Vec<Source> {
+/// alternative kept beside it (`manaplan::keep_one_per_permanent`) and its
+/// paid mana ability ([`converters`]).
+fn usable(view: &PlayerView, legal: &LegalActions, offers: Vec<Offer>) -> Vec<Source> {
     let mut result: Vec<Source> = offers.into_iter().map(|o| o.source).collect();
     result.sort_by_key(|s| {
         (
@@ -2141,8 +2248,181 @@ fn usable(offers: Vec<Offer>) -> Vec<Source> {
         {
             s.preserve = s.preserve.saturating_add(p / 200);
         }
+        if let Some(object) = view.object(s.id) {
+            apply_triggered_mana_bonus(view, object, s);
+        }
     }
+    manaplan::add_converters(&mut result, converters(view, legal));
     result
+}
+
+pub(crate) fn plan_for_spell(
+    cost: &ManaCost,
+    pool: &baylee_view::ManaPoolView,
+    view: &PlayerView,
+    legal: &LegalActions,
+    spell: ObjectId,
+) -> Option<manaplan::Plan> {
+    let (restricted, plain) = split_restricted(offers(view, legal));
+    let plain = usable(view, legal, plain);
+    if let Some(plan) = manaplan::plan(cost, pool, &plain) {
+        return Some(plan);
+    }
+    if restricted.is_empty() {
+        return None;
+    }
+    let agent = HeuristicAgent::new(crate::AIProfile::default());
+    let (all, _) = agent.paying_for(view, &restricted, &plain, spell)?;
+    manaplan::plan(cost, pool, &all)
+}
+
+pub(crate) fn plan_for_activation(
+    cost: &ManaCost,
+    pool: &baylee_view::ManaPoolView,
+    view: &PlayerView,
+    legal: &LegalActions,
+    source: ObjectId,
+    taps_self: bool,
+) -> Option<manaplan::Plan> {
+    let spending = view
+        .object(source)
+        .map_or(pool.spending, |o| o.ability_mana_spending);
+    let mut pool = *pool;
+    pool.spending = spending;
+    let (restricted, plain) = split_restricted(offers(view, legal));
+    let mut plain = usable(view, legal, plain);
+    if taps_self {
+        plain.retain(|s| s.id != source);
+    }
+    if let Some(plan) = manaplan::plan(cost, &pool, &plain) {
+        return Some(plan);
+    }
+    if restricted.is_empty() {
+        return None;
+    }
+    let agent = HeuristicAgent::new(crate::AIProfile::default());
+    let best = restricted
+        .iter()
+        .filter(|o| !taps_self || o.source.id != source)
+        .filter(|o| {
+            o.only_for.as_ref().is_some_and(|restriction| {
+                agent.admits_activation(view, restriction, Some(o.source.id), source)
+            })
+        })
+        .min_by_key(|o| {
+            (
+                o.source.priced,
+                o.source.preserve,
+                std::cmp::Reverse(o.source.amount),
+                std::cmp::Reverse(o.source.colors.len()),
+                o.source.id,
+            )
+        })?;
+    let mut all: Vec<Source> = plain
+        .into_iter()
+        .filter(|s| s.id != best.source.id)
+        .collect();
+    all.push(best.source.clone());
+    manaplan::plan(cost, &pool, &all)
+}
+
+/// Whether `id` may be tapped for: the engine lists it as castable once paid
+/// ([`LegalActions::castable_once_paid`]), which is where whether it has a
+/// legal target for every target it must have is answered (CR 601.2c), and
+/// the timing and mandatory costs the view can read agree.
+///
+/// The targets were read here off the view, and only for graveyard and stack
+/// specs: every battlefield and player spec answered yes, so Terror over a
+/// board of black creatures, Fear with no creature to enchant and Disenchant
+/// with nothing to destroy had their lands tapped and the cast refused
+/// (NEW-04, 3.11.2026). The engine's answer counts protection, hexproof and
+/// every filter, and is about this seat's own cards only.
+pub(crate) fn spell_can_be_cast_now(
+    view: &PlayerView,
+    legal: &LegalActions,
+    id: ObjectId,
+    card: CardIdentity,
+) -> bool {
+    if !legal.castable_once_paid(id) {
+        return false;
+    }
+    let Some(def) = baylee_cards::by_index(card.index) else {
+        return true;
+    };
+    let Some(f) = def.faces.get(usize::from(card.face)) else {
+        return true;
+    };
+    let spells = def.abilities_for_face(usize::from(card.face));
+    if crate::optional::timing_closed(view, spells) {
+        return false;
+    }
+    let agent = HeuristicAgent::new(crate::AIProfile::default());
+    let me = resource_player(view);
+    for part in f.mandatory_additional_costs {
+        match part {
+            baylee_cards_dsl::CostPart::Sacrifice(filter)
+            | baylee_cards_dsl::CostPart::ReturnToHand(filter)
+            | baylee_cards_dsl::CostPart::ExilePermanent(filter) => {
+                if !view.battlefield_of(me).any(|o| {
+                    agent.filter_matches(
+                        filter,
+                        view,
+                        o,
+                        baylee_cards_dsl::ZoneRef::Battlefield,
+                        Some(id),
+                    ) != Some(false)
+                }) {
+                    return false;
+                }
+            }
+            baylee_cards_dsl::CostPart::TapOther(filter) => {
+                if !view.battlefield_of(me).any(|o| {
+                    !o.status.contains(baylee_view::ObjectStatus::TAPPED)
+                        && (!o.summoning_sick
+                            || !o.types.contains(TypeSet::CREATURE)
+                            || o.keywords & KeywordSet::HASTE.bits() != 0)
+                        && agent.filter_matches(
+                            filter,
+                            view,
+                            o,
+                            baylee_cards_dsl::ZoneRef::Battlefield,
+                            Some(id),
+                        ) != Some(false)
+                }) {
+                    return false;
+                }
+            }
+            baylee_cards_dsl::CostPart::Discard(_)
+            | baylee_cards_dsl::CostPart::ExileFromHand(_) => {
+                if !hand(view).iter().any(|c| c.id != id) {
+                    return false;
+                }
+            }
+            baylee_cards_dsl::CostPart::ExileFromGraveyard(filter) => {
+                if !view.graveyards.get(usize::from(me.get())).is_some_and(|g| {
+                    g.iter().any(|o| {
+                        o.id != id
+                            && agent.filter_matches(
+                                filter,
+                                view,
+                                o,
+                                baylee_cards_dsl::ZoneRef::Graveyard,
+                                Some(id),
+                            ) != Some(false)
+                    })
+                }) {
+                    return false;
+                }
+            }
+            baylee_cards_dsl::CostPart::PayLife(n)
+                if view.seat(me).is_some_and(|s| s.life < i32::from(*n)) =>
+            {
+                return false;
+            }
+            _ => {}
+        }
+    }
+    true
 }
 
 /// Costs visible from the card and public commander/graveyard bookkeeping.
@@ -2180,11 +2460,12 @@ fn spell_cost(view: &PlayerView, id: ObjectId, face: &FaceDef) -> baylee_core::m
 /// before the cast. X is the largest the sources can make. A kicker is
 /// aimed for when it fits the budget, and cast only once floating, as with X:
 /// the engine asks the kicker question with no window to tap anything more.
-/// So is replicate, as many payments as the budget and the sources cover:
-/// the engine offers as many as the floating pool pays for (CR 702.56a),
-/// and the answer takes them all.
+/// So are multikicker and replicate, as many payments as the budget and the
+/// sources cover, and buyback where the card is worth the mana
+/// ([`buyback_price`]): each is answered out of what is floating.
 fn aim(
     view: &PlayerView,
+    legal: &LegalActions,
     card: CardIdentity,
     face: &FaceDef,
     cost: baylee_core::mana::ManaCost,
@@ -2219,6 +2500,19 @@ fn aim(
     if let Some(net) = kicked_price(view, face, spell_effects(card), cost, sources).filter(fits) {
         return (net, true);
     }
+    let effects = spell_effects(card);
+    if let Some(net) = face.multikicker.and_then(|each| {
+        (1..=budget.min(50))
+            .rev()
+            .filter(|n| kicks_safely(view, effects, *n, seat.library_count))
+            .map(|n| cost.combine_n(&each, n))
+            .find(fits)
+    }) {
+        return (net, true);
+    }
+    if let Some(net) = buyback_price(view, legal, card, face, cost, budget).filter(fits) {
+        return (net, true);
+    }
     // Every printed replicate cost is mana, so no more payments fit than
     // the budget has mana.
     face.replicate
@@ -2229,6 +2523,150 @@ fn aim(
                 .find(fits)
         })
         .map_or((cost, false), |net| (net, true))
+}
+
+/// Whether kicking a spell `times` times leaves a card to draw: a spell that
+/// draws for each kick would otherwise draw this seat out of the game.
+fn kicks_safely(view: &PlayerView, effects: &[Effect], times: u32, library: u32) -> bool {
+    let draws = crate::optional::self_draws(view, effects, times);
+    draws == 0 || draws < library
+}
+
+/// A seat pays life for a buyback only while this much stays.
+const BUYBACK_LIFE_FLOOR: i32 = 10;
+
+/// The lands a seat keeps on the table: below this a land sacrificed for a
+/// buyback costs more than the card comes back for.
+const BUYBACK_LANDS_KEPT: usize = 5;
+
+/// Whether a buyback cost's parts are worth having `card` back (CR 702.27a).
+///
+/// The card is worth about what it costs again, so the parts are judged
+/// against what they take. Life is paid while plenty stays. A land goes only
+/// once there are more than the seat needs. A discard takes the lands in hand
+/// past the one the seat can play this turn, and a random one is asked only
+/// when it would land on such a card at least half the time. A part this list
+/// does not know is not paid.
+fn buyback_parts_worth(view: &PlayerView, parts: &[CostPart], card: CardIdentity) -> bool {
+    let player = resource_player(view);
+    let Some(seat) = view.seat(player) else {
+        return false;
+    };
+    let lands = view
+        .battlefield_of(player)
+        .filter(|o| o.types.contains(TypeSet::LAND))
+        .count();
+    let others: Vec<_> = hand(view)
+        .iter()
+        .filter(|held| held.card.index != card.index)
+        .collect();
+    let spare = others
+        .iter()
+        .filter(|held| face(held.card).is_some_and(|f| f.types.contains(TypeSet::LAND)))
+        .count()
+        .saturating_sub(1);
+    let discards = parts
+        .iter()
+        .filter(|part| matches!(part, CostPart::Discard(_)))
+        .count();
+    let life: i32 = parts
+        .iter()
+        .map(|part| match part {
+            CostPart::PayLife(n) => i32::from(*n),
+            _ => 0,
+        })
+        .sum();
+    seat.life - life >= BUYBACK_LIFE_FLOOR.min(seat.life)
+        && parts.iter().all(|part| match part {
+            CostPart::PayLife(_) => true,
+            CostPart::Sacrifice(_) => lands > BUYBACK_LANDS_KEPT,
+            CostPart::Discard(_) => spare >= discards,
+            CostPart::DiscardRandom => !others.is_empty() && 2 * spare >= others.len(),
+            _ => false,
+        })
+}
+
+/// What `cost` becomes with the buyback paid, when that is worth planning.
+///
+/// `None` for a cost with no mana to float, for parts not worth paying, and
+/// when the mana it takes would stop this seat casting something else in hand
+/// it could otherwise afford: a Capsize brought back is not a creature played.
+fn buyback_price(
+    view: &PlayerView,
+    legal: &LegalActions,
+    card: CardIdentity,
+    face: &FaceDef,
+    cost: baylee_core::mana::ManaCost,
+    budget: u32,
+) -> Option<baylee_core::mana::ManaCost> {
+    let buyback = face.buyback?;
+    let mana = buyback.mana.with_less_generic(legal.buyback_less);
+    if mana == baylee_core::mana::ManaCost::ZERO || !buyback_parts_worth(view, buyback.parts, card)
+    {
+        return None;
+    }
+    let spare = budget.saturating_sub(cost.cmc());
+    let left = spare.saturating_sub(mana.cmc());
+    let crowded = hand(view)
+        .iter()
+        .filter(|held| held.card.index != card.index)
+        .filter_map(|held| self::face(held.card))
+        .filter(|other| !other.types.contains(TypeSet::LAND))
+        .map(|other| other.mana_cost.with_x(0).cmc())
+        .any(|price| price > left && price <= spare);
+    (!crowded).then(|| cost.combine(&mana))
+}
+
+/// The answer to `YesNoPrompt::Buyback`: yes when the floating pool covers the
+/// whole price, the question's `mana` beside the spell's own, and the parts
+/// are worth paying. The engine would open a window for mana that is short,
+/// but the planner already said what it wanted to spend ([`buyback_price`]):
+/// whatever it floated is what it means to pay.
+pub(crate) fn buys_back(
+    view: &PlayerView,
+    context: &baylee_engine::engine::DecisionContext<'_>,
+    mana: baylee_core::mana::ManaCost,
+) -> bool {
+    let (Some(id), Some(cost), Some(seat)) = (
+        context.source,
+        context.cost,
+        view.seat(resource_player(view)),
+    ) else {
+        return false;
+    };
+    let Some(card) = identity(view, id) else {
+        return false;
+    };
+    face(card)
+        .and_then(|f| f.buyback)
+        .is_some_and(|buyback| buyback_parts_worth(view, buyback.parts, card))
+        && manaplan::plan(&cost.with_x(context.x).combine(&mana), &seat.mana_pool, &[]).is_some()
+}
+
+/// The answer to `NumberPrompt::Multikicker`: as far as the floating pool
+/// reaches, the kick being the better half of the card by design. The engine's
+/// maximum is open while a land is left to tap, so the pool is what is asked.
+pub(crate) fn multikicks(
+    view: &PlayerView,
+    context: &baylee_engine::engine::DecisionContext<'_>,
+    each: baylee_core::mana::ManaCost,
+    min: u32,
+    max: u32,
+) -> u32 {
+    let Some(seat) = view.seat(resource_player(view)) else {
+        return min;
+    };
+    let spell = context
+        .cost
+        .unwrap_or(baylee_core::mana::ManaCost::ZERO)
+        .with_x(context.x);
+    (min..=max.min(50))
+        .rev()
+        .find(|n| {
+            kicks_safely(view, context.effects, *n, seat.library_count)
+                && manaplan::plan(&spell.combine_n(&each, *n), &seat.mana_pool, &[]).is_some()
+        })
+        .unwrap_or(min)
 }
 
 /// Whether casting `face` at the X `cost` pays for puts a creature onto
@@ -2356,11 +2794,13 @@ pub(crate) fn kicks(
 ///
 /// #224: the answer was every permanent offered, whatever was floating, so a
 /// convoke cast tapped the whole team and nothing was left to attack or
-/// block. The engine takes each tap off the cost's generic mana, so the count
-/// is the smallest one for which the pool pays the rest, asked of the planner
-/// [`kicks`] trusts. Without a price to measure against (no context, or a
-/// pool no count can cover), it taps as many as it may: an underpaid cast is
-/// rolled back whole (CR 601.2h), and an overpaid one costs only the taps.
+/// block. The engine takes each tap off a coloured symbol of the creature's
+/// colour where it can and off the generic mana otherwise (CR 702.51a), so
+/// the count is the smallest one for which the pool pays the rest, asked of
+/// the planner [`kicks`] trusts. Without a price to measure against (no
+/// context, or a pool no count can cover), it taps as many as it may: an
+/// underpaid cast is rolled back whole (CR 601.2h), and an overpaid one costs
+/// only the taps.
 ///
 /// Which ones: an artifact before a creature, since it neither attacks nor
 /// blocks; on this seat's own turn, a creature that cannot attack yet before
@@ -2374,7 +2814,6 @@ pub(crate) fn convoke_taps(
     let max = usize::try_from(max)
         .unwrap_or(usize::MAX)
         .min(options.len());
-    let needed = taps_needed(view, context, max).unwrap_or(max);
     options.sort_by_key(|id| {
         view.object(*id)
             .map_or((true, true, i16::MAX, i16::MAX), |o| {
@@ -2387,31 +2826,47 @@ pub(crate) fn convoke_taps(
                 )
             })
     });
+    let needed = taps_needed(view, context, &options[..max]).unwrap_or(max);
     options.truncate(needed);
     options
 }
 
-/// The fewest taps that leave the floating pool able to pay the rest.
+/// The fewest of `taps`, in order, that leave the floating pool able to pay
+/// the rest: each pays a coloured symbol of its colour where it can when the
+/// spell has convoke (a creature, CR 702.51a), and generic mana otherwise.
 ///
 /// A waterbend face's question comes only once the waterbend was paid
 /// (#229), so its cost is part of the total here.
-fn taps_needed(view: &PlayerView, context: &DecisionContext<'_>, max: usize) -> Option<usize> {
+fn taps_needed(
+    view: &PlayerView,
+    context: &DecisionContext<'_>,
+    taps: &[ObjectId],
+) -> Option<usize> {
     let pool = &view.seat(resource_player(view))?.mana_pool;
     let mut total = context.cost?.with_x(context.x);
-    if let Some(face) = context
+    let spell_face = context
         .source
         .and_then(|id| identity(view, id))
-        .and_then(face)
-        .filter(|f| f.waterbend)
-    {
+        .and_then(face);
+    if let Some(face) = spell_face.filter(|f| f.waterbend) {
         total = face
             .additional_costs
             .iter()
             .fold(total, |total, c| total.combine(&c.mana));
     }
-    (0..=max).find(|&n| {
-        let taps = u32::try_from(n).unwrap_or(u32::MAX);
-        manaplan::plan(&total.with_less_generic(taps), pool, &[]).is_some()
+    let convoke = spell_face.is_some_and(|f| f.convoke);
+    let colors: Vec<baylee_core::color::ColorSet> = taps
+        .iter()
+        .map(|id| {
+            view.object(*id)
+                .filter(|o| convoke && o.types.contains(TypeSet::CREATURE))
+                .map_or(baylee_core::color::ColorSet::EMPTY, |o| o.colors)
+        })
+        .collect();
+    (0..=taps.len()).find(|&n| {
+        let (rest, colored) = total.convoked_colored(&colors[..n]);
+        let generic = u32::try_from(n).unwrap_or(u32::MAX).saturating_sub(colored);
+        manaplan::plan(&rest.with_less_generic(generic), pool, &[]).is_some()
     })
 }
 
@@ -2432,6 +2887,7 @@ fn taps_needed(view: &PlayerView, context: &DecisionContext<'_>, max: usize) -> 
 /// yes with an empty pool is handed a mana window under CR 605.3a, and a
 /// window it cannot fill ends exactly where refusing ended — one question
 /// later.
+#[allow(clippy::too_many_lines)]
 pub(crate) fn pays_tax(
     view: &PlayerView,
     price: baylee_core::mana::ManaCost,
@@ -2452,6 +2908,18 @@ pub(crate) fn pays_tax(
                 | Effect::PlayerMayPayManaAndLifeEachThenElse { .. }
         )
     }) {
+        if context.effects.iter().all(|effect| {
+            let (then, otherwise) = effect.branches();
+            otherwise.is_empty()
+                && !then.is_empty()
+                && then.iter().all(|e| matches!(e, Effect::UntapSelf))
+        }) && context
+            .source
+            .and_then(|id| view.object(id))
+            .is_some_and(|o| !o.status.contains(baylee_view::ObjectStatus::TAPPED))
+        {
+            return false;
+        }
         let draws: u32 = context
             .effects
             .iter()
@@ -2480,25 +2948,7 @@ pub(crate) fn pays_tax(
     }
     let refusal_costs_a_card = context.effects.iter().any(|effect| match effect {
         Effect::PlayerMayPayOr { effect, .. } | Effect::PlayerMayPayManaOr { effect, .. } => {
-            matches!(
-                effect,
-                Effect::CounterTargetSpell
-                    | Effect::CounterTargetSpellToExile
-                    | Effect::CounterTargetAbility
-                    | Effect::CounterTargetSpellOrAbility
-                    // Cumulative upkeep (CR 702.24a) and an upkeep like
-                    // Phantasmal Forces': unpaid, the permanent that asks is
-                    // sacrificed, which is a card of the seat's own.
-                    | Effect::SacrificeSelf
-                    // Force of Nature's "8 damage to you": a fifth of the
-                    // seat's life, which the mana is not worth keeping for.
-                    | Effect::DealDamage {
-                        target: baylee_cards_dsl::TargetSpec::Player(
-                            baylee_cards_dsl::PlayerRel::You
-                        ),
-                        ..
-                    }
-            )
+            refusing_costs_a_card(effect)
         }
         _ => false,
     });
@@ -2548,6 +2998,36 @@ pub(crate) fn pays_tax(
     can_pay(view, &price)
 }
 
+/// Whether what an "unless" does when its price goes unpaid (CR 118.12a)
+/// costs the paying seat a card, or as much as one: its spell or ability
+/// countered, its own permanent sacrificed, a fifth of its life.
+///
+/// Read through a sequence, because a counter can come first in one. Power
+/// Sink's is "counter it, then tap that player's lands and empty their
+/// pool", a `Sequence` starting with `CounterTargetSpell`, and the bare match
+/// this replaced saw no counter in it: the house refused even a `{0}` and
+/// lost the spell (NEW-15, 3.11.2026).
+fn refusing_costs_a_card(effect: &Effect) -> bool {
+    match effect {
+        Effect::Sequence(effects) => effects.iter().any(refusing_costs_a_card),
+        Effect::CounterTargetSpell
+        | Effect::CounterTargetSpellToExile
+        | Effect::CounterTargetAbility
+        | Effect::CounterTargetSpellOrAbility
+        // Cumulative upkeep (CR 702.24a) and an upkeep like Phantasmal
+        // Forces': unpaid, the permanent that asks is sacrificed, which is a
+        // card of the seat's own.
+        | Effect::SacrificeSelf
+        // Force of Nature's "8 damage to you": a fifth of the seat's life,
+        // which the mana is not worth keeping for.
+        | Effect::DealDamage {
+            target: baylee_cards_dsl::TargetSpec::Player(baylee_cards_dsl::PlayerRel::You),
+            ..
+        } => true,
+        _ => false,
+    }
+}
+
 /// Whether the seat could produce `cost` right now, floating mana plus what
 /// is still untapped.
 ///
@@ -2569,6 +3049,24 @@ pub(crate) fn remaining_sources(view: &PlayerView) -> Vec<Source> {
 
 /// Whether this seat's mana sources, all untapped again, make `cost`: what
 /// it can pay in its next upkeep (CR 502.3), with nothing floating.
+/// The price `effect` puts off to the next upkeep: what the delayed ability it
+/// creates asks for, read off the card's list, where that ability is printed.
+fn deferred_price(
+    spells: &'static [AbilityDef],
+    effect: &Effect,
+) -> Option<&'static baylee_core::mana::ManaCost> {
+    let Effect::AtNextUpkeepPrinted { ability } = effect else {
+        return None;
+    };
+    let AbilityDef::Triggered { effects, .. } = spells.get(usize::try_from(*ability).ok()?)? else {
+        return None;
+    };
+    effects.iter().find_map(|effect| match effect {
+        Effect::PayManaOrLose { cost } => Some(cost),
+        _ => None,
+    })
+}
+
 pub(crate) fn pays_next_turn(view: &PlayerView, cost: &baylee_core::mana::ManaCost) -> bool {
     manaplan::plan(
         cost,
@@ -2595,7 +3093,10 @@ fn own_sources(view: &PlayerView, now: bool) -> Vec<Source> {
         {
             continue;
         }
-        if manaplan::basic_land_color(&object.subtypes).is_some() {
+        if manaplan::basic_land_colors(&object.subtypes)
+            .next()
+            .is_some()
+        {
             estimate.mana_abilities.push(object.id);
         }
         // Stable identities are not vector positions. Feed inherited public
@@ -2675,211 +3176,4 @@ pub(crate) fn reach_total(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::{mix, priced};
-    use baylee_cards_dsl::{Cost, CostPart};
-
-    #[test]
-    fn color_planning_does_not_overflow_a_full_pool_counter() {
-        use baylee_core::mana::ManaColor;
-        let pool = baylee_view::ManaPoolView {
-            blue: u32::MAX,
-            ..Default::default()
-        };
-        assert!(super::one_more(pool, ManaColor::Blue).is_none());
-        let after = super::one_more(pool, ManaColor::Red).unwrap();
-        assert_eq!(after.blue, u32::MAX);
-        assert_eq!(after.red, 1);
-    }
-
-    /// **A land on the back of a card is still a land the engine offers.**
-    ///
-    /// A `CardIdentity` in hand names the face that is up, and for a modal
-    /// double-faced card that face is the spell — so every reader asking
-    /// `types.contains(LAND)` of it read Shatterskull Smashing as a sorcery
-    /// and nothing else, while `compute_legal` was already offering the land
-    /// drop (CR 712.12). An agent that disagrees with the offer it is
-    /// answering declines land drops the engine is making it.
-    ///
-    /// So the rule is read over the **whole pool** rather than over an
-    /// example, and in two populations, because the back face is a land drop
-    /// for one kind of double-faced card and not the other. A modal card's
-    /// land back is (CR 712.12); a transforming card's is not, since in hand
-    /// it has only its front face's characteristics (CR 712.8a) — Arguel's
-    /// Blood Fast is an enchantment there, and its Temple is reached only by
-    /// turning over. `castable_from_hand` is what tells the two apart, and
-    /// `xtask validate` holds it against Scryfall's `layout`.
-    ///
-    /// Both populations carry a floor and a card pinned by name, so an
-    /// answer that is "yes" for every back land, or "no" for every one, is
-    /// red here rather than a quiet pass over half the pool.
-    #[test]
-    fn a_land_on_a_modal_back_is_playable_and_one_on_a_transforming_back_is_not() {
-        use baylee_core::ids::PrintRef;
-        use baylee_core::types::TypeSet;
-
-        let identity = |index| super::CardIdentity {
-            index,
-            print: PrintRef::new(0),
-            face: 0,
-        };
-        let by_oracle = |oracle_id| {
-            identity(
-                baylee_cards::by_oracle_id(oracle_id)
-                    .expect("registry contains the card")
-                    .index,
-            )
-        };
-        let mut read = 0usize;
-        let mut modal = Vec::new();
-        let mut transforming = Vec::new();
-        let mut wrong = Vec::new();
-        for def in baylee_cards::all() {
-            read += 1;
-            // Face 0, because that is what a card in hand shows and what
-            // every front-face reader was looking at.
-            let card = identity(def.index);
-            let front_is_a_land = def.faces[0].types.contains(TypeSet::LAND);
-            let back_land = def
-                .faces
-                .iter()
-                .skip(1)
-                .find(|f| f.types.contains(TypeSet::LAND));
-            let playable = match back_land {
-                _ if front_is_a_land => true,
-                Some(back) if back.castable_from_hand => {
-                    modal.push(def.name());
-                    true
-                }
-                Some(_) => {
-                    transforming.push(def.name());
-                    false
-                }
-                None => false,
-            };
-            if super::plays_as_land(card) != playable {
-                wrong.push(def.name());
-            }
-            if playable {
-                assert!(
-                    super::land_face(card).is_some_and(|f| f.types.contains(TypeSet::LAND)),
-                    "{} names a face that is not the land",
-                    def.name()
-                );
-            }
-        }
-
-        assert!(
-            read > 2_500,
-            "read {read} cards out of the pool, which is not the pool"
-        );
-        assert!(
-            wrong.is_empty(),
-            "{} card(s) disagree with CR 712.12 / 712.8a: {:?}",
-            wrong.len(),
-            &wrong[..wrong.len().min(10)]
-        );
-        // Measured 2026-09-24: 50 modal and 32 transforming, over 2716
-        // cards. Floors under both, because the pool only grows, and a
-        // sweep that read none of either would report the same clean result
-        // as one that read all of them.
-        assert!(
-            modal.len() >= 48,
-            "only {} modal card(s) print a spell over a land: {modal:?}",
-            modal.len()
-        );
-        assert!(
-            transforming.len() >= 30,
-            "only {} transforming card(s) turn into a land: {transforming:?}",
-            transforming.len()
-        );
-
-        // Pinned by name, one of each kind.
-        let shatterskull = by_oracle("78301998-fd9b-4cd5-afad-dbcb43cac2a7");
-        assert!(super::plays_as_land(shatterskull), "Shatterskull Smashing");
-        let blood_fast = by_oracle("be2a4bc4-8af6-48c5-9421-32d26272e71a");
-        assert!(!super::plays_as_land(blood_fast), "Arguel's Blood Fast");
-        assert!(super::land_face(blood_fast).is_none());
-
-        // And a card with no land face anywhere is not a land drop.
-        let bolt = by_oracle("4457ed35-7c10-48c8-9776-456485fdf070");
-        assert!(!super::plays_as_land(bolt));
-        assert!(super::land_face(bolt).is_none());
-    }
-
-    /// What a tap costs is part of the ranking. `mana_shape` has already
-    /// refused a mana price, so what is left is `cost.parts`, and `{T}` is
-    /// the only part a mana source may carry for free — a `matches!` on
-    /// that one variant rather than a list of the expensive ones, so a
-    /// `CostPart` added tomorrow is priced by default.
-    ///
-    /// The bug it closes is Havenwood Battleground, which prints `{T}: Add
-    /// {G}` beside `{T}, Sacrifice this land: Add {G}{G}`: ranked on mana
-    /// made, the sacrifice won and the agent sold the land for a mana it
-    /// already had.
-    #[test]
-    fn only_tapping_the_permanent_is_free() {
-        assert!(!priced(&Cost::TAP));
-        assert!(!priced(&Cost::FREE), "an ability with no cost at all");
-        assert!(priced(&baylee_cards_dsl::cost!(TapSelf, SacrificeSelf)));
-        assert!(
-            priced(&baylee_cards_dsl::cost!(TapSelf, PayLife(1))),
-            "Spire of Industry pays the life whenever the plan asks it to"
-        );
-        assert!(
-            priced(&baylee_cards_dsl::cost!(UntapSelf)),
-            "untapping a permanent is a different button from tapping it, \
-             whatever mana comes out"
-        );
-        assert!(priced(&baylee_cards_dsl::cost!(
-            TapSelf,
-            Discard(&baylee_cards_dsl::Filter::CREATURE)
-        )));
-    }
-
-    /// The noise an agent breaks a tie with is `SplitMix`'s integer
-    /// finalizer: fixed arithmetic, not a platform hasher and not a process
-    /// RNG. A replay has to reach the same decision on another machine and
-    /// in another build, so the values are written down rather than merely
-    /// asserted to be stable within one run — a `DefaultHasher` passes
-    /// every property test this could ask and changes these four numbers.
-    #[test]
-    fn the_tie_break_noise_is_arithmetic_and_not_a_hasher() {
-        assert_eq!(mix(0), 0);
-        assert_eq!(mix(1), 6_238_072_747_940_578_789);
-        assert_eq!(mix(2), 15_839_785_061_582_574_730);
-        assert_eq!(mix(0xdead_beef), 5_622_224_078_331_092_714);
-    }
-
-    /// And it separates neighbours, which is the whole job: the noise is
-    /// keyed by the offered object as well as the view, so two objects one
-    /// apart must not sort together.
-    #[test]
-    fn neighbouring_keys_do_not_share_a_tie_break() {
-        let noise: Vec<u64> = (0..64).map(mix).collect();
-        let mut sorted = noise.clone();
-        sorted.sort_unstable();
-        sorted.dedup();
-        assert_eq!(sorted.len(), noise.len(), "64 keys, 64 distinct answers");
-        assert_ne!(noise[1] >> 60, noise[2] >> 60, "and they differ up top");
-    }
-
-    /// One part of `priced`'s contract that the `matches!` states and
-    /// nothing else would: a cost made only of parts it has never seen is
-    /// priced, not free.
-    #[test]
-    fn an_unrecognised_part_is_priced_rather_than_ignored() {
-        const PARTS: [&[CostPart]; 3] = [
-            &[CostPart::ExileSelf],
-            &[CostPart::DiscardSelf],
-            &[CostPart::ReturnSelfToHand],
-        ];
-        for parts in PARTS {
-            let cost = Cost {
-                mana: baylee_core::mana::ManaCost::ZERO,
-                parts,
-            };
-            assert!(priced(&cost), "{parts:?}");
-        }
-    }
-}
+mod tests;

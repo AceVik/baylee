@@ -123,6 +123,8 @@ struct ToolbarKey {
     syntax: bool,
     results: usize,
     pool: usize,
+    /// Whether the gateway's table has arrived: what the builder offers.
+    facts: bool,
     loaded: bool,
     commander_pick: Option<bool>,
 }
@@ -175,6 +177,21 @@ struct BodyKey {
     hand: Vec<usize>,
     revision: u64,
     commanders: Vec<usize>,
+    /// What the check found, because a row wears it.
+    faults: Vec<baylee_cardtext::Problem>,
+}
+
+/// What the check said, as far as anything drawn depends on it.
+#[derive(Clone, PartialEq)]
+struct CheckKey {
+    report: baylee_cardtext::Report,
+    format: String,
+    list: Option<String>,
+    choices: Vec<String>,
+    pending: bool,
+    lists: Vec<baylee_cardtext::ListRow>,
+    editor: Option<baylee_client_core::banlist::ListEditor>,
+    focus: BuildField,
 }
 
 /// The deck foot's key.
@@ -183,6 +200,8 @@ struct FootKey {
     problems: Vec<(bool, String)>,
     shaky: u32,
     missing: Vec<String>,
+    check: CheckKey,
+    counted: u32,
 }
 
 /// The phone rail's key.
@@ -217,6 +236,7 @@ struct MenuKey {
 #[derive(Clone, PartialEq)]
 #[allow(clippy::struct_excessive_bools)] // one sheet at a time, each its own fact
 struct SheetKey {
+    check: Option<CheckKey>,
     leaving: bool,
     inspecting: Option<usize>,
     held: Option<(u16, u16)>,
@@ -476,7 +496,7 @@ fn toolbar_key(env: &Env) -> ToolbarKey {
     ToolbarKey {
         text: deck.buffer(BuildField::Search).clone(),
         typing: super::pool::search_has_caret(env),
-        panel: deck.panel().cloned(),
+        panel: deck.pool_panel().cloned(),
         colors: deck.colors().to_vec(),
         kind: deck.kind().map(str::to_owned),
         cmc: deck.cmc(),
@@ -487,6 +507,7 @@ fn toolbar_key(env: &Env) -> ToolbarKey {
         syntax: env.ui().syntax,
         results: deck.results().len(),
         pool: deck.pool().len(),
+        facts: deck.pool_facts().is_some(),
         loaded: deck.loaded(),
         commander_pick: state.commander_pick,
     }
@@ -561,6 +582,21 @@ fn body_key(env: &Env) -> BodyKey {
         hand: ui.hand.clone(),
         revision: deck.pool_revision(),
         commanders: deck.commanders().to_vec(),
+        faults: deck.report().problems.clone(),
+    }
+}
+
+fn check_key(env: &Env) -> CheckKey {
+    let deck = env.deck();
+    CheckKey {
+        report: deck.report().clone(),
+        format: deck.format().to_string(),
+        list: deck.list().map(|list| list.id.clone()),
+        choices: deck.format_choices(),
+        pending: deck.standing() != deck.report().standing(),
+        lists: deck.lists().to_vec(),
+        editor: deck.list_editor().cloned(),
+        focus: deck.focus(),
     }
 }
 
@@ -574,6 +610,8 @@ fn foot_key(env: &Env) -> FootKey {
             .collect(),
         shaky: deck.counts().shaky,
         missing: deck.missing().to_vec(),
+        check: check_key(env),
+        counted: deck.counts().main,
     }
 }
 
@@ -614,6 +652,7 @@ fn sheet_key(env: &Env) -> SheetKey {
     let ui = env.ui();
     let phone_filters = ui.rail && matches!(env.layout, Layout::Rail | Layout::PhoneSingle);
     SheetKey {
+        check: (ui.check_sheet || deck.list_editor().is_some()).then(|| check_key(env)),
         leaving: env.state.confirm_leave,
         inspecting: deck.inspecting(),
         held: deck.inspecting().map(|slot| {

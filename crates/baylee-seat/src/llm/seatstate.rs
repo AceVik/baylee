@@ -15,12 +15,20 @@
 //! ([`narrator::Menu::plan_decision`]). The seat passes priority for a
 //! plan only toward what its next step answers: while nothing but its own
 //! spells and abilities is on the stack (they resolve, and ask what the
-//! step answers), and on its own turn before combat when the next step is
-//! the attack. Anything else stops the plan, and the model is asked, with
+//! step answers), on its own turn before combat when the next step is
+//! the attack, and in its own combat when the next step casts a card only
+//! a main phase allows. Anything else stops the plan, and the model is asked, with
 //! the reason in the next message (`docs/llm-protocol.md` §"Plans"): a
 //! question of another kind, an id or a name the offer does not hold,
 //! another side's spell or ability on the stack, a payment owed, the end
 //! of its turn, a refusal. Nothing of a plan is ever guessed.
+//!
+//! A plan, an option's taps and a hint's targets are bound to the player
+//! they were written for: the seat's own, or the player whose turn it
+//! controls (Mindslaver, CR 723.5), whose cards they name. The seat makes
+//! both players' decisions in that turn (CR 723.8); a question for the
+//! other one stops the plan ([`Stop::OtherPlayer`]), and the taps and the
+//! hint wait for a question of their own player's.
 
 use super::prompt::{LOOKUPS_PER_GAME, LOOKUPS_PER_QUESTION};
 use super::{RETRY_FLOOR, SAYS, Settings, lock};
@@ -30,8 +38,9 @@ use crate::narrator::{self, Act, Decision, Hint, Menu, Narrator, Step, Stop, Tab
 use crate::reports::{self, Report};
 use crate::transcript::Transcript;
 use crate::wake::{Held, Orders, Why};
+use baylee_client_core::decision;
 use baylee_client_core::manaplan;
-use baylee_core::ids::ObjectId;
+use baylee_core::ids::{ObjectId, PlayerId};
 use baylee_core::mana::ManaColor;
 use baylee_engine::choice::{LegalActions, Pending, PlayerAction, TargetPrompt};
 use baylee_view::{LogEvent, LogObject, PlayerView};
@@ -50,8 +59,12 @@ pub(crate) struct Plan {
     label: String,
     /// The step it was chosen in: a plan never runs into another.
     at: (u32, baylee_view::Phase, baylee_view::Step),
+    /// The player whose lands it taps (module docs).
+    player: PlayerId,
     /// The colour the last tap makes, for the question it may ask.
     color: Option<ManaColor>,
+    /// The colour for that tap's second question, when it asks two.
+    second: Option<ManaColor>,
 }
 
 /// The steps of a plan the model wrote, still to run, and what it did.
@@ -62,6 +75,8 @@ struct Queue {
     written: u64,
     /// The turn it runs in.
     turn: u32,
+    /// The player whose questions it answers (module docs).
+    player: PlayerId,
     /// The number of the next step, from 1.
     next: usize,
     /// What it did, in order: steps, and windows passed.
@@ -122,7 +137,8 @@ pub(crate) struct Seat {
     /// Whether the last answer sent was the model's own (not a plan's).
     pub(crate) last_by_model: bool,
     plan: Option<Plan>,
-    hint: Option<Hint>,
+    /// Targets named ahead, and the player whose cast they are for.
+    hint: Option<(Hint, PlayerId)>,
     /// The steps of the model's plan still to run.
     queue: Option<Queue>,
     /// Lines for the next message, under its header.
@@ -511,15 +527,17 @@ impl Seat {
                 self.says.pop_front();
             }
         }
-        self.hint.clone_from(&resolved.hint);
+        let view = &request.view;
+        let player = decision::resource_player(view);
+        self.hint = resolved.hint.clone().map(|hint| (hint, player));
         if let Some(stops) = resolved.stops {
             self.stops = Some(stops);
         }
-        let view = &request.view;
         self.queue = (!resolved.plan.is_empty()).then(|| Queue {
             steps: resolved.plan.into(),
             written: request.question,
             turn: view.turn,
+            player,
             next: 1,
             done: Vec::new(),
             windows: 0,
@@ -544,7 +562,9 @@ impl Seat {
                     then: then.clone(),
                     label,
                     at: (view.turn, view.phase, view.step),
+                    player: decision::resource_player(view),
                     color: first.and_then(|s| s.color),
+                    second: first.and_then(|s| s.second),
                 });
                 if let Some(step) = first {
                     narrator::tap(&step)
@@ -566,7 +586,7 @@ impl Seat {
 
     /// What to tell the model when the cast it last answered did not
     /// happen. The table takes back a cast whose whole cost cannot be paid
-    /// and gives priority back (CR 601.2h, 732.1, 732.2) without a word, so
+    /// and gives priority back (CR 601.2h, 733.1, 733.2) without a word, so
     /// the model would see the same question again and may answer it the
     /// same way, again.
     ///
@@ -590,7 +610,7 @@ impl Seat {
             self.casting = None;
             return None;
         }
-        if !matches!(request.pending, Pending::Priority { .. }) {
+        if !matches!(request.pending, Pending::Priority { .. }) || request.view.owed.is_some() {
             return None;
         }
         self.casting = None;
@@ -598,9 +618,7 @@ impl Seat {
             return None;
         }
         let view = &request.view;
-        let name = view
-            .hand
-            .iter()
+        let name = decision::known_cards(view)
             .find(|c| c.id == card)
             .map(|c| c.name.clone())
             .or_else(|| {
@@ -610,11 +628,18 @@ impl Seat {
                     .find(|o| o.id == card)
                     .map(|o| o.name.clone())
             })?;
+        let again = Table::new(view, &request.context).controlled().map_or_else(
+            || "you have priority again".to_string(),
+            |p| {
+                let p = Table::player_id(p);
+                format!("{p} has priority again, and you decide for {p}")
+            },
+        );
         Some(format!(
-            "Your cast of {name} {} did not happen: the card is where it was, and you have \
-             priority again. The table takes back a cast whose whole cost cannot be paid, \
-             with any kicker or additional cost you said yes to (CR 601.2h, 732.1); count \
-             the cost before you cast it again.",
+            "Your cast of {name} {} did not happen: the card is where it was, and {again}. The \
+             table takes back a cast whose whole cost cannot be paid, with any kicker or \
+             additional cost you said yes to (CR 601.2h, 733.1); count the cost before you \
+             cast it again.",
             narrator::tag(card)
         ))
     }
@@ -677,30 +702,18 @@ impl Seat {
         queue.sent = None;
         let view = &request.view;
         let table = Table::new(view, &request.context);
-        if view.turn != queue.turn {
-            self.stop(&Stop::TurnOver);
+        if let Some(stop) = stop_before_steps(queue, view, &table) {
+            self.stop(&stop);
             return None;
         }
-        if let Some(theirs) = view.stack.iter().find(|o| !table.ally(o.controller)) {
-            let what = format!(
-                "{}'s {}",
-                Table::player_id(theirs.controller),
-                table.named(theirs.id)
-            );
-            self.stop(&Stop::OpposingStack(what));
-            return None;
-        }
-        if view.owed.is_some() {
-            self.stop(&Stop::Owed);
-            return None;
-        }
+        let decider = table.decider();
         loop {
             let queue = self.queue.as_mut()?;
             let step = queue.steps.front()?.clone();
             if let Pending::Priority { legal, .. } = &request.pending
                 && !step.at_priority()
             {
-                let mine = view.active == view.seat;
+                let mine = view.active == decider;
                 let before_combat = matches!(
                     view.phase,
                     baylee_view::Phase::Beginning | baylee_view::Phase::FirstMain
@@ -733,6 +746,14 @@ impl Seat {
                     return None;
                 }
             }
+            if let Pending::Priority { legal, .. } = &request.pending
+                && legal.can_pass
+                && waits_for_main(view, &step)
+            {
+                let queue = self.queue.as_mut()?;
+                queue.windows += 1;
+                return Some((PlayerAction::PassPriority, plan_label(queue)));
+            }
             let menu = self.narrator.menu(request);
             let resolved = menu
                 .plan_decision(&step, request)
@@ -755,7 +776,7 @@ impl Seat {
                 let ran = self.queue.take().expect("a plan").ran();
                 self.notes.push(ran);
             }
-            self.hint.clone_from(&resolved.hint);
+            self.hint = resolved.hint.map(|hint| (hint, decider));
             let action = self.start(resolved.act, label.clone(), view);
             return Some((action, label));
         }
@@ -764,10 +785,12 @@ impl Seat {
     fn follow_plan(&mut self, request: &Request) -> Option<PlayerAction> {
         let plan = self.plan.as_mut()?;
         let view = &request.view;
-        let same = (view.turn, view.phase, view.step) == plan.at;
+        let same = (view.turn, view.phase, view.step) == plan.at
+            && decision::resource_player(view) == plan.player;
         match &request.pending {
             Pending::ChooseColor { options, .. } if same => {
                 if let Some(color) = plan.color.take().filter(|c| options.contains(c)) {
+                    plan.color = plan.second.take();
                     return Some(PlayerAction::ChooseColor(color));
                 }
             }
@@ -777,12 +800,24 @@ impl Seat {
                     if offered(legal, &action) {
                         plan.steps.pop_front();
                         plan.color = step.color;
+                        plan.second = step.second;
                         return Some(action);
                     }
                 } else if offered(legal, &plan.then) {
                     let then = plan.then.clone();
                     self.plan = None;
                     return Some(then);
+                } else if crate::wake::only_abilities_on_stack(view)
+                    // A pass in a payment window settles it (CR 605.3a):
+                    // only a plan that pays may pass there, as its `then`.
+                    && view.owed.is_none()
+                    && legal.can_pass
+                {
+                    // A trigger the taps set off (Manabarbs) resolves
+                    // first; the standing orders keep the payment under way
+                    // through this pass (`WakeFilter::heard`), so the
+                    // windows after it come back here and the cast follows.
+                    return Some(PlayerAction::PassPriority);
                 }
             }
             _ => {}
@@ -801,7 +836,13 @@ impl Seat {
     }
 
     fn follow_hint(&mut self, request: &Request) -> Option<PlayerAction> {
-        let hint = self.hint.take()?;
+        let (hint, player) = self.hint.take()?;
+        if decision::resource_player(&request.view) != player {
+            // Named for the other player's cast: it waits for that one's
+            // questions (module docs).
+            self.hint = Some((hint, player));
+            return None;
+        }
         let Pending::ChooseTargets {
             options,
             player_options,
@@ -813,7 +854,7 @@ impl Seat {
         else {
             // A cast mode, an X or a colour may come before the targets.
             if !matches!(request.pending, Pending::Priority { .. }) {
-                self.hint = Some(hint);
+                self.hint = Some((hint, player));
             }
             return None;
         };
@@ -883,6 +924,63 @@ fn held_line(held: Held, request: &Request) -> String {
         Why::RailStop => "a window you stop at came".into(),
     };
     format!("{head}; woke because {because}.")
+}
+
+/// A cast or a land the plan names that waits for a main phase still to
+/// come this turn: a card in the deciding player's hand that only a main
+/// phase lets it cast or play (CR 307.1, CR 305.2), asked in that player's
+/// own beginning phase or combat with the stack empty (CR 500.1). The seat
+/// passes toward it, as toward an attack before combat (Argon v Astra: a
+/// land written at the mulligan woke the model in the upkeep, a creature
+/// after an attack in every combat step).
+fn waits_for_main(view: &PlayerView, step: &Step) -> bool {
+    let (Step::Cast { card, .. } | Step::Play(card)) = step else {
+        return false;
+    };
+    view.active == baylee_client_core::decision::resource_player(view)
+        && matches!(
+            view.phase,
+            baylee_view::Phase::Beginning | baylee_view::Phase::Combat
+        )
+        && view.stack.is_empty()
+        && baylee_client_core::decision::hand(view).iter().any(|held| {
+            (narrator::tag(held.id) == *card || held.name.eq_ignore_ascii_case(card))
+                && !baylee_client_core::timing::allows(
+                    view,
+                    held.types,
+                    crate::wake::flash(held.card),
+                )
+        })
+}
+
+/// Why a plan answers nothing at this question, before its next step is
+/// read: its turn is over; the question is the other player's in that
+/// turn (a plan answers the player it was written for, module docs);
+/// another side's spell or ability is on the stack; or a payment is owed.
+fn stop_before_steps(queue: &Queue, view: &PlayerView, table: &Table<'_>) -> Option<Stop> {
+    if view.turn != queue.turn {
+        return Some(Stop::TurnOver);
+    }
+    let decider = table.decider();
+    if decider != queue.player {
+        let id = |p: PlayerId| (p != table.me()).then(|| Table::player_id(p));
+        return Some(Stop::OtherPlayer {
+            written: id(queue.player),
+            asked: id(decider),
+        });
+    }
+    if let Some(theirs) = view
+        .stack
+        .iter()
+        .find(|o| !table.same_side(o.controller, decider))
+    {
+        return Some(Stop::OpposingStack(format!(
+            "{}'s {}",
+            Table::player_id(theirs.controller),
+            table.named(theirs.id)
+        )));
+    }
+    view.owed.is_some().then_some(Stop::Owed)
 }
 
 /// The label of a window a plan passes.

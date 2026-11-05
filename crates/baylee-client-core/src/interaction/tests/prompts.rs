@@ -3,6 +3,28 @@
 #[allow(clippy::wildcard_imports)] // this module's own vocabulary
 use super::*;
 
+#[test]
+fn an_entry_counter_replacement_names_its_kind_in_both_languages() {
+    let headline = |kind, lang| {
+        interaction(Pending::YesNo {
+            player: me(),
+            prompt: YesNoPrompt::ApplyAdditionalCountersNext {
+                permanent: ObjectId::new(1, 0),
+                additional: 1,
+                kind,
+            },
+            source: None,
+        })
+        .prompt()
+        .headline(lang, Turn::Mine, None, false)
+    };
+    for lang in [Lang::En, Lang::De] {
+        let specific = headline(Some(baylee_cards_dsl::CounterKind::P1P1), lang);
+        assert!(specific.contains("+1/+1"), "{specific}");
+        assert_ne!(specific, headline(None, lang));
+    }
+}
+
 /// A priority window on somebody else's turn does not say it is yours.
 ///
 /// The same `Pending`, the same buttons under it, two sentences — and
@@ -17,7 +39,10 @@ fn the_bar_says_whose_turn_it_is_over_the_same_two_buttons() {
         legal: Box::new(LegalActions {
             unpaid_abilities: vec![],
             payable: vec![],
+            cast_ways: vec![],
             spell_increases: vec![],
+            spell_reductions: vec![],
+            buyback_less: 0,
             activation_increases: vec![],
             can_pass: true,
             lands: vec![],
@@ -25,6 +50,8 @@ fn the_bar_says_whose_turn_it_is_over_the_same_two_buttons() {
             mana_abilities: vec![],
             abilities: vec![],
             suspendable: vec![],
+            foretellable: vec![],
+            unpaid_foretell: vec![],
             granted_actions: vec![],
         }),
     });
@@ -91,6 +118,92 @@ fn a_choice_of_the_five_basic_land_types_is_headed_as_one() {
 fn a_turn_belongs_to_the_seat_that_is_active() {
     assert_eq!(Turn::of(me(), me()), Turn::Mine);
     assert_eq!(Turn::of(PlayerId::new(1), me()), Turn::Theirs);
+}
+
+/// A resolved spell's ending is asked as where it goes: "how do you cast it"
+/// over a spell that has already resolved would be the wrong question.
+#[test]
+fn a_spells_ending_asks_where_it_goes_in_both_languages() {
+    use baylee_engine::choice::{CastModeDesc, CastModeKind, SpellEnding};
+    let i = interaction(Pending::ChooseCastMode {
+        player: me(),
+        object: obj(1),
+        options: [SpellEnding::Hand, SpellEnding::Rebound]
+            .into_iter()
+            .zip(0..)
+            .map(|(ending, index)| CastModeDesc {
+                index,
+                kind: CastModeKind::SpellEnding(ending),
+                cost: baylee_core::mana::ManaCost::ZERO,
+            })
+            .collect(),
+    });
+    assert_eq!(
+        i.prompt().headline(Lang::En, Turn::Mine, None, false),
+        "Where does the spell go?"
+    );
+    assert_eq!(
+        i.prompt().headline(Lang::De, Turn::Mine, None, false),
+        "Wohin geht der Zauberspruch?"
+    );
+}
+
+/// Multikicker reads as replicate does, and buyback names the whole price.
+#[test]
+fn optional_costs_say_what_they_cost_in_both_languages() {
+    let i = interaction(Pending::ChooseNumber {
+        player: me(),
+        min: 0,
+        max: 3,
+        reason: baylee_engine::choice::NumberPrompt::Multikicker {
+            cost: baylee_core::mana::ManaCost::parse("{1}{G}"),
+        },
+    });
+    assert_eq!(
+        i.prompt().headline(Lang::En, Turn::Mine, None, false),
+        "Multikicker {1}{G}: pay it how many times? (0–3)"
+    );
+    assert_eq!(
+        i.prompt().headline(Lang::De, Turn::Mine, None, false),
+        "Mehrfachbonus {1}{G}: wie oft zahlen? (0–3)"
+    );
+    let buyback = |cost: baylee_core::mana::ManaCost, parts| {
+        interaction(Pending::YesNo {
+            player: me(),
+            prompt: YesNoPrompt::Buyback { cost, parts },
+            source: None,
+        })
+    };
+    let none = baylee_engine::choice::BuybackParts::default();
+    assert_eq!(
+        buyback(baylee_core::mana::ManaCost::parse("{3}"), none)
+            .prompt()
+            .headline(Lang::En, Turn::Mine, None, false),
+        "Buyback: {3}? The spell comes back to your hand as it resolves."
+    );
+    let flood = baylee_engine::choice::BuybackParts {
+        life: 3,
+        random_discards: 1,
+        ..none
+    };
+    assert_eq!(
+        buyback(baylee_core::mana::ManaCost::ZERO, flood)
+            .prompt()
+            .headline(Lang::En, Turn::Mine, None, false),
+        "Buyback: pay 3 life, discard a card at random? The spell comes back to your hand as \
+         it resolves."
+    );
+    let forbid = baylee_engine::choice::BuybackParts {
+        discards: 2,
+        ..none
+    };
+    assert_eq!(
+        buyback(baylee_core::mana::ManaCost::ZERO, forbid)
+            .prompt()
+            .headline(Lang::De, Turn::Mine, None, false),
+        "Rückkauf: 2 Karten abwerfen? Der Zauberspruch kehrt beim Verrechnen auf deine Hand \
+         zurück."
+    );
 }
 
 #[test]
@@ -606,17 +719,8 @@ fn every_pending_variant_produces_a_prompt_without_panicking() {
         Pending::Priority {
             player: me(),
             legal: Box::new(LegalActions {
-                unpaid_abilities: vec![],
-                payable: vec![],
-                spell_increases: vec![],
-                activation_increases: vec![],
                 can_pass: true,
-                lands: vec![],
-                castable: vec![],
-                mana_abilities: vec![],
-                abilities: vec![],
-                suspendable: vec![],
-                granted_actions: vec![],
+                ..LegalActions::default()
             }),
         },
         attack_choice(vec![obj(1)], vec![seat(1)]),
@@ -791,7 +895,10 @@ fn a_payment_window_says_what_it_is_instead_of_your_move() {
         legal: Box::new(LegalActions {
             unpaid_abilities: vec![],
             payable: vec![],
+            cast_ways: vec![],
             spell_increases: vec![],
+            spell_reductions: vec![],
+            buyback_less: 0,
             activation_increases: vec![],
             can_pass: true,
             lands: vec![],
@@ -799,6 +906,8 @@ fn a_payment_window_says_what_it_is_instead_of_your_move() {
             mana_abilities: vec![],
             abilities: vec![],
             suspendable: vec![],
+            foretellable: vec![],
+            unpaid_foretell: vec![],
             granted_actions: vec![],
         }),
     });
@@ -1667,4 +1776,61 @@ fn mixed_payment_and_untap_replacement_questions_explain_the_complete_choice() {
             .contains("Ersatzeffekt")
     );
     assert_eq!(i.answer_yes_no(false), Some(PlayerAction::YesNo(false)));
+}
+
+/// A vote is headed as one, not as "choose 1 card", and the ballots cast so
+/// far are told in the order cast, the reader's own as "You" and another
+/// seat by its name (CR 701.38a, 608.2d). Outside a vote there is no line.
+#[test]
+fn a_vote_is_headed_as_one_and_its_ballots_are_told() {
+    let i = interaction(Pending::ChooseCards {
+        player: me(),
+        options: vec![obj(1), obj(2)],
+        min: 1,
+        max: 1,
+        prompt: ChoicePrompt::Vote,
+        total: None,
+    });
+    assert_eq!(
+        i.prompt().headline(Lang::En, Turn::Mine, None, false),
+        "Cast your vote: choose one."
+    );
+    assert_eq!(
+        i.prompt().headline(Lang::De, Turn::Mine, None, false),
+        "Gib deine Stimme ab: Wähle eine Option."
+    );
+
+    let mut roster = crate::test_support::statics(0);
+    roster.seats.push(baylee_view::SeatIdentity {
+        player: PlayerId::new(1),
+        display_name: "AceVik".to_string(),
+        is_ai: false,
+        away: false,
+        team: None,
+    });
+    let mut view = crate::test_support::ViewBuilder::new(2).build();
+    view.seat = me();
+    let name = |id: ObjectId| (id == obj(1)).then(|| "Sol Ring".to_string());
+    assert_eq!(
+        crate::interaction::ballots_line(Lang::En, &view, Some(&roster), &name),
+        None
+    );
+    view.ballots = vec![
+        baylee_view::Ballot {
+            voter: PlayerId::new(1),
+            choice: obj(1),
+        },
+        baylee_view::Ballot {
+            voter: me(),
+            choice: obj(2),
+        },
+    ];
+    assert_eq!(
+        crate::interaction::ballots_line(Lang::En, &view, Some(&roster), &name).as_deref(),
+        Some("Votes so far: AceVik for Sol Ring, You for a permanent")
+    );
+    assert_eq!(
+        crate::interaction::ballots_line(Lang::De, &view, Some(&roster), &name).as_deref(),
+        Some("Bisherige Stimmen: AceVik für Sol Ring, Du für ein Permanent")
+    );
 }

@@ -18,5 +18,8 @@ mutate = []
 [dependencies]
 baylee-core.workspace = true
 baylee-cards-dsl.workspace = true
+# What a format says about a card, and the words a deck check answers in.
+# Serde and nothing else, so the engine never sees it through here.
+baylee-cardtext.workspace = true
 serde.workspace = true
 uuid.workspace = true

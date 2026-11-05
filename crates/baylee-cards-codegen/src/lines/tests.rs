@@ -88,6 +88,23 @@ fn life_ward_maps_to_its_printed_sentence_for_the_client() {
     ));
 }
 
+/// Echo goes on the stack (CR 702.30a), and the keyword line is the sentence
+/// that says what it costs. Read as the activation its `{` looks like, it
+/// matched nothing, and the stack could only show the card's name.
+#[test]
+fn echo_maps_to_its_keyword_line_and_not_to_its_neighbour() {
+    use baylee_cards_dsl::{Trigger, triggered};
+    let echo = AbilityDef::Echo {
+        cost: baylee_core::mana::ManaCost::parse("{2}{R}{R}"),
+    };
+    let enters = triggered!(Trigger::ETB, &[]);
+    let oracle = "Haste\nEcho {2}{R}{R} (At the beginning of your upkeep, if this came \
+                  under your control since the beginning of your last upkeep, sacrifice \
+                  it unless you pay its echo cost.)\nWhen this creature enters, it deals \
+                  3 damage to target player or planeswalker.";
+    assert_eq!(map(&[echo, enters], oracle).lines, [Some(1), Some(2)]);
+}
+
 /// A mana ability whose "add" opens the body's second sentence is still
 /// a mana line — and one that targets is not, whatever it adds.
 #[test]
@@ -840,6 +857,43 @@ fn an_alternative_cost_is_found_as_a_sentence_or_as_a_keyword_line() {
         map_alternatives(&[alt(pitch_only(), AltCondition::Always)], evoke),
         vec![Some(3)],
         "the trigger names an exile too, and says nothing about a hand"
+    );
+}
+
+/// A nonsymbol tapping cost keeps its printed count as well as its mana.
+#[test]
+fn an_alternative_tapping_cost_matches_its_mana_and_count() {
+    let sephara = baylee_cards_dsl::cost!(
+        "{W}",
+        TapN {
+            filter: &Filter::Any,
+            count: 4,
+        }
+    );
+    let text = "You may pay {W} and tap four untapped creatures you control \
+                with flying rather than pay this spell's mana cost.";
+    assert_eq!(
+        map_alternatives(&[alt(sephara, AltCondition::Always)], text),
+        vec![Some(0)]
+    );
+    let wrong_mana = baylee_cards_dsl::Cost {
+        mana: baylee_core::mana!("{U}"),
+        ..sephara
+    };
+    assert_eq!(
+        map_alternatives(&[alt(wrong_mana, AltCondition::Always)], text),
+        vec![None]
+    );
+    let wrong_count = baylee_cards_dsl::Cost {
+        parts: &[CostPart::TapN {
+            filter: &Filter::Any,
+            count: 3,
+        }],
+        ..sephara
+    };
+    assert_eq!(
+        map_alternatives(&[alt(wrong_count, AltCondition::Always)], text),
+        vec![None]
     );
 }
 

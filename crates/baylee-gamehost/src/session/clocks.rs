@@ -1,7 +1,5 @@
 use super::{SeatKind, Session};
-use baylee_ai::HeuristicAgent;
 use baylee_core::ids::{PlayerId, SeatSet};
-use baylee_core::preset::AIProfile;
 use baylee_engine::choice::PlayerAction;
 
 impl Session {
@@ -201,10 +199,6 @@ impl Session {
     /// and the table would never move.
     #[must_use]
     pub fn house_action(&self, player: PlayerId) -> Option<PlayerAction> {
-        let pending = self.engine.pending_for(player)?;
-        // Teams included, as `stand_in` builds it: without them every other
-        // chair reads as an enemy, the seat's own partner among them.
-        let agent = HeuristicAgent::new(AIProfile::default()).with_teams(self.teams.clone());
-        Some(agent.act(&self.agent_view(player, pending), pending))
+        self.table().house_action(player)
     }
 }

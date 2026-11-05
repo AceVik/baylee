@@ -1,10 +1,19 @@
 //! Opt-in BC labels on neural-visited views. Never an executed action or PPO target.
+//!
+//! The teacher is the house at a profile, asked afresh on each view, or a
+//! language model watching the neural seat through its own frames
+//! ([`llm`], feature `llm`), whose seat conversation is kept beside the
+//! labels as their evidence.
 use std::path::Path;
+#[cfg(feature = "llm")]
+use std::sync::Arc;
 
 use anyhow::{Context as _, ensure};
 use baylee_ai::HeuristicAgent;
+use baylee_core::ids::PlayerId;
 use baylee_core::preset::AIProfile;
 use baylee_engine::choice::{Pending, PlayerAction};
+use baylee_gamehost::session::Session;
 pub(super) use baylee_train::failure_terminal::sha;
 use baylee_train::features4::{
     EncodedCandidates4, EncodedState4, SourceKind4, decode_action4, encode_teacher_action4,
@@ -15,6 +24,8 @@ use baylee_view::PlayerView;
 use serde::Serialize;
 use serde_json::{Value, json};
 
+#[cfg(feature = "llm")]
+mod llm;
 mod writer;
 use writer::LabelWriter;
 
@@ -23,15 +34,114 @@ struct Counts {
     queries: u64,
     labels: u64,
     mapping_failures: u64,
+    /// The teacher gave no answer of its own: the house fell back, or the
+    /// watching model's seat answered by its standing orders, or for a
+    /// model that failed.
     teacher_refits: u64,
     rejected_executions: u64,
     non_neural_exclusions: u64,
+    /// Askings of a watching model that ended in no answer of its own.
+    teacher_failures: u64,
+}
+
+/// Who teaches a game.
+enum Teacher {
+    House(AIProfile),
+    #[cfg(feature = "llm")]
+    Llm {
+        teacher: Arc<llm::Teacher>,
+        watcher: Option<Box<llm::Watcher>>,
+        /// The model's answer to the question being answered now.
+        answer: Option<(u64, PlayerAction)>,
+    },
+}
+
+/// A run's teacher, shared by its games: `sharp`, `expert`, or
+/// `llm:<profile>` of a seat settings file (feature `llm`).
+pub(super) enum Spec {
+    House(String),
+    #[cfg(feature = "llm")]
+    Llm {
+        profile: String,
+        teacher: Arc<llm::Teacher>,
+    },
+}
+
+impl Spec {
+    /// `teacher` as `--shadow-teacher` names it; an LLM's profile is read
+    /// from `llm_profiles`.
+    pub(super) fn parse(teacher: &str, llm_profiles: Option<&Path>) -> anyhow::Result<Self> {
+        if let Some(profile) = teacher.strip_prefix("llm:") {
+            #[cfg(feature = "llm")]
+            {
+                let file = llm_profiles.context("An LLM shadow teacher needs --llm-profiles")?;
+                return Ok(Self::Llm {
+                    profile: profile.into(),
+                    teacher: Arc::new(llm::Teacher::load(file, profile)?),
+                });
+            }
+            #[cfg(not(feature = "llm"))]
+            {
+                let _ = (profile, llm_profiles);
+                anyhow::bail!("An LLM shadow teacher needs the `llm` feature");
+            }
+        }
+        ensure!(
+            matches!(teacher, "sharp" | "expert"),
+            "Unsupported shadow teacher"
+        );
+        Ok(Self::House(teacher.into()))
+    }
+
+    /// The contract run.json and every label header name.
+    pub(super) fn contract(&self) -> Value {
+        match self {
+            Self::House(profile) => metadata(profile),
+            #[cfg(feature = "llm")]
+            Self::Llm { profile, teacher } => llm::contract(profile, &teacher.identity()),
+        }
+    }
+
+    /// Whether the teacher can teach no more (a model that said a limit).
+    pub(super) fn spent(&self) -> bool {
+        match self {
+            Self::House(_) => false,
+            #[cfg(feature = "llm")]
+            Self::Llm { teacher, .. } => teacher.exhausted(),
+        }
+    }
+
+    /// One game's label stream.
+    pub(super) fn game(
+        &self,
+        dir: &Path,
+        game: &str,
+        deal: u64,
+        seed: u64,
+    ) -> anyhow::Result<ShadowGame> {
+        match self {
+            Self::House(profile) => ShadowGame::new(dir, game, deal, profile, seed),
+            #[cfg(feature = "llm")]
+            Self::Llm { teacher, .. } => ShadowGame::open(
+                dir,
+                game,
+                deal,
+                &self.contract(),
+                seed,
+                Teacher::Llm {
+                    teacher: Arc::clone(teacher),
+                    watcher: None,
+                    answer: None,
+                },
+            ),
+        }
+    }
 }
 
 /// A separate per-game stream; `.jsonl` exists only after record binding succeeds.
 pub(super) struct ShadowGame {
     writer: LabelWriter,
-    profile: AIProfile,
+    teacher: Teacher,
     seed: u64,
     encoder_version: u32,
     counts: Counts,
@@ -60,6 +170,24 @@ impl ShadowGame {
             "expert" => AIProfile::EXPERT,
             _ => anyhow::bail!("Unsupported shadow teacher"),
         };
+        Self::open(
+            dir,
+            game,
+            deal,
+            &metadata(profile),
+            seed,
+            Teacher::House(profile_value),
+        )
+    }
+
+    fn open(
+        dir: &Path,
+        game: &str,
+        deal: u64,
+        contract: &Value,
+        seed: u64,
+        teacher: Teacher,
+    ) -> anyhow::Result<Self> {
         // Binding to run.json also binds behavior checkpoint, encoder, catalog,
         // evaluator and policy contract. No personal/game-account identities.
         let run = std::fs::read(dir.join("run.json"))?;
@@ -96,10 +224,10 @@ impl ShadowGame {
         let header = json!({"kind": "header", "schema": 1, "game": game, "deal": deal,
             "run_sha256": sha(&run), "behavior_model_identity": run_value["model_identity"],
             "structure_sha256": run_value["shadow_structure_sha256"],
-            "teacher_seed": seed, "contract": metadata(profile)});
+            "teacher_seed": seed, "contract": contract});
         Ok(Self {
             writer: LabelWriter::new(dir, game, &header)?,
-            profile: profile_value,
+            teacher,
             seed,
             encoder_version: u32::try_from(
                 run_value["model_identity"]["encoder_version"]
@@ -108,6 +236,75 @@ impl ShadowGame {
             )?,
             counts: Counts::default(),
         })
+    }
+
+    /// Seats a watching model at `seat` of a game that has just begun, its
+    /// mind's own log under `dir`'s `shadow/transcripts/<game>/`. Nothing
+    /// for the house, which is asked afresh on each view.
+    #[cfg_attr(
+        not(feature = "llm"),
+        allow(clippy::unnecessary_wraps, unused_variables, clippy::unused_self)
+    )]
+    pub(super) fn attach(
+        &mut self,
+        session: &mut Session,
+        seat: PlayerId,
+        deck: &baylee_cards::decks::LoadedDeck,
+    ) -> anyhow::Result<()> {
+        #[cfg(feature = "llm")]
+        if let Teacher::Llm {
+            teacher, watcher, ..
+        } = &mut self.teacher
+        {
+            *watcher = Some(Box::new(teacher.watch(
+                session,
+                seat,
+                deck,
+                self.writer.transcripts(),
+            )?));
+        }
+        Ok(())
+    }
+
+    /// Frames the table routed, handed to the watching model's seat (its own
+    /// only). Nothing for the house.
+    #[cfg(feature = "llm")]
+    pub(super) fn hear(&mut self, routed: Vec<(PlayerId, baylee_protocol::v1::Envelope)>) {
+        if let Teacher::Llm {
+            watcher: Some(watcher),
+            ..
+        } = &mut self.teacher
+        {
+            let seat = watcher.seat();
+            watcher.hear(
+                routed
+                    .into_iter()
+                    .filter(|(to, _)| *to == seat)
+                    .map(|(_, envelope)| envelope),
+            );
+        }
+    }
+
+    /// Frames the table routed: nothing to hear without a watching model.
+    #[cfg(not(feature = "llm"))]
+    #[allow(clippy::unused_self)]
+    pub(super) fn hear<E>(&mut self, _routed: Vec<(PlayerId, E)>) {}
+
+    /// Before the policy's answer to `seat`'s question at frame `seq`: the
+    /// watching model's answer to it, heard first where no frame carried
+    /// it. A seat it does not watch has none.
+    #[cfg_attr(not(feature = "llm"), allow(unused_variables, clippy::unused_self))]
+    pub(super) fn prepare(&mut self, session: &Session, seat: PlayerId, seq: u64) {
+        #[cfg(feature = "llm")]
+        if let Teacher::Llm {
+            watcher, answer, ..
+        } = &mut self.teacher
+        {
+            *answer = watcher
+                .as_mut()
+                .filter(|watcher| watcher.seat() == seat)
+                .and_then(|watcher| watcher.answer_now(session, seq));
+        }
     }
 
     /// Query AFTER NN decision inference, BEFORE engine action. The supplied menu
@@ -132,21 +329,37 @@ impl ShadowGame {
             return Ok(None);
         }
         self.counts.queries += 1;
-        // No teacher history is advanced with its counterfactual action. A fresh
-        // teacher sees only this authorized view and public team assignments.
-        let teacher = HeuristicAgent::new(self.profile)
-            .with_teams(teams.to_vec())
-            .with_seed(self.seed ^ decision_seq.rotate_left(17) ^ u64::from(view.seat.get()));
-        let action = teacher.act(view, pending);
-        if teacher.fallbacks() != 0 {
-            self.counts.teacher_refits += 1;
-            return Ok(None);
-        }
+        let (action, question, source) = match &mut self.teacher {
+            Teacher::House(profile) => {
+                // No teacher history is advanced with its counterfactual action. A
+                // fresh teacher sees only this authorized view and public team
+                // assignments.
+                let teacher = HeuristicAgent::new(*profile)
+                    .with_teams(teams.to_vec())
+                    .with_seed(
+                        self.seed ^ decision_seq.rotate_left(17) ^ u64::from(view.seat.get()),
+                    );
+                let action = teacher.act(view, pending);
+                if teacher.fallbacks() != 0 {
+                    self.counts.teacher_refits += 1;
+                    return Ok(None);
+                }
+                (action, None::<u64>, "house")
+            }
+            #[cfg(feature = "llm")]
+            Teacher::Llm { answer, .. } => {
+                let Some((question, action)) = answer.take() else {
+                    self.counts.teacher_refits += 1;
+                    return Ok(None);
+                };
+                (action, Some(question), "llm")
+            }
+        };
         let Some(target) = checked_target(view, pending, menu, &action) else {
             self.counts.mapping_failures += 1;
             return Ok(None);
         };
-        Ok(Some(json!({"kind": "label", "seat": view.seat.get(),
+        let mut label = json!({"kind": "label", "seat": view.seat.get(),
             "decision_seq": decision_seq, "record_byte_offset": record_byte_offset,
             "view_hash_fnv1a64": format!("{:016x}", if self.encoder_version == 8 { baylee_train::features8::view_only_state_hash8(view, pending) } else { view_only_state_hash(view, pending) }),
             "pending_sha256": sha(&serde_json::to_vec(pending)?),
@@ -154,7 +367,13 @@ impl ShadowGame {
             "candidates_sha256": sha(&serde_json::to_vec(menu)?),
             "teacher_action": action, "teacher_target": target,
             "executed_action": answer.action, "executed_provenance": answer.provenance,
-            "label_use": "bc_only", "teacher_source": "house", "teacher_has_logprob": false})))
+            "label_use": "bc_only", "teacher_source": source, "teacher_has_logprob": false});
+        if let Some(question) = question {
+            // The seat question the watching model answered: its transcript's
+            // `answered` row by the mind binds the label.
+            label["teacher_question"] = json!(question);
+        }
+        Ok(Some(label))
     }
 
     pub(super) fn executed(
@@ -174,7 +393,22 @@ impl ShadowGame {
     }
 
     pub(super) fn finish(self, record: &[u8], capped: bool) -> anyhow::Result<()> {
-        self.writer.finish(record, capped, &self.counts)
+        #[cfg_attr(not(feature = "llm"), allow(unused_mut))]
+        let mut counts = self.counts;
+        let transcript: Option<Vec<u8>> = match self.teacher {
+            Teacher::House(_) => None,
+            #[cfg(feature = "llm")]
+            Teacher::Llm { watcher, .. } => match watcher {
+                Some(mut watcher) => {
+                    watcher.end();
+                    counts.teacher_failures = watcher.mind_failures;
+                    Some(llm::notes_jsonl(&watcher.notes())?)
+                }
+                None => None,
+            },
+        };
+        self.writer
+            .finish(record, capped, &counts, transcript.as_deref())
     }
 }
 

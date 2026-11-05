@@ -43,14 +43,17 @@ pub mod arrange;
 pub mod atmosphere;
 pub mod audiomix;
 pub mod automation;
+pub mod banlist;
 pub mod board;
 pub mod browser;
 pub mod bugreport;
+pub mod cachefill;
 pub mod card_face;
 pub mod cardcrest;
 pub mod cardplate;
 pub mod cardquery;
 pub mod cardrail;
+pub mod cardsearch;
 pub mod caretspot;
 pub mod combat;
 pub mod combat_auto;
@@ -59,6 +62,7 @@ pub mod cue;
 pub mod damage;
 pub mod decisionclock;
 pub mod deckbuilder;
+pub mod deckcheck;
 pub mod deeplink;
 pub mod depart;
 pub mod dial;
@@ -100,6 +104,7 @@ pub mod seatbar;
 pub mod seatplate;
 pub mod settings_map;
 pub mod shellkeys;
+pub mod sizewords;
 pub mod sky;
 pub mod social;
 pub mod source_choice;
@@ -167,3 +172,7 @@ pub mod text_choice;
 /// Separate decision actor, resource owner and entitled private hands.
 pub mod decision;
 pub mod decisionfold;
+
+/// Whose chair the bottom of the table is shown from while this seat
+/// controls another player (CR 723.5), and who decides for whom.
+pub mod perspective;

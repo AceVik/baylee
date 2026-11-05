@@ -493,6 +493,7 @@ impl GameState {
             h.u8(p.id.get());
             h.i32(p.life);
             h.u32(p.turns_to_skip);
+            h.u32(p.combats_to_skip);
             h.u16(p.poison);
             h.u16(p.energy);
             h.u8(p.speed);
@@ -881,6 +882,7 @@ fn hash_source_references(h: &mut Hasher, state: &GameState, position: &dyn Fn(O
             // even after the original spell has left the stack.
             h.u32(source.x_value);
             source.kicked.hash(h);
+            hash_times_kicked(h, source.times_kicked);
             source.replicated.hash(h);
             source.mode_index.hash(h);
             source.modes.hash(h);
@@ -1255,6 +1257,7 @@ fn hash_copy_decisions(h: &mut Hasher, obj: &GameObject) {
     // can restore a different rules bundle on otherwise identical boards.
     obj.x_value.hash(h);
     obj.kicked.hash(h);
+    hash_times_kicked(h, obj.times_kicked);
     obj.replicated.hash(h);
     obj.alt_cast.hash(h);
     obj.mode_index.hash(h);
@@ -1264,6 +1267,15 @@ fn hash_copy_decisions(h: &mut Hasher, obj: &GameObject) {
     obj.own_abilities.hash(h);
     obj.own_origin.hash(h);
     obj.own_abilities_until_eot.hash(h);
+}
+
+/// A spell's kick count, written only where there is one: a game record
+/// already written carries hashes of objects with no such field, and it must
+/// go on replaying exactly (`gamehost::record`).
+fn hash_times_kicked(h: &mut Hasher, times_kicked: u8) {
+    if times_kicked != 0 {
+        times_kicked.hash(h);
+    }
 }
 
 /// Hash identity-sensitive riders by whether their remembered incarnation
@@ -1393,6 +1405,10 @@ fn hash_acquired_rider(h: &mut Hasher, rider: &crate::object::Rider) {
         crate::object::Rider::SecondChosenSubtype(subtype) => {
             h.u8(90);
             subtype.hash(h);
+        }
+        crate::object::Rider::ChosenCardType(card_type) => {
+            h.u8(91);
+            card_type.hash(h);
         }
         crate::object::Rider::ExhaustedAbility(index) => {
             h.u8(63);
@@ -1526,6 +1542,8 @@ fn hash_player(h: &mut Hasher, player: &Player) {
     let Player {
         id,
         life,
+        // Preset-constant, like team: it cannot distinguish two game states.
+        starting_life: _,
         poison,
         energy,
         speed,
@@ -1538,9 +1556,16 @@ fn hash_player(h: &mut Hasher, player: &Player) {
         turn_start_timestamp,
         turns_started,
         turns_to_skip,
+        combats_to_skip,
         last_turn_attackers,
         blocked_since_upkeep,
         blocked_before_upkeep,
+        // Read off the turn clock as an upkeep begins, so they follow from
+        // the inputs that clock already covers and tell no two states of one
+        // game apart. Left out for what they would cost: every hash of every
+        // written record, games with no echo in them included.
+        upkeep_began: _,
+        last_upkeep_began: _,
         last_turn_acted,
         tried_empty_draw,
         commander_damage,
@@ -1566,6 +1591,7 @@ fn hash_player(h: &mut Hasher, player: &Player) {
     turn_start_timestamp.hash(h);
     turns_started.hash(h);
     turns_to_skip.hash(h);
+    combats_to_skip.hash(h);
     last_turn_attackers.hash(h);
     if !blocked_since_upkeep.is_empty() || !blocked_before_upkeep.is_empty() {
         0x7570_6b65_u32.hash(h);
@@ -1802,6 +1828,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
         paid,
         x_value,
         kicked,
+        times_kicked,
         replicated,
         alt_cast,
         prototyped,
@@ -1946,6 +1973,10 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                 h.u8(90);
                 subtype.hash(h);
             }
+            Rider::ChosenCardType(card_type) => {
+                h.u8(91);
+                card_type.hash(h);
+            }
             Rider::ExhaustedAbility(index) => {
                 h.u8(63);
                 index.hash(h);
@@ -1981,7 +2012,10 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                 h.u8(3);
                 h.u8(player.get());
             }
-            Rider::Foretold => h.u8(4),
+            Rider::Foretold { turn } => {
+                h.u8(4);
+                turn.hash(h);
+            }
             Rider::Plotted => h.u8(5),
             Rider::Suspend => h.u8(6),
             Rider::Flashback => h.u8(7),
@@ -1999,6 +2033,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
             Rider::SpellCopy => h.u8(11),
             Rider::AbilityCopy => h.u8(80),
             Rider::ExileInsteadOfGraveyard => h.u8(12),
+            Rider::Buyback => h.u8(92),
             Rider::ExiledWith { host, version } => {
                 h.u8(13);
                 host.hash(h);
@@ -2076,6 +2111,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
     paid.hash(h);
     x_value.hash(h);
     kicked.hash(h);
+    hash_times_kicked(h, *times_kicked);
     replicated.hash(h);
     alt_cast.hash(h);
     prototyped.hash(h);
@@ -2315,6 +2351,7 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
         F::SameNameAsLinkedExile => h.u8(147),
         F::CmcEqualsYourUnspentMana => h.u8(148),
         F::SharesColorWithExiledWithSource => h.u8(150),
+        F::OfSourceChosenCardType => h.u8(151),
     }
 }
 

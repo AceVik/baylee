@@ -796,3 +796,51 @@ fn zero_depth_runtime_forced_and_house_answers_keep_honest_provenance() {
         assert_eq!(seat.decision_audit().unwrap().provenance, provenance);
     }
 }
+
+/// A decision for the player whose turn this seat controls (Mindslaver,
+/// CR 723.5) names that player and is sent to this seat, whose view it
+/// awaits: the brain answers it. One the view awaits someone else for is
+/// left alone, as before.
+#[test]
+fn a_decision_for_a_controlled_player_is_answered() {
+    let them = PlayerId::new(1);
+    let theirs = |seq: u64| {
+        frame(v1::envelope::Msg::ChoiceRequest(v1::ChoiceRequest {
+            game_id: "test-game".into(),
+            seq,
+            pending_json: serde_json::to_vec(&Pending::ChooseColor {
+                player: them,
+                options: vec![ManaColor::Red, ManaColor::Green],
+            })
+            .unwrap(),
+        }))
+    };
+    let awaiting = |seq: u64, who: PlayerId| {
+        let mut view = ViewBuilder::new(2).build();
+        view.seq = seq;
+        view.awaiting = Some(who);
+        view.decision_player = Some(them);
+        frame(v1::envelope::Msg::StateDelta(v1::StateDelta {
+            game_id: "test-game".into(),
+            seq,
+            view_json: serde_json::to_vec(&view).unwrap(),
+            log_json: Vec::new(),
+        }))
+    };
+    let (mut seat, calls) = adapter();
+    seat.hear(&table()).unwrap();
+    seat.hear(&awaiting(1, them)).unwrap();
+    seat.hear(&curtain()).unwrap();
+    assert!(seat.hear(&theirs(1)).unwrap().is_empty());
+    assert_eq!(calls.borrow().answers, 0, "theirs to answer");
+    seat.hear(&awaiting(2, ME)).unwrap();
+    let outgoing = seat.hear(&theirs(2)).unwrap();
+    assert!(
+        matches!(
+            outgoing.first().and_then(|e| e.msg.as_ref()),
+            Some(v1::envelope::Msg::PlayerAction(_))
+        ),
+        "{outgoing:?}"
+    );
+    assert_eq!(calls.borrow().answers, 1);
+}

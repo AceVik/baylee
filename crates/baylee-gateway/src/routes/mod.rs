@@ -11,6 +11,7 @@ mod lobby_feed;
 mod participation;
 mod rematch;
 mod replays;
+pub(crate) mod room_list;
 mod rooms;
 pub(crate) mod seat_socket;
 mod settings;

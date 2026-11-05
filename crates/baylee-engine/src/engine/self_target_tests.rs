@@ -169,6 +169,34 @@ fn protection_withholds_explicit_self_target_from_ability_and_spell_offers() {
 }
 
 #[test]
+fn filtered_player_protection_reads_the_granting_sources_chosen_card_type() {
+    for (chosen, targetable) in [
+        (baylee_core::types::TypeSet::LAND, false),
+        (baylee_core::types::TypeSet::INSTANT, true),
+    ] {
+        let mut engine = probe();
+        let source = synthetic::permanents(&engine, INDEX)[0];
+        engine
+            .state
+            .object_mut(source)
+            .expect("the synthetic source is on the battlefield")
+            .set_chosen_card_type(chosen);
+        protect(
+            &mut engine,
+            Modifier::PlayerProtectionFrom {
+                who: PlayerRel::You,
+                from: &baylee_cards_dsl::Filter::OfSourceChosenCardType,
+            },
+        );
+        assert_eq!(
+            offered(&engine, 0),
+            targetable,
+            "only a source of the chosen type is protected against"
+        );
+    }
+}
+
+#[test]
 fn explicit_self_target_is_rechecked_on_resolution() {
     let mut engine = probe();
     activate(&mut engine, 0);

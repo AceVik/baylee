@@ -97,6 +97,8 @@ pub fn token(slot: u32, controller: u8, name: &str, power: i16, toughness: i16) 
         attached_to: None,
         targets: Vec::new(),
         stack_item: None,
+        times_kicked: 0,
+        bought_back: false,
         summoning_sick: false,
         ability_mana_spending: baylee_core::mana::ManaSpending::EXACT,
         granted_mana: None,
@@ -189,6 +191,10 @@ impl ViewBuilder {
                 announced_x: None,
                 sorcery_lock: None,
                 sorceries_have_flash: false,
+                flash_types: baylee_core::types::TypeSet::EMPTY,
+                controls: Vec::new(),
+                foreign_targets: Vec::new(),
+                ballots: Vec::new(),
             },
         }
     }
@@ -301,6 +307,25 @@ impl ViewBuilder {
     #[must_use]
     pub fn with_awaiting(mut self, player: Option<u8>) -> Self {
         self.view.awaiting = player.map(PlayerId::new);
+        self
+    }
+
+    /// This seat makes `player`'s decisions on `player`'s turn (CR 723.5,
+    /// Mindslaver) and is asked one now: the table waits for this seat, the
+    /// question is `player`'s, and `cards` (as [`Self::with_hand`] takes
+    /// them) are the hand it plays from, beside this seat's own.
+    #[must_use]
+    pub fn controlling(mut self, player: u8, cards: Vec<(&str, u32, u32)>) -> Self {
+        let player = PlayerId::new(player);
+        let cards = Self::new(1).with_hand(cards).view.hand;
+        self.view.active = player;
+        self.view.awaiting = Some(self.view.seat);
+        self.view.decision_player = Some(player);
+        self.view.controlled_hands = vec![baylee_view::SharedHand {
+            player,
+            public: false,
+            cards,
+        }];
         self
     }
 

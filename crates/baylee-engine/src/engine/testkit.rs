@@ -19,6 +19,7 @@ mod main_phase;
 pub use main_phase::walk_to_own_main;
 
 /// Registry lookup backed by the compiled card pool.
+#[derive(Clone, Copy)]
 pub struct RegistryLookup;
 impl CardLookup for RegistryLookup {
     fn card(&self, index: CardIndex) -> Option<&'static baylee_cards_dsl::CardDef> {
@@ -309,6 +310,24 @@ pub fn pass_until(
             } => {
                 engine
                     .apply(actor.unwrap_or(player), PlayerAction::YesNo(true))
+                    .unwrap();
+            }
+            // Echo resolving (CR 702.30a) on the way past: no. A walk makes
+            // no mana, and declining is what an empty pool used to answer
+            // unasked, before the question was put beside untapped lands.
+            // A test whose subject is paying the echo answers it itself.
+            Pending::YesNo {
+                player,
+                prompt: crate::choice::YesNoPrompt::PayMana { .. },
+                source: Some(source),
+            } if matches!(
+                baylee_cards::by_index(source.card)
+                    .and_then(|card| card.abilities.get(source.index as usize)),
+                Some(baylee_cards_dsl::AbilityDef::Echo { .. })
+            ) =>
+            {
+                engine
+                    .apply(actor.unwrap_or(player), PlayerAction::YesNo(false))
                     .unwrap();
             }
             // The untap step's determination, and a surveil, answered by
@@ -1379,6 +1398,12 @@ pub fn answer_one(engine: &Engine<RegistryLookup>) -> Result<(PlayerId, PlayerAc
                 return Err(Rest::Unanswered("ChooseSubtype"));
             };
             (player, PlayerAction::ChooseSubtype(first))
+        }
+        Pending::ChooseCardType { player, options } => {
+            let Some(first) = options.first().copied() else {
+                return Err(Rest::Unanswered("ChooseCardType"));
+            };
+            (player, PlayerAction::ChooseCardType(first))
         }
         Pending::ChooseColor { player, options } => {
             let Some(first) = options.first().copied() else {

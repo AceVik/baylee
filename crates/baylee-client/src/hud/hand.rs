@@ -1134,3 +1134,201 @@ pub const ARMED_RAISE: f32 = 8.0;
 /// sliced off by an invisible line, which no test would think to look at.
 const _: () = assert!(baylee_client_core::touch::Touch::SINK <= HAND_FOOTROOM);
 const _: () = assert!(baylee_client_core::touch::Touch::SINK < ARMED_RAISE);
+
+/// The frame round the hand while the table is shown from a controlled
+/// player's chair (CR 723.5): a rose edge under the cards and, in the air
+/// over them, the brain mark and "Mia's hand · under your control". Colour
+/// is never the only cue, and nothing is drawn on a print: both lie under
+/// the strip (they are the zone's children before it) and the label stands
+/// in the headroom a raised card crosses.
+///
+/// Answers the two nodes, frame first, for the overlay to put directly
+/// after the skirt.
+pub(super) fn control_frame(commands: &mut Commands, fonts: &UiFonts, label: &str) -> [Entity; 2] {
+    let frame = commands
+        .spawn((
+            ControlHandFrame,
+            Node {
+                position_type: PositionType::Absolute,
+                top: px(LEDGE_H),
+                left: px(0),
+                right: px(0),
+                bottom: px(0),
+                border: UiRect::all(px(2)),
+                border_radius: BorderRadius::top(px(crate::frontal::CORNER)),
+                ..default()
+            },
+            BackgroundColor(palette::CONTROL.with_alpha(0.07)),
+            BorderColor::all(palette::CONTROL.with_alpha(0.85)),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let tall = HAND_HEADROOM - 6.0;
+    let words = commands
+        .spawn((
+            ControlHandLabel,
+            Node {
+                position_type: PositionType::Absolute,
+                top: px(LEDGE_H + 3.0),
+                right: px(HAND_BAR_PAD + 4.0),
+                height: px(tall),
+                padding: UiRect::horizontal(px(8)),
+                column_gap: px(5),
+                align_items: AlignItems::Center,
+                border: UiRect::all(px(1)),
+                border_radius: BorderRadius::all(px(tall * 0.5)),
+                ..default()
+            },
+            BackgroundColor(palette::PANEL),
+            BorderColor::all(palette::CONTROL),
+            Pickable::IGNORE,
+            children![
+                (
+                    Text::new(glyph::CONTROL.to_string()),
+                    icon_tf(fonts, 10.0),
+                    TextColor(palette::CONTROL),
+                    Pickable::IGNORE,
+                ),
+                (
+                    Text::new(label.to_string()),
+                    TextLayout::no_wrap(),
+                    tf_bold(fonts, 10.0),
+                    TextColor(palette::INK),
+                    Pickable::IGNORE,
+                ),
+            ],
+        ))
+        .id();
+    [frame, words]
+}
+
+/// The rose frame round a controlled player's hand ([`control_frame`]).
+#[derive(Component)]
+pub struct ControlHandFrame;
+
+/// The words over a controlled player's hand ([`control_frame`]).
+#[derive(Component)]
+pub struct ControlHandLabel;
+
+/// How far a hand arriving from another chair starts below its place.
+pub(crate) const ARRIVE_DROP: f32 = 22.0;
+
+/// How long it takes to rise into place, in seconds.
+pub(crate) const ARRIVE_SECS: f32 = 0.24;
+
+/// A hand arriving from another chair (`Duel::perspective_epoch` moved):
+/// how far through its rise it is, kept outside the retained tree so a
+/// rebuild in the middle of it (a hover) does not start it again.
+#[derive(Resource, Default)]
+pub struct HandArrival {
+    /// The change it is the rise for.
+    epoch: Option<u32>,
+    /// 0 → 1 over [`ARRIVE_SECS`].
+    t: f32,
+}
+
+/// The hand of the chair the table is now shown from rises into place: a
+/// short ease-out over a fixed time, so it takes as long at any frame rate,
+/// and none at all under `reduce_motion`. Nothing is written at rest.
+pub fn arrive_the_hand(
+    time: Res<Time>,
+    duel: Res<Duel>,
+    prefs: Option<Res<crate::prefs::Prefs>>,
+    mut arrival: ResMut<HandArrival>,
+    mut zones: Query<&mut UiTransform, With<super::HandScroll>>,
+) {
+    let epoch = duel.perspective_epoch;
+    let still = prefs.is_some_and(|p| p.all().reduce_motion);
+    match arrival.epoch {
+        // The first view: the hand is where it is, nothing arrived.
+        None => {
+            arrival.epoch = Some(epoch);
+            arrival.t = 1.0;
+        }
+        Some(seen) if seen != epoch => {
+            arrival.epoch = Some(epoch);
+            arrival.t = if still { 1.0 } else { 0.0 };
+        }
+        Some(_) if arrival.t >= 1.0 => return,
+        Some(_) => {
+            arrival.t = super::motion::step(arrival.t, ARRIVE_SECS, time.delta_secs(), still);
+        }
+    }
+    let drop = arrival_drop(arrival.t);
+    for mut transform in &mut zones {
+        let want = Val2::new(Val::ZERO, Val::Px(drop));
+        if transform.translation != want {
+            transform.translation = want;
+        }
+    }
+}
+
+/// How far below its place the hand stands at `t` of its rise: an ease-out
+/// cubic, arriving fast and settling.
+pub(crate) fn arrival_drop(t: f32) -> f32 {
+    let left = 1.0 - t.clamp(0.0, 1.0);
+    ARRIVE_DROP * left * left * left
+}
+
+#[cfg(test)]
+mod arrival_tests {
+    use super::*;
+
+    /// Runs the rise in an app whose frames are `dt` long, until `secs`
+    /// have passed, and answers how far below its place the hand stands.
+    fn after(dt: f32, secs: f32, still: bool) -> f32 {
+        let mut app = App::new();
+        let mut prefs = crate::prefs::Prefs::default();
+        prefs.edit().reduce_motion = still;
+        app.insert_resource(Duel::default())
+            .insert_resource(prefs)
+            .insert_resource(Time::<()>::default())
+            .init_resource::<HandArrival>()
+            .add_systems(Update, arrive_the_hand);
+        let zone = app
+            .world_mut()
+            .spawn((super::super::HandScroll, Node::default()))
+            .id();
+        app.update();
+        // The frame the new chair's hand is first drawn on, which is where
+        // the rise starts: the clock counts from it.
+        app.world_mut().resource_mut::<Duel>().perspective_epoch += 1;
+        app.update();
+        let frames = (secs / dt).round();
+        for _ in 0..frames as usize {
+            app.world_mut()
+                .resource_mut::<Time<()>>()
+                .advance_by(std::time::Duration::from_secs_f32(dt));
+            app.update();
+        }
+        match app
+            .world()
+            .get::<UiTransform>(zone)
+            .expect("a transform")
+            .translation
+            .y
+        {
+            Val::Px(y) => y,
+            _ => 0.0,
+        }
+    }
+
+    /// The rise takes the same time at 30 and 120 frames a second, starts
+    /// below its place and ends on it, and is over at once without motion.
+    #[test]
+    fn a_hand_from_another_chair_rises_alike_at_any_frame_rate() {
+        let slow = after(1.0 / 30.0, 0.1, false);
+        let fast = after(1.0 / 120.0, 0.1, false);
+        assert!(slow > 0.5 && slow < ARRIVE_DROP, "mid-rise: {slow}");
+        assert!(
+            (slow - fast).abs() < 0.05,
+            "30 fps {slow} against 120 fps {fast}"
+        );
+        assert!(after(1.0 / 60.0, ARRIVE_SECS + 0.05, false).abs() < f32::EPSILON);
+        assert!(
+            after(1.0 / 60.0, 1.0 / 60.0, true).abs() < f32::EPSILON,
+            "reduce motion"
+        );
+        assert!((arrival_drop(0.0) - ARRIVE_DROP).abs() < f32::EPSILON);
+    }
+}

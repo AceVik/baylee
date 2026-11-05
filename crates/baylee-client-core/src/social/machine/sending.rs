@@ -7,6 +7,13 @@ use super::*;
 impl Social {
     // ---- sending ----
 
+    /// Whether this message can still be sent or retried. Transports may discard
+    /// cached ciphertext only after its request has left this queue.
+    #[must_use]
+    pub fn has_pending_message(&self, id: &str) -> bool {
+        self.outbox.iter().any(|pending| pending.key.id == id)
+    }
+
     /// The member tags of a conversation this account may write to now,
     /// itself included; `None` when it may not. A table's members are
     /// checked against the roster drawn (§5.4).
@@ -134,6 +141,26 @@ impl Social {
 
     /// Seals and sends every send that can go now.
     pub(super) fn pump(&mut self, now_ms: u64, rng: &mut dyn Entropy, out: &mut Vec<Effect>) {
+        if !self.account_transport {
+            self.pump_scope(now_ms, rng, out);
+            return;
+        }
+        let original = self.game_keys_active;
+        let (game, personal): (Vec<_>, Vec<_>) = std::mem::take(&mut self.outbox)
+            .into_iter()
+            .partition(|pending| super::scope::game(&pending.key.conv));
+        self.outbox = personal;
+        self.select_key_scope(false);
+        self.pump_scope(now_ms, rng, out);
+        let personal = std::mem::replace(&mut self.outbox, game);
+        self.select_key_scope(true);
+        self.pump_scope(now_ms, rng, out);
+        self.outbox.extend(personal);
+        self.outbox.sort_by_key(|pending| pending.req);
+        self.select_key_scope(original);
+    }
+
+    fn pump_scope(&mut self, now_ms: u64, rng: &mut dyn Entropy, out: &mut Vec<Effect>) {
         let mut missing: BTreeSet<String> = BTreeSet::new();
         let mut failed: Vec<(usize, ChatPhrase)> = Vec::new();
         for i in 0..self.outbox.len() {
@@ -232,10 +259,10 @@ impl Social {
         let Some(i) = self.outbox.iter().position(|p| p.req == req) else {
             return;
         };
-        let p = self.outbox.remove(i);
-        if p.key.id != id {
+        if self.outbox[i].key.id != id {
             return;
         }
+        let p = self.outbox.remove(i);
         self.state.seen.insert(p.key.id.clone(), at);
         self.dirty = true;
         let Some(conv) = self.convs.iter_mut().find(|c| c.id == p.key.conv) else {

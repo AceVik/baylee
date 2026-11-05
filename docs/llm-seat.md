@@ -1001,6 +1001,27 @@ mind's error. Each lookup, with the text the model was told, is a line of
 the mind's transcript (`lookup`: the name, the sources, the text, its
 count in the question and in the game).
 
+### Giving the reports a status
+
+`llm_report_status` (crate `baylee-train-ops`) signs in to the feedback
+service's UI as one of its admins (`--admin`, default `claude-bigace`,
+made on the server with `baylee-feedback admin add`) and works on its
+reports there (`docs/feedback.md` §"The web UI"):
+
+- `facets [--filter q]` prints the counts per status, kind and source
+  under the list's filters, as a query string (`status=new`, `source=llm-seat`).
+- `pull --filter q --out f.jsonl` writes every report the filter matches,
+  oldest first, one line each: id, status, revision, labels, game, text,
+  model, profile and the seat's claims (`client.reports`), never the log.
+- `apply --plan p.jsonl` counts a plan's changes, one
+  `{"id", "status", "labels", "revision"}` a line, and makes them only with
+  `--write`, each against the revision it was decided on (`409`
+  otherwise); `labels` is the whole set.
+
+The password is `BAYLEE_FEEDBACK_ADMIN_PASSWORD`, never an argument; a
+trailing newline is ignored. A seat's reports reach the service only from
+a collection run without `--report-games 0`.
+
 ## The spend book
 
 `llm-spend.json` beside the settings file, or where `--ledger` says (a
@@ -1116,6 +1137,11 @@ one line. `llmseat::panel::SeatPanel` decides and is tested in client-core,
   against the caps as the boxes now say them.
 
 ## A language model at your table
+
+What a model is offered for a card is every price its lands can pay, each with
+its taps: buyback and multikicker among them (`docs/llm-protocol.md`, "Prices
+above the printed one"). The narrator says what buyback does as it asks, and
+where more than one effect wants a resolved spell, what each answer does.
 
 A host's desktop client can seat a language model in a chair of its own
 gateway table, beside the house. The engine plays the house; a language
@@ -1406,7 +1432,20 @@ standing answers (a pass with nothing to do), its house fallback (a model
 too slow, refused or out of budget) and its least answer go to the table
 as the seat's answers, like the model's. Which of them made each answer is
 in the bridge's transcript (`--transcripts`: an `answered` event's `by`), and the
-counts in its closing line. A mind taken off the table (`down_after`
+counts in its closing line. A decision the seat makes for another player
+whose turn it controls (Mindslaver, CR 723.5) is the seat's answer in the
+record too, made the same way: the standing orders (read from that
+player's chair), the model, the house, the least answer. The model plays
+that player's turn with that player's cards and mana, against that
+player's interest where it likes, and never concedes for that player
+(CR 723.6): a concession there is refused and asked again, and the house
+answers after the retries. `controlled` in the closing counts says how
+many such decisions there were, the transcript's `asked` line names the
+player (`controlled`), and how the model is told one is
+`docs/llm-protocol.md` §"A decision for a controlled player". Until
+4 Nov 2026 the least answer made every one of them: the controlled
+player passed, attacked with nothing and made the first choice it had
+to. A mind taken off the table (`down_after`
 failures) leaves the socket, and the table's own stand-in, recorded as a
 `chair` line, plays until it is back. A limited mind is never taken off
 the table: the bridge declares the house (`kind: house` and its level) and

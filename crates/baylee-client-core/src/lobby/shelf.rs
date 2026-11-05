@@ -224,6 +224,11 @@ pub fn badges(lang: Lang, deck: &DeckSummary, next: bool) -> Vec<String> {
             &[],
         ));
     }
+    // A deck its gateway calls illegal now, which it may have become after it
+    // was saved: told here, and refused nowhere.
+    if deck.legality.illegal() {
+        said.push(Phrase::DeckTileIllegal.text(lang).to_string());
+    }
     said.extend(blocked_badge(lang, &deck.blocked));
     said
 }

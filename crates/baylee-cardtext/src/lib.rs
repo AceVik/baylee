@@ -52,16 +52,25 @@
 
 mod align;
 mod cost;
+mod deckcheck;
 mod entry;
 mod pick;
+mod poolfacts;
 mod text;
 mod verify;
 mod wire;
 
 pub use align::{Aligned, Stage, align, untranslated};
 pub use cost::{Split, licensed, split_cost};
+pub use deckcheck::{
+    DeckRefusal, ListBody, ListEntry, ListRow, ListRules, ListStatus, MAX_LIST_ENTRIES,
+    MAX_LIST_NAME_CHARS, MAX_LISTS_PER_ACCOUNT, Problem, Report, Standing, Unchecked,
+};
 pub use entry::{TextFace, TextPrinting, card_entry};
 pub use pick::{Layer, Printing, pick};
+pub use poolfacts::{
+    CardFacts, CardLine, Legality, PoolFacts, PoolFactsBody, PoolSet, Printed, Rarity,
+};
 pub use text::{repair_braces, repair_printed_symbols, sentence_count, sentences, symbols};
 pub use verify::{Verdict, localized, verify};
 pub use wire::{CardTextEntry, FaceText};

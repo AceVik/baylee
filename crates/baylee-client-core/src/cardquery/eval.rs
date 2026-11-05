@@ -5,7 +5,8 @@
 //! filter dialog needs the first half and never the second, and a surface
 //! that grows a new fact needs the second and never the first.
 
-use super::{Colors, Flag, Key, Op, Query, Term, Value, folded};
+use super::{Colors, Flag, Key, ListShelf, Op, PoolFacts, Query, Term, Value, folded};
+use baylee_cardtext::{CardFacts, Legality, Printed};
 
 /// What a query says about one card.
 ///
@@ -52,17 +53,31 @@ impl Match {
 /// different answers and only the second may narrow a search to nothing. It
 /// is also what a filter dialog offers from: a control for a key the surface
 /// cannot answer is a control that hides every row.
+///
+/// Rarity, set and format are the one thing that comes and goes on a list
+/// rather than being settled by what kind of list it is: all of them ask the
+/// gateway's table, so a surface answers them exactly while it holds one
+/// ([`Self::with_pool_facts`]). Offline, signed in nowhere, or at a gateway
+/// with no catalog it does not, and every such term is [`Match::Unknown`].
+/// `list:` comes and goes the same way, with the lists a client holds
+/// ([`Self::with_lists`]).
 #[derive(Clone, Copy, Debug)]
-pub struct Surface {
+pub struct Surface<'a> {
     /// The keys with a control and an answer here.
     pub keys: &'static [Key],
     /// The flags `is:` may be asked about here.
     pub flags: &'static [Flag],
+    /// The gateway's table, while this list has one that says anything.
+    pool_facts: Option<&'a PoolFacts>,
+    /// The ban lists a search may name, while a gateway has told them.
+    lists: Option<&'a ListShelf>,
 }
 
-impl Surface {
+impl Surface<'static> {
     /// Everything a compiled card row can be asked.
     pub const POOL: Self = Self {
+        pool_facts: None,
+        lists: None,
         keys: &[
             Key::Loose,
             Key::Name,
@@ -105,7 +120,14 @@ impl Surface {
     /// `is:basic` the supertypes and `is:commander` the `commander` bit — all
     /// three projected. `is:playable` is the deckbuilder's word for what this
     /// build implements, and a card already on the table is past caring.
+    ///
+    /// Rarity, set and format are no characteristics at all: they are facts
+    /// about the card the view already names ([`Facts::card`]), read off the
+    /// gateway's table, and not about the object it has become. A row the view
+    /// names no card for answers none of them.
     pub const ZONE: Self = Self {
+        pool_facts: None,
+        lists: None,
         keys: &[
             Key::Loose,
             Key::Name,
@@ -120,10 +142,62 @@ impl Surface {
         ],
         flags: &[Flag::Token, Flag::Basic, Flag::Commander],
     };
+}
+
+impl<'a> Surface<'a> {
+    /// This list, with the gateway's table beside it when there is one. A
+    /// table that says nothing, as a gateway with no catalog sends, is no
+    /// table: a list of "no card here is rare" is what that would be.
+    #[must_use]
+    pub fn with_pool_facts<'b>(self, facts: Option<&'b PoolFacts>) -> Surface<'b>
+    where
+        'a: 'b,
+    {
+        Surface {
+            keys: self.keys,
+            flags: self.flags,
+            pool_facts: facts.filter(|facts| !facts.is_empty()),
+            lists: self.lists,
+        }
+    }
+
+    /// This list, with the ban lists a client holds beside it when it holds
+    /// them. A shelf with nothing on it is still a shelf: the gateway said
+    /// there are none, and a name is then a name nobody here knows.
+    #[must_use]
+    pub const fn with_lists<'b>(self, lists: Option<&'b ListShelf>) -> Surface<'b>
+    where
+        'a: 'b,
+    {
+        Surface {
+            keys: self.keys,
+            flags: self.flags,
+            pool_facts: self.pool_facts,
+            lists,
+        }
+    }
+
+    /// The table this list asks, if it has one.
+    #[must_use]
+    pub const fn pool_facts(self) -> Option<&'a PoolFacts> {
+        self.pool_facts
+    }
+
+    /// The ban lists this list may name, while it holds them.
+    #[must_use]
+    pub const fn lists(self) -> Option<&'a ListShelf> {
+        self.lists
+    }
 
     /// Whether this surface answers that key.
     #[must_use]
     pub fn answers(self, key: &Key) -> bool {
+        if key.from_pool_facts() {
+            return self.pool_facts.is_some();
+        }
+        if key.from_lists() {
+            return self.lists.is_some();
+        }
         self.keys.contains(key)
     }
 
@@ -132,6 +206,77 @@ impl Surface {
     pub fn knows(self, flag: Flag) -> bool {
         self.flags.contains(&flag)
     }
+
+    /// Whether this surface answers that term: its key, and for a format or
+    /// a list, a word it has heard of. An empty word is a fresh row and is
+    /// fine.
+    #[must_use]
+    pub fn answers_term(self, term: &Term) -> bool {
+        if !self.answers(&term.key) {
+            return false;
+        }
+        if term.key.from_lists() {
+            return match &term.value {
+                Value::Word(name) if !name.is_empty() => {
+                    self.lists.is_some_and(|lists| lists.named(name).is_some())
+                }
+                _ => true,
+            };
+        }
+        if !term.key.of_a_format() {
+            return true;
+        }
+        match &term.value {
+            Value::Word(format) if !format.is_empty() => self
+                .pool_facts
+                .is_some_and(|facts| facts.knows_format(format_key(format))),
+            _ => true,
+        }
+    }
+
+    /// What the table says about the row's card, where there is a table and
+    /// the row names a card it knows.
+    fn card(self, facts: &Facts<'_>) -> Option<CardFacts<'a>> {
+        self.pool_facts?.of(facts.card?)
+    }
+}
+
+/// The format a written word means: its own key, or the name a player knows
+/// it by where the two differ.
+fn format_key(word: &str) -> &str {
+    if word.eq_ignore_ascii_case("edh") {
+        "commander"
+    } else {
+        word
+    }
+}
+
+/// The document a client keeps one gateway's table in, one per gateway.
+///
+/// A digest of the address rather than the address, which is a URL a player
+/// may have typed and no filename.
+#[must_use]
+pub fn pool_facts_document(gateway: &str) -> String {
+    use sha2::Digest as _;
+    let digest = sha2::Sha256::digest(gateway.trim_end_matches('/').as_bytes());
+    format!(
+        "pool-facts-{}.json",
+        crate::social::sealing::hex(&digest[..8])
+    )
+}
+
+/// Whether this query asks what only the gateway's table answers, on a list
+/// without one: the cue for saying so rather than showing an empty list.
+#[must_use]
+pub fn missing_pool_facts(query: &Query, surface: Surface<'_>) -> bool {
+    surface.pool_facts.is_none() && query.mentions(Key::from_pool_facts)
+}
+
+/// Whether this query names a ban list on a list that holds none: offline, or
+/// a gateway that has not said. The same cue for `list:`.
+#[must_use]
+pub fn missing_lists(query: &Query, surface: Surface<'_>) -> bool {
+    surface.lists.is_none() && query.mentions(Key::from_lists)
 }
 
 /// One card, as much of it as the surface has.
@@ -151,7 +296,9 @@ pub struct Facts<'a> {
     /// a caller holds the two apart and joining them would mean building a
     /// list per card per keystroke.
     pub english_name: &'a str,
-    /// Every other name the card is printed under, in every language.
+    /// The other names the card goes by in those two languages, and none in a
+    /// third: a search answers in the client's language and English
+    /// (`crate::cardsearch`).
     pub alt_names: &'a [String],
     /// The printed type line, in the player's language.
     pub type_line: &'a str,
@@ -176,19 +323,69 @@ pub struct Facts<'a> {
     /// The flags that are true of this card. A flag the surface knows and
     /// this card does not carry is simply absent.
     pub flags: &'a [Flag],
+    /// The registry index of the card behind this row, where the row may name
+    /// one: what the gateway's table is asked by.
+    ///
+    /// `None` for a token, and for a face-down card the view gives this seat
+    /// no identity for. The two read alike here on purpose: a row with no
+    /// card answers no rarity, set or format, so these keys say nothing about
+    /// what a hidden card is, and nothing about which rows are hidden.
+    pub card: Option<u32>,
 }
 
 /// Whether one card answers a query.
+///
+/// A query that asks about a printing is asked of one printing at a time, and
+/// the card answers if some printing does ([`Key::of_a_printing`]). A list of
+/// cards has no printing to ask, whichever one a row happens to show: a pool
+/// row is the card, and a zone's object names a printing the table does not
+/// carry. So on every surface `s:m21` reads "this card was printed in M21".
+///
+/// The first pass asks with no printing in hand, so every printing term is
+/// [`Match::Unknown`]; three-valued logic is monotonic, so an answer that
+/// comes out of that stands for every printing, and only the rows it leaves
+/// undecided are walked. On a keystroke that is most of a pool's cards spared.
 #[must_use]
-pub fn matches(query: &Query, facts: &Facts<'_>, surface: Surface) -> Match {
+pub fn matches(query: &Query, facts: &Facts<'_>, surface: Surface<'_>) -> Match {
+    let undecided = asked(query, facts, surface, None);
+    if undecided != Match::Unknown || !query.mentions(Key::of_a_printing) {
+        return undecided;
+    }
+    let Some(card) = surface.card(facts) else {
+        return undecided;
+    };
+    let mut unsure = false;
+    let mut none = true;
+    for printing in card.printings() {
+        none = false;
+        match asked(query, facts, surface, Some(printing)) {
+            Match::Yes => return Match::Yes,
+            Match::Unknown => unsure = true,
+            Match::No => {}
+        }
+    }
+    if unsure || none {
+        Match::Unknown
+    } else {
+        Match::No
+    }
+}
+
+/// [`matches`], about one printing or about none in particular.
+fn asked(
+    query: &Query,
+    facts: &Facts<'_>,
+    surface: Surface<'_>,
+    printing: Option<Printed<'_>>,
+) -> Match {
     match query {
         Query::Anything => Match::Yes,
-        Query::Term(term) => term_matches(term, facts, surface),
-        Query::Not(inner) => matches(inner, facts, surface).not(),
+        Query::Term(term) => term_matches(term, facts, surface, printing),
+        Query::Not(inner) => asked(inner, facts, surface, printing).not(),
         Query::All(parts) => {
             let mut unsure = false;
             for part in parts {
-                match matches(part, facts, surface) {
+                match asked(part, facts, surface, printing) {
                     Match::No => return Match::No,
                     Match::Unknown => unsure = true,
                     Match::Yes => {}
@@ -199,7 +396,7 @@ pub fn matches(query: &Query, facts: &Facts<'_>, surface: Surface) -> Match {
         Query::Any(parts) => {
             let mut unsure = false;
             for part in parts {
-                match matches(part, facts, surface) {
+                match asked(part, facts, surface, printing) {
                     Match::Yes => return Match::Yes,
                     Match::Unknown => unsure = true,
                     Match::No => {}
@@ -210,7 +407,12 @@ pub fn matches(query: &Query, facts: &Facts<'_>, surface: Surface) -> Match {
     }
 }
 
-fn term_matches(term: &Term, facts: &Facts<'_>, surface: Surface) -> Match {
+fn term_matches(
+    term: &Term,
+    facts: &Facts<'_>,
+    surface: Surface<'_>,
+    printing: Option<Printed<'_>>,
+) -> Match {
     if !surface.answers(&term.key) {
         return Match::Unknown;
     }
@@ -231,7 +433,91 @@ fn term_matches(term: &Term, facts: &Facts<'_>, surface: Surface) -> Match {
         Key::Toughness => number(term, facts.toughness),
         Key::Loyalty => number(term, facts.loyalty),
         Key::Is => flag(term, facts, surface),
+        Key::Rarity => rarity(term, printing),
+        Key::Set => set(term, printing),
+        Key::Format | Key::Banned | Key::Restricted => format(term, surface.card(facts)),
+        Key::List => on_a_list(term, facts, surface),
         Key::Unknown(_) => Match::Unknown,
+    }
+}
+
+/// Whether a list names the row's card. A name nobody here knows answers
+/// nothing rather than "no card is on it", as a format nobody has heard of
+/// does, and so does a row that names no card.
+fn on_a_list(term: &Term, facts: &Facts<'_>, surface: Surface<'_>) -> Match {
+    if unwritten(&term.value) {
+        return Match::Yes;
+    }
+    let Value::Word(want) = &term.value else {
+        return Match::Unknown;
+    };
+    let list = surface.lists.and_then(|lists| lists.named(want));
+    match (list, facts.card) {
+        (Some(list), Some(card)) => said_of(term.op, list.holds(card)),
+        _ => Match::Unknown,
+    }
+}
+
+/// A word nobody has written yet, on a key that reads a word: a fresh row of
+/// the builder, which narrows nothing whatever the card.
+fn unwritten(value: &Value) -> bool {
+    matches!(value, Value::Word(word) if word.is_empty())
+}
+
+/// A printing's rarity, in Scryfall's order. A word that is no rarity is
+/// [`Match::Unknown`], as a colour nickname is.
+fn rarity(term: &Term, printing: Option<Printed<'_>>) -> Match {
+    if unwritten(&term.value) {
+        return Match::Yes;
+    }
+    let Value::Rarity(want) = term.value else {
+        return Match::Unknown;
+    };
+    match printing.and_then(|printing| printing.rarity) {
+        Some(held) => Match::of(compare(term.op, held as i64, want as i64)),
+        None => Match::Unknown,
+    }
+}
+
+/// A printing's set, by its code. Sets have no order to compare by.
+fn set(term: &Term, printing: Option<Printed<'_>>) -> Match {
+    if unwritten(&term.value) {
+        return Match::Yes;
+    }
+    let (Value::Word(want), Some(printing)) = (&term.value, printing) else {
+        return Match::Unknown;
+    };
+    said_of(term.op, printing.set.eq_ignore_ascii_case(want))
+}
+
+/// What a format says about the card. A card nobody stored a verdict for, and
+/// a format nobody here has heard of, answer nothing rather than `not_legal`.
+fn format(term: &Term, card: Option<CardFacts<'_>>) -> Match {
+    if unwritten(&term.value) {
+        return Match::Yes;
+    }
+    let Value::Word(want) = &term.value else {
+        return Match::Unknown;
+    };
+    let Some(status) = card.and_then(|card| card.legality(format_key(want))) else {
+        return Match::Unknown;
+    };
+    said_of(
+        term.op,
+        match term.key {
+            Key::Banned => status == Legality::Banned,
+            Key::Restricted => status == Legality::Restricted,
+            _ => status.playable(),
+        },
+    )
+}
+
+/// A yes-or-no answer under the two operators it can be asked with.
+const fn said_of(op: Op, held: bool) -> Match {
+    match op {
+        Op::Colon | Op::Eq => Match::of(held),
+        Op::Ne => Match::of(!held),
+        Op::Lt | Op::Le | Op::Gt | Op::Ge => Match::Unknown,
     }
 }
 
@@ -416,7 +702,7 @@ fn holds_all(bag: &[String], wanted: &[String]) -> bool {
 }
 
 /// A yes-or-no property.
-fn flag(term: &Term, facts: &Facts<'_>, surface: Surface) -> Match {
+fn flag(term: &Term, facts: &Facts<'_>, surface: Surface<'_>) -> Match {
     let Value::Flag(flag) = &term.value else {
         return Match::Unknown;
     };

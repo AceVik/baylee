@@ -33,6 +33,7 @@ Two consequences worth knowing before changing anything here:
 | Visit the next seat in ring order — the camera stands behind a teammate's seat and across from an opponent's (`VisitCamera::Auto`), no card moves (past the last: home) | `F` | implemented |
 | Visit the previous seat in ring order | `⇧F` | implemented |
 | Back to my seat (also `Esc` when nothing else is open, my own chip, the visited chip again) | `H` | implemented |
+| While I control other players (Mindslaver, CR 723.5): play from the next chair — my own, then each player I control, round past the end; its hand, mana and questions are shown (`CyclePerspective`; also a press on the controlled player's chip, and mine to come back; a chair chosen so holds until the next decision; `docs/client.md` §"Playing another player's turn") | `U` | implemented |
 | Choose the table's arrangement (DESIGN-v8): the menu under the top-left pill; while it is up every key is the menu's — `↑` `↓` (or `W` `S`) walk the rows, `Enter`/`Space` choose, `1`–`8` choose a row, `Esc` or `P` shut it | `P`, the pill, or the game menu's row | implemented |
 | The next arrangement offered here (the pill flashes its name) | `⇧P` | implemented |
 | Open or shut the hand's drawer on a phone (DESIGN-v8 WA11; also the tab on the actions bar, tapped or swiped) | `I` | implemented |

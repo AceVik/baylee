@@ -293,6 +293,7 @@ pub(crate) async fn join_game(
     } else {
         Some(own_deck(&state, &account_id, &body.deck_id).await?)
     };
+    let guard = super::room_list::guard(&state, &id).await?;
     let seat_token = auth::new_token();
     let seat = {
         let mut lobby = state.lobby.lock();
@@ -326,6 +327,11 @@ pub(crate) async fn join_game(
             .any(|s| s.account_id.as_ref() == Some(&account_id))
         {
             return Err(err(StatusCode::CONFLICT, "you are already at this table"));
+        }
+        // After the password, for the reason it stands first: a stranger
+        // learns nothing of a locked room.
+        if let (Some(guard), Some((_, deck))) = (&guard, &chosen) {
+            guard.admit(deck)?;
         }
         let seq = game.claim_seq();
         let free = |s: &&mut lobby::LobbySeat| s.kind == lobby::SeatKind::Human && !s.occupied();
@@ -543,6 +549,10 @@ pub(crate) async fn set_seat(
         Some(deck_id) => Some(own_deck(&state, &account_id, deck_id).await?),
         None => None,
     };
+    let guard = match &chosen {
+        Some(_) => super::room_list::guard(&state, &id).await?,
+        None => None,
+    };
     {
         let mut lobby = state.lobby.lock();
         let game = lobby
@@ -641,6 +651,9 @@ pub(crate) async fn set_seat(
             if !allowed {
                 return Err(err(StatusCode::FORBIDDEN, "not your seat"));
             }
+            if let Some(guard) = &guard {
+                guard.admit(&deck)?;
+            }
             chair.deck_name = deck_name;
             chair.deck = Some(deck);
             // A deck they have not seen yet is not a deck they said yes to.
@@ -709,6 +722,11 @@ pub(crate) async fn set_ready(
     Json(body): Json<ReadyBody>,
 ) -> Result<Json<LobbyListing>, (StatusCode, Json<ErrorBody>)> {
     let account_id = authed(&state, &headers).await?;
+    let guard = if body.ready {
+        super::room_list::guard(&state, &id).await?
+    } else {
+        None
+    };
     let rematch = {
         let mut lobby = state.lobby.lock();
         let game = lobby
@@ -734,6 +752,11 @@ pub(crate) async fn set_ready(
             state
                 .blocks
                 .check_stored(deck, time::OffsetDateTime::now_utc())?;
+            // A list changed since the deck was chosen: this is where its
+            // player reads why.
+            if let Some(guard) = &guard {
+                guard.admit(deck)?;
+            }
         }
         chair.said_ready = body.ready;
         is_rematch

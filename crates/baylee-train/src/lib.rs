@@ -60,3 +60,5 @@ pub mod working;
 
 #[cfg(all(test, feature = "play"))]
 mod damage_fixture;
+#[cfg(all(test, feature = "play"))]
+mod encoder_contract;

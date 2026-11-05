@@ -90,6 +90,36 @@ fn copying_a_departed_spell_uses_its_recorded_incarnation_and_target_references(
     );
 }
 
+/// "Whether it was kicked" is copied (CR 707.2), and so is how often, and that
+/// its buyback was paid, the additional costs of CR 707.10.
+#[test]
+fn spell_copy_keeps_how_it_was_kicked_and_that_its_buyback_was_paid() {
+    let mut state =
+        GameState::from_preset(&preset(412, &[]), &SyntheticLookup::new(vec![])).unwrap();
+    let caster = PlayerId::new(0);
+    let name = state.names.intern("copy decisions");
+    let original = state.create_bare(caster, ObjectKind::Spell, name, ZoneLocation::Stack);
+    {
+        let spell = state.object_mut(original).unwrap();
+        spell.kicked = true;
+        spell.times_kicked = 3;
+        spell.riders.push(crate::object::Rider::Buyback);
+    }
+    let original_ref = state.source_identity(original).unwrap();
+    let copy = copy_spell(
+        &mut state,
+        original_ref,
+        caster,
+        &[],
+        crate::text_changes::TextChangeMap::IDENTITY,
+    )
+    .unwrap();
+    let copy = state.object(copy).unwrap();
+    assert!(copy.kicked);
+    assert_eq!(copy.times_kicked, 3);
+    assert!(copy.riders.contains(&crate::object::Rider::Buyback));
+}
+
 #[test]
 fn spell_copy_keeps_damage_division_and_nonmana_cost_information_but_spends_no_mana() {
     let mut state =

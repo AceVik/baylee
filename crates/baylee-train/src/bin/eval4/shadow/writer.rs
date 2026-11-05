@@ -10,6 +10,8 @@ pub(super) struct LabelWriter {
     draft: PathBuf,
     final_path: PathBuf,
     file: BufWriter<File>,
+    /// Where a watching model's own log of this game goes.
+    transcripts: PathBuf,
 }
 
 impl LabelWriter {
@@ -31,9 +33,16 @@ impl LabelWriter {
             draft,
             final_path,
             file: BufWriter::new(file),
+            transcripts: directory.join("transcripts").join(game),
         };
         result.write(header)?;
         Ok(result)
+    }
+
+    /// The directory a watching model's own log of this game goes to.
+    #[cfg_attr(not(feature = "llm"), allow(dead_code))]
+    pub(super) fn transcripts(&self) -> PathBuf {
+        self.transcripts.clone()
     }
 
     pub(super) fn write(&mut self, value: &Value) -> anyhow::Result<()> {
@@ -42,11 +51,15 @@ impl LabelWriter {
         Ok(())
     }
 
+    /// Publishes the labels bound to `record`; a watching model's seat
+    /// notes (`transcript`) go beside them as `<game>.seat.jsonl`, each of
+    /// its labels bound to the mind's own answer there.
     pub(super) fn finish(
         mut self,
         record: &[u8],
         capped: bool,
         counts: &Counts,
+        transcript: Option<&[u8]>,
     ) -> anyhow::Result<()> {
         self.file.flush()?;
         if capped {
@@ -75,6 +88,10 @@ impl LabelWriter {
                 .create_new(true)
                 .open(&publish)?,
         );
+        let answers = transcript
+            .map(baylee_train::convert4::shadow_bc::mind_answers)
+            .transpose()?;
+        let mut source = None;
         let mut last_offset = None;
         for line in BufReader::new(File::open(&self.draft)?).lines() {
             let mut row: Value = serde_json::from_str(&line?)?;
@@ -82,13 +99,32 @@ impl LabelWriter {
                 matches!(row["kind"].as_str(), Some("header" | "label")),
                 "Unknown shadow row"
             );
+            if row["kind"] == "header" {
+                let teacher = row["contract"]["teacher"].as_str().context("Teacher")?;
+                source = Some(if teacher.starts_with("llm:") {
+                    "llm"
+                } else {
+                    "house"
+                });
+                ensure!(
+                    (source == Some("llm")) == answers.is_some(),
+                    "A watching model's labels need its transcript, and only those"
+                );
+            }
             if row["kind"] == "label" {
                 ensure!(
                     row["label_use"] == "bc_only"
-                        && row["teacher_source"] == "house"
+                        && source.is_some_and(|source| row["teacher_source"] == source)
                         && row["teacher_has_logprob"] == false,
                     "Invalid shadow label provenance"
                 );
+                if let Some(answers) = &answers {
+                    let question = row["teacher_question"].as_u64().context("Question")?;
+                    ensure!(
+                        answers.get(&question) == Some(&row["teacher_action"]),
+                        "Shadow label is not the watching model's answer"
+                    );
+                }
                 let offset = row["record_byte_offset"].as_u64().context("Label offset")?;
                 ensure!(
                     last_offset.is_none_or(|last| offset > last),
@@ -100,12 +136,20 @@ impl LabelWriter {
             serde_json::to_writer(&mut output, &row)?;
             writeln!(output)?;
         }
-        serde_json::to_writer(
-            &mut output,
-            &json!({"kind":"completed", "schema":1,
+        let mut completed = json!({"kind":"completed", "schema":1,
             "record_sha256":sha(record), "record_bytes":record.len(), "counts":counts,
-            "label_use":"bc_only", "ppo_certification":false}),
-        )?;
+            "label_use":"bc_only", "ppo_certification":false});
+        if let Some(transcript) = transcript {
+            let path = self.final_path.with_extension("seat.jsonl");
+            let mut file = OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&path)?;
+            file.write_all(transcript)?;
+            file.sync_all()?;
+            completed["transcript_sha256"] = json!(sha(transcript));
+        }
+        serde_json::to_writer(&mut output, &completed)?;
         writeln!(output)?;
         output.flush()?;
         output.get_ref().sync_all()?;

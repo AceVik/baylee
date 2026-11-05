@@ -19,6 +19,7 @@ card!(
             &[Effect::ChooseCardName {
                 player: PlayerRel::You,
                 types: TypeSet::LAND,
+                excluded_types: TypeSet::EMPTY,
                 remember: true
             }]
         ),

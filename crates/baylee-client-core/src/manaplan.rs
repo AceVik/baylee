@@ -42,7 +42,9 @@ use baylee_core::ids::ObjectId;
 use baylee_core::mana::{ManaColor, ManaCost, ManaSymbol};
 use baylee_view::ManaPoolView;
 
+mod convert;
 mod remainder;
+pub use convert::{Converter, after_step, made_by};
 pub use remainder::remainder;
 
 /// How the client asks one source for its mana.
@@ -102,6 +104,12 @@ pub struct Source {
     /// `{C}`. [`plan`] reaches for it only when no plan exists without it,
     /// and then only for a pip the free mode cannot pay.
     pub dear: Option<Dear>,
+    /// The permanent's paid mana ability, when it has one a plan can chain:
+    /// Shimmering Grotto's `{1}, {T}: Add one mana of any color` beside its
+    /// free `{C}`, a Signet's with nothing beside it ([`Self::converting`]).
+    /// [`plan`] reaches for it only when no plan exists without it
+    /// (`manaplan/convert.rs`).
+    pub converter: Option<Converter>,
 }
 
 /// A permanent's priced way to make **one** mana, kept beside its free one.
@@ -129,6 +137,24 @@ impl Source {
             priced: false,
             preserve: 0,
             dear: None,
+            converter: None,
+        }
+    }
+
+    /// A permanent whose only mana ability is paid: it makes no mana of its
+    /// own, so it is a source only through `converter`.
+    #[must_use]
+    pub const fn converting(id: ObjectId, converter: Converter) -> Self {
+        Self {
+            id,
+            tap: converter.tap,
+            colors: Vec::new(),
+            amount: 0,
+            bundle: false,
+            priced: false,
+            preserve: 0,
+            dear: None,
+            converter: Some(converter),
         }
     }
 
@@ -185,10 +211,33 @@ pub fn keep_one_per_permanent(sources: &mut Vec<Source>) {
     *sources = kept;
 }
 
+/// Puts each paid mana ability on its permanent's source, or gives the
+/// permanent a source of its own when it has no free mana. Of two on one
+/// permanent the one that makes more mana stays: it taps once either way.
+pub fn add_converters(
+    sources: &mut Vec<Source>,
+    converters: impl IntoIterator<Item = (ObjectId, Converter)>,
+) {
+    for (id, converter) in converters {
+        match sources.iter_mut().find(|source| source.id == id) {
+            Some(source) => {
+                if source
+                    .converter
+                    .as_ref()
+                    .is_none_or(|kept| kept.mana() < converter.mana())
+                {
+                    source.converter = Some(converter);
+                }
+            }
+            None => sources.push(Source::converting(id, converter)),
+        }
+    }
+}
+
 /// Rank taps by the board and colours still needed by cards in hand.
-/// Creatures retain their combat and tap-ability value; a permanent used
-/// for more than mana (`beyond_mana`, asked of the rules it has: Karakas, a
-/// creature land) is kept next; scarce hand colours are held back ahead of
+/// Creatures retain their combat and tap-ability value; a permanent with an
+/// ability that costs no mana (`beyond_mana`, asked of the rules it has:
+/// Karakas) is kept next; scarce hand colours are held back ahead of
 /// interchangeable mana. Floating mana and avoiding life/sacrifice costs
 /// still take precedence in the matcher.
 ///
@@ -198,11 +247,16 @@ pub fn keep_one_per_permanent(sources: &mut Vec<Source>) {
 /// tapped first about as often as not (report 30.10.2026). The client and
 /// the house AI both rank through here, each handing in the registry's
 /// answer.
+///
+/// An ability that costs mana of its own is no such claim: Mind Stone kept up
+/// for its `{1}`, `{T}` draw with nothing left to pay the `{1}` cost two
+/// Islands their place, and the `{U}` in hand went uncast (report 5.11.2026).
+/// It only breaks a tie, ahead of a land nothing in hand is waiting for.
 pub fn prioritize(
     sources: &mut [Source],
     view: &baylee_view::PlayerView,
     hand: &[ManaCost],
-    beyond_mana: &dyn Fn(baylee_view::RulesFace) -> bool,
+    beyond_mana: &dyn Fn(baylee_view::RulesFace) -> baylee_cards_dsl::UseBeyondMana,
 ) {
     let mut supply = [0_u32; 6];
     let mut demand = [0_u32; 6];
@@ -230,10 +284,10 @@ pub fn prioritize(
             .map_or(0, |o| {
                 20_000 + u32::from(o.power.unwrap_or(0).unsigned_abs()) * 10
             });
-        let utility_value = if object.and_then(|o| o.rules).is_some_and(beyond_mana) {
-            10_000
-        } else {
-            0
+        let utility_value = match object.and_then(|o| o.rules).map(beyond_mana) {
+            Some(baylee_cards_dsl::UseBeyondMana::Free) => 10_000,
+            Some(baylee_cards_dsl::UseBeyondMana::Paid) => 1,
+            Some(baylee_cards_dsl::UseBeyondMana::Nothing) | None => 0,
         };
         source.preserve = creature_value.max(utility_value) + colour_value.min(9_000);
     }
@@ -249,6 +303,10 @@ pub struct Step {
     /// The colour to answer with, when the ability asks. `None` when the
     /// source has only one colour and the engine will not ask.
     pub color: Option<ManaColor>,
+    /// The colour to answer its second question with, when it asks two: a
+    /// Mystic Gate's two mana, each chosen on its own. `None` for every other
+    /// step.
+    pub second: Option<ManaColor>,
 }
 
 /// What one tap of a permanent offers a **mana bubble**.
@@ -347,6 +405,7 @@ pub fn pours(id: ObjectId, offers: &[Offer]) -> Vec<Pour> {
                     source: id,
                     tap: best.tap,
                     color: (best.colors.len() > 1).then_some(color),
+                    second: None,
                 },
             })
         })
@@ -394,8 +453,18 @@ impl Plan {
 /// priced taps, then the fewest taps, then the least worth keeping
 /// untapped is taken; a tie keeps the one-mana reading, which is what
 /// every board without such a permanent plans.
+///
+/// A paid mana ability is reached for last, only when nothing pays without
+/// one ([`Source::converter`]); its plan's steps are in the order they must
+/// be sent, and one that spends a floating mana planned for the spell is not
+/// answered.
 #[must_use]
 pub fn plan(cost: &ManaCost, pool: &ManaPoolView, sources: &[Source]) -> Option<Plan> {
+    plain_plan(cost, pool, sources).or_else(|| convert::plan(cost, pool, sources))
+}
+
+/// [`plan`] with no paid mana ability among its answers.
+fn plain_plan(cost: &ManaCost, pool: &ManaPoolView, sources: &[Source]) -> Option<Plan> {
     let pours: Vec<usize> = sources
         .iter()
         .enumerate()
@@ -518,6 +587,26 @@ pub fn plan_with_life(
     None
 }
 
+/// How many times the floating pool and `sources` pay `each` on top of
+/// `base` (CR 702.33c), or `None` when not even `base` plans here, for the
+/// reason [`greatest_x`] gives. A cost is tried fifty times at most, the
+/// engine's own ceiling for a repeated additional cost.
+#[must_use]
+pub fn greatest_repeat(
+    base: &ManaCost,
+    each: &ManaCost,
+    pool: &ManaPoolView,
+    sources: &[Source],
+) -> Option<u32> {
+    plan(base, pool, sources)?;
+    Some(
+        (1..=50)
+            .take_while(|n| plan(&base.combine_n(each, *n), pool, sources).is_some())
+            .last()
+            .unwrap_or(0),
+    )
+}
+
 /// The largest X the floating pool and `sources` pay `cost` with, or `None`
 /// when `cost` has no X or not even X = 0 plans here.
 ///
@@ -547,11 +636,12 @@ pub fn greatest_x(cost: &ManaCost, pool: &ManaPoolView, sources: &[Source]) -> O
     let poured = sources
         .iter()
         .map(|s| {
-            if s.bundle {
+            let free = if s.bundle {
                 s.colors.len()
             } else {
                 usize::from(s.amount)
-            }
+            };
+            free.max(s.converter.as_ref().map_or(0, Converter::mana))
         })
         .fold(0_usize, usize::saturating_add);
     let ceiling = floating.saturating_add(u32::try_from(poured).unwrap_or(u32::MAX));
@@ -837,10 +927,11 @@ fn assign(
     demands.sort_by_key(|&n| needs[n].count());
 
     // `taken[unit]` is the demand holding it.
+    let fits = |demand: usize, unit: usize| needs[demand].overlaps(units[unit].colors);
     let mut taken: Vec<Option<usize>> = vec![None; units.len()];
     for &demand in &demands {
         let mut seen = vec![false; units.len()];
-        if !augment(demand, needs, &units, &order, &mut taken, &mut seen) {
+        if !augment(demand, &fits, &order, &mut taken, &mut seen) {
             return None;
         }
     }
@@ -938,36 +1029,39 @@ fn rehome(
     Some(moves)
 }
 
-/// One augmenting step of Kuhn's algorithm.
-fn augment(
+/// One augmenting step of Kuhn's algorithm; `fits` says which unit a demand
+/// may take.
+fn augment<F: Fn(usize, usize) -> bool>(
     demand: usize,
-    needs: &[ColorMask],
-    units: &[Unit],
+    fits: &F,
     order: &[usize],
     taken: &mut Vec<Option<usize>>,
     seen: &mut Vec<bool>,
 ) -> bool {
     for &unit in order {
-        if seen[unit] || !needs[demand].overlaps(units[unit].colors) {
+        if seen[unit] || !fits(demand, unit) {
             continue;
         }
         seen[unit] = true;
         let free = taken[unit].is_none();
-        if free
-            || augment(
-                taken[unit].expect("occupied"),
-                needs,
-                units,
-                order,
-                taken,
-                seen,
-            )
-        {
+        if free || augment(taken[unit].expect("occupied"), fits, order, taken, seen) {
             taken[unit] = Some(demand);
             return true;
         }
     }
     false
+}
+
+/// The amount of `color` in `pool`, to change.
+pub(crate) const fn slot(pool: &mut ManaPoolView, color: ManaColor) -> &mut u32 {
+    match color {
+        ManaColor::White => &mut pool.white,
+        ManaColor::Blue => &mut pool.blue,
+        ManaColor::Black => &mut pool.black,
+        ManaColor::Red => &mut pool.red,
+        ManaColor::Green => &mut pool.green,
+        ManaColor::Colorless => &mut pool.colorless,
+    }
 }
 
 /// Turns a matching into the taps it calls for.
@@ -1024,6 +1118,7 @@ fn steps(
                         source: source.id,
                         tap: dear.tap,
                         color: (dear.colors.len() > 1).then_some(color),
+                        second: None,
                     };
                 }
                 Step {
@@ -1035,6 +1130,7 @@ fn steps(
                     // engine never asks.
                     color: (!source.bundle && source.colors.len() > 1)
                         .then(|| chosen[index].unwrap_or_else(|| source.colors[0])),
+                    second: None,
                 }
             })
             .collect(),
@@ -1046,27 +1142,66 @@ fn steps(
 /// The same rule the engine applies in `casting::intrinsic_mana`, read off the
 /// *projected* subtypes — which is the only correct source, because an
 /// animated or type-changed land taps for what it is now, not for what it was
-/// printed as. A land with two basic types has two mana abilities and the
-/// engine does not offer the shortcut for it, so neither does this.
+/// printed as. `None` for a land with two basic types, which taps for a colour
+/// chosen among them ([`basic_land_colors`]); a planner reads that list.
 #[must_use]
 pub fn basic_land_color(subtypes: &baylee_core::types::SubtypeSet) -> Option<ManaColor> {
+    let mut colors = basic_land_colors(subtypes);
+    let only = colors.next()?;
+    colors.next().is_none().then_some(only)
+}
+
+/// Every colour a land's basic land types give it (CR 305.6), one per type,
+/// in the order the engine offers them (`casting::intrinsic_mana_colors`).
+///
+/// A land can gain a type it was not printed with: a Swamp under Yavimaya,
+/// Cradle of Growth is a Swamp Forest, and so is a land Evil Presence made a
+/// Swamp once Yavimaya came down. Its CR 305.6 shortcut is one mana of
+/// either colour, chosen as it is tapped.
+pub fn basic_land_colors(
+    subtypes: &baylee_core::types::SubtypeSet,
+) -> impl Iterator<Item = ManaColor> + '_ {
     use baylee_core::generated::subtypes::land;
-    let mut only = None;
-    for (subtype, color) in [
+    [
         (land::PLAINS, ManaColor::White),
         (land::ISLAND, ManaColor::Blue),
         (land::SWAMP, ManaColor::Black),
         (land::MOUNTAIN, ManaColor::Red),
         (land::FOREST, ManaColor::Green),
-    ] {
-        if subtypes.contains(subtype) {
-            if only.is_some() {
-                return None;
-            }
-            only = Some(color);
-        }
-    }
-    only
+    ]
+    .into_iter()
+    .filter(|(subtype, _)| subtypes.contains(*subtype))
+    .map(|(_, color)| color)
+}
+
+/// The source the CR 305.6 shortcut is (`LegalActions::mana_abilities`,
+/// pressed as `ActivateManaAbility`): one mana of the land's one colour, or of
+/// a colour chosen among its basic types' when it has several. `None` for a
+/// permanent with no basic land type.
+///
+/// Both planners read the shortcut through here. They used to read it through
+/// [`basic_land_color`], which answers `None` for two types, and so dropped the
+/// land altogether: Blooming Marsh made a Swamp by Evil Presence and a Forest
+/// by Yavimaya was no source at all, and a `{G}` spell beside it was never
+/// offered (NEW-09, 3.11.2026).
+#[must_use]
+pub fn intrinsic_source(
+    id: baylee_core::ids::ObjectId,
+    subtypes: &baylee_core::types::SubtypeSet,
+) -> Option<Source> {
+    let colors: Vec<ManaColor> = basic_land_colors(subtypes).collect();
+    (!colors.is_empty()).then_some(Source {
+        id,
+        tap: Tap::Intrinsic,
+        colors,
+        amount: 1,
+        // One mana of a colour chosen as it is tapped: a choice, not a bundle.
+        bundle: false,
+        priced: false,
+        preserve: 0,
+        dear: None,
+        converter: None,
+    })
 }
 
 /// Every colour in a [`ColorSet`], as mana colours.
@@ -1116,6 +1251,7 @@ mod tests {
             bundle: false,
             priced: false,
             preserve: 0,
+            converter: None,
             dear: None,
         }
     }
@@ -1201,7 +1337,9 @@ mod tests {
             if reverse {
                 sources.reverse();
             }
-            prioritize(&mut sources, &view, &[cost("{U}{U}")], &|_| false);
+            prioritize(&mut sources, &view, &[cost("{U}{U}")], &|_| {
+                baylee_cards_dsl::UseBeyondMana::Nothing
+            });
             assert_eq!(
                 tapped(&plan(&cost("{1}"), &empty(), &sources).unwrap()),
                 vec![2]
@@ -1334,7 +1472,13 @@ mod tests {
             if reverse {
                 sources.reverse();
             }
-            prioritize(&mut sources, &view, &[], &|face| face == karakas_rules);
+            prioritize(&mut sources, &view, &[], &|face| {
+                if face == karakas_rules {
+                    baylee_cards_dsl::UseBeyondMana::Free
+                } else {
+                    baylee_cards_dsl::UseBeyondMana::Nothing
+                }
+            });
             assert_eq!(
                 tapped(&plan(&cost("{W}"), &empty(), &sources).unwrap()),
                 vec![2],
@@ -1346,6 +1490,57 @@ mod tests {
                 "and the Karakas is spent when the cost needs it"
             );
         }
+    }
+
+    /// Two Islands, a Darksteel Citadel and a Mind Stone, `{3}` to pay and
+    /// Preordain in hand: Mind Stone's draw costs `{1}` of its own, so it
+    /// gives way to a colour the hand wants and one Island stays up. With
+    /// nothing in hand waiting for blue it breaks the tie and stays up itself
+    /// (report 5.11.2026).
+    #[test]
+    fn a_rock_with_a_paid_ability_gives_way_to_a_colour_the_hand_wants() {
+        use crate::test_support::{ViewBuilder, token};
+        let stone_rules = baylee_view::RulesFace {
+            card: baylee_core::ids::CardIndex::new(7),
+            face: 0,
+        };
+        let mut stone = token(4, 0, "Mind Stone", 0, 0);
+        stone.types = baylee_core::types::TypeSet::ARTIFACT;
+        stone.rules = Some(stone_rules);
+        let lands = [(1, "Island"), (2, "Island"), (3, "Darksteel Citadel")].map(|(id, name)| {
+            let mut land = token(id, 0, name, 0, 0);
+            land.types = baylee_core::types::TypeSet::LAND;
+            land
+        });
+        let view = ViewBuilder::new(2)
+            .with_battlefield(0, lands.into_iter().chain([stone]).collect::<Vec<_>>())
+            .build();
+        let ranked = |hand: &[ManaCost]| {
+            let mut sources = vec![
+                land(1, ManaColor::Blue),
+                land(2, ManaColor::Blue),
+                land(3, ManaColor::Colorless),
+                land(4, ManaColor::Colorless),
+            ];
+            prioritize(&mut sources, &view, hand, &|face| {
+                if face == stone_rules {
+                    baylee_cards_dsl::UseBeyondMana::Paid
+                } else {
+                    baylee_cards_dsl::UseBeyondMana::Nothing
+                }
+            });
+            sources
+        };
+        assert_eq!(
+            tapped(&plan(&cost("{3}"), &empty(), &ranked(&[cost("{U}")])).unwrap()),
+            vec![1, 3, 4],
+            "an Island stays up for the spell"
+        );
+        assert_eq!(
+            tapped(&plan(&cost("{3}"), &empty(), &ranked(&[])).unwrap()),
+            vec![1, 2, 3],
+            "the rock stays up when no colour is wanted"
+        );
     }
 
     /// The preference, rather than the correctness: with a choice, the pip is
@@ -1439,6 +1634,7 @@ mod tests {
             priced: false,
             preserve: 0,
             dear: None,
+            converter: None,
         }];
         assert!(plan(&cost("{W}{U}"), &empty(), &coupled).is_none());
         let found = plan(&cost("{2}"), &empty(), &coupled).expect("two of one colour");
@@ -1454,6 +1650,7 @@ mod tests {
             priced: false,
             preserve: 0,
             dear: None,
+            converter: None,
         }];
         let found = plan(&cost("{2}"), &empty(), &sol_ring).expect("two colourless");
         assert_eq!(found.taps(), 1);
@@ -1481,6 +1678,7 @@ mod tests {
             priced: false,
             preserve: 0,
             dear: None,
+            converter: None,
         }];
         let found = plan(&cost("{W}{U}"), &empty(), &chancery).expect("a Karoo pays {W}{U}");
         assert_eq!(found.taps(), 1, "one permanent is one tap");
@@ -1510,6 +1708,7 @@ mod tests {
             priced: false,
             preserve: 0,
             dear: None,
+            converter: None,
         }
     }
 
@@ -1519,6 +1718,7 @@ mod tests {
             priced: true,
             preserve: 0,
             dear: None,
+            converter: None,
             ..tower(id)
         }
     }
@@ -1531,6 +1731,7 @@ mod tests {
             priced: true,
             preserve: 0,
             dear: None,
+            converter: None,
             ..tower(id)
         }
     }
@@ -1657,6 +1858,7 @@ mod tests {
             priced: false,
             preserve: 0,
             dear: None,
+            converter: None,
         }];
         assert!(plan(&cost("{1}"), &empty(), &five).is_some());
         assert!(plan(&cost("{C}"), &empty(), &five).is_none());
@@ -1670,11 +1872,21 @@ mod tests {
         let forest = SubtypeSet::from_slice(&[land::FOREST]);
         assert_eq!(basic_land_color(&forest), Some(ManaColor::Green));
 
-        // A dual has two mana abilities and the engine offers neither as the
-        // CR 305.6 shortcut, so this does not answer for it either.
+        // Two types are a choice, not one colour: `basic_land_color` declines,
+        // and the shortcut's source offers both (NEW-09).
         let shrine = SubtypeSet::from_slice(&[land::PLAINS, land::SWAMP]);
         assert_eq!(basic_land_color(&shrine), None);
         assert_eq!(basic_land_color(&SubtypeSet::EMPTY), None);
+        let id = baylee_core::ids::ObjectId::new(1, 0);
+        let swamp_forest = SubtypeSet::from_slice(&[land::FOREST, land::SWAMP]);
+        let source = intrinsic_source(id, &swamp_forest).expect("two basic types");
+        assert_eq!(source.colors, vec![ManaColor::Black, ManaColor::Green]);
+        assert!(!source.bundle, "one mana of either, not both");
+        assert_eq!(
+            intrinsic_source(id, &forest),
+            Some(Source::fixed(id, Tap::Intrinsic, ManaColor::Green))
+        );
+        assert_eq!(intrinsic_source(id, &SubtypeSet::EMPTY), None);
     }
 
     /// A Forest under a Chromatic Lantern: five pips, and the green one is
@@ -1832,6 +2044,7 @@ mod tests {
             priced: false,
             preserve: 0,
             dear: None,
+            converter: None,
         }
     }
 
@@ -1931,6 +2144,26 @@ mod tests {
         pool.green = 1;
         let forests = [land(1, ManaColor::Green), land(2, ManaColor::Green)];
         assert_eq!(greatest_x(&cost("{X}{G}{G}"), &pool, &forests), Some(1));
+    }
+
+    /// A multikicker on top of a spell: five Forests pay {G}{G} and {1}{G}
+    /// once, and a pip the sources cannot make stops the count at nought.
+    #[test]
+    fn greatest_repeat_is_what_the_sources_pay_beyond_the_spell() {
+        let forests: Vec<Source> = (1..=5).map(|id| land(id, ManaColor::Green)).collect();
+        assert_eq!(
+            greatest_repeat(&cost("{G}{G}"), &cost("{1}{G}"), &empty(), &forests),
+            Some(1)
+        );
+        assert_eq!(
+            greatest_repeat(&cost("{G}{G}"), &cost("{U}"), &empty(), &forests),
+            Some(0)
+        );
+        assert_eq!(
+            greatest_repeat(&cost("{U}"), &cost("{G}"), &empty(), &forests),
+            None,
+            "not even the spell plans: the engine's range stands"
+        );
     }
 
     /// Report 20: a cost with no X has no greatest X.

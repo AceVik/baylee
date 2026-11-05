@@ -25,6 +25,7 @@ pub mod research_attempts;
 pub mod research_cache;
 pub mod research_contract;
 pub mod research_tensor;
+pub mod self_imitation;
 #[cfg(target_os = "linux")]
 pub mod supervisor;
 pub mod trajectory;

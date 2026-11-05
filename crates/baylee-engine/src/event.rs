@@ -52,7 +52,7 @@ pub enum DamageTarget {
     Object(ObjectId),
 }
 
-/// Why a cast was taken back (CR 732.1), as [`GameEvent::CastCancelled`]
+/// Why a cast was taken back (CR 733.1), as [`GameEvent::CastCancelled`]
 /// records it.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub enum CastCancelReason {
@@ -131,6 +131,14 @@ pub enum GameEvent {
         player: PlayerId,
         /// The kept permanents.
         cards: Vec<ObjectId>,
+    },
+    /// A player cast a ballot in a vote (CR 701.38a), announced as it is
+    /// cast (CR 608.2d), so every later voter knows it.
+    Voted {
+        /// The voter.
+        player: PlayerId,
+        /// What they voted for.
+        object: ObjectId,
     },
     /// A player flipped a coin and won or lost the flip (CR 705).
     CoinFlipped {
@@ -446,9 +454,9 @@ pub enum GameEvent {
         /// Whether it is now phased out.
         phased_out: bool,
     },
-    /// The game became day or night (CR 730.1).
+    /// The game became day or night (CR 731.1).
     ///
-    /// One event for both directions, because CR 730.1a defines "night
+    /// One event for both directions, because CR 731.1a defines "night
     /// becomes day" as a single change — losing one designation and
     /// gaining the other — and the game's first designation is the same
     /// change from nothing.
@@ -457,7 +465,7 @@ pub enum GameEvent {
         now: crate::turn::DayNight,
     },
     /// A cast was taken back before it was complete (`PlayerAction::CancelCast`,
-    /// or a payment window passed short), and reversed (CR 732.1). The card
+    /// or a payment window passed short), and reversed (CR 733.1). The card
     /// never left its zone, so this says nothing an opponent did not see.
     CastCancelled {
         /// The player who was casting.
@@ -467,13 +475,13 @@ pub enum GameEvent {
         /// Why it was taken back.
         reason: CastCancelReason,
     },
-    /// A player became the monarch (CR 724.3), and whoever was the monarch
+    /// A player became the monarch (CR 725.3), and whoever was the monarch
     /// ceased to be.
     ///
     /// Recorded only when the designation moves: a monarch told to become
     /// the monarch again does not become it (CR 603.2e reads "becomes" as
     /// the change, not the state). The game going on with no monarch after
-    /// the last heir left (CR 724.4) records nothing.
+    /// the last heir left (CR 725.4) records nothing.
     BecameMonarch {
         /// The new monarch.
         player: PlayerId,
@@ -735,11 +743,22 @@ impl Journal {
     }
 
     /// Drops every entry after the first `len`: the one exception to "only
-    /// grows", for a payment that was canceled (CR 732.1) and so never
+    /// grows", for a payment that was canceled (CR 733.1) and so never
     /// happened ([`crate::state::GameState::roll_back`]).
     pub(crate) fn cancel_from(&mut self, len: usize) {
         if len < self.entries.len() {
             Arc::make_mut(&mut self.entries).truncate(len);
+        }
+    }
+
+    /// Edits every entry in place, keeping its sequence number: the other
+    /// exception, for a forked simulation withholding what its seat was not
+    /// shown (`Engine::fork_for`). A journal shared with a snapshot is
+    /// copied first, so the snapshot's entries never change.
+    #[cfg(any(test, feature = "simulation"))]
+    pub(crate) fn rewrite(&mut self, mut edit: impl FnMut(&mut JournalEntry)) {
+        for entry in Arc::make_mut(&mut self.entries) {
+            edit(entry);
         }
     }
 }

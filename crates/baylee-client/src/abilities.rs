@@ -1080,17 +1080,21 @@ pub fn printed_words(
     object: ObjectId,
     option: &AbilityOption,
 ) -> Option<baylee_client_core::abilitysheet::Cut> {
-    let object = view.object(object)?;
-    let blocks = if let Some(at) = option.printed {
-        crate::cardtext::sentence(texts, object.rules?.card, at)?
-    } else {
-        let PlayerAction::ActivateAbility { ability_index, .. } = option.action else {
-            return None;
-        };
-        if object.status.is_face_down() {
-            return None;
+    let blocks = if let Some(object) = view.object(object) {
+        if let Some(at) = option.printed {
+            crate::cardtext::sentence(texts, object.rules?.card, at)?
+        } else {
+            let PlayerAction::ActivateAbility { ability_index, .. } = option.action else {
+                return None;
+            };
+            if object.status.is_face_down() {
+                return None;
+            }
+            crate::cardtext::token_sentence(object.token?, ability_index)?
         }
-        crate::cardtext::token_sentence(object.token?, ability_index)?
+    } else {
+        let held = baylee_client_core::decision::known_cards(view).find(|c| c.id == object)?;
+        crate::cardtext::sentence(texts, held.card.index, option.printed?)?
     };
     Some(baylee_client_core::abilitysheet::cut(
         blocks,
@@ -1110,7 +1114,15 @@ fn printed_sentence(
     object: ObjectId,
     index: u32,
 ) -> Option<baylee_view::StackText> {
-    let rules = view.object(object)?.rules?;
+    let rules = if let Some(object) = view.object(object) {
+        object.rules?
+    } else {
+        let held = baylee_client_core::decision::known_cards(view).find(|c| c.id == object)?;
+        baylee_view::RulesFace {
+            card: held.card.index,
+            face: held.card.face,
+        }
+    };
     let line = baylee_cards::lines::ability_line(rules.card, rules.face as usize, index)?;
     Some(baylee_view::StackText {
         face: rules.face,

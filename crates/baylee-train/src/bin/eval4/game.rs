@@ -45,6 +45,7 @@ fn play_one_table(
     record_steps: bool,
     mut shadow: Option<&mut shadow::ShadowGame>,
     research_encoder: Option<u32>,
+    mut search: Option<&mut lookahead::GameSearch>,
 ) -> anyhow::Result<TableOutcome> {
     let preset = table_for(seed, decks, profiles, teams_u8);
     let n_seats = decks.len();
@@ -55,6 +56,9 @@ fn play_one_table(
             policy_seed ^ deal_idx.wrapping_mul(0x9e37_79b9_7f4a_7c15) ^ ((n_seats as u64) << 48);
         n.reseed(indep_policy_seed);
         n.init_game(&preset);
+        if let Some(search) = search.as_deref_mut() {
+            search.begin(indep_policy_seed);
+        }
     }
 
     let mut session = if record_steps {
@@ -73,6 +77,10 @@ fn play_one_table(
                 session.take_over(PlayerId::new(s as u8));
             }
         }
+    }
+    if let Some(shadow) = shadow.as_deref_mut() {
+        let seat = PlayerId::new(u8::try_from(focal_seat)?);
+        shadow.attach(&mut session, seat, &decks[focal_seat].deck)?;
     }
 
     let mut fallback_events = Vec::new();
@@ -125,12 +133,8 @@ fn play_one_table(
                 .into_iter()
                 .map(PlayerId::get)
                 .collect();
-            let surviving: Vec<u8> = if winners.is_empty() {
-                (0..n_seats as u8).collect()
-            } else {
-                winners.clone()
-            };
-            let util = side_utility(focal_seat as u8, teams, &surviving, &winners);
+            // One scale with the search's terminal leaves.
+            let util = terminal_utility(focal_seat as u8, teams, &winners, n_seats);
             let mut outcome_json = match winners.as_slice() {
                 [] => json!({"kind": "draw"}),
                 [w] => json!({"kind": "won", "seat": w}),
@@ -211,7 +215,10 @@ fn play_one_table(
         // Observe every pre-action root. A multi-answer pump would skip states
         // that the record converter subsequently replays, breaking recurrent PPO.
         if session.needs_pump() {
-            session.pump_at_most(1);
+            let routed = session.pump_at_most(1);
+            if let Some(shadow) = shadow.as_deref_mut() {
+                shadow.hear(routed);
+            }
             continue;
         }
 
@@ -254,7 +261,11 @@ fn play_one_table(
                 let act = session.house_action(pid).context("house fallback")?;
                 let sequence = session.decision_seq();
                 let record_offset = session.record_pending();
-                let result = session.act_slice(pid, act.clone(), 0);
+                let result = session.act_slice(pid, act.clone(), 0).map(|routed| {
+                    if let Some(shadow) = shadow.as_deref_mut() {
+                        shadow.hear(routed);
+                    }
+                });
                 fallback_events.push(json!({"decision_seq":sequence,"record_byte_offset":record_offset,"seat":pid.get(),
                     "reason":"outer_repeated_view","view_hash":format!("{vh:016x}"),
                     "visits":*vc,"action":act,"accepted":result.is_ok()}));
@@ -274,7 +285,14 @@ fn play_one_table(
 
             if let Some(n) = net.as_deref_mut() {
                 let t0 = Instant::now();
-                let answer = n.answer(&view, &pending, teams);
+                let searched = match search.as_deref_mut() {
+                    Some(search) => search.answer(n, &session, &view, &pending, teams)?,
+                    None => None,
+                };
+                let answer = match searched {
+                    Some(answer) => Ok(Some(answer)),
+                    None => n.answer(&view, &pending, teams),
+                };
                 if research_encoder.is_some() && (answer.is_err() || matches!(answer, Ok(None))) {
                     research_stop!(pid, false, "unsupported_or_inference_error", vh, None);
                 }
@@ -318,6 +336,7 @@ fn play_one_table(
                 }
                 let proposal = if let Some(shadow) = shadow.as_deref_mut() {
                     if ans.provenance.source == SourceKind4::Net {
+                        shadow.prepare(&session, pid, view.seq);
                         let (state, menu) = n
                             .policy_encoding(&view, &pending, teams)
                             .context("Shadow requires exact runtime encoding")?;
@@ -366,7 +385,11 @@ fn play_one_table(
                         )
                     })
                     .transpose()?;
-                let result = session.act_slice(pid, ans.action, 0);
+                let result = session.act_slice(pid, ans.action, 0).map(|routed| {
+                    if let Some(shadow) = shadow.as_deref_mut() {
+                        shadow.hear(routed);
+                    }
+                });
                 if let Some(diagnostic) = recovery {
                     fallback_events.push(json!({"decision_seq":sequence,"record_byte_offset":record_offset,"seat":pid.get(),
                         "diagnostic":diagnostic,"action":attempted_action,"accepted":result.is_ok()}));
@@ -389,6 +412,11 @@ fn play_one_table(
                     }
                 } else if let Err(error) = result {
                     refused += 1;
+                    if ans.provenance.source == SourceKind4::Search
+                        && let Some(search) = search.as_deref_mut()
+                    {
+                        search.refused();
+                    }
                     fallback_events.push(json!({"decision_seq":sequence,"record_byte_offset":record_offset,"seat":pid.get(),
                         "reason":"engine_refusal","action":attempted_action,"accepted":false,
                         "error":error}));
@@ -402,7 +430,12 @@ fn play_one_table(
                     let fb = session
                         .house_action(pid)
                         .context("house fallback after refusal")?;
-                    if session.act_slice(pid, fb, 0).is_ok() && record_steps {
+                    let routed = session.act_slice(pid, fb, 0);
+                    let accepted = routed.is_ok();
+                    if let (Some(shadow), Ok(routed)) = (shadow.as_deref_mut(), routed) {
+                        shadow.hear(routed);
+                    }
+                    if accepted && record_steps {
                         rollout_sidecar.push(RolloutStepSidecar4 {
                             provenance: StepProvenance4 {
                                 source: SourceKind4::House,

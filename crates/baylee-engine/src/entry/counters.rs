@@ -14,6 +14,7 @@ pub(super) fn needs_entry(state: &GameState, id: ObjectId) -> bool {
             matches!(
                 effect.modifier,
                 baylee_cards_dsl::Modifier::AdditionalCounterPlacement { n: 1.. }
+                    | baylee_cards_dsl::Modifier::AdditionalCounterOnEntryByCount { .. }
                     | baylee_cards_dsl::Modifier::DoubleCountersPlacedByYou
             )
         })
@@ -33,7 +34,8 @@ pub(super) fn question(state: &mut GameState, entry: &mut Attempt) -> Option<Pen
                 player: entry.controller,
                 prompt: YesNoPrompt::ApplyAdditionalCountersNext {
                     permanent: entry.object,
-                    additional,
+                    additional: additional.n,
+                    kind: additional.kind,
                 },
                 source: None,
             });
@@ -119,6 +121,12 @@ fn prepare(state: &mut GameState, entry: &mut Attempt) {
             groups.push((by, vec![(kind, count)]));
         }
     }
+    // An external entry replacement can introduce the event's first counters.
+    // Give the entering permanent's controller an empty group to build that
+    // plan even when neither the card nor another instruction placed any.
+    if !groups.iter().any(|(by, _)| *by == entry.controller) {
+        groups.push((entry.controller, Vec::new()));
+    }
     for (by, counters) in groups {
         if let Some(plan) = crate::replacement::counter_order::build_plan(
             state,
@@ -127,6 +135,7 @@ fn prepare(state: &mut GameState, entry: &mut Attempt) {
             counters,
             true,
             None,
+            true,
         ) {
             entry.counter_plans.push(plan);
         }

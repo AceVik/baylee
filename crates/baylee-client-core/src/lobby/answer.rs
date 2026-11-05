@@ -143,6 +143,10 @@ impl Lobby {
                 self.builder.set_blocked(blocked);
                 None
             }
+            LobbyEvent::PoolFacts(facts) => {
+                self.builder.set_pool_facts(facts);
+                None
+            }
             LobbyEvent::Printings {
                 card,
                 printings,
@@ -151,15 +155,48 @@ impl Lobby {
                 self.builder.set_printings(card, printings, from_catalog);
                 None
             }
+            LobbyEvent::Banlists(lists) => {
+                self.builder.set_lists(lists, self.lang);
+                None
+            }
+            LobbyEvent::Banlist(body, ListFor::Deck) => {
+                self.builder.hold_to(&body);
+                None
+            }
+            LobbyEvent::Banlist(body, ListFor::Editor) => {
+                self.builder.open_list(&body);
+                self.busy = true;
+                Some(LobbyRequest::ListBanlists)
+            }
+            LobbyEvent::BanlistDeleted(id) => {
+                self.builder.list_gone(&id);
+                self.busy = true;
+                Some(LobbyRequest::ListBanlists)
+            }
+            LobbyEvent::RoomList(body) => {
+                self.room_list = body;
+                None
+            }
+            LobbyEvent::DeckRefused(refusal) => {
+                self.room_saving = false;
+                self.write(
+                    Phrase::RefusedNote.fill(self.lang, &[&refusal.list]),
+                    Tone::Refusal,
+                );
+                self.refusal = Some(refusal);
+                None
+            }
             LobbyEvent::DeckLoaded {
                 id,
                 name,
                 cards,
                 sideboard,
                 commanders,
+                format,
             } => {
                 self.builder
                     .load(&id, &name, &cards, &sideboard, &commanders);
+                self.builder.keep_format(&format);
                 self.clear_status();
                 // The pool may not have arrived yet — the rows are held by
                 // name until it does, which is why loading is safe either way.

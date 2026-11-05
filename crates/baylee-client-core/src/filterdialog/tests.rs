@@ -724,3 +724,291 @@ fn a_number_written_into_a_colour_row_is_a_count_of_colours() {
     panel.act(super::Act::SetNumber(0, 4));
     assert_eq!(panel.written().unwrap(), parse("mv:4"));
 }
+
+// ------------------------------------------------- the choice rows
+
+/// A small table: three formats and fourteen sets, one named for `m21`.
+fn table() -> crate::cardquery::PoolFacts {
+    use baylee_cardtext::{CardLine, PoolFactsBody, PoolSet};
+    let mut sets = vec![PoolSet {
+        code: "m21".to_string(),
+        name: "Core Set 2021".to_string(),
+    }];
+    sets.extend((0..13).map(|n| PoolSet {
+        code: format!("x{n:02}"),
+        name: format!("Expansion {n}"),
+    }));
+    let card = CardLine {
+        index: 1,
+        legalities: [
+            ("vintage".to_string(), "legal".to_string()),
+            ("alchemy".to_string(), "legal".to_string()),
+            ("modern".to_string(), "legal".to_string()),
+        ]
+        .into(),
+        printed: vec![("m21".to_string(), "rare".to_string())],
+    };
+    PoolFactsBody::assemble(sets, vec![card]).into()
+}
+
+fn word(text: &str) -> super::ChoiceWord {
+    super::ChoiceWord::new(text).expect("it fits")
+}
+
+fn at_of(key: &Key) -> usize {
+    super::OFFERED
+        .iter()
+        .position(|offered| offered == key)
+        .expect("the menu offers it")
+}
+
+#[test]
+fn every_key_of_the_table_is_a_choice_and_is_offered() {
+    for key in [
+        Key::Rarity,
+        Key::Set,
+        Key::Format,
+        Key::Banned,
+        Key::Restricted,
+        Key::List,
+    ] {
+        assert_eq!(Control::of(&key), Control::Choice, "{key:?}");
+        assert!(super::OFFERED.contains(&key), "{key:?}");
+    }
+}
+
+/// The lists a client holds, as a list row offers them.
+fn shelf() -> crate::cardquery::ListShelf {
+    let row = |name: &str, format: &str, builtin: bool| baylee_cardtext::ListRow {
+        name: name.to_string(),
+        format: format.to_string(),
+        builtin,
+        ..baylee_cardtext::ListRow::default()
+    };
+    crate::cardquery::ListShelf::of(
+        &[
+            row("modern", "modern", true),
+            row("Kitchen table", "freeform", false),
+        ],
+        crate::i18n::Lang::En,
+    )
+}
+
+#[test]
+fn a_list_row_offers_the_lists_the_client_holds_its_own_first() {
+    let shelf = shelf();
+    let surface = Surface::POOL.with_lists(Some(&shelf));
+    let offered = |typed: &str| -> Vec<String> {
+        super::choices(&Key::List, typed, surface)
+            .iter()
+            .map(|choice| choice.word().to_string())
+            .collect()
+    };
+    assert_eq!(offered(""), ["Kitchen table", "modern"]);
+    assert_eq!(offered("KIT"), ["Kitchen table"]);
+    assert!(offered("frob").is_empty());
+    assert!(
+        super::choices(&Key::List, "", Surface::POOL).is_empty(),
+        "no lists held, nothing to offer"
+    );
+}
+
+/// A choice writes the row as the box would read it, a name with a space in
+/// quotes, and the longest name a list may have fits a button.
+#[test]
+fn a_list_is_chosen_like_any_other_word() {
+    let mut panel = FilterPanel::open(&parse(""));
+    panel.act(super::Act::Add(at_of(&Key::List)));
+    assert_eq!(panel.control(0), Some(Control::Choice));
+    let word = super::ChoiceWord::new("Kitchen table").expect("it fits");
+    panel.act(super::Act::Choose(0, word));
+    assert_eq!(
+        crate::cardquery::render(&panel.written().expect("a change")),
+        "list:\"Kitchen table\""
+    );
+    let longest = "ß".repeat(baylee_cardtext::MAX_LIST_NAME_CHARS);
+    assert!(super::ChoiceWord::new(&longest).is_some());
+    let widest = "𝔘".repeat(baylee_cardtext::MAX_LIST_NAME_CHARS);
+    assert_eq!(
+        super::ChoiceWord::new(&widest).map(|word| word.text().to_string()),
+        Some(widest)
+    );
+}
+
+/// Three things the dialog may say, and each only where it is true: no lists
+/// held, a name nobody here knows, and nothing at all.
+#[test]
+fn a_list_row_says_what_is_wrong_with_it() {
+    let shelf = shelf();
+    let holding = Surface::POOL.with_lists(Some(&shelf));
+    let known = FilterPanel::open(&parse("list:modern"));
+    assert!(!known.missing_lists(holding));
+    assert!(!known.unanswerable_otherwise(holding));
+
+    let unknown = FilterPanel::open(&parse("list:frobnicate"));
+    assert!(!unknown.missing_lists(holding));
+    assert!(unknown.unanswerable_otherwise(holding), "no such list");
+
+    assert!(known.missing_lists(Surface::POOL), "offline");
+    assert!(
+        !known.unanswerable_otherwise(Surface::POOL),
+        "said once, by the note about the lists"
+    );
+    assert!(
+        !known.missing_pool_facts(Surface::POOL),
+        "and not as the table's"
+    );
+}
+
+/// A word that is no rarity is drawn as what was written, as `c:esper` is,
+/// and a choice the row holds is drawn as the choice.
+#[test]
+fn a_choice_row_is_drawn_by_what_it_holds() {
+    let drawn = |text: &str| match parse(text) {
+        crate::cardquery::Query::Term(term) => Control::for_term(&term),
+        other => panic!("`{text}` is one term, not {other:?}"),
+    };
+    assert_eq!(drawn("r:rare"), Control::Choice);
+    assert_eq!(drawn("r:\"\""), Control::Choice);
+    assert_eq!(drawn("s:m21"), Control::Choice);
+    assert_eq!(drawn("f:modern"), Control::Choice);
+    assert_eq!(drawn("r:frobnicate"), Control::Text);
+}
+
+#[test]
+fn a_rarity_row_offers_all_six_and_needs_no_table() {
+    let offered = super::choices(&Key::Rarity, "", Surface::POOL);
+    assert_eq!(
+        offered
+            .iter()
+            .map(|choice| choice.word())
+            .collect::<Vec<_>>(),
+        ["common", "uncommon", "rare", "special", "mythic", "bonus"]
+    );
+}
+
+#[test]
+fn a_format_row_offers_what_the_table_holds_the_known_ones_first() {
+    let table = table();
+    let surface = Surface::POOL.with_pool_facts(Some(&table));
+    let offered = |typed: &str| -> Vec<String> {
+        super::choices(&Key::Format, typed, surface)
+            .iter()
+            .map(|choice| choice.word().to_string())
+            .collect()
+    };
+    assert_eq!(offered(""), ["modern", "vintage", "alchemy"]);
+    assert_eq!(offered("VIN"), ["vintage"]);
+    assert!(offered("frob").is_empty());
+    assert!(
+        super::choices(&Key::Banned, "", Surface::POOL).is_empty(),
+        "no table, nothing to offer"
+    );
+}
+
+#[test]
+fn a_set_row_offers_by_code_or_name_and_no_more_than_fit() {
+    let table = table();
+    let surface = Surface::POOL.with_pool_facts(Some(&table));
+    let offered = |typed: &str| -> Vec<String> {
+        super::choices(&Key::Set, typed, surface)
+            .iter()
+            .map(|choice| choice.word().to_string())
+            .collect()
+    };
+    assert_eq!(offered("").len(), super::SET_CHOICES, "narrowed by typing");
+    assert_eq!(offered("m2"), ["m21"]);
+    assert_eq!(offered("core"), ["m21"], "by its name");
+    assert_eq!(offered("Core Set"), ["m21"], "in any case");
+    assert_eq!(
+        offered("x0").first().map(String::as_str),
+        Some("x00"),
+        "a code that begins so comes first"
+    );
+    assert!(offered("nosuchset").is_empty());
+}
+
+/// Through the door a button uses, and what the box says after it.
+#[test]
+fn a_choice_writes_the_row_and_pressing_it_again_takes_it_back() {
+    let mut panel = FilterPanel::default();
+    panel.act(super::Act::Add(at_of(&Key::Format)));
+    assert_eq!(panel.control(0), Some(Control::Choice));
+    panel.act(super::Act::Choose(0, word("modern")));
+    assert_eq!(render(&panel.written().expect("a change")), "f:modern");
+    panel.act(super::Act::Choose(0, word("modern")));
+    assert_eq!(render(&panel.written().expect("a change")), "f:\"\"");
+
+    let mut rarity = FilterPanel::default();
+    rarity.act(super::Act::Add(at_of(&Key::Rarity)));
+    rarity.act(super::Act::Choose(0, word("mythic")));
+    assert_eq!(render(&rarity.written().expect("a change")), "r:mythic");
+    assert_eq!(rarity.control(0), Some(Control::Choice));
+    rarity.act(super::Act::SetOp(0, Op::Ge));
+    assert_eq!(render(&rarity.written().expect("a change")), "r>=mythic");
+}
+
+/// The list is what the letters narrow, so the row stays a list under the
+/// caret, where any other row turns into a text box.
+#[test]
+fn a_set_row_keeps_its_list_while_it_is_typed_into() {
+    let mut panel = FilterPanel::default();
+    panel.act(super::Act::Add(at_of(&Key::Set)));
+    panel.act(super::Act::Edit(0));
+    panel.type_text("m2");
+    assert_eq!(panel.control(0), Some(Control::Choice));
+    assert_eq!(render(&panel.written().expect("a change")), "s:m2");
+    panel.act(super::Act::Choose(0, word("m21")));
+    assert_eq!(render(&panel.written().expect("a change")), "s:m21");
+    assert_eq!(
+        panel.typing().expect("the caret stays").field().text(),
+        "m21",
+        "and the box under it says what was chosen"
+    );
+
+    let mut rarity = FilterPanel::open(&parse("r:frobnicate"));
+    rarity.act(super::Act::Edit(0));
+    assert_eq!(
+        rarity.control(0),
+        Some(Control::Text),
+        "a rarity's value changes kind under the caret, so it is a text box"
+    );
+}
+
+/// The two sentences a panel can say about these rows, and neither is said
+/// where the other is the truth.
+#[test]
+fn a_panel_says_why_a_row_cannot_be_answered() {
+    let table = table();
+    let informed = Surface::POOL.with_pool_facts(Some(&table));
+
+    let wanting = FilterPanel::open(&parse("t:elf r:rare"));
+    assert!(wanting.missing_pool_facts(Surface::POOL));
+    assert_eq!(wanting.unanswerable(Surface::POOL), vec![1]);
+    assert!(
+        !wanting.unanswerable_otherwise(Surface::POOL),
+        "the table is the whole of the reason"
+    );
+    assert!(!wanting.missing_pool_facts(informed));
+    assert!(wanting.unanswerable(informed).is_empty());
+
+    let both = FilterPanel::open(&parse("o:draw r:rare"));
+    assert!(both.missing_pool_facts(Surface::ZONE));
+    assert!(
+        both.unanswerable_otherwise(Surface::ZONE),
+        "a zone has no rules text, table or none"
+    );
+
+    let unknown = FilterPanel::open(&parse("f:frobnicate"));
+    assert!(!unknown.missing_pool_facts(informed));
+    assert_eq!(unknown.unanswerable(informed), vec![0]);
+    assert!(unknown.unanswerable_otherwise(informed));
+}
+
+#[test]
+fn a_word_too_long_to_ride_in_a_button_is_not_offered() {
+    assert_eq!(word("paupercommander").text(), "paupercommander");
+    let room = baylee_cardtext::MAX_LIST_NAME_CHARS * 4;
+    assert!(super::ChoiceWord::new(&"x".repeat(room)).is_some());
+    assert!(super::ChoiceWord::new(&"x".repeat(room + 1)).is_none());
+}

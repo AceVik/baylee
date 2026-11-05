@@ -101,7 +101,9 @@ pub fn mode_kind(kind: &CastModeKind) -> i16 {
     match kind {
         CastModeKind::Normal => 0,
         CastModeKind::Kicked => 1,
-        CastModeKind::Alternative(_) => 2,
+        // Foretell is an alternative cost (CR 702.143a); the trained heads
+        // have no number of its own for it.
+        CastModeKind::Alternative(_) | CastModeKind::Foretell => 2,
         CastModeKind::Mode(_) => 3,
         CastModeKind::Face(_) => 4,
         CastModeKind::PlayLandFace(_) => 5,
@@ -113,7 +115,9 @@ pub fn mode_kind(kind: &CastModeKind) -> i16 {
         CastModeKind::Dash => 11,
         CastModeKind::Escape => 12,
         CastModeKind::Colors(_) => 13,
-        CastModeKind::Counter(_) => 14,
+        // A spell's ending is, like a counter kind, chosen during resolution
+        // and no way to cast.
+        CastModeKind::Counter(_) | CastModeKind::SpellEnding(_) => 14,
         CastModeKind::Permission(_) => 15,
         CastModeKind::EscapeGranted { .. } => 16,
         CastModeKind::BeamMeUp => 17,
@@ -549,6 +553,7 @@ pub fn options(
         | Pending::AllocatePrevention { .. }
         | Pending::Arrange { .. }
         | Pending::ChooseCardName { .. }
+        | Pending::ChooseCardType { .. }
         | Pending::ChoosePile { .. } => {
             return Err(Unscored::Unsupported);
         }
@@ -795,6 +800,7 @@ pub fn finished(pending: &Pending, picked: &Picked, last: Choice) -> bool {
 ///
 /// # Errors
 /// [`Unmatched::Shape`] when the picks do not make an answer to `pending`.
+#[allow(clippy::too_many_lines)] // one arm per question kind
 pub fn assemble(pending: &Pending, picks: &[Choice]) -> Result<PlayerAction, Unmatched> {
     let objects = || -> Vec<ObjectId> {
         picks
@@ -891,6 +897,7 @@ pub fn assemble(pending: &Pending, picks: &[Choice]) -> Result<PlayerAction, Unm
         | Pending::AllocatePrevention { .. }
         | Pending::Arrange { .. }
         | Pending::ChooseCardName { .. }
+        | Pending::ChooseCardType { .. }
         | Pending::ChoosePile { .. } => {
             return Err(Unmatched::Unscored(Unscored::Unsupported));
         }

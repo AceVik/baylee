@@ -4,6 +4,7 @@
 use super::*;
 use baylee_core::color::{Color, ColorSet};
 
+mod kindred;
 mod legends;
 mod mv_0;
 mod mv_1;
@@ -1939,44 +1940,51 @@ fn clever_concealment_is_convoked_by_creatures_and_never_by_an_artifact() {
     assert_eq!(options.len(), 2, "both creatures are offered");
 }
 
-/// Convoke's question offers what the payment can take, and the payment
-/// takes generic mana only until #230: five creatures are offered, two may be
-/// tapped, and the Plains pay `{W}{W}`. #229 asked for up to five, and the
-/// third to fifth tap paid for nothing.
+/// Convoke's question offers what the payment can take: five white creatures
+/// are offered for `{2}{W}{W}`, and four may be tapped, a white creature
+/// paying a `{W}` as well as a `{1}` (CR 702.51a). Until #230 the payment
+/// took generic mana only and the bound was two; #229 asked for up to five,
+/// and the taps past what the cost could take paid for nothing.
 ///
-/// This pins a limitation. #230 teaches the payment to take a white creature
-/// for a `{W}` (CR 702.51a), the bound moves to four with it, and this test
-/// goes red on purpose.
+/// Two taps and the two Plains' white pay it; four taps pay all of it, and
+/// the Plains' white is still floating.
 #[test]
-fn clever_concealment_s_convoke_is_asked_for_its_generic_and_no_more_until_230() {
+fn clever_concealment_s_convoke_pays_its_white_symbols_too() {
     let seat = PlayerId::new(0);
     let mut board = vec![plains(), plains()];
     board.extend(std::iter::repeat_n(ondu_cleric(), 5));
-    let mut engine = concealment_table(&board);
-    let (options, max) =
-        concealment_convoke_question(&mut engine).expect("convoke asks for its taps");
-    assert_eq!(options.len(), 5, "every creature may be the one tapped");
-    assert_eq!(max, 2, "the taps pay {{2}} and nothing past it");
-    let tapped: Vec<ObjectId> = options.iter().copied().take(2).collect();
-    engine
-        .apply(
-            seat,
-            PlayerAction::ChooseTargets {
-                objects: tapped.clone(),
-                players: vec![],
-            },
-        )
-        .expect("two taps and two Plains pay {2}{W}{W}");
-    assert!(
-        !engine.state().zones.stack_is_empty(),
-        "the spell never reached the stack"
-    );
-    assert!(
-        options
-            .iter()
-            .all(|id| is_tapped(&engine, *id) == tapped.contains(id)),
-        "the taps chosen are the taps spent"
-    );
+    for taps in [2_usize, 4] {
+        let mut engine = concealment_table(&board);
+        let (options, max) =
+            concealment_convoke_question(&mut engine).expect("convoke asks for its taps");
+        assert_eq!(options.len(), 5, "every creature may be the one tapped");
+        assert_eq!(max, 4, "the taps pay {{2}} and both {{W}}, and no more");
+        let tapped: Vec<ObjectId> = options.iter().copied().take(taps).collect();
+        engine
+            .apply(
+                seat,
+                PlayerAction::ChooseTargets {
+                    objects: tapped.clone(),
+                    players: vec![],
+                },
+            )
+            .unwrap_or_else(|e| panic!("{taps} taps and the Plains pay {{2}}{{W}}{{W}}: {e:?}"));
+        assert!(
+            !engine.state().zones.stack_is_empty(),
+            "the spell never reached the stack"
+        );
+        assert!(
+            options
+                .iter()
+                .all(|id| is_tapped(&engine, *id) == tapped.contains(id)),
+            "the taps chosen are the taps spent"
+        );
+        assert_eq!(
+            engine.state().players[0].mana_pool.total(),
+            if taps == 4 { 2 } else { 0 },
+            "{taps} taps leave the Plains' white floating only when they paid it all"
+        );
+    }
 }
 
 /// `{W}` Aura: "Enchanted creature gets +1/+2."

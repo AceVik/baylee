@@ -6,8 +6,10 @@
 //! test that passes the day a fourth is added wrongly.
 
 use super::{
-    Colors, Facts, Flag, Key, Match, Op, Query, Surface, Term, Value, matches, parse, render,
+    Colors, Facts, Flag, Key, Match, Op, PoolFacts, PoolFactsBody, PoolSet, Query, Surface, Term,
+    Value, matches, missing_pool_facts, parse, render,
 };
+use baylee_cardtext::CardLine;
 
 /// Every shape the grammar makes, written the way a player writes it.
 ///
@@ -68,6 +70,20 @@ pub(crate) const CORPUS: &[&str] = &[
     "t:\"\"",   // a keyed word, written empty
     "m:\"\"",   // a cost with no symbols in it
     "c:c mv:0", // the colour and number openings
+    // What the gateway's table answers: a rarity, a comparison of rarities, a
+    // word that is no rarity, a set, the format keys, and their fresh rows.
+    "r:rare",
+    "r>=rare s:m21",
+    "r:frobnicate",
+    "s:m21 -s:lea",
+    "f:modern -banned:commander",
+    "restricted:vintage",
+    "list:\"My Commander\"",
+    "r:\"\"",
+    "s:\"\"",
+    "f:\"\"",
+    "banned:\"\"",
+    "restricted:\"\"",
 ];
 
 fn q(text: &str) -> Query {
@@ -165,10 +181,11 @@ fn facts<'a>(
         toughness: None,
         loyalty: None,
         flags,
+        card: None,
     }
 }
 
-fn asks(text: &str, facts: &Facts<'_>, surface: Surface) -> Match {
+fn asks(text: &str, facts: &Facts<'_>, surface: Surface<'_>) -> Match {
     matches(&parse(text), facts, surface)
 }
 
@@ -491,4 +508,290 @@ fn an_opened_quote_is_still_being_typed_and_a_closed_one_is_a_value() {
         matches!(q("\"\""), Query::Term(_)),
         "and a quote closed round nothing is a value that was written"
     );
+}
+
+// ----------------------------------------------- rarity, set and format
+
+/// A table of four cards, by the shapes that decide an answer.
+///
+/// 1 is a reprinted common: rare in `sld`, uncommon in `m21`, common in `lea`.
+/// 2 is printed once, as a rare, and restricted, banned and out in turn.
+/// 3 is in the catalog with no verdict stored. 4 was only ever common.
+fn table() -> PoolFacts {
+    let set = |code: &str| PoolSet {
+        code: code.to_string(),
+        name: code.to_uppercase(),
+    };
+    let line = |index, legalities: &[(&str, &str)], printed: &[(&str, &str)]| CardLine {
+        index,
+        legalities: legalities
+            .iter()
+            .map(|(format, word)| ((*format).to_string(), (*word).to_string()))
+            .collect(),
+        printed: printed
+            .iter()
+            .map(|(set, rarity)| ((*set).to_string(), (*rarity).to_string()))
+            .collect(),
+    };
+    PoolFactsBody::assemble(
+        vec![set("sld"), set("m21"), set("lea")],
+        vec![
+            line(
+                1,
+                &[
+                    ("modern", "legal"),
+                    ("commander", "legal"),
+                    ("vintage", "legal"),
+                ],
+                &[("lea", "common"), ("m21", "uncommon"), ("sld", "rare")],
+            ),
+            line(
+                2,
+                &[
+                    ("modern", "not_legal"),
+                    ("commander", "banned"),
+                    ("vintage", "restricted"),
+                ],
+                &[("lea", "rare")],
+            ),
+            line(3, &[], &[("m21", "mythic")]),
+            line(4, &[("modern", "legal")], &[("lea", "common")]),
+        ],
+    )
+    .into()
+}
+
+/// What the table's card `index` answers on a pool that has the table.
+fn asked_of(text: &str, table: &PoolFacts, index: u32) -> Match {
+    let (alt, kinds, flags) = bolt();
+    let card = Facts {
+        card: Some(index),
+        ..facts("Blitzschlag", &alt, &kinds, &flags)
+    };
+    asks(text, &card, Surface::POOL.with_pool_facts(Some(table)))
+}
+
+#[test]
+fn every_spelling_of_the_new_keys_reads_as_scryfall_writes_them() {
+    for (written, canonical) in [
+        ("r:rare", "r:rare"),
+        ("rarity:RARE", "r:rare"),
+        ("r:m", "r:mythic"),
+        ("r>=rare", "r>=rare"),
+        ("s:m21", "s:m21"),
+        ("set:m21", "s:m21"),
+        ("e:m21", "s:m21"),
+        ("edition:m21", "s:m21"),
+        ("f:modern", "f:modern"),
+        ("format:modern", "f:modern"),
+        ("legal:modern", "f:modern"),
+        ("banned:commander", "banned:commander"),
+        ("restricted:vintage", "restricted:vintage"),
+    ] {
+        assert_eq!(render(&q(written)), canonical, "`{written}`");
+    }
+    assert_eq!(
+        q("r:frobnicate"),
+        Query::Term(Term {
+            key: Key::Rarity,
+            op: Op::Colon,
+            value: Value::Opaque("frobnicate".to_string()),
+        }),
+        "a word that is no rarity is kept, to be written back"
+    );
+}
+
+#[test]
+fn a_rarity_is_a_rank_and_a_set_is_a_code_in_any_case() {
+    let table = table();
+    for (text, card, answer) in [
+        ("r:rare", 2, Match::Yes),
+        ("r:mythic", 2, Match::No),
+        ("r>=rare", 3, Match::Yes),
+        ("r<rare", 2, Match::No),
+        ("r!=rare", 2, Match::No),
+        ("s:lea", 2, Match::Yes),
+        ("s:LEA", 2, Match::Yes),
+        ("s:m21", 2, Match::No),
+        ("s!=m21", 2, Match::Yes),
+    ] {
+        assert_eq!(asked_of(text, &table, card), answer, "`{text}` of {card}");
+    }
+}
+
+/// A printing is asked whole: the card is rare, and it is in M21, but it was
+/// never rare in M21.
+#[test]
+fn a_card_answers_if_some_printing_does_and_one_printing_answers_all_of_it() {
+    let table = table();
+    for (text, answer) in [
+        ("r:rare", Match::Yes),
+        ("r:uncommon", Match::Yes),
+        ("r:common", Match::Yes),
+        ("s:m21", Match::Yes),
+        ("r:rare s:sld", Match::Yes),
+        ("r:uncommon s:m21", Match::Yes),
+        ("r:rare s:m21", Match::No),
+        ("r:mythic", Match::No),
+        ("s:lea (r:common or r:rare)", Match::Yes),
+        ("t:instant r:rare", Match::Yes),
+        ("t:land r:rare", Match::No),
+    ] {
+        assert_eq!(asked_of(text, &table, 1), answer, "`{text}`");
+    }
+}
+
+/// `-r:common` is a card with a printing that is not common, as on Scryfall,
+/// and not a card that never was: the query is asked of each printing whole,
+/// and a negation is a part of it like any other.
+#[test]
+fn a_negated_printing_term_needs_only_one_printing_that_is_not_so() {
+    let table = table();
+    assert_eq!(asked_of("-r:common", &table, 1), Match::Yes);
+    assert_eq!(asked_of("-r:common", &table, 4), Match::No);
+    assert_eq!(asked_of("-s:lea", &table, 1), Match::Yes);
+    assert_eq!(asked_of("-s:lea", &table, 4), Match::No);
+}
+
+#[test]
+fn a_format_says_what_it_says_and_a_restricted_card_may_be_played() {
+    let table = table();
+    for (text, card, answer) in [
+        ("f:modern", 1, Match::Yes),
+        ("f:modern", 2, Match::No),
+        ("f:vintage", 2, Match::Yes),
+        ("f:commander", 2, Match::No),
+        ("f:edh", 1, Match::Yes),
+        ("f:MODERN", 1, Match::Yes),
+        ("-f:modern", 2, Match::Yes),
+        ("f!=modern", 1, Match::No),
+        ("banned:commander", 2, Match::Yes),
+        ("banned:commander", 1, Match::No),
+        ("banned:vintage", 2, Match::No),
+        ("restricted:vintage", 2, Match::Yes),
+        ("restricted:vintage", 1, Match::No),
+        ("-restricted:vintage", 1, Match::Yes),
+    ] {
+        assert_eq!(asked_of(text, &table, card), answer, "`{text}` of {card}");
+    }
+}
+
+/// No table, and a table that says nothing, are the same: nothing is known,
+/// so nothing is shown, and the negation is not a way round it.
+#[test]
+fn without_the_table_a_term_answers_nothing_and_nor_does_its_negation() {
+    let (alt, kinds, flags) = bolt();
+    let card = Facts {
+        card: Some(1),
+        ..facts("Blitzschlag", &alt, &kinds, &flags)
+    };
+    let empty = PoolFacts::default();
+    for surface in [
+        Surface::POOL,
+        Surface::ZONE,
+        Surface::POOL.with_pool_facts(None),
+        Surface::POOL.with_pool_facts(Some(&empty)),
+    ] {
+        for text in [
+            "r:rare",
+            "-r:rare",
+            "s:m21",
+            "-s:m21",
+            "f:modern",
+            "-f:modern",
+            "banned:commander",
+            "-banned:commander",
+            "restricted:vintage",
+        ] {
+            assert_eq!(asks(text, &card, surface), Match::Unknown, "`{text}`");
+        }
+        assert!(missing_pool_facts(&q("t:elf r:rare"), surface));
+        assert!(!missing_pool_facts(&q("t:elf"), surface));
+    }
+    let table = table();
+    let informed = Surface::POOL.with_pool_facts(Some(&table));
+    assert!(!missing_pool_facts(&q("r:rare"), informed));
+}
+
+/// Three ways of not knowing, none of them a `No`: a card the table was never
+/// told about, a card with no verdict stored, and a row that names no card,
+/// which is what a token and a hidden card both are.
+#[test]
+fn what_the_table_does_not_know_it_does_not_answer() {
+    let table = table();
+    assert_eq!(asked_of("r:rare", &table, 99), Match::Unknown);
+    assert_eq!(asked_of("-f:modern", &table, 99), Match::Unknown);
+    assert_eq!(asked_of("f:modern", &table, 3), Match::Unknown);
+    assert_eq!(asked_of("-banned:modern", &table, 3), Match::Unknown);
+    assert_eq!(asked_of("f:frobnicate", &table, 1), Match::Unknown);
+    assert_eq!(asked_of("r:frobnicate", &table, 1), Match::Unknown);
+
+    let (alt, kinds, flags) = bolt();
+    let nameless = facts("Blitzschlag", &alt, &kinds, &flags);
+    let surface = Surface::ZONE.with_pool_facts(Some(&table));
+    for text in ["r:rare", "-r:rare", "s:m21", "f:modern", "-f:modern"] {
+        assert_eq!(asks(text, &nameless, surface), Match::Unknown, "`{text}`");
+    }
+}
+
+#[test]
+fn a_comparison_a_set_or_format_cannot_read_answers_nothing() {
+    let table = table();
+    assert_eq!(asked_of("s>m21", &table, 1), Match::Unknown);
+    assert_eq!(asked_of("f>=modern", &table, 1), Match::Unknown);
+}
+
+/// A fresh row of the builder is written into the box at once, so it must
+/// narrow nothing, on a card with no verdicts and on a row with no card alike.
+#[test]
+fn a_fresh_row_of_a_new_key_narrows_nothing() {
+    let table = table();
+    for text in [
+        "r:\"\"",
+        "s:\"\"",
+        "f:\"\"",
+        "banned:\"\"",
+        "restricted:\"\"",
+    ] {
+        assert!(matches!(q(text), Query::Term(_)), "`{text}`");
+        for card in [1, 3, 99] {
+            assert_eq!(asked_of(text, &table, card), Match::Yes, "`{text}`");
+        }
+    }
+}
+
+/// One copy per gateway, whatever way its address was typed, under a name a
+/// file may have.
+#[test]
+fn a_kept_table_is_filed_by_gateway() {
+    use super::pool_facts_document as document;
+    assert_eq!(document("http://a/"), document("http://a"));
+    assert_ne!(document("http://a"), document("http://b"));
+    let name = document("https://gw.example:28766/");
+    assert!(name.starts_with("pool-facts-"), "{name}");
+    assert!(
+        name.bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b"-.".contains(&b)),
+        "{name}"
+    );
+}
+
+/// A format nobody here has heard of is a term no list can answer, which the
+/// dialog says rather than leaving an empty list to speak for itself. An
+/// answerable term stays one, and so does one nothing was written into yet.
+#[test]
+fn a_surface_can_tell_a_format_it_knows_from_one_it_does_not() {
+    let table = table();
+    let surface = Surface::POOL.with_pool_facts(Some(&table));
+    let term = |text: &str| match q(text) {
+        Query::Term(term) => term,
+        other => panic!("`{text}` is one term, not {other:?}"),
+    };
+    assert!(surface.answers_term(&term("f:modern")));
+    assert!(surface.answers_term(&term("f:edh")));
+    assert!(surface.answers_term(&term("f:\"\"")));
+    assert!(surface.answers_term(&term("s:nosuchset")));
+    assert!(!surface.answers_term(&term("f:frobnicate")));
+    assert!(!surface.answers_term(&term("banned:frobnicate")));
+    assert!(!Surface::POOL.answers_term(&term("f:modern")));
 }

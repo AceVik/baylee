@@ -364,6 +364,94 @@ pub fn mana_bundle(cost: &Cost, effects: &[Effect]) -> Option<Vec<ManaColor>> {
     (colors.len() > 1).then_some(colors)
 }
 
+/// What a **paid** mana ability does: the mana it spends and the mana it
+/// makes. See [`mana_conversion`].
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Conversion {
+    /// The mana it spends, which has to be floating as it is activated.
+    pub cost: ManaCost,
+    /// What it makes: every colour listed, one mana each ([`Self::bundle`]),
+    /// or the colours each pick chooses among.
+    pub colors: Vec<ManaColor>,
+    /// Whether every colour listed arrives and nothing is asked.
+    pub bundle: bool,
+    /// How many colours the player is asked for, one mana each. Zero for a
+    /// bundle.
+    pub picks: u8,
+}
+
+/// The **converter's** reading: a filter land or a Signet, `{1}, {T}: Add
+/// one mana of any color`, is a trade rather than a source, so every reader
+/// above refuses it. This one states the trade, for a planner that can pay
+/// its cost out of another source and put the steps in order.
+///
+/// The bar is the planner's own: the mana cost and the tap and no other part
+/// (a sacrifice is a decision), nothing beside the mana, nothing restricted
+/// and every amount a number. "Any one color" for several mana is read as one
+/// mana, which under-counts as `manaplan`'s third rule does, and more than
+/// two picks is refused, because a plan's step answers two colours at most.
+#[must_use]
+pub fn mana_conversion(cost: &Cost, effects: &[Effect]) -> Option<Conversion> {
+    if cost.mana == ManaCost::ZERO
+        || cost.mana.has_variable()
+        || !matches!(cost.parts, [CostPart::TapSelf])
+        || !crate::mana_rule::activated_mana_ability(cost, effects, false)
+    {
+        return None;
+    }
+    let mut made: Option<Conversion> = None;
+    for effect in effects {
+        let Effect::AddMana {
+            source,
+            amount: Amount::Fixed(amount),
+            distribution,
+            restriction,
+        } = effect
+        else {
+            return None;
+        };
+        if restriction.is_some_and(|restriction| restriction.restricts) {
+            return None;
+        }
+        let amount = usize::try_from(*amount).ok()?;
+        match (source, distribution, &mut made) {
+            (ManaSource::Fixed(color), crate::ManaDistribution::OneColor, None) => {
+                made = Some(Conversion {
+                    cost: cost.mana,
+                    colors: vec![*color; amount],
+                    bundle: true,
+                    picks: 0,
+                });
+            }
+            (
+                ManaSource::Fixed(color),
+                crate::ManaDistribution::OneColor,
+                Some(Conversion { colors, .. }),
+            ) => colors.extend(std::iter::repeat_n(*color, amount)),
+            (ManaSource::Choice(colors), crate::ManaDistribution::OneColor, None) => {
+                made = Some(Conversion {
+                    cost: cost.mana,
+                    colors: colors.to_vec(),
+                    bundle: false,
+                    picks: 1,
+                });
+            }
+            (ManaSource::Choice(colors), crate::ManaDistribution::AnyCombination, None)
+                if amount <= 2 =>
+            {
+                made = Some(Conversion {
+                    cost: cost.mana,
+                    colors: colors.to_vec(),
+                    bundle: false,
+                    picks: u8::try_from(amount).ok()?,
+                });
+            }
+            _ => return None,
+        }
+    }
+    made
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -376,6 +464,63 @@ mod tests {
             mana: ManaCost::ZERO,
             parts: &[CostPart::TapSelf],
         }
+    }
+
+    fn paid(mana: &str, parts: &'static [CostPart]) -> Cost {
+        Cost {
+            mana: ManaCost::try_parse(mana).expect("a valid cost"),
+            parts,
+        }
+    }
+
+    /// The three shapes a paid mana ability prints, and what stays refused.
+    #[test]
+    fn a_paid_mana_ability_reads_as_a_trade_and_only_a_plain_one_does() {
+        static GATE: [ManaColor; 2] = [ManaColor::White, ManaColor::Blue];
+        let taps: &'static [CostPart] = &[CostPart::TapSelf];
+        let grotto = mana_conversion(&paid("{1}", taps), &[Effect::mana_of_any_color()])
+            .expect("Shimmering Grotto");
+        assert_eq!(
+            (grotto.colors.len(), grotto.bundle, grotto.picks),
+            (5, false, 1)
+        );
+
+        let signet = mana_conversion(
+            &paid("{1}", taps),
+            &[
+                Effect::mana(ManaColor::White, 1),
+                Effect::mana(ManaColor::Blue, 1),
+            ],
+        )
+        .expect("a Signet");
+        assert_eq!(signet.colors, [ManaColor::White, ManaColor::Blue]);
+        assert!(signet.bundle);
+
+        let gate = mana_conversion(
+            &paid("{W/U}", taps),
+            &[Effect::mana_combination(&GATE, Amount::Fixed(2))],
+        )
+        .expect("Mystic Gate");
+        assert_eq!((gate.bundle, gate.picks), (false, 2));
+
+        assert_eq!(
+            mana_conversion(&tap(), &[Effect::mana(ManaColor::Green, 1)]),
+            None,
+            "a free tap is a source, and no trade"
+        );
+        assert_eq!(
+            mana_conversion(
+                &paid("{1}", &[CostPart::TapSelf, CostPart::SacrificeSelf]),
+                &[Effect::mana_of_any_color()]
+            ),
+            None,
+            "a sacrifice is a player's decision"
+        );
+        assert_eq!(
+            mana_conversion(&paid("{1}", taps), &[Effect::draw(1)]),
+            None,
+            "no mana, no trade"
+        );
     }
 
     #[test]

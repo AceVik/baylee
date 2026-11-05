@@ -114,7 +114,7 @@ casting one logs nothing; its own abilities are logged when they fire.
   static is logged as `static` when it applies), and a synthesised one
   (prowess, ward's counter trigger, a reflexive trigger, the reserved
   indices of `AbilityRef`).
-- **Variants no door logs**: `Ward`, `Toxic`, `Prepared`, `Echo`, `Suspend`
+- **Variants no door logs**: `Ward`, `Toxic`, `Prepared`, `Suspend`
   and `Unimplemented`. The inventory lists them with `"kind": null`; L4
   needs other evidence for them.
 

@@ -37,15 +37,27 @@
 //! the alternative is a search that says "every card here lacks the word
 //! draw" because it never had the text to look in.
 //!
+//! The same three values are what a list without the gateway's table answers
+//! for rarity, set and format: nothing, and not "no card here is rare". It
+//! is why a row may hand over a card only where the view names one
+//! ([`Facts::card`]): a face-down card has no index, so these keys can
+//! never be a way of learning what it is. `list:` is the same again: a list
+//! that holds no ban lists, or a name nobody here knows, answers nothing.
+//!
 //! [`PoolCard`]: crate::deckbuilder::PoolCard
 
 use crate::prose::sort_key;
 
 mod eval;
+mod lists;
 #[cfg(test)]
 pub(crate) mod tests;
 
-pub use eval::{Facts, Match, Surface, matches};
+pub use baylee_cardtext::{Legality, PoolFacts, PoolFactsBody, PoolSet, Rarity};
+pub use eval::{
+    Facts, Match, Surface, matches, missing_lists, missing_pool_facts, pool_facts_document,
+};
+pub use lists::{ListShelf, ShelfList};
 
 /// What a term asks about.
 ///
@@ -106,6 +118,23 @@ pub enum Key {
     Loyalty,
     /// `is:` / `not:`: a yes-or-no property of the card.
     Is,
+    /// `r:` / `rarity:`: a printing's rarity. A bare colon means this rarity;
+    /// the comparisons read Scryfall's order (`r>=rare`). See [`Key::of_a_printing`].
+    Rarity,
+    /// `s:` / `set:` / `e:` / `edition:`: a printing's set, by its code.
+    Set,
+    /// `f:` / `format:` / `legal:`: the card may be played in a format. A
+    /// restricted card may, once, which is what Scryfall's `f:` means too.
+    Format,
+    /// `banned:`: a format bans the card.
+    Banned,
+    /// `restricted:`: a format restricts the card to one copy.
+    Restricted,
+    /// `list:`: a ban list names the card, whatever it says about it. A list
+    /// is named as the client holds it, an official one by its format
+    /// ([`ListShelf`]); `list:"My Commander"`, and `-list:modern` for what
+    /// that list leaves alone.
+    List,
     /// A key nothing here knows, kept whole so it can be written back.
     ///
     /// It evaluates to [`Match::Unknown`], so it narrows a search to nothing
@@ -137,6 +166,12 @@ impl Key {
             Self::Toughness => "tou",
             Self::Loyalty => "loy",
             Self::Is => "is",
+            Self::Rarity => "r",
+            Self::Set => "s",
+            Self::Format => "f",
+            Self::Banned => "banned",
+            Self::Restricted => "restricted",
+            Self::List => "list",
             Self::Unknown(word) => word,
         })
     }
@@ -158,8 +193,53 @@ impl Key {
             "tou" | "toughness" => Self::Toughness,
             "loy" | "loyalty" => Self::Loyalty,
             "is" => Self::Is,
+            "r" | "rarity" => Self::Rarity,
+            "s" | "set" | "e" | "edition" => Self::Set,
+            "f" | "format" | "legal" => Self::Format,
+            "banned" => Self::Banned,
+            "restricted" => Self::Restricted,
+            "list" => Self::List,
             _ => Self::Unknown(word.to_string()),
         }
+    }
+
+    /// Whether this key is about a printing rather than a card.
+    ///
+    /// A card with several printings answers if **some printing** does, and a
+    /// query is asked of one printing at a time, whole: `r:rare s:m21` is a
+    /// card that was rare *in M21*, not one rare somewhere and printed in
+    /// M21 at some other rarity. That is Scryfall's reading too, and it makes
+    /// `-r:common` a card with a printing that is not common, rather than one
+    /// that never was. See [`matches`].
+    #[must_use]
+    pub const fn of_a_printing(&self) -> bool {
+        matches!(self, Self::Rarity | Self::Set)
+    }
+
+    /// Whether this key asks what a format says about the card.
+    #[must_use]
+    pub const fn of_a_format(&self) -> bool {
+        matches!(self, Self::Format | Self::Banned | Self::Restricted)
+    }
+
+    /// Whether only the gateway's table answers this key
+    /// ([`crate::cardsearch`], `GET /pool/facts`).
+    #[must_use]
+    pub const fn from_pool_facts(&self) -> bool {
+        self.of_a_printing() || self.of_a_format()
+    }
+
+    /// Whether only the lists a client holds answer this key
+    /// ([`ListShelf`], `GET /banlists`).
+    #[must_use]
+    pub const fn from_lists(&self) -> bool {
+        matches!(self, Self::List)
+    }
+
+    /// Whether answering this key takes something only a gateway hands over.
+    #[must_use]
+    pub const fn asks_the_gateway(&self) -> bool {
+        self.from_pool_facts() || self.from_lists()
     }
 
     /// Whether a value for this key is read as a number rather than a word.
@@ -379,6 +459,8 @@ pub enum Value {
     Cost(Vec<String>),
     /// A yes-or-no property.
     Flag(Flag),
+    /// A rarity, as `r:` names it.
+    Rarity(Rarity),
     /// A word for a key that does not know what to do with it.
     Opaque(String),
 }
@@ -420,6 +502,17 @@ impl Query {
     #[must_use]
     pub const fn is_anything(&self) -> bool {
         matches!(self, Self::Anything)
+    }
+
+    /// Whether some term in it answers `ask`, however deeply nested.
+    #[must_use]
+    pub fn mentions(&self, ask: fn(&Key) -> bool) -> bool {
+        match self {
+            Self::Anything => false,
+            Self::Term(term) => ask(&term.key),
+            Self::All(parts) | Self::Any(parts) => parts.iter().any(|part| part.mentions(ask)),
+            Self::Not(inner) => inner.mentions(ask),
+        }
     }
 
     /// Every term in it, in written order, however deeply nested.
@@ -799,6 +892,10 @@ fn value_for(key: &Key, text: &str) -> Value {
     match key {
         Key::Mana => Value::Cost(cost_symbols(text)),
         Key::Is => Flag::of(text).map_or_else(|| Value::Opaque(text.to_string()), Value::Flag),
+        // An empty one stays a word: a fresh row narrows nothing.
+        Key::Rarity if !text.is_empty() => {
+            Rarity::of(text).map_or_else(|| Value::Opaque(text.to_string()), Value::Rarity)
+        }
         _ => Value::Word(text.to_string()),
     }
 }
@@ -999,6 +1096,7 @@ impl Value {
                 out
             }
             Self::Flag(flag) => flag.render().to_string(),
+            Self::Rarity(rarity) => rarity.word().to_string(),
         }
     }
 }

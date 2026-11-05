@@ -301,6 +301,8 @@ impl Lobby {
         self.guest_face = false;
         self.screen = Screen::SignIn { registering: false };
         self.builder.forget_pool();
+        self.refusal = None;
+        self.room_list = None;
         self.pool_requested = false;
         self.note(Phrase::SignedOut);
     }

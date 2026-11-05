@@ -24,8 +24,14 @@ impl<L: CardLookup> Engine<L> {
         // exiled and the creatures already tapped: the spell went back to
         // hand and the costs stayed spent. CR 601.2h reverses the whole
         // casting when a cost cannot be paid, and there is no half of it to
-        // keep.
-        let reduction = (wizard.delve_exiles.len() + wizard.convoke_taps.len()) as u32;
+        // keep. A convoke tap pays a coloured symbol of its colour where it
+        // can (CR 702.51a) and generic mana otherwise, the same reading the
+        // offer and the payment window make (`wizard_paid_total`).
+        let (convoked, colored) = total.convoked_colored(&self.convoke_tap_colors(wizard));
+        total = convoked;
+        let reduction = u32::try_from(wizard.delve_exiles.len() + wizard.convoke_taps.len())
+            .unwrap_or(u32::MAX)
+            .saturating_sub(colored);
         if reduction > 0 {
             total = reduce_generic(&total, reduction);
         }
@@ -84,67 +90,90 @@ impl<L: CardLookup> Engine<L> {
         for &creature in &wizard.convoke_taps {
             self.state.set_tapped(creature, true);
         }
-        // Non-mana parts of the chosen alternative cost (pay life etc.).
-        if let Some(CastModeKind::Alternative(i)) = wizard.option {
-            let alt = &face.alternative_costs[i];
-            for part in alt.cost.parts {
-                if !paid_as_an_alternative_cost(part) {
-                    continue;
+        // One ordered answer stream feeds both the selected alternative cost
+        // and any mandatory additional costs. No object can pay two parts.
+        let mut cost_objects = wizard.cost_objects.iter();
+        let mut sacrificed_lki = None;
+        let mut sacrificed_object = None;
+        // Each selected card pays exactly one exile-from-hand part.
+        for &card in &wizard.pitch {
+            let owner = self.state.object(card).map_or(player, |o| o.owner);
+            self.state.move_object(
+                card,
+                ZoneLocation::Exile(owner),
+                ZonePosition::Top,
+                Cause::Cost,
+            )?;
+        }
+        // Non-mana parts of the chosen alternative or flashback cost.
+        for part in super::wizard_alternative_parts(face, wizard.option) {
+            if !paid_as_an_alternative_cost(part) {
+                continue;
+            }
+            match part {
+                CostPart::PayLife(n) => {
+                    self.state.change_life(player, -i32::from(*n), Cause::Cost);
                 }
-                match part {
-                    CostPart::PayLife(n) => {
-                        self.state.change_life(player, -i32::from(*n), Cause::Cost);
-                    }
-                    CostPart::ExileFromHand(_) => {
-                        for card in &wizard.pitch {
-                            let owner = self.state.object(*card).map_or(player, |o| o.owner);
-                            self.state.move_object(
-                                *card,
-                                ZoneLocation::Exile(owner),
-                                ZonePosition::Top,
-                                Cause::Cost,
-                            )?;
-                        }
-                    }
-                    // Already skipped, by [`paid_as_an_alternative_cost`]
-                    // above. Named rather than swept into a `_` so that a new
-                    // `CostPart` is still a compile error in this match: the
-                    // question "and is the new one paid here?" has to be asked
-                    // once per list, and a wildcard answers it with silence.
-                    CostPart::TapSelf
-                    | CostPart::UntapSelf
-                    | CostPart::ExertSelf
-                    | CostPart::SacrificeSelf
-                    | CostPart::Sacrifice(_)
-                    | CostPart::ExilePermanent(_)
-                    | CostPart::Discard(_)
-                    | CostPart::DiscardRandom
-                    | CostPart::DiscardHand
-                    | CostPart::DiscardLastDrawnThisTurn
-                    | CostPart::PayEnergy(_)
-                    | CostPart::PayEnergyX
-                    | CostPart::DiscardSelf
-                    | CostPart::ExileSelf
-                    | CostPart::ReturnSelfToHand
-                    | CostPart::TapN { .. }
-                    | CostPart::TapOther(_)
-                    | CostPart::TapX(_)
-                    | CostPart::SacrificeX(_)
-                    | CostPart::SacrificeAll(_)
-                    | CostPart::PayCommanderColors
-                    | CostPart::Crew(_)
-                    | CostPart::Saddle(_)
-                    | CostPart::ReturnToHand(_)
-                    | CostPart::ExileFromGraveyard(_)
-                    | CostPart::RemoveCounterSelf { .. }
-                    | CostPart::RemoveCounterSelfX { .. }
-                    | CostPart::PutCounterSelf { .. }
-                    | CostPart::PutCounterOnOther { .. }
-                    | CostPart::ExileFromSingleGraveyard { .. }
-                    | CostPart::PayAttachedManaCost
-                    | CostPart::ExileTopOfLibrary(_)
-                    | CostPart::PayLifeX => {}
+                CostPart::Sacrifice(_) => {
+                    let chosen = cost_objects
+                        .next()
+                        .copied()
+                        .ok_or(EngineError::IllegalAction(
+                            "an object cost the cast never asked about",
+                        ))?;
+                    sacrificed_object = self.state.object(chosen).map(|o| (chosen, o.version));
+                    sacrificed_lki = self
+                        .state
+                        .object(chosen)
+                        .map(crate::object::SacrificedLki::of);
+                    super::super::cost_wizard::pay(&mut self.state, player, part, chosen)?;
                 }
+                CostPart::TapN { count, .. } => {
+                    for _ in 0..*count {
+                        let chosen =
+                            cost_objects
+                                .next()
+                                .copied()
+                                .ok_or(EngineError::IllegalAction(
+                                    "the cast did not choose every tap",
+                                ))?;
+                        super::super::cost_wizard::pay(&mut self.state, player, part, chosen)?;
+                    }
+                }
+                // Pitch cards were moved above; keep every other no-op variant
+                // named so a new cost cannot silently become free.
+                CostPart::ExileFromHand(_)
+                | CostPart::TapSelf
+                | CostPart::UntapSelf
+                | CostPart::ExertSelf
+                | CostPart::SacrificeSelf
+                | CostPart::ExilePermanent(_)
+                | CostPart::Discard(_)
+                | CostPart::DiscardRandom
+                | CostPart::DiscardHand
+                | CostPart::DiscardLastDrawnThisTurn
+                | CostPart::PayEnergy(_)
+                | CostPart::PayEnergyX
+                | CostPart::DiscardSelf
+                | CostPart::ExileSelf
+                | CostPart::ReturnSelfToHand
+                | CostPart::TapOther(_)
+                | CostPart::TapX(_)
+                | CostPart::SacrificeX(_)
+                | CostPart::SacrificeAll(_)
+                | CostPart::PayCommanderColors
+                | CostPart::Crew(_)
+                | CostPart::Saddle(_)
+                | CostPart::ReturnToHand(_)
+                | CostPart::ExileFromGraveyard(_)
+                | CostPart::RemoveCounterSelf { .. }
+                | CostPart::RemoveCounterSelfX { .. }
+                | CostPart::PutCounterSelf { .. }
+                | CostPart::PutCounterOnOther { .. }
+                | CostPart::ExileFromSingleGraveyard { .. }
+                | CostPart::PayAttachedManaCost
+                | CostPart::ExileTopOfLibrary(_)
+                | CostPart::PayLifeX => {}
             }
         }
         // Mandatory additional cost parts (e.g. Toxic Deluge's pay X life).
@@ -170,9 +199,6 @@ impl<L: CardLookup> Engine<L> {
                 cards: vec![beheld],
             });
         }
-        let mut sacrificed = wizard.sacrifices.iter();
-        let mut sacrificed_lki = None;
-        let mut sacrificed_object = None;
         let mut graveyard_batch = crate::graveyard_order::PaymentBatch::new(&self.state);
         for part in super::wizard_mandatory_parts(face, wizard.option) {
             graveyard_batch.before_part(&mut self.state, part);
@@ -187,22 +213,16 @@ impl<L: CardLookup> Engine<L> {
                 CostPart::PayLife(n) => {
                     self.state.change_life(player, -i32::from(*n), Cause::Cost);
                 }
-                // The answer the `Sacrifice` stage took for this part, through
-                // the door an activation's sacrifice goes through. Its mana
-                // value is read first, off the permanent as it last existed on
-                // the battlefield (CR 608.2h): "the sacrificed creature's
-                // mana value" is a question the spell asks as it resolves,
-                // when the card is already in a graveyard and a copy has
-                // stopped being one.
                 CostPart::Sacrifice(_)
                 | CostPart::ExilePermanent(_)
                 | CostPart::ExileFromGraveyard(_) => {
-                    let Some(&chosen) = sacrificed.next() else {
-                        self.cast_wizard = None;
-                        return Err(EngineError::IllegalAction(
-                            "a sacrifice the cast never asked about",
-                        ));
-                    };
+                    let chosen = cost_objects
+                        .next()
+                        .copied()
+                        .ok_or(EngineError::IllegalAction(
+                            "an object cost the cast never asked about",
+                        ))?;
+                    // Read LKI before the cost moves the permanent (CR 608.2h).
                     sacrificed_object = self.state.object(chosen).map(|o| (chosen, o.version));
                     sacrificed_lki = self
                         .state
@@ -211,11 +231,23 @@ impl<L: CardLookup> Engine<L> {
                     super::super::cost_wizard::pay(&mut self.state, player, part, chosen)?;
                 }
                 CostPart::Discard(_) => {
-                    let chosen = sacrificed
+                    let chosen = cost_objects
                         .next()
                         .copied()
                         .ok_or(EngineError::IllegalAction("unanswered discard cost"))?;
                     super::super::cost_wizard::pay(&mut self.state, player, part, chosen)?;
+                }
+                CostPart::TapN { count, .. } => {
+                    for _ in 0..*count {
+                        let chosen =
+                            cost_objects
+                                .next()
+                                .copied()
+                                .ok_or(EngineError::IllegalAction(
+                                    "the cast did not choose every tap",
+                                ))?;
+                        super::super::cost_wizard::pay(&mut self.state, player, part, chosen)?;
+                    }
                 }
                 CostPart::DiscardLastDrawnThisTurn => {
                     let card =
@@ -233,11 +265,7 @@ impl<L: CardLookup> Engine<L> {
                         }
                     }
                 }
-                // Already skipped, by [`paid_as_a_mandatory_additional_cost`]
-                // above, and named for the reason the alternative-cost match
-                // names its own — with the sharper edge that no `can_afford`
-                // guards this list, so the three asking costs are skipped
-                // here rather than refused.
+                // Unsupported variants stay named to prevent silent free costs.
                 CostPart::TapSelf
                 | CostPart::UntapSelf
                 | CostPart::ExertSelf
@@ -245,7 +273,6 @@ impl<L: CardLookup> Engine<L> {
                 | CostPart::DiscardRandom
                 | CostPart::PayEnergy(_)
                 | CostPart::PayEnergyX
-                | CostPart::TapN { .. }
                 | CostPart::TapOther(_)
                 | CostPart::TapX(_)
                 | CostPart::SacrificeX(_)
@@ -267,6 +294,29 @@ impl<L: CardLookup> Engine<L> {
                 | CostPart::ExileFromHand(_) => {}
             }
         }
+        // Buyback's parts name no object any "sacrificed creature" of the
+        // spell reads: that sentence is linked to the printed additional
+        // cost (CR 607.2i), so the receipt above is not touched.
+        let buyback = super::wizard_buyback_parts(face, wizard.buyback.is_some());
+        for part in buyback {
+            graveyard_batch.before_part(&mut self.state, part);
+            if !super::paid_as_a_buyback_cost(part) {
+                continue;
+            }
+            match part {
+                CostPart::PayLife(n) => {
+                    self.state.change_life(player, -i32::from(*n), Cause::Cost);
+                }
+                CostPart::Sacrifice(_) | CostPart::Discard(_) => {
+                    let chosen = cost_objects
+                        .next()
+                        .copied()
+                        .ok_or(EngineError::IllegalAction("an unanswered buyback cost"))?;
+                    super::super::cost_wizard::pay(&mut self.state, player, part, chosen)?;
+                }
+                _ => {}
+            }
+        }
         graveyard_batch.finish(&mut self.state);
         // Escape may exile a card sacrificed or discarded for this same
         // spell. All nonmana costs above are paid first (CR 601.2h).
@@ -284,6 +334,27 @@ impl<L: CardLookup> Engine<L> {
                 ZonePosition::Top,
                 Cause::Cost,
             )?;
+        }
+        // CR 601.2h: costs with a random element are paid after the others,
+        // out of the hand the others left. The card being cast is on the
+        // stack by now in all but this object's bookkeeping (CR 601.2a).
+        for _ in buyback
+            .iter()
+            .filter(|part| matches!(part, CostPart::DiscardRandom))
+        {
+            let hand: Vec<_> = self
+                .state
+                .zones
+                .list(ZoneLocation::Hand(player))
+                .iter()
+                .copied()
+                .filter(|id| *id != wizard.card)
+                .collect();
+            if hand.is_empty() {
+                return Err(EngineError::IllegalAction("no card to discard at random"));
+            }
+            let at = self.state.rng.below(hand.len() as u64) as usize;
+            self.state.discard_card(hand[at], player, Cause::Cost, None);
         }
 
         // Move the card to the stack as a spell. The targeting requirement
@@ -315,6 +386,15 @@ impl<L: CardLookup> Engine<L> {
                         })
                 })
         };
+        // "Was foretold" belongs to the spell even when another permission
+        // chooses a different cost. Capture it before leaving exile ends the
+        // exiled card's identity, then write it on the spell after that move.
+        let foretold_turn = self.state.object(card).and_then(|object| {
+            object.riders.iter().find_map(|rider| match rider {
+                crate::object::Rider::Foretold { turn } => Some(*turn),
+                _ => None,
+            })
+        });
         {
             let obj = self.state.object_mut(card).expect("wizard card exists");
             obj.kind = ObjectKind::Spell;
@@ -326,6 +406,7 @@ impl<L: CardLookup> Engine<L> {
             obj.set_second_players(wizard.second_target_players);
             obj.x_value = wizard.x;
             obj.kicked = wizard.kicked;
+            obj.times_kicked = wizard.times_kicked();
             obj.replicated = wizard.replicated;
             obj.alt_cast = matches!(wizard.option, Some(CastModeKind::Alternative(_)));
             obj.chosen_player = wizard.chosen_player;
@@ -363,6 +444,9 @@ impl<L: CardLookup> Engine<L> {
             obj.riders.retain(|r| *r != crate::object::Rider::Mutating);
             if wizard.option == Some(CastModeKind::Mutate) {
                 obj.riders.push(crate::object::Rider::Mutating);
+            }
+            if wizard.buyback.is_some() {
+                obj.riders.push(crate::object::Rider::Buyback);
             }
             // Escape (CR 702.138b): the spell escaped, and so will the
             // permanent it becomes.
@@ -416,6 +500,13 @@ impl<L: CardLookup> Engine<L> {
         }
         self.state
             .move_object(card, ZoneLocation::Stack, ZonePosition::Top, Cause::Spell)?;
+        if let Some(turn) = foretold_turn {
+            self.state
+                .object_mut(card)
+                .expect("cast spell")
+                .riders
+                .push(crate::object::Rider::Foretold { turn });
+        }
         self.state
             .object_mut(card)
             .expect("cast spell")

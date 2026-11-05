@@ -13,6 +13,12 @@ workspace = true
 # field of the engine, for a fuzzer holding it to its invariants (a refused
 # `apply` changes nothing). Off in every build that plays a game.
 fuzz = []
+# `Engine::fork_for`: a disposable copy of a game with the hidden cards dealt
+# again, for lookahead in training and evaluation (`docs/engine-internals.md`
+# §"Forking a simulation"). Never in a build that hosts a game:
+# `cargo dev gate shipped-features` fails if anything outside the training
+# crates turns it on.
+simulation = []
 
 [dependencies]
 baylee-core.workspace = true
@@ -36,3 +42,8 @@ serde_json.workspace = true
 [[bench]]
 name = "basics"
 harness = false
+
+[[bench]]
+name = "fork"
+harness = false
+required-features = ["simulation"]

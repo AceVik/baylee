@@ -77,11 +77,13 @@ impl Dice {
 const RINGS_FLOOR: usize = 18_700;
 
 /// The floors under the bounds deck's sixteen games: decisions, crew totals
-/// asked and menace bounds asked, measured on 2026-09-29 (10,069, 76 and
-/// 44), each less a tenth.
-const BOUNDS_FLOOR: usize = 9_000;
-const BOUNDS_TOTALS_FLOOR: usize = 68;
-const BOUNDS_BLOCKS_FLOOR: usize = 39;
+/// asked and menace bounds asked, measured on 2026-11-03 (11,210, 161 and
+/// 38), each less a tenth. Re-measured when the starting player's skipped
+/// draw stopped being seat 0's alone (CR 103.8a), which deals every game
+/// in which seat 1 starts differently (2026-09-29: 10,069, 76 and 44).
+const BOUNDS_FLOOR: usize = 10_089;
+const BOUNDS_TOTALS_FLOOR: usize = 144;
+const BOUNDS_BLOCKS_FLOOR: usize = 34;
 
 /// How often, in percent of decisions, the refusals are compared against
 /// the whole print rather than the light one.
@@ -369,6 +371,11 @@ fn offered(
         Pending::ChooseSubtype { options, .. } => {
             for &s in &dice.pick(options, 3) {
                 out.push(PlayerAction::ChooseSubtype(s));
+            }
+        }
+        Pending::ChooseCardType { options, .. } => {
+            for &card_type in &dice.pick(options, options.len()) {
+                out.push(PlayerAction::ChooseCardType(card_type));
             }
         }
         Pending::ChooseColor { options, .. } => {
@@ -1177,14 +1184,15 @@ fn a_press_refused_at_its_payment_moves_no_field_of_the_engine() {
 /// land could be tapped, and a dual's shortcut is empty because the card
 /// prints both colours. Where in a game such a land is first listed moves
 /// with every card and every house answer (a merge of card rounds moved it
-/// out of that game), so the pairing is played on the driver's answers,
+/// out of that game, and so did the starting player's skipped draw no longer
+/// being seat 0's alone), so the pairing is played on the driver's answers,
 /// seed after seed, until the offer lists one, and that one is pressed.
 #[test]
 fn a_dual_land_listed_for_the_lanterns_grant_is_taken_when_pressed() {
     let (a, b) = (0, 4);
     let first = house_deck(DECKS[a].0, DECKS[a].1);
     let second = house_deck(DECKS[b].0, DECKS[b].1);
-    for s in 0..8 {
+    for s in 0..32 {
         let seed = seed(a, b, s);
         let preset = baylee_cards::decks::preset_for(seed, &first, &second);
         let mut engine = Engine::new(&preset, RegistryLookup).expect("house decks start a game");

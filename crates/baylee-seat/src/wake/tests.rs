@@ -9,6 +9,13 @@ use baylee_core::mana::{ManaColor, ManaCost};
 use baylee_engine::choice::{BlockOption, TargetPrompt};
 use baylee_view::{CardIdentity, HandObject, PublicObject, RulesFace};
 
+mod combat;
+mod controlled;
+mod foretell;
+mod phasing;
+pub(crate) mod played;
+mod upkeep;
+
 const ME: PlayerId = PlayerId::new(0);
 const THEM: PlayerId = PlayerId::new(1);
 
@@ -36,6 +43,7 @@ fn permanent(slot: u32, name: &str) -> PublicObject {
     object.card = Some(identity(name));
     object.rules = object.card.map(RulesFace::from);
     object.types = def(name).faces[0].types;
+    object.colors = def(name).faces[0].mana_cost.colors();
     // A basic land's mana is read off its land type (CR 305.6).
     object.subtypes = baylee_core::types::SubtypeSet::from_slice(def(name).faces[0].subtypes);
     object
@@ -63,6 +71,11 @@ fn in_hand(slot: u32, name: &str) -> HandObject {
 /// `mana_abilities`, with no index; a mana ability a card prints (the
 /// first ability of every other card used here) is an ordinary entry in
 /// `abilities`.
+///
+/// Every spell in the hand is `payable`: the engine would cast it once its
+/// mana is made, as it does a card whose only lack is mana. A test about a
+/// card the engine would not cast (no legal target, CR 601.2c) takes it out,
+/// or plays a real table (`played`).
 fn table(permanents: &[&str], hand: &[&str]) -> (PlayerView, LegalActions) {
     let mut view = ViewBuilder::new(2)
         .with_battlefield(
@@ -81,6 +94,12 @@ fn table(permanents: &[&str], hand: &[&str]) -> (PlayerView, LegalActions) {
     let basic = |name: &&str| ["Forest", "Island", "Mountain", "Plains", "Swamp"].contains(name);
     let mut legal = LegalActions {
         can_pass: true,
+        payable: view
+            .hand
+            .iter()
+            .filter(|card| !card.types.contains(TypeSet::LAND))
+            .map(|card| card.id)
+            .collect(),
         ..LegalActions::default()
     };
     for (name, slot) in permanents.iter().zip(1..) {
@@ -596,5 +615,283 @@ fn a_plan_is_asked_every_question_of_its_turn_and_none_after() {
     assert_eq!(
         filter.judge(&view, &priority(legal), &[]),
         passes(Standing::NothingToDo)
+    );
+}
+
+#[test]
+fn unpaid_abilities_payable_from_untapped_lands_are_reachable_and_wake() {
+    let (mut view, mut legal) = table(&["Forest", "Forest"], &[]);
+    view.battlefield.push(permanent(10, "Grizzly Bears"));
+    legal
+        .unpaid_abilities
+        .push((o(10), 0, "{1}{G}".parse::<ManaCost>().unwrap()));
+    let reach = reachable_abilities(&view, &legal);
+    assert_eq!(reach.len(), 1);
+    assert_eq!(reach[0].plan.steps.len(), 2);
+    assert_eq!(judge(&view, legal), Verdict::Wake(Why::RailStop));
+}
+
+#[test]
+fn wild_growth_and_mana_flare_add_bonus_mana_to_land_taps() {
+    let (mut view, legal) = table(&["Forest"], &["Grizzly Bears"]);
+    let mut wg = permanent(10, "Wild Growth");
+    wg.attached_to = Some(o(1));
+    view.battlefield.push(wg);
+    let reach = reachable(&view, &legal);
+    assert_eq!(
+        reach.len(),
+        1,
+        "one Forest enchanted with Wild Growth pays {{1}}{{G}}"
+    );
+    assert_eq!(reach[0].plan.steps.len(), 1);
+}
+
+#[test]
+fn psychic_venom_and_blight_deprioritize_cursed_land() {
+    let (mut view, legal) = table(&["Forest", "Forest"], &["Llanowar Elves"]);
+    let mut pv = permanent(10, "Psychic Venom");
+    pv.controller = THEM;
+    pv.attached_to = Some(o(1));
+    view.battlefield.push(pv);
+    let reach = reachable(&view, &legal);
+    assert_eq!(reach.len(), 1);
+    assert_eq!(
+        reach[0].plan.steps[0].source,
+        o(2),
+        "untapped uncursed Forest #2 must be tapped before Psychic Venom-enchanted Forest #1"
+    );
+}
+
+#[test]
+fn sirens_call_is_only_reachable_on_opponents_turn_before_attackers() {
+    let (mut view, legal) = table(&["Island"], &["Siren's Call"]);
+    assert!(
+        reachable(&view, &legal).is_empty(),
+        "Siren's Call cannot be cast on your own turn"
+    );
+    their(&mut view, Phase::Beginning, Step::Upkeep);
+    assert_eq!(
+        reachable(&view, &legal).len(),
+        1,
+        "Siren's Call is reachable on opponent's upkeep"
+    );
+    their(&mut view, Phase::SecondMain, Step::Main);
+    assert!(
+        reachable(&view, &legal).is_empty(),
+        "Siren's Call is not reachable after declare attackers"
+    );
+}
+
+#[test]
+fn combat_begin_stop_accepts_beginning_combat_aliases() {
+    let (view, _) = table(&[], &[]);
+    let mut filter = WakeFilter::default();
+    let stops = crate::narrator::Stops {
+        mine: vec!["beginning_combat".into()],
+        theirs: vec!["begin_combat".into()],
+    };
+    filter.apply_orders(Some(&stops), None, 0, &view, &[]);
+    assert!(filter.stops_at(RailSide::Mine, RailRow::CombatBegin));
+    assert!(filter.stops_at(RailSide::Theirs, RailRow::CombatBegin));
+}
+
+#[test]
+fn convoke_reduces_generic_and_matching_colored_pips_without_double_counting_mana_dorks() {
+    // Chord of Calling is {X}{G}{G}{G} with Convoke (CR 702.51a).
+    // Two Forests + one white creature (Eager Cadet) cannot pay the third {G}.
+    let (mut view, legal) = table(&["Forest", "Forest"], &["Chord of Calling"]);
+    view.battlefield.push(permanent(10, "Eager Cadet"));
+    assert!(
+        reachable(&view, &legal).is_empty(),
+        "a white creature cannot convoke a green pip on Chord of Calling"
+    );
+
+    // Replacing Eager Cadet with a green creature (Grizzly Bears) convokes the third {G}.
+    view.battlefield.pop();
+    view.battlefield.push(permanent(10, "Grizzly Bears"));
+    let reach = reachable(&view, &legal);
+    assert_eq!(
+        reach.len(),
+        1,
+        "two Forests + one green creature pay {{G}}{{G}}{{G}} via Convoke"
+    );
+    assert_eq!(reach[0].plan.steps.len(), 2);
+
+    // Clever Concealment is {2}{W}{W} with Convoke.
+    // Plains + active Llanowar Elves + one white creature make only three
+    // mana/convoke payments: the Elves cannot both make mana and convoke.
+    let (mut view, legal) = table(&["Plains", "Llanowar Elves"], &["Clever Concealment"]);
+    view.battlefield.push(permanent(10, "Eager Cadet"));
+    assert!(
+        reachable(&view, &legal).is_empty(),
+        "an active mana dork must not be double-counted as both a mana source and a convoke tap"
+    );
+    // The second white creature supplies the fourth payment.
+    view.battlefield.push(permanent(11, "Eager Cadet"));
+    assert_eq!(reachable(&view, &legal).len(), 1);
+}
+
+#[test]
+fn self_tapping_unpaid_ability_cannot_tap_its_own_source_for_mana() {
+    // Eden, Seat of the Sanctum has 0: {T}: Add {C} and 1: {5}, {T}: Mill two cards...
+    // With 4 Forests + Eden itself untapped (5 mana sources total, including Eden),
+    // Eden's ability 1 ({5}, {T}) is NOT reachable because Eden cannot tap itself for {C}
+    // and also tap itself to pay {T} of ability 1.
+    let (mut view, mut legal) = table(
+        &[
+            "Forest",
+            "Forest",
+            "Forest",
+            "Forest",
+            "Eden, Seat of the Sanctum",
+        ],
+        &[],
+    );
+    legal
+        .unpaid_abilities
+        .push((o(5), 1, "{5}".parse::<ManaCost>().unwrap()));
+    assert!(
+        reachable_abilities(&view, &legal).is_empty(),
+        "Eden cannot tap itself for mana to pay for its own {{5}}, {{T}} ability"
+    );
+    // Adding a fifth Forest makes Eden's ability 1 reachable without tapping Eden for mana.
+    view.battlefield.push(permanent(6, "Forest"));
+    legal.mana_abilities.push(o(6));
+    let reach = reachable_abilities(&view, &legal);
+    assert_eq!(reach.len(), 1);
+    assert!(
+        reach[0].plan.steps.iter().all(|s| s.source != o(5)),
+        "the mana plan for Eden's {{T}} ability must not tap Eden"
+    );
+}
+
+#[test]
+fn mdfc_spell_pitch_spell_and_graveyard_exile_permissions_are_reachable() {
+    // 1. MDFC spell front face (Shatterskull Smashing {X}{R}{R}) remains reachable as a spell
+    // even when its back land face puts its ObjectId in legal.lands.
+    let (view, mut legal) = table(&["Mountain", "Mountain"], &["Shatterskull Smashing"]);
+    legal.lands.push(o(20));
+    let reach = reachable(&view, &legal);
+    assert_eq!(reach.len(), 1);
+    assert_eq!(reach[0].object, o(20));
+    assert_eq!(reach[0].from, ReachFrom::Hand);
+
+    // 2. Pitch spell (Force of Will {3}{U}{U}) in legal.castable (because it can be pitch-cast)
+    // is still offered in reachable when lands can pay its mana cost and the pool does not yet hold {3}{U}{U}.
+    let (mut view, mut legal) = table(
+        &["Island", "Island", "Island", "Island", "Island"],
+        &["Force of Will"],
+    );
+    view.stack.push(token(90, 1, "Shock", 0, 0));
+    legal.castable.push(o(20));
+    let reach = reachable(&view, &legal);
+    assert_eq!(
+        reach.len(),
+        1,
+        "pitch spell in legal.castable should still have a tap plan for its normal mana cost"
+    );
+    // Once {3}{U}{U} is already floating in the pool, no tap plan is needed.
+    view.seats[0].mana_pool.blue = 5;
+    assert!(reachable(&view, &legal).is_empty());
+
+    // 3. Graveyard flashback and Exile payable permissions.
+    let (mut view, mut legal) = table(&["Forest", "Forest"], &[]);
+    let mut gy_card = permanent(70, "Grizzly Bears");
+    gy_card.flashback = Some("{1}{G}".parse::<ManaCost>().unwrap());
+    view.graveyards[0].push(gy_card);
+    let ex_card = permanent(71, "Grizzly Bears");
+    view.exile[0].push(ex_card);
+    // The engine lists both as cast once paid: the flashback and the permission.
+    legal.payable.extend([o(70), o(71)]);
+    let reach = reachable(&view, &legal);
+    assert_eq!(reach.len(), 2);
+    assert!(
+        reach
+            .iter()
+            .any(|r| r.object == o(70) && r.from == ReachFrom::Graveyard)
+    );
+    assert!(
+        reach
+            .iter()
+            .any(|r| r.object == o(71) && r.from == ReachFrom::Exile)
+    );
+}
+
+/// Bug hunt of 3.11.2026, game 1, q44: Exalted Angel ({4}{W}{W}, morph)
+/// over three Plains was never offered: only its printed cost was tried.
+/// Face down it is a 2/2 creature spell for {3} (CR 702.37c), which three
+/// lands pay; two do not.
+#[test]
+fn a_morph_card_is_reached_face_down_for_three() {
+    let (view, legal) = table(&["Plains", "Plains", "Plains"], &["Exalted Angel"]);
+    let reach = reachable(&view, &legal);
+    assert_eq!(reach.len(), 1, "{reach:?}");
+    assert!(reach[0].face_down, "{reach:?}");
+    assert_eq!(reach[0].plan.steps.len(), 3);
+    assert_eq!(judge(&view, legal), Verdict::Wake(Why::RailStop));
+    let (view, legal) = table(&["Plains", "Plains"], &["Exalted Angel"]);
+    assert!(reachable(&view, &legal).is_empty());
+    // Over six Plains both ways are offered.
+    let (view, legal) = table(&["Plains"; 6], &["Exalted Angel"]);
+    let reach = reachable(&view, &legal);
+    assert_eq!(reach.len(), 2, "{reach:?}");
+    assert_eq!(reach.iter().filter(|r| r.face_down).count(), 1);
+}
+
+/// Alchemist's Refuge resolved for this seat (`PlayerView::flash_types`):
+/// a sorcery the lands pay is reached on the other seat's turn, as the
+/// engine casts it (Argon v Astra, Simplify after Refuge). Without the
+/// effect it is nothing to do there.
+#[test]
+fn a_sorcery_with_granted_flash_is_reached_on_their_turn() {
+    let (mut view, legal) = table(&["Forest"], &["Simplify"]);
+    their(&mut view, Phase::Ending, Step::End);
+    assert_eq!(judge(&view, legal.clone()), passes(Standing::NothingToDo));
+    view.flash_types = TypeSet::SORCERY.union(TypeSet::CREATURE);
+    let reach = reachable(&view, &legal);
+    assert_eq!(reach.len(), 1, "{reach:?}");
+    assert_eq!(judge(&view, legal), Verdict::Wake(Why::RailStop));
+}
+
+/// Confusion in the Ranks (Argon v Astra): this seat's own trigger, aimed by
+/// the player whose creature entered, at this seat's permanent. That is an
+/// exchange of its own creature to answer, and the filter read the
+/// controller and passed it three times in one game. Aimed elsewhere, or
+/// aimed by this seat itself, it stays quiet.
+#[test]
+fn a_trigger_of_ours_that_someone_else_aimed_at_us_wakes() {
+    let (mut view, legal) = table(&["Forest"], &["Giant Growth"]);
+    their(&mut view, Phase::Beginning, Step::Upkeep);
+    let mut trigger = token(40, 0, "Confusion in the Ranks", 0, 0);
+    trigger.targets = vec![at(1)];
+    view.stack = vec![trigger];
+    assert_eq!(
+        judge(&view, legal.clone()),
+        passes(Standing::QuietWindow),
+        "its text names no other chooser, so this seat aimed it"
+    );
+    view.foreign_targets = vec![o(40)];
+    assert_eq!(
+        judge(&view, legal.clone()),
+        Verdict::Wake(Why::OpposingStack)
+    );
+    view.stack[0].targets = vec![at(70)];
+    assert_eq!(judge(&view, legal), passes(Standing::QuietWindow));
+}
+
+/// `react: targets_me` reads the same way: the mind asked to hear of what is
+/// aimed at it, and who controls the ability does not change that.
+#[test]
+fn react_targets_me_hears_a_trigger_of_ours_someone_else_aimed_at_us() {
+    let (mut view, legal) = table(&["Forest"], &["Giant Growth"]);
+    their(&mut view, Phase::Beginning, Step::Upkeep);
+    let mut filter = holding(Until::MyTurn, React::TargetsMe, &view);
+    let mut trigger = token(40, 0, "Confusion in the Ranks", 0, 0);
+    trigger.targets = vec![at(1)];
+    view.stack = vec![trigger];
+    view.foreign_targets = vec![o(40)];
+    assert_eq!(
+        filter.judge(&view, &priority(legal), &[]),
+        Verdict::Wake(Why::OpposingStack)
     );
 }

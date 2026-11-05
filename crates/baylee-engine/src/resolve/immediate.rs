@@ -15,6 +15,10 @@ pub(super) fn exec_immediate(
 ) -> Option<Pending> {
     let you = res.controller;
     match op {
+        Effect::ExileMostVotedNotControlledByYou { filter } => vote::start(state, res, filter),
+        Effect::ExileAttackingForThenMaySearchBasicLands { player } => {
+            settle::start(state, res, player)
+        }
         Effect::ChooseSourceColor => {
             let (source, pending) = source_color::choice(state, res)?;
             res.awaiting = Some(AwaitingOp::SourceColor { source });
@@ -304,7 +308,8 @@ pub(super) fn exec_immediate(
                 options: Vec::new(),
             })
         }
-        Effect::ChangeTextWord { kind } => {
+        Effect::ChangeTextWord { kind } | Effect::ChangeTextWordThisTurn { kind } => {
+            let this_turn = matches!(op, Effect::ChangeTextWordThisTurn { .. });
             let object = state.object(*res.targets.first()?)?;
             res.awaiting = Some(AwaitingOp::TextReplacement {
                 target: baylee_core::ids::DamageSourceRef {
@@ -312,6 +317,7 @@ pub(super) fn exec_immediate(
                     version: object.version,
                 },
                 kind,
+                this_turn,
             });
             Some(Pending::ChooseNumber {
                 player: you,
@@ -328,7 +334,10 @@ pub(super) fn exec_immediate(
         }
 
         Effect::GainLife { .. }
+        | Effect::SacrificeEventDealDamageToEachBlocker { .. }
         | Effect::GainLifeFor { .. }
+        | Effect::SetLifeTotal { .. }
+        | Effect::RaiseLifeTotalTo { .. }
         | Effect::GainLifeDoubleX
         | Effect::PlayersWhoCastRevealedNameThisTurnLoseLife { .. }
         | Effect::LoseLife { .. }
@@ -400,6 +409,7 @@ pub(super) fn exec_immediate(
         | Effect::PutTargetOnTopOfLibrary
         | Effect::PutTargetOnBottomOfLibrary
         | Effect::RollDiePutTargetIntoLibraryBeneathTop { .. }
+        | Effect::PutTargetIntoLibraryBeneathTop { .. }
         | Effect::PutOnBottomOfLibraryFromGraveyard { .. }
         | Effect::ExileSource
         | Effect::ExileAndReturnAtEndStep
@@ -475,6 +485,7 @@ pub(super) fn exec_immediate(
         | Effect::SetPTFilter { .. }
         | Effect::ModifyFilter { .. }
         | Effect::PumpFilter { .. }
+        | Effect::PumpFilterPerKeyword { .. }
         | Effect::PumpTarget { .. }
         | Effect::PumpTargetSlot { .. } => counters::exec(state, res, op),
         Effect::MarkLandWithCounter { .. }
@@ -588,6 +599,19 @@ pub(super) fn exec_immediate(
             matched,
             otherwise,
         } => names::reveal_until_named(state, res, player, matched, otherwise),
+        Effect::RevealUntilMatching {
+            player,
+            filter,
+            matched,
+            otherwise,
+        } => {
+            if let Some(player) = players_of(player, state, you, res).first().copied() {
+                search::reveal_until_matching(
+                    state, player, res.source, filter, matched, otherwise,
+                );
+            }
+            None
+        }
         Effect::RevealTopByNameThen {
             player,
             matched,
@@ -1108,6 +1132,28 @@ pub(super) fn exec_immediate(
                 prompt: ChoicePrompt::FromGraveyard,
                 total: None,
             })
+        }
+        // The top of the pile is the end of the list (CR 404.2), and the card
+        // joins the resolution's targets and what is remembered of them, which
+        // is what lets the next instruction return it and the one after follow
+        // it. `res.targeted` stays false: nothing was targeted (CR 115.1).
+        Effect::TopOfYourGraveyard { filter } => {
+            let card = state
+                .zones
+                .list(ZoneLocation::Graveyard(you))
+                .iter()
+                .rev()
+                .filter_map(|id| state.object(*id))
+                .find(|o| eval::matches_with_context(filter, state, o, you, res.rule_context()))?;
+            let lki = TargetLki {
+                id: card.id,
+                version: card.version,
+                controller: card.controller,
+                chars: card.characteristics().clone(),
+            };
+            res.targets.push(lki.id);
+            res.target_lki.get_or_insert_default().push(lki);
+            None
         }
         // As `WhenTargetDiesThisTurn`, about the source.
         Effect::WhenSourceDiesThisTurn { effects } => {
@@ -1971,7 +2017,7 @@ pub(super) fn exec_immediate(
             None
         }
         Effect::BecomeMonarch(rel) => {
-            // One monarch at a time (CR 724.3), so one player at most.
+            // One monarch at a time (CR 725.3), so one player at most.
             if let Some(&player) = players_of(rel, state, you, res).first() {
                 state.set_monarch(player);
             }
@@ -2031,16 +2077,20 @@ pub(super) fn exec_immediate(
                 ],
             })
         }
-        Effect::PayCostOrLoseLater { cost } => {
+        Effect::AtNextUpkeepPrinted { ability } => {
+            let object = state.object(res.source)?;
+            let printed = object.printed_face()?;
+            let version = source_version(state, res).unwrap_or(object.version);
             state.delayed.push(crate::state::DelayedTrigger {
                 controller: you,
                 when: crate::state::DelayedWhen::NextUpkeep,
-                action: crate::state::DelayedAction::PayCostOrLose {
-                    cost,
-                    source: match super::payment_for(state, res) {
-                        crate::casting::SpendFor::OtherFrom(source) => Some(source),
-                        _ => None,
+                action: crate::state::DelayedAction::PrintedTrigger {
+                    source: baylee_core::ids::DamageSourceRef {
+                        object: res.source,
+                        version,
                     },
+                    printed,
+                    ability,
                 },
             });
             None
@@ -2067,6 +2117,37 @@ pub(super) fn exec_immediate(
             });
             put_found(state, you, top, if fits { matched } else { otherwise });
             None
+        }
+        Effect::RevealTopAllMatching {
+            count,
+            filter,
+            found,
+        } => {
+            let top: Vec<ObjectId> = state
+                .zones
+                .list(ZoneLocation::Library(you))
+                .iter()
+                .rev()
+                .take(usize::from(count))
+                .copied()
+                .collect();
+            if top.is_empty() {
+                return None;
+            }
+            state.journal.record(GameEvent::Revealed {
+                player: you,
+                cards: top.clone(),
+            });
+            let chosen: Vec<ObjectId> = top
+                .iter()
+                .copied()
+                .filter(|&card| {
+                    state.object(card).is_some_and(|object| {
+                        eval::matches_with_context(filter, state, object, you, res.rule_context())
+                    })
+                })
+                .collect();
+            super::dig::finish(state, res, found, top, false, false, &chosen)
         }
         Effect::RevealAndSeparate { count } => {
             let cards: Vec<ObjectId> = state
@@ -2559,6 +2640,17 @@ pub(super) fn exec_immediate(
         }
         Effect::CantAttackDuringNextControllerTurn { target } => {
             super::future_attacks::schedule(state, res, target);
+            None
+        }
+        Effect::SkipNextCombatPhase { player } => {
+            for player in players_of(player, state, you, res) {
+                let skips = &mut state.players[usize::from(player.get())].combats_to_skip;
+                if let Some(next) = skips.checked_add(1) {
+                    *skips = next;
+                } else {
+                    state.numeric_failure = Some("combat skip obligations exceed u32");
+                }
+            }
             None
         }
         Effect::SkipNextTurn => {
@@ -3259,6 +3351,7 @@ pub(super) fn exec_immediate(
         | Effect::UntapChosenPayingEach { .. }
         | Effect::PlayerMayPayManaOr { .. }
         | Effect::PlayerMayPayManaThen { .. }
+        | Effect::PayManaOrLose { .. }
         | Effect::PlayerMayPayLifeOr { .. }
         | Effect::PlayerMayGetPoisonOr { .. }
         | Effect::MayExileFromYourGraveyardThen { .. }

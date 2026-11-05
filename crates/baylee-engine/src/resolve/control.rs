@@ -38,12 +38,17 @@ pub(super) fn next_turn(
     relation: baylee_cards_dsl::PlayerRel,
 ) {
     let turn = state.turn.number.saturating_add(1);
+    let source = state
+        .object(res.source)
+        .and_then(|o| o.card)
+        .map(|card| card.index);
     for player in super::players_of(relation, state, res.controller, res) {
         state.turn_controls.push(crate::state::PlayerTurnControl {
             controller: res.controller,
             player,
             turn,
             began: None,
+            source,
         });
     }
 }

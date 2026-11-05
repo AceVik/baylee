@@ -193,6 +193,49 @@ fn draw_proposal(
     commands.entity(root).add_child(shade);
 }
 
+/// Why a table's list turned a deck away, a line a reason. It stands over
+/// whatever screen the deck was brought from, because the door may be a
+/// room's, the Play screen's or an invite's.
+pub(super) fn draw_refusal(
+    commands: &mut Commands,
+    root: Entity,
+    state: &LobbyState,
+    fonts: &UiFonts,
+    metrics: Metrics,
+) {
+    let Some(refusal) = state.lobby.refusal() else {
+        return;
+    };
+    let lang = state.lobby.lang();
+    let (shade, panel) = modal(commands, metrics, Press::Shared(SharedPress::CloseRefusal));
+    let name = baylee_client_core::deckcheck::format_name(&refusal.list, lang);
+    let title = heading(
+        commands,
+        fonts,
+        metrics,
+        &Phrase::RefusedTitle.fill(lang, &[name]),
+    );
+    let mut kids = vec![title];
+    for line in state.lobby.refusal_lines() {
+        kids.push(note(commands, fonts, metrics, &line));
+    }
+    let actions = row(commands, metrics, true);
+    let close = button(
+        commands,
+        fonts,
+        metrics,
+        Phrase::ShellClose.text(lang),
+        Press::Shared(SharedPress::CloseRefusal),
+        palette::ACCENT,
+        true,
+    );
+    commands.entity(actions).add_child(close);
+    kids.push(actions);
+    commands.entity(panel).add_children(&kids);
+    commands.entity(shade).add_child(panel);
+    commands.entity(root).add_child(shade);
+}
+
 /// A confirmation's shade over the whole screen, which cancels when it is
 /// tapped, and the panel on it.
 fn modal(commands: &mut Commands, metrics: Metrics, cancel: Press) -> (Entity, Entity) {

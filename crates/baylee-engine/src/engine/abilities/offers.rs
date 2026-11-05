@@ -2,6 +2,13 @@
 #[allow(clippy::wildcard_imports)] // shared ability vocabulary
 use super::*;
 
+/// The two cost lists [`Engine::spell_adjustments`] builds in one walk.
+#[derive(Default)]
+pub(super) struct SpellAdjustments {
+    increases: Vec<(ObjectId, crate::choice::CastModeKind, u32)>,
+    reductions: Vec<(ObjectId, crate::choice::CastModeKind, u32)>,
+}
+
 impl<L: CardLookup> Engine<L> {
     pub(super) fn activation_increases(&self, player: PlayerId) -> Vec<(ObjectId, u32)> {
         if !self.state.effects.may_change_or_forbid_abilities()
@@ -28,23 +35,10 @@ impl<L: CardLookup> Engine<L> {
             .collect()
     }
 
-    pub(super) fn spell_increases(
-        &self,
-        player: PlayerId,
-    ) -> Vec<(ObjectId, crate::choice::CastModeKind, u32)> {
-        use crate::choice::CastModeKind;
-        if !self.state.effects.may_change_spell_costs()
-            || !self.state.effects.iter().any(|fx| {
-                matches!(
-                    fx.modifier,
-                    baylee_cards_dsl::Modifier::SpellsCostMore(_)
-                        | baylee_cards_dsl::Modifier::SpellsCostMorePerControlled(_)
-                        | baylee_cards_dsl::Modifier::SpellsCostMoreMana(_)
-                )
-            })
-        {
-            return Vec::new();
-        }
+    /// The cards whose price `spell_adjustments` publishes: the seat's own
+    /// candidate zones and its explicit play permissions, each once, in
+    /// handle order. Never another seat's hand (`docs/protocol.md`).
+    fn cost_candidates(&self, player: PlayerId) -> Vec<ObjectId> {
         let mut cards: Vec<_> = [
             ZoneLocation::Hand(player),
             ZoneLocation::Graveyard(player),
@@ -63,8 +57,45 @@ impl<L: CardLookup> Engine<L> {
         );
         cards.sort_unstable();
         cards.dedup();
-        let mut out = Vec::new();
-        for card in cards {
+        cards
+    }
+
+    /// What `LegalActions::spell_increases` and `spell_reductions` publish:
+    /// the generic mana CR 601.2f adds to and takes off each card this seat
+    /// might cast, per way of casting it that prices differently, so that a
+    /// planner tapping lands before the cast taps for the price the wizard
+    /// will charge (`SpellAdjustment::price`) and not the printed one.
+    ///
+    /// The reductions are the rules effects' (Goblin Warchief's "Goblin
+    /// spells you cast cost {1} less") **and** the card's own printed one
+    /// (affinity, Surgical Metamorph), because the planners can read neither
+    /// off the view — a printed reduction's condition or count is evaluated
+    /// here. Increases exclude commander tax, which the view carries and the
+    /// planners add themselves. Both lists are empty on a board without
+    /// either, which is the usual board: the walk over `cost_candidates` asks
+    /// nothing more of a card than whether its faces print a reduction.
+    pub(super) fn spell_adjustments(&self, player: PlayerId) -> SpellAdjustments {
+        use crate::choice::CastModeKind;
+        let effects = self.state.effects.may_change_spell_costs();
+        let increases = effects
+            && self.state.effects.iter().any(|fx| {
+                matches!(
+                    fx.modifier,
+                    baylee_cards_dsl::Modifier::SpellsCostMore(_)
+                        | baylee_cards_dsl::Modifier::SpellsCostMorePerControlled(_)
+                        | baylee_cards_dsl::Modifier::SpellsCostMoreMana(_)
+                )
+            });
+        let reductions = effects
+            && self.state.effects.iter().any(|fx| {
+                matches!(
+                    fx.modifier,
+                    baylee_cards_dsl::Modifier::SpellsCostLess(_)
+                        | baylee_cards_dsl::Modifier::SpellsCostLessPerCounter(_)
+                )
+            });
+        let mut out = SpellAdjustments::default();
+        for card in self.cost_candidates(player) {
             let Some(def) = self
                 .state
                 .object(card)
@@ -73,42 +104,97 @@ impl<L: CardLookup> Engine<L> {
             else {
                 continue;
             };
-            let commander = casting::commander_tax(&self.state, player, card);
-            let increase = |face, form| {
-                casting::face_increase(&self.state, player, card, def, face, form)
-                    .saturating_sub(commander)
-            };
-            let normal = increase(0, None);
-            if normal > 0 {
-                out.push((card, CastModeKind::Normal, normal));
+            let printed = def.faces.iter().any(|f| f.cost_reduction.is_some());
+            if !increases && !reductions && !printed {
+                continue;
             }
-            for face in 1..def.faces.len() {
-                let n = increase(face, None);
-                if n != normal {
-                    out.push((card, CastModeKind::Face(face), n));
+            let commander = casting::commander_tax(&self.state, player, card);
+            // One adjustment per way of casting, read for both lists. The
+            // printed reduction rides with the face it is printed on, and the
+            // disguise form has none: `cast_wizard::options` prices a face
+            // down spell at `{3}` with no reduction of the card's own.
+            let adjust = |face: usize, form: Option<casting::SpellForm>| {
+                let adjustment = if increases || reductions {
+                    casting::face_adjustment(&self.state, player, card, def, face, form)
+                } else {
+                    casting::SpellAdjustment::default()
+                };
+                let own = if matches!(form, Some(casting::SpellForm::Disguise)) {
+                    0
+                } else {
+                    casting::printed_reduction(&self.state, &def.faces[face], player, card)
+                };
+                (
+                    adjustment
+                        .increase
+                        .saturating_add(adjustment.mana_increase.cmc())
+                        .saturating_sub(commander),
+                    adjustment.reduction.saturating_add(own),
+                )
+            };
+            let normal = adjust(0, None);
+            let mut publish = |kind, (increase, reduction): (u32, u32)| {
+                // `Normal` only when it is something; another way of casting
+                // whenever it differs from `Normal`, zero included, because
+                // it overrides `Normal` (`LegalActions::spell_increase`).
+                let says_something = |n: u32, normal: u32| {
+                    if kind == CastModeKind::Normal {
+                        n > 0
+                    } else {
+                        n != normal
+                    }
+                };
+                if says_something(increase, normal.0) {
+                    out.increases.push((card, kind, increase));
                 }
+                if says_something(reduction, normal.1) {
+                    out.reductions.push((card, kind, reduction));
+                }
+            };
+            publish(CastModeKind::Normal, normal);
+            for face in 1..def.faces.len() {
+                publish(CastModeKind::Face(face), adjust(face, None));
             }
             if let Some(prototype) = def.faces[0].prototype {
-                let n = increase(0, Some(casting::SpellForm::Prototype(prototype)));
-                if n != normal {
-                    out.push((card, CastModeKind::Prototype, n));
-                }
+                publish(
+                    CastModeKind::Prototype,
+                    adjust(0, Some(casting::SpellForm::Prototype(prototype))),
+                );
             }
             if def.faces[0].disguise.is_some() || def.faces[0].morph.is_some() {
-                let n = increase(0, Some(casting::SpellForm::Disguise));
-                if n != normal {
-                    out.push((card, CastModeKind::Disguise, n));
-                }
+                publish(
+                    CastModeKind::Disguise,
+                    adjust(0, Some(casting::SpellForm::Disguise)),
+                );
             }
         }
         out
     }
 
+    /// `LegalActions::buyback_less`: every printed reduction applies to every
+    /// spell, so one number serves the planners.
+    fn buyback_less(&self) -> u32 {
+        if !self.state.effects.may_change_spell_costs() {
+            return 0;
+        }
+        self.state
+            .effects
+            .iter()
+            .filter_map(|effect| match effect.modifier {
+                baylee_cards_dsl::Modifier::BuybackCostsLess(amount) => Some(amount),
+                _ => None,
+            })
+            .fold(0, u32::saturating_add)
+    }
+
     #[allow(clippy::too_many_lines)]
     pub(crate) fn compute_legal(&self, player: PlayerId) -> LegalActions {
+        let adjustments = self.spell_adjustments(player);
         let mut legal = LegalActions {
             can_pass: true,
-            spell_increases: self.spell_increases(player),
+            spell_increases: adjustments.increases,
+            spell_reductions: adjustments.reductions,
+            buyback_less: self.buyback_less(),
             activation_increases: self.activation_increases(player),
             ..LegalActions::default()
         };
@@ -189,6 +275,7 @@ impl<L: CardLookup> Engine<L> {
                 .list(ZoneLocation::Exile(PlayerId::new(seat as u8)))
         }) {
             let permitted = casting::adventure_permission(&self.state, player, card)
+                || casting::foretell_permission(&self.state, player, card)
                 || self.state.object(card).is_some_and(|o| {
                     o.riders
                         .contains(&crate::object::Rider::PlayableFromExileFor(player))
@@ -332,6 +419,7 @@ impl<L: CardLookup> Engine<L> {
                 ) {
                     legal.abilities.push((id, crate::choice::TURN_FACE_UP));
                 } else {
+                    legal.abilities.push((id, crate::choice::TURN_FACE_UP));
                     legal
                         .unpaid_abilities
                         .push((id, crate::choice::TURN_FACE_UP, cost));
@@ -339,8 +427,25 @@ impl<L: CardLookup> Engine<L> {
             }
             // CR 709.5e: a locked door, as a sorcery, for its mana cost.
             if obj.controller == player && sorcery_timing {
-                for half in self.unlockable_halves(id) {
-                    legal.abilities.push((id, crate::choice::unlock_door(half)));
+                for half in 0..2_u8 {
+                    let Some(cost) = self.unlock_cost(id, half) else {
+                        continue;
+                    };
+                    if self.can_pay_mana(
+                        player,
+                        casting::SpendFor::OtherFrom(baylee_core::ids::DamageSourceRef {
+                            object: id,
+                            version: obj.version,
+                        }),
+                        &cost,
+                    ) {
+                        legal.abilities.push((id, crate::choice::unlock_door(half)));
+                    } else if cost != baylee_core::mana::ManaCost::ZERO {
+                        legal.abilities.push((id, crate::choice::unlock_door(half)));
+                        legal
+                            .unpaid_abilities
+                            .push((id, crate::choice::unlock_door(half), cost));
+                    }
                 }
             }
             // A token's abilities come from its definition rather than from a
@@ -590,21 +695,23 @@ impl<L: CardLookup> Engine<L> {
                                 cost,
                                 *cost_reduction,
                             );
-                            if self.activation_affordable(
+                            let payable = self.activation_affordable(
                                 player,
                                 card,
                                 &cost,
                                 &[],
                                 self.mana_activation_life(card, i as u32),
-                            ) && self.ability_has_targets(
+                            );
+                            self.offer_activation_payment(
                                 player,
                                 card,
                                 i as u32,
+                                &cost,
+                                payable,
                                 *targets,
                                 *second_targets,
-                            ) {
-                                legal.abilities.push((card, i as u32));
-                            }
+                                &mut legal,
+                            );
                         }
                         AbilityDef::ActivatedConditional {
                             cost,
@@ -648,21 +755,23 @@ impl<L: CardLookup> Engine<L> {
                                 cost,
                                 *cost_reduction,
                             );
-                            if self.activation_affordable(
+                            let payable = self.activation_affordable(
                                 player,
                                 card,
                                 &cost,
                                 &[],
                                 self.mana_activation_life(card, i as u32),
-                            ) && self.ability_has_targets(
+                            );
+                            self.offer_activation_payment(
                                 player,
                                 card,
                                 i as u32,
+                                &cost,
+                                payable,
                                 *targets,
                                 *second_targets,
-                            ) {
-                                legal.abilities.push((card, i as u32));
-                            }
+                                &mut legal,
+                            );
                         }
                         // Suspend's first ability is an activated one with a cost
                         // and "activate only as a sorcery" on it (CR 702.62a) —
@@ -698,6 +807,8 @@ impl<L: CardLookup> Engine<L> {
             }
         }
         self.offer_granted_actions(player, &mut legal);
+        // After every mana offer, which `unpaid_foretell` asks after.
+        self.offer_foretell(player, &mut legal);
         self.settle_payable(player, &mut legal);
         self.narrow_under_chosen_names(&mut legal);
         self.narrow_under_split_second(&mut legal);
@@ -720,7 +831,7 @@ impl<L: CardLookup> Engine<L> {
         // the mana is made in its payment window (CR 602.2b, by 601.2b and
         // 601.2g), so no amount made beforehand is the right one to plan.
         // It is offered as a cast paid in its window is (`payable`), and an
-        // activation the window leaves short is reversed (CR 732.1).
+        // activation the window leaves short is reversed (CR 733.1).
         let deferred: Vec<(ObjectId, u32)> = legal
             .unpaid_abilities
             .iter()
@@ -738,7 +849,31 @@ impl<L: CardLookup> Engine<L> {
                 .iter()
                 .any(|(s, i, _)| s == source && i == index)
         });
+        self.offer_cast_ways(player, &mut legal);
         legal
+    }
+
+    /// `LegalActions::cast_ways`: the wizard's own list with the mana left
+    /// out, so the hint and the question cannot disagree about what is legal.
+    /// Asked of a card that prints such a way and of no other, which is most
+    /// cards at most priorities: this runs on every offer.
+    fn offer_cast_ways(&self, player: PlayerId, legal: &mut LegalActions) {
+        for &card in legal.castable.iter().chain(&legal.payable) {
+            let priced = self
+                .state
+                .object(card)
+                .and_then(|o| o.card)
+                .and_then(|c| self.lookup.card(c.index))
+                .is_some_and(casting::has_priced_ways);
+            if !priced || self.commanded_card(card) {
+                continue;
+            }
+            if let Ok(ways) = self.cast_options(player, card, true) {
+                legal
+                    .cast_ways
+                    .extend(ways.into_iter().map(|way| (card, way)));
+            }
+        }
     }
 
     /// Check non-mana costs with the same reader as activation. An unpaid

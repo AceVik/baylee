@@ -41,6 +41,10 @@ fn fireblast_deals_four_damage_to_a_player_for_its_mana_cost() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = six_mountains_and_a_fireblast();
     cast_from_hand(&mut engine, p0, fireblast());
+    if matches!(engine.pending(), Pending::ChooseCastMode { .. }) {
+        let normal = choose_cast_kind(&engine, CastModeKind::Normal);
+        engine.apply(p0, PlayerAction::ChooseMode(normal)).unwrap();
+    }
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::ChooseTargets { .. })
     });
@@ -80,6 +84,10 @@ fn fireblast_deals_four_damage_to_a_creature_and_not_to_its_controller() {
     let mut engine = six_mountains_and_a_fireblast();
     let bear = on_battlefield(&engine, p1, grizzly_bears()).unwrap();
     cast_from_hand(&mut engine, p0, fireblast());
+    if matches!(engine.pending(), Pending::ChooseCastMode { .. }) {
+        let normal = choose_cast_kind(&engine, CastModeKind::Normal);
+        engine.apply(p0, PlayerAction::ChooseMode(normal)).unwrap();
+    }
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::ChooseTargets { .. })
     });
@@ -102,36 +110,197 @@ fn fireblast_deals_four_damage_to_a_creature_and_not_to_its_controller() {
     );
 }
 
-/// The pinned limitation: "You may sacrifice two Mountains rather than pay
-/// this spell's mana cost" is not on the card. With only the mana of two
-/// Mountains, Fireblast is not offered and a cast attempt is refused; the
-/// Mountains stay.
+/// The alternative cost needs exactly two different Mountains. The Forest is
+/// never an answer, a Mountain already named cannot answer the second part,
+/// and both permanents leave the battlefield while the spell is being cast.
 #[test]
-fn fireblast_cannot_be_cast_for_two_sacrificed_mountains() {
-    let p0 = PlayerId::new(0);
+fn fireblast_sacrifices_two_distinct_mountains_instead_of_paying_mana() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[mountain(), mountain()])
-        .battlefield(1, &[grizzly_bears()])
+        .battlefield(0, &[mountain(), mountain(), forest()])
         .hand(0, &[fireblast()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
     let spell = in_hand(&engine, p0, fireblast()).unwrap();
-    tap_all_mana(&mut engine, p0);
+    let first = on_battlefield(&engine, p0, mountain()).unwrap();
+    let second = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .find(|id| {
+            *id != first
+                && engine
+                    .state()
+                    .object(*id)
+                    .is_some_and(|object| object.card.is_some_and(|card| card.index == mountain()))
+        })
+        .unwrap();
+    let forest = on_battlefield(&engine, p0, forest()).unwrap();
 
-    let Pending::Priority { legal, .. } = engine.pending().clone() else {
-        panic!("expected priority, got {:?}", engine.pending())
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: spell })
+        .unwrap();
+    if matches!(engine.pending(), Pending::ChooseCastMode { .. }) {
+        let alternative = choose_cast_kind(&engine, CastModeKind::Alternative(0));
+        engine
+            .apply(p0, PlayerAction::ChooseMode(alternative))
+            .unwrap();
+    }
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p1],
+            },
+        )
+        .unwrap();
+    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
+        panic!("expected the first sacrifice, got {:?}", engine.pending());
     };
-    assert!(
-        !legal.castable.contains(&spell),
-        "{{R}}{{R}} does not pay {{4}}{{R}}{{R}}, and no alternative cost is offered: {legal:?}"
-    );
+    assert!(options.contains(&first) && options.contains(&second));
+    assert!(!options.contains(&forest), "a Forest is not a Mountain");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![first],
+            },
+        )
+        .unwrap();
+
+    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
+        panic!("expected the second sacrifice, got {:?}", engine.pending());
+    };
+    assert_eq!(options, vec![second], "the first Mountain cannot pay twice");
     assert!(
         engine
-            .apply(p0, PlayerAction::CastSpell { card: spell })
+            .apply(
+                p0,
+                PlayerAction::ChooseObjects {
+                    objects: vec![first]
+                }
+            )
             .is_err(),
-        "the cast is refused"
+        "a stale duplicate answer is refused"
     );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![second],
+            },
+        )
+        .unwrap();
+
+    assert_eq!(
+        mountains_of(&engine, p0),
+        0,
+        "both Mountains were sacrificed"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "no mana was needed"
+    );
+    assert_eq!(engine.state().object(spell).unwrap().zone, Zone::Stack);
+    assert!(engine.state().object(spell).unwrap().alt_cast);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().players[1].life,
+        16,
+        "the spell still deals 4"
+    );
+}
+
+/// One Mountain cannot pay a cost written as two sacrifices, even though it
+/// could produce mana. Without the printed price the card is not offered.
+#[test]
+fn fireblast_needs_two_mountains_for_its_alternative_cost() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[mountain()])
+        .hand(0, &[fireblast()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let spell = in_hand(&engine, p0, fireblast()).unwrap();
+
+    let result = engine.apply(p0, PlayerAction::CastSpell { card: spell });
+    let alternative_offered = match result {
+        Err(_) => false,
+        Ok(()) => matches!(
+            engine.pending(),
+            Pending::ChooseCastMode { options, .. }
+                if options.iter().any(|option| matches!(option.kind, CastModeKind::Alternative(_)))
+        ),
+    };
+    assert!(!alternative_offered, "one Mountain cannot pay twice");
     assert!(in_hand(&engine, p0, fireblast()).is_some());
-    assert_eq!(mountains_of(&engine, p0), 2, "no Mountain was sacrificed");
+    assert_eq!(mountains_of(&engine, p0), 1);
+}
+
+/// The two Mountains are costs paid while casting, not an effect of resolution.
+/// Countering Fireblast neither returns them nor deals its damage.
+#[test]
+fn fireblast_keeps_its_alternative_costs_paid_when_countered() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[mountain(), mountain()])
+        .hand(0, &[fireblast()])
+        .battlefield(1, &[island(), island()])
+        .hand(1, &[counterspell()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let spell = in_hand(&engine, p0, fireblast()).unwrap();
+
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: spell })
+        .unwrap();
+    if matches!(engine.pending(), Pending::ChooseCastMode { .. }) {
+        let alternative = choose_cast_kind(&engine, CastModeKind::Alternative(0));
+        engine
+            .apply(p0, PlayerAction::ChooseMode(alternative))
+            .unwrap();
+    }
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p1],
+            },
+        )
+        .unwrap();
+    for _ in 0..2 {
+        let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
+            panic!("expected a Mountain sacrifice, got {:?}", engine.pending());
+        };
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseObjects {
+                    objects: vec![options[0]],
+                },
+            )
+            .unwrap();
+    }
+    assert_eq!(mountains_of(&engine, p0), 0, "costs are already paid");
+    assert_eq!(engine.state().object(spell).unwrap().zone, Zone::Stack);
+
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    cast_from_hand(&mut engine, p1, counterspell());
+    aim_at(&mut engine, p1, spell);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(mountains_of(&engine, p0), 0, "the costs are not refunded");
+    assert_eq!(engine.state().players[1].life, 20, "no damage was dealt");
+    assert!(
+        in_graveyard(&engine, p0, fireblast()).is_some(),
+        "the countered spell goes to the graveyard"
+    );
 }

@@ -256,6 +256,9 @@ pub struct GameLog {
     /// entry replacement, a shockland's life, asks first): the move onto the
     /// battlefield writes their play, with who played them.
     landing: BTreeMap<ObjectId, PlayerId>,
+    /// The cards of a melded or mutated permanent parked in the command zone
+    /// ([`Self::moved`]): when they leave, they leave the battlefield.
+    merged: BTreeSet<ObjectId>,
     /// The time as the caller last told it ([`Self::tell_time`]).
     now: u64,
     naming: Naming,
@@ -298,6 +301,7 @@ impl GameLog {
             phase: None,
             aims: BTreeMap::new(),
             landing: BTreeMap::new(),
+            merged: BTreeSet::new(),
             now: 0,
             naming: Naming::default(),
         };
@@ -396,6 +400,14 @@ impl GameLog {
         let synthetic = obj
             .ability
             .is_some_and(|loc| loc.index == AbilityRef::SYNTHETIC);
+        // So does a printed trigger about the object its event was about
+        // ("that creature": exalted, Spirit Shackle's enchanted creature),
+        // `TargetSpec::EventObject`: the engine binds it as the first
+        // targets, the card does not target it (CR 115.1, 603.2). A second
+        // instance after it is a real one.
+        let about_its_event = obj
+            .target_req
+            .is_some_and(|req| matches!(req.spec, baylee_cards_dsl::TargetSpec::EventObject));
         Some(Aim {
             controller,
             source,
@@ -403,6 +415,8 @@ impl GameLog {
             modes,
             objects: if synthetic {
                 Vec::new()
+            } else if about_its_event {
+                obj.second_targets().to_vec()
             } else {
                 obj.targets
                     .iter()
@@ -591,7 +605,7 @@ impl GameLog {
             // The permanent's own label says which doors are open, and a
             // trigger the unlock set off has its own line.
             | GameEvent::DoorUnlocked { .. }
-            // A cast taken back (CR 732.1) never left its zone, so no seat
+            // A cast taken back (CR 733.1) never left its zone, so no seat
             // but the caster ever saw which card it was: a line naming it
             // would reveal a card in a hidden hand, and a line naming none
             // says only that the caster thought for a while.
@@ -718,6 +732,16 @@ impl GameLog {
                     sees,
                 );
                 self.cause_before_effect(batch);
+            }
+            GameEvent::Voted { player, object } => {
+                let (object, sees) = self.refer(state, *object);
+                self.push(
+                    LogEvent::Voted {
+                        player: *player,
+                        object,
+                    },
+                    vec![sees],
+                );
             }
             GameEvent::CoinFlipped { player, won } => self.push(
                 LogEvent::CoinFlipped {
@@ -913,6 +937,26 @@ impl GameLog {
         discarded: &mut BTreeSet<ObjectId>,
         batch: usize,
     ) {
+        // The other card of a melded or mutated permanent waits in the command
+        // zone as the engine's bookkeeping (`Rider::MergedInto`), and that
+        // zone's view leaves it out too. To a player it is part of the
+        // permanent: it never went there, and it leaves from the battlefield.
+        let merged = to == Zone::Command
+            && state.object(id).is_some_and(|object| {
+                object
+                    .riders
+                    .iter()
+                    .any(|rider| matches!(rider, baylee_engine::object::Rider::MergedInto(_)))
+            });
+        if merged {
+            self.merged.insert(id);
+            return;
+        }
+        let from = if from == Zone::Command && self.merged.remove(&id) {
+            Zone::Battlefield
+        } else {
+            from
+        };
         // Onto the stack is the cast or the ability; off it is the
         // resolution, or the counter that already has its line.
         if from == Zone::Stack || to == Zone::Stack {
@@ -1153,7 +1197,7 @@ impl GameLog {
         source: ObjectId,
         controller: PlayerId,
     ) {
-        // The monarch's two abilities have no source (CR 724.2), so there is
+        // The monarch's two abilities have no source (CR 725.2), so there is
         // nothing to name one by; what it does has lines of its own.
         if source == ObjectId::NO_SOURCE {
             return;
@@ -1366,7 +1410,8 @@ fn activated(state: &GameState, obj: &GameObject) -> Option<bool> {
         | AbilityDef::Loyalty { .. } => Some(true),
         AbilityDef::Triggered { .. }
         | AbilityDef::ModalTriggered { .. }
-        | AbilityDef::SagaChapter { .. } => Some(false),
+        | AbilityDef::SagaChapter { .. }
+        | AbilityDef::Echo { .. } => Some(false),
         _ => None,
     }
 }
@@ -1986,8 +2031,59 @@ mod tests {
             phase: None,
             aims: BTreeMap::new(),
             landing: BTreeMap::new(),
+            merged: BTreeSet::new(),
             naming: Naming::default(),
         }
+    }
+
+    /// The other card of a melded permanent is parked in the command zone by
+    /// the engine: no line says it went there (report 5.11.2026, Bruna beside
+    /// Brisela), and it leaves the battlefield when the permanent does.
+    #[test]
+    fn a_melded_card_never_went_to_the_command_zone() {
+        let engine = game(vec![FILLER, FILLER]);
+        let mut state = engine.state().clone();
+        let cards = state.zones.list(ZoneLocation::Battlefield).clone();
+        state
+            .object_mut(cards[1])
+            .unwrap()
+            .riders
+            .push(baylee_engine::object::Rider::MergedInto(cards[0]));
+        let (mut shown, mut discarded) = (BTreeSet::new(), BTreeSet::new());
+        let mut log = a_log();
+        log.moved(
+            &state,
+            cards[1],
+            (Zone::Exile, Zone::Command),
+            None,
+            &mut shown,
+            &mut discarded,
+            0,
+        );
+        assert_eq!(log.len(), 0, "{:?}", log.lines);
+
+        state.object_mut(cards[1]).unwrap().riders.clear();
+        log.moved(
+            &state,
+            cards[1],
+            (Zone::Command, Zone::Graveyard),
+            None,
+            &mut shown,
+            &mut discarded,
+            0,
+        );
+        assert!(
+            matches!(
+                log.lines[0].event,
+                LogEvent::Moved {
+                    from: LogZone::Battlefield,
+                    to: LogZone::Graveyard,
+                    ..
+                }
+            ),
+            "{:?}",
+            log.lines
+        );
     }
 
     /// Only lines every seat is told in full fold: whether two private lines

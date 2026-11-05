@@ -546,6 +546,61 @@ impl ManaCost {
         out
     }
 
+    /// The cost with the coloured symbols removed that `taps` pay for
+    /// convoke, and how many taps paid one: each tapped creature pays one
+    /// coloured mana of one of its colours (CR 702.51a), so a tap of colours
+    /// `taps[i]` may pay `{W}` if it is white, `{W/U}` if it is white or
+    /// blue, and `{W/P}` or `{2/W}` with its white mana. The taps are
+    /// matched to the symbols they can pay, as many as can be (a maximum
+    /// matching, so a white-and-blue creature is not spent on `{W}` when a
+    /// white one could have paid it and it was the only one for `{U}`).
+    /// Generic mana is not touched: what a tap that paid no coloured symbol
+    /// pays is the generic part, which [`Self::with_less_generic`] takes off
+    /// with the count the caller has left.
+    ///
+    /// Paying a coloured symbol rather than a generic one is never worse:
+    /// each tap pays one mana either way, and generic mana is the part any
+    /// mana pays.
+    #[must_use]
+    pub fn convoked_colored(&self, taps: &[ColorSet]) -> (Self, u32) {
+        // Each coloured symbol, expanded, with the colours a tap pays it with.
+        let mut symbols: Vec<(ManaSymbol, ColorSet)> = Vec::new();
+        for symbol in self.symbols() {
+            let colors = match symbol {
+                ManaSymbol::White => ColorSet::of(Color::White),
+                ManaSymbol::Blue => ColorSet::of(Color::Blue),
+                ManaSymbol::Black => ColorSet::of(Color::Black),
+                ManaSymbol::Red => ColorSet::of(Color::Red),
+                ManaSymbol::Green => ColorSet::of(Color::Green),
+                ManaSymbol::Hybrid(pair) | ManaSymbol::HybridPhyrexian(pair) => {
+                    ColorSet::of_pair(pair)
+                }
+                ManaSymbol::Phyrexian(color) | ManaSymbol::TwoOrColor(color) => ColorSet::of(color),
+                _ => ColorSet::EMPTY,
+            };
+            symbols.push((symbol, colors));
+        }
+        // Kuhn's augmenting paths: `owner[s]` is the tap paying symbol `s`.
+        let mut owner: Vec<Option<usize>> = vec![None; symbols.len()];
+        let mut paid = 0_u32;
+        for tap in 0..taps.len() {
+            let mut seen = vec![false; symbols.len()];
+            if convoke_augment(tap, taps, &symbols, &mut owner, &mut seen) {
+                paid += 1;
+            }
+        }
+        if paid == 0 {
+            return (*self, 0);
+        }
+        let mut out = Self::ZERO;
+        for (s, (symbol, _)) in symbols.iter().enumerate() {
+            if owner[s].is_none() {
+                out.add(*symbol, 1);
+            }
+        }
+        (out, paid)
+    }
+
     /// How many Phyrexian symbols, plain or hybrid, the cost holds — each
     /// one payable with its mana or with 2 life (CR 107.4f).
     #[must_use]
@@ -599,6 +654,14 @@ impl ManaCost {
         if n > 0 {
             out.add(ManaSymbol::Generic(n), 1);
         }
+        out
+    }
+
+    /// The cost with `n` more of `symbol`.
+    #[must_use]
+    pub const fn with_symbol(&self, symbol: ManaSymbol, n: u32) -> Self {
+        let mut out = *self;
+        out.add(symbol, n);
         out
     }
 
@@ -1272,9 +1335,67 @@ impl ManaCost {
     }
 }
 
+/// One augmenting path of [`ManaCost::convoked_colored`]'s matching: whether
+/// `tap` can be given a symbol, moving an earlier tap to another of its
+/// symbols if it must (`owner[s]` is the tap paying symbol `s`).
+fn convoke_augment(
+    tap: usize,
+    taps: &[ColorSet],
+    symbols: &[(ManaSymbol, ColorSet)],
+    owner: &mut [Option<usize>],
+    seen: &mut [bool],
+) -> bool {
+    for s in 0..symbols.len() {
+        if seen[s] || !taps[tap].intersects(symbols[s].1) {
+            continue;
+        }
+        seen[s] = true;
+        if owner[s].is_none_or(|other| convoke_augment(other, taps, symbols, owner, seen)) {
+            owner[s] = Some(tap);
+            return true;
+        }
+    }
+    false
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn cost(text: &str) -> ManaCost {
+        text.parse().expect("a mana cost")
+    }
+
+    /// Convoke's taps pay the coloured symbols their colours can pay, as
+    /// many as can be, and leave the generic part (CR 702.51a).
+    #[test]
+    fn convoke_pays_the_coloured_symbols_its_creatures_can_pay() {
+        let (w, u, g) = (
+            ColorSet::of(Color::White),
+            ColorSet::of(Color::Blue),
+            ColorSet::of(Color::Green),
+        );
+        let wu = w.union(u);
+        // Chord of Calling at X = 0: two green creatures pay {G}{G}.
+        let (left, paid) = cost("{G}{G}{G}").convoked_colored(&[g, g]);
+        assert_eq!((left, paid), (cost("{G}"), 2));
+        // A white-and-blue creature is kept for the {U} the white one
+        // cannot pay, whichever comes first.
+        for taps in [[wu, w], [w, wu]] {
+            let (left, paid) = cost("{2}{W}{U}").convoked_colored(&taps);
+            assert_eq!((left, paid), (cost("{2}"), 2), "{taps:?}");
+        }
+        // Hybrid, Phyrexian and {2/W} take their colour's mana.
+        let (left, paid) = cost("{W/U}{G/P}{2/W}").convoked_colored(&[u, g, w]);
+        assert_eq!((left, paid), (ManaCost::ZERO, 3));
+        // A colourless creature, and one of the wrong colour, pay nothing
+        // coloured; X, generic and {C} stay.
+        let (left, paid) = cost("{X}{3}{C}{W}").convoked_colored(&[ColorSet::EMPTY, g]);
+        assert_eq!((left, paid), (cost("{X}{3}{C}{W}"), 0));
+        // More taps than symbols pay what there is.
+        let (left, paid) = cost("{1}{W}").convoked_colored(&[w, w, w]);
+        assert_eq!((left, paid), (cost("{1}"), 1));
+    }
 
     #[test]
     fn spending_permissions_are_directed_idempotent_and_combine_in_any_order() {

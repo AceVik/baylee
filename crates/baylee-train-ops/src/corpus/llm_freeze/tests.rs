@@ -148,6 +148,60 @@ fn exact_requested_codex_identity_is_bound_and_legacy_agy_is_preserved() -> Resu
     )?;
     Ok(())
 }
+/// A model behind an API teaches at any effort, bound like Codex to the
+/// identity its request asked for.
+#[test]
+fn api_teachers_are_bound_to_their_requested_identity() -> Result<()> {
+    let minds = json!([{"kind":"llm_api","provider":"anthropic","model":"claude-haiku-5-5","effort":"medium"},{"kind":"llm_api","provider":"openai","model":"deepseek-flash","effort":"low"}]);
+    let request = json!({"models":["claude-haiku-5-5","deepseek-flash"]});
+    let rows = vec![
+        json!({"kind":"declared_mind","seat":0,"mind":minds[0]}),
+        json!({"kind":"declared_mind","seat":1,"mind":minds[1]}),
+    ];
+    let bound = json!({"requested_models":request["models"],"requested_minds":minds});
+    let evidence = |v: &Value| -> Result<BTreeMap<String, Vec<u8>>> {
+        Ok(BTreeMap::from([(
+            "input_receipt".to_owned(),
+            serde_json::to_vec(v)?,
+        )]))
+    };
+    identity::verify(&request, &rows, &evidence(&bound)?)?;
+    assert!(identity::verify(&request, &rows, &BTreeMap::new()).is_err());
+    for (key, value) in [
+        ("provider", "agy"),
+        ("provider", "elsewhere"),
+        ("model", "other"),
+        ("kind", "llm_cli"),
+        ("level", "steady"),
+    ] {
+        let mut changed = bound.clone();
+        changed["requested_minds"][0][key] = json!(value);
+        assert!(
+            identity::verify(&request, &rows, &evidence(&changed)?).is_err(),
+            "{key}={value}"
+        );
+    }
+    let mut spoofed = rows;
+    spoofed[0]["mind"]["effort"] = json!("high");
+    assert!(identity::verify(&request, &spoofed, &evidence(&bound)?).is_err());
+    Ok(())
+}
+/// `JetBrains`' Junie teaches at any effort; agy and Codex only at low.
+#[test]
+fn a_junie_teacher_takes_any_effort_and_the_first_clis_only_low() {
+    let junie = json!({"kind":"llm_cli","provider":"junie","model":"junie-lite","effort":"medium"});
+    assert!(identity::teacher(&junie, "junie-lite"));
+    assert!(!identity::teacher(&junie, "opus"));
+    let agy =
+        json!({"kind":"llm_cli","provider":"agy","model":"gemini-3.8-flash-low","effort":"medium"});
+    assert!(!identity::teacher(&agy, "gemini-3.8-flash-low"));
+    let codex = json!({"kind":"llm_cli","provider":"codex","model":"gpt-6.1-terra","effort":"low"});
+    assert!(identity::teacher(&codex, "gpt-6.1-terra"));
+    assert!(!identity::teacher(
+        &json!({"kind":"llm_cli","provider":"agy","model":"gpt-6.1-terra","effort":"low"}),
+        "gpt-6.1-terra"
+    ));
+}
 #[test]
 fn earliest_admitted_selection_and_existing_output_are_explicit() -> Result<()> {
     let directory = tempfile::tempdir()?;
@@ -281,4 +335,37 @@ fn source_alias_is_stable_across_symlink_paths() -> Result<()> {
         frozen_game_key(&alias, attempt, &digest(&record))?
     );
     Ok(())
+}
+/// A seat declares its requested mind first, then fallbacks of its chain in
+/// order (one passed over, one declared again), and at most the house last.
+#[test]
+fn a_seat_s_declarations_follow_its_requested_chain() {
+    let agy =
+        json!({"kind":"llm_cli","provider":"agy","model":"claude-sonnet-5-5-low","effort":"low"});
+    let sonnet =
+        json!({"kind":"llm_api","provider":"anthropic","model":"claude-sonnet-5-5","effort":"low"});
+    let haiku = json!({"kind":"llm_api","provider":"anthropic","model":"claude-haiku-5-5","effort":"medium"});
+    let house = json!({"kind":"house","level":"sharp"});
+    let chain = [sonnet.clone(), haiku.clone()];
+    let model = "claude-sonnet-5-5-low";
+    let follows = |declared: &[&Value]| identity::chain_followed(declared, &agy, &chain, model);
+    assert!(follows(&[&agy]));
+    assert!(follows(&[&agy, &agy, &sonnet, &haiku]));
+    assert!(follows(&[&agy, &haiku, &haiku, &house]));
+    assert!(follows(&[&agy, &sonnet, &house]));
+    assert!(!follows(&[]));
+    assert!(!follows(&[&sonnet]), "the primary first");
+    assert!(!follows(&[&house]), "never the house first");
+    assert!(!follows(&[&agy, &haiku, &sonnet]), "never handed back");
+    assert!(
+        !follows(&[&agy, &house, &sonnet]),
+        "nothing after the house"
+    );
+    let stranger =
+        json!({"kind":"llm_api","provider":"anthropic","model":"claude-opus-5-5","effort":"low"});
+    assert!(!follows(&[&agy, &stranger]), "only the requested chain");
+    let receipt = json!({"requested_fallbacks": [[sonnet], []]});
+    assert_eq!(identity::requested_fallbacks(&receipt, 0).len(), 1);
+    assert!(identity::requested_fallbacks(&receipt, 1).is_empty());
+    assert!(identity::requested_fallbacks(&json!({}), 0).is_empty());
 }

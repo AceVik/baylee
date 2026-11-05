@@ -45,7 +45,7 @@ fn conduit_of_worlds_plays_a_land_from_the_graveyard() {
 /// `{1}{G}` with one Forest tapped in the window. Passing there leaves the
 /// pool short, so the cast's own window opens for the rest (the wizard's
 /// Done stage); passing short again casts nothing, the Spider stays in the
-/// graveyard, and the play begun is reversed (CR 732.1): the Forest tapped
+/// graveyard, and the play begun is reversed (CR 733.1): the Forest tapped
 /// in the first window untaps and its {G} leaves the pool. The second
 /// window carries the first one's start, so both are given back together.
 #[test]

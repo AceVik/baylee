@@ -147,6 +147,8 @@ pub enum Condition {
     Revolt,
     /// You cast an instant or sorcery spell this turn, even if countered.
     CastInstantOrSorceryThisTurn,
+    /// You cast a creature spell this turn, even if countered.
+    CastCreatureThisTurn,
     /// You declared at least this many distinct creature incarnations as attackers this turn.
     AttackedWithAtLeast(u32),
     /// This exact incarnation attacked during its controller's last completed turn.
@@ -199,6 +201,10 @@ pub enum Condition {
     YourTurn,
     /// The controller has at most this many life.
     LifeAtMost(i32),
+    /// "If your life total is less than your starting life total" (Resolute
+    /// Archangel): the controller's life is below the starting life total of
+    /// this game (CR 103.4), whatever the format made it.
+    LifeBelowStarting,
     /// "If no spells were cast last turn" — by any player (the Innistrad
     /// werewolves). There was no last turn at the first upkeep of the game,
     /// so the sentence is false there, as daybound's own check is skipped.
@@ -486,6 +492,10 @@ pub enum Condition {
     /// battlefield (Ebon Praetor, Soul Exchange: "if the sacrificed/exiled
     /// creature was a Thrull").
     SacrificedForCost(&'static Filter),
+    /// Echo's intervening `if` (CR 702.30a, CR 603.4): this permanent came
+    /// under your control since the beginning of your last upkeep, and it is
+    /// still yours to sacrifice.
+    SourceCameUnderYourControlSinceYourLastUpkeep,
 }
 
 /// Trigger conditions for triggered abilities.
@@ -787,6 +797,10 @@ pub enum Trigger {
     /// "Whenever this creature becomes blocked" (CR 509.3c): once, however
     /// many creatures block it. The event object is the first of them.
     BecomesBlocked,
+    /// Whenever an attacking creature matching `filter` becomes blocked:
+    /// once per attacker, however many creatures block it. The attacker,
+    /// rather than a blocker, is the event object.
+    ControlledBecomesBlocked(&'static Filter),
     /// "Whenever [a creature matching the filter] blocks" (Ydwen Efreet):
     /// once when it is declared as a blocker, however many attackers it
     /// blocks (CR 509.3a). The blocker is the trigger's event object.
@@ -1031,8 +1045,9 @@ pub enum AbilityDef {
         /// The prepare spell face within that definition.
         face: u8,
     },
-    /// Echo (CR 702.30): at your next upkeep after this enters, pay the
-    /// cost or sacrifice it.
+    /// Echo (CR 702.30a), a triggered ability the keyword writes out: at the
+    /// beginning of your upkeep, if this came under your control since the
+    /// beginning of your last upkeep, sacrifice it unless you pay the cost.
     Echo {
         /// The echo cost.
         cost: baylee_core::mana::ManaCost,

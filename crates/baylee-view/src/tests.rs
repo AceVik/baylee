@@ -45,6 +45,8 @@ fn obj(id: u32, controller: u8) -> PublicObject {
         attached_to: None,
         targets: vec![],
         stack_item: None,
+        times_kicked: 0,
+        bought_back: false,
         summoning_sick: false,
         ability_mana_spending: baylee_core::mana::ManaSpending::EXACT,
         granted_mana: None,
@@ -116,6 +118,10 @@ fn view(seats: u8) -> PlayerView {
         announced_x: None,
         sorcery_lock: None,
         sorceries_have_flash: false,
+        flash_types: baylee_core::types::TypeSet::EMPTY,
+        controls: Vec::new(),
+        foreign_targets: Vec::new(),
+        ballots: Vec::new(),
     }
 }
 

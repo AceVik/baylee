@@ -328,3 +328,47 @@ fn restricted_mana_pays_for_the_spells_it_names_and_no_others() {
         );
     }
 }
+
+/// The house reads a filter land as the seat does: Meteor Storm's `{R}{G}` is
+/// payable only through Shimmering Grotto's paid ability, and each decision
+/// is planned afresh, so the chain has to go on from the mana it already made.
+#[test]
+fn the_house_pays_through_a_filter_land() {
+    let preset = position(
+        &["Meteor Storm"],
+        &[
+            "Canyon Slough",
+            "Crucible of the Spirit Dragon",
+            "Shimmering Grotto",
+        ],
+    );
+    let mut engine = Engine::new(&preset, RegistryLookup).unwrap();
+    let agent = HeuristicAgent::new(AIProfile::EXPERT);
+    let mut cast = false;
+    for seq in 0..100 {
+        let Some(seat) = pending_player(engine.pending()) else {
+            break;
+        };
+        let view = asked_view(engine.state(), seat, seq, engine.pending());
+        if view.turn > 1 {
+            break;
+        }
+        cast |= view.battlefield.iter().any(|o| {
+            o.card
+                .is_some_and(|c| c.index == entry("Meteor Storm").card)
+        });
+        let action = match engine.pending() {
+            Pending::Mulligan { .. } => PlayerAction::MulliganKeep,
+            _ if seat == PlayerId::new(0) => agent.act(&view, engine.pending()),
+            Pending::Priority { .. } => PlayerAction::PassPriority,
+            other => panic!("unexpected opposing question: {other:?}"),
+        };
+        engine
+            .apply(seat, action)
+            .expect("every planned action is legal");
+    }
+    assert!(
+        cast,
+        "the Crucible pays the Grotto, the Grotto makes the green"
+    );
+}

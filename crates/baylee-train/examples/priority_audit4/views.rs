@@ -53,7 +53,8 @@ fn action_objects(action: &PlayerAction) -> Vec<ObjectId> {
     match action {
         PlayerAction::CastSpell { card }
         | PlayerAction::PlayLand { card }
-        | PlayerAction::Suspend { card } => vec![*card],
+        | PlayerAction::Suspend { card }
+        | PlayerAction::Foretell { card } => vec![*card],
         PlayerAction::ActivateManaAbility { source }
         | PlayerAction::ActivateAbility { source, .. } => vec![*source],
         PlayerAction::ChooseManaAbility { source, .. }

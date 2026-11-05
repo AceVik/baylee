@@ -13,6 +13,7 @@ mod project;
 mod refusals;
 mod scouting;
 mod shared_hand;
+mod simulation;
 
 /// The awaited seat's clock answer, as a one-seat table asks it.
 fn timeout(session: &Session) -> Option<(PlayerId, PlayerAction)> {

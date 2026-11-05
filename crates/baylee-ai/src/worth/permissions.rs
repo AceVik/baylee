@@ -145,6 +145,7 @@ fn cast_this_turn(view: &PlayerView, card: CardIdentity) -> Option<&'static Face
         && matches!(view.phase, Phase::FirstMain | Phase::SecondMain);
     let fast = face.types.contains(TypeSet::INSTANT)
         || face.types.contains(TypeSet::SORCERY) && view.sorceries_have_flash
+        || face.types.intersects(view.flash_types)
         || baylee_cards::by_index(card.index)?
             .keywords_for_face(usize::from(card.face))
             .contains(KeywordSet::FLASH);

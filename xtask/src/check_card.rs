@@ -395,6 +395,9 @@ pub(crate) fn check_flashback_matches_the_printing(
         .faces
         .iter()
         .filter_map(|f| f.flashback)
+        // A non-mana-only flashback is zero mana plus `flashback_parts`;
+        // zero is not a printed mana symbol and must not invent "{0}" here.
+        .filter(|cost| *cost != baylee_core::mana::ManaCost::ZERO)
         .map(|cost| cost.to_string())
         .collect();
     if printed != written {

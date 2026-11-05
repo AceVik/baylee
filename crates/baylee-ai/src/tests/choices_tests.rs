@@ -69,6 +69,7 @@ fn gloom_mana_planning_continues_past_the_printed_cost() {
             can_pass: true,
             mana_abilities: (10..13).map(obj).collect(),
             spell_increases: vec![(obj(1), baylee_engine::choice::CastModeKind::Normal, 3)],
+            payable: vec![obj(1)],
             ..Default::default()
         }),
     };
@@ -258,6 +259,7 @@ fn a_needle_names_the_opponents_permanent_it_would_stop() {
     let pending = Pending::ChooseCardName {
         player: v.seat,
         types: baylee_core::types::TypeSet::EMPTY,
+        excluded_types: baylee_core::types::TypeSet::EMPTY,
     };
     assert_eq!(
         HeuristicAgent::new(AIProfile::EXPERT).act(&v, &pending),

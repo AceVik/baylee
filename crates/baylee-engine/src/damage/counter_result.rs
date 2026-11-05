@@ -91,7 +91,8 @@ impl DamageWork {
             player,
             prompt: YesNoPrompt::ApplyAdditionalCountersNext {
                 permanent: plans[index].recipient.object,
-                additional,
+                additional: additional.n,
+                kind: additional.kind,
             },
             source: None,
         })

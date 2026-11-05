@@ -53,6 +53,7 @@ pub struct DuelPlugin {
 #[allow(clippy::too_many_lines)] // one registration list, which grows with every animation
 pub(super) fn add_present_systems(app: &mut App) {
     app.init_resource::<hud::StackFold>()
+        .init_resource::<hud::HandArrival>()
         .init_resource::<hud::TrayReveal>()
         .init_resource::<hud::MenuRevision>()
         .init_resource::<hud::LogRevision>()
@@ -143,6 +144,9 @@ pub(super) fn add_present_systems(app: &mut App) {
                 // a hand card spawned this frame is spawned where the card
                 // already was, and this is what moves it from there.
                 touch::settle.after(hud::sync_overlay),
+                // A hand shown from another chair (CR 723.5) rises into
+                // place, after the rebuild that drew it.
+                hud::arrive_the_hand.after(hud::sync_overlay),
                 // After the rebuild too, and for the mirror of that reason:
                 // a card taken out of the row this frame is written to its
                 // window position by `send_off` and moved from there by
@@ -177,6 +181,10 @@ pub(super) fn add_present_systems(app: &mut App) {
                     // connection is lost: built once, written once a second.
                     hud::spawn_lost_banner,
                     hud::tick_lost_banner,
+                    // And who decides for whom (CR 723.5): built once,
+                    // written when the line changes.
+                    hud::spawn_control_banner,
+                    hud::show_control_banner,
                     hud::chosen_type::sync.after(table::glide),
                     hud::suspended::sync,
                     hud::describe_phase,
@@ -301,6 +309,8 @@ pub(super) fn add_present_systems(app: &mut App) {
                     hud::sync_players.after(hud::sync_ledge),
                     hud::glow_the_players.after(hud::sync_players),
                     hud::show_the_tags.after(hud::sync_players),
+                    // Who controls whom, over the chips (CR 723.5).
+                    hud::show_the_control_badges.after(hud::sync_players),
                     hud::show_priority_switch,
                     // A chip's or a plate's name in words, under a pointer
                     // resting on it.

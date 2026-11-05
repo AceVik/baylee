@@ -30,8 +30,13 @@ fn forest() -> CardIndex {
 }
 
 /// A table of `seats` players, all AI-controlled, each on a plain deck, with
-/// every mulligan still to be answered.
+/// every mulligan still to be answered; seat 0 starts.
 fn open_table(seats: usize, seed: u64) -> Engine<RegistryLookup> {
+    open_table_started_by(seats, seed, 0)
+}
+
+/// [`open_table`], with seat `starting` taking the first turn.
+fn open_table_started_by(seats: usize, seed: u64, starting: u8) -> Engine<RegistryLookup> {
     let deck: Vec<DeckEntry> = (0..60)
         .map(|_| DeckEntry {
             rule_print: None,
@@ -45,7 +50,7 @@ fn open_table(seats: usize, seed: u64) -> Engine<RegistryLookup> {
         format: FormatId::Freeform,
         seed,
         house_rules: HouseRules {
-            starting_player: Some(0),
+            starting_player: Some(starting),
             ..HouseRules::default()
         },
         modifiers: vec![],
@@ -74,7 +79,11 @@ fn open_table(seats: usize, seed: u64) -> Engine<RegistryLookup> {
 
 /// The same table once every seat has kept, in seat order.
 fn table(seats: usize, seed: u64) -> Engine<RegistryLookup> {
-    let mut engine = open_table(seats, seed);
+    keep_all(open_table(seats, seed), seats)
+}
+
+/// `engine` once each of its `seats` has kept, in the order asked.
+fn keep_all(mut engine: Engine<RegistryLookup>, seats: usize) -> Engine<RegistryLookup> {
     for _ in 0..seats {
         let Pending::Mulligan { player, .. } = engine.pending().clone() else {
             panic!("expected a mulligan, got {:?}", engine.pending())
@@ -201,6 +210,21 @@ fn in_a_duel_the_starting_player_still_skips_the_draw() {
         hands,
         vec![7, 7],
         "the starting player drew on turn 1 in a duel"
+    );
+}
+
+/// CR 103.8a skips the draw of the player who plays first, whichever seat
+/// that is: with seat 1 starting, seat 1 does not draw on turn 1 (it did,
+/// when the skip was tied to seat 0).
+#[test]
+fn in_a_duel_the_skip_follows_the_starting_player_not_seat_0() {
+    let mut engine = keep_all(open_table_started_by(2, 11, 1), 2);
+    let hands = hand_sizes(&mut engine);
+    assert_eq!(engine.state().turn.active, PlayerId::new(1));
+    assert_eq!(
+        hands,
+        vec![7, 7],
+        "seat 1 started and drew on turn 1 in a duel"
     );
 }
 

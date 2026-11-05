@@ -10,7 +10,10 @@ use bevy::ecs::system::{RunSystemOnce, System};
 use std::{hint::black_box, time::Duration};
 
 // Kept independent of advance_card: this is the pre-optimization scan, including
-// the exact arithmetic/order and moving-count semantics. PlainMotion also lets
+// the exact arithmetic/order and moving-count semantics for advancing clocks.
+// Both implement the explicit zero-time no-write contract; that contract also
+// has a separate test below, independent of this differential oracle.
+// PlainMotion also lets
 // the benchmark charge summary-tick writes only to the candidate.
 trait Goal: Component {
     fn target(&self) -> Transform;
@@ -60,6 +63,9 @@ fn original<M: Goal>(
             continue;
         }
         moving += 1;
+        if t == 0.0 {
+            continue;
+        }
         transform.translation = transform.translation.lerp(target.translation, t);
         transform.rotation = transform.rotation.slerp(target.rotation, t);
         transform.scale = transform.scale.lerp(target.scale, t);
@@ -180,6 +186,58 @@ fn unchanged_columns_skip_target_ticks_with_a_correct_fallback_without_summary_t
         app.world().resource::<WakeProbe>().inspected,
         if Motion::HAS_SUMMARY_TICK { 0 } else { 5 }
     );
+}
+
+#[test]
+fn zero_time_preserves_pose_ticks_without_forgetting_active_cards() {
+    for count in [1, 128] {
+        let mut app = app(false);
+        let start = Transform {
+            translation: Vec3::new(-1.0, 0.3, 2.0),
+            rotation: Quat::from_rotation_y(0.7),
+            scale: Vec3::splat(0.8),
+        };
+        let target = Transform {
+            translation: Vec3::new(9.0, 0.4, -2.0),
+            rotation: Quat::from_rotation_z(1.3),
+            scale: Vec3::splat(1.4),
+        };
+        let cards: Vec<_> = (0..count).map(|_| card(&mut app, target, start)).collect();
+        step(&mut app, &cards, 0.0);
+        let ticks: Vec<_> = cards
+            .iter()
+            .map(|e| {
+                app.world()
+                    .entity(*e)
+                    .get_ref::<Transform>()
+                    .unwrap()
+                    .last_changed()
+            })
+            .collect();
+        for _ in 0..4 {
+            let frame = step(&mut app, &cards, 0.0);
+            assert_eq!(frame.report.moving, count);
+            for (e, tick) in cards.iter().zip(&ticks) {
+                assert_eq!(at(&app, *e), start);
+                assert_eq!(
+                    app.world()
+                        .entity(*e)
+                        .get_ref::<Transform>()
+                        .unwrap()
+                        .last_changed(),
+                    *tick
+                );
+            }
+        }
+        step(&mut app, &cards, 1.0 / 60.0);
+        assert!(cards.iter().all(|e| at(&app, *e) != start));
+        // Explicit snaps still apply while paused.
+        app.world_mut()
+            .entity_mut(cards[0])
+            .insert(Visibility::Hidden);
+        step(&mut app, &cards, 0.0);
+        assert_eq!(at(&app, cards[0]), target);
+    }
 }
 
 #[test]

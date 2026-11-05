@@ -187,7 +187,9 @@ fn play_the_kicker(
             _ => agent.act_with_context(&view, pending, &engine.decision_context()),
         };
         if let Pending::YesNo {
-            prompt: baylee_engine::choice::YesNoPrompt::Kicker,
+            prompt:
+                baylee_engine::choice::YesNoPrompt::Kicker
+                | baylee_engine::choice::YesNoPrompt::Buyback { .. },
             ..
         } = pending
         {
@@ -196,6 +198,19 @@ fn play_the_kicker(
         engine.apply(seat, action).expect("the kicked cast is paid");
     }
     panic!("the spell never resolved; kicker answered {kicker:?}");
+}
+
+/// Buyback (CR 702.27a) through the real engine: with five Swamps and nothing
+/// else to do with them the agent floats {B} and {4}, answers yes, and has
+/// its Lab Rats back with a Rat on the table. A sixth land is not needed.
+#[test]
+fn a_house_seat_with_the_mana_to_spare_buys_its_spell_back() {
+    let board = ["Swamp"; 5];
+    let (paid, view) = play_the_kicker(&["Lab Rats"], &board, |v| {
+        v.battlefield_of(v.seat).any(|o| o.name == "Rat")
+    });
+    assert_eq!(paid, Some(PlayerAction::YesNo(true)));
+    assert_eq!(view.hand.len(), 1, "the Rats came home");
 }
 
 /// Kicker (CR 702.33a) and "you may waterbend" (CR 701.67a) through the real
@@ -320,4 +335,131 @@ fn a_convoke_cast_the_pool_already_pays_taps_no_creature() {
             .expect("the agent's answer is legal");
     }
     panic!("Chord of Calling never resolved");
+}
+
+/// Goblin Warchief: "Goblin spells you cast cost {1} less to cast." The
+/// engine charges the Sky Raider `{1}{R}` under it, and the house priced the
+/// printed `{2}{R}`: with two Mountains it held the Goblin for a land it did
+/// not have (NEW-03, 3.11.2026; CR 601.2f). The cast has to come on the first
+/// turn, before a drawn land would pay the printed price.
+#[test]
+fn the_ai_casts_a_goblin_for_the_price_the_warchief_leaves() {
+    let me = PlayerId::new(0);
+    let preset = position(
+        &["Goblin Sky Raider"],
+        &["Goblin Warchief", "Mountain", "Mountain"],
+    );
+    let mut engine = Engine::new(&preset, RegistryLookup).unwrap();
+    let agent = HeuristicAgent::new(AIProfile::EXPERT);
+    for seq in 0..100 {
+        let pending = engine.pending();
+        let seat = pending_player(pending).expect("fixture remains live");
+        let view = asked_view(engine.state(), seat, seq, pending);
+        if view.battlefield_of(me).any(|o| {
+            o.card
+                .is_some_and(|c| c.index == entry("Goblin Sky Raider").card)
+        }) {
+            assert_eq!(view.turn, 1, "cast off the two Mountains, not a later land");
+            assert!(untapped(&view, "Mountain").is_empty());
+            return;
+        }
+        assert_eq!(view.turn, 1, "the house passed its turn holding the Goblin");
+        let action = match pending {
+            Pending::Mulligan { .. } => PlayerAction::MulliganKeep,
+            Pending::Priority { .. } if seat != me => PlayerAction::PassPriority,
+            _ => agent.act_with_context(&view, pending, &engine.decision_context()),
+        };
+        engine
+            .apply(seat, action)
+            .expect("the house answers from its offer");
+    }
+    panic!("the table never moved past the first turn");
+}
+
+/// A spell that has to target and has nothing to point at is not cast, and
+/// so nothing is tapped for it (CR 601.2c). Terror, Fear (an Aura's "enchant
+/// creature" is its target, CR 303.4a) and Disenchant over boards that hold
+/// no legal target for them: the house's first turn ends with every land it
+/// had still untapped. NEW-04, 3.11.2026.
+#[test]
+fn the_ai_taps_nothing_for_a_spell_with_no_legal_target() {
+    let me = PlayerId::new(0);
+    for (spell, lands, theirs) in [
+        ("Terror", &["Swamp", "Swamp"][..], &[][..]),
+        // Terror says "nonblack": a black creature is no target for it.
+        ("Terror", &["Swamp", "Swamp"][..], &["Vampire Bats"][..]),
+        ("Fear", &["Swamp", "Swamp"][..], &[][..]),
+        (
+            "Disenchant",
+            &["Plains", "Plains"][..],
+            &["Grizzly Bears"][..],
+        ),
+    ] {
+        let mut preset = position(&[spell], lands);
+        preset.seats[1].starting_battlefield = theirs.iter().map(|name| entry(name)).collect();
+        let mut engine = Engine::new(&preset, RegistryLookup).unwrap();
+        let agent = HeuristicAgent::new(AIProfile::EXPERT);
+        for seq in 0..100 {
+            let pending = engine.pending();
+            let seat = pending_player(pending).expect("fixture remains live");
+            let view = asked_view(engine.state(), seat, seq, pending);
+            if view.turn > 1 {
+                break;
+            }
+            let tapped = view
+                .battlefield_of(me)
+                .filter(|o| o.status.contains(baylee_view::ObjectStatus::TAPPED))
+                .count();
+            assert_eq!(
+                tapped, 0,
+                "the house tapped a land for {spell} with nothing to target ({theirs:?})"
+            );
+            let action = match pending {
+                Pending::Mulligan { .. } => PlayerAction::MulliganKeep,
+                Pending::Priority { .. } if seat != me => PlayerAction::PassPriority,
+                _ => agent.act_with_context(&view, pending, &engine.decision_context()),
+            };
+            engine
+                .apply(seat, action)
+                .expect("the house answers from its offer");
+        }
+    }
+}
+
+/// Under Urborg, Tomb of Yawgmoth and Yavimaya, Cradle of Growth each of the
+/// two is a Swamp Forest with no printed mana ability: it taps for `{B}` or
+/// `{G}` through CR 305.6 alone. The house read that shortcut only for a land
+/// of one basic type, so it saw no source and held a Grizzly Bears it could
+/// cast (NEW-09, 3.11.2026).
+#[test]
+fn the_ai_taps_a_land_with_two_basic_types_for_the_colour_it_needs() {
+    let me = PlayerId::new(0);
+    let preset = position(
+        &["Grizzly Bears"],
+        &["Urborg, Tomb of Yawgmoth", "Yavimaya, Cradle of Growth"],
+    );
+    let mut engine = Engine::new(&preset, RegistryLookup).unwrap();
+    let agent = HeuristicAgent::new(AIProfile::EXPERT);
+    for seq in 0..100 {
+        let pending = engine.pending();
+        let seat = pending_player(pending).expect("fixture remains live");
+        let view = asked_view(engine.state(), seat, seq, pending);
+        if view.battlefield_of(me).any(|o| {
+            o.card
+                .is_some_and(|c| c.index == entry("Grizzly Bears").card)
+        }) {
+            assert_eq!(view.turn, 1);
+            return;
+        }
+        assert_eq!(view.turn, 1, "the house passed its turn holding the Bears");
+        let action = match pending {
+            Pending::Mulligan { .. } => PlayerAction::MulliganKeep,
+            Pending::Priority { .. } if seat != me => PlayerAction::PassPriority,
+            _ => agent.act_with_context(&view, pending, &engine.decision_context()),
+        };
+        engine
+            .apply(seat, action)
+            .expect("the house answers from its offer");
+    }
+    panic!("the table never moved past the first turn");
 }

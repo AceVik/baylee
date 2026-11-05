@@ -40,10 +40,16 @@ pub struct CardBody {
     pub enter_modifiers: Vec<String>,
     /// `flashback` expression for the front face, when present.
     pub flashback: Option<String>,
+    /// `foretell` expression for the front face, when present.
+    pub foretell: Option<String>,
     /// `cost_reduction` expression for the front face, when present.
     pub cost_reduction: Option<String>,
     /// `entwine` expression for the front face, when present.
     pub entwine: Option<String>,
+    /// `buyback` expression for the front face, when present.
+    pub buyback: Option<String>,
+    /// `multikicker` expression for the front face, when present.
+    pub multikicker: Option<String>,
     /// `KeywordSet` constants to union.
     pub keywords: Vec<String>,
     /// Ability expressions for the card literal.
@@ -59,8 +65,11 @@ impl CardBody {
         self.abilities.is_empty()
             && self.enter_modifiers.is_empty()
             && self.flashback.is_none()
+            && self.foretell.is_none()
             && self.cost_reduction.is_none()
             && self.entwine.is_none()
+            && self.buyback.is_none()
+            && self.multikicker.is_none()
             && self.keywords.is_empty()
     }
 

@@ -434,7 +434,9 @@ express at all yet.
   pitch/evoke/conditional-free (conditions: `Always`, `NotYourTurn`,
   `CommanderControlled`). Its `parts` pay `PayLife` and `ExileFromHand`, and
   both are asked about before the card is offered: a pitch with nothing in
-  hand to exile is not a cast the engine lists.
+  hand to exile is not a cast the engine lists. Repeated `ExileFromHand` parts
+  require distinct cards, both in the offer and in payment; the desktop planner
+  uses the same collective availability check rather than counting one card twice.
 - `FaceDef.additional_costs: &[Cost]` — kicker (optional, yes/no at cast).
   Only its `mana` is read; `parts` is paid by nothing and is held empty.
 - `waterbend = true` — "you may waterbend {N}": the additional cost above is
@@ -450,6 +452,24 @@ express at all yet.
   targets. Nothing else is written for it: the trigger is the engine's, not
   an ability on the face. A mana cost only, as every printed replicate cost
   is.
+- `buyback = Some(cost!("{3}"))` — "Buyback {3}" (CR 702.27a). Asked after the
+  kicker and before the targets; a spell it was paid for goes to its owner's
+  hand as it resolves, and nowhere but as it resolves. A cost in parts is
+  written in them: `cost!(Sacrifice(&Filter::LAND))`, `cost!(PayLife(4))`,
+  `cost!(Discard(&Filter::Any), Discard(&Filter::Any))`,
+  `cost!(PayLife(3), DiscardRandom)`. `cast_wizard::paid_as_a_buyback_cost`
+  lists the parts it pays, and `offer_tests` holds the pool to that list.
+  `Modifier::BuybackCostsLess(n)` takes generic mana off the buyback cost
+  alone (Memory Crystal, CR 118.7a).
+- `multikicker = Some(mana!("{1}{G}"))` — "Multikicker {1}{G}" (CR 702.33c),
+  printed instead of `additional_costs`: asked as a count. A spell paid once
+  or more is kicked (CR 702.33d), so `Effect::IfKicked` and `Filter::Kicked`
+  read it as they read a kicker. "For each time it was kicked" is
+  `Amount::TimesKicked`, for a spell's effect, for
+  `EnterModifier::WithCounters`, and for an enters trigger, which
+  `Effect::IfKicked` also reads on. A permanent that came from anywhere but
+  the stack counts none. A mana cost only, as every printed one is. A target
+  count that grows with it (Comet Storm) has no word yet.
 - `FaceDef.mandatory_additional_costs: &[CostPart]` — e.g. `PayLifeX`. Pays
   `PayLifeX` and `PayLife`, and is the one cost list nothing gates at all.
   `PayLifeX` is bounded where it is asked instead — the wizard offers X up to
@@ -467,6 +487,15 @@ express at all yet.
   mana cost, when there is one), and the spell is exiled afterwards.
   `validate` holds it against the printing. What the cast paid is
   `Amount::ManaSpentToCast` (Memory Deluge).
+- `FaceDef.foretell: Option<ManaCost>` — a printed "Foretell {…}" (CR
+  702.143a), mana only. During its owner's turn, with priority, the fixed {2}
+  special action exiles that hand card face down without using the stack; it
+  needs neither a main phase nor an empty stack. Only that exiled incarnation
+  may be cast by its owner on a later turn as `CastModeKind::Foretell`, at this
+  printed cost and with the card's ordinary timing. The desktop offers normal
+  casting and the special action as separate choices when both are available.
+  `scriptgen` reads `K:Foretell:<cost>` only for a complete mana-only cost;
+  every other spelling stays an honest stub.
 - `Amount::TargetsPutIntoGraveyard` — "the number of Mountains put into a
   graveyard this way" (Volcanic Eruption): the resolving ability's targets
   that a graveyard holds as new objects since the resolution began, so a
@@ -867,7 +896,7 @@ Chromatic Sphere and the five Eggs use the stack because they draw cards.
 Quoted grants and delayed triggers are separate abilities. External replacements
 do not change this classification. Scry or shuffling alone does not cross a
 library zone boundary, but can still prohibit reversing an action under
-CR 732.1; mana classification is not an undo-safety guarantee. Triggered mana
+CR 733.1; mana classification is not an undo-safety guarantee. Triggered mana
 abilities retain their separate CR 605.1b criteria.
 
 Three of them go one step further and drop a field the card never decided.
@@ -1115,6 +1144,9 @@ rule: a teammate is not an opponent and a player who has lost is out),
 `TappedOrPayLife(n)`, `ChooseSubtype`
 (Roaming Throne, Reflections of Littjara, Cavern of Souls — answer stored
 on `obj.chosen_subtype`; creatures also gain the subtype in their base),
+`ChooseCardType` (Serra's Emissary — one of the fifteen card types of CR
+205.2a, answered through `Pending::ChooseCardType` and stored on
+`obj.chosen_card_type`; read back by `Filter::OfSourceChosenCardType`),
 `ChooseBasicLandType` (Phantasmal Terrain — the same question and the same
 place for the answer, offering the five basic land types of CR 205.3i and
 nothing else; read back by `Modifier::SetLandTypeToChosen`; the reader
@@ -1319,6 +1351,15 @@ face transformed — `Coverage::Implemented` and half a card. Note which way
 the fix went: the effect learned to read the spec, and the card was **not**
 given a target requirement, because that would have turned a sentence that
 does not target into one that does.
+
+Written as a target requirement it is still no target in the rules: the
+engine never re-checks it (`instance_legality`), so no hexproof or
+protection stops it. The view lists the bound object in the stack object's
+`targets`, as it lists a rule's own trigger's (prowess, undying); the game
+log writes no `Aimed` line for it (`baylee_gamehost::log::aim_of`) and the
+language-model seat tells it as "about #N (not a target)"
+(`narrator::board::names_without_targeting`), since "targets" made models
+report exalted, undying and Spirit Shackle as targeting (3 Nov 2026).
 
 The catch-all in `spec_object` is gone with it. It was `_ =>
 res.targets.first()`, and a spec that *names* something rather than asking
@@ -1902,7 +1943,9 @@ the upkeep trigger sacrifices it only when no fade counter can be removed.
 Also `AddCounter`, `AddCounterFilter`,
 `DrainAllCountersIntoSelf` (Thief of Blood), `AddMana`,
 `DelayedManaAtNextMain` (Mana Drain), `SacrificeSelf`,
-`PayCostOrLoseLater`, `ExileTargetsCreateTokens`.
+`AtNextUpkeepPrinted { ability }` (the delayed triggered ability its card lists
+as a sentence of its own, Pact of Negation), `PayManaOrLose { cost }`,
+`ExileTargetsCreateTokens`.
 Conditional: `IfKicked { then, otherwise }`, `IfEventPowerAtLeast { n, then,
 otherwise }` (Tribute to the World Tree), and four that run `then` or nothing
 — `IfCreaturesDiedAtLeast { n, then }`, `IfNotLostLifeThisTurn { then }`
@@ -1968,7 +2011,7 @@ Modal/sequence: `Sequence(&[..])`.
 `AddType`, `RemoveType`, `AddSubtype`, `AllCreatureTypes`,
 `ReplaceCreatureTypes(subtype)`, `AllBasicLandTypes`, `SetLandType(subtype)`,
 `SetLandTypeToChosen`,
-`BecomeType { types, subtype }`, `AnimateNoncreatureArtifact`, `AddColor`, `SetColor`,
+`BecomeType { types, subtype }`, `AnimateNoncreatureArtifact`, `CreatureWithManaValuePT`, `AddColor`, `SetColor`,
 `AddKeyword`, `RemoveKeyword`, `LoseKeywords`, `LoseAllAbilities`, `ModifyPT`, `SetPT`, `SwitchPT`, `LegendRuleOff`,
 `CantActivateArtifacts`, `ChosenNameCantActivate`, `OpponentsCastAsSorcery`,
 `PlayersCantLose`,
@@ -2026,6 +2069,21 @@ independently filtered statics: its own animation would invalidate the later
 noncreature check. Already-creature artifacts retain their existing P/T.
 The continuation follows CR 613.6; other type changes participate in dependency
 ordering in layer 4, while competing P/T setters use layer 7b order.
+
+`CreatureWithManaValuePT` is "[these permanents are] creatures in addition to
+their other types and have base power and base toughness each equal to their
+mana value" (Opalescence, with `Filter::And(&[Filter::ENCHANTMENT,
+Filter::Not(&Filter::HasSubtype(subtypes::enchantment::AURA)),
+Filter::Another])`). Layer 4 adds the creature type and nothing else (CR
+205.1b): no artifact, which is the difference from
+`AnimateNoncreatureArtifact`, and no noncreature question, so an enchantment
+that is already a creature has its printed power and toughness replaced too.
+The same effect sets both base values to the object's mana value in layer 7b
+(CR 613.4b), on the objects it took in layer 4 even where its filter would no
+longer match there (CR 613.6), and competes with other 7b setters by its
+timestamp. An effect whose filter reads creature waits for it in layer 4 (CR
+613.8a). Never write it as `AddType(TypeSet::CREATURE)` beside a second
+static: there is no 7b modifier that reads each object's own mana value.
 
 `SetPTToCount(count)` is "this creature's power and toughness are each equal
 to [count]" **granted** by an effect (Druid Class's animated land), with
@@ -2484,6 +2542,20 @@ Effects:
 
 - **`Effect::ExileAll { filter }`** is "Exile all [permanents]" (Farewell).
   Nothing is targeted.
+- **`Effect::ExileMostVotedNotControlledByYou { filter }`** gathers one legal
+  vote per player in turn order, starting with the resolving controller. These
+  are choices during resolution, not targets. Every matching permanent tied for
+  the most votes is exiled, including all first places in a tie; a player with
+  no legal ballot is skipped. Each voter is asked `ChoicePrompt::Vote`, and
+  each ballot is announced as it is cast (CR 608.2d): journaled as
+  `GameEvent::Voted`, told in every seat's log, and carried in every view's
+  `ballots` while the next player decides (`Engine::ballots`).
+- **`Effect::ExileAttackingForThenMaySearchBasicLands { player }`** exiles all
+  attacking creatures the chosen player controls, then offers that player up to
+  one basic land per creature that actually reached exile. The finds enter
+  tapped together and that player shuffles after an accepted search, including
+  a search for zero. Declining searches and shuffles nothing. Other attackers,
+  nonattackers and the caster's creatures are untouched.
 - **`Effect::ChooseYoursThen { filter, then }`** is "Choose a creature you
   control. It …" (Final Showdown). The choice is made as the effect
   resolves (CR 608.2d), is not a target, and must be made if it can be.
@@ -3429,7 +3501,10 @@ source references; it does not retarget self-pumps or change damage-source LKI.
 ### Typed text changes and composed copy abilities
 
 `ChangeTextWord { kind }` offers `NumberPrompt::TextReplacement { kind, target }`
-for the exact object incarnation. The twenty valid answers are distinct ordered
+for the exact object incarnation, and `ChangeTextWordThisTurn { kind }` is the
+same "until end of turn": `TextChangeEntry::lasting` holds what stands without
+it, composed apart and not undone, and cleanup goes back to that (CR 514.2).
+The twenty valid answers are distinct ordered
 WUBRG pairs: `from = answer / 4`, and the remainder indexes the four words other
 than `from`. Basic land types use Plains, Island, Swamp, Mountain, Forest in the
 same order. Oracle strings remain unchanged; `PublicObject::word_changes` is a
@@ -3962,6 +4037,14 @@ The verbs that go with it:
   a matching card from `whose`'s graveyard as this resolves and returns it to
   the battlefield under its owner's control (Reincarnation's delayed trigger,
   `whose: PlayerRel::OwnerOfEvent`, inside `Effect::WhenTargetDiesThisTurn`).
+- `Effect::TopOfYourGraveyard { filter }` — "the top [filter] card of your
+  graveyard" (Corpse Dance). Moves nothing: it names the card, untargeted (CR
+  115.1), and the instructions after it read that card as a target, so
+  `Effect::reanimate(TargetSpec::Object(&Filter::Any))`, `Effect::ModifyTargets`
+  and an `Effect::AtNextEndStep` about it all work. With no such card they do
+  nothing. Spell abilities only: `graveyard_order::card_reads_order` looks there
+  to turn on CR 404.3's ordering question, so another kind of ability needs
+  that function taught first.
 - `Effect::WhenSourceDiesThisTurn { effects }` — "when this creature dies
   this turn, …" (Golden Guardian); `Effect::ReturnSourceFromGraveyard { face: Some(1), .. }`
   inside it returns the card that died, transformed.
@@ -4152,6 +4235,11 @@ Effects:
   included) can't be attacked; their planeswalkers can.
 - `Filter::OfSourceChosenColor` — of the colour the source chose as it
   entered (`EnterModifier::ChooseColor`).
+- `Filter::OfSourceChosenCardType` — has the card type chosen for the source
+  by `EnterModifier::ChooseCardType`. It reads projected characteristics and
+  belongs in a source-relative modifier such as `Modifier::ProtectionFrom` or
+  `Modifier::PlayerProtectionFrom { who, from }`; the latter applies only the
+  damage-prevention and targeting parts of protection to a player (CR 702.16b).
 - `Condition::ChosenOpponentControls(&filter)` — the opponent the source chose
   as it entered (`EnterModifier::ChooseOpponent`) controls a matching
   permanent. Jihad: `enter_modifiers = &[EnterModifier::ChooseColor, EnterModifier::ChooseOpponent]`;
@@ -4546,7 +4634,9 @@ optional `TargetReq`. The observer ends at combat end when
 
 `Condition::SourceBlockedOrWasBlockedSinceYourLastUpkeep` reads this source
 incarnation's combat history since the controller's previous upkeep.
-`CreatureDamagedBySourceDiedThisTurn` reads the current turn's source-specific
+`SourceCameUnderYourControlSinceYourLastUpkeep` is echo's intervening `if`
+(`docs/engine-internals.md`), which `AbilityDef::Echo` supplies and no card
+writes. `CreatureDamagedBySourceDiedThisTurn` reads the current turn's source-specific
 damage/death history. `SomeDefendingPlayerControlsNone(&Filter)` succeeds
 when an eligible defending player controls no matching permanent.
 `Duration::UntilStartOfAffectedNextUntap` ends before untap determination in
@@ -4644,11 +4734,11 @@ brackets. Read them as vocabulary, not as card text.
 
 **Controlling a player.** `Effect::ControlPlayerNextTurn { player }`
 [Mindslaver] gives the resolving controller control of each player of
-`player` during the next turn that player actually takes (CR 722.1). It
+`player` during the next turn that player actually takes (CR 723.1). It
 waits through every turn somebody else takes, extra turns among them, and
-through a turn of theirs that is skipped (CR 722.1b); it covers that whole
+through a turn of theirs that is skipped (CR 723.1b); it covers that whole
 turn and ends as the next turn begins, whoever takes it. Of several on one
-player the last created works (CR 722.1a). It ends at once when either
+player the last created works (CR 723.1a). It ends at once when either
 player leaves the game. It is not `Effect::ControlPlayerPlayCard` (Word of
 Command), which controls one instructed play.
 
@@ -4661,7 +4751,7 @@ goes on once, from the result kept.
 
 **Triggers and conditions.** `Trigger::BecomesUntapped(&Filter)` [Mesmeric
 Orb] fires when a matching permanent becomes untapped, by any cause but the
-reversal of an undone payment (CR 732.1); the permanent is the event object,
+reversal of an undone payment (CR 733.1); the permanent is the event object,
 so `PlayerRel::ControllerOfEvent` is its controller.
 `Condition::HandSizeAtTurnStartAtMost(n)` [Mindstorm Crown] holds when the
 active player had at most `n` cards in hand as this turn began, before any
@@ -4748,3 +4838,100 @@ source when it targets nothing) and nothing when that subject is gone.
 `Effect::RemoveAllCountersFilter { filter, kind }` [Oblivion Stone] removes
 every `kind` counter from each permanent matching `filter`, read from the
 controller. `counters::FATE` is the fate counter it removes.
+
+### Pieces added for the requested cards (PR #410, 01.11.2026)
+
+Each entry is the sentence the piece states; the card that needed it is in
+brackets. Read them as vocabulary, not as card text. The batch's other pieces
+(foretell, `ChooseCardType`, the vote, the attackers' exile with its basic
+land search, `Filter::OfSourceChosenCardType`) are written above, beside
+their kin.
+
+**Life totals.** `Effect::SetLifeTotal { who, amount }` [Angel of Grace]
+makes each player of `who` have exactly `amount` life: they gain or lose the
+difference (CR 119.5), so life-gain and life-loss rules see it.
+`Effect::RaiseLifeTotalTo { who, amount }` [Resolute Archangel] does the
+same only for a player below `amount`, and leaves an equal or higher total
+alone. `Amount::StartingLifeTotal(who)` is that player's starting life total
+for this game (CR 103.4), whatever the format made it, and
+`Condition::LifeBelowStarting` holds while the controller's life is below
+theirs; write it as the trigger's `condition` for an intervening "if"
+(CR 603.4), as Resolute Archangel does. `Amount::LifeGainedThisTurn(who)`
+[Resplendent Angel] is the life that player actually gained this turn, every
+gain counted and no loss subtracted.
+
+**Casting this turn.** `Condition::CastCreatureThisTurn` [Goblin Cohort]: the
+controller has cast a creature spell this turn, countered or not; a spell
+cast face down counts.
+
+**Foretold.** `Amount::XIfSourceWasForetold { otherwise }` [Starnheim
+Unleashed] is X when this spell was cast from a foretold card, else
+`otherwise`. "Was foretold" belongs to the spell on the stack, not to the
+permanent it becomes or to a later object; a foretold spell exiled from the
+stack is not foretold and has no foretell permission (CR 400.7).
+
+**Types.** `Modifier::CreatureWithManaValuePT` [Opalescence, added in the
+review] is a creature in addition to its other types with base power and
+toughness equal to its mana value, layers 4 and 7b as one effect; written
+above beside `AnimateNoncreatureArtifact`.
+
+**Combat.** `Trigger::ControlledBecomesBlocked(&Filter)` [Ib Halfheart] fires
+once for each attacking creature matching the filter that becomes blocked,
+however many creatures block it; the attacker is the event object.
+`Effect::SacrificeEventDealDamageToEachBlocker { amount }` [Ib Halfheart]
+has the controller sacrifice that attacker, only if they still control it
+(CR 701.21a), and if they did, its last incarnation deals `amount` to each
+creature that was blocking it. `Modifier::AttackTaxMana { mana }` [Archangel
+of Tithes]: creatures can't attack the effect's controller or planeswalkers
+they control unless their controller pays `mana` generic for each of those
+creatures (CR 508.1h); attacks on anyone else are free.
+`Modifier::CantBlockUnlessPayMana(n)` [Archangel of Tithes]: each affected
+creature can't block unless its controller pays `n` (CR 509.1d).
+`Effect::SkipNextCombatPhase { player }` [Blinding Angel]: each player of
+`player` skips their next combat phase; one skip per effect, used by the next
+combat phase that would happen, never by one another effect already skips
+(CR 614.10a).
+
+**Costs.** `Modifier::SpellsCostLessPerCounter(kind)` [Herald of War]:
+matching spells cost {1} less for each `kind` counter on the effect's
+source. `FaceDef.flashback_parts: &[CostPart]` [Cabal Therapy] holds the
+non-mana parts of a flashback cost, paid while casting like any alternative
+cost's parts; its mana half stays in `FaceDef.flashback` (`ManaCost::ZERO`
+for a flashback with no mana at all).
+
+**Counters on entry.** `Modifier::AdditionalCounterOnEntryByCount { kind,
+count }` [Giada, Font of Hope]: each affected permanent enters with that many
+more `kind` counters, the count read before it arrives, so "for each Angel
+you already control" does not count itself. It is one replacement in the
+counter-ordering plan like `AdditionalCounterPlacement`, applied only to
+`kind`.
+
+**Pumps by keyword.** `Effect::PumpFilterPerKeyword { filter, keywords,
+count_protection, duration }` [Akroma, Vision of Ixidor] binds the matching
+objects as it resolves (CR 611.2c) and gives each +N/+N, N being how many of
+`keywords` it has, plus one for protection when `count_protection` is set.
+Any number of protection abilities count as the one ability "protection".
+
+**Libraries.** `Effect::RevealUntilMatching { player, filter, matched,
+otherwise }` [Oath of Druids] reveals from the top of that player's library
+down to the first matching card, recording the whole reveal before anything
+moves; the match goes to `matched`, every other revealed card to `otherwise`,
+and a library with no match is revealed and moved whole.
+`Effect::RevealTopAllMatching { count, filter, found }` [Goblin Ringleader]
+reveals the top `count` cards, moves every match to `found`, and puts the
+rest on the bottom in an order the controller chooses.
+`Effect::PutTargetIntoLibraryBeneathTop { count }` [Unexpectedly Absent] puts
+each target into its owner's library with `count` cards above it, or on the
+bottom when the library is smaller.
+
+**Card names.** `Effect::ChooseCardName`'s `excluded_types` [Cabal Therapy:
+"choose a nonland card name"] is the printed types a named face must not
+have; `TypeSet::EMPTY` excludes nothing.
+
+**Targets.** `TargetSpec::ObjectOrCardInAnyGraveyard(&Filter)` [Angel of
+Serenity] is one target list over permanents on the battlefield and cards in
+every graveyard. `TargetSpec::OpponentWithMoreThanActivePlayer(&Filter)`
+[Oath of Druids] is "target player who controls more [filter] than [the
+active player] and is their opponent"; the trigger binds it to the player
+whose step it is (`OpponentWithMoreThanPlayer`) before targets are offered,
+and an unbound occurrence offers nobody.

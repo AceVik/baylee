@@ -46,6 +46,7 @@ pub mod arrowmat;
 pub mod artreader;
 pub mod badgemat;
 pub mod buildui;
+pub mod cachefill;
 mod card_loading;
 pub mod cardart;
 pub mod cardmat;
@@ -294,8 +295,8 @@ pub enum Reach {
 
 /// What an [`Armed`] tap is waiting to do.
 ///
-/// Two of the three are *intents* rather than built actions, and the third
-/// carries the action so it can be re-checked. That is the same rule
+/// Some variants are *intents* rather than built actions; an ability carries
+/// its action so it can be re-checked. That is the same rule
 /// [`ManaRun`] follows step by step: between the two taps the engine may have
 /// withdrawn the option, so every path that fires one of these resolves it
 /// against the *current* `LegalActions` and disarms instead of guessing.
@@ -316,6 +317,8 @@ pub enum Deed {
     /// playing the card: "rather than cast this card from your hand, pay {U}
     /// and exile it with four time counters on it" (CR 702.62a).
     Suspend,
+    /// Exile a card face down for later — `Interaction::foretell` (CR 702.143a).
+    Foretell,
     /// Tap the sources of this plan, then do `then` — see [`ManaRun`].
     Run {
         /// The taps, and the cost they are for.
@@ -327,8 +330,8 @@ pub enum Deed {
 
 /// What a mana run does once the mana is up.
 ///
-/// The run makes mana for a particular cast, suspend or activation. That
-/// action is remembered from confirmation and rechecked against the engine's
+/// The run makes mana for a particular cast, suspend, foretell or activation.
+/// That action is remembered from confirmation and rechecked against the engine's
 /// actual offer after the final tap; it is never guessed from the new list.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RunEnd {
@@ -338,6 +341,8 @@ pub enum RunEnd {
     Cast,
     /// `PlayerAction::Suspend`.
     Suspend,
+    /// `PlayerAction::Foretell`.
+    Foretell,
     /// Nothing at all: the taps **are** the point.
     ///
     /// A mana bubble pours one mana into the pool and the player spends it
@@ -528,6 +533,20 @@ pub struct Duel {
     /// `Space` pressed now is dropped (DESIGN-v8 §1.1 — a card that moved
     /// under the finger is not the card the finger meant).
     pub follow_settling: bool,
+    /// Whose chair the bottom of the table is shown from while this seat
+    /// controls another player (CR 723.5): the hand row, and the chip
+    /// marked shown (`client-core::perspective`). The question is never
+    /// hidden by it; it is named for the player it is asked for.
+    pub perspective: baylee_client_core::perspective::Perspective,
+    /// How many times [`Self::perspective`] has changed, so the hand that
+    /// arrives from another chair is eased in once per change
+    /// (`hud::hand::arrive`).
+    pub perspective_epoch: u32,
+    /// *Dem gesteuerten Spieler folgen* is off on this device (copied by
+    /// [`arrangement::choose`]): a decision for a controlled player leaves
+    /// the perspective where the player put it. Off by its negative so a
+    /// `Duel::default()` follows, as the setting does by default.
+    pub control_follow_off: bool,
     /// The game menu's arrangement row was pressed: the menu opens on the
     /// next frame ([`arrangement::choose`], which holds the settings).
     pub arrangement_menu_asked: bool,
@@ -675,6 +694,8 @@ pub struct Duel {
     /// click has to ask which, and because the run that spends the mana must
     /// know which list to look in when it finishes.
     pub suspend_reach: std::collections::HashSet<ObjectId>,
+    /// Cards whose {2} foretell action this client can fund by tapping sources.
+    pub foretell_reach: std::collections::HashSet<ObjectId>,
     /// Permanents whose unpaid ability this client can fund automatically.
     pub ability_reach: std::collections::HashSet<ObjectId>,
     /// Permanents the engine listed at least one activatable ability for.
@@ -836,6 +857,16 @@ pub struct Duel {
     /// box under the player's fingers. It is cleared when an action is sent
     /// and when a choice arrives that is not asking for a type.
     pub subtype_filter: String,
+    /// The name chooser's search: the deck builder's box and builder, and
+    /// the pool in the client's language the lobby lends it. Cleared with
+    /// `subtype_filter`, all but the pool.
+    pub naming: choices::NameSearch,
+    /// The gateway's table (`GET /pool/facts`), lent by the lobby: what the
+    /// zone dialog's and the name chooser's `r:`, `s:` and `f:` read. `None`
+    /// offline, and those keys then say they are not available.
+    pub pool_facts: Option<std::sync::Arc<baylee_client_core::cardquery::PoolFacts>>,
+    /// The ban lists the lobby holds, lent the same way: what `list:` reads.
+    pub list_shelf: Option<std::sync::Arc<baylee_client_core::cardquery::ListShelf>>,
     /// Which letter group the creature-type chooser's full list shows while
     /// nothing is typed (`typechooser::GROUPS`). Kept with the filter, and
     /// cleared with it.
@@ -952,7 +983,10 @@ pub struct Duel {
     /// it for a cast's X question: that question carries no mana abilities
     /// of its own (only priority does), and the mana it is paid with is made
     /// after it is answered (CR 601.2b, 601.2g). See [`Self::cap_x`].
-    priority_legal: Option<baylee_engine::choice::LegalActions>,
+    ///
+    /// Kept with the player that priority was answered for: this seat, or
+    /// the player it controls (CR 723.5a), whose lands are not its own.
+    priority_legal: Option<(PlayerId, baylee_engine::choice::LegalActions)>,
     /// Actions waiting to be sent.
     outbox: Vec<PlayerAction>,
     /// The last thing that went wrong, shown in the prompt bar.
@@ -1275,7 +1309,12 @@ fn run_autopilot(mut duel: ResMut<Duel>, prefs: Res<prefs::Prefs>) {
         let Some(view) = duel.view.as_ref() else {
             return;
         };
-        let active_is_mine = view.active == view.seat;
+        // Read from the deciding player's chair: a turn this seat controls
+        // (CR 723.5) is played as its own, so `skip_opponent_turns` does not
+        // pass the controlled player's whole turn away, and "the other side"
+        // is the controlled player's opponents.
+        let deciding = baylee_client_core::decision::resource_player(view);
+        let active_is_mine = view.active == deciding;
         let Some(interaction) = duel.interaction.as_ref() else {
             return;
         };
@@ -1289,16 +1328,18 @@ fn run_autopilot(mut duel: ResMut<Duel>, prefs: Res<prefs::Prefs>) {
                 // Read here rather than in `automation`, because "the other
                 // side" is a question about the roster and that module knows
                 // only about turns.
-                opposing_stack: view
-                    .stack
-                    .iter()
-                    .any(|o| !hud::same_team(duel.statics.as_ref(), o.controller, view.seat)),
+                opposing_stack: view.stack.iter().any(|o| {
+                    baylee_client_core::decision::opposes(view, o, deciding, |a, b| {
+                        hud::same_team(duel.statics.as_ref(), a, b)
+                    })
+                }),
                 // What this client is offering that the engine's list does
                 // not name. Without it `pass_when_nothing_to_do` reads an
                 // empty `castable` over four untapped Forests as an empty
                 // hand and passes the window away.
                 offering: !duel.reachable.is_empty()
                     || !duel.suspend_reach.is_empty()
+                    || !duel.foretell_reach.is_empty()
                     || !duel.ability_reach.is_empty(),
                 owing: view.owed.is_some() && view.awaiting == Some(view.seat),
             },
@@ -1342,7 +1383,8 @@ fn requested_batch_answer(duel: &mut Duel) -> Option<PlayerAction> {
 
 mod mana_run;
 pub use mana_run::{
-    ManaRun, advance_mana_run, mana_for, suspend_mana_for, take_the_chosen_cast_mode,
+    ManaRun, advance_mana_run, foretell_mana_for, mana_for, suspend_mana_for,
+    take_the_chosen_cast_mode,
 };
 use mana_run::{answer_the_chosen_cast_mode, run_mana_plan, spell_cost};
 
@@ -1592,13 +1634,14 @@ impl Tear {
 
 /// Rebuilds the render model from the current view.
 ///
-/// `pub` because the two indigo sets it computes — [`Duel::reachable`] and
-/// [`Duel::suspend_reach`] — are what the click path reads, so an end-to-end
-/// test has to build them the way a frame does rather than assign them by
-/// hand.
+/// `pub` because the three indigo sets it computes — [`Duel::reachable`],
+/// [`Duel::suspend_reach`] and [`Duel::foretell_reach`] — are what the click
+/// path reads, so an end-to-end test has to build them the way a frame does
+/// rather than assign them by hand.
 pub fn rebuild_board(duel: &mut Duel) {
     duel.reachable = reachable(duel);
     duel.suspend_reach = suspend_reach(duel);
+    duel.foretell_reach = foretell_reach(duel);
     duel.activatable = activatable(duel);
     duel.ability_reach = ability_reach(duel);
     duel.proposed = proposals(duel);
@@ -1606,11 +1649,7 @@ pub fn rebuild_board(duel: &mut Duel) {
     let Some(view) = duel.view.as_ref() else {
         return;
     };
-    // Three lists, one light. `lands` and `castable` are what the engine will
-    // accept this instant, and `suspendable` is the same kind of claim about
-    // the other way a card leaves a hand — suspend's first ability is an
-    // activated one the engine offers or does not (CR 702.62a), so it is gold
-    // beside them rather than a fourth colour.
+    // The engine's immediate offers are gold, including both special actions.
     let playable: std::collections::HashSet<ObjectId> = duel
         .interaction
         .as_ref()
@@ -1621,18 +1660,19 @@ pub fn rebuild_board(duel: &mut Duel) {
                 .iter()
                 .chain(legal.castable.iter())
                 .chain(legal.suspendable.iter())
+                .chain(legal.foretellable.iter())
                 .copied()
                 .collect()
         })
         .unwrap_or_default();
 
-    // Indigo is this client's own offer, and it has two halves for the same
-    // reason gold does. They stay apart on `Duel` because a click has to know
-    // which `PlayerAction` a mana run ends in; the union is drawing only.
+    // The client's payable offers stay separate for action dispatch; only
+    // their presentation shares the indigo reach highlight.
     let reach: std::collections::HashSet<ObjectId> = duel
         .reachable
         .iter()
         .chain(duel.suspend_reach.iter())
+        .chain(duel.foretell_reach.iter())
         .copied()
         .collect();
 
@@ -1703,10 +1743,36 @@ pub fn rebuild_board(duel: &mut Duel) {
         crate::cardart::registry(),
     ));
     if let Some(board) = &mut duel.board {
-        duel.hand_groups = duel.hand_order.apply(&mut board.hand, view);
+        // The hand row is the chair the table is shown from: the deciding
+        // player's unless the player chose another (or auto-follow is off),
+        // and only ever one the view carries (CR 723.4).
+        let shown = duel.perspective.shown(view);
+        if shown != baylee_client_core::decision::resource_player(view) {
+            board.show_hand(
+                baylee_client_core::decision::hand_of(view, shown),
+                &baylee_client_core::board::Openings {
+                    playable: &playable,
+                    reachable: &reach,
+                    activatable: &duel.activatable,
+                    proposed: &duel.proposed,
+                },
+            );
+        }
+        duel.hand_groups = duel
+            .hand_order
+            .apply(&mut board.hand, shown_hand(view, duel.perspective));
         board.take_modes(&duel.log);
     }
     duel.layout = Some(layout);
+}
+
+/// The hand the row is drawn from: the chair the table is shown from
+/// (`client-core::perspective`), its own or one this seat controls.
+pub(crate) fn shown_hand(
+    view: &PlayerView,
+    perspective: baylee_client_core::perspective::Perspective,
+) -> &[baylee_view::HandObject] {
+    baylee_client_core::decision::hand_of(view, perspective.shown(view))
 }
 
 mod reach;
@@ -1730,6 +1796,8 @@ mod owed_tests;
 
 #[cfg(test)]
 mod activation_payment_tests;
+#[cfg(test)]
+mod controlled_turn_tests;
 #[cfg(test)]
 mod reachable_tests;
 

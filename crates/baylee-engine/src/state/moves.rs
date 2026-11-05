@@ -691,6 +691,11 @@ impl GameState {
             // anthem would otherwise sit in the graveyard still pumped,
             // and every filter reading its power would agree.
             obj.cache.clear();
+            // Buyback's "instead" is a static ability of the spell (CR
+            // 702.27a), and the card that leaves the stack is not that spell.
+            if from_zone == Zone::Stack {
+                obj.riders.retain(|r| *r != crate::object::Rider::Buyback);
+            }
             // And the rest of what the old object remembered, for the half
             // of it that only a *permanent* can have. Nothing cleared this,
             // so a permanent that left the battlefield carried its tapped
@@ -735,6 +740,7 @@ impl GameState {
                             | crate::object::Rider::ExhaustedAbility(_)
                             | crate::object::Rider::EntrySacrifices(_)
                             | crate::object::Rider::SecondChosenSubtype(_)
+                            | crate::object::Rider::ChosenCardType(_)
                             | crate::object::Rider::ChosenNumber { .. }
                             | crate::object::Rider::ChosenName { .. }
                             | crate::object::Rider::EntryTappingApplied
@@ -786,10 +792,18 @@ impl GameState {
                     )
                 });
             }
-            if to.zone() != Zone::Stack {
-                obj.riders
-                    .retain(|rider| *rider != crate::object::Rider::Uncounterable);
-            }
+            obj.riders.retain(|rider| match rider {
+                crate::object::Rider::Uncounterable => to.zone() == Zone::Stack,
+                // Foretell lasts for as long as the card remains exiled
+                // (CR 702.143a); a move from exile to exile does not end
+                // that. Every other move makes a new object (CR 400.7): the
+                // cast puts "was foretold" back on the spell itself after its
+                // move, and a spell exiled from the stack is not foretold.
+                crate::object::Rider::Foretold { .. } => {
+                    from_zone == Zone::Exile && to.zone() == Zone::Exile
+                }
+                _ => true,
+            });
             // What the card was in exile lasts only as long as the exile. A
             // card that leaves exile any other way than the return its host
             // makes (cast, put into a hand, shuffled away) is a new object
@@ -983,12 +997,104 @@ impl GameState {
         {
             self.invalidate_projections();
         }
-        // A card that defines its own power and toughness is projected in
-        // every zone (CR 604.3), and the move just cleared its cache: a
-        // drawn Ashaya would read its printed 0/0 until something else
-        // moved.
-        if self.printed_pt_cda.iter().any(|(card, _)| *card == id) {
+        // A card that defines its own power and toughness or has a static
+        // ability that functions off the battlefield is projected outside the
+        // battlefield too (CR 604.3, CR 113.6b-c), and the move just cleared
+        // its cache: a drawn Ashaya or Grist would read its printed self until
+        // something else moved.
+        if self.printed_pt_cda.iter().any(|(card, _)| *card == id)
+            || self.offboard_static_candidates.contains(&id)
+        {
             self.invalidate_projections();
+        }
+        // When a card with an off-battlefield static ability (such as Grist's
+        // `ZoneRef::NotBattlefield` self-characteristic effect) moves between
+        // two zones that both satisfy its `WhileSourceInZone(zone)` duration,
+        // the ability remains continuously active in the new zone (CR 113.6b-c)
+        // even before the next `sync_board_rules` pass runs (e.g. between
+        // `Effect::Mill` and `Condition::LastMilledMatches`, or between
+        // `Effect::ExileTargetsWithSource` and `ReflexiveEvent::Exiled`).
+        // Carry the new object version onto those effects' text origins so
+        // `source_is_present` continues to recognize them during
+        // `refresh_characteristics`.
+        if from_zone != to.zone()
+            && self.offboard_static_candidates.contains(&id)
+            && let Some(new_identity) = self.source_identity(id)
+        {
+            let continued: smallvec::SmallVec<[baylee_core::ids::EffectId; 4]> = self
+                .effects
+                .iter()
+                .filter_map(|fx| {
+                    let baylee_cards_dsl::Duration::WhileSourceInZone(zone) = fx.duration else {
+                        return None;
+                    };
+                    (fx.source == Some(id)
+                        && from_zone.matches_ref(zone)
+                        && to.zone().matches_ref(zone))
+                    .then_some(fx.id)
+                })
+                .collect();
+            if !continued.is_empty() {
+                for (effect_id, origin) in &mut self.effect_text_overrides {
+                    if !continued.contains(effect_id) {
+                        continue;
+                    }
+                    match origin {
+                        crate::text_changes::TextOrigin::Live(source)
+                        | crate::text_changes::TextOrigin::Ability { source, .. }
+                            if source.object == id =>
+                        {
+                            *source = new_identity;
+                        }
+                        _ => {}
+                    }
+                }
+            } else if to
+                .zone()
+                .matches_ref(baylee_cards_dsl::ZoneRef::NotBattlefield)
+                && let Some((owner, timestamp, abilities)) = self.object(id).map(|obj| {
+                    let controller = if matches!(obj.zone, Zone::Battlefield | Zone::Stack) {
+                        obj.controller
+                    } else {
+                        obj.owner
+                    };
+                    (
+                        controller,
+                        obj.timestamp,
+                        obj.printed_abilities(self.bases.as_ref()),
+                    )
+                })
+            {
+                for (index, ability) in abilities.iter().enumerate() {
+                    let baylee_cards_dsl::AbilityDef::Static(sa) = ability else {
+                        continue;
+                    };
+                    if sa.source_zone != baylee_cards_dsl::ZoneRef::NotBattlefield
+                        || sa.condition.is_some()
+                    {
+                        continue;
+                    }
+                    let effect_id = self.effects.register(crate::effects::ContinuousEffect {
+                        id: baylee_core::ids::EffectId::new(0),
+                        source: Some(id),
+                        controller: owner,
+                        origin: crate::effects::EffectOrigin::Static,
+                        layer: sa.layer,
+                        timestamp,
+                        duration: baylee_cards_dsl::Duration::WhileSourceInZone(sa.source_zone),
+                        filter: crate::effects::EffectFilter::Dsl(&sa.filter),
+                        modifier: sa.modifier,
+                    });
+                    self.effect_text_overrides.push((
+                        effect_id,
+                        crate::text_changes::TextOrigin::Ability {
+                            source: new_identity,
+                            index: index as u32,
+                            base: abilities.base_text(index),
+                        },
+                    ));
+                }
+            }
         }
         if to.zone() == Zone::Battlefield {
             self.per_turn.entered_battlefield.push(id);
@@ -1173,19 +1279,18 @@ impl GameState {
     /// the loss is a state-based action (CR 704.5b).
     pub(crate) fn draw_now(&mut self, player: PlayerId, n: usize) -> Vec<ObjectId> {
         let mut drawn = Vec::with_capacity(n);
-        let first_of_turn = self
-            .per_turn
-            .draws
-            .get(player.get() as usize)
-            .copied()
-            .unwrap_or(0)
-            == 0;
         let already = self
             .per_turn
             .draws
             .get(player.get() as usize)
             .copied()
             .unwrap_or(0);
+        // The opening hands are drawn before the first turn begins
+        // (CR 103.5), so no card of theirs is the first drawn "this turn"
+        // (CR 702.94a): a miracle card in an opening hand was offered at the
+        // first upkeep.
+        let in_a_turn = self.players.iter().any(|p| p.turns_started > 0);
+        let first_of_turn = in_a_turn && already == 0;
         let limit = self.draw_limit(player);
         for _ in 0..n {
             // CR 121.2b, and the loop is where it belongs: the effect

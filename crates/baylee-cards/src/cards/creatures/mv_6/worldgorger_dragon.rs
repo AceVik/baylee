@@ -30,7 +30,7 @@ card!(
             Trigger::ETB,
             &[Effect::ExileAll {
                 filter: &EXILE_ALL1,
-                linked: true,
+                linked: true
             }]
         ),
         triggered!(

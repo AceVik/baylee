@@ -281,6 +281,21 @@ These two entries were made on two branches, each from 296. Merged, the
 two fields share the one eight-byte step, and `GameObject` measured 304 B
 with both (`tests/footprint.rs`).
 
+## A chosen card type (01.11.2026)
+
+`GameObject` **296 → 304 B**. Serra's Emissary chooses a card type as it
+enters, which protection reads while the permanent remains on the battlefield
+(`GameObject::chosen_card_type`). The `Option<TypeSet>` occupies four bytes;
+there was no four-byte hole, so object alignment rounds the increase to eight
+bytes, exactly what a boxed record would cost. The footprint budget was raised
+to 304 deliberately. `state/clone` was not re-benched for this field.
+
+Back to **296 B** the same day, in the review: the choice is a rider
+(`Rider::ChosenCardType`, beside `Rider::SecondChosenSubtype`), read through
+`GameObject::chosen_card_type()`. One card in the pool chooses a card type, so
+the eight bytes every object in every cloned state paid for it bought nothing
+for the others; the rider costs the Emissary one rider entry.
+
 ## The snapshot hash names every field (24.09.2026, #122)
 
 `GameState::snapshot_hash` now takes every struct it walks apart by name, so
@@ -594,6 +609,12 @@ JSON, both in the engine and gamehost lanes. Records are already gzipped
 No client calls `/catalog/search` today (the deck builder searches the
 pool), so this was measured and left alone. The one-letter case and the text
 tier's join back to `card_search` per hit are where a change would go.
+
+Rules text moved to `card_search_text` on 4.11.2026, one vector per face and
+language, on 547 958 printings and a machine building at the same time: 550 863
+rows, 230 MB with a 54 MB index, and `card_search` down from 232 MB to 67 MB;
+`creature` 146 ms, `flying` 25 ms, `ziehe eine karte` 25 ms, `稲妻` 7 ms, a whole
+rebuild 44 s. The figures above were not taken again beside them.
 
 ### The database
 

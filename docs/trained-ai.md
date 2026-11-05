@@ -30,6 +30,18 @@ invalid multi-member bands without changing sampling version 2. It sacrifices
 band tactics until those constraints are represented for neural sampling.
 Experienced-human strength and Phoenix NPU deployment are not established.
 
+**Requested-card choices (2 November 2026):** The shared v4 candidate reader
+also offers the foretell special action from the engine's `foretellable` list.
+It appends these candidates after existing priority actions, using the existing
+cast feature and scalar slot 18 (`0.5` for foretell, `1.0` for suspend).
+Tensor widths and candidates outside these new offers stay unchanged.
+For `ChoicePrompt::Vote`, candidate slots 16/17/18 hold the votes for that
+permanent divided by eight, the vote marker, and ballots cast divided by
+eight. They read only the public `PlayerView::ballots`; other card choices
+keep their previous bytes. The observation hash includes ballots only while
+nonempty. These additions make the actions and information representable;
+they do not establish that an existing checkpoint has learned their value.
+
 **Opt-in payment context (28 October 2026):** Encoder 8 is a new observation
 contract for **BayleeAI v5**, requiring relational revision 2; it is not a new
 model generation or a demonstrated strength improvement. Encoder 7 remains
@@ -42,6 +54,25 @@ is being announced. Globals 37/38 carry the engine's exact numeric prompt
 minimum/maximum, and 39 carries an explicit stable prompt-kind code (zero when
 there is no numeric prompt). These bounds describe legal answers, not a proof
 that a chosen X is payable with the available mana sources.
+
+**Buyback and multikicker (4 November 2026):** no width, no feature index and
+no existing byte moves. `NumberPrompt::Multikicker` takes prompt-kind code 11
+in global 39 (Encoder 8 only; a new prompt, so no stored row changes), and
+`YesNoPrompt::Buyback` is a yes-or-no like any other, with no feature of its
+own: the net can answer it and is told nothing about it beyond the card. The
+view's `times_kicked` and `bought_back` are not read. In the rule tree the two
+`FaceDef` fields are written only where a card prints one (`build.rs`), so a
+face without them keeps the tree it had: an older export needs
+`--catalog-drift` for the cards of the buyback batch, whose trees changed, and
+only those are withdrawn. The DSL summary and `cardwalk` read neither field; their widths are
+contracts, and a checkpoint has learned nothing about either keyword.
+
+**A resolved spell's ending (4 November 2026):** `CastModeKind::SpellEnding` is
+a new question, so no stored row changes, and no width moves. Its candidates
+share slot 40 with `MutatePosition`, the other "where does it go" of a resolving
+spell, as Foretell shares the alternative cost's, and scalar 46 tells the four
+endings apart. `mode_kind` gives it `Counter`'s 14. The net can answer the
+question and has learned nothing about it.
 
 The separate owner-only `PlayerView.announced_cast` observation is supplied by
 `Session::view_for_with_payment_context` and
@@ -130,6 +161,15 @@ house's (`house_answers` in `stats.json`, never `llm`), and the house against
 the house is refused. Such a game is a measurement: the LLM freeze and the
 converter hold both seats to an agent-CLI model and refuse it as BC input.
 
+`collect --starting-life N` starts every player at `N` life (1–999, the room
+setup's bound) instead of the format's, for long games that put most of each
+deck into play: a bug hunt for the models' rules reports (`reports.jsonl`),
+not ordinary teacher data. The value is frozen in each attempt's request
+(`starting_life_override`, `null` without it), the table builds the room from
+it, and the audit holds every seat's starting life to the requested room. Such
+games want `--game-timeout-seconds` and the profiles' `game_usd`/`game_calls`
+caps raised to match.
+
 New `convert4` datasets carry `idle_pass_weighting_revision = 2`. For live and
 LLM behavior-cloning labels, a priority pass during visible casting, announced
 casting or an outstanding payment keeps its normal policy weight. It can finish
@@ -194,6 +234,29 @@ complete replay/admission after excluding the whole four-seat rotation of a
 table with capped games. This selected collection is training data, not an
 unbiased strength estimate. Its first 1500-update mixed-data pilot did not
 establish a playing-strength improvement over matched old-data training.
+
+A language model can watch instead (`--shadow-teacher llm:<profile>
+--llm-profiles <seat settings file>`, feature `llm`; owner, 01.11.2026: the
+LLM trainer). The neural seat still answers every question. The model sits
+in that seat as an LLM seat would, through the seat's own frames: the
+evaluator hands the frames the table routes to the taken-over chair to a
+`SeatCore` whose mind is the profile's model, and asks the question again
+(`Session::reask`) where no frame carried it. The watcher's copy of the static
+frame names the chair `LLM-watcher`, because a seat logic leaves a chair named
+anything else; the game's roster and record keep the evaluator's names. Where
+the seat logic hands a question to the mind, its answer to the question the
+policy answers next is the label (`teacher_source: "llm"`, its seat
+`teacher_question`). Standing orders, the house's answer for a failed mind
+and refused answers label nothing (`teacher_refits`). The seat's notes go
+beside the labels as `shadow/<game>.seat.jsonl`, hashed in the footer, and
+the mind's own log goes to `shadow/transcripts/<game>/`. `convert4` refuses an
+LLM label without that transcript, or with one whose `answered` row by the
+mind for its question says another action. The house's labels are recomputed
+as before. Converted LLM labels carry `SourceKind4::External`, as an LLM seat's
+own answers do. A model that says a limit ends the run: no further deal
+starts. The fixture test plays one game with and without a watching
+`ScriptedMind`. It shows the same record, behavior probabilities and
+observations, and labels on 73 of 245 neural decisions.
 
 `train5.py --bc-replay-data DIR` opts into two separate supervised data stores
 with fixed half-batch trajectory lanes. The primary `--data` contributes the
@@ -503,6 +566,57 @@ such as legal-target, legal-block or tutor-match relationships require a
 separately versioned, view-only encoder change; they are not silently supplied
 by the new model.
 
+### PR #410's questions in Encoders 4 and 7–9 (1 November 2026)
+
+PR #410 added a card-type question, the foretell special action and cast,
+and nonland naming. Each lands on a slot the encoders already had, so no
+input, head, width or slot count moved and no checkpoint changes shape.
+Encoder 6 (the v4 encoder) and Encoders 7–9 share one candidate builder
+(`features4::encode_candidates4`, which `encode_candidates7_grouped` wraps),
+so they answer each question the same way:
+
+| Engine | Encoder 6 (v4) | Encoders 7, 8, 9 |
+| --- | --- | --- |
+| `LegalActions.foretellable`, answered `PlayerAction::Foretell { card }` | A Priority candidate per card, after the granted actions, marked as suspend is (`feat[3]`, cast family) with `feat[18] = 0.5` where suspend has 1.0, pointing at the card's hand row; the row's `entity_feat[27]` ("offered to cast") is set | The same candidates; the v7 state sets the same bit, `encode_candidates7` counts them, permanent grouping keys them (kind 9) |
+| `CastModeKind::Foretell` (the later cast) | An alternative cost: cast-mode slot 28 (and 2 in the v3 `policy::mode_kind`); no extra rule reference (the structure catalog has no foretell entry) | The same |
+| `Pending::ChooseCardType` | The subtype question: `PendingKind4::ChooseSubtype` (global 34), and kind 9 in the v3 `features::question`; one candidate per offered type in the engine's order, `feat[15]` and `feat[18] = index / 16` | The same |
+| `Pending::ChooseCardName.excluded_types` | No candidate for a face with an excluded type: an excluded teacher name is unencodable (`unencoded_decisions`), and the policy cannot decode one | The same |
+
+The v3 policy leaves the card-type question to its fallback, as it does a
+card name, and never foretells. Foretell is marked as suspend because it is
+the same act (pay from the pool, exile from hand, cast on a later turn); the
+card and the scalar tell the two apart, and a slot of its own would be one
+no trained net has read. A pass with a foretell on offer keeps its full imitation weight
+(`convert4::idle_pass`), and the tactical guards count a foretell offer where
+they count a suspend offer. Like suspend, foretell is offered only once {2}
+floats, and the tactical guard taps mana only for a sink it can see, so in
+tactical mode the net foretells only with mana already floating; raw mode
+has no such guard.
+
+Older encodings are byte for byte as they were:
+`encoder_contract::pins` hashes everything the four encoders write on two
+scripted games against digests taken before the change, and convert4 output
+for 48 house-AI games with Encoders 7, 8 and 9 was identical before and after.
+`encoder_contract::mechanics` plays each question on a real table through
+each encoder (candidate, teacher target, decoding, the engine taking the
+decoded answer), and `netplay4::policy::questions_tests` has both sampling
+modes play the favoured answer with no house fallback.
+
+**Votes.** The engine asks each ballot of Council's Judgment (CR 701.38a)
+as `Pending::ChooseCards { prompt: ChoicePrompt::Vote, min: 1, max: 1 }`,
+in turn order from the caster, and every ballot cast so far is public in
+`PlayerView::ballots`. Every encoder reads the question as the ChooseCards
+kind, one single-choice candidate per permanent (`feat[6]`), and a vote's
+candidates also carry the tally: `feat[16]` the votes for that permanent,
+`feat[17] = 1` (a vote), `feat[18]` the ballots cast (both `/ 8`).
+Encoders 7–9 group identical permanents into one candidate; for a vote the
+group key includes `feat[16]`, so a permanent that already has a vote
+stays a candidate of its own. A teacher's ballot for it is then learned as
+cast, and the net can vote with the caster instead of forcing a tie that
+exiles both. Every other question writes 0 there, so no older encoding
+moved. `encoder_contract::mechanics` plays a second ballot over two
+identical Sol Rings through each encoder.
+
 **Current objective (`LOSS_VERSION = 4`):** categorical cross-entropy and ordinary
 Bernoulli BCE use symmetric class treatment and unit policy-head coefficients.
 Earlier loss versions retained asymmetric behavior that their “calibrated” label
@@ -561,6 +675,451 @@ FP16 against FP32: −0.2 pp [−0.7, +0.3]. On real game states
 pure net games, FP16 throughput grows with workers until about 64
 (`--threads 64 --inference-batch 64`: 3.7 games per second, about 18 rows
 per call, 1.3 GB).
+
+### Card catalog compatibility (`--catalog-superset`, `--catalog-drift`)
+
+A structured export (v4, v5, relational v1/v2; `PlayerNet5` extends
+`PlayerNet4`, and encoders 7, 8 and 9 differ only in entity and global
+features) reads a card through two channels:
+
+- its **DSL summary** (`entity_dsl`, `cand_dsl`), computed at run time from
+  the card's current definition by the versioned Rust encoder; and
+- its **rule-tree references** (`entity_rules`, `cand_rules`: `c/`, `i/`,
+  `a/`, `alt/` keys of a card, `t/`, `ta/` of a token, `q/` of a reserved
+  ability), looked up in the model's own `roots` and read as rows of
+  `FrozenRules.table`. `export_onnx4.py` freezes that table from the
+  catalog the model was trained on (`card_structure.json`, digest in
+  `structure_sha256`); it is a constant of the ONNX graph.
+
+There is no per-card id embedding in a v4/v5 graph. Node 0 is absence: the
+frozen module masks it out (`ids != 0`), so a left-out reference and node 0
+are the same input, and a card the encoder cannot identify (`UNKNOWN_CARD`)
+produces no references at all. Rule references only feed the encoder:
+answers are decoded from the run-time candidate menu, never from the
+catalog.
+
+By default a model loads only when this build compiles the same catalog,
+digest for digest. The digest covers the DSL source hash, every operator,
+every node and every root, so an added card, a rules fix or an edited DSL
+comment refuses every older export. `card_structure4 --check-model DIR`
+compares a model's catalog with this build's tree by tree, by tag *name*,
+bytes and ordered children (node and tag ids are traversal positions and
+move whenever anything is added), and prints what changed, what was added,
+the new operators, and which cards drift would withdraw.
+
+**Superset** (`eval4 --catalog-superset`) accepts a newer catalog when every
+root the model knows is in it with an identical tree. References the model
+knows read the same row of its own table as in training, bit for bit.
+References to roots only this build has (cards and tokens appended since)
+are left out, so such a card reads as one whose rules the encoder cannot
+see: no references, and still its public features and DSL summary. A key
+neither catalog has is still an error. Where it holds, this is the rule to
+use.
+
+**Drift** (`eval4 --catalog-drift`: indices stable, structures may drift)
+also accepts cards and tokens whose tree changed since the export, or which
+lost or gained a root. The export cannot read a drifted card's new tree: its
+table has no row for it, only the old tree's, which describes rules the card
+no longer has. So drift withdraws the card whole. Every reference to it is
+left out like an appended card's, and its DSL summary, computed from its
+current rules, is all the model learns of its rules. A drifted entry cannot
+break decoding; it can only make the model know less about that card. Drift
+does not detect a reused index, which reads as a drifted card; the ledger is
+append-only.
+
+`run.json` and the summary name the binding (`catalog`): the policy, both
+digests, `appended_cards`, `appended_tokens`, added roots, new operators,
+`changed_roots`, and under drift every withdrawn card or token with its name.
+The summary also counts `rule_refs_left_out`, how much the run read without
+trees. Read such an evaluation with that caveat: it measures the export on
+this build's rules, knowing the drifted and appended cards only by their
+summaries.
+
+Both flags are for evaluation only: `eval4` refuses them with any other
+`--collection-purpose`. `convert4` re-encodes every record with this build's
+whole catalog, so a probability recorded under another binding would belong
+to another observation. A run that names `catalog` therefore never
+certifies a policy-gradient dataset (`certified_run`), and an on-policy
+source that names one is refused (`RunBinding::load`).
+
+`v6s-selfimit/s1` against this branch (1 November 2026): of its 39,496 roots,
+39,492 are unchanged, none are gone, 176 are new (51 cards and tokens
+appended), and 4 changed: Mana Drain (card 623, `5c5bda190`) and Everybody
+Lives! (card 26615, `522380714`), both rules fixes. The strict superset therefore refuses s1, and drift binds it with
+those two withdrawn. The train-split decks never meet either card: the
+measured runs left 0 references out. PR #410 drifts many more: about 67
+former stubs implemented, hand-owned cards edited (Chrome Mox, Smokestack,
+Oath of Druids, Fireblast, Dream Beavers, Cabal Therapy and others), and card
+names changed by the new `excluded_types` field. After #410 only drift binds
+an older export, and decks that play those cards are read without their
+trees.
+
+A model meant to *play* drifted or new cards needs a new export instead.
+`refresh_structure4.py` rebinds the learned operator weights by name to a
+refreshed catalog (`card_structure4 --out`, then `export_onnx4.py`, then the
+regressions), so every card built from known operators gets its tree's
+embedding from the same weights. It refuses operators the model never
+learned unless `--allow-new-operators` initializes them from donors,
+untrained. This build already uses 65 such operators (among them
+`Effect::DelayedManaAtNextMain`, Mana Drain's fix), and #410's
+`excluded_types` field adds more. So the refresh needs a fine-tuning phase
+on the new catalog: replayed feature data converted against it, so the new
+operators and the drifted cards' new trees are trained. Fresh memory and
+optimizer, as `refresh_structure4.py` records.
+
+Replaying LLM games recorded on an older build is where a rules change
+shows: the replay audit refuses an input, or finds a different table, in
+each game whose cards now play differently (47 of the 1,008 games of
+`dataset-e7-v3a10` on the build after #410). An LLM-BC conversion publishes
+only when every game converts, so a second conversion of the same runs
+takes the first one's `rejected-games.json` as
+`convert4 --llm-bc --llm-bc-skip-unreplayable <file>`: it leaves those
+games out and records them, with their reasons and the list's digest, as
+`llm_bc_skipped_unreplayable` in `meta.json`. Only replay-audit refusals
+may be listed, and a list naming a game the runs lack is refused, so the
+selection never depends on an outcome or goes stale silently.
+
+### Lookahead search (`eval4 --search K,P,H`)
+
+The first thinking BayleeAI does beyond one forward pass, for **training and
+evaluation only**: it needs the real engine, so it runs where the evaluator
+hosts its games in-process and never for a seat over the gateway
+(`docs/proposals/lookahead-design.md` stays the design for that one).
+`netplay4::search` holds the algorithm; `Session::fork_for` (gamehost) and
+`Engine::fork_for` (`docs/engine-internals.md` §"Forking a simulation")
+make the worlds.
+
+**Roots.** Only the net's `Pending::Priority` in a main phase or combat whose
+answer is the policy's own (not forced, unsupported, guarded against a
+repeated view or a fallback) is searched. Everything else is answered as
+without a search and counted by reason (`not_priority`, `phase`,
+`not_policy`); a position the engine cannot fork faithfully (a suspended
+operation, face-down objects, a loop signature, a static that works in a
+hidden zone (`MarkedHiddenCard`), …) is answered by the policy and counted
+under the engine's `ForkRefusal`, each by its own name in
+`search.counts.refused`. What the seat can see now (a hand a static reveals,
+a hand it may inspect, a library top a static reveals) is kept in a fork,
+not dealt again. The fork exists only under the engine's `simulation` feature, which
+`baylee-train/onnx` turns on (`docs/engine-internals.md` §"Forking a
+simulation"), so every `eval4` build can search.
+
+**Candidates.** K answers: the policy's own answer first, then the other
+legal answers of the same decision by the raw candidate logit of the same
+inference, ties in menu order (`rank_single_choice`; a candidate decoding to
+an illegal or already ranked action is dropped). In tactical mode the
+policy's own answer is the tactical choice; the others are still ranked by
+raw logits.
+
+**Targets as candidates (v3, `--search-targets T`).** A target is chosen at
+the question after the cast, mid-announcement, where the engine does not
+fork (`ForkRefusal::Continuation`), so a v2 search never compares targets:
+on s1r's dev1024 games the target head alone aimed Swords to Plowshares at
+the net's own creatures 29 times though another target was legal, and the
+search left that alone (`gamelog4 patterns`). With T > 0 each candidate
+that casts a spell or activates a non-mana ability is applied in world 0;
+when the seat's next question there is a single target (the policy's
+`SingleChoice` target menu) with two or more answers, the candidate becomes
+one per answer, up to T: the policy's own target first, then its next by
+raw logit (the same rule as the root's candidates). Each is tried at its
+target in every world: the cast is applied, the seat's target question
+answered with that target as the net's own choice (it decides, then
+finishes with the target), and the rollout goes on as before. Targets on
+the battlefield, on the stack and players are public and keep their ids in
+a fork, so every world and the table offer the same ones; a world that
+asks something else after the cast, or refuses the target, refuses the
+candidate like any other. A candidate's prior is the root's probability
+times the target's (the softmax of the raw logits at the target question).
+When a candidate with a target is chosen, the answer at the root is its
+cast and `SearchedAnswer4::follow` carries the target. The harness answers
+the seat's next question with it if that question is the seat's target
+question and offers it as a ranked answer (`follow_decision`); the answer is
+then recorded as `Search`, with the target's menu index as its teacher
+target, so `convert4 --search-targets` distills target choices too.
+Otherwise the policy answers and the target is dropped. The policy's own
+target, chosen, is followed the same way, so every searched cast's target
+is a searched answer. T = 0 (the default) is v2 exactly; T > 0 names the
+contract `belief_lookahead_v3` and adds `targets`, `target_candidates`,
+`target_prior` and `target_follow` to the metadata. A cast with a mode, an
+X or a cost choice before its target, a triggered ability's target (an
+enters trigger such as Flametongue Kavu's), and menus of more than one
+target (`SubsetPick`) are not expanded yet; "up to one" is a single target
+whose answers include none.
+
+**Worlds.** For each world p of P, the table is forked for the deciding seat
+with the policy seed `derive(search_seed, "world", decision_seq, p)`, where
+`search_seed = derive(deal policy seed, "search")` (SplitMix64, each purpose
+its own tag; never the deal's shuffle seed). The fork deals every hidden card
+again from that seed (`DeckKnowledge::Known`: the evaluator chose every
+deck at the table, so it asserts the lists known), rolls its own dice, and
+reseeds every house agent from it. Every candidate meets the same P worlds.
+In a world every other chair, a teammate the net controls included, is
+handed to the house it kept; the net plays the deciding seat from its own
+memory at the root (`NetPlayer4::snapshot`/`restore`), its sampling stream
+reseeded per world.
+
+**Rollouts (v2, settled leaves).** Apply the candidate, then repeat as the
+evaluator does: the net observes the seat's view, then one action is taken
+(the house's, or the net's for the seat; a refused net answer falls back to
+the house's). H = 0 scores the candidate's own position. Otherwise a
+rollout ends:
+
+- at the game's end;
+- when the seat holds priority in a main phase *after the root's phase*,
+  with an empty stack, no spell being cast, no payment owed and no mana
+  floating, *and its own answer there is to pass* (`settled`; the position
+  is scored before the pass). Every candidate is thus scored at the same
+  point of the game, the seat's first settled pass after the root's phase,
+  with what it did in between: a land drop with the spells it enables, a
+  pass with the land played later, an attack with its damage. Scoring at the
+  seat's first settled pass instead, in the root's own phase, compared a
+  land drop before combat with a pass after it, and combat's damage chose
+  the pass;
+- when the seat's next own turn has ended (`turn_end`);
+- when H of the seat's decisions are spent (`horizon`). A decision counts
+  unless it is forced or a mana ability, whether a basic land type's
+  (`ActivateManaAbility`) or one a card prints (`ActivateAbility` on a mana
+  ability, CR 605.1);
+- when nobody can answer, an answer is refused, or 4,096 actions have passed
+  (`stopped`, a guard, not a budget).
+
+v1 counted H in single actions, every chair's, and stopped when the seat was
+asked in its next turn: mana activations used it up, and leaves fell on
+transient positions.
+
+**Scores and choice.** A finished game scores the side utility of the
+deciding seat as the evaluator scores it (`terminal_utility`: 1 win, 0 loss,
+a draw shared among the sides); any other leaf scores the value head's
+output of the seat's latest K = 0 observation (`NetPlayer4::observed_value`,
+the observation the rollout just ran, so no extra inference), which under
+`mtg_side_outcome_utility_v1` is the probability that the seat's side wins.
+Only complete rounds (every candidate in world p) count; a candidate refused
+in its world before one round completed answers with the policy
+(`candidate_refused`). Every candidate meets the same worlds (deal, house
+seeds and the net's sampling stream), so its scores pair with the policy's
+answer's world by world. The policy's answer is played unless the selection
+(`Selection4`, `--search-select`) finds another better:
+
+- `prior` (the default, `--search-prior-c 1.0`): the PUCT exploitation
+  score with equal visits, meanᵢ + c · priorᵢ / (1 + n), where priorᵢ is the
+  policy's probability of the answer (softmax of the raw logits over every
+  legal answer) and n the complete rounds. The policy's preference fades as
+  worlds accumulate; the best score wins, ties to the policy's answer.
+- `paired` (`--search-margin 0.05 --search-z 1.0`): candidate i overrides
+  only if its mean paired improvement d̄ᵢ = mean over worlds of
+  (scoreᵢ − score₀) exceeds max(margin, z · se), se being the standard error
+  of those differences. With one world there is no standard error and only
+  z = 0 can override. Of the candidates that pass, the largest d̄ wins.
+- `mean`: v1's best mean, ties to the policy's answer, then candidate order.
+
+`paired` is not the default. It guards against noise between worlds, and on
+s1 there was little: with greedy rollouts and leaves inside the turn, the
+re-dealt hidden cards often change nothing, so the paired differences agree
+in every world and their standard error is 0, and only the margin is left
+to guard. Against what remained, the value head's consistent preference for
+a pass in some positions, it replaced one land drop in seven with a pass
+(14 of 93), at gains of 0.07 to 0.27; `prior` asks for more evidence the
+surer the policy is and replaced 3 of 79 (measured below).
+
+Research-utility critics are refused at start-up.
+
+**Provenance.** A searched answer is recorded with `SourceKind4::Search`, the
+net's temperature and depth, and no behavior probability; the player ends
+exactly as if it had answered the chosen action itself (only its coverage
+counts the decision as searched), and the table is never touched by a world
+(`session/tests/simulation.rs`, `netplay4/search/tests.rs`). `run.json`
+names the search (`"search"`: K, P, H and their units, the selection and its
+parameters, the stop rules, the per-game cap, the critic and the contract
+`belief_lookahead_v2`); unsearched runs do not name it. The summary adds
+`search.counts`: decisions offered, searched (by the kind of the policy's
+answer), changed (by `policy kind->played kind`), skipped and refused by
+reason, rounds, rollouts, rollout steps, the seat's counted decisions,
+leaves by kind, the targets followed (`followed`), not offered as a ranked
+answer (`follow_declined`) or left without their target question
+(`follow_lost`), a change that kept the cast at another target counted as
+`<kind>->retarget`, and the wall time of searched decisions (`latency_ms`
+leaves them out). Each game's line in `games.jsonl` adds `search_events`:
+per searched decision its candidates in order (the policy's first) and
+their targets (`null` where the policy chooses), their
+means, paired improvements and standard errors, priors, selection scores,
+the choice, rounds and leaves, bound to the recorded input like a fallback
+event (`record_input_n`). `convert4` replays searched records: a `Search` step's target is
+encoded as a teacher action, it is written with `src_kind = 3` and no
+log-probability, so PPO actor masks (`source_kind == 0`) never take it; and
+`certified_run` refuses any run that names a search, so a searched run never
+certifies a policy-gradient dataset.
+
+**Rollouts at once (v3).** Under `--inference-batch N` every worker's net
+runs on one shared batched session (`BatchedNet4`), and a search runs up to
+`--search-threads` (default 16) of its K × P rollouts at once, each on a
+thread, a world and a twin of the net of its own
+(`NetPlayer4::twin_on_shared_net`: the same batched session, temperature,
+policy mode and depth, in the root's memory), whose steps join the same
+batches as every other worker's. The deciding player is not touched until
+the choice. A new rollout starts as soon as one ends, so a long rollout
+does not hold the others back. The rollouts are tallied in the serial order
+(world by world, candidate by candidate), and whatever ends the rounds (a
+refused candidate, a failed rollout, a world the table will not fork) ends
+them at the same rollout as it would one by one; rollouts past it that
+already ran are not counted. With a stand-in net the report, the answer, the
+player and the recorded game are the serial ones byte for byte
+(`parallel_rounds_are_the_serial_rounds`,
+`parallel_rollouts_record_the_serial_game`). A player on sessions of its own
+lends no twin, so without `--inference-batch` the rollouts run one by one
+and the run's metadata says `threads: 1`. A batch can then hold up to
+`--threads × (--search-threads + 1)` rows, which is what to size
+`--inference-batch` to; `search.counts.parallel` counts the decisions
+searched at once. Running the rollouts at once changes how fast, not what is
+searched: the contract stays `belief_lookahead_v2`, and its metadata adds
+`threads` and `bitwise_reproducible` (false under `--inference-batch`, in
+`run.json` and the summary alike).
+
+**Options.** `--search K,P,H` (off by default; K 1..=32, P 1..=256,
+H 0..=10000), `--search-select prior|paired|mean` (default `prior`) with
+`--search-prior-c` (default 1), `--search-margin` and `--search-z` (finite,
+non-negative; run metadata names the selection used and the default),
+`--search-max-decisions-per-game N` (0 = no cap; later decisions answer
+without searching, counted as `budget`), `--search-threads N` (1..=256,
+default 16; only with `--inference-batch`), and `--search-targets T`
+(0..=8, default 0; targets as candidates, above). Refused with
+`--legacy-v3`, a frozen or self-play opponent or any collection purpose but
+`evaluation`, and `--shadow-teacher`.
+
+**Determinism.** A search is a function of the table, the player's state at
+the root, K, P, H, the selection and the deal's policy seed: budgets are
+counts, worlds and house seeds are derived from the policy seed, the engine
+and the house are deterministic, and the net is on the owned CPU path; time
+is measured only for the report. `--inference-batch` is not bitwise
+reproducible, with or without search: a row's outputs in a batch differ from
+its outputs alone by under 1e-3, and which rows share a batch depends on
+timing, so a greedy rollout can turn another way.
+
+**Limits.** The worlds are dealt from the real remaining decks of the
+evaluator's known lists — an upper bound on what a seat without deck
+knowledge could do. What the seat can see now is kept (a hand a static
+reveals, a hand it may inspect, a library top a static reveals); what it
+knew earlier about a hidden card (a top it saw, a card revealed from a hand
+and kept there) is lost (`docs/engine-internals.md` §"Forking a
+simulation"). Only priority roots; attack and
+block declarations, targets and other questions are the policy's. The rest
+of the net's side plays as the house in a world. Every observation in a
+rollout costs a model step: one call at a time on a net with sessions of its
+own, shared batches under `--inference-batch`.
+
+**v1 measured (1 November 2026, CPU, a loaded 24-core workstation).** The
+machinery alone (`lookahead::tests::measure_the_search_machinery_without_a_model`,
+`--profile ci-release`, stand-in net, one Victory mirror, 464 decisions,
+128 searched): K,P,H = 1,1,0 0.32 ms per searched decision; 4,2,0 1.6 ms;
+4,2,8 9.4 ms (7.8 actions per rollout); 4,2,32 29 ms; 8,4,32 82 ms. With
+`v6s-selfimit/s1` (d_model 640, encoder 7, `--raw-policy`, greedy, K = 2,
+`BAYLEE_EP=cpu`, 4 deals against steady on 4 threads, train-split
+manifest decks): without search a decision takes 57 ms (p50) and the 4
+games 78 s. `--search 4,2,0`: 14 % of 1451 offered decisions searched (refused:
+316 mid-activation, 8 trigger scans; skipped: 440 not the policy's, 338
+phase, 139 not priority), 7.5 worlds and 511 ms (p50 518, p95 673) per
+searched decision, 129 s in all. `--search 4,2,8`: 189 searched, 7.6 worlds
+of 8.0 actions each, 6.5 s (p50 7.0, p95 10.0) per searched decision, 897 s;
+every leaf was a value leaf. One game in four was won in each arm; nothing
+about strength can be read from that. That model's card structure predates
+this branch's catalog, so the runs used a local build with the catalog
+check removed (never committed); indices are unchanged between the two
+revisions and no answer fell back.
+
+What the search changes is a warning. H = 0 changed 81 % of searched
+answers (H = 8: 61 %), and a recorded 2-deal run (`search_events`) shows
+what: a pass swapped for tapping a land for mana and back, and of 140
+searched decisions 27 land drops and 6 casts replaced by a pass or a mana
+ability, on value differences of a few hundredths (median 0.037). H = 8
+does not cure it: in a capped 2-deal run (51 searched) 30 answers changed,
+7 of 14 land drops and 1 of 2 casts among them, median difference 0.015.
+The value head's opinion of a transient state (mana floating, priority
+passed) is not a judgement of the move. v1 is plumbing to measure with, not
+a player: a leaf should be a settled position (the seat's next own priority
+with an empty stack, or its next turn), and a change should need a margin
+over the noise, before any strength is claimed. The search is converted by `convert4` end to end (4
+games, 189 `Search` frames, no policy-gradient certification).
+
+**v2 measured (1 November 2026, CPU, load average 20 to 78 from other
+sessions' test suites).** Committed path, no bypass: `c21cd263c`,
+`v6s-selfimit/s1` bound with `--catalog-drift` (0 references left out on
+these decks), `--raw-policy`, greedy, K = 2, `BAYLEE_EP=cpu`, 16 deals
+against sharp on train-split manifest decks, 4 threads per arm, guarded
+jobs (`train_ops run`) compared by `paired_eval4`. Search at K,P,H = 4,2,6:
+
+| arm | won | searched | changed | land drop → pass / mana | cast → pass / mana | s per searched (mean, p50, p95) |
+| --- | --- | --- | --- | --- | --- | --- |
+| no search | 3/16 | — | — | — | — | — (117 ms p50 per decision) |
+| `paired` 0.05, z 1 | 4/16 | 816 of 5,272 | 76 (9.3 %) | 14 / 7 of 93 | 0 / 2 of 37 | 19.0, 14.2, 58.0 |
+| `prior` c 1 | 4/16 | 856 of 5,182 | 52 (6.1 %) | 3 / 0 of 79 | 0 / 3 of 47 | 17.8, 14.4, 48.9 |
+| `mean` (4 deals) | 1/4 | 313 of 1,681 | 166 (53 %) | 22 / 12 of 52 | 3 / 7 of 18 | 17.4, 14.7, 40.0 |
+
+Both search arms beat no search on one deal (deal 12, loss to win) and lose
+none: paired utility +0.0625 over 8 independent tables, a small sample from
+which no strength can be read. A game with search took 11 times as long
+(4,533 s against 405 s for the 16 deals). Per searched decision: 7.5
+rollouts of 15 actions, 3.1 of them the seat's counted decisions; 73 % of
+leaves settled, 26 % reached H, 1 % ended the game.
+
+What changed: the prior rule leaves land drops and casts alone in all but 3
+of 79 and 3 of 47, and its other changes are one land for another (13) or a
+mana tap skipped (16). The paired rule still replaced 14 of 93 land drops
+with a pass, at large paired gains (0.07 to 0.27) against policy priors of
+0.02 to 0.08 for the pass. The value head, given the policy's continuation,
+consistently prefers the pass in those positions. 40 of the paired rule's 76
+overrides had a standard error of 0: with greedy rollouts and leaves within
+the turn, the re-dealt hidden cards often change nothing, so two worlds show
+no noise, and only the margin guards. Selection by the mean alone changes
+half of all searched answers, so v1's churn came from the rule as much as
+from the leaves.
+
+So the paired test guards against world-to-world noise, not against the
+critic's systematic misjudgement; the prior rule does, by asking more
+evidence the surer the policy is, and is the default since (1 November
+2026). A margin calibrated on the value head's
+validation error, more worlds, or sampled rollouts would give the paired
+test something to measure; none of the three rules is evidence of a stronger
+player yet. An earlier v2 that scored a settled pass in the root's own phase
+compared a land drop before combat with a pass after it (`c21cd263c`).
+
+**v3 measured (1 November 2026, CPU, load average about 4).** `7ee2fa72e`,
+`v6s-selfimit/s1` as above, 2 deals against sharp, one worker,
+`--inference-batch 16`, `--search 4,2,6` (prior), at most 12 searched
+decisions per game. Both arms searched the same 24 decisions, ran the same
+186 rollouts of 2,704 actions and changed the same 4 answers, so batching
+turned no greedy rollout here:
+
+| `--search-threads` | calls (rows 6,493) | rows per call | s per searched (mean, p50, max) | searched total | run |
+| --- | --- | --- | --- | --- | --- |
+| 1 | 6,493 | 1.00 | 5.87, 3.69, 17.0 | 141 s | 314 s |
+| 4 | 5,250 | 1.24 | 4.06, 2.37, 11.7 | 97 s | 271 s |
+
+On the CPU a call's cost grows with its rows (each lane runs on one
+intra-op thread), so four rollouts at once gain 1.45 times, mostly from
+encoding and the engine running beside inference. Batches stay small because
+each twin encodes its next row while the lane runs the others'. The gain
+this is built for is on the GPU, where a call's cost grows little with its
+rows (§"Batched GPU inference and FP16 graphs"); not measured yet.
+
+**v3 measured on the GPU (2 November 2026).** `f9f2dd4bd`, `v6s-selfimit/s1`
+with `--catalog-drift`, `dev1024` against sharp, 8 workers,
+`--inference-batch 136`, `--search-threads 16`, `--search 4,4,6` (prior):
+430 of 1024 won (42.0 %) against 372 (36.3 %) without search, +5.6 points;
+deal by deal 103 better, 45 worse, 876 equal (sign test z ≈ 4.8). 67,399 of
+314,178 decisions were searched (21 %) and 4,277 answers changed (6.3 % of
+them; most often a mana ability for a pass and back, and one land drop for
+another). A searched decision took 0.80 s (p95 1.61 s); the 1024 games
+9,280 s against 626 s.
+
+**Search distillation (`convert4 --search-targets`).** A searched run's
+games become a BC-only dataset in which the answers the search played are
+the policy targets: a decision answered as `Search` keeps its weight, the
+net's own unsearched decisions keep `--search-unsearched-weight` (default 0)
+of theirs, and the house's, forced answers and passive frames keep their
+frames for memory and value but no policy weight. Every run must name a
+search in its `run.json` and carry its rollout sidecar; separate
+`--val-runs` are refused. The dataset header records the weighting and each
+run's search under `search_distillation` and is not PPO-eligible. Its
+games are played by the search, so the value targets are the searched
+player's outcomes.
 
 ### BayleeAI v5 relational pilot
 
@@ -957,6 +1516,30 @@ losing a game does not establish that it was unwinnable. Fixed-start comparisons
 control luck better than unrelated win rates, but actions can change later
 draws. Keep final seed/deck holdouts separate from repeatedly consulted tuning
 suites and complement match results with view-only tactical regression cases.
+
+**Reading the games (`gamelog4`, feature `llm`).** Win rates say how often,
+not why. `gamelog4 deals --summary S` lists the deals of an eval4 summary
+with a house baseline where the net lost and the house, playing the same
+seat of the same deal, won (`--which won|all` for the others).
+`gamelog4 show --run R --game N` replays one game of the `--record-out`
+directory: both boards and hands at each turn's start, the game's log
+lines as the net's seat was told them, and every answer of that seat
+marked `Net`, `Search`, `House` or `Forced` from the rollout sidecar, with
+names and controllers (`White Knight/P2`); a passed priority lists what
+else was legal (`cast?` for a card castable only while paid for, whose
+mana is not checked). `gamelog4 patterns --run R --summary S` replays the
+selected games on several threads and counts what each spell or ability
+was aimed at, the net's own objects or itself against anything else, and
+the net's own second main phases passed with a castable card or a land in
+hand. A record is omniscient, so this is for studying the net, never for a
+seat. Measured on `s1r` (`dev1024`, 3 November 2026): 221 deals lost where
+the house won, 76 the other way round; the net aims removal at its own
+permanents about as often as at the opponent's (Swords to Plowshares 39
+own / 20 other, Disenchant 14 / 1, Weight of the Underworld 13 / 4, Hero's
+Downfall 8 / 5) while Lightning Bolt goes almost always elsewhere (7 / 111);
+a Disenchant with no other target destroyed the net's own Fellwar Stone.
+The search cannot correct this: it searches priority roots only, and
+targets stay the policy's.
 The optimized validator uses the same metric definitions with device-side
 reductions and float64 accumulators. Grouped BF16 execution has normal rounding
 differences; verify gradients, full validation and actual game results.

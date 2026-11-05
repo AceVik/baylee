@@ -330,6 +330,7 @@ impl HeuristicAgent {
         // A source's chosen colour is not in a view, and a colour compared
         // across the board is a gap like the reference family.
         | Filter::OfSourceChosenColor
+        | Filter::OfSourceChosenCardType
         | Filter::SharesAColorWith(_)
         | Filter::Equipped
         | Filter::CmcEqualsCountersOnSource(_)
@@ -392,6 +393,10 @@ impl HeuristicAgent {
         object: ObjectId,
         options: &[CastModeDesc],
     ) -> usize {
+        // Not a cast at all: where a resolved spell goes (CR 616.1e).
+        if let Some(ending) = crate::endings::own(view, object, options) {
+            return ending;
+        }
         // A free alternative beats paying for the same spell. The engine
         // offers `Normal` only when the pool already covers it, so taking it
         // spent floating mana on a Deadly Rollick that was free.
@@ -512,7 +517,7 @@ impl HeuristicAgent {
     /// through `baylee_cards::by_index`, so there is no synthetic card to
     /// build one with either. The day that lint goes red is the day this
     /// branch starts running, and the lint is the test that says so.
-    fn modal_modes(view: &PlayerView, object: ObjectId) -> Option<&'static [SpellMode]> {
+    pub(crate) fn modal_modes(view: &PlayerView, object: ObjectId) -> Option<&'static [SpellMode]> {
         // A card in hand is only ever itself; an object anywhere else may be
         // a copy, whose modes are the copied card's (CR 707.2).
         let rules = view

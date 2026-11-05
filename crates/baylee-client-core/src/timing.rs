@@ -35,10 +35,15 @@ use baylee_view::{Phase, PlayerView};
 /// Priority is the fourth condition and is not checked here, because the only
 /// caller is inside a `Pending::Priority` addressed to this seat — the engine
 /// asking the question *is* the seat having priority.
+///
+/// "Its own turn" is the turn of the player whose cards the decision uses
+/// ([`crate::decision::resource_player`]): a seat that controls another
+/// player's turn (Mindslaver, CR 723.5) casts that player's sorceries in
+/// that player's main phase, which is not the seat's own turn.
 #[must_use]
 pub fn sorcery_window(view: &PlayerView) -> bool {
     matches!(view.phase, Phase::FirstMain | Phase::SecondMain)
-        && view.active == view.seat
+        && view.active == crate::decision::resource_player(view)
         && view.stack.is_empty()
 }
 
@@ -60,7 +65,9 @@ pub fn sorcery_window(view: &PlayerView) -> bool {
 /// has just said that an instant may not be cast either.
 ///
 /// Conversely, [`PlayerView::sorceries_have_flash`] is Teferi's +1 ability,
-/// which allows its controller to cast sorceries as though they had flash.
+/// which allows its controller to cast sorceries as though they had flash,
+/// and [`PlayerView::flash_types`] the same for the types an effect such as
+/// Alchemist's Refuge names.
 #[must_use]
 pub fn allows(view: &PlayerView, types: TypeSet, flash: bool) -> bool {
     if view.sorcery_lock.is_some() {
@@ -70,6 +77,7 @@ pub fn allows(view: &PlayerView, types: TypeSet, flash: bool) -> bool {
         || flash
         || sorcery_window(view)
         || (view.sorceries_have_flash && types.contains(TypeSet::SORCERY))
+        || types.intersects(view.flash_types)
 }
 
 #[cfg(test)]
@@ -108,6 +116,25 @@ mod tests {
         );
     }
 
+    /// Alchemist's Refuge or Leyline of Anticipation
+    /// (`PlayerView::flash_types`): the types it names are lit on somebody
+    /// else's turn, the rest are not, and an opponent's lock still wins.
+    #[test]
+    fn granted_flash_lights_the_types_it_names() {
+        let mut view = open();
+        view.active = PlayerId::new(1);
+        assert!(!allows(&view, TypeSet::CREATURE, false), "without it");
+        view.flash_types = TypeSet::CREATURE;
+        assert!(allows(&view, TypeSet::CREATURE, false), "creatures");
+        assert!(
+            allows(&view, TypeSet::CREATURE.union(TypeSet::ARTIFACT), false),
+            "an artifact creature is a creature"
+        );
+        assert!(!allows(&view, TypeSet::SORCERY, false), "not sorceries");
+        view.sorcery_lock = Some(ObjectId::new(7, 0));
+        assert!(!allows(&view, TypeSet::CREATURE, false), "the lock wins");
+    }
+
     #[test]
     fn a_seats_own_empty_main_phase_is_a_sorcery_window() {
         assert!(sorcery_window(&open()));
@@ -143,6 +170,27 @@ mod tests {
         assert!(!sorcery_window(&view));
         assert!(!allows(&view, TypeSet::CREATURE, false));
         assert!(allows(&view, TypeSet::INSTANT, false));
+    }
+
+    /// A decision this seat makes for the player whose turn it controls
+    /// (CR 723.5) opens that player's main phase to their sorceries; the
+    /// same main phase seen without the decision stays closed.
+    #[test]
+    fn a_controlled_players_main_phase_is_open_to_its_controller() {
+        let mut view = open();
+        view.active = PlayerId::new(1);
+        view.decision_player = Some(PlayerId::new(1));
+        view.awaiting = Some(view.seat);
+        assert!(sorcery_window(&view));
+        assert!(allows(&view, TypeSet::CREATURE, false));
+        view.awaiting = Some(PlayerId::new(1));
+        assert!(!sorcery_window(&view), "not this seat's decision");
+        view.awaiting = Some(view.seat);
+        view.active = view.seat;
+        assert!(
+            !sorcery_window(&view),
+            "the seat's own turn is not the controlled player's"
+        );
     }
 
     #[test]

@@ -44,10 +44,12 @@ pub(crate) fn activatable_into(duel: &Duel, lit: &mut std::collections::HashSet<
         duel.interaction.as_ref().filter(|i| i.is_combat()),
         duel.view.as_ref(),
     ) {
+        // The declaring player's creatures: this seat's, or the controlled
+        // player's whose attackers or blockers it declares (CR 723.5).
         lit.extend(
             view.battlefield
                 .iter()
-                .filter(|o| o.controller == view.seat && choice.is_selectable(o.id))
+                .filter(|o| o.controller == choice.subject() && choice.is_selectable(o.id))
                 .map(|o| o.id),
         );
     }
@@ -109,11 +111,13 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
     let Some(view) = duel.view.as_ref() else {
         return std::collections::HashSet::new();
     };
-    // A controlled resolving instruction exposes its exact legal actions;
-    // ordinary timing/affordability must not invent additional plays.
-    if baylee_client_core::decision::resource_player(view) != view.seat {
-        return std::collections::HashSet::new();
-    }
+    // The caster's cards, pool and lands: this seat's, or those of the
+    // player it controls (CR 723.5a). That player's spells are reached for
+    // as this seat's own are: every card here is one the engine says it
+    // casts once paid (`castable_once_paid`, asked of that player's legal
+    // actions), so the planner withholds and never invents a play, also
+    // under a control effect that restricts the plays (CR 723.7).
+    let caster = baylee_client_core::decision::resource_player(view);
     let Some(legal) = duel
         .interaction
         .as_ref()
@@ -121,36 +125,48 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
     else {
         return std::collections::HashSet::new();
     };
-    let Some((pool, life)) = view
-        .seat(baylee_client_core::decision::resource_player(view))
-        .map(|s| (s.mana_pool, s.life))
-    else {
+    let Some((pool, life)) = view.seat(caster).map(|s| (s.mana_pool, s.life)) else {
         return std::collections::HashSet::new();
     };
-    let affordable = |id, cost: baylee_core::mana::ManaCost| {
-        // An `{X}` is the player's to announce, after the cast is begun
-        // (CR 601.2b): the least it can be is 0, so a card is in reach when
-        // the rest of its cost is. Refusing every X cost left Prismatic
-        // Ending (`{X}{W}`) answering no click while the engine offered it
-        // (#17); the X question is then capped by what the mana pays.
-        let cost = least_x(cost).with_more_generic(
-            legal.spell_increase(id, baylee_engine::choice::CastModeKind::Normal),
-        );
-        // A card already in `legal.castable` is in this sweep only when
-        // `phyrexian_life_only` kept it here so untapped lands can offer to
-        // pay the Phyrexian mana instead of life. Settling those symbols with
-        // life again would plan zero taps and mark a life-only card as needing
-        // land taps even over off-colour lands.
-        if legal.castable.contains(&id) {
-            manasources::plan_for_spell(&cost, &pool, view, legal, id).is_some()
-        } else {
-            manasources::plan_with_life_for_spell(&cost, &pool, view, legal, id, life).is_some()
-        }
-    };
+    let affordable =
+        |id, card: Option<baylee_view::CardIdentity>, cost: baylee_core::mana::ManaCost| {
+            // An `{X}` is the player's to announce, after the cast is begun
+            // (CR 601.2b): the least it can be is 0, so a card is in reach when
+            // the rest of its cost is. Refusing every X cost left Prismatic
+            // Ending (`{X}{W}`) answering no click while the engine offered it
+            // (#17); the X question is then capped by what the mana pays.
+            // Priced as the engine charges it, increases and reductions both
+            // (CR 601.2f): under Goblin Warchief a Goblin costs {1} less.
+            let cost = baylee_ai::spell_price(
+                view,
+                id,
+                card,
+                legal,
+                baylee_engine::choice::CastModeKind::Normal,
+                least_x(cost),
+            );
+            // A card already in `legal.castable` is in this sweep only when
+            // `phyrexian_life_only` kept it here so untapped lands can offer to
+            // pay the Phyrexian mana instead of life. Settling those symbols with
+            // life again would plan zero taps and mark a life-only card as needing
+            // land taps even over off-colour lands.
+            if legal.castable.contains(&id) {
+                manasources::plan_for_spell(&cost, &pool, view, legal, id).is_some()
+            } else {
+                manasources::plan_with_life_for_spell(&cost, &pool, view, legal, id, life).is_some()
+            }
+        };
     baylee_client_core::decision::hand(view)
         .iter()
         .filter(|card| !legal.lands.contains(&card.id))
         .filter(|card| !legal.castable.contains(&card.id) || phyrexian_life_only(card, &pool))
+        // The engine's own word on everything but the mana, and so on its
+        // targets (CR 601.2c): a card it would not cast once paid is never
+        // tapped for. Terror beside a White Knight (protection, CR 702.16b) got
+        // past `targeting`, which reads a filter and nothing else that stops a
+        // target, and past the AI's check, which a payable mode skipped
+        // (NEW-04).
+        .filter(|card| legal.castable_once_paid(card.id))
         // Types off the view, because those are the *projected* ones; flash
         // off the printed card, because a `HandObject` carries no keywords.
         .filter(|card| baylee_client_core::timing::allows(view, card.types, has_flash(card.card)))
@@ -174,7 +190,8 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
             {
                 return !castmodes::reachable_modes(view, legal, card.id).is_empty();
             }
-            manasources::hand_cost(card).is_some_and(|cost| affordable(card.id, cost))
+            manasources::hand_cost(card)
+                .is_some_and(|cost| affordable(card.id, Some(card.card), cost))
                 || !castmodes::reachable_modes(view, legal, card.id).is_empty()
         })
         // And there has to be something to point it at (CR 601.2c). Last in
@@ -185,6 +202,10 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
         // which is the opposite default from `castmodes::parts_payable` and
         // deliberately so — the reasoning is in that module's header.
         .filter(|card| !targeting::provably_targetless(view, card.card))
+        .filter(|card| {
+            !castmodes::reachable_modes(view, legal, card.id).is_empty()
+                || baylee_ai::spell_can_be_cast_now(view, legal, card.id, card.card)
+        })
         .map(|card| card.id)
         // The command zone is castable from too (CR 903.8), and leaving it
         // out is why a commander could not be played. A card the engine has
@@ -200,17 +221,18 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
         // cast *of that commander*, which is why `CommanderView::casts` is
         // per commander and not per seat.
         .chain(
-            view.seat(baylee_client_core::decision::resource_player(view))
+            view.seat(caster)
                 .into_iter()
                 .flat_map(|seat| seat.commanders.iter())
                 .filter(|c| !legal.castable.contains(&c.object))
+                .filter(|c| legal.castable_once_paid(c.object))
                 // Still *in* the zone. A commander on the battlefield or in a
                 // graveyard is named by the same `CommanderView` — the handle
                 // follows the card through every move (CR 400.7) — and only
                 // the one standing in the command zone is castable from it.
                 .filter(|c| {
                     view.command
-                        .get(view.seat.get() as usize)
+                        .get(caster.get() as usize)
                         .is_some_and(|zone| zone.iter().any(|o| o.id == c.object))
                 })
                 // And it is cast at the timing it would have from a hand
@@ -228,7 +250,7 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
                 })
                 .filter(|c| {
                     commander_cost(c).is_some_and(|cost| {
-                        affordable(c.object, cost.with_more_generic(2 * c.casts))
+                        affordable(c.object, c.card, cost.with_more_generic(2 * c.casts))
                     })
                 })
                 .map(|c| c.object),
@@ -249,18 +271,25 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
         // owner are asked here only because no other graveyard can answer.
         .chain(
             view.graveyards
-                .get(view.seat.get() as usize)
+                .get(caster.get() as usize)
                 .into_iter()
                 .flatten()
-                .filter(|o| !legal.castable.contains(&o.id))
+                .filter(|o| !legal.castable.contains(&o.id) && legal.castable_once_paid(o.id))
                 .filter(|o| {
                     o.card.is_some_and(|card| {
                         baylee_client_core::timing::allows(view, o.types, has_flash(card))
                     })
                 })
                 .filter(|o| {
-                    o.flashback.is_some_and(|cost| {
-                        cost.symbols().next().is_some() && affordable(o.id, cost)
+                    let cost = o.flashback.or_else(|| {
+                        legal
+                            .payable
+                            .contains(&o.id)
+                            .then(|| o.card.and_then(printed_face).map(|f| f.mana_cost))
+                            .flatten()
+                    });
+                    cost.is_some_and(|cost| {
+                        cost.symbols().next().is_some() && affordable(o.id, o.card, cost)
                     })
                 })
                 .filter(|o| {
@@ -287,32 +316,59 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
                 .filter(|o| {
                     o.card.and_then(printed_face).is_some_and(|face| {
                         face.mana_cost.symbols().next().is_some()
-                            && affordable(o.id, face.mana_cost)
+                            && affordable(o.id, o.card, face.mana_cost)
                     })
                 })
                 .filter(|o| {
-                    o.card
-                        .is_some_and(|card| !targeting::provably_targetless(view, card))
+                    o.card.is_some_and(|card| {
+                        !targeting::provably_targetless(view, card)
+                            && baylee_ai::spell_can_be_cast_now(view, legal, o.id, card)
+                    })
                 })
                 .map(|o| o.id),
         )
         .collect()
 }
 
-/// Which cards in hand a tap or two would make **suspendable**.
-///
-/// [`reachable`]'s counterpart, and it needs one because suspend is paid for
-/// like anything else: the engine offers `legal.suspendable` only once the
-/// cost is floating, so a suspend card over untapped lands is a card with
-/// nothing to do — which is precisely the report this answers, *"so first tap
-/// and pay mana, then suspend"*.
-///
-/// The timing gate is [`baylee_client_core::timing::sorcery_window`] and not
-/// `allows`: suspend's ability says "activate only as a sorcery" (CR 702.62a)
-/// whatever the card's own type is, and the engine gates its offer on exactly
-/// that. Flash on the card would be the wrong question — an instant with
-/// suspend still may not suspend at instant speed.
+/// Which cards a tap or two would make suspendable. Unlike casting an instant
+/// with suspend, the special action itself is always sorcery-speed (CR 702.62a).
 pub(super) fn suspend_reach(duel: &Duel) -> std::collections::HashSet<ObjectId> {
+    special_action_reach(
+        duel,
+        |legal| &legal.suspendable,
+        suspend_cost,
+        baylee_client_core::timing::sorcery_window,
+    )
+}
+
+/// Foretell needs only priority on its owner's turn, not a main phase or an
+/// empty stack (CR 702.143a). Its special action always costs {2}; the printed
+/// foretell cost is for the later cast, not for this payment.
+pub(super) fn foretell_reach(duel: &Duel) -> std::collections::HashSet<ObjectId> {
+    special_action_reach(
+        duel,
+        |legal| &legal.foretellable,
+        |card| {
+            let def = baylee_cards::by_index(card.index)?;
+            def.faces
+                .get(usize::from(card.face))
+                .or_else(|| def.faces.first())?
+                .foretell
+                .is_some()
+                .then(|| baylee_core::mana::ManaCost::parse("{2}"))
+        },
+        |view| view.active == baylee_client_core::decision::resource_player(view),
+    )
+}
+
+/// Shared planner for hand-based special actions. The engine's offer remains
+/// authoritative: these are only cards not already payable from floating mana.
+fn special_action_reach(
+    duel: &Duel,
+    offered: impl for<'a> Fn(&'a baylee_engine::choice::LegalActions) -> &'a [ObjectId],
+    cost: impl Fn(baylee_view::CardIdentity) -> Option<baylee_core::mana::ManaCost>,
+    timing: impl Fn(&baylee_view::PlayerView) -> bool,
+) -> std::collections::HashSet<ObjectId> {
     let Some(view) = duel.view.as_ref() else {
         return std::collections::HashSet::new();
     };
@@ -323,13 +379,10 @@ pub(super) fn suspend_reach(duel: &Duel) -> std::collections::HashSet<ObjectId> 
     else {
         return std::collections::HashSet::new();
     };
-    if !baylee_client_core::timing::sorcery_window(view) {
+    if !timing(view) {
         return std::collections::HashSet::new();
     }
     let sources = manasources::sources(view, legal);
-    if sources.is_empty() {
-        return std::collections::HashSet::new();
-    }
     let Some(pool) = view
         .seat(baylee_client_core::decision::resource_player(view))
         .map(|s| s.mana_pool)
@@ -338,9 +391,9 @@ pub(super) fn suspend_reach(duel: &Duel) -> std::collections::HashSet<ObjectId> 
     };
     baylee_client_core::decision::hand(view)
         .iter()
-        .filter(|card| !legal.suspendable.contains(&card.id))
+        .filter(|card| !offered(legal).contains(&card.id))
         .filter(|card| {
-            suspend_cost(card.card).is_some_and(|cost| {
+            cost(card.card).is_some_and(|cost| {
                 baylee_client_core::manaplan::plan(&cost, &pool, &sources).is_some()
             })
         })
@@ -635,5 +688,215 @@ mod tests {
             Some(3),
             "mana_for should plan 3 Swamps for Phyrexian Metamorph in hand"
         );
+    }
+
+    #[test]
+    fn ability_reach_and_options_cover_hand_cycling_face_down_turn_up_and_room_unlock() {
+        use baylee_client_core::i18n::Lang;
+        use baylee_core::generated::subtypes::land;
+        use baylee_core::ids::PrintRef;
+        use baylee_core::mana::ManaCost;
+        use baylee_core::types::{SubtypeSet, TypeSet};
+        use baylee_engine::choice::{LegalActions, TURN_FACE_UP, unlock_door};
+        use baylee_view::{CardIdentity, HandObject, ObjectStatus, PublicObject};
+
+        let card_id = |name: &str| CardIdentity {
+            index: baylee_cards::decks::by_name(name).expect(name),
+            print: PrintRef::new(0),
+            face: 0,
+        };
+        let closet_id = CardIdentity {
+            index: baylee_cards::by_oracle_id("52e77cc3-f8e9-4a20-811b-fe1e46a96ad7")
+                .expect("Walk-In Closet // Forgotten Cellar")
+                .index,
+            print: PrintRef::new(0),
+            face: 0,
+        };
+        let forest = |slot: u32| PublicObject {
+            types: TypeSet::LAND,
+            subtypes: SubtypeSet::from_slice(&[land::FOREST]),
+            power: None,
+            toughness: None,
+            ..token(slot, 0, "Forest", 0, 0)
+        };
+        let cavern = PublicObject {
+            status: ObjectStatus::FACE_DOWN,
+            card: Some(card_id("Zoetic Cavern")),
+            ..token(50, 0, "", 2, 2)
+        };
+        let room = PublicObject {
+            types: TypeSet::ENCHANTMENT,
+            unlocked_doors: Some([false, false]),
+            card: Some(closet_id),
+            rules: Some(closet_id.into()),
+            ..token(51, 0, "Walk-In Closet", 0, 0)
+        };
+        let mut view = ViewBuilder::new(2)
+            .with_battlefield(0, vec![forest(1), forest(2), forest(3), cavern, room])
+            .build();
+        view.hand.push(HandObject {
+            id: obj(60),
+            card: card_id("Ash Barrens"),
+            name: "Ash Barrens".to_string(),
+            mana_value: 0,
+            colors: baylee_core::color::ColorSet::default(),
+            types: TypeSet::LAND,
+            commander: false,
+        });
+
+        let legal = LegalActions {
+            mana_abilities: vec![obj(1), obj(2), obj(3)],
+            unpaid_abilities: vec![
+                (obj(50), TURN_FACE_UP, ManaCost::parse("{2}")),
+                (obj(51), unlock_door(0), ManaCost::parse("{2}{G}")),
+                (obj(51), unlock_door(1), ManaCost::parse("{3}{G}{G}")),
+                (obj(60), 1, ManaCost::parse("{1}")),
+            ],
+            ..LegalActions::default()
+        };
+        let duel = Duel {
+            interaction: Some(Interaction::new(
+                Pending::Priority {
+                    player: view.seat,
+                    legal: Box::new(legal.clone()),
+                },
+                view.seat,
+            )),
+            view: Some(view.clone()),
+            ..Duel::default()
+        };
+        let interaction = duel.interaction.as_ref().expect("interaction");
+
+        let reach = ability_reach(&duel);
+        assert!(reach.contains(&obj(50)) && reach.contains(&obj(51)) && reach.contains(&obj(60)));
+
+        let cavern_opts =
+            crate::abilities::options_for(Lang::En, &view, interaction, obj(50), None);
+        assert_eq!(cavern_opts.len(), 1);
+        assert_eq!(cavern_opts[0].cost.as_deref(), Some("{2}"));
+        assert_eq!(
+            crate::abilities::mana_for(&view, &legal, obj(50), TURN_FACE_UP).map(|p| p.taps()),
+            Some(2)
+        );
+
+        let room_opts = crate::abilities::options_for(Lang::En, &view, interaction, obj(51), None);
+        assert_eq!(room_opts.len(), 1);
+        assert_eq!(room_opts[0].cost.as_deref(), Some("{2}{G}"));
+        assert_eq!(
+            crate::abilities::mana_for(&view, &legal, obj(51), unlock_door(0)).map(|p| p.taps()),
+            Some(3)
+        );
+        assert!(crate::abilities::mana_for(&view, &legal, obj(51), unlock_door(1)).is_none());
+
+        let barrens_opts =
+            crate::abilities::options_for(Lang::En, &view, interaction, obj(60), None);
+        assert_eq!(barrens_opts.len(), 1);
+        assert_eq!(
+            crate::abilities::mana_for(&view, &legal, obj(60), 1).map(|p| p.taps()),
+            Some(1)
+        );
+        assert!(crate::abilities::printed_words(None, &view, obj(60), &barrens_opts[0]).is_some());
+    }
+
+    #[test]
+    fn derelor_colored_tax_and_wild_growth_bonus_govern_client_reach_and_mana_for() {
+        use baylee_core::generated::subtypes::land;
+        use baylee_core::ids::{PrintRef, SubtypeId};
+        use baylee_core::types::{SubtypeSet, TypeSet};
+        use baylee_engine::choice::{CastModeKind, LegalActions};
+        use baylee_view::{CardIdentity, HandObject, PublicObject};
+
+        let card_id = |name: &str| CardIdentity {
+            index: baylee_cards::decks::by_name(name).expect(name),
+            print: PrintRef::new(0),
+            face: 0,
+        };
+        let basic = |slot: u32, name: &str, sub: SubtypeId| PublicObject {
+            types: TypeSet::LAND,
+            subtypes: SubtypeSet::from_slice(&[sub]),
+            power: None,
+            toughness: None,
+            ..token(slot, 0, name, 0, 0)
+        };
+        let derelor_id = card_id("Derelor");
+        let derelor = PublicObject {
+            card: Some(derelor_id),
+            rules: Some(derelor_id.into()),
+            ..token(10, 0, "Derelor", 4, 4)
+        };
+        let wg_id = card_id("Wild Growth");
+        let wild_growth = PublicObject {
+            types: TypeSet::ENCHANTMENT,
+            attached_to: Some(obj(3)),
+            card: Some(wg_id),
+            rules: Some(wg_id.into()),
+            ..token(11, 0, "Wild Growth", 0, 0)
+        };
+        let hand_card = |slot: u32, name: &str, types: TypeSet| {
+            let cid = card_id(name);
+            let def = baylee_cards::by_index(cid.index).expect(name);
+            HandObject {
+                id: obj(slot),
+                card: cid,
+                name: name.to_string(),
+                mana_value: 1,
+                colors: def.faces[0].mana_cost.colors(),
+                types,
+                commander: false,
+            }
+        };
+
+        let mut view = ViewBuilder::new(2)
+            .with_battlefield(
+                0,
+                vec![
+                    basic(1, "Swamp", land::SWAMP),
+                    basic(2, "Mountain", land::MOUNTAIN),
+                    basic(3, "Forest", land::FOREST),
+                    derelor,
+                    wild_growth,
+                ],
+            )
+            .build();
+        view.hand = vec![
+            hand_card(60, "Dark Ritual", TypeSet::INSTANT),
+            hand_card(61, "Grizzly Bears", TypeSet::CREATURE),
+        ];
+
+        let mut legal = LegalActions {
+            mana_abilities: vec![obj(1), obj(2), obj(3)],
+            payable: vec![obj(60), obj(61)],
+            spell_increases: vec![(obj(60), CastModeKind::Normal, 1)],
+            ..LegalActions::default()
+        };
+        let make_duel = |v: &baylee_view::PlayerView, l: &LegalActions| Duel {
+            interaction: Some(Interaction::new(
+                Pending::Priority {
+                    player: v.seat,
+                    legal: Box::new(l.clone()),
+                },
+                v.seat,
+            )),
+            view: Some(v.clone()),
+            ..Duel::default()
+        };
+
+        let duel = make_duel(&view, &legal);
+        let reach = reachable(&duel);
+        assert!(
+            !reach.contains(&obj(60)),
+            "Dark Ritual costs {{B}}{{B}} under Derelor"
+        );
+        assert!(
+            reach.contains(&obj(61)),
+            "Grizzly Bears is reachable from Wild Growth Forest"
+        );
+        assert_eq!(crate::mana_for(&duel, obj(61)).map(|p| p.taps()), Some(1));
+
+        view.battlefield.push(basic(4, "Swamp", land::SWAMP));
+        legal.mana_abilities.push(obj(4));
+        let duel = make_duel(&view, &legal);
+        assert!(reachable(&duel).contains(&obj(60)));
+        assert_eq!(crate::mana_for(&duel, obj(60)).map(|p| p.taps()), Some(2));
     }
 }

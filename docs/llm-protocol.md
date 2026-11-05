@@ -49,6 +49,12 @@ plan or a standing pass could have: the calls were the cost.
 
 ## The format
 
+Foretell's special action is an explicit priority option when the engine
+offers it: pay {2} and exile the named hand card face down. Standing orders
+must not classify a window containing `LegalActions::foretellable` as
+"nothing to do". Taking the action also ends the preceding mana-tapping
+sequence. The later cast uses its separate foretell casting mode.
+
 The state stays prose. On 602 captured boards, re-encoding the same state
 (header, log and question unchanged) costs, per whole wake:
 
@@ -214,6 +220,94 @@ against 351 told whole. On a cached API path a wake is in the uncached
 tail: about 300 tokens saved at Sonnet 5.5's $2/M is $0.0006 a call. The
 win there is §"Plans".
 
+## Stops
+
+A priority round with nothing of the other side's on the stack reaches the
+model only in a step it stops at, and there only when it could do
+something (`wake::offering`: a land, a spell or an activation its untapped
+sources reach, not mana alone). Every other question, a declaration with
+something to declare, a payment owed, a cleanup window and an opposing
+spell or ability reach it wherever it stops (`wake::WakeFilter`, whose
+module docs are the rules in full). An ability of the seat's own that someone
+else aimed at it is an opposing one here: Confusion in the Ranks is controlled
+by its enchantment's player and aimed by the player whose permanent entered
+(`PlayerView::foreign_targets`, `decision::opposes`).
+
+The default rail (`wake::MIND_STOPS`) is the seat's `main1`, `blockers` and
+`main2`, and the other side's `attackers`, `blockers` and `end_step`. An
+answer's `stops` replace it, side by side, until another answer sets them:
+
+```json
+{"ask": "q12", "pick": ["p"],
+ "stops": {"mine": ["main1", "blockers", "main2"],
+           "theirs": ["attackers", "blockers", "end_step"]}}
+```
+
+- The names are the header's (`narrator::step_id`): `upkeep`, `draw`,
+  `main1`, `combat_begin`, `attackers`, `blockers`, `damage`,
+  `combat_end`, `main2`, `end_step`; the system prompt lists them and the
+  default. The rules' names are read too (`declare_blockers`, `combat
+  damage step`, `end`), in any case, with spaces or hyphens for the
+  underscores (`wake::stop_row`). A name that is no step is left out, so
+  the header's `stops:` line is what the seat stops at. Before 3 Nov 2026
+  only the short names were read: a model that wrote `declare_blockers`
+  was never woken there.
+- `blockers` is held to a combat the seat fights in, whoever chose it: the
+  window after blocks (CR 509.4) wakes the seat only while a creature of
+  its side attacks or blocks. It is where a pump, a regeneration or a
+  removal on a blocker is cast. Until 3 Nov 2026 the rail had no such row
+  and the prompt never named it, so the seat passed every one of those
+  windows and the games models played had no combat trick in them (51
+  reports in the two runs of 2–3 Nov). Unheld, the row would cost a call
+  every combat; held, it costs at most one a combat the seat fights in
+  with something to cast or activate.
+- `damage` is not held: after first-strike damage and after regular
+  damage, for a model that names it.
+- An activation the card allows in one step alone ("activate only during
+  your upkeep": Ashen Ghoul's return from the graveyard) wakes the seat in
+  that step whatever its stops say, when its sources can pay it: the
+  window is the ability's only one. Before 3 Nov 2026 the default rail,
+  which has no `upkeep` row, passed every such upkeep.
+
+## Prices above the printed one
+
+A spell the seat taps for is cast off the pool, and the mode question counts
+the pool, so taps for the printed cost used to take every dearer way off the
+table: Journey of Discovery with fourteen lands up lost its entwine. Each price
+the lands can pay is now an option of its own, with its whole price and its
+taps (`wake/raised.rs`), and the question then asks what it always asks, with
+that way on it. The ways the mode question lists (entwine, overload and any
+mode with its own cost, a kicker with its own targets, an alternative cost with
+mana in it, dash, mutate, a prototype, a back face) are the engine's own list
+(`LegalActions::cast_ways`), legal targets asked, so no way is invented. A
+kicker, buyback, multikicker and replicate are asked once the cast has begun
+and share the plain cast's legality, so they are read off the card: a kicker's
+price, a buyback's with what comes off it (`LegalActions::buyback_less`), and
+multikicker and replicate once and as often as the lands pay. A price that
+does not fit the lands is not listed, and a printed price no way stands at is
+dropped (Cyclonic Rift with nothing to bounce).
+
+Taking one taps for that price and casts, and the question then comes as it
+always does: the model answers it, so "Cast Capsize with its buyback for
+{4}{U}{U}, and have the spell back" is followed by the buyback's yes or no,
+which says what buyback does and when it does not (countered, or no target
+left). A buyback with no mana in it has no price of its own and comes to the
+plain cast: "Pay its buyback (pay 4 life)?". The multikicker count is a number
+up to what is floating, so a model that took "kicked up to 3 times" may answer
+fewer out of the same taps; zero is not kicked. While a land is left untapped
+the question's top reads the engine's ceiling of 50 instead, and a count the
+mana cannot pay reverses the cast (`docs/protocol.md`). A spell on the stack
+says how it was kicked and that its buyback was paid.
+
+A resolved spell that more than one effect wants instead of the graveyard asks
+its controller which applies (`docs/protocol.md`, "Where a resolved spell
+goes"). The narrator says the spell has resolved and that the others then do
+nothing, and each option says what it does: "Buyback: it goes back to your hand,
+to cast again at its full price", "Rebound: exile it, and cast it free at the
+start of your next upkeep, once", the adventure's, or a plain exile. It is
+answered like a mode (`m1`, `m2`), and a seat playing another player's turn
+answers it for them.
+
 ## Plans
 
 An answer may carry three optional fields beside `pick` (`decide`'s
@@ -256,8 +350,16 @@ goes to the mind (`wake::Verdict::Planned`), so no standing order passes a
 window the plan wanted. The seat passes priority for a plan only toward
 what its next step answers: while nothing but the seat's own spells and
 abilities is on the stack (they resolve, and ask what the step answers),
-and on its own turn before combat when the next step is the attack;
-never in a cleanup step. A plan is bound to the turn it was written in.
+and on its own turn before combat when the next step is the attack, and in
+its own combat when the next step casts or plays a card from its hand that
+only a main phase allows (it waits for the second main phase);
+never in a cleanup step. A plan is bound to the turn it was written in,
+and to the player it was written for: the seat's own, or the player
+whose turn it controls (§"A decision for a controlled player"); so are an
+option's taps and the targets named ahead.
+
+A `cast` step names a card and takes its printed price. A card may stand on
+several options at several prices (above), and the dearer ones are the menu's.
 
 It stops, and the question is the model's, at anything it does not answer
 exactly; nothing of a plan is ever guessed (`narrator::Stop`):
@@ -268,6 +370,10 @@ exactly; nothing of a plan is ever guessed (`narrator::Stop`):
 - something of another player's is on the stack;
 - a payment is owed;
 - the turn it was written in ended;
+- the question is for the other player: the seat's own when the plan was
+  written for a player whose turn it controls, or the other way round
+  (`Stop::OtherPlayer`: "the plan was for P2's decisions, and this
+  question is your own");
 - the table refused what a step sent (the step is not counted as done);
 - the taps of a cast were interrupted by another question;
 - the targets named ahead are not legal now;
@@ -342,6 +448,57 @@ turn 5: play Verdant Catacombs, crack it, find a Swamp, cast Deathrite
 Shaman) took four calls; with a plan it takes one, which
 `llm::tests::plan::a_fetchland_turn_is_one_call` and
 `tests/cli_mind.rs` hold.
+
+## A decision for a controlled player
+
+A seat that controls another player's turn (Mindslaver, CR 723.5) is
+asked that player's questions: the question names that player, the view
+waits for the seat (`awaiting`), names that player as the one decided for
+(`decision_player`) and carries that player's hand (`controlled_hands`).
+The seat keeps making its own decisions in the same turn (CR 723.8).
+Since 4 Nov 2026 the model makes both (before, the least answer made
+every controlled one); the house answers either when the model cannot.
+
+- **The header says so.** The line under the header:
+  `You control P2 this turn (Mindslaver, CR 723.5): decide this for P2,
+  with P2's cards and mana only. You may play it against P2's interest.
+  You cannot concede for P2. Your own decisions stay yours.`
+  (`Table::controlled_line`). The system prompt's last "THINGS TO KNOW"
+  line says the same once, for every seat.
+- **"You" stays the seat.** P2's pool, hand, lands, commander, library,
+  graveyard and turn are "P2's" (`Table::decider`): `QUESTION: P2 has
+  priority, and you decide for P2.`, `Cast Pacifism #71 {1}{W} (taps
+  Plains #40, Plains #41)`, `Pass priority (moves on to combat, where you
+  declare P2's attackers)`, `QUESTION: Declare P2's attackers. Any defender
+  listed may be attacked, you included.`, `Choose from P2's hand:`. The
+  board tells the hand under `P2's hand (you decide for this player)`.
+  The goldens are `narrator/golden/controlled_priority.txt`,
+  `controlled_attackers.txt` and `controlled_targets.txt`.
+- **Nothing of P2's is hidden from the choice.** P2's own permanents are
+  among the targets and the cards to choose (CR 723.5: its own creatures,
+  its own face), and P2 among the players, labelled `opponent (you decide
+  for this player)`. Every option is read against P2's offer, and the
+  reach planner taps P2's lands and reads P2's pool and P2's hand
+  (`wake::reachable` over `decision::resource_player`), never the seat's;
+  P2's main phase is a sorcery window for it
+  (`client-core::timing::sorcery_window`).
+- **The standing orders read P2's chair.** "Nothing to do" is what P2
+  could do; the rail's `mine` rows are P2's turn, so P2's main phases are
+  stops; the other side is P2's opponents, the seat among them; `react:
+  targets_me` means P2. The seat holds those orders in a filter of their
+  own (`SeatCore`), so an `until` given in an answer for P2 passes P2's
+  windows and never the seat's own, and the other way round. Stops the
+  model sets hold for both, each read from its own chair.
+- **Plans are P2's.** A plan written in an answer for P2 names P2's cards
+  (`cast #71 -> #45`) and answers P2's questions only; one written for the
+  seat answers the seat's only (§"`plan`").
+- **No concession** (CR 723.6). A `concede` in an answer to a decision
+  for P2 is no answer: the model is told `you cannot concede for P2: you
+  decide for P2 while you control P2's turn, and only P2 may concede for
+  P2 (CR 723.6); your own concession is yours to make in a decision of
+  your own. Answer q12 for P2`, and answers again (`Menu::resolve`); the
+  seat refuses one the same way should a mind send it
+  (`SeatCore::foul`), and nothing concedes on P2's behalf.
 
 ## Reports and lookups
 

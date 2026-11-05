@@ -213,6 +213,24 @@ pub struct DrawerRevision {
     phone: bool,
     /// The fold control's key cap, which a player may rebind.
     fold_cap: Option<String>,
+    /// What the name chooser draws beside its box, while a name is asked.
+    naming: Option<Naming>,
+}
+
+/// The name chooser's search as the drawer draws it.
+#[derive(Clone, Debug, PartialEq)]
+struct Naming {
+    /// The filter builder, while its gear is open.
+    panel: Option<baylee_client_core::filterdialog::FilterPanel>,
+    /// What the question restricts itself to, in words.
+    restriction: Option<String>,
+    /// The gateway's table, which the builder offers from.
+    facts: Option<std::sync::Arc<baylee_client_core::cardquery::PoolFacts>>,
+    /// The ban lists the client holds, likewise.
+    lists: Option<std::sync::Arc<baylee_client_core::cardquery::ListShelf>>,
+    /// What to say when the box asks what only a gateway answers, while this
+    /// client has not got it.
+    lacking: Option<Phrase>,
 }
 
 impl DrawerRevision {
@@ -477,7 +495,12 @@ fn fill_panel(
 
     if let Some(typed) = revision.filter.clone() {
         let field = filter_field(commands, fonts, lang, &typed);
-        commands.entity(panel).add_child(field);
+        if let Some(naming) = &revision.naming {
+            let line = name_search(commands, fonts, lang, field, naming);
+            commands.entity(panel).add_child(line);
+        } else {
+            commands.entity(panel).add_child(field);
+        }
     }
 
     if let Some(group) = revision.group {
@@ -886,7 +909,7 @@ fn choice_rows(
                 &p,
                 lang,
                 duel.statics.as_ref(),
-                &duel.subtype_filter,
+                duel.chooser_search(),
                 crate::choices::FaceNames {
                     view: duel.view.as_ref(),
                     texts: Some(texts),
@@ -927,18 +950,8 @@ fn resolving_lines(
                 ink: palette::DOCK_INK,
             });
         }
-        if duel
-            .view
-            .as_ref()
-            .is_some_and(|v| baylee_client_core::decision::resource_player(v) != v.seat)
-            && let Some(text) = super::base_shelf_headline(duel, lang, texts)
-        {
-            lines.push(Line {
-                text,
-                size: LINE_PT,
-                ink: palette::DOCK_INK,
-            });
-        }
+        // A controlled player's question says whose it is in its headline
+        // ("For Mia: …", `shelf_headline`), so nothing here says it twice.
     }
 }
 
@@ -1041,7 +1054,27 @@ fn reading(
                     Prompt::ChooseSubtype { .. } | Prompt::ChooseCardName { .. }
                 )
         })
-        .map(|_| duel.subtype_filter.clone());
+        .map(|_| duel.chooser_search().text.to_string());
+    let naming = duel
+        .interaction
+        .as_ref()
+        .filter(|_| !waiting)
+        .and_then(|i| match i.prompt() {
+            Prompt::ChooseCardName {
+                types,
+                excluded_types,
+            } => Some(Naming {
+                panel: duel.naming.search.panel().cloned(),
+                restriction: crate::choices::name_restriction(types, excluded_types, lang),
+                facts: duel.pool_facts.clone(),
+                lists: duel.list_shelf.clone(),
+                lacking: baylee_client_core::cardsearch::lacking(
+                    &duel.naming.search.parsed(),
+                    naming_surface(duel.pool_facts.as_deref(), duel.list_shelf.as_deref()),
+                ),
+            }),
+            _ => None,
+        });
 
     // **Neither cast chooser is drawn here.** Both stand on the parchment leaf
     // beside the card (`hud::sheet`), which is the owner's answer of
@@ -1100,6 +1133,7 @@ fn reading(
         quick,
         group,
         phone: false,
+        naming,
     }
 }
 
@@ -1312,6 +1346,117 @@ fn letter_groups(
     row
 }
 
+/// The name chooser's search: its box with the gear beside it, what the
+/// question itself restricts (fixed: no filter can take it away), and the
+/// filter builder the deck builder and the zone dialog open, while it is open.
+/// What the name chooser's rows can be asked: they are pool rows, read
+/// against whatever table and lists the lobby lent.
+fn naming_surface<'a>(
+    facts: Option<&'a baylee_client_core::cardquery::PoolFacts>,
+    lists: Option<&'a baylee_client_core::cardquery::ListShelf>,
+) -> baylee_client_core::cardquery::Surface<'a> {
+    baylee_client_core::cardquery::Surface::POOL
+        .with_pool_facts(facts)
+        .with_lists(lists)
+}
+
+fn name_search(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    lang: Lang,
+    field: Entity,
+    naming: &Naming,
+) -> Entity {
+    let column = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Column,
+                row_gap: px(6),
+                width: percent(100),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let line = commands
+        .spawn((
+            Node {
+                column_gap: px(6),
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let gear = commands
+        .spawn((
+            MenuButton {
+                action: MenuAction::NameFilters,
+            },
+            Node {
+                min_width: px(44),
+                min_height: px(26),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                border: UiRect::all(px(1)),
+                border_radius: btn_radius(),
+                ..default()
+            },
+            BackgroundColor(palette::DOCK_GROUND),
+            BorderColor::all(if naming.panel.is_some() {
+                palette::CANDLE
+            } else {
+                palette::DOCK_INK.with_alpha(0.3)
+            }),
+            children![(
+                Text::new(glyph::GEAR.to_string()),
+                icon_tf(fonts, SENTENCE_PT * 0.8),
+                TextColor(palette::DOCK_INK),
+                Pickable::IGNORE,
+            )],
+        ))
+        .id();
+    commands.entity(line).add_children(&[field, gear]);
+    commands.entity(column).add_child(line);
+    if let Some(fixed) = &naming.restriction {
+        let words = commands
+            .spawn((
+                Text::new(fixed.clone()),
+                tf(fonts, HINT_PT),
+                TextColor(palette::DOCK_INK.with_alpha(0.75)),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(column).add_child(words);
+    }
+    // An empty list under a line of the query language reads as "no such
+    // card", and here it is not: nothing could be asked.
+    if let Some(lacking) = naming.lacking.filter(|_| naming.panel.is_none()) {
+        let words = commands
+            .spawn((
+                Text::new(lacking.text(lang).to_string()),
+                tf(fonts, HINT_PT),
+                TextColor(palette::DOCK_INK.with_alpha(0.75)),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(column).add_child(words);
+    }
+    if let Some(panel) = &naming.panel {
+        let built = crate::filterui::build(
+            commands,
+            fonts,
+            panel,
+            naming_surface(naming.facts.as_deref(), naming.lists.as_deref()),
+            None,
+            lang,
+            crate::filterui::Register::TRAY,
+        );
+        commands.entity(column).add_child(built);
+    }
+    column
+}
+
 /// The type-to-filter box, for the one choice whose list is too long to look
 /// at.
 fn filter_field(commands: &mut Commands, fonts: &UiFonts, lang: Lang, typed: &str) -> Entity {
@@ -1488,6 +1633,14 @@ fn chooser(
                 Feel::new(fill),
             ))
             .id();
+        // A row naming a card opens its preview on hover, as a card named in
+        // the log does.
+        if option.card.is_some() {
+            commands.entity(button).insert(crate::hud::LogLink {
+                card: option.card,
+                token: None,
+            });
+        }
         if let Some((_, object)) = previews.iter().find(|(index, _)| *index == option.index) {
             commands
                 .entity(button)

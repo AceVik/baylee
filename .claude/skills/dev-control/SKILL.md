@@ -219,6 +219,10 @@ projected ledge geometry; compare the model's coordinates with measured ink.
 Use `/perf` and the process/frame measurements in `docs/perf-client.md` for
 performance claims; screenshot differences do not measure rendering cost.
 
+A check worth repeating belongs in an end-to-end test (`cargo dev e2e`,
+`crates/baylee-client-e2e`, `docs/dev/e2e.md`), which starts, drives and
+closes its own isolated client and reads the same `/state`.
+
 The harness supplements model tests; logic assertable in client-core belongs
 there. It never impersonates an opponent. Use the engine-server's seat-scoped
 harness for an explicitly authorised scripted opponent.

@@ -1086,3 +1086,32 @@ fn a_row_that_leaves_the_panel_is_forgotten() {
         "the panel emptied and took its progress with it"
     );
 }
+
+/// What a spell was cast with stands under it: every player was told it as it
+/// was cast (CR 601.2b), and the card alone cannot say it.
+#[test]
+fn a_stack_entry_says_how_it_was_kicked_and_that_its_buyback_was_paid() {
+    use baylee_client_core::board::StackKind;
+    let texts = crate::cardtext::CardTexts::default();
+    let mode = crate::face::FaceMode::default();
+    let settings = crate::settings::ClientSettings::default();
+    let (mut board, view) = a_stack_of(&[None]);
+    let faces = FaceCtx {
+        texts: &texts,
+        mode: &mode,
+        settings: &settings,
+        view: Some(&view),
+        widths: crate::face::Widths::of(None),
+    };
+    board.stack[0].kind = StackKind::Spell;
+    assert_eq!(stack_sentence(&board.stack[0], &faces), None);
+    board.stack[0].times_kicked = 3;
+    board.stack[0].bought_back = true;
+    assert_eq!(
+        stack_sentence(&board.stack[0], &faces),
+        Some(vec![
+            TextBlock::Rules("Kicked 3 times".into()),
+            TextBlock::Rules("Buyback paid: returns to hand as it resolves".into()),
+        ])
+    );
+}

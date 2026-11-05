@@ -37,10 +37,19 @@ fn play(named: CardIndex, guess_in_hand: bool, reveal: bool) -> bool {
         },
     )
     .unwrap();
-    let Pending::YesNo { player, .. } = e.pending().clone() else {
+    let Pending::YesNo { player, prompt, .. } = e.pending().clone() else {
         panic!("expected the opponent's guess")
     };
     assert_eq!(player, p1);
+    // The name was chosen aloud: the guess names it, and whose hand.
+    assert_eq!(
+        prompt,
+        crate::choice::YesNoPrompt::GuessNamedCardInHand {
+            holder: p0,
+            card: named,
+            face: 0,
+        }
+    );
     e.apply(p1, PlayerAction::YesNo(guess_in_hand)).unwrap();
     let Pending::YesNo { player, .. } = e.pending().clone() else {
         panic!("expected the optional reveal")

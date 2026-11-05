@@ -12,6 +12,7 @@ pub(super) fn is_idle_pass(pending: &Pending, view: &PlayerView, action: &Player
             if legal.lands.is_empty()
                 && legal.castable.is_empty()
                 && legal.suspendable.is_empty()
+                && legal.foretellable.is_empty()
                 && legal.payable.is_empty())
 }
 
@@ -30,6 +31,27 @@ pub(super) fn llm_weight(pending: &Pending, view: &PlayerView, action: &PlayerAc
         0.25
     } else {
         1.0
+    }
+}
+
+/// A watching model's label (an LLM shadow teacher): an idle pass weighs as an LLM
+/// seat's own does, and so does mana it would make with nothing being cast or
+/// owed. Mana floated ahead of a spell the policy then never casts, or one land
+/// for another at plain priority, says little; a mana ability that pays what a
+/// cast owes is a real payment choice and keeps its weight.
+pub(super) fn llm_shadow_weight(
+    pending: &Pending,
+    view: &PlayerView,
+    teacher: &PlayerAction,
+) -> f32 {
+    let floated = matches!(teacher, PlayerAction::ActivateManaAbility { .. })
+        && view.casting.is_none()
+        && view.announced_cast.is_none()
+        && view.owed.is_none();
+    if floated {
+        0.25
+    } else {
+        llm_weight(pending, view, teacher)
     }
 }
 

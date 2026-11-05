@@ -928,8 +928,9 @@ nothing else (`layout::tests::arrangements::arranged_reads_only_the_roster`).
   `Keymap::legacy()`.
 - **Settings › Graphics** (device): *Tischanordnung* (the default, one button
   per arrangement, those not built yet dead with the package that brings
-  them), *Tisch folgt dem Zug* (on, the owner's of 07.10.) and *Je Sitzzahl* (a stepper per
-  seat count through *Default* and the built arrangements).
+  them), *Tisch folgt dem Zug* (on, the owner's of 07.10.), *Dem gesteuerten
+  Spieler folgen* (on; §"Playing another player's turn") and *Je Sitzzahl* (a
+  stepper per seat count through *Default* and the built arrangements).
 - **A board squared to my chair** (the owner, 07.10.2026: *a non-teammate's
   board is rendered rotated 180° — exactly as the opponent's board is drawn
   in the 1v1 duel*): wherever an arrangement turns a board square to me
@@ -1621,7 +1622,7 @@ PublicObject.stack_item: Option<StackItem>
 `AbilityRef { card: CardIndex, index: u32 }` is the stable handle. `index` is
 the position in that card's `CardDef::abilities`, so a client that knows the
 card pool can map it to text; the reserved indices (`SPELL`, `ENTERS`,
-`ADDITIONAL_COST`, `MIRACLE`, `UPKEEP_COST`, `SYNTHETIC`, `COMMANDER_ZONE`,
+`ADDITIONAL_COST`, `MIRACLE`, `SYNTHETIC`, `COMMANDER_ZONE`,
 all counting down from `u32::MAX`) name the questions that are not listed on
 the card, and `AbilityRef::is_listed_ability` separates the two.
 
@@ -1666,7 +1667,7 @@ draws the Oracle's line.
 
 It does not reach every ability, and the misses are honest: 485 of the pool's
 500 stack-capable abilities know their sentence, and every one of the fifteen
-that do not is a **trigger** — an evoke or echo trigger printed as a keyword
+that do not is a **trigger** — an evoke trigger printed as a keyword
 line rather than as a sentence, a quoted sub-ability inside a copy sentence, a
 land's "when this enters untapped" beside its own enter condition.
 `cargo run -p xtask -- ability-lines` is the report that names them;
@@ -1680,7 +1681,9 @@ all. A keyword that is a *bit* never does — `Flying (This creature can't be
 blocked except by creatures with flying or reach.)` has no colon anywhere in
 it. Before `lines::reminder_spells_out_an_ability` read that, the two
 Spacecraft in the pool had no sentence for their only activated ability and
-the sheet drew the row as "Ability 1".
+the sheet drew the row as "Ability 1". Echo is the one with a cost on the line
+that is a triggered ability (`Echo {2}{R}{R}`), so its line is read as one and
+not as an activation: on the stack that line is what says what it costs.
 
 **A mana ability is placed and is not counted.** It was neither: a mana
 ability was `LineShape::Other` on both sides of `lines.rs`, so the table held
@@ -2506,9 +2509,11 @@ before `AssetPlugin`, and:
   Android. It never uses the working directory;
 - treats the cache as optional: a read or write that fails is one `WARN` per
   operation and error kind, and the downloaded bytes still load;
-- names a cached picture by the SHA-256 of its URL, and writes it to a `.part`
-  that is synced and then renamed into place, so a crash cannot leave half a
-  JPEG that fails to decode on every later launch;
+- names a cached picture by the SHA-256 of what is drawn, the URL's path below
+  its base (`images::art_path`, the printed back's two shapes made one), so a
+  picture is one file whichever host served it, and writes it to a `.part` that
+  is synced and then renamed into place, so a crash cannot leave half a JPEG
+  that fails to decode on every later launch;
 - asks only under `https://cards.scryfall.io/`, `https://backs.scryfall.io/`
   and the art base in force (`images::art_base`, which is the gateway mirror
   after sign-in). Anything else, and any path containing `..`, is refused with
@@ -2521,7 +2526,108 @@ before `AssetPlugin`, and:
   did).
 
 A cache that bevy's reader left in `<repo>/.web-asset-cache` is simply no
-longer read: pictures are fetched again, once, into the new place.
+longer read: pictures are fetched again, once, into the new place. So it went
+with the cache's own old names, the hash of the whole URL (until 04.11.2026):
+they cannot be turned back into a path, so they are fetched again, and the fill's
+next listing removes them, since nothing reads them and they would eat the
+budget. The new names end in `.jpg`, which is how a listing tells them apart.
+
+The name's independence has a price worth knowing: a gateway's mirror used to
+fill a cache of its own, and now what any mirror serves is what the device keeps
+for that picture, also after the player moves to another gateway.
+
+**The cache fills itself in the background on a desktop (owner, 04.11.2026).**
+`client-core::cachefill` decides and `crate::cachefill` does: a few threads of
+its own, the HTTP and the disk. It fetches what the deck builder and the table
+will ask for before they ask, so a first scroll through the pool and a first
+hover find their pictures on disk.
+
+*What it fetches*, read off what a draw reads: every card with
+`Coverage::Implemented` in the compiled registry (10 754 today, 110 of them
+with a second picture), at the printing a row that picks nothing shows, in two
+rounds. First `small`, front and back, which is what a row and the table draw;
+then `normal`, which is what a preview and the card window draw. And the printed
+back at `normal`. That is 21 729 pictures. One card measured 13.6 kB `small` and
+97 kB `normal`, so about 150 MB and 1.1 GB. Inside a round it is the basic lands
+and then the builder's own list (`Sort::Name`); the registry holds no date and
+no count of decks, so "newest" and "most used" are not to be had cheaply.
+
+Left out, with the reason. `GET /printings` and `GET /pool` are a gateway's, and
+none of the fill reaches a gateway, so the builder's first opening still waits
+for `/pool` as it did. `GET /catalog/text` is not read by the builder at all,
+which takes its text from `/pool`. A card's other printings are many times as
+many pictures, for a dialog opened now and then. Tokens and deck art bands are
+not in the plan.
+
+*It goes straight to Scryfall*: `cards.scryfall.io` and `backs.scryfall.io`,
+signed in or not, and so also at the front door. No fill traffic reaches a
+gateway, the fill shows no session, and its URLs are built from ids the client
+holds, so there is no call to `api.scryfall.com` either. That works because the
+name of a cached picture does not depend on the host: `cachefill::plan` builds
+with the functions a draw uses, `artreader::fill_one` is the reader's own
+allowlist, `download`, limits, User-Agent, `key` and `store`, and the mirror's
+path is Scryfall's. Its bytes go to the file and no further: nothing is decoded
+and nothing is uploaded, which is why the frame never feels it.
+`the_plan_holds_what_a_row_a_preview_and_the_table_ask_for` holds the join
+against the real row, preview and print-table code, and
+`a_picture_filled_from_the_cdn_is_drawn_after_sign_in_with_no_request` fills a
+cache from one server on loopback and draws every picture under another's
+address, asking neither. A client started on a seat ticket has no lobby and
+fills nothing, and neither does a `dev-control` build, because a harness's run
+has to stay measurable and a driver must not start bulk traffic.
+
+*What is wanted goes first, and nothing is in front of it.* A wanted picture goes
+as it always went: no queue, no pace, no slot. It only tells the fill it is on
+its way (`Courier::wanted`). The fill starts nothing while one runs and for
+750 ms after the last, and a fill request already running gives way between two
+16 kB reads of its body and goes back to the head of the queue. Measured on
+loopback, the fill's requests taking 150 ms and a wanted picture 30,
+`a_running_batch_adds_almost_nothing_to_a_wanted_picture`: a wanted picture took
+31.9 ms with nothing running and 31.5 ms beside a running batch, the worst of
+seven 31.5 ms. Thirty wanted pictures at once beside a fill all reach the server
+within 13 ms of each other (`wanted_pictures_have_nothing_in_front_of_them`).
+
+*How fast.* `*.scryfall.io` has no rate limit (`docs/legal.md` §3), so the fill
+has none either, only a cap on requests in flight, out of courtesy and for the
+player's own line: 1, 2 or 3 by pace, 2 by default. Within it the next picture
+starts when the last is done.
+
+*When a server objects.* `Retry-After`, seconds or a date, keeps the fill away for
+as long as it says, up to an hour. A 429 or 503 that names no time costs it at
+least a minute; other failures wait 2 s, doubling to 5 min, a quarter of that
+stretched per client so a server coming back up is not asked by everybody in one
+second. Eight failures in a row stop the fill with the reason, and a refusal
+(401, 403, a redirect) or sixteen 404s in a row stop it at once. A stop lasts
+until *Try again* or the next start. None of this touches a wanted picture.
+
+*It rests.* Any `DuelPhase` but `Closed` is a table, a replay's among them, and
+from that moment no fill request starts and no cache is listed, and a request
+in flight gives way to the table's own pictures. It goes on by itself. A
+Pause lasts for the run. Nothing about the fill is stored: on every start, and
+whenever the reach changes, it lists the cache and plans around what is there
+(an empty file is missing, as the reader says). The listing also clears a
+`.part` over an hour old.
+
+*It never fills the disk.* It stops when the cache reaches the budget (1, 2 or
+5 GB, 2 by default, which holds the pool and what a player looks at) or the
+disk has 2 GB left, read when it plans and every minute, wanted pictures
+included. Those stops are the fill's alone: a draw still downloads and keeps its
+picture, and a cache that cannot be written stops the fill at the first failed
+write and costs a draw nothing, as before.
+
+*What the player sees*: Settings › Network & Gateway, device rows
+(`ClientSettings::card_fill`). The switch, on by default on a desktop, because
+the owner asked for it, a picture costs the player nothing a draw would not, it
+rests during a game and it stops at its budget; off keeps what is there. A
+browser caches for itself and a phone's data plan is not spent behind its
+owner's back, so neither is offered it. Under the switch the state and its
+reason, a bar, cards done of this round's, bytes, time at work, the current speed
+(the last 10 s), the time left (the last minute's pace, said only while it runs)
+and the cache's size against its budget (`lobby::card_fill`, written in place
+twice a second, like the update card, and not read during a game); then Pause,
+Resume or Try again, *Empty the cache* (two presses), and the three choices.
+While pictures are on their way the header carries a small mark with the share,
+which says how far on hover and opens the block.
 
 
 Board cards are fetched `small` (146×204); only the focused card is fetched
@@ -4600,12 +4706,24 @@ purpose: it is matched against a printed type line. It matters most where it
 is least visible — `chips_shown` is `!phone || filters_open`, so on a phone a
 chip narrows the list while being drawn nowhere at all.
 
-**One row per card, in every language, and on both faces.** The pool sends
-the card, not its printings, and each row carries `alt_names` — every name
-that card is printed under, anywhere. So a German player types "Blitzschlag"
-and finds the row a deck stores as "Lightning Bolt", and finds it *once*: a
-list that repeated the card for each of the forty sets it appeared in would
-be answering a question nobody asked.
+**One row per card, in the client's language and English, and on both
+faces.** The pool sends the card, not its printings, and each row carries
+`alt_names`, the card's other names in those two languages. So a German
+player types "Blitzschlag" and finds the row a deck stores as "Lightning
+Bolt", and finds it *once*: a list that repeated the card for each of the
+forty sets it appeared in would be answering a question nobody asked.
+
+**A search matches the client's language and English, and no other** (owner,
+4.11.2026), on every surface: the deck builder, the zone dialog, the name
+chooser and `/catalog/search`. A Spanish client finds a card by its Spanish
+and its English name, never by its German one. It is written to that rule
+and not to "all the languages we have", so a language added later changes
+nothing here: `GET /pool` files a name in any other language in
+`foreign_names`, which only a pasted deck line is read against
+(`DeckBuilder::slot_of`) and no search is, and `Facts` holds nothing but the
+two (`cardsearch`). `/catalog/search` drops a card it reached only through a
+third language's name, and reads rules text and type words per language, the
+client's row of `card_search_text` and the English one.
 
 A two-faced card carries one more, its whole `A // B` spelling, and because
 the search is a substring match that answers three things a player might
@@ -4632,8 +4750,8 @@ cardboard that does not exist.
 The pick becomes a `baylee_core::deckrow::PrintChoice`, which is why an
 `Entry` is `(slot, count, print)`: two printings of one card are two rows in
 the list, addressed by row (`Press::RemoveRow`) rather than by card. The copy
-limit is not fooled by that — it counts every printing of the card, which is
-the rule `POST /decks` enforces.
+limit is not fooled by that — it counts every printing of the card, as the deck
+check does (`formats::validate`).
 
 The rule that keeps old decks clean: **a choice that changes nothing writes
 nothing.** Picking the default printing leaves `4 Lightning Bolt` exactly as
@@ -4644,9 +4762,33 @@ gaining a single character.
 `POST /decks` enforces, split into blocking and advisory. Blocking is the
 gateway's own list (a name, a non-empty deck, 250 lines and 250 cards *per
 list*, no card the pool has lost) and it is what greys the save button out;
-advisory — 60 cards, a sideboard of 15, a land count that fits the curve,
-cards that are not fully implemented — is written in the panel and never stops
-anything. If the button is live, the deck saves.
+advisory — a land count that fits the curve, cards that are not fully
+implemented, and for a deck of no format 60 cards and a sideboard of 15 — is
+written in the panel and never stops anything. If the button is live, the deck
+saves.
+
+**The deck says how it stands, after every edit** (`docs/banlists-and-formats.md`).
+The foot of the deck side carries the overview `DeckBuilder::overview` builds: a mark
+and a headline ("Legal for Commander", "Not legal for Commander: 3 problems", "Can't
+say whether this is legal for Modern"), the count against what the format takes
+(`57 of 100 cards`, `52 cards, at least 60`), and the first three problems, each a
+press on its card; a row wears the fault in a word (`buildui::legality::badge`) and
+the card window the sentence. A standing reads by its mark as well as its ink, and
+one nobody could fully check never wears legal's: without the gateway's table the
+foot says bans and restrictions could not be checked, and the deck is not called
+legal. *Format and list* opens a sheet: the format's chips (from the table, or
+offline the shapes this build knows; a deck of no format is checked for nothing),
+the lists when signed in, and everything the check found. None of this greys the
+save button: a deck is never refused for being illegal.
+
+**A list is edited over the builder** (`buildui/lists.rs`, `banlist::ListEditor`): its
+name, its format, a search that is the builder's own over the builder's pool (so it
+reads the client's language and English and no other) with the builder's own gear
+beside it (one `SearchBox`, `filterui::build`; `DeckBuilder::panel` is the panel in
+front, the editor's while one is open, and `pool_panel` the toolbar's), and its cards,
+whose word a press moves on through banned, restricted and banned as commander. A new list starts
+empty; *Copy* starts one from an official list or one's own; an official list opens
+to be read and nothing there can write it.
 
 The rest is a deck list: two zones, a mana curve whose bars are also the mana
 value filter, the coloured pips the main deck asks for, and `+`/`−` on every
@@ -4706,7 +4848,7 @@ row — the other list, the printing, the card; on a deck row Move to the other
 list, the printing, Remove all. Moving keeps the printing — the whole point of
 having chosen one — and the sheet says what is where ("2 in the deck, 1 in the
 sideboard") so the buttons are not the only way to find out. A card that cannot lead a deck is refused as
-a commander rather than offered and then rejected on save; naming one that is
+a commander rather than offered and then called illegal; naming one that is
 not in the deck yet seats a copy, because a commander that is not in its own
 deck is not a legal deck and the builder should not need to be told twice.
 
@@ -4777,8 +4919,8 @@ P/T · its front face's first keyword (never rules text), pips, how many the
 deck holds, one `+` (Shift: the other list) and `⋯`. Under the search, one
 chip row: the colour identity's six discs, the type and mana value chips in
 force, *Filters* (a rail of card type, mana value and what to show; a sheet
-on a phone — the pool carries no rarity, set or keyword facts, so the rail
-offers none), Playable only, the order, Clear; `?` in the box opens what the
+on a phone — rarity, set and format are the search's and the gear's, and the
+rail offers none of them), Playable only, the order, Clear; `?` in the box opens what the
 search understands, a press inserting the example. The deck side has its
 commander slot, tabs Main · Sideboard · Stats, the list grouped by type, mana
 value or colour with folding, rows with `− n +` and `⋯`; Stats is the curve
@@ -4814,6 +4956,39 @@ so adding a card would otherwise throw the list back to the top, and keeping
 the offsets inside it would rebuild sixty rows on every notch of the wheel. A
 new search does start at the top, because it is a different list.
 
+## One search, three lists
+
+The deck builder, the zone dialog and the name chooser search the same way,
+on the same code (`client-core::cardsearch`, owner, 4.11.2026): a box holding
+a line of the query language, a gear that takes it apart into the builder's
+controls (`SearchBox`, `filterdialog`), and the keys both answer (`Gesture`,
+read through `filterui::{Chords, gesture}`). A criterion is a
+`cardquery::Key` with a `filterdialog::Control`, so adding a key adds it to
+all three, each according to what its `Surface` can answer. What each owner
+keeps is only its list: the deck builder's chips, the zone dialog's tabs.
+
+### Naming a card
+
+What may be named is every card the deck builder has, which is what the
+engine takes; a card with no script is in no deck here. The rows are every
+face of the pool in one fixed order (`choices::card_name_at`), so a row's
+index is its place there and a row answers through `choices::pick` what it
+says, however the list is narrowed, a controlled player's question included.
+
+The box and its gear stand above the rows (`hud/ledge/drawer.rs`,
+`name_search`), and Enter in the box still takes the highlighted row. The
+question's own restriction (`types`, `excluded_types`: "nonland") narrows the
+rows apart from the search and is said beneath the box as a fixed line, never
+as a row of the builder, so no filter can take it away. Hovering a row opens
+the card's preview, as a card named in the log does.
+
+The rows are read against the deck builder's pool in the client's language,
+asked for when a name is first asked and lent to the table
+(`lobby::lend_the_pool`), so a German client finds "Blitzschlag" and the row
+says both names. Until it arrives, and offline, the names are the registry's
+English. The walk over the pool is kept between frames
+(`choices::card_name_rows`), so it runs when the search changes.
+
 ## What the search box understands
 
 `baylee_client_core::cardquery` is the language both search boxes read — the
@@ -4830,7 +5005,10 @@ and colour identity, `m:` for the symbols of a mana cost, `mv`/`cmc`,
 answers `playable`, `partial`, `stub`, `commander`, `basic` and `dfc`, and a
 zone answers the three a projection carries: `token`, `basic` and `commander`.
 Every comparison Scryfall writes (`=`, `!=`, `<`, `<=`, `>`, `>=`), negation
-with `-`, `or`, and brackets.
+with `-`, `or`, and brackets. And what only the gateway's table answers
+(§"Rarity, set and format"): `r:` for a rarity, `s:` for a set, `f:`,
+`banned:` and `restricted:` for what a format says. And `list:` for a ban list the
+client holds (§"Ban lists").
 
 Four decisions in it are worth knowing, and three of them were paid for.
 
@@ -4886,6 +5064,91 @@ is how it does not: read letter by letter, `esper` is `{R}` and `boros` is
 is neither a colour name nor made of nothing but `wubrg` letters is refused,
 and is still written back out so a player can see what was refused.
 
+### Rarity, set and format
+
+| Written | Also | Means |
+| --- | --- | --- |
+| `r:rare` | `rarity:`, `r:r` | a printing at this rarity; `r>=rare` compares in Scryfall's order: common, uncommon, rare, special, mythic, bonus |
+| `s:m21` | `set:`, `e:`, `edition:` | a printing in this set, by its code in any case |
+| `f:modern` | `format:`, `legal:`, `f:edh` | the format lets the card be played, a restricted card included, as on Scryfall |
+| `banned:commander` | | the format bans the card |
+| `restricted:vintage` | | the format allows one copy |
+
+None of these is in a pool row or a view. They read the gateway's table
+(`docs/protocol.md` §"Pool facts"), which the lobby asks for beside the pool,
+once a session (`lobby::poolfacts`, off the one-request chain as the blocks
+are), and a table reaches for by itself when something there wants it, because
+a player may sit down without ever opening the deck builder. A copy stays on
+this machine, one per gateway, as a named document of the settings store; the
+next session names its version, and the copy is used only when the gateway
+answers `304`. `DeckBuilder::pool_facts` holds it, forgotten with the pool at
+sign-out, and `lobby::lend_the_pool` lends it to the `Duel`. So all three
+lists answer the same keys, through `Surface::with_pool_facts`.
+
+**A query is asked of one printing at a time, and a card answers if some
+printing does.** So `r:rare s:m21` is a card that was rare *in M21*, not one
+that was rare somewhere and printed in M21 at some other rarity, and
+`-r:common` is a card with a printing that is not common, not one that never
+was. That is Scryfall's reading too. `cardquery::matches` first asks with no
+printing in hand, so any answer that does not depend on one stands, and walks
+the card's printings only for what is left undecided.
+
+**A row answers for the card, whichever printing it shows.** A pool row is the
+card; a deck row is not searched at all; and an object in a zone names a
+printing by a Scryfall id the table does not carry, because 43 887 pairs are
+what the filters need and half a million printing ids are not. So `s:m21` in a
+graveyard is "this card was printed in M21" even where the art on the row is
+another printing's, on every surface alike. A list that shows a printing the
+table can name would hand the query that one printing and nothing else
+about the language would change.
+
+**In a zone these are facts about a card already visible, never a way to learn
+a hidden one.** A row hands the query `PublicObject::card`, which the view
+gates on what this seat may know. A face-down card has none, nor has a token;
+neither answers these keys, a term and its negation alike, and the two read the
+same, so a filter cannot tell one from the other. The facts are the card's,
+not the object's: a Clone that became Serra Angel answers as Clone, because
+rarity is no characteristic it copied.
+
+**Without the table a key says it is not available and matches nothing.** That
+is offline, signed in nowhere, at a gateway with no catalog (it sends an empty
+table, which counts as none), or an older gateway. `Surface::answers` then
+refuses the five keys, so a term and its negation both answer `Unknown` and no
+row is shown, and `FilterNoPoolFacts` says why where the player is looking:
+under the row in the builder, in the add menu (which stops offering them), in
+place of the deck builder's and the zone dialog's empty line, and under the name
+chooser's box. A card the table lacks, a card with no verdict stored and a
+format the table has not heard of answer `Unknown` the same way; the last is
+the builder's general warning, `FilterForm::unanswerable`.
+
+### Ban lists
+
+| Written | Means |
+| --- | --- |
+| `list:"My Commander"` | a list the client holds names the card, whatever it says about it |
+| `-list:modern` | the list leaves the card alone |
+
+**What `list:` reads is what the client holds.** `GET /banlists` answers the official
+lists and the caller's own, each with its cards by registry index; the lobby asks at
+the moment it asks for the table (`lobby::poolfacts`), a list saved or deleted brings
+a fresh answer, and the lobby lends the shelf to the table beside the table's facts
+(`cardquery::ListShelf`, `Surface::with_lists`). So the deck builder, the zone dialog,
+the name chooser and the list editor all have it from the one path: `cardquery` and
+`filterdialog`, where it is a choice row offering the lists, a player's own first.
+
+**A list goes by its name, case and accents aside.** An own list by what its owner
+called it; an official list by its format's key or by what the format is called in
+the client's language or in English, so `list:modern` and `list:"Duel Commander"`.
+A player's own list comes first, so one named after a format answers to its name.
+
+**It says what it cannot answer, as the table's keys do.** Three-valued again: a row
+with no card (a token, a face-down card) answers nothing, a term and its negation
+alike. A name nobody here knows answers nothing either, and is the builder's general
+warning. Holding no lists at all (offline, or a gateway from before them) leaves the
+key out of the add menu and says `FilterNoLists` where `FilterNoPoolFacts` would stand
+(`cardsearch::lacking`, the one door). A gateway that has none to give is a shelf with
+nothing on it, so a name there is a name nobody knows.
+
 ## Taking a filter string apart
 
 The gear inside the search box opens a builder, and the builder has one
@@ -4922,8 +5185,9 @@ question — so a term inside a bracket is never lifted into a ticked box. That
 is the same line `FilterPart` draws, said from the other side.
 
 `Control::of` maps a key to the widget it wants (text, colour pips, a
-comparison and a number, a tri-state tick, a mana cost), and a key nothing
-knows gets a plain text box rather than being hidden: `frobnicate:yes` is
+comparison and a number, a tri-state tick, a mana cost, a choice from a list),
+and a key nothing knows gets a plain text box rather than being hidden:
+`frobnicate:yes` is
 still something a player can read and edit. `FilterForm::unanswerable` names
 the rows the surface the dialog was opened from cannot answer — it is a
 warning beside the control and never a refusal, because a term this surface
@@ -5005,6 +5269,22 @@ is a text box until the caret is given back.
 All of this was found by **photographing** the dialog, not by a test: the
 round trip was green throughout, because the form was carrying the values
 faithfully and only the drawing could not show them.
+
+### A choice row
+
+`Control::Choice` is one word out of a list (`filterdialog::choices`): a
+rarity's six, with the comparison strip because a rarity has an order; a
+format's, the ones a player reaches for first and then the rest of what the
+table holds; a set's, a dozen at a time by code or name, a code that begins
+with what was typed first, newest first within each. A format or a set row has
+a box, and it is the one row that stays what it is under the caret: its value
+is a word whatever the letters are, so nothing changes kind mid-word, and the
+list is what the letters narrow. A press writes the word through `value_of`,
+and a press on the word it holds takes the row back to nothing, because a list
+has no other way of being asked for nothing. `Act::Choose` carries the word
+inline (`ChoiceWord`), so it stays `Copy` and a button means what it says
+however the list moved since. A value no list holds, `r:frobnicate`, is a text
+box like any other.
 
 ### One drawing, two registers
 
@@ -5202,16 +5482,33 @@ unused half of a permanent it taps anyway. A priced source is tried first,
 then the roomiest. The same pass stopped a Forest listed before a Sol Ring
 from paying half of `{2}` beside it, which predates any price.
 
+A paid mana ability (a filter land's or a Signet's `{1}, {T}`) is a trade and
+not a source, and the matcher above never sees one. `manaplan/convert.rs` is
+asked only when it has said no, so a board that planned before plans the same
+taps: at most three converters, one matching a chain, a converter's mana paying
+only what stands after it, so nothing pays for itself. The steps run payers
+first, the conversion next and the plain taps last, because the engine spends
+a generic cost out of whatever floats, white first, and the seat does not
+choose: a Slough tapped ahead of Shimmering Grotto loses its `{R}` to the
+Grotto's `{1}`. Each plan is walked through with the pool spent that way before
+it is answered, and one the walk leaves short is no plan. A step can answer two
+colours, for Mystic Gate's two picks.
+
 Among clean sources of one breadth, `manaplan::prioritize` decides what is
 kept, in three tiers that are never traded against each other: a creature
-(its attack and its tap), then a permanent used for more than mana (an
+(its attack and its tap), then a permanent used for more than mana at no mana
+of its own (an
 ability activated on the battlefield that is not a mana ability,
-`CardDef::activates_beyond_mana`: Karakas, a creature land, Mind Stone;
+`CardDef::use_beyond_mana`: Karakas;
 statics like Urborg's do not count), then the colours the hand still needs.
 The registry's answer comes in as a predicate, from the client
 (`cardart::taps_beyond_mana`) and from the house AI alike. A Karakas beside
 a Plains used to tie and fall to the object order, so it was tapped first
 about as often as not (report 30.10.2026; `a_utility_land_is_tapped_last`).
+An ability that costs mana of its own (Mind Stone's draw, a creature land's
+animation) only breaks a tie: kept up with nothing left to pay for it, Mind
+Stone cost a hand its `{U}` (report 5.11.2026;
+`a_rock_with_a_paid_ability_gives_way_to_a_colour_the_hand_wants`).
 
 Four rules keep it honest, and they are the reason to read the module before
 changing it:
@@ -5322,6 +5619,18 @@ useful contrast: anything it cannot answer from the view is refused, because a
 refused *alternative* cost costs nothing at all — the card falls back to the
 price printed on it. What decides the direction each time is the consequence
 of being wrong, not a house style.
+
+**Before either, the engine has already answered** (NEW-04, 3.11.2026). A card
+is lit indigo only if `LegalActions::castable_once_paid` holds: it is in
+`castable`, or in `payable`, which lists the cards every rule but the mana
+lets this seat cast — its targets among them, with protection, hexproof and
+every filter the view cannot read. That is not a guess the client may be
+wrong about, so it is no exception to the defaults above: a card outside both
+lists is a proof. It catches what `targeting` cannot see, which reads a
+filter and not what else stops a target: Terror lit beside a White Knight
+(protection from black, CR 702.16b) and Righteousness ("target blocking
+creature") in a main phase. It is the same gate the house and the LLM seat
+read (`baylee_ai::spell_can_be_cast_now`).
 
 `targeting::matches` is a mirror of `baylee_engine::eval::matches_projected`
 held to the stricter rule every mirror here is held to: the engine may answer
@@ -5845,7 +6154,27 @@ The number stepper answers two questions, and the headline tells them apart.
 `Prompt::ChooseNumber` carries the engine's `reason`: an X reads "Choose a
 number (0–50)", and a replicate cost reads "Replicate {U}: pay it how many
 times? (0–2)" (`Phrase::ReplicateHowOften`), because over a Lose Focus
-"choose a number" did not say what the number bought.
+"choose a number" did not say what the number bought. A multikicker reads the
+same (`Phrase::MultikickerHowOften`), and its top is capped at what the seat's
+own mana pays as an X's is (`Duel::cap_x`, `manaplan::greatest_repeat`): the
+engine leaves it open, up to its ceiling of 50, while a land is untapped.
+
+A resolved spell two "instead"s want asks where it goes (`docs/protocol.md`,
+"Where a resolved spell goes"): "Where does the spell go?" over one row per
+ending, each saying what it does ("Back to your hand (buyback)", "Exile it, cast
+it free next upkeep (rebound)"; `Phrase::SpellEnding*`). It is a
+`Prompt::CastMode`, drawn on the decision sheet like the other resolution
+choices and not beside a card (`hud::sheet::casts_beside_card`), because no card
+in hand or on the table is being cast.
+
+Buyback is the sheet's yes-or-no, with the whole price in the question:
+"Buyback: {3}? The spell comes back to your hand as it resolves.", or "pay 3
+life, discard a card at random" where the card asks that
+(`headline::buyback_price`, from `YesNoPrompt::Buyback`'s `parts`). A yes the
+pool does not cover opens the payment window, as a kicker's does. What a spell
+was cast with stands under it on the stack, a line each, for every seat
+(`StackItem::announced_costs`): "Kicked 3 times", "Buyback paid: returns to
+hand as it resolves".
 
 The filter forces one thing that is easy to get wrong and silent when you do:
 **a row's position stops being its answer.** Twelve rows out of three hundred
@@ -6859,13 +7188,118 @@ chip; arrows walk the chips, quick list first):
   types appear anywhere, and every chip answers with the offer's own index
   (`a_creature_type_is_answered_from_the_decks_quick_list`).
 
+## Playing another player's turn (CR 723)
+
+A seat may control another player: for that player's whole next turn
+(Mindslaver, CR 723.1) or for one instruction (Word of Command, Opposition
+Agent, CR 723.2). The engine routes every decision of the controlled player
+to the controller (`Engine::decision_actor`); the question still names the
+controlled player (`Pending::asked`), the controller's view waits for it
+(`awaiting == seat`) with `decision_player` naming the controlled player,
+and `controlled_hands` carries that player's hand (CR 723.4). Every other
+seat's view says the same pair (`awaiting` the controller, `decision_player`
+the controlled player), because control of a player is public.
+
+**Every decision, with their resources.** The controller makes every
+decision the controlled player makes (CR 723.5), against that player's
+interest too, with only that player's cards, mana and permanents
+(CR 723.5a). `client-core::decision::resource_player` names the deciding
+player and `Duel::actor` is the client's door to it: the hand the client
+plays from (`decision::hand`), the pool and lands a run taps (`ManaRun`),
+the X cap, the reach (`reachable`, with its commander, flashback and
+foretell halves), the alternative costs, the sorcery window
+(`timing::sorcery_window`), the creatures a combat question lights, the
+"may" batch, the retarget and damage-division shortcuts, the targeting
+proofs' "you" (`targeting::you`) and the standing orders' "my turn" all read
+it. `Duel::seat` stays where the meaning is this client's own chair: the
+camera, cues, results. Nothing here filters an option the engine offers:
+their removal at their own creature, their Mind Rot at themselves, their
+attack at any defender offered are answered as the engine asks them
+(`controlled_turn_tests`, played against the engine). The controller's own
+decisions in that turn (CR 723.8: its blocks, its own priority) are its own
+again, and a "may" batch approved for the controlled player never passes
+the controller's own priority.
+
+**The perspective.** Which chair the bottom of the table shows is
+`client-core::perspective::Perspective` (`Duel::perspective`): this seat's
+own or one it controls (`perspective::seats`: its own, then every player
+the view carries a controlled hand for, in seat order), never any other,
+and a hand is read only from where the view put it (`decision::hand_of`),
+so a perspective shows nothing the view does not carry. The hand row is the
+shown chair's (`BoardModel::show_hand`, `Duel::shown_hand`).
+
+- **Auto-follow.** A decision *arrives* when a question is installed where
+  none stood (the last was answered) or one for another player replaced it;
+  the same question asked again is not one. With *Dem gesteuerten Spieler
+  folgen* / *Follow the player you decide for* on (Settings → Graphics,
+  `TableView::follow_control`, per device, default on), a decision arriving
+  for a controlled player shows that player's chair, and one of this seat's
+  own shows its own (`Perspective::decision`).
+- **By hand.** A press on a controlled player's chip, or on the seat's own,
+  shows that chair (`Duel::show_from`; the chip's camera press still
+  happens, and a target question takes the press first); `U`
+  (`Action::CyclePerspective`) walks the chairs round, the seat's own
+  included. A chair chosen by hand holds until the next decision arrives.
+- **Control ending** mid-perspective (the view no longer carries that hand)
+  shows the seat's own chair again (`Perspective::read`).
+- **The question is never hidden by the perspective.** It stands on the
+  shelf and the sheet whichever chair is shown, named for the player it is
+  asked for.
+- **The change is seen.** The hand of the new chair rises 22 px into place
+  over 0.24 s, an ease-out on a fixed clock so it takes as long at any frame
+  rate (`hud::hand::arrive_the_hand`, `HandArrival`, kept outside the
+  retained tree so a rebuild mid-rise does not restart it), and stands still
+  under `reduce_motion`. Nothing is written at rest.
+
+**What every seat is told.**
+
+- **The question names its player**: "For Mia: Your move" / "Für Mia: Du
+  bist dran" (`Phrase::ForPlayer`, `ledge::shelf_headline`; the target
+  sheet's first line likewise). It is Mia's move on Mia's turn: the turn a
+  headline reads is the deciding player's.
+- **The banner** (`hud::controlbanner`, under the lost-connection banner,
+  built once, written when the line changes): "You decide for Mia" at the
+  controller's table, "Ben controls your turn" at the controlled player's
+  own (outside its turn, "Ben decides for you"), "Ben decides for Mia" at
+  every other table (`perspective::ControlLine`). It stands while the
+  question in hand is one player's made by another; the controller's own
+  decisions take it down.
+- **The chips**: a badge over the chip of every player this seat controls,
+  "Under your control" ("Shown · under your control" on the chair shown),
+  whose hint says a press plays from that chair; over a player somebody else
+  decides for, "Controlled by Ben", for every seat, with "Mia's turn —
+  controlled by Ben" in its hint on Mia's turn (`players::control_badge`,
+  `show_the_control_badges`). The chip clips sideways only, so the badge
+  stands over it on the table's edge, never on a print.
+- **The controlled hand** wears a frame of its own: a rose edge and a faint
+  rose ground under the cards, and in the headroom over them the brain mark
+  and "Mia's hand · under your control" (`hud::hand::control_frame`).
+- **Colour is never the only cue**: the brain mark (`glyph::CONTROL`) and
+  the words stand beside the rose (`palette::CONTROL`) everywhere.
+- **The controlled player's own table** is sent no question while its
+  controller decides, so it has nothing to answer; the banner says why.
+- **Conceding** stays every player's own (CR 723.6): `PlayerAction::Concede`
+  is its sender's, and while this seat decides for another player the game
+  menu's row reads "Concede yourself" / "Selbst aufgeben".
+- `/state.control` reports the chairs, the one shown, whether by hand, the
+  setting and the banner's line.
+
+**What the view does not carry** (a gap, reported, not worked around): the
+source of the control (Mindslaver, Word of Command) is not projected, so the
+banner names the players and not the card; who controls a player is known
+to third seats only while one of that player's decisions is in hand, not
+between them; `view.casting` (the cast chooser's and the X cap's anchor) and
+`sorcery_lock`/`sorceries_have_flash` are projected for the viewing seat,
+not for the player it decides for; and the game log does not say who made a
+decision taken for a controlled player.
+
 ## The bar's hinge says which turn and what the game is
 
 The day/night designation (CR 731) is drawn beside the turn number, on the
 hinge between a seat's counts and its steps. It is not drawn
 at all when the game has neither designation, which is every game with no
 daybound card in it, and no slot is held for one: a game that has become day
-or night has exactly one of the two from that point forward (CR 730.1), so
+or night has exactly one of the two from that point forward (CR 731.1), so
 the block appears once and its arrival *is* the announcement — which is why
 the hinge *widens* when it comes rather than reserving room for it. The caret
 rule above — draw it always and let it go `Color::NONE` — is for a marker that
@@ -8697,6 +9131,14 @@ answered a line earlier (it is part of a cost, not a selection) and
 `Generic` stays the plain noun, which is honest — the engine did not say
 what it was for either.
 
+A vote (`ChoicePrompt::Vote`, CR 701.38a) is no counted noun but a whole
+sentence, `CastYourVote`, since the answer is a ballot the table is told and
+not a card that moves. While a vote is in progress the shelf's sentence ends
+with its tally, `VotesSoFar` over one `BallotFor` per ballot
+(`interaction::ballots_line`, from `PlayerView::ballots`), for the voter and
+for every seat waiting on it alike: each vote is announced as it is cast (CR
+608.2d), and the log says the same line by line (`LogVoted`).
+
 A line that talks about **another chair** names it, and `i18n::seat_name` is
 the single place that decides how. Four sentences want it — a zone browser's
 tab, the player chooser's rows, "waiting for …", and a draw offer — and three
@@ -10234,7 +10676,13 @@ keystroke one, a moving caret or a ticked report box zero (§10 of the shell
 design). `shell_nodes` is every node under the lobby's root in tree order —
 depth, rect in logical pixels, its text, `"i"` where it carries a `Press` —
 and nothing a behaviour-free refactor may change (no entity index, no `Press`
-spelling): two dumps of the same screen compare byte for byte.
+spelling): two dumps of the same screen compare byte for byte. A row says
+`"cx"`/`"cy"` (`"scroll"` or `"cut"`) where the node clips its children
+across or down, so a check can tell a row scrolled out of its list from a
+control cut off at the window's edge. `ui_nodes` is every other UI tree in
+the same rows — the table's HUD, the chat, tours, the updater's card — each
+root `"r":"ui"`, roots top to bottom then left to right; the end-to-end
+tests read both (`docs/dev/e2e.md`).
 `desk_controls` lists the report form's buttons as `lobby_controls` lists the
 lobby's. `BAYLEE_DEV_SCALE=1` beside `BAYLEE_DEV_WINDOW` sets the window's
 scale factor, so a 2560 × 1440 logical window fits a Retina display and the

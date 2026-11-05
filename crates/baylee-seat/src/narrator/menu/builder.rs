@@ -102,14 +102,9 @@ impl Builder<'_, '_> {
 
     #[allow(clippy::too_many_lines)] // one arm per question, and no `_`
     pub(super) fn write(&mut self) {
+        // A decision for a controlled player says so under the header
+        // (`Table::controlled_line`); here its sentences name that player.
         let pending = self.request.pending.clone();
-        let resource = baylee_client_core::decision::resource_player(self.table.view);
-        if resource != self.table.view.seat {
-            self.line(format!(
-                "You decide for {}. That player's resources are used.",
-                self.table.player(resource)
-            ));
-        }
         match &pending {
             Pending::ChooseManaAbility {
                 choice,
@@ -231,16 +226,17 @@ impl Builder<'_, '_> {
             }
             Pending::DiscardChoice { count, .. } => {
                 self.line(format!(
-                    "QUESTION: Your hand is over its maximum size. Discard {}.",
+                    "QUESTION: {} hand is over its maximum size. Discard {}.",
+                    self.table.decider_whose_cap(),
                     words::count(usize::from(*count), "card")
                 ));
                 self.hand_objects(usize::from(*count));
             }
             Pending::LegendChoice { options, .. } => {
-                self.line(
+                self.line(self.table.for_decider(
                     "QUESTION: Legend rule (CR 704.5j): you control legendary permanents with \
                      the same name. Choose the one to keep; the rest go to the graveyard.",
-                );
+                ));
                 self.objects(options, 1, 1);
             }
             Pending::ChooseCards {
@@ -258,9 +254,12 @@ impl Builder<'_, '_> {
                             self.table.player(*player)
                         )
                     } else {
-                        words::choice_prompt(*prompt)
+                        self.table.for_decider(&words::choice_prompt(*prompt))
                     };
                 self.line(format!("QUESTION: {question}."));
+                if options.is_empty() || *max == 0 {
+                    self.line("No matching cards are available; submit pick=[].");
+                }
                 if let Some(total) = total {
                     self.card_total(total);
                 }
@@ -293,11 +292,38 @@ impl Builder<'_, '_> {
                 reason,
             ),
             Pending::ChooseSubtype { options, .. } => self.subtype(options),
-            Pending::ChooseCardName { types, .. } => {
+            Pending::ChooseCardType { options, .. } => {
+                self.line("QUESTION: Choose a card type.");
+                for (index, card_type) in options.iter().enumerate() {
+                    self.option(
+                        format!("cardtype{index}"),
+                        card_type.words().collect::<Vec<_>>().join(" "),
+                        Act::Now(PlayerAction::ChooseCardType(*card_type)),
+                    );
+                }
+                self.list_options();
+                self.answer_pick("pick=[one card type id]");
+            }
+            Pending::ChooseCardName {
+                types,
+                excluded_types,
+                ..
+            } => {
                 if !types.is_empty() {
                     self.line("Only a card name with the required printed card types is eligible.");
                 }
-                self.line("QUESTION: Choose a card name: any card's English name (a single face's name is fine).");
+                if !excluded_types.is_empty() {
+                    let words: Vec<&str> = excluded_types.words().collect();
+                    self.line(format!(
+                        "A card with these printed types is not eligible: {}.",
+                        words.join(", ")
+                    ));
+                }
+                self.line(
+                    "QUESTION: Choose a card name: any card this game has, as in its deckbuilder, \
+                     by its English name (a single face's name is fine). Naming one nobody can \
+                     hold simply misses.",
+                );
                 self.ask = Ask::CardName;
                 self.answer("name=\"<the card's name>\"");
             }
@@ -332,17 +358,17 @@ impl Builder<'_, '_> {
                 match label {
                     Some(attacker) => {
                         let attacker = self.table.named(*attacker);
-                        self.line(format!(
+                        self.line(self.table.for_decider(&format!(
                             "QUESTION: Raging River: choose \"left\" (pile1) or \"right\" \
                              (pile2) for your attacking {attacker}. This combat only \
                              creatures with flying and creatures in the chosen pile may \
                              block it."
-                        ));
+                        )));
                     }
-                    None => self.line(
+                    None => self.line(self.table.for_decider(
                         "QUESTION: Choose one pile: it goes into your hand, and the other pile \
                          goes into the graveyard.",
-                    ),
+                    )),
                 }
                 for (i, pile) in piles.iter().enumerate() {
                     let names: Vec<String> = pile.iter().map(|&o| self.table.named(o)).collect();
@@ -369,8 +395,9 @@ impl Builder<'_, '_> {
                 attacker,
                 blockers,
                 bounds,
+                capacity,
                 ..
-            } => self.blockers(*attacker, blockers, bounds),
+            } => self.blockers(*attacker, blockers, bounds, capacity),
             Pending::GameOver(_) => {
                 self.line("The game is over.");
                 self.ask = Ask::Nothing;
@@ -385,25 +412,48 @@ impl Builder<'_, '_> {
         self.options.last_mut().expect("just pushed").card = card;
     }
 
-    /// The payment the seat agreed to, as one option: the taps that pay it
-    /// and the pass that spends them (CR 605.3a).
+    /// The payment the seat agreed to, as options: the taps that pay it and
+    /// the pass that spends them (CR 605.3a), the planner's plan first and
+    /// then up to [`payment::OTHERS`] other ways (other colours, another
+    /// land), each one answer.
+    ///
+    /// A pool that pays it alone is the one option, asked of the pool with
+    /// no source beside it: the matcher, handed the lands as well, can end
+    /// on a tap where the pool was enough (`{1}{W}` over a floating {W}{U}
+    /// tapped a Tundra for {W}).
     pub(super) fn pay_owed(&mut self, owed: ManaCost, pool: &ManaPoolView, legal: &LegalActions) {
-        let sources = baylee_ai::mana_sources(self.table.view, legal);
-        match manaplan::plan(&owed, pool, &sources) {
-            Some(plan) if plan.steps.is_empty() => self.offer(
-                format!("Pay {owed} from your pool"),
+        let view = self.table.view;
+        if manaplan::plan(&owed, pool, &[]).is_some() {
+            self.offer(
+                format!(
+                    "Pay {owed} from {} pool",
+                    self.table.whose(self.table.decider())
+                ),
                 Act::Now(PlayerAction::PassPriority),
                 None,
-            ),
+            );
+            return;
+        }
+        let sources = baylee_ai::mana_sources(view, legal);
+        match manaplan::plan(&owed, pool, &sources) {
             Some(plan) => {
-                let label = format!("Pay {owed} ({})", self.taps(&plan.steps));
-                let act = Act::Taps {
-                    steps: plan.steps,
-                    then: PlayerAction::PassPriority,
-                };
-                self.offer(label, act, None);
+                let others = payment::others(view, &owed, pool, &sources, &plan);
+                for plan in std::iter::once(plan).chain(others) {
+                    let label = format!("Pay {owed} ({})", self.taps(&plan.steps));
+                    let act = Act::Taps {
+                        steps: plan.steps,
+                        then: PlayerAction::PassPriority,
+                    };
+                    self.offer(label, act, None);
+                }
             }
-            None => self.line("You cannot pay it from what you have untapped."),
+            None => self.line(match self.table.controlled() {
+                Some(p) => {
+                    let p = Table::player_id(p);
+                    format!("It cannot be paid from what {p} has untapped.")
+                }
+                None => "You cannot pay it from what you have untapped.".into(),
+            }),
         }
     }
 
@@ -418,9 +468,10 @@ impl Builder<'_, '_> {
         }
         for &card in &legal.castable {
             let label = format!(
-                "Cast {}{} (paid from your pool)",
+                "Cast {}{} (paid from {} pool)",
                 table.named(card),
-                self.from(card)
+                self.from(card),
+                table.whose(table.decider())
             );
             let index = self.card_of(card);
             self.offer(label, Act::Now(PlayerAction::CastSpell { card }), index);
@@ -437,6 +488,23 @@ impl Builder<'_, '_> {
             let label = format!("Suspend {}", table.named(card));
             self.offer(label, Act::Now(PlayerAction::Suspend { card }), None);
         }
+        for &card in &legal.foretellable {
+            let label = format!("Foretell {} for {{2}} (exile face down)", table.named(card));
+            self.offer(label, Act::Now(PlayerAction::Foretell { card }), None);
+        }
+        // The {2} still in the lands: tapped first, then foretold.
+        for (card, plan) in reachable_foretell(view, legal) {
+            let label = format!(
+                "Foretell {} for {{2}} (exile face down) ({})",
+                table.named(card),
+                self.taps(&plan.steps)
+            );
+            let act = Act::Taps {
+                steps: plan.steps,
+                then: PlayerAction::Foretell { card },
+            };
+            self.offer(label, act, None);
+        }
         for &(source, index) in &legal.abilities {
             if baylee_ai::only_makes_mana(view, source, index) {
                 continue;
@@ -448,6 +516,21 @@ impl Builder<'_, '_> {
             });
             let card = self.card_of(source);
             self.offer(label, act, card);
+        }
+        for reach in reachable_abilities(view, legal) {
+            let label = format!(
+                "{} ({})",
+                self.ability_label(reach.source, reach.ability_index),
+                self.taps(&reach.plan.steps)
+            );
+            let act = Act::Taps {
+                steps: reach.plan.steps,
+                then: PlayerAction::ActivateAbility {
+                    source: reach.source,
+                    ability_index: reach.ability_index,
+                },
+            };
+            self.offer(label, act, reach.card);
         }
     }
 
@@ -491,32 +574,53 @@ impl Builder<'_, '_> {
     pub(super) fn priority(&mut self, legal: &LegalActions) {
         let table = self.table;
         let view = table.view;
-        let mut intro = String::from("QUESTION: You have priority.");
+        let mut intro = match table.controlled() {
+            Some(p) => {
+                let p = Table::player_id(p);
+                format!("QUESTION: {p} has priority, and you decide for {p}.")
+            }
+            None => String::from("QUESTION: You have priority."),
+        };
         if self.request.continuing {
             intro.push_str(" You are in the middle of paying for something.");
         }
         self.line(intro);
         let pool = view
-            .seat(baylee_client_core::decision::resource_player(view))
+            .seat(table.decider())
             .map(|s| s.mana_pool)
             .unwrap_or_default();
         let owed = view.owed.filter(|_| view.awaiting == Some(view.seat));
         if let Some(payment) = owed {
             match payment {
-                ManaPayment::Fixed(cost) => self.line(format!(
-                    "You owe {cost}: a payment you agreed to. Pay it, or pass and leave it unpaid \
-                     (what it was for is lost)."
-                )),
+                ManaPayment::Fixed(cost) => {
+                    let mut line = match table.controlled() {
+                        Some(p) => format!(
+                            "{} owes {cost}: a payment you agreed to for that player. Pay it, or \
+                             pass and leave it unpaid (what it was for is lost).",
+                            Table::player_id(p)
+                        ),
+                        None => format!(
+                            "You owe {cost}: a payment you agreed to. Pay it, or pass and leave \
+                             it unpaid (what it was for is lost)."
+                        ),
+                    };
+                    if !pool.is_empty() {
+                        line.push_str(&table.for_decider(
+                            " Mana already in your pool is applied toward this payment when you pass.",
+                        ));
+                    }
+                    self.line(line);
+                }
                 ManaPayment::AnyAmount { preventable_damage } => self.line(format!(
                     "You may generate mana to prevent up to {preventable_damage} damage. \
                      Pass to choose how much mana to pay, including zero."
                 )),
             }
         } else if !pool.is_empty() {
-            self.line(
+            self.line(table.for_decider(
                 "Mana is in your pool (see your seat line); unspent mana empties at the end of \
                  this step (CR 500.5).",
-            );
+            ));
         }
         if let Some(payment) = owed {
             match payment {
@@ -526,6 +630,9 @@ impl Builder<'_, '_> {
         }
         self.granted_actions(legal);
         self.plays(legal);
+        if owed.is_none() && legal.can_pass {
+            self.tap_against_untapped_counts(legal);
+        }
         if legal.can_pass {
             let label = if matches!(owed, Some(ManaPayment::AnyAmount { .. })) {
                 "Finish generating mana and choose the payment amount".into()
@@ -538,6 +645,53 @@ impl Builder<'_, '_> {
         self.line("Options:");
         self.list_options();
         self.answer_pick("pick=[one option id]");
+    }
+
+    /// Tapping the seat's untapped lands for mana it then loses, as one
+    /// option, while a permanent counts the lands a player has untapped as
+    /// a turn begins (Power Surge, `Amount::UntappedLandsAtTurnStart`). A
+    /// mana ability may be activated at any priority (CR 605.3a), and a land
+    /// tapped now is still tapped when the seat's next turn begins; the menu
+    /// otherwise offers a tap only as part of something it pays for, so the
+    /// play against Power Surge was missing (G001-C, codex attempt 184,
+    /// q286). A land whose tap hurts or sets off a trigger (`priced`) is
+    /// left out.
+    pub(super) fn tap_against_untapped_counts(&mut self, legal: &LegalActions) {
+        let view = self.table.view;
+        let Some(counter) = view.battlefield.iter().find(|o| counts_untapped_lands(o)) else {
+            return;
+        };
+        let me = baylee_client_core::decision::resource_player(view);
+        let steps: Vec<manaplan::Step> = baylee_ai::mana_sources(view, legal)
+            .iter()
+            .filter(|source| !source.priced && !source.colors.is_empty())
+            .filter(|source| {
+                view.object(source.id).is_some_and(|o| {
+                    o.controller == me && o.types.contains(baylee_core::types::TypeSet::LAND)
+                })
+            })
+            .map(|source| manaplan::Step {
+                source: source.id,
+                tap: source.tap,
+                color: (!source.bundle && source.colors.len() > 1).then(|| source.colors[0]),
+                second: None,
+            })
+            .collect();
+        if steps.is_empty() {
+            return;
+        }
+        let label = format!(
+            "Tap {} untapped lands for mana and pass; the mana is lost, and {} counts the \
+             lands a player controls untapped as a turn begins ({})",
+            self.table.whose(me),
+            self.table.named(counter.id),
+            self.taps(&steps)
+        );
+        let act = Act::Taps {
+            steps,
+            then: PlayerAction::PassPriority,
+        };
+        self.offer(label, act, None);
     }
 
     /// A variable payment has no fixed plan: every legal mana ability is usable.
@@ -584,9 +738,27 @@ impl Builder<'_, '_> {
             .and_then(|def| def.faces.get(usize::from(reach.card.face)))
             .is_some_and(|face| face.mana_cost.to_string().contains("{X}"));
         let mut label = match reach.from {
+            _ if reach.way.is_some() => self.way_label(reach),
+            ReachFrom::Hand if reach.face_down => format!(
+                "Cast {} face down with {} for {}",
+                table.named(reach.object),
+                crate::wake::face_down_keyword(reach.card).unwrap_or("disguise"),
+                reach.plan.cost
+            ),
             ReachFrom::Hand => format!("Cast {} {}", table.named(reach.object), reach.plan.cost),
             ReachFrom::CommandZone => format!(
-                "Cast your commander {} from the command zone for {} (tax included)",
+                "Cast {} commander {} from the command zone for {} (tax included)",
+                table.whose(table.decider()),
+                table.named(reach.object),
+                reach.plan.cost
+            ),
+            ReachFrom::Graveyard => format!(
+                "Cast {} from a graveyard for {}",
+                table.named(reach.object),
+                reach.plan.cost
+            ),
+            ReachFrom::Exile => format!(
+                "Cast {} from exile for {}",
                 table.named(reach.object),
                 reach.plan.cost
             ),
@@ -599,10 +771,48 @@ impl Builder<'_, '_> {
         label
     }
 
-    /// Where a castable card is cast from, when not from the hand.
+    /// A reach at a price of its own, which the label names whole, with the
+    /// way it is cast in the mode question's own words.
+    fn way_label(&self, reach: &Reach) -> String {
+        let named = self.table.named(reach.object);
+        let cost = reach.plan.cost;
+        match reach.way {
+            Some(Way::Kicker) => format!("Cast {named} with its kicker for {cost}"),
+            Some(Way::Buyback) => {
+                format!("Cast {named} with its buyback for {cost}, and have the spell back")
+            }
+            Some(Way::Multikicked(1)) => format!("Cast {named} kicked once for {cost}"),
+            Some(Way::Multikicked(times)) => {
+                format!("Cast {named} kicked up to {times} times for {cost}")
+            }
+            Some(Way::Replicated(1)) => format!("Cast {named} replicated once for {cost}"),
+            Some(Way::Replicated(times)) => {
+                format!("Cast {named} replicated up to {times} times for {cost}")
+            }
+            Some(Way::Mode(kind)) => {
+                let option = CastModeDesc {
+                    index: 0,
+                    kind,
+                    cost,
+                };
+                let words = cast_mode_label(Some(reach.card), &option);
+                words.strip_prefix("Cast it ").map_or_else(
+                    || format!("Cast {named}: {words}"),
+                    |rest| format!("Cast {named} {rest}"),
+                )
+            }
+            None => format!("Cast {named} {cost}"),
+        }
+    }
+
+    /// Where a castable card is cast from, when not from the hand of the
+    /// player decided for.
     pub(super) fn from(&self, card: ObjectId) -> String {
         let view = self.table.view;
-        if view.hand.iter().any(|c| c.id == card) {
+        if baylee_client_core::decision::hand(view)
+            .iter()
+            .any(|c| c.id == card)
+        {
             return String::new();
         }
         if view.graveyards.iter().flatten().any(|o| o.id == card) {
@@ -627,7 +837,11 @@ impl Builder<'_, '_> {
         let view = self.table.view;
         view.object(id)
             .and_then(|o| o.card)
-            .or_else(|| view.hand.iter().find(|c| c.id == id).map(|c| c.card))
+            .or_else(|| {
+                baylee_client_core::decision::known_cards(view)
+                    .find(|c| c.id == id)
+                    .map(|c| c.card)
+            })
             .map(|c| c.index)
     }
 
@@ -660,11 +874,9 @@ impl Builder<'_, '_> {
             let side = if half == 0 { "left" } else { "right" };
             return format!("Unlock the {side} door of {named}");
         }
-        let in_hand = table.view.hand.iter().any(|c| c.id == source);
-        let place = if in_hand { " (from your hand)" } else { "" };
-        if let Some(sentence) = ability_sentence(table, source, index) {
-            return format!("Activate {named}{place}: \"{sentence}\"");
-        }
+        let place = board::hand_owner(table, source).map_or_else(String::new, |owner| {
+            format!(" (from {} hand)", table.whose(owner))
+        });
         let mana = ability_def(table, source, index).is_some_and(|def| {
             matches!(
                 def,
@@ -674,9 +886,22 @@ impl Builder<'_, '_> {
                 } | AbilityDef::ActivatedConditional {
                     mana_ability: true,
                     ..
+                } | AbilityDef::ModalActivated {
+                    mana_ability: true,
+                    ..
                 }
             )
         });
+        if let Some(sentence) = ability_sentence(table, source, index) {
+            // A plan of Argon's passed after one, as after an ability on the
+            // stack, and the mana emptied with the step (CR 605.3b, CR 500.5).
+            let at_once = if mana {
+                " (a mana ability: the mana is there at once, no pass needed)"
+            } else {
+                ""
+            };
+            return format!("Activate {named}{place}: \"{sentence}\"{at_once}");
+        }
         let what = if mana {
             "its mana ability"
         } else {
@@ -700,7 +925,9 @@ impl Builder<'_, '_> {
                     .unwrap_or_default()
             );
         }
-        let mine = view.active == view.seat;
+        // "Mine" is the turn of the player decided for: a controlled
+        // player's own turn is told as that player's.
+        let mine = view.active == table.decider();
         let next = match (view.phase, view.step) {
             (baylee_view::Phase::FirstMain, _) if mine => {
                 "moves on to combat, where you declare attackers"
@@ -710,6 +937,12 @@ impl Builder<'_, '_> {
             (_, baylee_view::Step::Cleanup) => "the turn ends",
             _ if mine => "your turn goes on",
             _ => "the game goes on",
+        };
+        let next = match table.controlled().map(Table::player_id) {
+            Some(p) if next.contains("declare attackers") => {
+                format!("moves on to combat, where you declare {p}'s attackers")
+            }
+            _ => table.for_decider(next),
         };
         format!("Pass priority ({next})")
     }
@@ -744,16 +977,18 @@ impl Builder<'_, '_> {
         self.answer_pick("pick=[one option id]");
     }
 
-    /// A choice of `count` cards from the hand.
+    /// A choice of `count` cards from the hand of the player decided for.
     pub(super) fn hand_objects(&mut self, count: usize) {
-        let hand: Vec<ObjectId> = self.table.view.hand.iter().map(|c| c.id).collect();
-        self.line("Choose from your hand:");
-        let lines: Vec<(ObjectId, String)> = self
-            .table
-            .view
-            .hand
+        let table = self.table;
+        let cards = baylee_client_core::decision::hand(table.view);
+        let hand: Vec<ObjectId> = cards.iter().map(|c| c.id).collect();
+        self.line(format!(
+            "Choose from {} hand:",
+            table.whose(table.decider())
+        ));
+        let lines: Vec<(ObjectId, String)> = cards
             .iter()
-            .map(|card| (card.id, board::hand_line(self.table, card)))
+            .map(|card| (card.id, board::hand_line(table, card, table.decider())))
             .collect();
         for (id, line) in lines {
             self.object_line(id, &line);
@@ -838,8 +1073,14 @@ impl Builder<'_, '_> {
         if let Some(object) = view.stack.iter().find(|o| o.id == id) {
             return board::stack_line(table, object);
         }
-        if let Some(card) = view.hand.iter().find(|c| c.id == id) {
-            return format!("{} (in your hand)", board::hand_line(table, card));
+        if let Some(owner) = board::hand_owner(table, id)
+            && let Some(card) = baylee_client_core::decision::known_cards(view).find(|c| c.id == id)
+        {
+            return format!(
+                "{} (in {} hand)",
+                board::hand_line(table, card, owner),
+                table.whose(owner)
+            );
         }
         match view.object(id) {
             Some(object) => format!("{} {} ({})", tag(id), plain(object), board::zone(table, id)),
@@ -853,12 +1094,19 @@ impl Builder<'_, '_> {
             .view
             .seat(p)
             .map_or_else(String::new, |s| format!(", {} life", s.life));
+        // The player decided for may be chosen, attacked or targeted like
+        // any other, its own face included (CR 723.5).
+        let deciding = if table.controlled() == Some(p) {
+            " (you decide for this player)"
+        } else {
+            ""
+        };
         if p == table.me() {
             format!("you{life}")
         } else if table.ally(p) {
-            format!("your teammate{life}")
+            format!("your teammate{deciding}{life}")
         } else {
-            format!("opponent{life}")
+            format!("opponent{deciding}{life}")
         }
     }
 
@@ -990,7 +1238,7 @@ impl Builder<'_, '_> {
         let about = source.and_then(ability_ref_sentence);
         let (question, yes, no) = yes_no_words(table, prompt);
         self.line(format!("QUESTION: {question}"));
-        let kicker = matches!(prompt, YesNoPrompt::Kicker);
+        let kicker = matches!(prompt, YesNoPrompt::Kicker | YesNoPrompt::Buyback { .. });
         if let Some(about) = about {
             self.line(format!("The ability asking: \"{about}\""));
         } else if kicker && let Some((name, sentence)) = source.and_then(additional_cost) {
@@ -1002,8 +1250,8 @@ impl Builder<'_, '_> {
             // same question comes again.
             self.line(
                 "Say yes only if you can pay the whole cost with it now: a cast whose cost \
-                 cannot be paid is taken back, and you get priority again (CR 601.2h, 732.1, \
-                 732.2).",
+                 cannot be paid is taken back, and you get priority again (CR 601.2h, 733.1, \
+                 733.2).",
             );
         }
         self.option(
@@ -1028,17 +1276,25 @@ impl Builder<'_, '_> {
     pub(super) fn cast_mode(&mut self, object: ObjectId, options: &[CastModeDesc]) {
         let table = self.table;
         let card = table.view.object(object).and_then(|o| o.card).or_else(|| {
-            table
-                .view
-                .hand
-                .iter()
+            baylee_client_core::decision::known_cards(table.view)
                 .find(|c| c.id == object)
                 .map(|c| c.card)
         });
-        self.line(format!(
-            "QUESTION: How do you cast {}?",
-            table.named(object)
-        ));
+        if options
+            .iter()
+            .any(|option| matches!(option.kind, CastModeKind::SpellEnding(_)))
+        {
+            self.line(format!(
+                "QUESTION: {} has resolved, and more than one effect wants it instead of the \
+                 graveyard. You choose which applies; the others then do nothing.",
+                table.named(object)
+            ));
+        } else {
+            self.line(format!(
+                "QUESTION: How do you cast {}?",
+                table.named(object)
+            ));
+        }
         for (at, option) in options.iter().enumerate() {
             let label = cast_mode_label(card, option);
             self.option(
@@ -1087,7 +1343,10 @@ impl Builder<'_, '_> {
                 "How much energy will you pay? Choose zero to decline. Up to {candidates} permanents tapped this way can receive counters; overpayment is legal"
             ),
             NumberPrompt::Sacrifices => "How many permanents will you sacrifice?".to_string(),
-            NumberPrompt::Choice => "Choose a number".to_string(),
+            NumberPrompt::Choice => table.view.top_of_stack().map_or_else(
+                || "Choose a number".to_string(),
+                |top| format!("Choose a number for {}", table.named(top.id)),
+            ),
             NumberPrompt::X => "Choose the value of X".to_string(),
             NumberPrompt::ManaPayment { preventable_damage } => format!(
                 "How much mana will you pay? Each mana prevents one of up to \
@@ -1096,6 +1355,10 @@ impl Builder<'_, '_> {
             NumberPrompt::Replicate { cost } => {
                 format!("How many times do you replicate it? Each copy costs {cost} more")
             }
+            NumberPrompt::Multikicker { cost } => format!(
+                "How many times do you pay its multikicker? Each time costs {cost} more, and \
+                 zero is not kicked at all. Fewer than the mana you floated is a legal answer"
+            ),
             NumberPrompt::CombatDamage {
                 source,
                 recipient,
@@ -1122,9 +1385,38 @@ impl Builder<'_, '_> {
                 u16::from(*index) + 1
             ),
         };
+        // The engine leaves a multikicker open while a land is untapped; a
+        // count past what is floating has to be tapped for in a window this
+        // seat answers blind, so the number is the one the mana already pays.
+        let max = match reason {
+            NumberPrompt::Multikicker { cost } => self
+                .kicks_floating(cost)
+                .map_or(max, |pays| pays.clamp(min, max)),
+            _ => max,
+        };
         self.line(format!("QUESTION: {question} (from {min} to {max})."));
         self.ask = Ask::Number { min, max };
         self.answer(&format!("number=<an integer from {min} to {max}>"));
+    }
+
+    /// How many times the floating pool pays `each` beside the spell being
+    /// cast, read off the printed cost; `None` when the pool does not reach
+    /// that, which is the engine's range to answer.
+    fn kicks_floating(&self, each: &ManaCost) -> Option<u32> {
+        let view = self.table.view;
+        let casting = view.casting?;
+        let card = baylee_client_core::decision::hand(view)
+            .iter()
+            .find(|held| held.id == casting)
+            .map(|held| held.card)
+            .or_else(|| view.object(casting).and_then(|object| object.card))?;
+        let face = baylee_cards::by_index(card.index)?
+            .faces
+            .get(usize::from(card.face))?;
+        let pool = view
+            .seat(baylee_client_core::decision::resource_player(view))?
+            .mana_pool;
+        baylee_client_core::manaplan::greatest_repeat(&face.mana_cost.with_x(0), each, &pool, &[])
     }
 
     pub(super) fn arrange(
@@ -1150,7 +1442,7 @@ impl Builder<'_, '_> {
                  each is still discarded."
             ),
         };
-        self.line(intro);
+        self.line(table.for_decider(&intro));
         let named: Vec<String> = cards.iter().map(|&c| table.named(c)).collect();
         self.line(format!("Cards: {}", named.join(", ")));
         for &card in cards {
@@ -1158,11 +1450,11 @@ impl Builder<'_, '_> {
         }
         self.line("Piles:");
         for (i, pile) in piles.iter().enumerate() {
-            let place = match pile.place {
+            let place = table.for_decider(match pile.place {
                 ArrangePlace::LibraryTop => "the top of your library",
                 ArrangePlace::LibraryBottom => "the bottom of your library",
                 ArrangePlace::Graveyard => "your graveyard",
-            };
+            });
             let order = if pile.ordered {
                 "; list them from the top down"
             } else {
@@ -1189,7 +1481,20 @@ impl Builder<'_, '_> {
 
     pub(super) fn attackers(&mut self, attackers: &[ObjectId], defenders: &[Defender]) {
         let table = self.table;
-        self.line("QUESTION: Declare attackers.");
+        self.line(match table.controlled() {
+            Some(p) => {
+                let you = if defenders.contains(&Defender::Player(table.me())) {
+                    ", you included"
+                } else {
+                    ""
+                };
+                format!(
+                    "QUESTION: Declare {}'s attackers. Any defender listed may be attacked{you}.",
+                    Table::player_id(p)
+                )
+            }
+            None => "QUESTION: Declare attackers.".into(),
+        });
         let pending = self.request.pending.clone();
         if let Pending::ChooseAttackers {
             required,
@@ -1264,6 +1569,7 @@ impl Builder<'_, '_> {
         attacker: PlayerId,
         options: &[BlockOption],
         bounds: &[AttackerBound],
+        capacity: &[BlockCapacity],
     ) {
         let table = self.table;
         self.line(format!(
@@ -1285,7 +1591,10 @@ impl Builder<'_, '_> {
         for line in attacks {
             self.line(line);
         }
-        self.line("Your creatures that can block, and what each may block:");
+        self.line(format!(
+            "{} creatures that can block, and what each may block:",
+            table.decider_whose_cap()
+        ));
         for option in options {
             let blocker = table.view.object(option.blocker);
             let head = blocker.map_or_else(
@@ -1296,9 +1605,15 @@ impl Builder<'_, '_> {
                 },
             );
             let may: Vec<String> = option.attackers.iter().map(|&a| tag(a)).collect();
+            let room = capacity.iter().find(|c| c.blocker == option.blocker);
+            let more = match room.map(|c| c.most) {
+                None => String::new(),
+                Some(None) => ", any number of them".to_owned(),
+                Some(Some(most)) => format!(", up to {most} of them"),
+            };
             self.object_line(
                 option.blocker,
-                &format!("{head} can block {}", may.join(", ")),
+                &format!("{head} can block {}{more}", may.join(", ")),
             );
         }
         for bound in bounds {
@@ -1318,11 +1633,17 @@ impl Builder<'_, '_> {
         }
         self.ask = Ask::Block {
             options: options.to_vec(),
+            pending: Box::new(self.request.pending.clone()),
         };
-        self.answer(
-            "blocks=[{\"blocker\": id, \"attacker\": id}, …]; blocks=[] blocks nothing. Each \
-             blocker blocks one attacker",
-        );
+        let each = if capacity.is_empty() {
+            "Each blocker blocks one attacker"
+        } else {
+            "Each blocker blocks one attacker unless its line says more; then name it once for \
+             each attacker it blocks"
+        };
+        self.answer(&format!(
+            "blocks=[{{\"blocker\": id, \"attacker\": id}}, …]; blocks=[] blocks nothing. {each}"
+        ));
     }
 }
 
@@ -1356,4 +1677,33 @@ impl Builder<'_, '_> {
             &|target| self.damage_target(target),
         )
     }
+}
+
+/// Whether `object`'s card has a triggered ability that counts the lands a
+/// player controlled untapped as the turn began (Power Surge).
+fn counts_untapped_lands(object: &PublicObject) -> bool {
+    use baylee_cards_dsl::{Amount, Effect};
+    let Some(rules) = object.rules.or_else(|| object.card.map(Into::into)) else {
+        return false;
+    };
+    baylee_cards::by_index(rules.card).is_some_and(|def| {
+        def.abilities_for_face(usize::from(rules.face))
+            .iter()
+            .any(|ability| {
+                let AbilityDef::Triggered { effects, .. } = ability else {
+                    return false;
+                };
+                let mut counts = false;
+                Effect::walk(effects, &mut 0, &mut |effect| {
+                    counts |= matches!(
+                        effect,
+                        Effect::DealDamage {
+                            amount: Amount::UntappedLandsAtTurnStart,
+                            ..
+                        }
+                    );
+                });
+                counts
+            })
+    })
 }

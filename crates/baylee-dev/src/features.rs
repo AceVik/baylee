@@ -9,7 +9,8 @@
 //! | `baylee-client` | `dev-control`, `dev-reload`, `dev-dylink` |
 //! | `baylee-gateway` | `dev-table` |
 //! | `baylee-client-core` | `test-support` |
-//! | `baylee-engine` | `fuzz` |
+//! | `baylee-engine` | `fuzz`, `simulation` |
+//! | `baylee-gamehost` | `simulation` |
 //! | `baylee-cards` | `mutate` |
 //! | `baylee-train` | `llm-collector` |
 //!
@@ -57,6 +58,10 @@ const CLIENT_FEATURES: &str = "dev-control,dev-reload";
 ///   the shape every consumer builds: the feature on, `cfg(test)` off.
 /// - `baylee-train` without `play` is how every `cargo run -p xtask` links it,
 ///   which the workspace build never does.
+/// - `simulation` is `cfg(any(test, feature = …))` like `fuzz`, and its
+///   bench (`benches/fork.rs`) has it as a required feature, so nothing else
+///   compiles that bench; `--lib --benches` checks both. Through gamehost it
+///   only forwards, so resolving the graph is the whole check.
 /// - `llm-collector` builds the language-model replay collector, a binary
 ///   no default feature reaches; it needs no ONNX Runtime, so it is checked
 ///   whole, tests included, in [`LINUX_CHECKS`].
@@ -112,6 +117,33 @@ const CHECKS: &[(&str, &[&str])] = &[
             "--",
             "-D",
             "warnings",
+        ],
+    ),
+    (
+        "simulation",
+        &[
+            "clippy",
+            "-p",
+            "baylee-engine",
+            "--features",
+            "simulation",
+            "--lib",
+            "--benches",
+            "--",
+            "-D",
+            "warnings",
+        ],
+    ),
+    (
+        "simulation-through-gamehost",
+        &[
+            "tree",
+            "-p",
+            "baylee-gamehost",
+            "--features",
+            "simulation",
+            "-e",
+            "features",
         ],
     ),
     (

@@ -55,6 +55,7 @@ const fn number_prompt_code(reason: &NumberPrompt) -> u8 {
     match reason {
         NumberPrompt::X => 1,
         NumberPrompt::Replicate { .. } => 2,
+        NumberPrompt::Multikicker { .. } => 11,
         NumberPrompt::ManaPayment { .. } => 3,
         NumberPrompt::EnergyPayment { .. } => 4,
         NumberPrompt::Counters { .. } => 5,

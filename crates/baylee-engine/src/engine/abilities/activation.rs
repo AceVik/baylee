@@ -499,7 +499,12 @@ impl<L: CardLookup> Engine<L> {
             // offered in `LegalActions` (which does add the two counts) and
             // then refused here with "no legal targets", the two-probes
             // disagreement this engine treats as the worst kind.
-            let player_options = eval::target_player_options(&self.state, &req.spec, player);
+            let player_options = eval::target_player_options_from(
+                &self.state,
+                &req.spec,
+                player,
+                self.ability_rule_context(source, ability_index),
+            );
             if options.len() + player_options.len() < min as usize {
                 // The number was answered before this question was asked, so
                 // an activation that dies here has one to throw away.
@@ -555,7 +560,12 @@ impl<L: CardLookup> Engine<L> {
                 self.activation_x,
                 eval::target_domain::walls(first, second),
             );
-            let player_options = eval::target_player_options(&self.state, &req.spec, player);
+            let player_options = eval::target_player_options_from(
+                &self.state,
+                &req.spec,
+                player,
+                self.ability_rule_context(source, ability_index),
+            );
             if options.len() + player_options.len() < req.min as usize {
                 self.activation_x = None;
                 return Err(EngineError::IllegalAction("no legal targets"));
@@ -806,6 +816,15 @@ impl<L: CardLookup> Engine<L> {
                     |(_, list)| list.acquisition,
                 )
             });
+        // What the source is attached to as it is activated: a cost that
+        // sacrifices it (Thrull Retainer) moves it before the ability is on
+        // the stack to remember it (CR 113.7a, CR 608.2h).
+        let activated_source_attachment = self
+            .state
+            .object(source)
+            .filter(|o| o.zone == crate::zone::Zone::Battlefield)
+            .and_then(|o| o.attached_to)
+            .and_then(|host| self.state.object(host).map(|h| (host, h.version)));
         let completion = super::payment::ActivationCompletion {
             player,
             source,
@@ -817,6 +836,7 @@ impl<L: CardLookup> Engine<L> {
             fixed_mana_cost,
             activation_life,
             activated_source_version,
+            activated_source_attachment,
             activated_text,
             circled_colors,
             acquisition,

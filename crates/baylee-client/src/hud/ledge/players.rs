@@ -733,7 +733,7 @@ pub fn sync_players(
                     GAP_IN_TEAM
                 };
                 last_side = facts.team;
-                let button = spawn_button(&mut commands, facts, gap, step, lang);
+                let button = spawn_button(&mut commands, &fonts, facts, gap, step, lang);
                 let words = write(&mut commands, &fonts, facts, tier, step, lang, None);
                 commands.entity(button).add_child(words);
                 button
@@ -753,16 +753,162 @@ fn ground_of(facts: &SeatFacts) -> Color {
     }
 }
 
+/// The badge over a chip whose player is controlled (CR 723.5): "Under your
+/// control" over every player this seat controls, "Controlled by Ben" over
+/// a player somebody else decides for, which every seat is told. Spawned
+/// with the chip and hidden; [`show_the_control_badges`] writes and shows
+/// it. A press on it is the chip's (`PlayerTab`), which shows the table
+/// from that chair. `/state.control` reports the chairs and the line.
+#[derive(Component, Clone, Copy, PartialEq, Eq, Debug)]
+pub struct ControlBadge {
+    /// The seat the chip is.
+    pub player: PlayerId,
+}
+
+/// A control badge's words.
+#[derive(Component)]
+pub struct ControlBadgeText;
+
+/// The badge's height at step L.
+const BADGE_H: f32 = 17.0;
+
+/// Its words' size at step L.
+const BADGE_PT: f32 = 9.5;
+
+/// What a chip's control badge says, if anything, and its hint: decided
+/// from the view and the chair the table is shown from.
+#[must_use]
+pub fn control_badge(
+    view: &baylee_view::PlayerView,
+    perspective: &baylee_client_core::perspective::Perspective,
+    statics: Option<&GameStatic>,
+    lang: Lang,
+    player: PlayerId,
+) -> Option<(String, String)> {
+    use baylee_client_core::perspective::{ControlLine, controls};
+    let name = |p| baylee_client_core::i18n::seat_name(lang, statics, p);
+    if controls(view, player) {
+        let words = if perspective.other() == Some(player) {
+            Phrase::ControlUnderYoursShown
+        } else {
+            Phrase::ControlUnderYours
+        };
+        let hint = Phrase::ControlChipHint.fill(lang, &[&name(player)]);
+        return Some((words.text(lang).to_string(), hint));
+    }
+    let (controlled, controller) = ControlLine::of(view)?.pair(view.seat);
+    (controlled == player && controller != view.seat).then(|| {
+        let words = Phrase::ControlledBy.fill(lang, &[&name(controller)]);
+        let hint = if view.active == player {
+            Phrase::ControlTurnOf.fill(lang, &[&name(player), &name(controller)])
+        } else {
+            words.clone()
+        };
+        (words, hint)
+    })
+}
+
+/// Writes and shows each chip's control badge while its player is
+/// controlled, and hides it after; a write only where one changed.
+pub fn show_the_control_badges(
+    duel: Res<Duel>,
+    settings: Res<crate::settings::ClientSettings>,
+    mut badges: Query<(&ControlBadge, &mut Visibility, &mut Hint, &Children)>,
+    mut texts: Query<&mut Text, With<ControlBadgeText>>,
+) {
+    let Some(view) = duel.view.as_ref() else {
+        return;
+    };
+    let lang = Lang::of(&settings.lang);
+    for (badge, mut seen, mut hint, children) in &mut badges {
+        let said = control_badge(
+            view,
+            &duel.perspective,
+            duel.statics.as_ref(),
+            lang,
+            badge.player,
+        );
+        let want = if said.is_some() {
+            Visibility::Inherited
+        } else {
+            Visibility::Hidden
+        };
+        if *seen != want {
+            *seen = want;
+        }
+        let Some((words, said_hint)) = said else {
+            continue;
+        };
+        if hint.0 != said_hint {
+            hint.0 = said_hint;
+        }
+        for child in children {
+            if let Ok(mut text) = texts.get_mut(*child)
+                && text.0 != words
+            {
+                text.0.clone_from(&words);
+            }
+        }
+    }
+}
+
+/// A chip's control badge, hidden until [`show_the_control_badges`] has
+/// something to say on it.
+fn control_badge_bundle(fonts: &UiFonts, player: PlayerId, step: f32) -> impl Bundle {
+    let tall = BADGE_H * step;
+    (
+        ControlBadge { player },
+        Node {
+            position_type: PositionType::Absolute,
+            // Over the chip, which clips only sideways: the badge stands
+            // above the strip on the table's edge, and never on a print.
+            bottom: px(CHIP_H * step + 2.0),
+            left: px(0),
+            height: px(tall),
+            padding: UiRect::horizontal(px(6)),
+            column_gap: px(4),
+            align_items: AlignItems::Center,
+            border: UiRect::all(px(1)),
+            border_radius: BorderRadius::all(px(tall * 0.5)),
+            ..default()
+        },
+        BackgroundColor(palette::PANEL),
+        BorderColor::all(palette::CONTROL),
+        Visibility::Hidden,
+        Hint(String::new()),
+        children![
+            (
+                Text::new(glyph::CONTROL.to_string()),
+                icon_tf(fonts, BADGE_PT * step),
+                TextColor(palette::CONTROL),
+                Pickable::IGNORE,
+            ),
+            (
+                ControlBadgeText,
+                Text::default(),
+                TextLayout::no_wrap(),
+                tf_bold(fonts, BADGE_PT * step),
+                TextColor(palette::INK),
+                Pickable::IGNORE,
+            ),
+        ],
+    )
+}
+
 /// A seat's chip, with its edges' lights and nothing written on it yet.
 fn spawn_button(
     commands: &mut Commands,
+    fonts: &UiFonts,
     facts: &SeatFacts,
     gap: f32,
     step: f32,
     lang: Lang,
 ) -> Entity {
     let ground = ground_of(facts);
-    commands
+    let badge = commands
+        .spawn(control_badge_bundle(fonts, facts.player, step))
+        .id();
+    let chip = commands
         .spawn((
             PlayerButton {
                 player: facts.player,
@@ -788,7 +934,9 @@ fn spawn_button(
                 align_items: AlignItems::Center,
                 border: UiRect::all(px(1)),
                 border_radius: btn_radius(),
-                overflow: Overflow::clip(),
+                // Sideways only: a name that gives way is cut at the chip's
+                // edge, and the control badge stands over the chip.
+                overflow: Overflow::clip_x(),
                 ..default()
             },
             BackgroundColor(ground),
@@ -830,7 +978,9 @@ fn spawn_button(
                 ),
             ],
         ))
-        .id()
+        .id();
+    commands.entity(chip).add_child(badge);
+    chip
 }
 
 /// One top-edge line, hidden until [`show_the_tags`] shows it: the turn's
@@ -1572,7 +1722,7 @@ mod tests {
                     let mut chips = Vec::new();
                     for (at, seat) in facts.iter().enumerate() {
                         let gap = if at == 0 { 0.0 } else { GAP_TEAMS };
-                        let chip = spawn_button(&mut commands, seat, gap, step, Lang::De);
+                        let chip = spawn_button(&mut commands, &fonts, seat, gap, step, Lang::De);
                         let words = write(&mut commands, &fonts, seat, tier, step, Lang::De, None);
                         commands.entity(chip).add_child(words);
                         commands.entity(root).add_child(chip);

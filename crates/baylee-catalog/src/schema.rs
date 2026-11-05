@@ -2,6 +2,7 @@
 //! data seeded into them.
 
 use super::*;
+use crate::rows::VERDICT_ORDER;
 
 /// What [`Catalog::readiness`] found, and why they are two questions.
 ///
@@ -79,7 +80,7 @@ pub(crate) async fn projection_is_stale(conn: &impl ConnectionTrait) -> Result<b
 /// rebuild that fails halfway leaves the old version standing and is tried
 /// again on the next start.
 pub(crate) async fn rebuild_the_projection(conn: &impl ConnectionTrait) -> Result<()> {
-    for sql in ["TRUNCATE card_search", PROJECT_SQL] {
+    for sql in ["TRUNCATE card_search, card_search_text", PROJECT_SQL] {
         conn.execute_raw(Statement::from_string(DbBackend::Postgres, sql))
             .await
             .with_context(|| format!("projecting: {sql}"))?;
@@ -116,6 +117,20 @@ pub(crate) fn split_list(joined: &str) -> Vec<String> {
         .filter(|s| !s.is_empty())
         .map(str::to_string)
         .collect()
+}
+
+/// The body of `catalog_verdicts`, spelled from [`VERDICT_ORDER`] so the merge
+/// a batch makes in Rust and the one a conflict makes here cannot differ.
+fn verdicts_body() -> String {
+    let order = VERDICT_ORDER.map(|word| format!("'{word}'")).join(", ");
+    format!(
+        "SELECT coalesce(jsonb_object_agg(format, verdict), '{{}}'::jsonb) FROM ( \
+           SELECT DISTINCT ON (key) key AS format, value AS verdict \
+           FROM (SELECT * FROM jsonb_each_text(a) UNION ALL \
+                 SELECT * FROM jsonb_each_text(b)) sides \
+           ORDER BY key, array_position(ARRAY[{order}], value) NULLS LAST \
+         ) merged"
+    )
 }
 
 /// The schema, as idempotent statements.
@@ -235,10 +250,9 @@ pub(crate) fn schema_statements() -> Vec<String> {
         // wants the whole map for one card, and a GIN index still answers
         // `legalities ->> 'commander' = 'legal'` across the catalog.
         //
-        // The deckbuilder is what will want it — "may this card go in this
-        // deck" is a format question, and the pool it offers has had no way
-        // to ask one. The corpus asks something much weaker: whether *any*
-        // format has heard of the card.
+        // The deck builder reads it through `GET /pool/facts`: "may this card
+        // go in this deck" is a format question. The corpus asks something
+        // much weaker: whether *any* format has heard of the card.
         "CREATE TABLE IF NOT EXISTS card_legalities (
             oracle_id  uuid PRIMARY KEY,
             legalities jsonb NOT NULL DEFAULT '{}'::jsonb
@@ -247,6 +261,13 @@ pub(crate) fn schema_statements() -> Vec<String> {
         "CREATE INDEX IF NOT EXISTS card_legalities_gin \
              ON card_legalities USING gin (legalities)"
             .to_string(),
+        // Two printings of one card, written in two batches of an ingest,
+        // and the strongest word for each format.
+        format!(
+            "CREATE OR REPLACE FUNCTION catalog_verdicts(a jsonb, b jsonb) RETURNS jsonb \
+                 LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE AS $fn$ {} $fn$",
+            verdicts_body()
+        ),
     ];
     statements.extend(projection_schema());
     statements
@@ -277,7 +298,7 @@ pub(crate) fn projection_schema() -> Vec<String> {
                  LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE AS $fn$ {BIGRAMS_BODY} $fn$"
         ),
         // The search projection: one row per oracle face, every language that
-        // face prints in, and the two things a search asks about.
+        // face prints in, and what a search by name asks about.
         //
         // `bg` is `GENERATED` and `names_norm` is not, and the asymmetry is
         // the point. `catalog_bigrams` is genuinely immutable over its
@@ -291,13 +312,36 @@ pub(crate) fn projection_schema() -> Vec<String> {
             face_index smallint NOT NULL,
             names      jsonb NOT NULL,
             names_norm text NOT NULL,
-            tsv        tsvector NOT NULL,
             bg         text[] GENERATED ALWAYS AS (catalog_bigrams(names_norm)) STORED,
             PRIMARY KEY (oracle_id, face_index)
         )"
         .to_string(),
         "CREATE INDEX IF NOT EXISTS card_search_bg ON card_search USING gin (bg)".to_string(),
-        "CREATE INDEX IF NOT EXISTS card_search_tsv ON card_search USING gin (tsv)".to_string(),
+        // What a search reaches by rules text, per face and language, because
+        // a search answers in the client's language and English and in no
+        // other: a client reads two of a card's rows. `lang` is not in the
+        // index, which would need `btree_gin`: a word of one language hits
+        // that language's rows, and the few it hits elsewhere are filtered.
+        //
+        // The vector across all languages this replaced stood on `card_search`
+        // as `tsv`, and goes with its index when the column goes. Named
+        // through `current_schema()` for the reason the drops below are.
+        "DO $drop$ BEGIN \
+           EXECUTE format('ALTER TABLE %I.card_search DROP COLUMN IF EXISTS tsv', \
+                          current_schema()); \
+         END $drop$"
+            .to_string(),
+        "CREATE TABLE IF NOT EXISTS card_search_text (
+            oracle_id  uuid NOT NULL,
+            face_index smallint NOT NULL,
+            lang       text NOT NULL,
+            tsv        tsvector NOT NULL,
+            PRIMARY KEY (oracle_id, face_index, lang)
+        )"
+        .to_string(),
+        "CREATE INDEX IF NOT EXISTS card_search_text_tsv \
+             ON card_search_text USING gin (tsv)"
+            .to_string(),
         // The two the projection replaces. Left in place they would cost an
         // existing install 124 MB to answer nothing: 74 MB of expression GIN
         // over 554 242 faces and 50 MB of trigrams over the same names the

@@ -47,6 +47,10 @@ impl Stream {
                     NextTimeout {
                         after: budget.into(),
                         reason: ureq::Timeout::Resolve,
+                        // DNS has one absolute budget; per-I/O caps belong to
+                        // the subsequent TCP/TLS stream, which we own below.
+                        per_read: None,
+                        per_write: None,
                     },
                 )
                 .map_err(|error| format!("Resolve: {error}"))?

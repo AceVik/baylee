@@ -61,6 +61,9 @@ pub fn condition_holds_with_context(
         Condition::SourceBlockedOrWasBlockedSinceYourLastUpkeep => {
             super::upkeep_history::blocked_since_last_upkeep(state, you, source)
         }
+        Condition::SourceCameUnderYourControlSinceYourLastUpkeep => {
+            super::upkeep_history::came_under_your_control(state, you, source, None)
+        }
         Condition::SomeDefendingPlayerControlsNone(filter) => {
             super::defender_conditions::some_defender_controls_none(state, you, context, filter)
         }
@@ -161,6 +164,16 @@ pub fn condition_holds_with_context(
         Condition::CastInstantOrSorceryThisTurn => {
             state.per_turn.instant_or_sorcery_cast[usize::from(you.get())]
         }
+        Condition::CastCreatureThisTurn => {
+            let seat = usize::from(you.get());
+            state.per_turn.spells_cast_by(you)
+                > state
+                    .per_turn
+                    .noncreature_spells
+                    .get(seat)
+                    .copied()
+                    .unwrap_or(0)
+        }
         Condition::OpponentWasDealtAtLeast(minimum) => state.players.iter().any(|p| {
             let player = p.id;
             !state.has_left(player)
@@ -248,6 +261,10 @@ pub fn condition_holds_with_context(
         }
         Condition::YourTurn => state.turn.active == you,
         Condition::LifeAtMost(n) => state.players[you.get() as usize].life <= n,
+        Condition::LifeBelowStarting => {
+            let player = &state.players[usize::from(you.get())];
+            player.life < player.starting_life
+        }
         Condition::APlayerHasMostLife => most_life(state).is_some(),
         // The announced X on the source, where `cast_wizard` writes it and
         // where `Filter::CmcAtMostX` reads it.
@@ -671,6 +688,9 @@ pub(crate) fn intervening_if_for_incarnation(
         Some(Condition::SourceWasCastByYou) => state
             .damage_source(source, version)
             .is_some_and(|object| object.cast_history.caster() == Some(you)),
+        Some(Condition::SourceCameUnderYourControlSinceYourLastUpkeep) => {
+            super::upkeep_history::came_under_your_control(state, you, source, version)
+        }
         Some(Condition::AttachedMatches(filter)) => {
             attached_for_ability(state, source, version, attachment)
                 .is_some_and(|o| matches(filter, state, o, you, source))

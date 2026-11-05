@@ -41,7 +41,8 @@ pub(crate) fn menu_click(duel: &mut Duel, action: MenuAction, was_armed: bool) {
             duel.hovered = None;
             duel.hovered_at = None;
             if let (Some(board), Some(view)) = (&mut duel.board, &duel.view) {
-                duel.hand_groups = order.apply(&mut board.hand, view);
+                duel.hand_groups =
+                    order.apply(&mut board.hand, crate::shown_hand(view, duel.perspective));
             }
         }
         MenuAction::ScrollHand(direction) => {
@@ -144,6 +145,7 @@ pub(crate) fn menu_click(duel: &mut Duel, action: MenuAction, was_armed: bool) {
             duel.subtype_group = usize::from(group);
             duel.subtype_filter.clear();
         }
+        MenuAction::NameFilters => duel.naming.search.toggle_panel(),
         MenuAction::ReleaseHold => {
             duel.autopilot = None;
             if duel.priority_held()
@@ -335,6 +337,25 @@ pub(super) fn sheet_click(
 /// [`open_pile`] through the ordinary card path.
 ///
 /// Returns whether the click belonged to the browser.
+/// A press in the filter builder standing on screen: the name chooser's while
+/// a name is asked, the zone dialog's otherwise. *Done* is both: the act gives
+/// the row's caret back, and the marker beside it shuts the panel. Read after
+/// the act rather than instead of it, so a row still holding the caret does
+/// not keep it in a builder nobody can see.
+fn filter_press(duel: &mut Duel, act: baylee_client_core::filterdialog::Act, done: bool) {
+    if duel.naming_a_card() {
+        duel.naming.search.act(act);
+        if done {
+            duel.naming.search.close_panel();
+        }
+    } else {
+        duel.browser.filter_act(act);
+        if done {
+            duel.browser.close_builder();
+        }
+    }
+}
+
 pub(super) fn browser_click(
     duel: &mut Duel,
     entity: Entity,
@@ -452,15 +473,8 @@ pub(super) fn browser_click(
     // inside the same head as the filter row, and a row's text box is a
     // `Button` of its own.
     if let Some(act) = find_in_lineage(entity, &tray.acts, parents) {
-        let act = act.0;
-        duel.browser.filter_act(act);
-        // *Done* is both: the act gives the row's caret back, and the marker
-        // beside it shuts the panel. Read after the act rather than instead
-        // of it, so a row still holding the caret does not keep it in a
-        // builder nobody can see.
-        if find_in_lineage(entity, &tray.done, parents).is_some() {
-            duel.browser.close_builder();
-        }
+        let done = find_in_lineage(entity, &tray.done, parents).is_some();
+        filter_press(duel, act.0, done);
         return true;
     }
     // The gear opens the builder on what the box holds, and shuts it again.

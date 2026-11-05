@@ -2,6 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary
 use super::*;
+use crate::choice::SpellEnding;
 
 /// What CR 608.2b's re-check found about the object on top of the stack.
 ///
@@ -622,10 +623,10 @@ impl<L: CardLookup> Engine<L> {
             );
             let runtime_body = loc.index == baylee_core::ids::AbilityRef::SYNTHETIC
                 || crate::choice::granted_slot(loc.index).is_some();
-            let effects = if runtime_body {
+            let body = if runtime_body {
                 // Synthetic keyword trigger (prowess, ward): effects live
                 // in the side map, resolved below.
-                &[][..]
+                Vec::new()
             } else {
                 match abilities.get(loc.index as usize) {
                     // `ActivatedConditional` belongs here beside `Activated`:
@@ -645,7 +646,12 @@ impl<L: CardLookup> Engine<L> {
                         | AbilityDef::Triggered { effects, .. }
                         | AbilityDef::Loyalty { effects, .. }
                         | AbilityDef::SagaChapter { effects, .. },
-                    ) => *effects,
+                    ) => resolve::flatten(effects),
+                    // A keyword with a printed cost and no effect list:
+                    // what it does is written out as it resolves.
+                    Some(AbilityDef::Echo { cost }) => {
+                        vec![self.demand_echo(obj.controller, loc.source, *cost)]
+                    }
                     Some(
                         AbilityDef::ModalTriggered { modes, .. }
                         | AbilityDef::ModalActivated { modes, .. },
@@ -661,10 +667,12 @@ impl<L: CardLookup> Engine<L> {
                             .mode_index
                             .expect("a modal trigger on the stack has its mode")
                             as usize;
-                        modes
-                            .get(idx)
-                            .map(|m| m.effects)
-                            .expect("modal trigger mode exists")
+                        resolve::flatten(
+                            modes
+                                .get(idx)
+                                .map(|m| m.effects)
+                                .expect("modal trigger mode exists"),
+                        )
                     }
                     _ => panic!(
                         "ability object references non-resolvable ability: source {:?} index {}",
@@ -740,7 +748,7 @@ impl<L: CardLookup> Engine<L> {
                 source: loc.source,
                 on_stack: top,
                 controller: obj.controller,
-                effects: resolve::flatten(effects),
+                effects: body,
                 pc: 0,
                 targets: obj.targets.clone(),
                 second_targets: SmallVec::from_slice(obj.second_targets()),
@@ -857,7 +865,9 @@ impl<L: CardLookup> Engine<L> {
         } else {
             #[cfg(test)]
             crate::ability_log::resolved(&self.state, &self.lookup, top);
-            self.finalize_spell(top);
+            if !self.ask_spell_ending(top) {
+                self.finalize_spell(top, None);
+            }
         }
     }
 
@@ -1135,10 +1145,117 @@ impl<L: CardLookup> Engine<L> {
             self.state.remember_damage_source(res.on_stack);
             let _ = self.state.arena.remove(res.on_stack);
         } else {
-            self.finalize_spell(res.on_stack);
+            if self.ask_spell_ending(res.on_stack) {
+                return;
+            }
+            self.finalize_spell(res.on_stack, None);
         }
         self.apply_pending_face_changes();
         self.end_controlled_resolution(res.on_stack);
+    }
+
+    /// The "instead"s that each want the move CR 608.2n makes as `spell`
+    /// finishes resolving, in the order they are offered. Fewer than two is
+    /// no choice at all.
+    ///
+    /// All of them replace that one event and none is a self-replacement
+    /// effect of the kinds CR 616.1a–d put first, so any of them may be chosen
+    /// (CR 616.1e), and once one has been applied the card is not going to the
+    /// graveyard and nothing is left for the others (CR 616.1f).
+    ///
+    /// Flashback is not among them, and neither is anything beside it: it
+    /// exiles the card "instead of putting it anywhere else" (CR 702.34a), so
+    /// the hand a buyback chose would be exiled too and every order ends the
+    /// same. A copy has no card for any of them to move (CR 707.10), and a
+    /// permanent spell has another door.
+    pub(crate) fn spell_endings(&self, spell: ObjectId) -> SmallVec<[SpellEnding; 4]> {
+        let mut endings = SmallVec::new();
+        let Some(obj) = self
+            .state
+            .object(spell)
+            .filter(|o| o.zone == crate::zone::Zone::Stack && o.is_card())
+        else {
+            return endings;
+        };
+        let characteristics = obj.characteristics();
+        if characteristics.types.is_permanent()
+            || obj.riders.contains(&crate::object::Rider::Flashback)
+        {
+            return endings;
+        }
+        if obj.riders.contains(&crate::object::Rider::Buyback) {
+            endings.push(SpellEnding::Hand);
+        }
+        // Ojer Pakpatiq's grant is how most spells come to have this beside
+        // one of the others.
+        if obj.cast_history.was_from_hand()
+            && characteristics
+                .keywords
+                .contains(baylee_cards_dsl::KeywordSet::REBOUND)
+        {
+            endings.push(SpellEnding::Rebound);
+        }
+        if self.adventure_def(spell).is_some() {
+            endings.push(SpellEnding::Adventure);
+        }
+        // Alone it needs no name: the card goes to the graveyard, and the
+        // move itself finds the replacement.
+        let graveyard = ZoneLocation::Graveyard(obj.owner);
+        if !endings.is_empty()
+            && crate::replacement::graveyard_destination(&self.state, spell, graveyard).0
+                != graveyard
+        {
+            endings.push(SpellEnding::Exile);
+        }
+        endings
+    }
+
+    /// Puts the choice of `spell`'s ending to its controller, the player
+    /// CR 616.1 names as the affected object's. A controlled player's goes to
+    /// the player controlling them, as every choice of theirs does
+    /// (CR 723.5). Says whether it asked; the answer finishes the spell
+    /// ([`Self::finish_spell`]).
+    pub(crate) fn ask_spell_ending(&mut self, spell: ObjectId) -> bool {
+        let endings = self.spell_endings(spell);
+        if endings.len() < 2 {
+            return false;
+        }
+        let Some(player) = self.state.object(spell).map(|o| o.controller) else {
+            return false;
+        };
+        self.pending_plan = Some(PlanKind::SpellEnding { spell });
+        self.pending = Pending::ChooseCastMode {
+            player,
+            object: spell,
+            options: endings
+                .iter()
+                .enumerate()
+                .map(|(index, ending)| crate::choice::CastModeDesc {
+                    index: u32::try_from(index).expect("four endings at most"),
+                    kind: crate::choice::CastModeKind::SpellEnding(*ending),
+                    cost: baylee_core::mana::ManaCost::ZERO,
+                })
+                .collect(),
+        };
+        self.awaiting_answer = true;
+        true
+    }
+
+    /// What is left of a resolution once `spell`'s ending is decided.
+    pub(crate) fn finish_spell(&mut self, spell: ObjectId, ending: Option<SpellEnding>) {
+        self.finalize_spell(spell, ending);
+        self.apply_pending_face_changes();
+        self.end_controlled_resolution(spell);
+    }
+
+    /// The definition of an Adventure spell on the stack.
+    fn adventure_def(&self, spell: ObjectId) -> Option<&'static baylee_cards_dsl::CardDef> {
+        let obj = self.state.object(spell)?;
+        let def = obj.card.and_then(|c| self.lookup.card(c.index))?;
+        def.faces
+            .get(obj.face_index as usize)
+            .is_some_and(|face| face.adventure)
+            .then_some(def)
     }
 
     /// CR 707.10: a copy of a permanent spell stops being a copy of a spell
@@ -1181,9 +1298,10 @@ impl<L: CardLookup> Engine<L> {
 
     // Adventure, the permanent door with the copy question in front of it,
     // rebound, flashback and the graveyard — five endings for one spell, and
-    // each carries the rule that picks it.
+    // each carries the rule that picks it. `chosen` is its controller's answer
+    // where more than one wanted it (`Self::spell_endings`).
     #[allow(clippy::too_many_lines)]
-    pub(crate) fn finalize_spell(&mut self, spell: ObjectId) {
+    pub(crate) fn finalize_spell(&mut self, spell: ObjectId, chosen: Option<SpellEnding>) {
         let (is_permanent, owner) = {
             let Some(obj) = self.state.object(spell) else {
                 return;
@@ -1204,20 +1322,18 @@ impl<L: CardLookup> Engine<L> {
             }
             (obj.characteristics().types.is_permanent(), obj.owner)
         };
+        let ending = chosen.or_else(|| self.spell_endings(spell).first().copied());
+        // Another "instead" was chosen over the adventure: the card still
+        // leaves the stack, and the Adventure's characteristics stay there
+        // (CR 715.4). It takes that ending below as any instant does.
+        if !matches!(ending, None | Some(SpellEnding::Adventure))
+            && let Some(def) = self.adventure_def(spell)
+        {
+            self.state.switch_face(spell, def, 0);
+        }
         // Adventure (CR 715): an Adventure spell resolves to exile; the
         // front face may then be cast from exile.
-        let adventure_def = {
-            let face = self
-                .state
-                .object(spell)
-                .map_or(0, |o| o.face_index as usize);
-            self.state
-                .object(spell)
-                .and_then(|o| o.card)
-                .and_then(|c| self.lookup.card(c.index))
-                .filter(|def| def.faces.get(face).is_some_and(|f| f.adventure))
-        };
-        if let Some(def) = adventure_def {
+        if let Some(def) = self.adventure_def(spell) {
             // The card is exiled *on an adventure*, and an adventurer card
             // has its normal characteristics in every zone but the stack: it
             // is the creature that sits in exile, not the instant that just
@@ -1291,13 +1407,7 @@ impl<L: CardLookup> Engine<L> {
         } else {
             // Rebound (CR 702.88): cast from hand → exile with a rebound
             // rider and a delayed re-cast at the next upkeep.
-            let rebound = self.state.object(spell).is_some_and(|o| {
-                o.cast_history.was_from_hand()
-                    && o.characteristics()
-                        .keywords
-                        .contains(baylee_cards_dsl::KeywordSet::REBOUND)
-            });
-            if rebound {
+            if ending == Some(SpellEnding::Rebound) {
                 if let Some(obj) = self.state.object_mut(spell) {
                     obj.kind = ObjectKind::Card;
                     obj.riders.push(crate::object::Rider::Rebound);
@@ -1318,7 +1428,10 @@ impl<L: CardLookup> Engine<L> {
                 });
                 return;
             }
-            // Flashback (CR 702.34): exile instead of the graveyard.
+            // Flashback (CR 702.34): exile instead of the graveyard, and
+            // instead of "anywhere else" it would go, which is why a flashed
+            // back spell whose buyback was paid is exiled all the same, and
+            // why nobody is asked (`Self::spell_endings`).
             let flashback = self
                 .state
                 .object(spell)
@@ -1338,12 +1451,24 @@ impl<L: CardLookup> Engine<L> {
             if let Some(obj) = self.state.object_mut(spell) {
                 obj.kind = ObjectKind::Card;
             }
-            let _ = self.state.move_object(
-                spell,
-                ZoneLocation::Graveyard(owner),
-                ZonePosition::Top,
-                Cause::Spell,
-            );
+            // Buyback (CR 702.27a) replaces the graveyard of CR 608.2n with
+            // its owner's hand, here and nowhere else: a spell that is
+            // countered (CR 701.6a) or that loses every target (CR 608.2b)
+            // does not resolve and never comes through this door. A copy paid
+            // nothing, but it carries the decision (CR 707.10); it has no
+            // card to send, and takes the ending every copy takes (CR 704.5e).
+            //
+            // `SpellEnding::Exile` lands on the graveyard too: the move is
+            // what finds the replacement that was chosen, and counts its
+            // counters (`replacement::graveyard_destination`).
+            let destination = if ending == Some(SpellEnding::Hand) {
+                ZoneLocation::Hand(owner)
+            } else {
+                ZoneLocation::Graveyard(owner)
+            };
+            let _ = self
+                .state
+                .move_object(spell, destination, ZonePosition::Top, Cause::Spell);
         }
     }
 }

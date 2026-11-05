@@ -253,7 +253,30 @@ const fn triggered_parts(ability: &'static AbilityDef) -> Option<Firing> {
             once_per_turn: *once_per_turn,
             condition: *condition,
         }),
+        // Echo is a triggered ability the keyword writes out (CR 702.30a):
+        // "at the beginning of your upkeep, if this permanent came under
+        // your control since the beginning of your last upkeep". What it
+        // does is `Engine::demand_echo`'s, as it resolves.
+        AbilityDef::Echo { .. } => Some(Firing {
+            trigger: &Trigger::StepBegin {
+                step: baylee_cards_dsl::StepKind::Upkeep,
+                whose: PlayerRel::You,
+            },
+            zone: TriggerZone::Battlefield,
+            once_per_turn: false,
+            condition: Some(Condition::SourceCameUnderYourControlSinceYourLastUpkeep),
+        }),
         _ => None,
+    }
+}
+
+/// The intervening-`if` clause of a triggered ability (CR 603.4), for the
+/// second of its two checks: `None` for any other ability, and for a
+/// triggered one that prints none.
+pub(crate) const fn intervening_clause(ability: &'static AbilityDef) -> Option<Condition> {
+    match triggered_parts(ability) {
+        Some(firing) => firing.condition,
+        None => None,
     }
 }
 
@@ -1296,6 +1319,14 @@ impl PendingTrigger {
                 Some(player) => baylee_cards_dsl::TargetSpec::ObjectControlledBy(filter, player),
                 None => spec,
             },
+            baylee_cards_dsl::TargetSpec::OpponentWithMoreThanActivePlayer(filter) => {
+                match self.event_player {
+                    Some(player) => {
+                        baylee_cards_dsl::TargetSpec::OpponentWithMoreThanPlayer(filter, player)
+                    }
+                    None => spec,
+                }
+            }
             baylee_cards_dsl::TargetSpec::CardInGraveyard(
                 filter,
                 PlayerRel::EventPlayer | PlayerRel::DamagedPlayer,

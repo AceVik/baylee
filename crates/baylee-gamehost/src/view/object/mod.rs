@@ -244,6 +244,21 @@ fn word_changes(state: &GameState, id: ObjectId) -> Vec<baylee_view::WordChange>
     colors.chain(lands).collect()
 }
 
+/// How often a spell on the stack was kicked. Spells only: a permanent keeps
+/// its count for its own abilities (CR 400.7d), and nobody is told it again.
+fn announced_kicks(obj: &GameObject) -> u8 {
+    if obj.kind == ObjectKind::Spell {
+        obj.times_kicked
+    } else {
+        0
+    }
+}
+
+/// Whether a spell on the stack had its buyback cost paid.
+fn announced_buyback(obj: &GameObject) -> bool {
+    obj.kind == ObjectKind::Spell && obj.riders.contains(&baylee_engine::object::Rider::Buyback)
+}
+
 pub(super) fn public_object(
     state: &GameState,
     id: ObjectId,
@@ -362,6 +377,8 @@ pub(super) fn public_object(
         // stays one field and the view keeps its version.
         targets: object_targets(state, obj),
         stack_item: super::stack::stack_item_with_grants(state, obj),
+        times_kicked: announced_kicks(obj),
+        bought_back: announced_buyback(obj),
         // Permanents only, because the engine's answer is about a creature
         // *on the battlefield* and a creature card in hand would otherwise
         // come back asleep. The creature test itself is the engine's — one

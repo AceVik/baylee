@@ -279,6 +279,35 @@ pub type EngineLink = mpsc::UnboundedSender<Envelope>;
 /// seat had about this many of its own.
 pub const OUTBOX_DEPTH: usize = 128;
 
+/// The list a room is held to, as the room holds it: its own copy, read from
+/// the store while the room waits and fixed as the game starts
+/// (`docs/banlists-and-formats.md`). A copy, so the owner deleting the list
+/// or closing the account takes nothing from a room, and so a list's cards
+/// reach those at the table without anyone reading the owner's list.
+#[derive(Clone, Debug)]
+pub struct RoomList {
+    /// The list's id in the store.
+    pub id: uuid::Uuid,
+    /// The list and its cards, as those at the table may read them. `mine`
+    /// is always false here: whose it is stays the store's.
+    pub body: std::sync::Arc<baylee_cardtext::ListBody>,
+    /// What it says, as a check reads it.
+    pub rules: std::sync::Arc<baylee_cardtext::ListRules>,
+}
+
+impl RoomList {
+    /// A copy of `list` as a room holds it.
+    #[must_use]
+    pub fn of(id: uuid::Uuid, body: baylee_cardtext::ListBody) -> Self {
+        let rules = body.rules();
+        Self {
+            id,
+            body: std::sync::Arc::new(body),
+            rules: std::sync::Arc::new(rules),
+        }
+    }
+}
+
 /// A lobby game.
 pub struct LobbyGame {
     /// Game id (`UUIDv7`).
@@ -304,6 +333,14 @@ pub struct LobbyGame {
     pub house_rules: baylee_core::preset::HouseRules,
     /// The custom starting state, visible to every participant.
     pub setup: baylee_core::preset::RoomSetup,
+    /// The format the host says the table plays, by Scryfall's key. Without
+    /// a list it is a word on the table and checks nothing.
+    pub format: Option<String>,
+    /// The list a deck must keep to here; `None` and everything may sit
+    /// down. While the room waits it is read again before every check; from
+    /// the moment the game starts it stays the version the decks passed, so
+    /// neither a refresh nor an edit can reach a running game.
+    pub list: Option<RoomList>,
     /// SHA-256 of the token the engine proves itself with. One game's worth
     /// of authority: it is issued when the engine is ordered and is useless
     /// for anything but attaching to this game.
@@ -568,6 +605,8 @@ impl LobbyGame {
             preset: None,
             house_rules: baylee_core::preset::HouseRules::default(),
             setup: baylee_core::preset::RoomSetup::default(),
+            format: None,
+            list: None,
             engine_token_hash: None,
             agent_id: None,
             engine_local: false,
@@ -622,6 +661,10 @@ impl LobbyGame {
             // which anybody could have said otherwise.
             house_rules: parent.house_rules.clone(),
             setup: parent.setup.clone(),
+            // The rules travel too. It is a new game, so the list is read
+            // again before it starts: what froze was the last game's.
+            format: parent.format.clone(),
+            list: parent.list.clone(),
             password_hash: parent.password_hash.clone(),
             next_seq: parent.next_seq,
             parent: Some(parent.id.clone()),
@@ -1050,6 +1093,7 @@ impl Lobby {
             id: g.id.clone(),
             name: g.name.clone(),
             setup: g.setup.clone(),
+            rules: TableRules::of(g, me),
             host: g.host.as_ref().and_then(|h| names.get(h)).cloned(),
             yours: g.host.as_deref() == Some(me),
             // Whether, never what: a client needs to know to ask for
@@ -1187,6 +1231,8 @@ pub struct LobbyTable {
     /// @description How long a running game has been going, in seconds as
     /// of this answer; `null` for a room still waiting.
     running_secs: Option<u64>,
+    /// @description What the table holds a deck to.
+    rules: TableRules,
     /// @description Every chair, in seat order.
     seats: Vec<LobbyChair>,
     /// @description The room's shared rules (starting life, free
@@ -1221,6 +1267,64 @@ pub struct TableClock {
     /// @description Seconds a seat that lost its connection is held before
     /// the house answers for it.
     reconnect_secs: u32,
+}
+
+/// What a table holds a deck to, as the caller sees it.
+///
+/// @description What a table holds a deck to. A table with a list turns a
+/// deck it rejects away; one without takes every deck.
+/// @openapi
+#[derive(serde::Serialize)]
+pub struct TableRules {
+    /// @description The format the host says the table plays, by Scryfall's
+    /// key; `null` for none.
+    format: Option<String>,
+    /// @description The list a deck must keep to; `null` for none.
+    list: Option<TableList>,
+}
+
+/// The list a table holds decks to, as the caller sees it.
+///
+/// @description The list a table holds decks to. Anyone who can see the
+/// table sees that it has one, because deciding to sit down means knowing
+/// it; only those at the table see what an own list is called.
+/// @openapi
+#[derive(serde::Serialize)]
+pub struct TableList {
+    /// @description Whether it is an official list.
+    builtin: bool,
+    /// @description Its name; an official list's is its format's key, and an
+    /// own list's is `null` to anyone not at the table.
+    name: Option<String>,
+    /// @description The version a running game froze, or the one a waiting
+    /// room last read; `null` to anyone not at the table.
+    version: Option<i64>,
+    /// @description Whether the game has started, so the version stands for
+    /// good.
+    frozen: bool,
+}
+
+impl TableRules {
+    /// What `me` may see of what `game` holds a deck to.
+    fn of(game: &LobbyGame, me: &str) -> Self {
+        let here = game.hosted_by(me)
+            || game
+                .seats
+                .iter()
+                .any(|seat| seat.account_id.as_deref() == Some(me));
+        Self {
+            format: game.format.clone(),
+            list: game.list.as_ref().map(|list| {
+                let row = &list.body.row;
+                TableList {
+                    builtin: row.builtin,
+                    name: (here || row.builtin).then(|| row.name.clone()),
+                    version: here.then_some(row.version),
+                    frozen: game.state != LobbyState::Waiting,
+                }
+            }),
+        }
+    }
 }
 
 /// One chair of a listing row.

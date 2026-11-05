@@ -30,6 +30,9 @@ the document it names.
   checkpoint I/O, receipts and policy admission. Otherwise the adapter checks
   `PATH` and this checkout's `target/release`, then `target/debug`. It has no
   Python fallback for hashing, orchestration or admission.
+- `BAYLEE_FEEDBACK_ADMIN_PASSWORD`: the password `llm_report_status` signs in
+  to the feedback service's UI with (`docs/llm-seat.md` §"Giving the
+  reports a status"); read from the environment only.
 - `llm_collector4 collect --admin-url http://127.0.0.1:<port>` requires
   `BAYLEE_COLLECTOR_ADMIN_TOKEN`, read once into memory and never passed to
   children. The URL must be a literal loopback IP and port; redirects and

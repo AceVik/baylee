@@ -7,7 +7,6 @@
 
 #[allow(clippy::wildcard_imports)] // the builder's own vocabulary
 use super::*;
-use crate::cardquery::{Colors, Facts, Flag, Surface};
 
 impl DeckBuilder {
     /// An empty builder with no pool yet.
@@ -60,7 +59,7 @@ impl DeckBuilder {
     /// The current search text.
     #[must_use]
     pub fn text(&self) -> &str {
-        self.text.text()
+        self.search.field.text()
     }
 
     /// The deck's name.
@@ -101,6 +100,7 @@ impl DeckBuilder {
         self.dirty = true;
         self.changes = self.changes.saturating_add(1);
         self.naming = false;
+        self.recheck();
     }
 
     /// Marks an edit to the name: a run of them counts once.
@@ -215,12 +215,67 @@ impl DeckBuilder {
         self.blocked.get(&index)
     }
 
+    /// Whether the gateway's table should be asked for now, which is once a
+    /// session: the shell keeps its own copy by version between sessions.
+    pub const fn ask_pool_facts(&mut self) -> bool {
+        !std::mem::replace(&mut self.pool_facts_asked, true)
+    }
+
+    /// Whether the gateway's table has been asked for this session.
+    #[must_use]
+    pub const fn pool_facts_asked(&self) -> bool {
+        self.pool_facts_asked
+    }
+
+    /// Takes the gateway's table (`GET /pool/facts`) and rebuilds the results,
+    /// because a filter that said nothing a moment ago may now say something.
+    pub fn set_pool_facts(&mut self, facts: std::sync::Arc<crate::cardquery::PoolFacts>) {
+        self.pool_facts = Some(facts);
+        self.pool_revision = self.pool_revision.wrapping_add(1);
+        self.refilter();
+        self.recheck();
+    }
+
+    /// The gateway's table, while it holds one, as a table is lent it.
+    #[must_use]
+    pub const fn pool_facts(&self) -> Option<&std::sync::Arc<crate::cardquery::PoolFacts>> {
+        self.pool_facts.as_ref()
+    }
+
+    /// What the pool can be asked here.
+    #[must_use]
+    pub fn surface(&self) -> crate::cardquery::Surface<'_> {
+        crate::cardquery::Surface::POOL
+            .with_pool_facts(self.pool_facts.as_deref())
+            .with_lists(self.list_shelf.as_deref())
+    }
+
+    /// What to say over a list that is empty because the box asks what only
+    /// a gateway answers, rather than because no card matches.
+    #[must_use]
+    pub fn search_lacking(&self) -> Option<Phrase> {
+        crate::cardsearch::lacking(&self.query, self.surface())
+    }
+
+    /// Whether what is in the box asks what only the gateway's table
+    /// answers, while the builder has none: the empty list is then not "no
+    /// card matches", and the screen says so.
+    #[must_use]
+    pub fn search_lacks_pool_facts(&self) -> bool {
+        crate::cardquery::missing_pool_facts(&self.query, self.surface())
+    }
+
     /// Takes the pool and rebuilds the results.
     pub fn set_pool(&mut self, cards: Vec<PoolCard>, has_text: bool) {
         self.pool_revision = self.pool_revision.wrapping_add(1);
         self.keys = cards
             .iter()
             .map(|card| crate::prose::sort_key(&card.name))
+            .collect();
+        self.slots = cards
+            .iter()
+            .enumerate()
+            .map(|(slot, card)| (card.index, slot))
             .collect();
         self.pool = cards;
         self.has_text = has_text;
@@ -301,9 +356,12 @@ impl DeckBuilder {
             .iter()
             .position(|c| c.english_name == name)
             .or_else(|| {
-                self.pool
-                    .iter()
-                    .position(|c| c.alt_names.iter().any(|alt| alt == name))
+                self.pool.iter().position(|c| {
+                    c.alt_names
+                        .iter()
+                        .chain(&c.foreign_names)
+                        .any(|alt| alt == name)
+                })
             })
             .or_else(|| {
                 self.pool
@@ -316,19 +374,19 @@ impl DeckBuilder {
 
     /// Sets the search text.
     pub fn set_text(&mut self, text: &str) {
-        self.text = crate::textbuf::TextBuffer::new(text);
+        self.search.field = crate::textbuf::TextBuffer::new(text);
         self.retext();
     }
 
     /// Types one character into the search box.
     pub fn type_char(&mut self, ch: char) {
-        self.text.insert(&ch.to_string());
+        self.search.field.insert(&ch.to_string());
         self.retext();
     }
 
     /// Deletes the last character of the search box.
     pub fn backspace(&mut self) {
-        self.text.delete_back();
+        self.search.field.delete_back();
         self.retext();
     }
 
@@ -338,28 +396,45 @@ impl DeckBuilder {
     /// together. Parsing costs one pass over what a player typed; not doing
     /// it here would cost one pass per pool card per keystroke.
     fn retext(&mut self) {
-        self.query = crate::cardquery::parse(self.text.text());
+        self.query = crate::cardquery::parse(self.search.field.text());
         self.refilter();
     }
 
-    /// The filter-string builder, while the gear is open.
+    /// The filter-string builder in front, while its gear is open: the list
+    /// editor's while one is open over the screen, else the pool's. Every
+    /// gesture below acts on this one, so a gear added to another box is one
+    /// more arm here and nothing in the renderer's keys.
     #[must_use]
     pub const fn panel(&self) -> Option<&crate::filterdialog::FilterPanel> {
-        self.panel.as_ref()
+        match &self.list_editor {
+            Some(list) => list.search.panel(),
+            None => self.search.panel(),
+        }
+    }
+
+    /// The pool's own filter-string builder, which its toolbar draws whatever
+    /// stands in front of it.
+    #[must_use]
+    pub const fn pool_panel(&self) -> Option<&crate::filterdialog::FilterPanel> {
+        self.search.panel()
+    }
+
+    /// The search box in front.
+    const fn search_in_front(&mut self) -> &mut crate::cardsearch::SearchBox {
+        match &mut self.list_editor {
+            Some(list) => &mut list.search,
+            None => &mut self.search,
+        }
     }
 
     /// Opens the builder on what is in the box, or closes it.
     pub fn toggle_panel(&mut self) {
-        self.panel = if self.panel.is_some() {
-            None
-        } else {
-            Some(crate::filterdialog::FilterPanel::open(&self.query))
-        };
+        self.search_in_front().toggle_panel();
     }
 
     /// Shuts the builder.
     pub fn close_panel(&mut self) {
-        self.panel = None;
+        self.search_in_front().close_panel();
     }
 
     /// Does what a button in the builder means, and writes the box.
@@ -382,18 +457,17 @@ impl DeckBuilder {
     /// same bargain `Browser::in_builder` makes: a gesture added to the panel
     /// would otherwise be one more to remember to forward.
     pub fn in_panel(&mut self, edit: impl FnOnce(&mut crate::filterdialog::FilterPanel)) {
-        let Some(panel) = self.panel.as_mut() else {
+        // The query beside the box is re-read and the results are refiltered
+        // with it: the two are written together, which is what `retext` and
+        // the list's `refilter` are for.
+        if !self.search_in_front().in_panel(edit) {
             return;
-        };
-        edit(panel);
-        let Some(query) = panel.written() else {
-            return;
-        };
-        // Through `set_text` and not by writing the field, so the query
-        // beside it is re-read and the results are refiltered — the two are
-        // written together in one place, which is what `retext` is for.
-        let written = crate::cardquery::render(&query);
-        self.set_text(&written);
+        }
+        if self.list_editor.is_some() {
+            self.refilter_list();
+        } else {
+            self.retext();
+        }
     }
 
     /// What is in the search box, read as a query.
@@ -445,7 +519,7 @@ impl DeckBuilder {
 
     /// Clears every filter, including the text.
     pub fn clear_filters(&mut self) {
-        self.text.clear();
+        self.search.field.clear();
         self.colors.clear();
         self.kind = None;
         self.cmc = None;
@@ -498,14 +572,14 @@ impl DeckBuilder {
     /// Whether anything is narrowing the results.
     #[must_use]
     pub fn filtered(&self) -> bool {
-        !self.text.is_empty()
+        !self.search.field.is_empty()
             || !self.colors.is_empty()
             || self.kind.is_some()
             || self.cmc.is_some()
     }
 
     /// Recomputes the result list.
-    fn refilter(&mut self) {
+    pub(super) fn refilter(&mut self) {
         let mut hits: Vec<usize> = (0..self.pool.len())
             .filter(|slot| self.matches(&self.pool[*slot]))
             .collect();
@@ -561,11 +635,7 @@ impl DeckBuilder {
         if !self.colors.is_empty() && !self.color_match(card) {
             return false;
         }
-        if self.query.is_anything() {
-            return true;
-        }
-        let flags = pool_flags(card);
-        crate::cardquery::matches(&self.query, &pool_facts(card, &flags), Surface::POOL).shown()
+        crate::cardsearch::pool_card_matches(&self.query, card, self.surface())
     }
 
     /// Whether a card is within the chosen colors.
@@ -1302,6 +1372,8 @@ impl DeckBuilder {
         self.focus_on(match self.focus {
             BuildField::Search => BuildField::Name,
             BuildField::Name | BuildField::PickerSet => BuildField::Search,
+            BuildField::ListName => BuildField::ListSearch,
+            BuildField::ListSearch => BuildField::ListName,
         });
     }
 
@@ -1309,9 +1381,10 @@ impl DeckBuilder {
     #[must_use]
     pub fn focused_text(&self) -> &str {
         match self.focus {
-            BuildField::Search => self.text.text(),
+            BuildField::Search => self.search.field.text(),
             BuildField::Name => self.name.text(),
             BuildField::PickerSet => self.buffer(BuildField::PickerSet).text(),
+            BuildField::ListName | BuildField::ListSearch => self.buffer(self.focus).text(),
         }
     }
 
@@ -1320,10 +1393,12 @@ impl DeckBuilder {
         match self.focus {
             BuildField::Search => self.set_text(value),
             BuildField::Name => self.set_name(value),
-            BuildField::PickerSet => self.edit_buffer(BuildField::PickerSet, |b| {
-                b.clear();
-                b.insert(value);
-            }),
+            field @ (BuildField::PickerSet | BuildField::ListName | BuildField::ListSearch) => {
+                self.edit_buffer(field, |b| {
+                    b.clear();
+                    b.insert(value);
+                });
+            }
         }
     }
 
@@ -1331,9 +1406,20 @@ impl DeckBuilder {
     #[must_use]
     pub fn buffer(&self, field: BuildField) -> &crate::textbuf::TextBuffer {
         match field {
-            BuildField::Search => &self.text,
+            BuildField::Search => &self.search.field,
             BuildField::Name => &self.name,
-            BuildField::PickerSet => self.picker.as_ref().map_or(&self.text, |p| &p.set_query),
+            BuildField::PickerSet => self
+                .picker
+                .as_ref()
+                .map_or(&self.search.field, |p| &p.set_query),
+            BuildField::ListName => self
+                .list_editor
+                .as_ref()
+                .map_or(&self.search.field, |list| &list.name),
+            BuildField::ListSearch => self
+                .list_editor
+                .as_ref()
+                .map_or(&self.search.field, |list| &list.search.field),
         }
     }
 
@@ -1344,13 +1430,23 @@ impl DeckBuilder {
         edit: impl FnOnce(&mut crate::textbuf::TextBuffer),
     ) {
         let buffer = match field {
-            BuildField::Search => &mut self.text,
+            BuildField::Search => &mut self.search.field,
             BuildField::Name => &mut self.name,
             BuildField::PickerSet => {
                 let Some(p) = &mut self.picker else {
                     return;
                 };
                 &mut p.set_query
+            }
+            BuildField::ListName | BuildField::ListSearch => {
+                let Some(list) = &mut self.list_editor else {
+                    return;
+                };
+                if field == BuildField::ListName {
+                    &mut list.name
+                } else {
+                    &mut list.search.field
+                }
             }
         };
         let before = buffer.text().to_owned();
@@ -1367,6 +1463,12 @@ impl DeckBuilder {
                     p.set_open = true;
                 }
             }
+            BuildField::ListName => {
+                if let Some(list) = &mut self.list_editor {
+                    list.renamed();
+                }
+            }
+            BuildField::ListSearch => self.refilter_list(),
         }
     }
 
@@ -1375,8 +1477,8 @@ impl DeckBuilder {
         match self.focus {
             BuildField::Search => self.type_char(ch),
             BuildField::Name => self.type_name(ch),
-            BuildField::PickerSet => {
-                self.edit_buffer(BuildField::PickerSet, |b| b.insert(&ch.to_string()));
+            field @ (BuildField::PickerSet | BuildField::ListName | BuildField::ListSearch) => {
+                self.edit_buffer(field, |b| b.insert(&ch.to_string()));
             }
         }
     }
@@ -1386,9 +1488,11 @@ impl DeckBuilder {
         match self.focus {
             BuildField::Search => self.backspace(),
             BuildField::Name => self.backspace_name(),
-            BuildField::PickerSet => self.edit_buffer(BuildField::PickerSet, |b| {
-                b.delete_back();
-            }),
+            field @ (BuildField::PickerSet | BuildField::ListName | BuildField::ListSearch) => {
+                self.edit_buffer(field, |b| {
+                    b.delete_back();
+                });
+            }
         }
     }
 
@@ -1564,7 +1668,10 @@ impl DeckBuilder {
                 message: Phrase::CommanderNoLongerEligible.fill(lang, &[name]),
             });
         }
-        if counts.main > 0 && counts.main < MIN_CONSTRUCTED {
+        // With a format chosen the overview says this and says it exactly;
+        // this is the advice for a deck that keeps to none.
+        let free = self.format() == baylee_cards::formats::FREEFORM;
+        if free && counts.main > 0 && counts.main < MIN_CONSTRUCTED {
             out.push(Problem {
                 blocking: false,
                 message: Phrase::DeckTooSmall.fill(
@@ -1573,7 +1680,7 @@ impl DeckBuilder {
                 ),
             });
         }
-        if counts.side > MAX_SIDEBOARD {
+        if free && counts.side > MAX_SIDEBOARD {
             out.push(Problem {
                 blocking: false,
                 message: Phrase::SideboardTooBig.fill(lang, &[&MAX_SIDEBOARD.to_string()]),
@@ -1644,7 +1751,7 @@ impl DeckBuilder {
     /// Makes a card the deck's commander.
     ///
     /// Refused for a card the rules cannot seat as one — the pool says which,
-    /// and offering the choice on a card that would be rejected on save is
+    /// and offering a choice the deck's check would then call illegal is
     /// worse than not offering it.
     ///
     /// A commander is also a card in the deck, so this puts one there if it
@@ -1778,6 +1885,7 @@ impl DeckBuilder {
             cards: self.rows(Zone::Main),
             sideboard: self.rows(Zone::Side),
             commanders: self.commander_names(),
+            format: Some(self.format().to_string()),
         })
     }
 
@@ -1812,6 +1920,8 @@ impl DeckBuilder {
         self.commanders.clear();
         self.pending_commander.clear();
         self.stale_commander = None;
+        self.format.clear();
+        self.recheck();
         // A nameless deck cannot be saved, so that is where the caret starts.
         self.focus_on(BuildField::Name);
     }
@@ -1860,8 +1970,14 @@ impl DeckBuilder {
         self.focus_on(BuildField::Search);
     }
 
-    /// Turns held rows into deck entries, as far as the pool allows.
+    /// Turns held rows into deck entries, as far as the pool allows, and
+    /// asks the deck's standing again.
     pub(super) fn resolve_pending(&mut self) {
+        self.resolve_rows();
+        self.recheck();
+    }
+
+    fn resolve_rows(&mut self) {
         for name in std::mem::take(&mut self.pending_commander) {
             let Some(slot) = self.slot_of(&name) else {
                 // No pool yet, or no such card: keep holding the name.
@@ -1878,9 +1994,9 @@ impl DeckBuilder {
                 // Pushed rather than `set_commander`ed: a stored deck's
                 // leaders are already in its rows, and re-adding them here
                 // would put a second copy of each in the library. The pair's
-                // legality is the gateway's to refuse on save; a deck that
-                // is already stored is not the place to start arguing about
-                // it, or reopening one would silently drop a commander.
+                // legality is the check's to tell; a deck that is already
+                // stored is not the place to start arguing about it, or
+                // reopening one would silently drop a commander.
                 if !self.commanders.contains(&slot) {
                     self.commanders.push(slot);
                 }
@@ -1955,82 +2071,4 @@ fn print_key(print: &PrintChoice) -> (String, String, String, u8) {
             Finish::Galaxy => 5,
         },
     )
-}
-
-/// The flags a pool row carries, for `is:`.
-///
-/// A list and not a set of `bool` fields: [`Facts::flags`] is what a card
-/// *is*, and [`Surface::POOL`] is what may be asked — the pair is how
-/// "this card is not a commander" and "nobody here knows about commanders"
-/// stay two different answers.
-fn pool_flags(card: &PoolCard) -> Vec<Flag> {
-    let mut flags = Vec::with_capacity(4);
-    flags.push(match card.coverage {
-        // Generated is playable too, so `is:playable` finds it;
-        // `is:generated` apart below.
-        Coverage::Implemented | Coverage::Generated => Flag::Playable,
-        Coverage::Partial => Flag::Partial,
-        Coverage::Unimplemented => Flag::Stub,
-    });
-    if card.coverage == Coverage::Generated {
-        flags.push(Flag::Generated);
-    }
-    if card.commander {
-        flags.push(Flag::Commander);
-    }
-    if card.basic_land {
-        flags.push(Flag::Basic);
-    }
-    // The rules question, not the picture one: this filter is printed to the
-    // player as "double-faced" and reached by the alias `transform`, and
-    // CR 715.1 makes an adventurer card a two-part frame rather than a second
-    // side. It asked `two_faced` — the compiled face count — until #115, and
-    // answered with nine Adventures and two Splits.
-    if card.double_faced {
-        flags.push(Flag::Dfc);
-    }
-    flags
-}
-
-/// A pool row, as the query language reads it.
-fn pool_facts<'a>(card: &'a PoolCard, flags: &'a [Flag]) -> Facts<'a> {
-    let (power, toughness, loyalty) = printed_numbers(card.stats.as_deref());
-    Facts {
-        name: &card.name,
-        english_name: &card.english_name,
-        alt_names: &card.alt_names,
-        type_line: &card.type_line,
-        kinds: &card.kinds,
-        oracle: &card.oracle_text,
-        colors: Colors::of_letters(&card.colors),
-        identity: Colors::of_letters(&card.identity),
-        mana_cost: &card.mana_cost,
-        mana_value: card.cmc,
-        power,
-        toughness,
-        loyalty,
-        flags,
-    }
-}
-
-/// The numbers `PoolCard::stats` is holding, told apart by their shape.
-///
-/// `baylee_cards::pool::stats` writes `p/t` for anything with a power and a
-/// toughness and the bare number otherwise, so the slash is the whole of
-/// what distinguishes a creature from a planeswalker here. Reading it back
-/// rather than asking the pool for three fields keeps the wire as it is;
-/// what it costs is that a card printing both — none in this pool — would
-/// be read as a creature, which is what the row already draws it as.
-fn printed_numbers(stats: Option<&str>) -> (Option<i32>, Option<i32>, Option<i32>) {
-    let Some(stats) = stats else {
-        return (None, None, None);
-    };
-    match stats.split_once('/') {
-        Some((power, toughness)) => (
-            power.trim().parse().ok(),
-            toughness.trim().parse().ok(),
-            None,
-        ),
-        None => (None, None, stats.trim().parse().ok()),
-    }
 }

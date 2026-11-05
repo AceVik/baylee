@@ -1,0 +1,1213 @@
+{
+  "state": {
+    "ability_menu": null,
+    "ability_tap": null,
+    "account": {
+      "asking": null,
+      "central_pending": false,
+      "central_ready": false,
+      "front_moving": false,
+      "gateway_authenticated": false,
+      "offline": false,
+      "saved_gateway_count": 1
+    },
+    "activatable": 0,
+    "armed": null,
+    "arrangement": {
+      "by_seats": {},
+      "cards_moving": 0,
+      "chosen": "ring",
+      "current": "ring",
+      "default": "ring",
+      "flash": 0.0,
+      "follow": true,
+      "frame": "wide",
+      "game": null,
+      "interest": null,
+      "mats": [],
+      "menu": null,
+      "moves_cards": false,
+      "moving": false,
+      "offered": [
+        "ring"
+      ],
+      "panel": null,
+      "parked": null,
+      "pill": null,
+      "reason": {
+        "arc_rail": "A duel has only one arrangement",
+        "focus_ring": "A duel has only one arrangement",
+        "pods": "A duel has only one arrangement",
+        "spotlight": "A duel has only one arrangement",
+        "turntable": "A duel has only one arrangement",
+        "turntable_rows": "A duel has only one arrangement",
+        "upright_ring": "A duel has only one arrangement"
+      },
+      "remember": false,
+      "seats": 0,
+      "settled_frames": 0,
+      "tear": null
+    },
+    "autopilot": null,
+    "browser": {
+      "dismissible": true,
+      "filter": "",
+      "for_choice": false,
+      "open": false,
+      "typing": false
+    },
+    "buttons": [],
+    "camera": {
+      "binds": "deep",
+      "dial_in_frame": false,
+      "eye": null,
+      "frame": "ring",
+      "moving": false,
+      "pose": "home",
+      "rig": {
+        "distance": 20.0,
+        "lean": 0.36,
+        "target": [
+          0.0,
+          0.0
+        ],
+        "yaw": 0.0
+      },
+      "shown": null,
+      "shown_eye": null,
+      "visiting": null
+    },
+    "cards": null,
+    "cast_answer": null,
+    "cast_menu": null,
+    "chat": {
+      "active": false,
+      "controls": [],
+      "info": "Unknown",
+      "links": {
+        "cards": [],
+        "previews": 0
+      }
+    },
+    "chips": [],
+    "cues_suppressed": 0,
+    "departing": 0,
+    "desk_controls": [],
+    "dial": {
+      "centre": null,
+      "deciding": [],
+      "dial_px": 0.0,
+      "effects": false,
+      "hub_pulse": 0.0,
+      "number_px": 0.0,
+      "number_w": 0.0,
+      "priority_deg": null,
+      "priority_hand": null,
+      "radius": 0.0,
+      "scale": 0.0,
+      "turn_deg": null,
+      "turn_hand": null,
+      "uploads": 0
+    },
+    "exits": null,
+    "face_builds": 0,
+    "hovered": null,
+    "interaction": null,
+    "lang": "en",
+    "last_count": 0,
+    "last_cue": null,
+    "last_error": null,
+    "loading": {
+      "departure": 8.825490917,
+      "destination": "hidden",
+      "error": null,
+      "milestone": 3,
+      "progress": 1.0,
+      "ready": 0,
+      "total": 0
+    },
+    "lobby_controls": [
+      {
+        "at_x": 644.0,
+        "at_y": 532.0,
+        "duel_exit": false,
+        "entity": 691,
+        "h": 44.0,
+        "press": "Shared(Focus(Gateway))",
+        "w": 518.0
+      },
+      {
+        "at_x": 493.0,
+        "at_y": 625.0,
+        "duel_exit": false,
+        "entity": 702,
+        "h": 44.0,
+        "press": "Shared(PickLang(En))",
+        "w": 72.0
+      },
+      {
+        "at_x": 570.0,
+        "at_y": 625.0,
+        "duel_exit": false,
+        "entity": 705,
+        "h": 44.0,
+        "press": "Shared(PickLang(De))",
+        "w": 78.0
+      },
+      {
+        "at_x": 115.0,
+        "at_y": 95.0,
+        "duel_exit": false,
+        "entity": 728,
+        "h": 150.0,
+        "press": "Front(OpenSource)",
+        "w": 190.0
+      },
+      {
+        "at_x": 1335.0,
+        "at_y": 95.0,
+        "duel_exit": false,
+        "entity": 733,
+        "h": 150.0,
+        "press": "Front(OpenDiscord)",
+        "w": 170.0
+      },
+      {
+        "at_x": 176.0,
+        "at_y": 442.5,
+        "duel_exit": false,
+        "entity": 742,
+        "h": 219.0,
+        "press": "Memorial(Open)",
+        "w": 328.0
+      },
+      {
+        "at_x": 985.0,
+        "at_y": 532.0,
+        "duel_exit": false,
+        "entity": 696,
+        "h": 44.0,
+        "press": "Front(AddGateway)",
+        "w": 140.0
+      },
+      {
+        "at_x": 667.5,
+        "at_y": 625.0,
+        "duel_exit": false,
+        "entity": 709,
+        "h": 44.0,
+        "press": "Shared(ToggleMusic)",
+        "w": 101.0
+      },
+      {
+        "at_x": 765.0,
+        "at_y": 625.0,
+        "duel_exit": false,
+        "entity": 713,
+        "h": 44.0,
+        "press": "Settings(OpenSettings)",
+        "w": 78.0
+      },
+      {
+        "at_x": 861.0,
+        "at_y": 625.0,
+        "duel_exit": false,
+        "entity": 717,
+        "h": 44.0,
+        "press": "Front(PlayOffline)",
+        "w": 98.0
+      },
+      {
+        "at_x": 950.5,
+        "at_y": 625.0,
+        "duel_exit": false,
+        "entity": 721,
+        "h": 44.0,
+        "press": "Front(About(true))",
+        "w": 65.0
+      },
+      {
+        "at_x": 720.0,
+        "at_y": 438.0,
+        "duel_exit": false,
+        "entity": 675,
+        "h": 76.0,
+        "press": "Front(SelectGateway(0))",
+        "w": 670.0
+      }
+    ],
+    "mana_run": false,
+    "outbox": 0,
+    "phase": "Closed",
+    "plates": [],
+    "presentation": {
+      "legal": [
+        {
+          "bounds": {
+            "h": 40.0,
+            "w": 728.0,
+            "x": 356.0,
+            "y": 820.0
+          },
+          "text": "baylee is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC."
+        },
+        {
+          "bounds": {
+            "h": 20.0,
+            "w": 170.0,
+            "x": 30.0,
+            "y": 140.0
+          },
+          "text": "github.com/AceVik/baylee"
+        }
+      ],
+      "music_controls": [],
+      "muted": false,
+      "preview_hints": [],
+      "score": {
+        "about_to_lose": false,
+        "arrivals": 0,
+        "big_spell": false,
+        "combat": false,
+        "hunt_mine": false,
+        "hunts": 0,
+        "lethal": false,
+        "low_life": false,
+        "monarchs": 0,
+        "own_turn": false,
+        "samples": "studio48",
+        "scene": "FrontDoor",
+        "spells": 0,
+        "tension": 0.0,
+        "theme": "ember"
+      },
+      "ui_scale": 1.0,
+      "volume": 0.5
+    },
+    "reachable": 0,
+    "replay": null,
+    "report": {
+      "anchors": [],
+      "at_table": false,
+      "candidates": 0,
+      "chosen": null,
+      "confirming": false,
+      "hover": null,
+      "open": false,
+      "players": [],
+      "preview": null,
+      "refs": null,
+      "suggestions": [],
+      "text": ""
+    },
+    "reveal": {
+      "hovered_log": null,
+      "number": null,
+      "sheets": [],
+      "waiting": 0
+    },
+    "shell": {
+      "field": false,
+      "fired": [],
+      "focus": {
+        "id": "address",
+        "item": 0,
+        "table": "front-gateway"
+      },
+      "focus_visible": false,
+      "live": true,
+      "menu": false,
+      "modal": false,
+      "modal_by": [],
+      "overlay": false,
+      "resolved": 0,
+      "screen": "Front",
+      "table": "front-gateway",
+      "text_size": 3,
+      "typing": true
+    },
+    "shell_nodes": [
+      {
+        "cx": "cut",
+        "cy": "cut",
+        "d": 0,
+        "h": 900.0,
+        "w": 1440.0,
+        "x": 0.0,
+        "y": 0.0
+      },
+      {
+        "d": 1,
+        "h": 804.0,
+        "w": 1440.0,
+        "x": 0.0,
+        "y": 0.0
+      },
+      {
+        "cy": "scroll",
+        "d": 2,
+        "h": 804.0,
+        "k": "scroll",
+        "w": 1440.0,
+        "x": 0.0,
+        "y": 0.0
+      },
+      {
+        "d": 3,
+        "h": 566.0,
+        "w": 1400.0,
+        "x": 20.0,
+        "y": 119.0
+      },
+      {
+        "d": 4,
+        "h": 125.0,
+        "w": 300.0,
+        "x": 570.0,
+        "y": 119.0
+      },
+      {
+        "d": 4,
+        "h": 28.0,
+        "k": "mist",
+        "w": 297.0,
+        "x": 572.0,
+        "y": 256.0
+      },
+      {
+        "d": 5,
+        "h": 20.0,
+        "ln": 1,
+        "t": "Build a deck. Find your table. Make it yours.",
+        "th": 20.0,
+        "tw": 277.0,
+        "w": 277.0,
+        "x": 582.0,
+        "y": 260.0
+      },
+      {
+        "d": 4,
+        "h": 293.0,
+        "w": 720.0,
+        "x": 360.0,
+        "y": 296.0
+      },
+      {
+        "d": 5,
+        "h": 293.0,
+        "w": 720.0,
+        "x": 360.0,
+        "y": 296.0
+      },
+      {
+        "d": 6,
+        "h": 293.0,
+        "k": "panel",
+        "w": 720.0,
+        "x": 360.0,
+        "y": 296.0
+      },
+      {
+        "d": 7,
+        "h": 291.0,
+        "w": 718.0,
+        "x": 361.0,
+        "y": 297.0
+      },
+      {
+        "d": 7,
+        "h": 35.0,
+        "ln": 1,
+        "t": "Choose your gateway",
+        "th": 35.0,
+        "tw": 237.0,
+        "w": 670.0,
+        "x": 385.0,
+        "y": 316.0
+      },
+      {
+        "d": 7,
+        "h": 21.0,
+        "ln": 1,
+        "t": "Where your account, decks and tables live.",
+        "th": 21.0,
+        "tw": 279.0,
+        "w": 670.0,
+        "x": 385.0,
+        "y": 365.2
+      },
+      {
+        "cy": "scroll",
+        "d": 7,
+        "h": 76.0,
+        "w": 670.0,
+        "x": 385.0,
+        "y": 400.0
+      },
+      {
+        "d": 8,
+        "h": 76.0,
+        "w": 670.0,
+        "x": 385.0,
+        "y": 400.0
+      },
+      {
+        "d": 9,
+        "h": 76.0,
+        "i": true,
+        "w": 670.0,
+        "x": 385.0,
+        "y": 400.0
+      },
+      {
+        "d": 10,
+        "h": 72.0,
+        "w": 666.0,
+        "x": 387.0,
+        "y": 402.0
+      },
+      {
+        "d": 10,
+        "h": 1.0,
+        "w": 662.0,
+        "x": 389.0,
+        "y": 402.0
+      },
+      {
+        "d": 10,
+        "h": 1.0,
+        "w": 662.0,
+        "x": 389.0,
+        "y": 473.0
+      },
+      {
+        "d": 10,
+        "h": 0.0,
+        "ln": 0,
+        "t": "",
+        "th": 0.0,
+        "tw": 0.0,
+        "w": 0.0,
+        "x": 398.0,
+        "y": 438.0
+      },
+      {
+        "d": 10,
+        "h": 36.0,
+        "w": 22.0,
+        "x": 398.0,
+        "y": 420.0
+      },
+      {
+        "d": 11,
+        "h": 8.0,
+        "w": 8.0,
+        "x": 405.0,
+        "y": 420.0
+      },
+      {
+        "d": 11,
+        "h": 20.0,
+        "w": 20.0,
+        "x": 399.0,
+        "y": 436.0
+      },
+      {
+        "d": 12,
+        "h": 20.0,
+        "ln": 1,
+        "t": "",
+        "th": 20.0,
+        "tw": 16.0,
+        "w": 16.0,
+        "x": 401.0,
+        "y": 436.0
+      },
+      {
+        "d": 10,
+        "h": 48.0,
+        "w": 518.0,
+        "x": 432.0,
+        "y": 414.0
+      },
+      {
+        "d": 11,
+        "h": 26.0,
+        "ln": 1,
+        "t": "Baylee Sanctuary",
+        "th": 26.0,
+        "tw": 145.0,
+        "w": 518.0,
+        "x": 432.0,
+        "y": 414.0
+      },
+      {
+        "d": 11,
+        "h": 20.0,
+        "ln": 1,
+        "t": "https://baylee.acevik.de",
+        "th": 20.0,
+        "tw": 154.0,
+        "w": 518.0,
+        "x": 432.0,
+        "y": 442.0
+      },
+      {
+        "d": 10,
+        "h": 50.0,
+        "w": 80.0,
+        "x": 962.0,
+        "y": 413.0
+      },
+      {
+        "d": 11,
+        "h": 20.0,
+        "ln": 1,
+        "t": "v0.1.1-beta…",
+        "th": 20.0,
+        "tw": 80.0,
+        "w": 80.0,
+        "x": 962.0,
+        "y": 443.0
+      },
+      {
+        "d": 7,
+        "h": 64.0,
+        "w": 670.0,
+        "x": 385.0,
+        "y": 490.0
+      },
+      {
+        "d": 8,
+        "h": 64.0,
+        "w": 518.0,
+        "x": 385.0,
+        "y": 490.0
+      },
+      {
+        "d": 9,
+        "h": 16.0,
+        "ln": 1,
+        "t": "GATEWAY ADDRESS",
+        "th": 16.0,
+        "tw": 108.0,
+        "w": 518.0,
+        "x": 385.0,
+        "y": 490.0
+      },
+      {
+        "cx": "cut",
+        "d": 9,
+        "h": 44.0,
+        "i": true,
+        "k": "field",
+        "w": 518.0,
+        "x": 385.0,
+        "y": 510.0
+      },
+      {
+        "d": 10,
+        "h": 26.0,
+        "ln": 1,
+        "t": "http://127.0.0.1:9",
+        "th": 26.0,
+        "tw": 139.0,
+        "w": 139.0,
+        "x": 401.0,
+        "y": 519.0
+      },
+      {
+        "d": 10,
+        "h": 20.0,
+        "w": 1.0,
+        "x": 540.0,
+        "y": 522.0
+      },
+      {
+        "d": 8,
+        "h": 44.0,
+        "i": true,
+        "k": "hit",
+        "w": 140.0,
+        "x": 915.0,
+        "y": 510.0
+      },
+      {
+        "d": 9,
+        "h": 44.0,
+        "k": "button",
+        "w": 140.0,
+        "x": 915.0,
+        "y": 510.0
+      },
+      {
+        "d": 10,
+        "h": 42.0,
+        "w": 138.0,
+        "x": 916.0,
+        "y": 511.0
+      },
+      {
+        "d": 10,
+        "h": 26.0,
+        "ln": 1,
+        "t": "Save gateway",
+        "th": 26.0,
+        "tw": 114.0,
+        "w": 114.0,
+        "x": 928.0,
+        "y": 519.0
+      },
+      {
+        "d": 7,
+        "h": 291.0,
+        "w": 718.0,
+        "x": 361.0,
+        "y": 297.0
+      },
+      {
+        "d": 4,
+        "h": 48.0,
+        "k": "mist",
+        "w": 546.0,
+        "x": 447.0,
+        "y": 601.0
+      },
+      {
+        "d": 5,
+        "h": 44.0,
+        "i": true,
+        "k": "hit",
+        "w": 72.0,
+        "x": 457.0,
+        "y": 603.0
+      },
+      {
+        "d": 6,
+        "h": 36.0,
+        "w": 72.0,
+        "x": 457.0,
+        "y": 607.0
+      },
+      {
+        "d": 7,
+        "h": 20.0,
+        "ln": 1,
+        "t": "English",
+        "th": 20.0,
+        "tw": 48.0,
+        "w": 48.0,
+        "x": 469.0,
+        "y": 615.0
+      },
+      {
+        "d": 5,
+        "h": 44.0,
+        "i": true,
+        "k": "hit",
+        "w": 78.0,
+        "x": 531.0,
+        "y": 603.0
+      },
+      {
+        "d": 6,
+        "h": 36.0,
+        "w": 78.0,
+        "x": 531.0,
+        "y": 607.0
+      },
+      {
+        "d": 7,
+        "h": 20.0,
+        "ln": 1,
+        "t": "Deutsch",
+        "th": 20.0,
+        "tw": 54.0,
+        "w": 54.0,
+        "x": 543.0,
+        "y": 615.0
+      },
+      {
+        "d": 5,
+        "h": 20.0,
+        "ln": 1,
+        "t": "·",
+        "th": 20.0,
+        "tw": 4.0,
+        "w": 4.0,
+        "x": 611.0,
+        "y": 615.0
+      },
+      {
+        "d": 5,
+        "h": 44.0,
+        "i": true,
+        "k": "hit",
+        "w": 101.0,
+        "x": 617.0,
+        "y": 603.0
+      },
+      {
+        "d": 6,
+        "h": 36.0,
+        "w": 101.0,
+        "x": 617.0,
+        "y": 607.0
+      },
+      {
+        "d": 7,
+        "h": 20.0,
+        "ln": 1,
+        "t": "Music",
+        "th": 20.0,
+        "tw": 38.0,
+        "w": 38.0,
+        "x": 649.0,
+        "y": 615.0
+      },
+      {
+        "d": 5,
+        "h": 20.0,
+        "ln": 1,
+        "t": "·",
+        "th": 20.0,
+        "tw": 4.0,
+        "w": 4.0,
+        "x": 720.0,
+        "y": 615.0
+      },
+      {
+        "d": 5,
+        "h": 44.0,
+        "i": true,
+        "k": "hit",
+        "w": 78.0,
+        "x": 726.0,
+        "y": 603.0
+      },
+      {
+        "d": 6,
+        "h": 36.0,
+        "w": 78.0,
+        "x": 726.0,
+        "y": 607.0
+      },
+      {
+        "d": 7,
+        "h": 20.0,
+        "ln": 1,
+        "t": "Settings",
+        "th": 20.0,
+        "tw": 54.0,
+        "w": 54.0,
+        "x": 738.0,
+        "y": 615.0
+      },
+      {
+        "d": 5,
+        "h": 20.0,
+        "ln": 1,
+        "t": "·",
+        "th": 20.0,
+        "tw": 4.0,
+        "w": 4.0,
+        "x": 806.0,
+        "y": 615.0
+      },
+      {
+        "d": 5,
+        "h": 44.0,
+        "i": true,
+        "k": "hit",
+        "w": 98.0,
+        "x": 812.0,
+        "y": 603.0
+      },
+      {
+        "d": 6,
+        "h": 36.0,
+        "w": 98.0,
+        "x": 812.0,
+        "y": 607.0
+      },
+      {
+        "d": 7,
+        "h": 20.0,
+        "ln": 1,
+        "t": "Play offline",
+        "th": 20.0,
+        "tw": 74.0,
+        "w": 74.0,
+        "x": 824.0,
+        "y": 615.0
+      },
+      {
+        "d": 5,
+        "h": 20.0,
+        "ln": 1,
+        "t": "·",
+        "th": 20.0,
+        "tw": 4.0,
+        "w": 4.0,
+        "x": 912.0,
+        "y": 615.0
+      },
+      {
+        "d": 5,
+        "h": 44.0,
+        "i": true,
+        "k": "hit",
+        "w": 65.0,
+        "x": 918.0,
+        "y": 603.0
+      },
+      {
+        "d": 6,
+        "h": 36.0,
+        "w": 65.0,
+        "x": 918.0,
+        "y": 607.0
+      },
+      {
+        "d": 7,
+        "h": 20.0,
+        "ln": 1,
+        "t": "About",
+        "th": 20.0,
+        "tw": 41.0,
+        "w": 41.0,
+        "x": 930.0,
+        "y": 615.0
+      },
+      {
+        "d": 4,
+        "h": 24.0,
+        "k": "mist",
+        "w": 332.0,
+        "x": 554.0,
+        "y": 661.0
+      },
+      {
+        "d": 5,
+        "h": 20.0,
+        "ln": 1,
+        "t": "this client 0.1.0-beta.9c+build.5363 (9102feaeab)",
+        "th": 20.0,
+        "tw": 312.0,
+        "w": 312.0,
+        "x": 564.0,
+        "y": 663.0
+      },
+      {
+        "d": 2,
+        "h": 0.0,
+        "w": 0.0,
+        "x": 0.0,
+        "y": 0.0
+      },
+      {
+        "d": 3,
+        "h": 0.0,
+        "w": 0.0,
+        "x": 0.0,
+        "y": 0.0
+      },
+      {
+        "d": 1,
+        "h": 150.0,
+        "i": true,
+        "k": "mist",
+        "w": 190.0,
+        "x": 20.0,
+        "y": 20.0
+      },
+      {
+        "d": 2,
+        "h": 82.0,
+        "w": 82.0,
+        "x": 74.0,
+        "y": 30.0
+      },
+      {
+        "d": 3,
+        "h": 74.0,
+        "w": 74.0,
+        "x": 78.0,
+        "y": 34.0
+      },
+      {
+        "d": 2,
+        "h": 20.0,
+        "ln": 1,
+        "t": "Source code (AGPL-3.0)",
+        "th": 20.0,
+        "tw": 150.0,
+        "w": 150.0,
+        "x": 40.0,
+        "y": 116.0
+      },
+      {
+        "d": 2,
+        "h": 20.0,
+        "ln": 1,
+        "t": "github.com/AceVik/baylee",
+        "th": 20.0,
+        "tw": 170.0,
+        "w": 170.0,
+        "x": 30.0,
+        "y": 140.0
+      },
+      {
+        "d": 1,
+        "h": 150.0,
+        "i": true,
+        "k": "mist",
+        "w": 170.0,
+        "x": 1250.0,
+        "y": 20.0
+      },
+      {
+        "d": 2,
+        "h": 82.0,
+        "w": 82.0,
+        "x": 1294.0,
+        "y": 30.0
+      },
+      {
+        "d": 3,
+        "h": 74.0,
+        "w": 74.0,
+        "x": 1298.0,
+        "y": 34.0
+      },
+      {
+        "d": 2,
+        "h": 20.0,
+        "ln": 1,
+        "t": "Community on Discord",
+        "th": 20.0,
+        "tw": 148.0,
+        "w": 148.0,
+        "x": 1261.0,
+        "y": 116.0
+      },
+      {
+        "d": 2,
+        "h": 20.0,
+        "ln": 1,
+        "t": "discord.gg/4pP3uAwgY",
+        "th": 20.0,
+        "tw": 150.0,
+        "w": 150.0,
+        "x": 1260.0,
+        "y": 140.0
+      },
+      {
+        "d": 1,
+        "h": 96.0,
+        "w": 1440.0,
+        "x": 0.0,
+        "y": 804.0
+      },
+      {
+        "d": 2,
+        "h": 80.0,
+        "k": "mist",
+        "w": 760.0,
+        "x": 340.0,
+        "y": 812.0
+      },
+      {
+        "d": 3,
+        "h": 40.0,
+        "ln": 2,
+        "t": "baylee is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC.",
+        "th": 40.0,
+        "tw": 696.0,
+        "w": 728.0,
+        "x": 356.0,
+        "y": 820.0
+      },
+      {
+        "d": 3,
+        "h": 20.0,
+        "ln": 1,
+        "t": "Card data and images provided by Scryfall.",
+        "th": 20.0,
+        "tw": 273.0,
+        "w": 273.0,
+        "x": 584.0,
+        "y": 864.0
+      },
+      {
+        "d": 1,
+        "h": 219.0,
+        "i": true,
+        "k": "hit",
+        "w": 328.0,
+        "x": 12.0,
+        "y": 333.0
+      },
+      {
+        "d": 2,
+        "h": 32.0,
+        "ln": 1,
+        "t": "Baylee · Forever loved",
+        "th": 20.0,
+        "tw": 139.0,
+        "w": 167.0,
+        "x": 93.0,
+        "y": 552.0
+      }
+    ],
+    "shelves": [],
+    "sources": null,
+    "tour": {
+      "bubbles": [],
+      "disabled": true,
+      "mode": "idle",
+      "scrims": 0,
+      "seen": [],
+      "tour": null
+    },
+    "ui_nodes": [
+      {
+        "d": 0,
+        "h": 900.0,
+        "hid": true,
+        "r": "ui",
+        "w": 1440.0,
+        "x": 0.0,
+        "y": 0.0
+      },
+      {
+        "d": 1,
+        "h": 900.0,
+        "hid": true,
+        "w": 1440.0,
+        "x": 0.0,
+        "y": 0.0
+      },
+      {
+        "d": 1,
+        "h": 29.0,
+        "hid": true,
+        "ln": 1,
+        "t": "B A Y L E E",
+        "th": 29.0,
+        "tw": 93.0,
+        "w": 93.0,
+        "x": 674.0,
+        "y": 54.0
+      },
+      {
+        "d": 1,
+        "h": 98.0,
+        "hid": true,
+        "w": 1296.0,
+        "x": 72.0,
+        "y": 639.0
+      },
+      {
+        "d": 2,
+        "h": 36.0,
+        "hid": true,
+        "ln": 1,
+        "t": "At the threshold",
+        "th": 36.0,
+        "tw": 203.0,
+        "w": 203.0,
+        "x": 619.0,
+        "y": 639.0
+      },
+      {
+        "d": 2,
+        "h": 22.0,
+        "hid": true,
+        "ln": 1,
+        "t": "The portal opens",
+        "th": 22.0,
+        "tw": 117.0,
+        "w": 117.0,
+        "x": 662.0,
+        "y": 687.0
+      },
+      {
+        "d": 2,
+        "h": 16.0,
+        "hid": true,
+        "ln": 1,
+        "t": "WORLD    ·    CONNECTION    ·    ARRIVAL",
+        "th": 16.0,
+        "tw": 199.0,
+        "w": 199.0,
+        "x": 621.0,
+        "y": 721.0
+      },
+      {
+        "d": 1,
+        "h": 44.0,
+        "hid": true,
+        "w": 168.0,
+        "x": 636.0,
+        "y": 802.0
+      },
+      {
+        "d": 2,
+        "h": 18.0,
+        "hid": true,
+        "ln": 1,
+        "t": "Return to lobby  ·  Esc",
+        "th": 18.0,
+        "tw": 122.0,
+        "w": 122.0,
+        "x": 659.0,
+        "y": 815.0
+      },
+      {
+        "d": 0,
+        "h": 900.0,
+        "r": "ui",
+        "w": 1440.0,
+        "x": 0.0,
+        "y": 0.0
+      },
+      {
+        "d": 0,
+        "h": 900.0,
+        "hid": true,
+        "r": "ui",
+        "w": 1440.0,
+        "x": 0.0,
+        "y": 0.0
+      },
+      {
+        "d": 0,
+        "h": 0.0,
+        "r": "ui",
+        "w": 290.0,
+        "x": 12.0,
+        "y": 62.0
+      }
+    ],
+    "ui_rebuilds": {
+      "cast": 1,
+      "frame": 1,
+      "mounted": 0,
+      "nav": "Field",
+      "patches": 0,
+      "placeholders": 0,
+      "prefs": 1,
+      "report": 0,
+      "sections": 0,
+      "state": 1,
+      "total": 1
+    },
+    "update_buttons": [],
+    "view": null
+  },
+  "window": [
+    1440.0,
+    900.0
+  ]
+}

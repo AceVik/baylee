@@ -50,6 +50,8 @@ mod deck;
 pub(crate) mod draft;
 pub(crate) mod focus;
 pub(crate) mod header;
+pub(crate) mod legality;
+mod lists;
 pub(crate) mod pool;
 mod retained;
 mod rows;
@@ -97,6 +99,9 @@ pub(crate) const BUILDER_ORDER: TabOrder = TabOrder {
         "lit",
         "draw",
         "rail",
+        "check",
+        "problem",
+        "check-more",
     ],
     modal: false,
 };
@@ -116,6 +121,18 @@ pub(crate) const BUILDER_SHEET_ORDER: TabOrder = TabOrder {
         "printing",
         "commander",
         "item",
+        "format",
+        "list",
+        "sheet-problem",
+        "gear",
+        "list-new",
+        "list-open",
+        "list-copy",
+        "list-put",
+        "list-word",
+        "list-remove",
+        "list-delete",
+        "list-save",
         "close",
     ],
     modal: true,
@@ -236,6 +253,8 @@ pub(crate) struct BuildUi {
     pub(crate) save: SaveState,
     /// Whether the phone's Stats sheet is up.
     pub(crate) stats_sheet: bool,
+    /// Whether the deck check's sheet is open.
+    pub(crate) check_sheet: bool,
     /// Where the keyboard is ([`Nav`]); cursor moves inside a list are
     /// written past change detection, since only the highlight follows them.
     pub(crate) nav: Nav,
@@ -274,7 +293,7 @@ impl BuildUi {
     /// Whether a sheet or menu of the builder's stands over it.
     #[must_use]
     pub(crate) fn covered(&self) -> bool {
-        self.menu.is_some() || self.stats_sheet
+        self.menu.is_some() || self.stats_sheet || self.check_sheet
     }
 }
 
@@ -855,7 +874,7 @@ pub(crate) mod mark {
     pub(crate) const FOLDED: char = '\u{f0da}';
     /// `triangle-exclamation`: a warning.
     pub(crate) const WARN: char = '\u{f071}';
-    /// `circle-question`: the search syntax.
+    /// `circle-question`: the search syntax, and a deck nobody could check.
     pub(crate) const HELP: char = '\u{f059}';
     /// `sort`: the pool's order.
     pub(crate) const SORT: char = '\u{f0dc}';

@@ -183,8 +183,11 @@ fn the_pools_targets_are_a_population_this_client_can_read() {
                     | TargetSpec::CardInFirstTargetsGraveyard(f)
                     | TargetSpec::CardInPlayersGraveyard(f, _)
                     | TargetSpec::CardInGraveyardBelowEvent(f, _)
-                    | TargetSpec::CardInGraveyardBelowValue(f, _, _) => *f,
-                    TargetSpec::PlayerWhoAttackedThisTurn => &Filter::Any,
+                    | TargetSpec::CardInGraveyardBelowValue(f, _, _)
+                    | TargetSpec::ObjectOrCardInAnyGraveyard(f) => *f,
+                    TargetSpec::PlayerWhoAttackedThisTurn
+                    | TargetSpec::OpponentWithMoreThanActivePlayer(_)
+                    | TargetSpec::OpponentWithMoreThanPlayer(..) => &Filter::Any,
                 };
                 let name = def.faces[0].name;
                 if legal_targets(&view, &req.spec).is_none() {

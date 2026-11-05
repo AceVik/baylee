@@ -28,6 +28,11 @@ pub(super) fn resume_inner(
     let since = state.journal.last_seq();
     let awaiting = res.awaiting.take().expect("resume without awaiting op");
     match awaiting {
+        AwaitingOp::Vote(vote) => {
+            if let Some(pending) = vote::resume(state, res, vote, chosen) {
+                return next_choice(state, res, since, pending);
+            }
+        }
         AwaitingOp::MeldPartner => {
             let Effect::MeldWithNamed {
                 source_name,
@@ -943,90 +948,8 @@ pub(super) fn resume_inner(
             reveal,
             random,
         } => {
-            if reveal && !chosen.is_empty() {
-                state.journal.record(GameEvent::Revealed {
-                    player: res.controller,
-                    cards: chosen.to_vec(),
-                });
-            }
-            let placed: Vec<_> = chosen
-                .iter()
-                .map(|&card| {
-                    (
-                        card,
-                        search::resolve_find(state, res, res.controller, found, card),
-                    )
-                })
-                .collect();
-            let moves: Vec<_> = placed
-                .iter()
-                .map(|&(card, find)| {
-                    let destination = match find.dest {
-                        SearchDest::Graveyard => ZoneLocation::Graveyard(res.controller),
-                        SearchDest::Exile => ZoneLocation::Exile(
-                            state.object(card).map_or(res.controller, |o| o.owner),
-                        ),
-                        SearchDest::Hand => ZoneLocation::Hand(res.controller),
-                        SearchDest::TopOfLibrary => ZoneLocation::Library(res.controller),
-                        SearchDest::Battlefield => ZoneLocation::Battlefield,
-                    };
-                    (card, destination)
-                })
-                .collect();
-            if let Some(pending) = ask_commander_replace(state, res, &moves) {
-                let Some(AwaitingOp::CommanderReplace { asked, remaining }) = res.awaiting.take()
-                else {
-                    unreachable!("replacement question retains its owners")
-                };
-                res.awaiting = Some(AwaitingOp::SelectedCommander {
-                    operation: Box::new(AwaitingOp::DigRest {
-                        found,
-                        rest,
-                        reveal: false,
-                        random,
-                    }),
-                    chosen: chosen.to_vec(),
-                    asked,
-                    remaining,
-                });
+            if let Some(pending) = dig::finish(state, res, found, rest, reveal, random, chosen) {
                 return Flow::Wait(pending);
-            }
-            for (card, find) in placed {
-                if find.tapped && find.dest == SearchDest::Battlefield {
-                    state.restore_tapped(card, true);
-                }
-                put_found(state, res.controller, card, find.dest);
-                if find.dest == SearchDest::Battlefield
-                    && let Some((kind, count)) = find.counter
-                {
-                    crate::entry::put_counters(state, res.controller, card, kind, count);
-                }
-            }
-            // "The rest on the bottom in any order": the player chooses
-            // the order whenever there is one to choose. "In a random
-            // order" asks nobody: the table's generator orders them.
-            let mut remaining: Vec<ObjectId> =
-                rest.into_iter().filter(|c| !chosen.contains(c)).collect();
-            if random {
-                state.rng.shuffle(&mut remaining);
-            }
-            if remaining.len() > 1 && !random {
-                res.awaiting = Some(AwaitingOp::DigBottom);
-                let n = u32::try_from(remaining.len()).unwrap_or(u32::MAX);
-                return Flow::Wait(Pending::Arrange {
-                    player: res.controller,
-                    cards: remaining,
-                    piles: vec![ArrangePile::all_of(ArrangePlace::LibraryBottom, n)],
-                    prompt: ArrangePrompt::Order,
-                });
-            }
-            for card in remaining {
-                let _ = state.move_object(
-                    card,
-                    ZoneLocation::Library(res.controller),
-                    ZonePosition::Bottom,
-                    Cause::Effect,
-                );
             }
         }
         AwaitingOp::BottomFromHand { player, then } => {

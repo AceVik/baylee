@@ -151,6 +151,10 @@ pub(super) fn sheet(commands: &mut Commands, holder: Entity, env: &Env) {
         Some(leave(commands, env))
     } else if ui.rail && matches!(env.layout, Layout::Rail | Layout::PhoneSingle) {
         Some(filters(commands, env))
+    } else if let Some(list) = env.deck().list_editor() {
+        Some(super::lists::sheet(commands, env, list))
+    } else if ui.check_sheet {
+        Some(super::legality::sheet(commands, env))
     } else if ui.stats_sheet {
         Some(stats(commands, env))
     } else {

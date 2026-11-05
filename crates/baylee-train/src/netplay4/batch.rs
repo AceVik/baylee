@@ -92,16 +92,21 @@ pub struct BatchedNet4 {
 
 impl BatchedNet4 {
     /// Opens a supported V4/V5 model directory, as
-    /// [`NetPlayer4::load`](super::NetPlayer4::load) does, for sharing.
+    /// [`NetPlayer4::load_with`](super::NetPlayer4::load_with) does, for
+    /// sharing.
     ///
     /// # Errors
     /// When the ONNX model or metadata cannot be loaded.
-    pub fn load(path: &std::path::Path, limits: BatchLimits4) -> anyhow::Result<Arc<Self>> {
+    pub fn load(
+        path: &std::path::Path,
+        limits: BatchLimits4,
+        catalog: super::CatalogPolicy4,
+    ) -> anyhow::Result<Arc<Self>> {
         anyhow::ensure!(
             limits.max_rows >= 1 && limits.token_budget >= 1,
             "a batch needs at least one row and one token"
         );
-        let (model, depth, session) = super::ModelFiles::open(path)?;
+        let (model, depth, session) = super::ModelFiles::open(path, catalog)?;
         let net = Self {
             model,
             limits,

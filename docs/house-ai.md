@@ -13,7 +13,21 @@ network lobby. Existing `novice`, `steady`, and `sharp` keys still work.
 
 All levels plan coloured payments through the same renderer-free mana matcher
 as the human client. Simple printed and granted mana abilities count, with one
-source per permanent. The agent does not tap toward an unaffordable spell.
+source per permanent. A land's CR 305.6 shortcut counts with every colour its
+basic land types give it, so one with two (Urborg and Yavimaya together, a
+land Evil Presence made a Swamp under Yavimaya) makes either (NEW-09). The
+agent does not tap toward an unaffordable spell, nor toward one the engine
+would not cast once paid
+(`LegalActions::castable_once_paid`: in neither `castable` nor `payable`, such
+as Terror with no nonblack creature to point at, CR 601.2c).
+Printed mana bonuses, tap penalties and coloured taxes count only while their
+abilities are active; phased-out permanents contribute nothing. Coloured taxes
+use the chosen spell face or prototype characteristics. Phased-out permanents
+also cannot satisfy a casting condition or contribute a convoke payment.
+A cast is priced as the engine will charge it, through `spell_price`: the
+offer's `spell_increases`, then its `spell_reductions` (Goblin Warchief, a
+card's affinity) off the generic part (CR 601.2f, 118.7a). The LLM seat's
+reach and the client price through the same function.
 
 Before announcing a mana-X activation, the house checks that its fixed price
 and any printed minimum X can be reached through the ordinary view-only mana
@@ -71,7 +85,7 @@ survives and never how many. Between permanents the solver ranks the price a
 second time: `manaplan::Source` carries `priced`, and the matcher reaches for
 a priced tap only where no clean one fits the pip (#210). Among clean taps
 it keeps, as the client does, a creature first, then a permanent used for
-more than mana (Karakas, a creature land: `CardDef::activates_beyond_mana`,
+more than mana at no mana of its own (Karakas: `CardDef::use_beyond_mana`,
 handed to `manaplan::prioritize`), then the colours its hand needs.
 Command-zone commanders participate in these plans, including their public
 cast-count tax, and so does a graveyard card the view says the seat may
@@ -117,11 +131,13 @@ Rhystic tax refuses into one card for an opponent. Same price, opposite
 decisions, and a policy reading the price could never tell them apart. So a
 ward tax is paid whenever the mana can be found and the other stays declined,
 because spare mana and mana the curve needs look alike to a stateless policy
-while a card is the cheaper thing to give up. The same ward is read a second
-time at target choice, since CR 601.2 picks targets before mana is paid: a
-warded creature is priced against the material scale when the seat can cover
-the spell and the tax together, and sinks below every other candidate when it
-cannot — going around a ward costs nothing, walking into one it cannot pay
+while a card is the cheaper thing to give up. What refusing does is read
+through a sequence: Power Sink's "unless" counters the spell and then taps
+the lands, and it is paid, `{0}` included, as a counter is (NEW-15). Ward
+is read a second time at target choice, since CR 601.2 picks targets before
+mana is paid: a warded creature is priced against the material scale when
+the seat can cover the spell and the tax together, and sinks below every
+other candidate when it cannot — going around a ward costs nothing, walking into one it cannot pay
 costs the card. **The window that follows a yes is answered too**: the engine
 hands the seat priority to make the mana (CR 605.3a), and because a window is
 an ordinary priority round with nothing castable in it, every path in the
@@ -135,17 +151,21 @@ in every view and a seat taking one without the other pays for its
 opponent's window. `crates/baylee-gamehost/tests/ai_ward.rs` plays it out
 against the real engine.
 
-**A pact is a counter paid for next turn.** Pact of Negation's
-`Effect::PayCostOrLoseLater` used to refuse the cast outright. `policy::spell_score`
+**A pact is a counter paid for next turn.** Pact of Negation's delayed
+`Effect::PayManaOrLose` used to refuse the cast outright. `policy::spell_score`
 now casts it as a counterspell on two further conditions: every mana source
 this seat has, untapped again, makes the price (`pays_next_turn`, CR 502.3),
 and the best opponent's spell it could counter (its material plus what of this
 seat's it is aimed at) is worth more than the price at 150 a mana, which is
-then taken off the counter's value. The engine asks for the price once a round
-of passes on an empty stack closes the upkeep, from what is still untapped,
-and nothing in the view says a price is coming, so this seat spends nothing in
-its own upkeep on an empty stack (`a_seat_spends_nothing_in_its_own_upkeep`: a
-fetchland is cracked in the draw step instead). Inside the window a dual
+then taken off the counter's value. The price goes on the stack at that upkeep
+and is asked as it resolves, from what is still untapped, so this seat spends
+nothing there while a payment of its own is on the stack: a pact's, echo,
+cumulative upkeep (`tactics::asks_its_controller_for_mana`,
+`a_seat_spends_nothing_over_its_own_echo`). Nor on an empty stack, where
+anything could as well wait a step
+(`a_seat_spends_nothing_in_its_own_upkeep`: a fetchland is cracked in the draw
+step instead). Echo itself is `policy::pays_tax`'s question, like any upkeep
+that sacrifices its permanent unpaid. Inside the window a dual
 land's colour question is answered for the price
 (`a_colour_named_in_a_payment_window_keeps_the_price_payable`). It used to be
 answered for the spells in hand, so under `{3}{U}{U}` owed a Hallowed Fountain
@@ -165,6 +185,34 @@ pool covers it. Waterbend counts every untapped creature and artifact that is
 not a planned mana source, up to the waterbend's own generic mana, which is all
 CR 701.67b lets them pay. Kicked is the better half by design, so it is paid
 whenever it can be, except when the kicked half would draw the library out.
+
+**Buyback is paid when the card is worth more than what it takes.** The
+question comes with the plain cast, and `policy::buys_back` says yes only when
+the floating pool covers the spell and the buyback's mana and the parts are
+worth it (`buyback_parts_worth`): life while ten stays, a land past the fifth,
+a discard out of the lands in hand past the one this turn plays, a random
+discard where it mostly finds one. `policy::buyback_price` floats the mana
+before the cast, unless it would take what another spell in hand could be cast
+with: a Capsize brought back is not a creature played. An X spell spends
+itself on its X, and is bought back only with what is left.
+
+**Multikicker is kicked as far as the pool reaches.** `policy::aim` floats the
+most payments the budget and the sources cover, and `policy::multikicks`
+answers the count out of the pool, not the engine's maximum, which is open
+while a land is untapped. Each kick is the better half by design, unless the
+spell draws for it and would draw the library out. A controlled player's
+buyback is declined and their spell not kicked (`controlled/choices.rs`): both
+would buy them something (CR 723.5).
+
+**Where a resolved spell goes is judged by whether the seat can pay for it
+again** (`endings.rs`, CR 616.1e). The card back in hand keeps it at its full
+price, and rebound is one free cast and then the card is gone. So a seat with
+the lands for the spell and its buyback takes the hand, and one without takes
+the free cast. A counterspell always goes home, because the next upkeep has
+nothing on the stack for it to answer. Rebound beats an adventure, the creature
+free against the creature paid for, and an exile that gives nothing back comes
+last. For a player this seat controls the same list is read from the other end:
+plain exile if it is offered, else what they would not have taken.
 
 **Replicate is paid as often as the pool covers.** The engine offers as many
 payments as the floating pool pays for (`NumberPrompt::Replicate`, CR
@@ -209,7 +257,11 @@ restricted source per spell, and that tap comes last: once the mana floats, no
 plan counts it, and only the engine's merge makes the spell castable. Its mana
 is spent first, so it never counts as held up. Its colour is named for a spell
 it may pay for. A price floated before the cast (an X, a kicker) is paid from
-unrestricted sources only.
+unrestricted sources only. The restriction's kind of payment (`ManaUse`) is
+asked before its filter, as the engine asks it: mana that may be spent only to
+cast spells pays for no activated ability, so Delighted Halfling's coloured
+mana is never planned for Yawgmoth's proliferate, nor Mishra's Workshop's for
+an artifact's ability (NEW-05).
 
 Searches, bottoming,
 and surveils at the skilled levels evaluate only identities actually visible
@@ -723,6 +775,66 @@ Specimen does not weigh that the new target is itself; nothing holds a
 redirect or a Dualcaster Mage back for a later spell; and an opponent's
 redirect aimed at this seat's own spell is not turned back, because a redirect
 hurts nothing by itself.
+
+**A controlled turn is played against its player.** Under Mindslaver the
+house makes every decision of the player whose turn it controls (CR 723.1,
+723.5): their casts and targets, their attack and its damage, their
+resolution choices, their discards. The engine asks that player and awaits
+the house, so `controlled::subject` reads the question as theirs when the
+view awaits this seat and the question names somebody else; a question of
+the house's own in that turn — its blocks, its own priority — is never
+theirs and is answered exactly as before (CR 723.8). The measure is the
+crate's own read from their side of the table: `controlled::seen_by` makes
+the view theirs (their hand where the house's was, their seat as the view's)
+out of nothing the house does not already see (CR 723.4), and the answer
+taken is the other end of what they would take. Only their resources pay
+(CR 723.5a); the payment readers already go through `resource_player`.
+
+- *Priority* acts only once their combat is over, so nothing is spent on a
+  creature the house's block was about to kill. A spell is cast where
+  `casting_harm` says the worst it can be aimed at costs them more than
+  their own best use of the card would have gained them, and never where
+  even its worst aim gains them anything: their Lightning Bolt at their own
+  creature or face, their Giant Growth or Holy Strength on the house's
+  creature, Pacifism on their own, their Ancestral Recall for the house, a
+  draw that empties their library. Damage that does not kill a creature
+  after combat is worth nothing (CR 514.2), so a Bolt is not left on a 4/4.
+  Every permanent but an Aura stays in hand, no land is played, and a text
+  `worth` cannot read is not cast. An activation is taken by
+  `activate::against`, the worth at its worst target net of its cost, so a
+  sacrifice outlet is fed their creature; only a cost that consumes
+  something. In their end step every source of theirs that only makes mana
+  is tapped, so it stays tapped through the house's turn (CR 502.3). A
+  payment the house took on for them (Word of Command) is finished as
+  before.
+- *Their attack* sends what an untapped creature of the house's can block,
+  kill and survive, their best first, and what tapping is worth: a creature
+  whose absence lets more of the house's next attack through than it deals
+  now, while all of it leaves the house above ten life and costs at most a
+  quarter of it. Nothing whose attack sets off a trigger, nothing with
+  evasion the exchange does not read, nothing at the house's planeswalkers;
+  what must attack goes at another opponent of the house's, else at the
+  house. Their divided combat damage gives each of the house's creatures
+  what it survives.
+- *Their choices*: discards, sacrifices, costs and cards put back are their
+  best; what they keep, find, take or put down is their worst and as little
+  as allowed (a search finds nothing); a target, a mode and a pile are the
+  worst for them by the same measure; an X is all their mana pays, with no
+  ceiling under their library and a life X up to all their life (CR 119.4);
+  a "may" is done only when it costs them and an unread one is declined; a
+  pact's debt goes unpaid; a tax is paid only where refusing it would counter
+  the spell cast for them. Scry and surveil keep their worst on top.
+
+What has no reading here falls through to the ordinary answer, which reads
+their permanents as the hostile ones. Open: a creature with an ETB that
+would hurt them, a mana ability that sacrifices (Ashnod's Altar) and an
+ability whose mana does not float yet are never used for them; a subtype,
+colour or card name they choose is the house's ordinary choice; and the
+harness (`baylee-gamehost::harness`) still answers a question by the player
+it names rather than by `Engine::decision_actor`, so a harness game cannot
+run a controlled turn yet. `crates/baylee-ai/src/tests/controlled_tests.rs`
+pins each behaviour, and `crates/baylee-gamehost/tests/ai_mindslaver.rs`
+plays a Mindslaver turn through the real engine with no house fallbacks.
 
 ### Authorized AI scouting
 

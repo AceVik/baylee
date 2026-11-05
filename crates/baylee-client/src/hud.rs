@@ -485,6 +485,9 @@ pub enum MenuAction {
     /// Show one letter group of the creature-type chooser's full list
     /// (`typechooser::GROUPS`), emptying what was typed.
     TypeGroup(u8),
+    /// Open the name chooser's filter builder, or shut it again: the gear in
+    /// its box, as the deck builder's and the zone dialog's.
+    NameFilters,
     /// Hold priority until the stack is empty: `PriorityHold::UntilStackEmpty`,
     /// the same thing `Action::HoldForStack` sends and by the same road.
     ///
@@ -1187,6 +1190,10 @@ pub struct HudRevision {
     /// sheet / mana bubble or drawer), rounded to whole logical pixels and
     /// tracked only while a hover preview is open.
     keep_out: Option<[i32; 4]>,
+    /// Which chair the table is shown from, by its change count
+    /// (`Duel::perspective_epoch`): a press on a controlled player's chip
+    /// changes the hand with no new snapshot.
+    perspective: u32,
 }
 
 /// Palette, kept in one place so the overlay reads as one design.
@@ -1881,6 +1888,7 @@ mod card;
 pub struct DetachedHud;
 
 pub(crate) mod chosen_type;
+pub(crate) mod controlbanner;
 mod finish;
 mod hand;
 pub(crate) mod hint;
@@ -1922,6 +1930,7 @@ pub(crate) use finish::{
     FinishExits, despawn_finish, settle_the_sheet, spawn_finish, sync_finish_log,
 };
 pub use hand::apply_hand_scroll;
+pub use hand::{ControlHandFrame, ControlHandLabel, HandArrival, arrive_the_hand};
 /// Gentle lift while inspecting a hand card.
 pub(crate) const HOVER_RAISE: f32 = 12.0;
 pub use hand::{ARMED_RAISE, HAND_ZONE_H, LEDGE_H, OVERLAY_CARD_H, OVERLAY_CARD_W};
@@ -1943,10 +1952,11 @@ pub use ledge::log::{
 pub use ledge::menu::{MenuPanel, MenuRevision, grow_the_menu, show_priority_switch, sync_menu};
 pub(crate) use ledge::players::STRIPS_H;
 // The guided tour's anchors ride on these markers (`tour::table`).
+pub use controlbanner::{show_control_banner, spawn_control_banner};
 pub(crate) use ledge::players::PlayersStrip;
 pub use ledge::players::{
-    ChipCrown, ChipTag, HintSeat, PlayersRevision, TagKind, glow_the_players, show_the_tags,
-    sync_players,
+    ChipCrown, ChipTag, ControlBadge, HintSeat, PlayersRevision, TagKind, control_badge,
+    glow_the_players, show_the_control_badges, show_the_tags, sync_players,
 };
 pub use ledge::pool::{PoolRevision, grow_the_pool, sync_pool};
 pub(crate) use ledge::replay_bar;

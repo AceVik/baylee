@@ -36,7 +36,7 @@ fn politics_decides_who_gets_attacked() {
 }
 
 /// The monarch is the one to hit, under every profile: combat damage takes
-/// the crown (CR 724.2). Seat 1 is neither the leader nor the biggest board,
+/// the crown (CR 725.2). Seat 1 is neither the leader nor the biggest board,
 /// and every policy used to pass it by.
 #[test]
 fn every_politics_goes_for_the_monarch() {

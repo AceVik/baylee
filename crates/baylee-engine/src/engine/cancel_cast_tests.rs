@@ -1,7 +1,7 @@
 //! `PlayerAction::CancelCast`: a cast begun from priority taken back in any
-//! of its questions or in its payment window, and reversed as CR 732.1
+//! of its questions or in its payment window, and reversed as CR 733.1
 //! reverses an action that is not completed. The player keeps priority
-//! (CR 732.2).
+//! (CR 733.2).
 
 use super::testkit::*;
 use super::*;
@@ -132,7 +132,7 @@ fn cancelled(engine: &mut Engine<RegistryLookup>, card: ObjectId) {
     assert!(engine.state().zones.stack_is_empty(), "nothing was cast");
     assert!(
         matches!(engine.pending(), Pending::Priority { player, .. } if *player == P0),
-        "the player who was casting keeps priority (CR 732.2): {:?}",
+        "the player who was casting keeps priority (CR 733.2): {:?}",
         engine.pending()
     );
     assert_eq!(engine.cancellable_cast(P0), None);
@@ -187,7 +187,7 @@ fn a_cast_cancelled_at_its_x_goes_back() {
 }
 
 /// In the payment window (CR 601.2g) after two lands were tapped for it:
-/// both are untapped and their mana is gone (CR 732.1).
+/// both are untapped and their mana is gone (CR 733.1).
 #[test]
 fn a_cast_cancelled_in_its_window_untaps_what_was_tapped_for_it() {
     let mut engine = table(7322, &[plains(), island()], &[sliver()]);
@@ -208,7 +208,7 @@ fn a_cast_cancelled_in_its_window_untaps_what_was_tapped_for_it() {
 }
 
 /// A painland tapped in the window: reversing its mana ability reverses all
-/// of it, damage included, since an undone ability did nothing (CR 732.1:
+/// of it, damage included, since an undone ability did nothing (CR 733.1:
 /// the player "may also reverse any legal mana abilities that player
 /// activated while making the illegal play"; "No abilities trigger and no
 /// effects apply as a result of an undone action"). City of Brass's trigger

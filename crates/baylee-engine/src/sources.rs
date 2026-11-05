@@ -1066,13 +1066,16 @@ fn is_prevention(modifier: &Modifier) -> bool {
     )
 }
 
-fn delayed_references(action: &DelayedAction, out: &mut BTreeSet<DamageSourceRef>) {
+/// Every incarnation a delayed action names; also what a forked simulation
+/// checks for hidden cards (`GameState::audit_fork`).
+pub(crate) fn delayed_references(action: &DelayedAction, out: &mut BTreeSet<DamageSourceRef>) {
     match *action {
         DelayedAction::RestrictAttacksForTurn { source, affected } => {
             out.insert(source);
             out.insert(affected);
         }
-        DelayedAction::DrawStepLifeLoss { source, .. } => {
+        DelayedAction::DrawStepLifeLoss { source, .. }
+        | DelayedAction::PrintedTrigger { source, .. } => {
             out.insert(source);
         }
         DelayedAction::ReturnExiledGroup {
@@ -1124,11 +1127,6 @@ fn delayed_references(action: &DelayedAction, out: &mut BTreeSet<DamageSourceRef
             version,
             ..
         }
-        | DelayedAction::PayCostOrSacrifice {
-            card: object,
-            version,
-            ..
-        }
         | DelayedAction::Transform {
             card: object,
             version,
@@ -1151,9 +1149,6 @@ fn delayed_references(action: &DelayedAction, out: &mut BTreeSet<DamageSourceRef
             version,
         } => {
             out.insert(DamageSourceRef { object, version });
-        }
-        DelayedAction::PayCostOrLose { source, .. } => {
-            out.extend(source);
         }
         DelayedAction::AddMana { .. } => {}
     }

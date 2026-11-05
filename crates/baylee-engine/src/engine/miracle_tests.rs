@@ -486,7 +486,7 @@ fn cast_x_miracle(pay: bool) {
 /// reversed, and the engine just as a "no" leaves it.
 ///
 /// Answering is part of casting, and a cast that cannot be completed is
-/// illegal and reversed (CR 601.2, CR 732.1); the offer was the miracle's one
+/// illegal and reversed (CR 601.2, CR 733.1); the offer was the miracle's one
 /// chance (CR 702.94a). The answer used to spend the offer before the cast
 /// was tried and then refuse it, which no record could replay (r001 games
 /// 1581, 3288, 3554); then it was refused with the offer left standing,
@@ -657,7 +657,7 @@ fn miracle_uses_mana_made_after_accepting_and_survives_a_color_question() {
 }
 
 /// A short payment casts nothing, and what was made for it is given back
-/// (CR 732.1): the Island tapped in the window untaps and its mana leaves
+/// (CR 733.1): the Island tapped in the window untaps and its mana leaves
 /// the pool. It used to float until the step ended, the Island tapped.
 #[test]
 fn a_short_miracle_payment_keeps_the_card_and_does_not_repeat_the_offer() {
@@ -697,7 +697,7 @@ fn a_short_miracle_payment_keeps_the_card_and_does_not_repeat_the_offer() {
 /// deals 1 damage to that player." The Island tapped in the window triggers
 /// it, and the trigger waits in the queue, because nobody gets priority in a
 /// payment window. A window closed short reverses the tap, and no ability
-/// triggers from an action that is undone (CR 732.1): nothing goes on the
+/// triggers from an action that is undone (CR 733.1): nothing goes on the
 /// stack and no damage is dealt. The control half pays in full, and the
 /// same tap's trigger reaches the stack.
 #[test]
@@ -747,7 +747,7 @@ fn a_short_miracle_payment_drops_what_its_taps_triggered() {
 
 /// A window in which a mana ability did more than tap and add is left as
 /// it stands: Lotus Petal was sacrificed for its mana and cannot come back
-/// as the object it was (CR 400.7), and CR 732.1 lets the player reverse
+/// as the object it was (CR 400.7), and CR 733.1 lets the player reverse
 /// their mana abilities without making them. Its mana floats, as every
 /// short payment's did before the reversal.
 #[test]
@@ -814,4 +814,77 @@ fn miracle_payment_answers_are_part_of_the_replay_snapshot() {
     // No board field changes: the held answers themselves must be compared.
     wizard.chosen_player = Some(PlayerId::new(1));
     assert_ne!(before, engine.snapshot_hash());
+}
+
+/// The opening hand is drawn before the first turn (CR 103.5), so none of
+/// its cards is the first card drawn "this turn" (CR 702.94a): an opening
+/// hand of Temporal Mastery was offered a miracle cast in the first upkeep.
+/// The first draw of a turn still is (the draw step's, past turn 1).
+#[test]
+fn an_opening_hand_card_is_not_a_miracle() {
+    let mut preset = preset(5, vec![], vec![island()]);
+    preset.seats[0].starting_hand = None;
+    preset.house_rules.starting_player = Some(0);
+    let mut engine = Engine::new(&preset, RegistryLookup).unwrap();
+    assert!(engine.state().pending_miracle.is_empty());
+    keep_mulligans(&mut engine);
+    let p0 = PlayerId::new(0);
+    assert_eq!(
+        engine
+            .state()
+            .zones
+            .list(crate::zone::ZoneLocation::Hand(p0))
+            .len(),
+        7,
+        "the opening hand was drawn"
+    );
+    let mut offered_on = Vec::new();
+    for _ in 0..400 {
+        if engine.state().turn.number > 3 {
+            break;
+        }
+        match engine.pending().clone() {
+            Pending::YesNo {
+                player,
+                prompt: crate::choice::YesNoPrompt::Miracle { .. },
+                ..
+            } => {
+                offered_on.push(engine.state().turn.number);
+                engine.apply(player, PlayerAction::YesNo(false)).unwrap();
+            }
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            Pending::ChooseAttackers { player, .. } => {
+                engine
+                    .apply(
+                        player,
+                        PlayerAction::DeclareAttackers {
+                            attackers: Vec::new(),
+                        },
+                    )
+                    .unwrap();
+            }
+            Pending::DiscardChoice { player, count } => {
+                let hand = engine
+                    .state()
+                    .zones
+                    .list(crate::zone::ZoneLocation::Hand(player))
+                    .clone();
+                let objects = hand[..usize::from(count)].to_vec();
+                engine
+                    .apply(player, PlayerAction::ChooseObjects { objects })
+                    .unwrap();
+            }
+            other => panic!("unexpected question {other:?}"),
+        }
+    }
+    assert!(
+        !offered_on.contains(&1),
+        "an opening-hand card was offered as a miracle on turn 1: {offered_on:?}"
+    );
+    assert!(
+        offered_on.contains(&2) && offered_on.contains(&3),
+        "each later turn's first draw is still a miracle: {offered_on:?}"
+    );
 }

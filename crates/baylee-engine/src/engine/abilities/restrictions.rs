@@ -138,9 +138,26 @@ impl<L: CardLookup> Engine<L> {
         legal.castable.clear();
         legal.payable.clear();
         legal.suspendable.clear();
+        // Foretell is a special action, not casting or activating an ability.
         legal.abilities.retain(|&(source, index)| {
             crate::choice::is_special_action(index) || self.is_mana_offer(source, index)
         });
+    }
+
+    /// Whether `legal` offers anything that makes mana: a CR 305.6 tap, a
+    /// mana ability, or a granted action that adds mana.
+    pub(in crate::engine) fn offers_mana(&self, legal: &LegalActions) -> bool {
+        !legal.mana_abilities.is_empty()
+            || legal
+                .abilities
+                .iter()
+                .any(|&(source, index)| self.is_mana_offer(source, index))
+            || legal.granted_actions.iter().any(|offer| {
+                matches!(
+                    offer.effect,
+                    crate::choice::GrantedActionKind::AddMana { .. }
+                )
+            })
     }
 
     /// Keeps of the cards the pool could not pay for (`legal.payable`, the
@@ -151,18 +168,7 @@ impl<L: CardLookup> Engine<L> {
         if legal.payable.is_empty() {
             return;
         }
-        let makes_mana = !legal.mana_abilities.is_empty()
-            || legal
-                .abilities
-                .iter()
-                .any(|&(source, index)| self.is_mana_offer(source, index))
-            || legal.granted_actions.iter().any(|offer| {
-                matches!(
-                    offer.effect,
-                    crate::choice::GrantedActionKind::AddMana { .. }
-                )
-            });
-        if !makes_mana {
+        if !self.offers_mana(legal) {
             legal.payable.clear();
             return;
         }
@@ -215,6 +221,15 @@ impl<L: CardLookup> Engine<L> {
     /// the Mirror's card prints a mana ability at that index. A granted
     /// ability is looked up among the grants by its slot, the same way the
     /// offer numbers it.
+    ///
+    /// The planning hints (`unpaid_abilities`) are narrowed by the same
+    /// test. `compute_legal` moves an activation whose mana is not floating
+    /// yet out of `abilities` and into the hints, so a window opened from a
+    /// fresh list (an upkeep tax, a miracle, an attack tax) kept every such
+    /// activation as a hint: a seat's planner read Energy Flux's {2} window
+    /// as one where Aeolipile could be activated, tapped a Forest for it,
+    /// and the pass that followed left the tax unpaid (LLM report, 3 Nov
+    /// 2026).
     pub(crate) fn narrow_to_mana(&self, legal: &mut LegalActions) {
         legal
             .granted_actions
@@ -222,10 +237,16 @@ impl<L: CardLookup> Engine<L> {
         legal.lands.clear();
         legal.castable.clear();
         legal.payable.clear();
+        legal.cast_ways.clear();
         legal.suspendable.clear();
+        legal.foretellable.clear();
+        legal.unpaid_foretell.clear();
         legal
             .abilities
             .retain(|&(source, index)| self.is_payment_mana_offer(source, index));
+        legal
+            .unpaid_abilities
+            .retain(|&(source, index, _)| self.is_payment_mana_offer(source, index));
     }
 
     /// Target permissions of the actual activation, including runtime grants.
@@ -391,7 +412,13 @@ impl<L: CardLookup> Engine<L> {
             wall_only,
         )
         .len();
-        let players = eval::target_player_options(&self.state, &req.spec, player).len();
+        let players = eval::target_player_options_from(
+            &self.state,
+            &req.spec,
+            player,
+            self.ability_rule_context(source, ability_index),
+        )
+        .len();
         objects + players >= wanted
     }
 

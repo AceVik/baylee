@@ -454,6 +454,14 @@ pub enum LogEvent {
         /// Whose.
         player: PlayerId,
     },
+    /// A player cast a ballot in a vote (CR 701.38a), told to every seat as
+    /// it is cast (CR 608.2d).
+    Voted {
+        /// The voter.
+        player: PlayerId,
+        /// What they voted for.
+        object: LogObject,
+    },
     /// A coin was flipped (CR 705).
     CoinFlipped {
         /// Who flipped it.
@@ -488,12 +496,12 @@ pub enum LogEvent {
         /// the game ended in a draw (CR 104.4b).
         broken: bool,
     },
-    /// It became day or night (CR 730.1).
+    /// It became day or night (CR 731.1).
     DayNight {
         /// Which it is now.
         now: DayNight,
     },
-    /// A player became the monarch (CR 724.3). Who the monarch is now is
+    /// A player became the monarch (CR 725.3). Who the monarch is now is
     /// [`crate::PlayerView::monarch`]; this line says when it changed.
     BecameMonarch {
         /// The new monarch.
@@ -561,6 +569,7 @@ impl LogEvent {
             | Self::Attacked { attacker: o, .. }
             | Self::ControlChanged { object: o, .. }
             | Self::TurnedFaceUp { object: o }
+            | Self::Voted { object: o, .. }
             | Self::Transformed { object: o } => out.push(o),
             Self::Drew { cards, .. }
             | Self::Revealed { cards, .. }
@@ -625,6 +634,7 @@ impl LogEvent {
             | Self::Attacked { attacker: o, .. }
             | Self::ControlChanged { object: o, .. }
             | Self::TurnedFaceUp { object: o }
+            | Self::Voted { object: o, .. }
             | Self::Transformed { object: o } => out.push(o),
             Self::Drew { cards, .. }
             | Self::Revealed { cards, .. }

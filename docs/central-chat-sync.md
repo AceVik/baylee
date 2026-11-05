@@ -1,11 +1,11 @@
-# Central chat archive and device restoration
+# Central personal chat, archive and device restoration
 
 The native client keeps chat keys and history in the client-encrypted Central account.
 OPAQUE authenticates the account; only the serial account worker owns the SDK session
 and master key. A gateway receives an origin-bound admission capability and its own
 session token. `GatewayHttp` has no password operation. The only legacy password
-transport is the fixed official migration gateway (or an explicit numeric-loopback
-development fixture). Account deletion is refused in the native Central dispatcher
+transport is Central's discovered legacy sign-in over verified TLS (or an explicit
+numeric-loopback development fixture); no gateway receives that password. Account deletion is refused in the native Central dispatcher
 until a Central step-up and deletion flow exists.
 
 Central permits one active account session. A successful login revokes previous
@@ -16,10 +16,15 @@ legacy login or substitutes empty account data. A disconnected client learns of
 revocation when it can communicate again; no protocol can erase an offline device's
 already decrypted memory remotely.
 
-This archive protection does not upgrade the existing peer-directory trust model.
-The chat key cache checks each device's self-signature and binds its ID to that key,
-but the gateway supplies the initial list. A malicious gateway can insert its own
-self-signed device on a peer's first lookup. Compare safety numbers through another
+Personal contacts, direct messages and groups now use the account-owned Central
+social API. Central supplies their device directory; the gateway still supplies
+keys and membership for game/table chat. These are separate trust namespaces,
+including pending directory requests, safety numbers, confirmations and persisted
+pins. A gateway update cannot approve or replace a Central peer's keys.
+
+Both directories retain the existing TOFU limitation. The chat key cache checks
+each device's self-signature and binds its ID to that key, but a malicious directory
+can insert its own self-signed device on a peer's first lookup. Compare safety numbers through another
 trusted channel before relying on that first contact. Changes to a known IK/DK set
 now block sends until explicit verification of the exact displayed key snapshot;
 refetch/reconnect cannot silently clear that requirement. Native Central also pins
@@ -34,8 +39,8 @@ new identities are held without display or ACK. The held inbox is bounded to 256
 messages and 4 MiB. Backpressure pauses reception; exact confirmation permits retry
 and redial rather than acknowledging a gap.
 
-Group and table membership is also supplied by the gateway. Verifying individual
-peer keys does not prove that each listed member is authorized: a malicious gateway
+Central authorizes personal group membership; the gateway supplies table membership. Verifying individual
+peer keys does not prove that each listed member is authorized: a malicious membership service
 could introduce another tag and its first-contact keys. Strong protection against
 that attack requires authenticated membership/transcripts or explicit member
 approval. This milestone does not introduce a group PKI or claim that guarantee.
@@ -51,7 +56,9 @@ on drop and have no Debug/Display implementation. They are serialized only as pa
 of the account document, which the SDK encrypts before HTTP transmission. Plaintext
 device keys are never written by the new native adapter.
 
-The sole active account session resumes one logical chat identity per gateway/tag.
+The sole active account session derives one logical personal chat identity from its
+master key, issuer, immutable account ID and vault epoch. It is shared by the browser
+and native implementation. Gateway-scoped encrypted archives remain separate.
 This depends on Central's single-session revocation and the gateway's live lease
 validation: it is not a protocol for two concurrent chat writers. The current message
 encryption has no shared ratchet. Known installation UUIDv7 values are separately
@@ -71,9 +78,13 @@ When a newly authenticated session replaces an older local client, startup waits
 to 15 seconds for that client's real OS guard to be released, with cancellation.
 It never breaks the lock or applies state while another process owns the directory.
 
-Startup first restores and validates the Central document. It preserves existing local
-keys; an empty account may create the first logical identity. All later installations
-select the same nonretired identity. The complete restored state and histories are
+Startup first restores and validates the Central document. It imports existing local
+keys before selecting the account-derived identity. During migration the original
+archive record remains intact; authenticated state is re-encrypted for the new wire
+identity while retaining its old at-rest key, peer pins, verification barriers and
+history. Own-device cache/registration state is rebuilt. Conflicting or unauthenticated
+state fails closed. An interrupted initial publication can reconstruct from the
+unchanged former archive. Later installations select the same derived identity. The complete restored state and histories are
 authenticated and merged in memory before local writes. The complete initial snapshot
 must be acknowledged by Central before registration or dialing is permitted.
 Only the first import, before any Central history root exists, may initialize the
@@ -144,9 +155,51 @@ Each import's disk effects are applied before the next archive, and startup stat
 effects are applied before imports so an old startup snapshot cannot overwrite the
 restored conversation map. Current history-retention settings remain authoritative.
 
-This does not move gateway moderation, friendship/group membership or server delivery
-queues into Central. Those remain gateway-owned. It also does not make account
-deletion, password reset/recovery UI, decks or replays part of this chat change.
+## Personal transport and migration boundary
+
+Personal operations use the native Central bearer session inside the serial account
+worker. The render thread neither performs HTTP nor owns the account master key.
+One bounded flight and at most 16 queued operations serve contacts, groups, device
+registration, key lookup and encrypted delivery. Inbox polling coalesces at two
+seconds, membership refreshes every five seconds, and failures back off to thirty
+seconds. Definitive session rejection drops unlocked keys and prevents automatic
+legacy fallback. Late inbox pages cannot advance a restarted or locked session's
+cursor. Uncertain sends retain the exact ciphertext and request ID across retries;
+retries leave room for inbox and directory reads.
+Local queue saturation keeps a send pending for retry. Locally abandoned sends,
+such as a pending message to a group the account has left, release their cached
+ciphertext before the next personal send. Active uncertain requests keep theirs.
+A terminal refusal releases only that request's ciphertext-cache slot; uncertain
+or rate-limited requests keep their exact ciphertext. This prevents rejected sends
+from exhausting the bounded retry cache and blocking unrelated future messages.
+
+Central inbox reads are non-destructive, with a separate cursor and at most 50
+messages per page. Their cursor never becomes a gateway ACK. Core checks still
+verify signatures, pinned devices, original conversation and receiver wrap before
+archiving. Already delivered group history may be read after leaving; it creates
+no membership or send permission. Native history and age bounds still apply.
+The browser/native crypto interoperability test uses both actual implementations.
+
+The gateway still owns game chat, public chat, presence, table invitations and
+moderation. It cannot overwrite Central contacts/groups or acknowledge a personal
+send. Gateway registration retries independently, and outstanding game sends are
+bounded. Old gateway group deliveries addressed to the current identity can be
+archived read-only using gateway pins, with encrypted publication before ACK.
+
+Existing archived histories and identity records are preserved. This change does
+not silently turn old gateway friendships or memberships into Central relationships:
+participants request/accept contacts and group invitations in Central. Unread old
+queues addressed only to an older gateway device are not migrated by this adapter.
+On 2026-11-02 the owner authorized discarding the existing live messages and contact
+links at cutover instead of importing them. Their preservation is no longer a
+cutover prerequisite. Existing account keys and encrypted archive documents remain
+outside that live-data reset. No production deletion was executed by the local PWA
+work; startup does not automatically purge legacy records.
+
+Central currently retains at most 5000 sent messages per account and 5000 deliveries
+per device, without automatic deletion; full quotas reject new sends. An owner-approved
+retention policy and operational capacity planning remain release prerequisites.
+Account deletion, recovery UI, decks and replays are outside this transport change.
 
 ## Verification
 
@@ -161,6 +214,11 @@ deletion, password reset/recovery UI, decks or replays part of this chat change.
   revoked first session, 600 encrypted message records, chunk reuse, malformed digest,
   stale manifest refusal, retained known installations and offline-source restoration
   of the same logical identity and protocol state.
+- Social regressions: separate persisted personal/game trust and confirmations,
+  simultaneous directory fetches, retained cursor isolation, former-group history,
+  wrong send receipts, account identity migration and real browser/native ciphertext.
+- Bridge regressions: queue bounds, late/locked inbox responses, disconnected worker
+  recovery, session revocation and exclusion of gateway personal metadata.
 - Native regression: Central deletion cannot dispatch the password to a gateway;
   the bounded snapshot collector refuses incomplete or unexpected local namespaces;
   ACKs wait for the complete corresponding snapshot and survive failed socket sends.
@@ -168,3 +226,25 @@ deletion, password reset/recovery UI, decks or replays part of this chat change.
 Run the ordinary account/client/core tests plus `cargo dev central integration`.
 For coordinated sibling development, use its `--cargo-config target/central-patch.toml`
 option; use `cargo clippy --config ...` with the config after the subcommand.
+
+On 2026-11-02, the backend Central revision `24bf90dae9ae0175c6bcd4701bdebd87dd3e19d1` passed the real PostgreSQL 18 Central/Gateway integration, including the personal transport scenario. The focused core social tests (334), native social tests (153), account tests (9), workspace formatting and Clippy for those crates and the integration target passed. This verification used the committed Git dependency, without a local path override. Publish that Central revision before publishing the dependent native revision; these changes do not deploy either service.
+
+The preceding coordinated deployment pinned merged Central main
+`2b54a3944150a1aecbc20b94854966d787d31cd5` (Central PR #60).
+The hook selects Central and its website from the SDK pin, so it must include the
+completed PWA and its generated WASM, not just the earlier backend milestone.
+Central published this revision before the dependent native revision. It also
+includes the reviewed migration-purpose checks and browser push/logout fixes;
+the crypto source and dependency graph remain unchanged from the preceding
+PWA pin `f66568b985656eb1677c33c6f6515e107b126c93`.
+
+The beta.9c preparation advances all eight SDK dependencies to merged Central
+main `df00faf8d9f434cfa2bf030b99e11edd04b08e25` (PR #61), including its
+reproducibly rebuilt browser module. Its dependency migration and renewed
+bounded crypto review are documented in `central-login.md`. Existing chat wire
+formats, account records and key derivation parameters remain unchanged.
+
+The preceding PWA-inclusive pin passed `cargo dev central integration` against real
+PostgreSQL 18.6 (including personal chat and legacy cutover), all five advisory-guard
+regressions, and `cargo dev gate shipped-features`. Its lockfile change contains only
+the eight Central Git source revisions; no registry package or feature changed.

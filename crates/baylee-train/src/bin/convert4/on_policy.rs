@@ -45,6 +45,38 @@ fn ordinary_contract(contract: &Value) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// The sampler, table and data contract an on-policy source must declare.
+fn on_policy_contract(run: &Value) -> anyhow::Result<()> {
+    let contract = &run["collection_contract"];
+    ensure!(
+        contract["version"] == 1
+            && contract["precision"] == "float32"
+            && contract["seat_rng_rule"] == "independent_policy_seed_xor_physical_seat_v1"
+            && run["policy_mode"] == "raw"
+            && run["policy_contract"] == "raw_neural_sampler2_v1"
+            && run["policy_provenance_version"] == 2
+            && run["sampling_version"] == 2
+            && run["thinking_steps"] == 2
+            && run["temperature"]
+                .as_f64()
+                .is_some_and(|t| (t - 0.7).abs() < 1e-6)
+            && run["training_data"] == true
+            && run["seats"] == 2
+            && run["held_out_cards"] == false
+            && run["holdout_tier"] == ""
+            && (run["decks_manifest"].is_null() || run["deck_split"] == "train")
+            && run["shadow_teacher"].is_null(),
+        "invalid on-policy source contract"
+    );
+    // This converter re-encodes with its build's whole catalog: a run that
+    // bound another observed with it, and its probabilities would not match.
+    ensure!(
+        run["catalog"].is_null(),
+        "an on-policy source on another card catalog cannot be converted"
+    );
+    Ok(())
+}
+
 impl RunBinding {
     pub fn load(directory: &Path, run: &Value) -> anyhow::Result<Option<Self>> {
         let contract = &run["collection_contract"];
@@ -52,26 +84,7 @@ impl RunBinding {
         if contract["purpose"] != "on_policy_training" {
             return Ok(None);
         }
-        ensure!(
-            contract["version"] == 1
-                && contract["precision"] == "float32"
-                && contract["seat_rng_rule"] == "independent_policy_seed_xor_physical_seat_v1"
-                && run["policy_mode"] == "raw"
-                && run["policy_contract"] == "raw_neural_sampler2_v1"
-                && run["policy_provenance_version"] == 2
-                && run["sampling_version"] == 2
-                && run["thinking_steps"] == 2
-                && run["temperature"]
-                    .as_f64()
-                    .is_some_and(|t| (t - 0.7).abs() < 1e-6)
-                && run["training_data"] == true
-                && run["seats"] == 2
-                && run["held_out_cards"] == false
-                && run["holdout_tier"] == ""
-                && (run["decks_manifest"].is_null() || run["deck_split"] == "train")
-                && run["shadow_teacher"].is_null(),
-            "invalid on-policy source contract"
-        );
+        on_policy_contract(run)?;
         ProducerEncoder::from_run(run).map_err(anyhow::Error::msg)?;
         let model = &contract["learner_model_identity"];
         ensure!(
@@ -405,6 +418,20 @@ mod tests {
         );
         fs::remove_file(fixture.root.join("run.complete.json")).unwrap();
         assert!(RunBinding::load(&fixture.root, &fixture.run).is_err());
+    }
+
+    #[test]
+    fn an_on_policy_source_on_another_catalog_is_refused() {
+        let fixture = Fixture::new();
+        assert!(
+            RunBinding::load(&fixture.root, &fixture.run)
+                .unwrap()
+                .is_some()
+        );
+        let mut drifted = fixture.run.clone();
+        drifted["catalog"] = json!({"policy": "drift", "learner": {}, "opponent": null});
+        let error = RunBinding::load(&fixture.root, &drifted).unwrap_err();
+        assert!(error.to_string().contains("catalog"), "{error}");
     }
 
     #[test]

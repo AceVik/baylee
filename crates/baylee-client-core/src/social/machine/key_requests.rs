@@ -19,7 +19,11 @@ impl Social {
                 self.fetching.insert(tag.clone());
             }
             out.push(http(
-                HttpTag::Keys(chunk.to_vec()),
+                if self.game_keys_active {
+                    HttpTag::GameKeys(chunk.to_vec())
+                } else {
+                    HttpTag::Keys(chunk.to_vec())
+                },
                 Method::Get,
                 format!("/social/keys?tag={}", chunk.join(",")),
                 None,
@@ -64,6 +68,9 @@ impl Social {
             .convs
             .iter()
             .filter(|c| {
+                !self.account_transport || super::scope::game(&c.id) == self.game_keys_active
+            })
+            .filter(|c| {
                 c.id.partner(&self.me.tag) == Some(diff.tag.as_str()) || c.has_member(&diff.tag)
             })
             .map(|c| c.id.clone())
@@ -97,6 +104,10 @@ impl Social {
         let Some(contact) = self.state.keys.get(tag) else {
             return false;
         };
+        self.confirmed_keyset(tag, contact)
+    }
+
+    pub(super) fn confirmed_keyset(&self, tag: &str, contact: &ContactKeys) -> bool {
         if tag == self.me.tag
             && let Some(trusted) = &self.trusted_own_devices
         {
@@ -133,6 +144,8 @@ impl Social {
             .enumerate()
             .filter(|(_, p)| {
                 p.wait == Wait::Keys
+                    && (!self.account_transport
+                        || super::scope::game(&p.key.conv) == self.game_keys_active)
                     && self
                         .members(&p.key.conv)
                         .is_some_and(|m| m.iter().any(|t| tags.contains(t) && !self.keys_fresh(t)))

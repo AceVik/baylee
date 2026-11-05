@@ -804,7 +804,7 @@ Temporal Mastery payment and extra turn through the projected debt.
 
 A window that closes without its cast (a miracle declined after a tap, or
 paid short; a `PaymentContinuation::Cast` likewise) gives back what was made
-in it: the play was never completed, and CR 732.1 lets its player reverse the
+in it: the play was never completed, and CR 733.1 lets its player reverse the
 mana abilities activated while making it. The window holds a `WindowStart`
 (the journal's length, the payer's pool, the generated-mana obligations and
 the trigger queue's length when it opened), and `Engine::give_back_window`
@@ -814,30 +814,77 @@ cut back, because each tap was its own `apply` and a host has read past it:
 the untaps are journalled as `ObjectUntapped { cause: Cost }`, which nothing
 triggers on. A window in which anything but a tap and its mana happened (a
 sacrificed Lotus Petal, life paid, a library touched) is left as it stands,
-which 732.1's "may" allows. A cast started from a `Cast` window carries its
+which 733.1's "may" allows. A cast started from a `Cast` window carries its
 start into the window its wizard opens for the rest
 (`CastWizard::window_start`), so both are given back together
 (`combo_tests::miracle`, `conduit_of_worlds_paid_short_gives_back_the_forest_tapped_for_it`).
 
-### An upkeep payment is asked after the upkeep's priority (CR 503.1a)
-Echo and a pact's "at the beginning of your next upkeep, pay …; if you
-don't, you lose the game" are delayed actions, not stack objects, and they
-used to run as the upkeep began — before anybody held priority, against a
-pool the untap step had just emptied (CR 500.5) and in which nobody could
-have made mana (CR 502.4). A payment that the pool could not cover was then
-a loss or a sacrifice with no question asked: Pact of Negation lost the game
-on eight untapped Islands. An upkeep trigger is put on the stack before the
-active player receives priority and resolves after it (CR 503.1a,
-CR 117.3a), so `queue_upkeep_delayed` now sets these two aside in
-`upkeep_payments`, and `priority_round` answers them where they would have
-resolved: when the upkeep's round closes on an empty stack, before
-`advance_step` empties the pool — `offer_miracle`'s moment, for
-`offer_miracle`'s reason. A player who floats the mana in that window is
-asked and pays; one who does not has not paid.
+### An upkeep payment is a triggered ability on the stack (CR 702.30a, CR 603.7)
+Echo and a pact's "at the beginning of your next upkeep, pay …; if you don't,
+you lose the game" trigger as the upkeep begins and go on the stack before the
+active player receives priority (CR 503.1a, CR 117.3a), in the same APNAP batch
+as everything else that triggered there (CR 603.3b). Priority goes round over
+them, they can be answered, and what they ask is asked as they resolve. A client,
+a language-model seat and the house AI read them as they read any other stack
+object: an ability of that card, at its place in the card's list.
 
-The payment is still not a stack object, so nothing on the board says it is
-coming: a client or the house AI sees an empty upkeep. Making it one — with
-the CR 605.3a window a `PlayerMayPay` tax already opens — is the rest of this.
+**Echo** is a keyword with a cost and no effect list (`AbilityDef::Echo`), and
+three places write out what it means. `trigger::triggered_parts` reads it as a
+step trigger with an intervening `if`, so it fires, doubles and is lost as a
+printed trigger is: a permanent with no echo at the beginning of the upkeep (a
+Humility) has nothing to trigger, and a copy has its own. `intervening_clause`
+gives `intervening_if_failed` the same clause for CR 603.4's second check, and
+`Engine::demand_echo` is its body as it resolves.
+
+The clause is `Condition::SourceCameUnderYourControlSinceYourLastUpkeep`. A
+player's `upkeep_began` is the stamp as their latest upkeep began and
+`last_upkeep_began` the one before it, which is what "your last upkeep" means
+in the step they are in; `GameObject::controlled_since` is compared against the
+second. It restarts at every change of control, so a permanent taken owes at
+its new controller's next upkeep and one handed back owes again, whether or not
+it was paid for before. A player with no last upkeep yet has a stamp of zero, so
+everything came after it, the opening board included. Neither stamp is in the
+state hash: they are read off the turn clock, and a game with no echo in it
+hashes as it always has (§"The replay contract"). As it resolves the clause
+also asks for the incarnation that triggered, on the battlefield, under the
+ability's controller. A permanent gone, blinked or taken in response is removed
+from the stack with nothing asked: the last of those still "came under your
+control", but all the ability could do is ask for mana and sacrifice nothing
+(CR 701.21a).
+
+The body is `Effect::PlayerMayPayManaOr` with `SacrificeSelf`, the tax Phantasmal
+Forces prints, and its CR 605.3a window: the question comes with the pool empty
+and a yes opens the window to make the mana in. One thing is echo's own. A player
+with neither the mana nor anything to make it with is past asking, and the body
+is `SacrificeSelf` alone. Asked of the pool only, the question used to go
+unasked beside untapped lands.
+
+**A pact's price** is the delayed triggered ability its spell creates
+(CR 603.7), and the card lists it as a second ability so that it has a place and
+a sentence: `Effect::AtNextUpkeepPrinted { ability: 1 }` makes a
+`DelayedAction::PrintedTrigger`, and at that upkeep it joins the trigger queue as
+that ability of that face, with the list it needs kept beside it (a copy of the
+spell, which made one too, has ceased to exist by then). The listed ability is a
+`triggered!` on an instant, which functions on the battlefield and so never
+fires on its own. Its body is `Effect::PayManaOrLose`: "pay", so a pool that
+covers it is spent without a word, and anything else is `YesNoPrompt::PayPact`,
+put whatever the board, with `source: None` because a standing "no" would be a
+standing loss. It has the tax's window, and an unpaid close is `Effect::LoseGame`.
+
+Both used to be delayed actions and not stack objects. First they ran as the
+upkeep began, against a pool the untap step had just emptied (CR 500.5) and in
+which nobody could have made mana (CR 502.4), and Pact of Negation lost the game
+on eight untapped Islands. Then they were set aside and answered when the
+upkeep's round closed on an empty stack, which kept that fix and showed nobody
+anything: a language-model seat reported a Keldon Champion's echo missing from
+the stack, and APNAP order against the upkeep's real triggers was wrong. Echo was
+also registered as the permanent entered, so it stayed with the player it entered
+under: a stolen permanent asked its old controller for mana, and one that lost
+its abilities still came due.
+
+Cumulative upkeep (CR 702.24a) never shared any of this. It is written out as a
+printed `triggered!` with `Effect::AddCounter` and `Effect::PlayerMayPayOr`, and
+has been an ordinary stack object all along.
 
 ### The cleanup step checks once, and may give priority (CR 514.3a)
 A cleanup step is its two turn-based actions and then one check. First the
@@ -1323,7 +1370,7 @@ increment. The chooser's historical view carries its own entitled identity and
 characteristics instead of looking up the current object. Target revalidation
 uses the separate exact-target contract described above (#117).
 
-### The monarch's abilities have no source (CR 724.2)
+### The monarch's abilities have no source (CR 725.2)
 
 `trigger::monarch_triggers` reads both off the events and queues synthetic
 triggers from `ObjectId::NO_SOURCE`, controlled by the monarch they
@@ -1338,7 +1385,7 @@ opponent becomes the monarch" that resolves after an opponent was crowned
 since it was put on the stack exiles nothing
 (`resolve::zones::an_opponent_was_crowned_since`). Players who lose in one
 state-based check leave together (`sba::run` finds every loss first), so
-the crown passes over all of them to the heir (CR 724.4), never through one.
+the crown passes over all of them to the heir (CR 725.4), never through one.
 
 ### Undying and persist, and the question about an object that is gone
 
@@ -1611,6 +1658,27 @@ convoke face, artifacts for a face with improvise or while
 Innovation), each permanent once. The grant is spent in
 `cast_wizard/commit.rs` by the player's next cast, whatever it tapped.
 
+### Convoke pays coloured mana
+
+A creature tapped for convoke pays one generic mana **or one coloured mana
+of one of its colours** (CR 702.51a); an artifact tapped for improvise pays
+generic mana only (CR 702.126a). `ManaCost::convoked_colored` takes the
+colours each tap pays with (`casting::tap_colors`) and removes the coloured
+symbols they can pay, as many as can be (a maximum matching, so a white-and-
+blue creature is kept for the `{U}` a white one cannot pay); a tap that paid
+no colour pays generic mana, which comes off the count the caller has left.
+`{W}`, hybrid, Phyrexian and `{2/W}` symbols take their colour's tap; `{C}`,
+snow and X take none. One function for the four readers that must agree:
+the offer's probes (`casting::keyword_priced`, used by `can_cast` and
+`cast_options`), the tap question's bound (the coloured symbols the sources
+can pay plus the generic delve has left), the payment (`pay_and_cast`) and
+the payment window's owed cost (`Engine::wizard_paid`). Until #230 the taps
+paid generic mana alone: Chord of Calling (`{X}{G}{G}{G}`) was castable only
+when the lands made all its green. The free-cast and escape probes
+(`free_face_affordable`, `free_cost_affordable`, escape) still count the taps
+as generic, which can only leave a legal cast unoffered, never offer one the
+payment refuses.
+
 ## Two instances of "target", and a board that moves mid-resolution
 
 CR 115.3 counts targets per **instance of the word**: Khalni Ambush's "target
@@ -1828,6 +1896,29 @@ Rebound, suspend, miracle, flashback, evoke, adventures, plot, foretell,
 madness, disturb decompose into: `CastPermission` (zone/cost/timing
 override) + `PendingCast` (with expiry) + `DelayedTrigger` + `ExileRider`.
 Keywords exist on stack objects (rebound can be granted).
+
+**Foretell is two actions with two prices** (CR 702.143a). `FaceDef::foretell`
+holds only the later cast's printed mana cost. While its owner has priority on
+their own turn, `engine/foretell` offers a {2} special action in
+`LegalActions::foretellable`; this is not sorcery timing, so combat and a
+nonempty stack do not close it. With the {2} still in the lands it is a
+planning hint, `LegalActions::unpaid_foretell`, while a mana ability is on
+offer (CR 605.3a): the seat taps, then foretells. The action uses no stack, exiles that hand card
+face down and marks the exact incarnation with `Rider::Foretold` and the turn.
+Only its owner may inspect it, and only that incarnation may be cast after that
+turn for the printed foretell cost, with the card's ordinary timing. It has no
+time counters and no linked host. `Amount::XIfSourceWasForetold` reads how the
+resolving spell was cast, so Starnheim Unleashed also covers its ordinary cast.
+The rider survives a move from exile to exile only: the cast writes it again on
+the spell (CR 702.143c), and a foretold spell exiled from the stack is a new
+object with no foretell permission (CR 400.7; `foretell_tests`).
+
+The desktop plans {2} for the special action rather than the later cast cost,
+offers both choices where ordinary casting is also possible, and treats an
+offered or planned action as something to do for auto-pass purposes. Codegen
+accepts only `K:Foretell:<complete mana cost>`; a non-mana or extended spelling
+is refused instead of producing a partially translated card.
+
 Casting a permanent card from a graveyard under a player's permission
 (Muldrotha, Wrenn and Realmbreaker's emblem) has one reader,
 `casting::graveyard_cast_permission`, which the offer, `can_cast_form`, the
@@ -1934,6 +2025,70 @@ targets with `retarget::start_copy` (CR 707.10c). A copy carries the
 count, as it carries every decision made for the spell (CR 707.10), and
 copies nothing further: a copy is not cast, so no `SpellCast` names it.
 
+**Buyback and multikicker are questions on top of a way of casting** (CR
+702.27a, 702.33c), not ways of casting: each adds to whichever way was chosen,
+a free cast's and an alternative cost's included (CR 118.8a, 118.9d), so
+neither is a `CastModeKind`. `cast_wizard/announced_costs.rs` asks them, in the
+`Buyback` and `Multikicker` stages between `Kicker` and `Replicate`, after X as
+the kicker is (CR 601.2b lists all of it as one announcement, and nothing
+reads the order). A question is asked only when a yes could be paid: parts
+through `casting::additional_payment_capacity_for`, with a `CostChoice` that
+says buyback was announced, and mana either floating or still to be made.
+Mana to be made counts (CR 601.2g), so a multikicker's bound is
+`REPLICATE_CEILING` while a source is left, as an X's is, and a count the
+window cannot reach is reversed there (CR 601.2h, 733.1). `CastWizard::buyback`
+holds what comes off the printed mana, a number since the wizard rides in every
+`Engine` by value, and
+`wizard_total_before_reduction` adds both, so the frozen reductions of CR
+601.2f reach them. Non-mana parts are paid with the mandatory ones, a random
+discard last (CR 601.2h), and a buyback's `Sacrifice` does not touch the
+sacrifice receipt, which is the printed additional cost's (CR 607.2i).
+
+The ending is one branch of `finalize_spell`, which is why no other door needs
+to know: `Rider::Buyback` is read there, at CR 608.2n, and a spell countered
+(CR 701.6a) or with no target left (CR 608.2b) leaves by another door. A copy
+carries the rider (CR 707.10) and is sent nowhere: `is_card` is false, it takes
+a copy's ending (CR 704.5e). The rider goes when the object leaves the stack by
+any door (CR 400.7).
+
+**A resolved spell's competing endings are its controller's to choose** (CR
+616.1, 616.1e). Buyback (CR 702.27a), rebound (702.88a), an Adventure (715.3d)
+and whatever `replacement::graveyard_destination` finds (Yawgmoth's Will,
+Dauthi Voidwalker, a one-shot graveyard permission) all replace CR 608.2n's one
+move, none is of the kinds CR 616.1a–d put first, and once one is applied the
+card is not going to the graveyard and nothing is left for the rest (616.1f).
+`Engine::spell_endings` lists them. With two or more,
+`Engine::ask_spell_ending` asks the spell's controller, a
+`Pending::ChooseCastMode` of `CastModeKind::SpellEnding` held by
+`PlanKind::SpellEnding`, and the spell stays on the stack with its work done
+until the answer calls `Engine::finish_spell`. A plan and not a suspended
+resolution, because a spell with no effects reaches `finalize_spell` with no
+`Resolution` at all. It is asked after `finish_resolution` has emptied
+`state.reflexive`, which must be empty while a question is out. `asked` is the
+controller, so a controlled player's answer is their controller's through
+`controlled_actor` (CR 723.5). A concession asks again from what is left (it
+expires the departed's rules first, since the leaving was an event of its own,
+#291); with one ending left nobody is asked and it applies.
+
+Chosen `SpellEnding::Exile` goes to `move_object` as a move to the graveyard,
+because the move is what applies the replacement and counts its counters. An
+Adventure that takes another ending turns back to its front face first (CR
+715.4), and rebound then casts that creature free.
+
+Flashback (and what shares its rider) is not offered beside any of them: it
+exiles "instead of putting it anywhere else" (CR 702.34a),
+so the hand a buyback chose would be exiled too and every order ends alike. Not
+asked for that reason, and known not to be exact: flashback beside Dauthi
+Voidwalker exiles without the void counter, where CR 616.1e would let the
+controller take either. No spell is worse off for it, and it matters only to the
+player controlling them.
+
+`GameObject::times_kicked` beside `kicked` is the count: a multikicker's, or 1
+for a kicker. Both stay with the permanent the spell became (CR 400.7d), both
+go when it arrives from anywhere else (`apply_enter_modifiers`, with the X), and
+an `ETB` trigger takes them onto the ability on the stack with the X, so
+`Effect::IfKicked` asks one object whatever is resolving.
+
 **A back face's mana value is its front face's** (CR 202.3b). A nonmodal
 double-faced card's back face has no mana cost, and up on the battlefield
 (CR 712.8e) or cast transformed (CR 712.8c) its mana value is computed
@@ -2033,6 +2188,18 @@ ones writing them out gives (`state::tests::the_remembered_hash_is_the_written_h
 `hasher::tests`); a change that alters them breaks every stored record's replay
 and is a decision, not an optimisation.
 
+So a rule that is new writes nothing into a game that never meets it. A field
+the hash reads writes nothing while it is unset, or stays out if it follows from
+what the hash already covers (`Player::upkeep_began`, read off the turn clock).
+`derive(Hash)` writes a variant's number, so a new variant goes at the end of its
+enum and one that leaves must not move the rest: an `Effect` takes its slot, and
+`DelayedAction` says the number of the first variant after its gap
+(`a_delayed_action_keeps_the_number_a_written_record_holds`). A step of
+`Engine::snapshot_hash` that has nothing left to fold in stays, as the
+multiplication it was. `record::seen`'s acceptance record is not refreshed to
+get past any of this: it is the check that a record already written still
+replays, and the fixture is for a rule that changed that game.
+
 `Engine::snapshot_hash` is not a complete comparison: it leaves out the
 journal, the open question and its bookkeeping (`pending`, `pending_plan`, the
 cast wizard, `priority_holder`, `awaiting_answer`, `resolve_next`,
@@ -2040,6 +2207,180 @@ cast wizard, `priority_holder`, `awaiting_answer`, `resolve_next`,
 and its latches, `delayed_queue` and most of `trigger_queue`, so two engines
 that hash equal can still answer the next question differently; the complete
 comparison is `Engine::fingerprint` (feature `fuzz`), which names every field.
+
+## Forking a simulation (training and evaluation)
+
+`Engine::fork_for(seat, decks, policy_seed)` (`engine/simulation.rs`) is
+the lookahead seam for a harness that already owns the real engine — the
+evaluator, `eval4`, runs its games in-process through
+`baylee_gamehost::session::Session`. It is **not** for live play: a seat
+playing over the gateway has no engine to fork, and
+`docs/proposals/lookahead-design.md` remains the design for that one. It
+needs `L: CardLookup + Clone`; the registry lookups are unit structs. It
+exists only under the engine's `simulation` feature (gamehost forwards it):
+`cargo dev gate shipped-features` fails when any crate outside the training
+crates enables it, so no hosting build can fork a live game. The training
+crates turn it on through `baylee-train/onnx`, never a default:
+`cargo build-servers` and `build-client` select `--workspace`, so a default
+of any member, a training crate's too, unifies into every shipped binary.
+`baylee-train/play` is a default and would have leaked it there. The gate's
+`verification-hooks-unified` step reads the whole workspace's graph inverted
+on the engine and fails on exactly that; it was checked red with
+`simulation` in `play`.
+
+A harness that plays through a session forks the session instead:
+`Session::fork_for(seat, decks, policy_seed)` (`baylee-gamehost`,
+`session/simulation.rs`, under gamehost's `simulation` feature and in its own
+tests through a dev edge) wraps the engine's fork in a `SimulationSession`.
+Every chair keeps its kind — a driven chair stays driven, and `release`
+hands it to the agent it kept — and every house agent is the chair's own,
+reseeded from the policy seed (never from the table's game id or deal).
+Agent views and house answers are built by the same code as the table's
+(`session/table.rs`), so the searching seat is shown what the table would
+show it and the house plays as it plays there; there is no record, log,
+envelope, clock or spectator, and `act_slice`/`pump_at_most` return counts.
+It takes `&self`; `session/tests/simulation.rs` pins that a table forked and
+played on records, byte for byte, what its twin records.
+
+A fork is the whole engine copied field by field, so it carries the complete
+driver continuation — priority holder, passes, a regrant owed, combat
+declaration progress, the cleanup stage, loyalty used, the loop watch's step
+count — and no resume point has to be rebuilt. `Engine` is deliberately not
+`Clone`: an undisguised copy is the real game's hidden cards and random
+stream, so the copy (`simulation::driver::duplicate`) is private and
+`fork_for` disguises it before returning. Then, in the fork:
+
+- **Hidden cards are dealt again.** Pools per owner: each opponent's hand
+  and library together (the seat knows each one's size and nothing about
+  which card is where), each opponent's cards outside the game, and the
+  seat's own library. A pool's identities (card, print, rules print, deck
+  choices) are sorted by identity — never by `ObjectId` or position — then
+  shuffled on the policy seed's `belief` stream and dealt into the same
+  zones at the same sizes as **new objects** with fresh ids, version 0 and
+  timestamp 0. The old objects are removed from the fork's arena. Ids are
+  handed out in deck-list order at setup, so a kept id would name its card
+  to anyone holding the list; new ids are allocated in zone order and say
+  nothing. What the seat can see now stays out of the deal, the same
+  objects in the same places: a hand revealed by a static (`hand_revealed`:
+  Revelation, Stromgald Spy), the hand of a player the seat controls
+  (`may_inspect_private`, CR 723.4), and a library top a static reveals
+  (`library_top_revealed`: Courser of Kruphix, Field of Dreams) — dealing
+  those would put a card there the seat knows is not, and with Courser
+  change which lands can be played from the top. What the seat knew earlier
+  about a hidden card (a top it saw, a card revealed from a hand and kept
+  there) is lost with it — losing knowledge is accepted, leaking it is not.
+- **Randomness** comes from the policy seed's `future` stream
+  (`GameRng::stream`: the policy seed's ChaCha8 key on a stream named for
+  its purpose). The real seed, word position and call count are not in the
+  fork.
+- **The journal** keeps its length and sequence numbers, because rules read
+  back into it (spells cast this turn, damage dealt since a source arrived,
+  an event's object by its sequence number) and the driver's cursors are
+  sequence numbers. `GameStarted`'s seed is zeroed; a move between two zones
+  the seat cannot see, and every mention of a removed id, name
+  `ObjectId::NO_SOURCE`; a developer command loses its text.
+- **Notes about hidden cards** that no rule in the fork can read any more
+  are dropped: the copies `damage_sources` keeps of every object as it left
+  a zone (`remember_damage_source`, pruned only at the end of the turn), for
+  each one taken in a library, outside the game or in another player's
+  hand — a draw keeps a copy of the card drawn; `per_turn.drawn`,
+  `instruction_drawn`, `wand_of_ith_targets` and `ability_fires` entries
+  naming a removed id; the dealt cards' entries in `printed_pt_cda` and
+  `offboard_static_candidates`, which the new objects take afresh; and the
+  `effect_text_overrides` of effects whose source the deal removed (parked
+  ones included, collected before the statics are re-synced, and dropped
+  only if the effect is still gone after the sync) or that quote a removed
+  card, as the end of the turn would drop them
+  (`prune_damage_sources`) — each names a removed card. No other override
+  goes: a phased-out permanent's statics are parked, not gone (CR
+  702.26b), and keep theirs.
+- **Settings**: no seat has capabilities; every other seat's standing
+  answers and priority holds are the defaults (they are that seat's private
+  setting); the forking seat keeps its own.
+- **Derived caches are rebuilt**, not copied: statics are synced
+  (`sync_board_rules`, which drops the removed objects' effects and
+  registers the dealt cards' off-battlefield statics), the projection is
+  invalidated and refreshed, and the priority offer is computed again.
+
+`DeckKnowledge::Known` is required. The multiset dealt is read off the real
+game, which is the opponent's submitted deck less what has been seen; that
+is the seat's to read only when every deck list is public to it (a
+published precon, a deck the harness chose). `Unknown` is refused until a
+public prior over decks exists. The interned names and the base cache are
+functions of the submitted lists and public play, so a fork keeps them.
+
+Every field of `GameState` is classified in one place,
+`GameState::audit_fork` (`state/fork.rs`), which destructures the state
+without `..` as the snapshot hash does, so a new field does not compile
+until somebody has said what a fork does with it: **carried** (public, or a
+function of the deck lists), **idle** (a continuation that must be empty —
+the entry pipeline, the state-based-action and counter-order choices, a
+graveyard-order batch, the draw, discard, miracle and copy queues, token
+cleanup — or the fork is refused), **rewritten** (by the deal, the journal
+rewrite or the settle), or **checked** for a public record naming a hidden
+card. The driver's fields are classified the same way in
+`simulation::driver`.
+
+**The invariant:** for fixed seat-visible facts and policy seed, the fork's
+hidden zones and future randomness are the same whatever the real hidden
+cards and RNG; forking and advancing the fork leave the real engine's
+state, hash and RNG unchanged. `engine/simulation_tests.rs` pins both
+halves against twin games, together with continuation (the same actions
+take source and fork to the same board; a pass already made is kept) and
+every refusal below.
+
+The invariant is about the hidden **arrangement**, not about **history**.
+A public object carries how it got where it is: a card's `version` counts
+every zone change it has made, the hidden ones included — a card put on the
+bottom by a London mulligan, or put back by Brainstorm and drawn again,
+shows more moves than its neighbour once it is public — and the effect
+table's identities and generation count every registration. A fork keeps
+that history as the game has it (a reader of the raw engine can count a
+public card's past moves, which the seat's view does not show); it deals
+the present, where every hidden card is, and does not rewrite what
+happened.
+
+**Refused** (`ForkRefusal`), because v1 cannot deal under them without
+leaking or dropping a rules fact: the opening mulligans (they run on streams
+of the real seed); any question but ordinary priority; any suspended
+operation, named by its driver field (a resolution, a payment window, a
+cast or activation in progress, queued triggers, entry questions, delayed
+or upkeep work, a library-top announcement, a draw or discard being asked,
+a reflexive trigger, triggers not yet scanned, and a miracle check queued —
+which the opening draws and each turn's first draw leave in
+`pending_miracle` until the engine has offered it (`offer_miracle`), so the
+upkeep of turn 1 is refused and a main phase is not, and a player's first
+draw in another's turn (their Brainstorm in my main phase) leaves it until
+everyone has passed on the empty stack (CR 702.94a)); a loop watch
+holding a signature (it hashes the real hidden cards) or breaking a loop;
+any face-down object (CR 708.2) and face-down exile (CR 406.3); a commander
+in a hidden zone; a hidden card with rules state of its own (counters, a
+status, riders, a copy's base, a face other than its front) — but not a
+stale `kind`: a permanent bounced to a hand is still marked a permanent
+there; a hidden card with a static that works in a hand or a library
+(`ZoneRef::Hand`, `Library`, `NotBattlefield`: Grist, the Hunger Tide),
+because every move between the two registers it again, moving the effect
+table's identities and generation and leaving a text override naming the
+card — a record of where it has been that a deal cannot rewrite; anything
+public pointing at a hidden card — an object's targets, its event object,
+its attachment, the source of the ability it is, what was discarded,
+sacrificed or tapped to pay for it, its riders; a play permission, a
+discovered card, a payment for a card, a delayed trigger's condition or
+action, a continuous effect about the card's current incarnation; another
+seat's standing answer in the journal (`AutoAnswered`; never in `eval4`,
+whose seats send no automation settings); an unknown deck. Every refusal
+depends on what the seat can see — when draws happened, what is public,
+what the pool's multiset is — never on where a hidden card is.
+
+The twin-game test compares the two forks with `Engine::fingerprint` (every
+field) and their whole journals, so a new field or note that carries a real
+hidden card into a fork fails it as soon as the fixture exercises it — that
+is how the `damage_sources` copies were found, and the review's Grist
+override. It exercises draws, land plays, casting and passing, sideboards,
+a card defining its own power and toughness and one with a graveyard
+static; mechanics it does not reach (searches, wishes, cards put back into
+a library) are covered by the refusals and the field-by-field rules above,
+not by a twin comparison yet.
 
 ## Control rotation at a multiplayer table
 
@@ -2066,16 +2407,16 @@ that original calculation restored.
    its owner. Under a later thief it goes back to the earlier one. Their
    control of a player ends too, both ways the engine keeps one as an
    effect: Opposition Agent's `SearchTakeover` hold on a searching player
-   (CR 722.2), and Mindslaver's control of a player's next turn
-   (`GameState::turn_controls`, CR 722.1), waiting or under way, whether
+   (CR 723.2), and Mindslaver's control of a player's next turn
+   (`GameState::turn_controls`, CR 723.1), waiting or under way, whether
    they are its controller or the player it controls. A search they were
    making for somebody else when they left goes back to that player, with
-   the same cards and limits, to finish as their own search (CR 722.5).
+   the same cards and limits, to finish as their own search (CR 723.5).
 3. What a permanent of theirs held "until it leaves the battlefield" comes
    back (CR 610.3, `GameState::return_what_departed_hosts_held`): their
    permanents left without a move, so this is the one departure
    `move_object` does not see. If they were the monarch, the crown passes
-   as they leave (CR 724.4, `GameState::monarch_leaves`): to the active
+   as they leave (CR 725.4, `GameState::monarch_leaves`): to the active
    player, or, when the leaver is the active player, to the next player in
    turn order still in the game, and to nobody when nobody is left. It
    passes through `set_monarch`, so Palace Jailer's exile ends if the heir
@@ -2098,13 +2439,13 @@ the new one as well.
 
 A turn control waits through every turn its player does not take, other
 players' and extra turns among them, and through a turn of theirs that is
-skipped, which never begins (CR 722.1b). As the player's turn begins,
+skipped, which never begins (CR 723.1b). As the player's turn begins,
 `Engine::begin_turn` stamps the control with that turn's number
 (`PlayerTurnControl::began`); `controlled_actor` reads it only during the
 turn it was stamped with; and the next turn's beginning ends it, whoever
 takes that turn, the player's own extra turn included ("the effect doesn't
-end until the beginning of the next turn", CR 722.1). Of two waiting for
-the same player, the later works (CR 722.1a). Keyed on turn numbers alone
+end until the beginning of the next turn", CR 723.1). Of two waiting for
+the same player, the later works (CR 723.1a). Keyed on turn numbers alone
 it was dropped once two turns passed before the player's (seat 0's on seat
 3's, at four seats, or after its controller's two extra turns) and lasted
 on through an extra turn the player took right after

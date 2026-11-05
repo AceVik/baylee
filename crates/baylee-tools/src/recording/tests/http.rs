@@ -94,7 +94,11 @@ fn redirects_error_bodies_and_oversized_responses_are_rejected() {
         ),
         ("200 OK", "", br#"{"error":"busy"}"#.to_vec()),
         ("500 Failure", "", b"{}".to_vec()),
-        ("200 OK", "", vec![b' '; 1024 * 1024 + 1]),
+        (
+            "200 OK",
+            "",
+            [vec![b' '; 1024 * 1024], b"{}".to_vec()].concat(),
+        ),
     ] {
         let (port, peer) = server(status, headers, body);
         assert!(control::request(port, "status", None).is_err());

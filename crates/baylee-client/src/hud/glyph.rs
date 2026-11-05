@@ -35,6 +35,8 @@ pub const COMMAND: char = '\u{f521}';
 pub const CROWN: char = '\u{f521}';
 /// Chevron up: open the question's sheet from its pill.
 pub const CHEVRON_UP: char = '\u{f077}';
+/// Download: the card cache filling, in the header.
+pub const DOWNLOAD: char = '\u{f019}';
 /// Chevron down: fold the question's sheet to its pill.
 pub const CHEVRON_DOWN: char = '\u{f078}';
 /// Infinity: a hand no maximum size applies to, the mark alone.
@@ -166,3 +168,7 @@ pub const SEND: char = '\u{f1d8}';
 pub const SHIELD: char = COMMANDER_DAMAGE;
 /// Ellipsis: a row's menu.
 pub const MORE: char = '\u{f141}';
+/// Brain: a player whose decisions another makes (CR 723.5), on the
+/// control banner, a controlled chip's badge and the controlled hand's
+/// label, always beside its words (a mark alone would be colour's job).
+pub const CONTROL: char = '\u{f5dc}';

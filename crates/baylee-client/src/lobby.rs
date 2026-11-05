@@ -25,7 +25,6 @@ use std::sync::{Arc, Mutex};
 use crate::cardmat::{CardUiMaterial, UiCardMaterials, UiCards};
 use baylee_client_core as client_core;
 use baylee_client_core::deckbuilder::{BuildField, Zone};
-use baylee_client_core::filterdialog::FilterPanel;
 use baylee_client_core::i18n::{Lang, Phrase};
 use baylee_client_core::images::FinishTreatment;
 use baylee_client_core::lobby::gateway_info::Probe;
@@ -83,6 +82,7 @@ impl Plugin for LobbyPlugin {
         app.add_systems(Last, decks::flush_on_exit);
         #[cfg(not(target_arch = "wasm32"))]
         app.add_systems(Update, central::sync_gateways);
+        app.add_systems(Update, lend_the_pool.after(poll));
         // Closing the application only disconnects. Explicit table actions
         // alone may depart; dropping the World must leave the seat resumable.
         crate::vista::install(app);
@@ -432,6 +432,19 @@ impl Plugin for LobbyPlugin {
             // asked for.
             .init_resource::<crate::cardtext::TextGateway>()
             .add_systems(Update, (art_follows_the_session, text_follows_the_session))
+            .init_resource::<card_fill::FillBoard>()
+            .add_systems(
+                Update,
+                (
+                    card_fill::steer.after(art_follows_the_session),
+                    (
+                        card_fill::read,
+                        card_fill::show.after(card_fill::read).after(ui),
+                        card_fill::show_mark.after(card_fill::read).after(ui),
+                    )
+                        .run_if(in_state(DuelPhase::Closed)),
+                ),
+            )
             .add_systems(OnEnter(DuelPhase::Closed), (came_back, spawn_camera))
             .init_resource::<Hovered>()
             .add_message::<PointerOver>()
@@ -630,6 +643,8 @@ pub struct LobbyState {
     pub(crate) room_away: bool,
     /// The room's chair sheet (a language model, desktop builds), by seat.
     pub(crate) chair_sheet: Option<u32>,
+    /// Whether the host's choice of a list stands open.
+    pub(crate) lists_sheet: bool,
     /// The chair sheet lists the gateway's hosted models instead.
     pub(crate) hosted_sheet: bool,
     /// The room's seats show their side as a chip that steps on (Set teams).
@@ -668,6 +683,8 @@ pub(crate) struct SettingsView {
     /// (`table_settings`): only the sections `Section::at_table` admits are
     /// offered. Set while the table plays, and put down with it.
     pub(crate) over_table: bool,
+    /// The card cache's block.
+    pub(crate) fill: card_fill::FillView,
 }
 /// The settings overlay's state.
 ///
@@ -939,6 +956,7 @@ impl LobbyState {
             tours_before: None,
             room_away: false,
             chair_sheet: None,
+            lists_sheet: false,
             hosted_sheet: false,
             teams_edit: false,
             invite_copied: false,
@@ -1102,6 +1120,14 @@ enum Reply {
 /// What the shell should make of a successful response body.
 #[derive(Clone)]
 enum Expect {
+    /// `GET /banlists`.
+    Banlists,
+    /// One list and its cards, and what it was asked for.
+    Banlist(client_core::lobby::ListFor),
+    /// `204`: this list is gone.
+    BanlistDeleted(String),
+    /// A table's list; a `404` is a table that has none.
+    RoomList,
     Library(client_core::lobby::library::Request),
     /// `{"ok":true}` — nothing to read.
     Registered,
@@ -1142,6 +1168,7 @@ enum Expect {
 }
 
 mod build_press;
+pub(crate) mod card_fill;
 mod clicks;
 mod confirm;
 mod decks;
@@ -1174,6 +1201,7 @@ mod library_ui;
 #[cfg(not(target_arch = "wasm32"))]
 mod links;
 pub(crate) mod offline;
+mod poolfacts;
 mod press;
 pub(crate) mod preview;
 mod print_catalog;
@@ -1241,7 +1269,7 @@ use keyboard::keyboard;
 use preview::{Hovered, despawn_preview, hovers, preview, scroll_the_preview};
 use scrolling::scrolls;
 use systems::{
-    art_follows_the_session, came_back, leave_clicks, leave_keys, poll, softkeys,
+    art_follows_the_session, came_back, leave_clicks, leave_keys, lend_the_pool, poll, softkeys,
     text_follows_the_session, waiting, watch,
 };
 

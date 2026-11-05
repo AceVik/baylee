@@ -126,6 +126,9 @@ pub(super) fn event_object_for(
                 *blocker
             })
         }
+        (Trigger::ControlledBecomesBlocked(_), GameEvent::BecameBlocker { attacker, .. }) => {
+            Some(*attacker)
+        }
         (
             Trigger::BecomesBlockedBy(_) | Trigger::BecomesBlocked,
             GameEvent::BecameBlocker {

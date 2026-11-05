@@ -329,6 +329,23 @@ pub fn deciding<L: baylee_engine::state::CardLookup>(
         .collect()
 }
 
+/// Every player whose decisions another makes now, as every seat and
+/// spectator is told it ([`baylee_view::PlayerView::controls`]).
+#[must_use]
+pub fn player_controls<L: baylee_engine::state::CardLookup>(
+    engine: &baylee_engine::engine::Engine<L>,
+) -> Vec<baylee_view::PlayerControl> {
+    engine
+        .player_controls()
+        .into_iter()
+        .map(|(player, controller, source)| baylee_view::PlayerControl {
+            player,
+            controller,
+            source,
+        })
+        .collect()
+}
+
 /// Who `seat`'s view says the table is waiting for, for
 /// [`SeatContext::awaiting`].
 ///
@@ -391,12 +408,15 @@ pub fn decision_player_for<L: baylee_engine::state::CardLookup>(
 /// the two that should go red when the next field arrives.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct SeatContext<'a> {
+    /// Who decides for whom right now, public to every seat (CR 723). Pass
+    /// [`player_controls`].
+    pub controls: &'a [baylee_view::PlayerControl],
     /// All privately inspected cards, including ineligible picks. Visible
     /// only to the current choice's resource player and controlling actor.
     pub inspected_cards: &'a [ObjectId],
     /// The resource owner of the current decision, even when another player answers.
     pub decision_player: Option<PlayerId>,
-    /// Other players whose private information this viewer may inspect (CR 722.4).
+    /// Other players whose private information this viewer may inspect (CR 723.4).
     pub controlled_players: SeatSet,
     /// Libraries whose changed top must stay hidden until announcement ends (CR 401.5).
     pub library_reveal_blocked: SeatSet,
@@ -436,6 +456,22 @@ pub struct SeatContext<'a> {
     /// seat's own row, so no other seat's reaches it
     /// ([`PlayerView::policy_acts`]).
     pub policy_acts: &'a [Vec<PolicyAct>],
+    /// The ballots of the vote in progress. Pass `engine.ballots()`. Public:
+    /// every seat's view carries them all ([`PlayerView::ballots`]).
+    pub ballots: &'a [baylee_engine::resolve::Ballot],
+}
+
+/// The vote in progress as a view tells it: every ballot, to every seat and
+/// a spectator alike, since each was announced as it was cast (CR 608.2d).
+#[must_use]
+pub fn ballot_views(ballots: &[baylee_engine::resolve::Ballot]) -> Vec<baylee_view::Ballot> {
+    ballots
+        .iter()
+        .map(|ballot| baylee_view::Ballot {
+            voter: ballot.voter,
+            choice: ballot.choice,
+        })
+        .collect()
 }
 
 /// This seat's own hand, which is the one hand a view spells out.
@@ -531,6 +567,13 @@ pub fn player_view(
     house_answered: &[Option<HouseAnswer>],
 ) -> PlayerView {
     let mut references = None;
+    // Whose timing the view tells: the player this seat is deciding for, a
+    // controlled player under Mindslaver (CR 723.5), else the seat's own.
+    let decider = if ctx.awaiting == Some(seat) {
+        ctx.decision_player.unwrap_or(seat)
+    } else {
+        seat
+    };
     PlayerView {
         decision_player: ctx.decision_player,
         controlled_hands: ctx
@@ -581,6 +624,7 @@ pub fn player_view(
         exile: per_seat_zone(state, ZoneLocation::Exile, seat, ctx.controlled_players),
         command: per_seat_zone(state, ZoneLocation::Command, seat, ctx.controlled_players),
         combat: combat_view(state),
+        ballots: ballot_views(ctx.ballots),
         looking_at: looking_at(state, seat, pending, ctx),
         damage_sources: damage_sources(state, seat, pending, ctx, &mut references),
         target_objects: target_objects(state, seat, pending, ctx, &mut references),
@@ -612,13 +656,45 @@ pub fn player_view(
                         matches!(
                             fx.modifier,
                             baylee_cards_dsl::Modifier::OpponentsCastAsSorcery
-                        ) && state.is_opponent(fx.controller, seat)
+                        ) && state.is_opponent(fx.controller, decider)
                     })
                     .and_then(|fx| fx.source)
             })
             .flatten(),
-        sorceries_have_flash: sorceries_have_flash(state, seat),
+        sorceries_have_flash: sorceries_have_flash(state, decider),
+        flash_types: flash_types(state, decider),
+        controls: ctx.controls.to_vec(),
+        foreign_targets: state
+            .zones
+            .list(ZoneLocation::Stack)
+            .iter()
+            .copied()
+            .filter(|&id| state.targets_chosen_by_another(id))
+            .collect(),
     }
+}
+
+/// The card types `seat` may cast as though they had flash by an effect it
+/// controls (`Modifier::SpellsHaveFlash`: Alchemist's Refuge, Leyline of
+/// Anticipation, Vivien, Champion of the Wilds), the same reading
+/// `casting::timing_allows` makes. `None` there is every spell, so every
+/// card type here.
+fn flash_types(state: &GameState, seat: PlayerId) -> baylee_core::types::TypeSet {
+    use baylee_core::types::TypeSet;
+    if !state.effects.may_change_cast_timing_or_lock() {
+        return TypeSet::EMPTY;
+    }
+    state
+        .effects
+        .iter()
+        .filter(|fx| fx.controller == seat)
+        .fold(TypeSet::EMPTY, |types, fx| match fx.modifier {
+            baylee_cards_dsl::Modifier::SpellsHaveFlash(None) => TypeSet::CARD_TYPES
+                .iter()
+                .fold(types, |all, one| all.union(*one)),
+            baylee_cards_dsl::Modifier::SpellsHaveFlash(Some(mask)) => types.union(mask),
+            _ => types,
+        })
 }
 
 /// Every seat's public numbers, alike in every view and the spectator's.
@@ -671,6 +747,8 @@ pub const SPECTATOR: PlayerId = PlayerId::new(u8::MAX);
 /// which is asked for [`SPECTATOR`], a viewer who controls nothing and is in
 /// no set. `awaiting` is the seat every other seat is told the table waits
 /// for, and `library_reveal_blocked` holds a top back as it does for seats.
+/// `ballots` is the vote in progress (`engine.ballots()`), public to a
+/// spectator as to every seat.
 #[must_use]
 pub fn spectator_view(
     state: &GameState,
@@ -679,6 +757,7 @@ pub fn spectator_view(
     deciding: SeatSet,
     library_reveal_blocked: SeatSet,
     house_answered: &[Option<HouseAnswer>],
+    ballots: &[baylee_engine::resolve::Ballot],
 ) -> baylee_view::SpectatorView {
     let nobody = SeatSet::new();
     baylee_view::SpectatorView {
@@ -699,6 +778,9 @@ pub fn spectator_view(
         command: per_seat_zone(state, ZoneLocation::Command, SPECTATOR, nobody),
         combat: combat_view(state),
         revealed_hands: revealed_hands(state, None),
+        ballots: ballot_views(ballots),
+        // What only the engine knows; `Session::spectator_view` fills it in.
+        controls: Vec::new(),
         library_tops: state
             .players
             .iter()
@@ -841,14 +923,36 @@ pub(crate) fn targeting_context<L: baylee_engine::state::CardLookup>(
         source.token = Some(token.get() - 1);
     }
     let text = source.rules.and_then(|rules| {
+        let face = usize::from(rules.face);
         let line = if let Some(mode) = context.mode {
-            baylee_cards::lines::mode_line(rules.card, usize::from(rules.face), mode)
+            baylee_cards::lines::mode_line(rules.card, face, mode)
+        } else if let Some(index) = context.ability_index {
+            baylee_cards::lines::ability_line(rules.card, face, index).or_else(|| {
+                if index != baylee_core::ids::AbilityRef::SYNTHETIC {
+                    return None;
+                }
+                let text = baylee_cards::oracle::face(rules.card, face)?;
+                let of = u8::try_from(baylee_core::oracle::sentence_count(text)).ok()?;
+                if of == 1 {
+                    return Some(baylee_cards::lines::AbilityLine { line: 0, of: 1 });
+                }
+                let mut matches = baylee_core::oracle::sentences(text)
+                    .enumerate()
+                    .filter(|(_, s)| {
+                        let lower = s.to_ascii_lowercase();
+                        lower.contains("when you do")
+                            || (lower.contains("when a ") && lower.contains("this way"))
+                            || (lower.contains("whenever ") && lower.contains("target"))
+                    })
+                    .filter_map(|(i, _)| u8::try_from(i).ok());
+                let line = matches.next()?;
+                matches
+                    .next()
+                    .is_none()
+                    .then_some(baylee_cards::lines::AbilityLine { line, of })
+            })
         } else {
-            baylee_cards::lines::ability_line(
-                rules.card,
-                usize::from(rules.face),
-                context.ability_index?,
-            )
+            None
         }?;
         Some(baylee_view::StackText {
             face: rules.face,

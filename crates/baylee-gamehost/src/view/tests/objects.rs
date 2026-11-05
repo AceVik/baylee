@@ -534,3 +534,53 @@ fn dungeon_and_room_ability_are_not_reported_as_creature_tokens() {
         assert!(!public.status.contains(baylee_view::ObjectStatus::TOKEN));
     }
 }
+
+/// What a spell was cast with is public: it was announced (CR 601.2b), so
+/// every seat reads it off the stack. A permanent keeps its count for its own
+/// abilities (CR 400.7d), and nobody is told it again.
+#[test]
+fn a_spell_on_the_stack_shows_every_seat_how_it_was_kicked_and_bought_back() {
+    let bears = baylee_cards::by_oracle_id("14c8f55d-d177-4c25-a931-ebeb9e6062a0")
+        .expect("Grizzly Bears is in the pool")
+        .index;
+    let entry = DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
+        card: bears,
+        print: PrintRef::new(0),
+    };
+    let mut preset = mixed_print_preset();
+    preset.seats[0].starting_battlefield = vec![entry, entry];
+    let mut state = GameState::from_preset(&preset, &Registry).unwrap();
+    let bears: Vec<ObjectId> = state.zones.list(ZoneLocation::Battlefield).clone();
+    let [spell, permanent] = bears[..] else {
+        panic!("two Grizzly Bears on the battlefield, got {bears:?}");
+    };
+    state
+        .move_object(
+            spell,
+            ZoneLocation::Stack,
+            baylee_engine::zone::ZonePosition::Top,
+            baylee_engine::event::Cause::Spell,
+        )
+        .unwrap();
+    {
+        let object = state.object_mut(spell).unwrap();
+        object.kind = ObjectKind::Spell;
+        object.kicked = true;
+        object.times_kicked = 3;
+        object.riders.push(baylee_engine::object::Rider::Buyback);
+    }
+    state.object_mut(permanent).unwrap().times_kicked = 2;
+    state.refresh_characteristics();
+
+    for seat in [PlayerId::new(0), PlayerId::new(1)] {
+        let view = player_view(&state, seat, 0, None, &SeatContext::default(), &[]);
+        let on_stack = view.stack.iter().find(|o| o.id == spell).unwrap();
+        assert_eq!(on_stack.times_kicked, 3);
+        assert!(on_stack.bought_back);
+        let on_table = view.battlefield.iter().find(|o| o.id == permanent).unwrap();
+        assert_eq!(on_table.times_kicked, 0);
+        assert!(!on_table.bought_back);
+    }
+}

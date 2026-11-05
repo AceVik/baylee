@@ -2,6 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the input module's shared vocabulary
 use super::*;
+use baylee_client_core::cardsearch::Gesture;
 
 /// What else may hold the keys besides the table: the report form, the
 /// arrangement menu, the sentence of the stack entry the cursor is on, and
@@ -71,27 +72,12 @@ pub fn keyboard(
         arrangement_menu_keys(fired, &mut typed, &mut duel, &mut settings, frame);
         return;
     }
-    // The keystroke that opened the panel is not a keystroke for the box.
-    // `G` opens the sheet on a frame where nothing here reads the message
-    // queue, so the character is still standing in it when the box takes the
-    // keyboard a moment later — and `browser_keys` would type it the first
-    // time it looks. Advancing this reader past whatever is pending on the
-    // frame the box *gains* the keyboard is the whole guard, and it is the
-    // right shape for the click path too: a key pressed before the box was
-    // clicked belongs to the table it was pressed over.
-    //
-    // A bool rather than `typing_epoch`, which counts re-seedings of the
-    // platform's own field as well as focus and would drop a character every
-    // time `Esc` emptied the box.
-    let typing = duel.browser.is_typing();
-    if typing && !*had_keyboard {
-        typed.clear();
-    }
-    *had_keyboard = typing;
+    keep_the_opening_key_out_of_the_box(&duel, &mut typed, &mut had_keyboard);
     // Before the quiet check, and not after it: a letter typed into the type
     // filter is usually bound to no action at all, so `Fired` is empty for
     // exactly the keys the box cares about most.
     if subtype_keys(
+        &keys,
         fired,
         &mut typed,
         &mut duel,
@@ -261,6 +247,11 @@ pub(super) fn look_around(
     }
     if fired.has(Action::FocusHome) {
         navigate_home(duel);
+    }
+    // The next chair this seat may play from: its own, then each player it
+    // controls (CR 723.5). With nobody controlled it does nothing.
+    if fired.has(Action::CyclePerspective) {
+        duel.cycle_perspective(true);
     }
     if fired.has(Action::HandDrawer) {
         duel.toggle_hand_drawer();
@@ -486,11 +477,35 @@ fn visible_types(duel: &Duel, lang: baylee_client_core::Lang) -> Vec<crate::choi
                 &p,
                 lang,
                 duel.statics.as_ref(),
-                &duel.subtype_filter,
+                duel.chooser_search(),
                 crate::choices::FaceNames::default(),
             )
         })
         .unwrap_or_default()
+}
+
+/// The keystroke that opened the panel is not a keystroke for the box.
+/// `G` opens the sheet on a frame where nothing here reads the message
+/// queue, so the character is still standing in it when the box takes the
+/// keyboard a moment later — and `browser_keys` would type it the first
+/// time it looks. Advancing this reader past whatever is pending on the
+/// frame the box *gains* the keyboard is the whole guard, and it is the
+/// right shape for the click path too: a key pressed before the box was
+/// clicked belongs to the table it was pressed over.
+///
+/// A bool rather than `typing_epoch`, which counts re-seedings of the
+/// platform's own field as well as focus and would drop a character every
+/// time `Esc` emptied the box.
+fn keep_the_opening_key_out_of_the_box(
+    duel: &Duel,
+    typed: &mut MessageReader<KeyboardInput>,
+    had_keyboard: &mut bool,
+) {
+    let typing = duel.browser.is_typing();
+    if typing && !*had_keyboard {
+        typed.clear();
+    }
+    *had_keyboard = typing;
 }
 
 /// Typing into the creature-type filter, and walking what it leaves.
@@ -503,6 +518,7 @@ fn visible_types(duel: &Duel, lang: baylee_client_core::Lang) -> Vec<crate::choi
 ///
 /// Returns whether it consumed the frame.
 fn subtype_keys(
+    codes: &ButtonInput<KeyCode>,
     fired: Fired,
     typed: &mut MessageReader<KeyboardInput>,
     duel: &mut Duel,
@@ -514,9 +530,22 @@ fn subtype_keys(
     ) {
         return false;
     }
-    let before = duel.subtype_filter.clone();
+    let naming = duel.naming_a_card();
+    let before = duel.chooser_search().text.to_string();
+    let chords = crate::filterui::Chords::read(codes);
     for event in typed.read() {
         if !event.state.is_pressed() {
+            continue;
+        }
+        if naming {
+            // The search every card list has. Enter in the box stays the
+            // chooser's own, which takes the highlighted row; in a row of
+            // the builder it hands the caret back.
+            if let Some(gesture) = crate::filterui::gesture(event, chords)
+                .filter(|gesture| duel.naming.search.typing_in_panel() || *gesture != Gesture::Done)
+            {
+                duel.naming.search.gesture(gesture);
+            }
             continue;
         }
         match &event.logical_key {
@@ -533,7 +562,7 @@ fn subtype_keys(
         }
     }
     let rows = visible_types(duel, lang);
-    if duel.subtype_filter != before {
+    if duel.chooser_search().text != before {
         // The highlight follows the list. A row that has just been filtered
         // away must not stay picked, or Confirm answers a type the player can
         // no longer see.
@@ -545,17 +574,28 @@ fn subtype_keys(
         return true;
     }
     if fired.has(Action::Cancel) {
-        // The typed filter first; with nothing typed, `Esc` goes on down
-        // the question's ladder (a cast's question is taken back there).
-        if duel.subtype_filter.is_empty() {
+        // A builder row gives the caret back and the builder stays. Then the
+        // typed filter; with nothing typed, `Esc` goes on down the question's
+        // ladder (a cast's question is taken back there).
+        if duel.naming.search.typing_in_panel() {
+            duel.naming.search.gesture(Gesture::Done);
+            return true;
+        }
+        if duel.chooser_search().text.is_empty() {
             return false;
         }
         duel.subtype_filter.clear();
+        duel.naming.search.field.clear();
         return true;
     }
-    let step = i32::from(fired.has(Action::CursorDown)) - i32::from(fired.has(Action::CursorUp))
-        + i32::from(fired.has(Action::CursorRight))
-        - i32::from(fired.has(Action::CursorLeft));
+    // Left and right are the caret's in a box that has one.
+    let along = if naming {
+        0
+    } else {
+        i32::from(fired.has(Action::CursorRight)) - i32::from(fired.has(Action::CursorLeft))
+    };
+    let step =
+        i32::from(fired.has(Action::CursorDown)) - i32::from(fired.has(Action::CursorUp)) + along;
     let picked = duel.interaction.as_ref().and_then(crate::choices::picked);
     if step != 0 && !rows.is_empty() {
         let at = picked

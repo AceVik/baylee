@@ -535,11 +535,9 @@ fn a_pact_is_not_cast_when_its_price_loses_or_outweighs_the_spell() {
     );
 }
 
-/// A pact's price (a delayed trigger, CR 603.7) is demanded by the engine
-/// once a round of passes on an empty stack closes the upkeep
-/// (`upkeep_payments`), from the lands this seat has then. Nothing in the view says one is owed, so this seat spends
-/// nothing in its own upkeep on an empty stack — here a fetchland, which
-/// the draw step cracks as before.
+/// Nothing cast in this seat's own upkeep could not as well be cast a step
+/// later, so on an empty stack it spends nothing — here a fetchland, which the
+/// draw step cracks as before.
 #[test]
 fn a_seat_spends_nothing_in_its_own_upkeep() {
     let mut v = view(0, &[20, 20], vec![card(1, ME, "Arid Mesa", TypeSet::LAND)]);
@@ -556,6 +554,70 @@ fn a_seat_spends_nothing_in_its_own_upkeep() {
         agent().act(&v, &offering(vec![(obj(1), 0)])),
         activates(1, 0),
         "in the draw step"
+    );
+}
+
+/// Echo waits on the stack, and the mana it will ask for waits with it: a
+/// fetchland is not cracked over it, where an ability of this seat's that asks
+/// for nothing leaves the round an ordinary one. Keldon Champion prints haste,
+/// echo and an enters trigger, in that order.
+#[test]
+fn a_seat_spends_nothing_over_its_own_echo() {
+    use baylee_cards_dsl::AbilityDef;
+    let champion = body(2, "Keldon Champion", 2, 2);
+    let abilities = baylee_cards::by_index(champion.rules.expect("a printed card").card)
+        .expect("in the pool")
+        .abilities;
+    let index_of = |wanted: fn(&AbilityDef) -> bool| {
+        u32::try_from(
+            abilities
+                .iter()
+                .position(wanted)
+                .expect("the Champion prints it"),
+        )
+        .unwrap()
+    };
+    let echo = index_of(|a| matches!(a, AbilityDef::Echo { .. }));
+    let enters = index_of(|a| matches!(a, AbilityDef::Triggered { .. }));
+
+    let mut v = view(
+        0,
+        &[20, 20],
+        vec![card(1, ME, "Arid Mesa", TypeSet::LAND), champion.clone()],
+    );
+    v.phase = baylee_view::Phase::Beginning;
+    v.step = baylee_view::Step::Upkeep;
+    v.stack = vec![waiting(70, &champion, echo)];
+    assert_eq!(
+        agent().act(&v, &offering(vec![(obj(1), 0)])),
+        PlayerAction::PassPriority,
+        "under its echo"
+    );
+
+    v.stack = vec![waiting(70, &champion, enters)];
+    assert_eq!(
+        agent().act(&v, &offering(vec![(obj(1), 0)])),
+        activates(1, 0),
+        "under an ability that asks for nothing"
+    );
+}
+
+/// The price of a pact is a printed ability of the card, on the stack by its
+/// place in the list, and a seat keeps its mana for it as for echo.
+#[test]
+fn a_seat_spends_nothing_over_its_own_pacts_price() {
+    let mut v = view(0, &[20, 20], vec![card(1, ME, "Arid Mesa", TypeSet::LAND)]);
+    v.phase = baylee_view::Phase::Beginning;
+    v.step = baylee_view::Step::Upkeep;
+    let pact = carded(
+        permanent(obj(3), ME, 0),
+        "Pact of Negation",
+        TypeSet::INSTANT,
+    );
+    v.stack = vec![waiting(70, &pact, 1)];
+    assert_eq!(
+        agent().act(&v, &offering(vec![(obj(1), 0)])),
+        PlayerAction::PassPriority
     );
 }
 

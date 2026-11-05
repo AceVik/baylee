@@ -12,6 +12,69 @@ The earlier feedback handoff's "seven Alpha Partials" tracked only seven cards
 whose cast-only tests were backfilled, not the entire set. Its subsequent "one
 remaining" claim was incorrect. This complete inventory supersedes those counts.
 
+## Buyback and multikicker — 2026-11-04
+
+Owner request, for the engine and every client of it. Rules read in the
+Comprehensive Rules of 25 September 2026 (702.27a, 702.33c–e, 601.2b, 601.2f–h,
+608.2b, 608.2n, 701.6a, 702.34a, 616.1e, 707.10, 704.5e, 118.7a, 118.8d, 118.9d,
+400.7d, 607.2i).
+
+- **Buyback, every spell that prints it:** the 26 that were
+  `Coverage::Partial` for it are `Implemented`, each played paid, declined,
+  countered and, where it has a target, with its target gone.
+- **Memory Crystal** ("Buyback costs cost {2} less") is `Implemented`, adopted
+  from its stub (`Modifier::BuybackCostsLess`).
+- **Whim of Volrath** is `Implemented`, adopted from the stub the review of PR
+  394 held it back to: its text change now ends with the turn
+  (`Effect::ChangeTextWordThisTurn`, `TextChanges::end_turn`).
+- **Corpse Dance** is `Implemented`, adopted from the stub the review of PR 394
+  held it back to, which had found any creature returned, and for good.
+  `Effect::TopOfYourGraveyard` names the top creature card of the ordered pile
+  without targeting it (CR 404.2, 115.1), the effects a target has then return
+  it, give it haste and exile it at the next end step, and a game holding the
+  card has its owners order what falls together (CR 404.3). Shallow Grave says
+  the same sentence and is one card file away (`docs/generated-held-back.md`).
+- **Multikicker:** no card in the pool prints it and none was added. A real one
+  needs `data/card-pool.txt`, a full `codegen` over the corpus, and its turn in
+  release order (Worldwake, 2010, against a frontier in the 1990s:
+  `docs/mechanics-roadmap.md` §E8). The rule is played on made-up cards
+  (`engine/multikicker_tests.rs`), and the reader reads `K:Multikicker:` and
+  `Count$TimesKicked`, so such a card comes out whole when its batch arrives.
+- The corpus is not on this machine. Every card here was hand-owned or adopted
+  with `codegen --adopt-stub`, and only `codegen --tables` ran.
+
+## Requested card completion — 2026-11-01
+
+The owner-requested card set is implemented with clause-playing tests: The One
+Ring, the named Angel and white-card package, Chrome Mox, Coalition Relic,
+Journey to Nowhere, The Birth of Meletis, the Elves-vs.-Goblins package, Oath of
+Druids, Force of Vigor, Fireblast, Fatal Push, Cabal Therapy, Call of the Herd,
+Doomskar and Starnheim Unleashed. Shared work includes foretell, card-type
+choices, reusable alternative/pitch-cost handling, chosen-type protection,
+voting and the associated desktop prompts.
+
+Verification on this source: `codegen --tables --check` and
+`hooks require-card-tests` pass; `validate` accepts all 12,542 cards; the full
+`engine::card_tests::` selection passes **13,979 tests with zero failures**.
+`cargo dev gate rules` reaches workspace lint but remains blocked because the
+deliberately untouched `baylee-train` crate lacks seven exhaustive match arms
+for the new `Pending::ChooseCardType` and `CastModeKind::Foretell` variants.
+No complete workspace gate is claimed until those compatibility arms are
+resolved and both required gates pass on the rebased source.
+
+The review (01.11.2026, `docs/llm-learnings.md`) added those arms on existing
+trained slots, fixed the card, engine and codegen defects listed there,
+restored the 287 review holds the full codegen run had dropped, and returned
+four cards that run finished wrong (Hazy Homunculus, Wall of Vipers,
+Opalescence, Mercenary Informer) to their stubs (`docs/generated-held-back.md`).
+
+The follow-up review (02.11.2026) completes those four cards with corrected
+clauses and individual tests, and closes the cross-crate compatibility gaps.
+Public ballots now reach every seat and spectator; Foretell reaches the LLM
+wake/menu path and neural candidates; counter replacement ordering rechecks
+applicability after Giada introduces the first counter. The PR records the
+final full-workspace and feature-gate results.
+
 ## Limited Edition Alpha
 
 290 distinct Oracle identities in `set_lea.rs`: **286 Implemented, 0 Partial,

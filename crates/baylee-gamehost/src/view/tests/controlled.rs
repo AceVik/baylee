@@ -90,3 +90,45 @@ fn wide_public_mana_counts_keep_each_type_and_the_full_total() {
     let decoded: PlayerView = serde_json::from_str(&serde_json::to_string(&view).unwrap()).unwrap();
     assert_eq!(decoded.seats[0].mana_pool, view.seats[0].mana_pool);
 }
+
+/// The controller of a player sees the face of that player's face-down
+/// permanents (CR 723.4, its example), a third seat does not, and the
+/// controller does not once the control is gone.
+#[test]
+fn the_controller_sees_the_controlled_players_face_down_permanents() {
+    use baylee_engine::object::Status;
+    let mut preset = mixed_print_preset();
+    preset.seats.push(preset.seats[1].clone());
+    let mut state = GameState::from_preset(&preset, &Registry).unwrap();
+    let hidden = state.zones.list(ZoneLocation::Battlefield)[0];
+    let subject = state.object(hidden).unwrap().controller;
+    let mut others = (0..3).map(PlayerId::new).filter(|p| *p != subject);
+    let (actor, third) = (others.next().unwrap(), others.next().unwrap());
+    state
+        .object_mut(hidden)
+        .unwrap()
+        .status
+        .insert(Status::FACE_DOWN);
+    state.refresh_characteristics();
+    let seen = |viewer: PlayerId, controlling: bool| {
+        let mut controlled = SeatSet::new();
+        if controlling {
+            controlled.insert(subject);
+        }
+        let ctx = SeatContext {
+            controlled_players: controlled,
+            ..SeatContext::default()
+        };
+        let view = player_view(&state, viewer, 0, None, &ctx, &[]);
+        view.battlefield
+            .iter()
+            .find(|object| object.id == hidden)
+            .expect("on the battlefield")
+            .card
+            .is_some()
+    };
+    assert!(seen(subject, false), "its controller knows its face");
+    assert!(seen(actor, true), "and so does the player controlling them");
+    assert!(!seen(actor, false), "not once the control is gone");
+    assert!(!seen(third, false), "nor anybody else");
+}

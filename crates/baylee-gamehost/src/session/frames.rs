@@ -16,18 +16,7 @@ impl Session {
     /// this session already keeps.
     #[must_use]
     pub fn winning_seats(&self, result: baylee_engine::win::GameResult) -> Vec<PlayerId> {
-        let Some(victor) = result.winner else {
-            return Vec::new();
-        };
-        (0..self.seats.len())
-            .map(|i| PlayerId::new(i as u8))
-            .filter(|seat| {
-                victor.includes(
-                    *seat,
-                    self.teams.get(seat.get() as usize).copied().flatten(),
-                )
-            })
-            .collect()
+        self.table().winning_seats(result)
     }
 
     /// Names the table for the payload clients are sent.
@@ -177,6 +166,7 @@ impl Session {
             self.engine.information_pending_for(seat),
             &crate::view::SeatContext {
                 awaiting,
+                controls: &crate::view::player_controls(&self.engine),
                 decision_player: crate::view::decision_player_for(&self.engine, seat),
                 controlled_players: self.engine.controlled_players(seat),
                 deciding: self.deciding(),
@@ -186,6 +176,7 @@ impl Session {
                 inspected_cards: self.engine.inspected_cards(),
                 decision_remaining_ms: awaiting.and_then(|s| self.decision_remaining_ms(s)),
                 policy_acts: &self.policy_acts,
+                ballots: self.engine.ballots(),
             },
             &self.house_answered,
         );

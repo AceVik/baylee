@@ -22,7 +22,7 @@ use crate::audit::{
     validate_technical_result, write_atomic_json,
 };
 use crate::schedule::{
-    Assignment, Chain, DeckInventory, collector_room_setup, derive_cli_decks, house_level,
+    Assignment, Chain, DeckInventory, collector_room_setup_with, derive_cli_decks, house_level,
     parse_deck_inventory, requested_chain,
 };
 use crate::teacher::{OwnDatabase, Sits};
@@ -1040,8 +1040,18 @@ pub async fn run_attempt(
     };
 
     set_phase("validating-inputs")?;
-    let room_setup =
-        collector_room_setup([&assignment.decks[0].format, &assignment.decks[1].format])?;
+    // A run started with `--starting-life` froze it in the request.
+    let starting_life = assignment
+        .request
+        .get("starting_life_override")
+        .and_then(Value::as_i64)
+        .map(i32::try_from)
+        .transpose()
+        .context("Invalid frozen starting life")?;
+    let room_setup = collector_room_setup_with(
+        [&assignment.decks[0].format, &assignment.decks[1].format],
+        starting_life,
+    )?;
     let requested_setup: baylee_core::preset::RoomSetup = serde_json::from_value(
         assignment
             .request
@@ -1129,10 +1139,14 @@ pub async fn run_attempt(
         }),
     )?;
 
+    // The gateway must speak the protocol and view this collector was built
+    // with; literal versions went stale with every bump (#410's votes).
     let info = account.client.get_json("/info", None, 15).await?;
     ensure!(
-        info.get("protocol_version").and_then(Value::as_u64) == Some(36)
-            && info.get("view_version").and_then(Value::as_u64) == Some(82),
+        info.get("protocol_version").and_then(Value::as_u64)
+            == Some(u64::from(baylee_protocol::PROTOCOL_VERSION))
+            && info.get("view_version").and_then(Value::as_u64)
+                == Some(u64::from(baylee_view::VIEW_VERSION)),
         "Wrong gateway ABI: {info}"
     );
 

@@ -1,7 +1,7 @@
 //! Explicit presentation order. Never changes the engine's hand or its choices.
 use baylee_client_core::Phrase;
 use baylee_client_core::board::HandCard;
-use baylee_view::{HandObject, PlayerView};
+use baylee_view::HandObject;
 
 /// A contiguous group in the presentation hand.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -128,8 +128,10 @@ impl HandOrder {
     }
 
     /// Reorder presentation cards and return contiguous category boundaries.
-    pub fn apply(self, hand: &mut [HandCard], view: &PlayerView) -> Vec<HandGroup> {
-        let mut ordered: Vec<_> = baylee_client_core::decision::hand(view).iter().collect();
+    /// `cards` is the hand the row is drawn from: the deciding player's, or
+    /// the chair the table is shown from (`Duel::shown_hand`).
+    pub fn apply(self, hand: &mut [HandCard], cards: &[HandObject]) -> Vec<HandGroup> {
+        let mut ordered: Vec<_> = cards.iter().collect();
         if self != Self::Draw {
             ordered.sort_by(|a, b| {
                 let key = self

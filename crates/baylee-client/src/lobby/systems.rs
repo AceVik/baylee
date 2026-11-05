@@ -10,6 +10,72 @@ use super::*;
 
 // --------------------------------------------------------------- systems
 
+/// Lends the deck builder's pool to the table while a card is being named: it
+/// is what the name chooser searches in the client's own language. Asked for
+/// then and not before, because most games never name a card. A write only
+/// when the pool differs, so a table at rest marks nothing changed.
+pub(super) fn lend_the_pool(
+    mut state: ResMut<LobbyState>,
+    mailbox: Res<Mailbox>,
+    duel: Option<ResMut<crate::Duel>>,
+) {
+    let Some(mut duel) = duel else {
+        return;
+    };
+    lend_the_facts(&mut state, &mailbox, &mut duel);
+    if !duel.naming_a_card() {
+        return;
+    }
+    let pool = state.lobby.builder().pool();
+    if pool.is_empty() {
+        let request = state.lobby.pool_for_the_table();
+        dispatch(&mut state, &mailbox, request);
+        return;
+    }
+    let same = duel.naming.pool.as_ref().is_some_and(|lent| {
+        lent.len() == pool.len() && lent.first().map(|c| &c.name) == pool.first().map(|c| &c.name)
+    });
+    if !same {
+        duel.naming.pool = Some(std::sync::Arc::new(pool.to_vec()));
+    }
+}
+
+/// Lends the table the gateway's facts about its cards, the way it lends the
+/// pool, and asks for them when something at the table wants them and nobody
+/// has yet: a player may reach a table without opening the deck builder.
+///
+/// Read through `Deref` until there is something to do, because this runs on
+/// every frame and writing through a `ResMut` tells every reader it changed.
+fn lend_the_facts(
+    state: &mut ResMut<LobbyState>,
+    mailbox: &Mailbox,
+    duel: &mut ResMut<crate::Duel>,
+) {
+    let builder = state.lobby.builder();
+    let held = builder.pool_facts();
+    let same = match (held, duel.pool_facts.as_ref()) {
+        (Some(held), Some(lent)) => std::sync::Arc::ptr_eq(held, lent),
+        (None, None) => true,
+        _ => false,
+    };
+    if !same {
+        duel.pool_facts = held.cloned();
+    }
+    let shelf = builder.list_shelf();
+    let same = match (shelf, duel.list_shelf.as_ref()) {
+        (Some(held), Some(lent)) => std::sync::Arc::ptr_eq(held, lent),
+        (None, None) => true,
+        _ => false,
+    };
+    if !same {
+        duel.list_shelf = shelf.cloned();
+    }
+    let askable = state.offline.is_none() && state.lobby.token().is_some();
+    if askable && held.is_none() && !builder.pool_facts_asked() && duel.wants_pool_facts() {
+        super::poolfacts::ask(state, mailbox);
+    }
+}
+
 /// Drains the mailbox, advances the lobby, and takes the seat it is granted.
 #[allow(clippy::too_many_lines)] // request outcomes and seat handover share the mailbox
 pub(super) fn poll(

@@ -59,6 +59,15 @@ pub(crate) fn deck_row(
         ..default()
     });
     let mut kids = vec![thumb, name];
+    // What the check has against this card, in a word; the sentence is the
+    // overview's and the card's.
+    if let Some(word) = deck.badge(entry.slot) {
+        kids.push(crate::buildui::legality::badge(
+            commands,
+            kit,
+            word.text(state.lobby.lang()),
+        ));
+    }
     // A row that names a printing shows it, or two lines of one card would
     // read as a fault in the list.
     let chosen = print_mark(&entry.print);

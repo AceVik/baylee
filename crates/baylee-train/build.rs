@@ -6,7 +6,8 @@ use syn::{Fields, Item, Visibility};
 
 fn fields_code(fields: &Fields, label: &str, target: &str, is_enum: bool) -> (String, String) {
     let mut pattern = Vec::new();
-    let mut code = String::from("let children = vec![\n");
+    let mut code = String::from("let mut children = vec![\n");
+    let mut present_only = String::new();
     for (i, f) in fields.iter().enumerate() {
         let field = f
             .ident
@@ -30,9 +31,25 @@ fn fields_code(fields: &Fields, label: &str, target: &str, is_enum: bool) -> (St
         } else {
             format!("&self.{field}")
         };
+        // A face field added after a catalog was frozen says nothing where a
+        // card prints nothing: written as `None` it would change every face
+        // in the pool, and an export would drift on all of it for two cards'
+        // worth of keyword (`docs/trained-ai.md`, "Card catalog compatibility").
+        if label == "FaceDef" && ["buyback", "multikicker"].contains(&field.as_str()) {
+            writeln!(
+                present_only,
+                "if self.{field}.is_some() {{ children.push(b.field(\"{label}.{field}\", {access})); }}"
+            )
+            .unwrap();
+            continue;
+        }
         writeln!(code, "b.field(\"{label}.{field}\", {access}),").unwrap();
     }
     code.push_str("];\n");
+    code.push_str(&present_only);
+    if present_only.is_empty() {
+        code = code.replacen("let mut children", "let children", 1);
+    }
     write!(code, "b.node(\"{label}\", &[], children)").unwrap();
     let pat = match fields {
         Fields::Named(_) => format!("{target} {{ {} }}", pattern.join(", ")),

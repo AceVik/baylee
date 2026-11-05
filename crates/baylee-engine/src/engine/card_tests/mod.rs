@@ -64,6 +64,7 @@ mod radiation;
 mod rules;
 mod sacrifice_outcomes;
 mod sorceries;
+mod spell_endings;
 mod stun_counters;
 
 use super::testkit::*;
@@ -324,6 +325,73 @@ fn bury(engine: &mut Engine<RegistryLookup>, ids: &[ObjectId]) {
     for id in ids {
         crate::sba::destroy(state, *id);
     }
+}
+
+/// Answers a spell's buyback question (CR 702.27a), and fails if something
+/// else is what the cast is asking.
+#[track_caller]
+fn answer_buyback(engine: &mut Engine<RegistryLookup>, seat: PlayerId, pay: bool) {
+    assert!(
+        matches!(
+            engine.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::Buyback { .. },
+                ..
+            }
+        ),
+        "expected the buyback question, got {:?}",
+        engine.pending()
+    );
+    engine.apply(seat, PlayerAction::YesNo(pay)).unwrap();
+}
+
+/// The spell came home: in its owner's hand, not in their graveyard.
+#[track_caller]
+fn assert_bought_back(engine: &Engine<RegistryLookup>, owner: PlayerId, spell: CardIndex) {
+    assert!(
+        in_hand(engine, owner, spell).is_some(),
+        "the spell is back in its owner's hand"
+    );
+    assert!(in_graveyard(engine, owner, spell).is_none());
+}
+
+/// The spell did not: in its owner's graveyard, not in their hand.
+#[track_caller]
+fn assert_not_bought_back(engine: &Engine<RegistryLookup>, owner: PlayerId, spell: CardIndex) {
+    assert!(
+        in_graveyard(engine, owner, spell).is_some(),
+        "the spell is in its owner's graveyard"
+    );
+    assert!(in_hand(engine, owner, spell).is_none());
+}
+
+/// `answering` counters the spell on top of the stack with a Counterspell in
+/// their hand, their lands untapped, and `caster` holding priority over it
+/// (CR 701.6a). Runs the stack out.
+#[track_caller]
+fn counter_the_top_spell(
+    engine: &mut Engine<RegistryLookup>,
+    caster: PlayerId,
+    answering: PlayerId,
+) {
+    let spell = *engine
+        .state()
+        .zones
+        .list(ZoneLocation::Stack)
+        .last()
+        .expect("a spell to counter");
+    engine.apply(caster, PlayerAction::PassPriority).unwrap();
+    cast_from_hand(engine, answering, counterspell());
+    engine
+        .apply(
+            answering,
+            PlayerAction::ChooseTargets {
+                objects: vec![spell],
+                players: Vec::new(),
+            },
+        )
+        .unwrap();
+    pass_until(engine, stack_is_empty);
 }
 
 /// Destroys `id` the way a state-based action does, then lets the game judge

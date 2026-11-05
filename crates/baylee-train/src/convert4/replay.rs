@@ -480,8 +480,24 @@ fn replay_feature_frames(
                             &teams,
                         )? {
                             target = advice;
-                            policy_weight = 1.0;
-                            prov.source = SourceKind4::House;
+                            // A watching model's advice is an external teacher's, as
+                            // an LLM seat's own answers are, and weighs as they do;
+                            // the house's is the house's.
+                            let watched = identity.teacher.starts_with("llm:");
+                            policy_weight = if watched {
+                                super::idle_pass::llm_shadow_weight(
+                                    &pending,
+                                    &view,
+                                    &identity.teacher_action,
+                                )
+                            } else {
+                                1.0
+                            };
+                            prov.source = if watched {
+                                SourceKind4::External
+                            } else {
+                                SourceKind4::House
+                            };
                             prov.temperature = 0.0;
                             shadow_label = Some(identity);
                         }

@@ -878,8 +878,12 @@ pub enum Rider {
     Rebound,
     /// On an adventure; this player may play its non-Adventure face from exile.
     Adventure(PlayerId),
-    /// Foretold (castable for its foretell cost).
-    Foretold,
+    /// This incarnation was foretold on the given turn. In exile it grants
+    /// the later-turn alternative cost; on the stack it answers "was foretold".
+    Foretold {
+        /// Turn on which this exact incarnation entered exile by foretell.
+        turn: u32,
+    },
     /// Plotted (castable without paying as a sorcery).
     Plotted,
     /// Suspended (time counters tick down at upkeep; cast for free at zero).
@@ -953,6 +957,11 @@ pub enum Rider {
     EntrySacrifices(u32),
     /// The second basic land type chosen for this permanent incarnation.
     SecondChosenSubtype(baylee_core::ids::SubtypeId),
+    /// The card type chosen as this permanent incarnation entered (Serra's
+    /// Emissary, CR 205.2a), read by `Filter::OfSourceChosenCardType`. A
+    /// rider rather than a field: one card in the pool chooses one, and a
+    /// field cost every object eight bytes (`tests/footprint.rs`).
+    ChosenCardType(baylee_core::types::TypeSet),
     /// Last number chosen for this permanent incarnation (not a copiable value).
     ChosenNumber {
         /// Linked ability acquisition that owns this value.
@@ -1000,7 +1009,7 @@ pub enum Rider {
     /// its owner owns to merge with on resolution.
     Mutating,
     /// Additional physical card merged into this permanent via Mutate or Meld
-    /// (CR 712.21a, CR 727.3), which moves to the same zone when this
+    /// (CR 712.21a, CR 730.3), which moves to the same zone when this
     /// permanent leaves the battlefield.
     MergedComponent(ObjectId),
     /// Top component of a merged permanent; the root retains its physical card.
@@ -1009,6 +1018,11 @@ pub enum Rider {
     MergedInto(ObjectId),
     /// Token status of the top component, independent of the root's physical card.
     MergedToken(bool),
+    /// A spell whose buyback cost was paid (CR 702.27a): it goes to its
+    /// owner's hand instead of the graveyard as it resolves. Written by the
+    /// cast, read by `Engine::finalize_spell` alone, and gone the moment the
+    /// object leaves the stack, by whatever door (CR 400.7).
+    Buyback,
 }
 
 /// What ends an "exile … until …" (CR 610.3), as [`Rider::Linked`] carries
@@ -1065,7 +1079,7 @@ impl Rider {
             | Self::PlayableFromExileFor(_)
             | Self::Suspend
             | Self::Rebound
-            | Self::Foretold
+            | Self::Foretold { .. }
             | Self::Plotted
             | Self::NotedCounter(_, _) => true,
             // About the stack or the battlefield, not exile.
@@ -1078,6 +1092,7 @@ impl Rider {
             | Self::ExhaustedAbility(_)
             | Self::EntrySacrifices(_)
             | Self::SecondChosenSubtype(_)
+            | Self::ChosenCardType(_)
             | Self::ChosenNumber { .. }
             | Self::ChosenName { .. }
             | Self::RulesAcquisition(_)
@@ -1097,6 +1112,7 @@ impl Rider {
             | Self::CounterSourceVersion(_)
             | Self::Flashback
             | Self::ExileInsteadOfGraveyard
+            | Self::Buyback
             | Self::Uncounterable
             | Self::Saddled
             | Self::Prepared
@@ -1386,6 +1402,12 @@ pub struct GameObject {
     pub x_value: u32,
     /// Whether the kicker/additional cost was paid (spells).
     pub kicked: bool,
+    /// How many times it was kicked (CR 702.33d): a multikicker's count, 1
+    /// for a plain kicker, 0 for neither. `kicked` is this being above zero.
+    /// It stays with the permanent the spell became, which may ask what was
+    /// paid to cast it (CR 400.7d), and goes when anything else brings the
+    /// object in (`progress::apply_enter_modifiers`).
+    pub times_kicked: u8,
     /// How many times its replicate cost was paid (spells, CR 702.56a),
     /// which is how many copies the cast trigger makes. A copy carries the
     /// original's count, as it carries every cost decision (CR 707.10), and
@@ -1546,6 +1568,7 @@ impl GameObject {
             paid: None,
             x_value: 0,
             kicked: false,
+            times_kicked: 0,
             replicated: 0,
             alt_cast: false,
             prototyped: false,
@@ -2015,6 +2038,24 @@ impl GameObject {
     pub const fn set_controller(&mut self, player: PlayerId) {
         self.controller = player;
         self.base_controller = player;
+    }
+
+    /// The card type this permanent chose as it entered
+    /// ([`Rider::ChosenCardType`]), if it chose one.
+    #[must_use]
+    pub fn chosen_card_type(&self) -> Option<baylee_core::types::TypeSet> {
+        self.riders.iter().find_map(|rider| match rider {
+            Rider::ChosenCardType(card_type) => Some(*card_type),
+            _ => None,
+        })
+    }
+
+    /// Record the card type chosen as this permanent entered, replacing any
+    /// earlier answer of this incarnation.
+    pub fn set_chosen_card_type(&mut self, card_type: baylee_core::types::TypeSet) {
+        self.riders
+            .retain(|rider| !matches!(rider, Rider::ChosenCardType(_)));
+        self.riders.push(Rider::ChosenCardType(card_type));
     }
 }
 

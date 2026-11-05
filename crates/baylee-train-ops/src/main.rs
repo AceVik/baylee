@@ -102,6 +102,14 @@ enum Task {
         #[arg(long)]
         manifest: PathBuf,
     },
+    /// Weight the net games that beat their repeated deal, for `convert4 --game-weights`.
+    GroupWeights {
+        /// Record directories of the same deals played with different policy seeds.
+        #[arg(long, value_delimiter = ',', required = true)]
+        runs: Vec<PathBuf>,
+        #[arg(long)]
+        out: PathBuf,
+    },
 }
 #[cfg(target_os = "linux")]
 fn interrupt_flag() -> Result<Arc<AtomicBool>> {
@@ -210,6 +218,10 @@ fn main() -> Result<()> {
                 baylee_train_ops::digests::source_digest(&root, &include)?
             );
         }
+        Task::GroupWeights { runs, out } => println!(
+            "{}",
+            baylee_train_ops::self_imitation::write_group_weights(&runs, &out)?
+        ),
         Task::WriteJson { out } => publish_json(&out, false)?,
         Task::AppendJson { out } => publish_json(&out, true)?,
         Task::Pipeline { manifest } => {

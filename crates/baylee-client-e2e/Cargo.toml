@@ -1,0 +1,19 @@
+[package]
+name = "baylee-client-e2e"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "End-to-end tests of the desktop client: a real dev-control client per test, driven and read through its loopback harness (`cargo dev e2e`)"
+publish = false
+
+[lints]
+workspace = true
+
+# Small crates and nothing from the workspace, for the reason `baylee-dev`
+# gives: `cargo dev` and `baylee-tools` link this crate's harness driver, and
+# `cargo dev` compiles it before every gate. The client under test is a separate
+# process, never a dependency.
+[dependencies]
+anyhow.workspace = true
+serde_json.workspace = true

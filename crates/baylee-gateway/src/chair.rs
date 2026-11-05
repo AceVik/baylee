@@ -380,6 +380,7 @@ pub(crate) async fn redeem(
         return Err(err(StatusCode::UNAUTHORIZED, TICKET_REFUSED));
     }
     let deck = delegated_deck(&host, body.deck);
+    let guard = crate::routes::room_list::guard(&state, &id).await?;
     let seat_token = auth::new_token();
     let decide_secs = {
         let mut lobby = state.lobby.lock();
@@ -401,6 +402,13 @@ pub(crate) async fn redeem(
         }
         let decide_secs = game.house_rules.decision_timeout_secs;
         let chair = &mut game.seats[seat];
+        // A bridge's own deck comes through this door, and a table's list
+        // stands at it as at every other.
+        if chair.deck.is_none()
+            && let Some(guard) = &guard
+        {
+            guard.admit(&deck)?;
+        }
         chair.delegate = Some(lobby::Delegate {
             by: host,
             name: body.display_name,

@@ -478,6 +478,16 @@ impl<L: CardLookup> Engine<L> {
                         front.chosen_mode = Some(mode as u8);
                         return Ok(());
                     }
+                    // Its controller said which "instead" applies (CR 616.1e).
+                    Some(PlanKind::SpellEnding { spell }) => {
+                        let CastModeKind::SpellEnding(ending) = kind else {
+                            self.pending_plan = Some(PlanKind::SpellEnding { spell });
+                            return Err(EngineError::IllegalAction("not an ending of this spell"));
+                        };
+                        self.awaiting_answer = false;
+                        self.finish_spell(spell, Some(ending));
+                        return Ok(());
+                    }
                     other => self.pending_plan = other,
                 }
                 if let Some(wizard) = self.cast_wizard.as_mut()
@@ -595,11 +605,17 @@ impl<L: CardLookup> Engine<L> {
                     }
                     _ => {}
                 }
-                // Casting numbers are distinguished by the stage: X,
-                // replicate payments, and each announced damage share.
+                // Casting numbers are distinguished by the stage: X, multikicker
+                // and replicate payments, and each announced damage share.
                 let mut wizard = self.cast_wizard.take().expect("wizard active");
                 if wizard.stage == cast_wizard::WizardStage::DivideDamage {
                     wizard.division.push(n);
+                } else if wizard.stage == cast_wizard::WizardStage::Multikicker {
+                    // Paid once or more, the spell has been kicked (CR
+                    // 702.33d); zero times it has not.
+                    wizard.multikicked = u8::try_from(n).unwrap_or(u8::MAX);
+                    wizard.kicked = n > 0;
+                    wizard.stage = cast_wizard::WizardStage::Replicate;
                 } else if wizard.stage == cast_wizard::WizardStage::Replicate {
                     wizard.replicated = u8::try_from(n).unwrap_or(u8::MAX);
                     wizard.stage = cast_wizard::WizardStage::Targets;
@@ -860,6 +876,11 @@ impl<L: CardLookup> Engine<L> {
                 self.activation_targets_answered = false;
                 self.start_activation(player, source, ability_index, SmallVec::new())
             }
+            (Pending::Priority { player: p, .. }, PlayerAction::Foretell { card })
+                if *p == player =>
+            {
+                self.foretell(player, card)
+            }
             (Pending::Priority { player: p, .. }, PlayerAction::Suspend { card })
                 if *p == player =>
             {
@@ -1002,6 +1023,9 @@ impl<L: CardLookup> Engine<L> {
                     }
                     PlanKind::ChoosePhyrexianLife { .. } => {
                         unreachable!("a Phyrexian symbol is answered via YesNo")
+                    }
+                    PlanKind::SpellEnding { .. } => {
+                        unreachable!("a spell's ending is answered via ChooseMode")
                     }
                     PlanKind::ActivateAbilitySecondTargets {
                         source,
@@ -1201,9 +1225,6 @@ impl<L: CardLookup> Engine<L> {
                     PlanKind::EntryCounters { .. } | PlanKind::EntryTap { .. } => {
                         unreachable!("entry-tap plans are answered via YesNo")
                     }
-                    PlanKind::DelayedPay { .. } | PlanKind::DelayedPaySacrifice { .. } => {
-                        unreachable!("delayed-pay plans are answered via YesNo")
-                    }
                     PlanKind::LoyaltyPlayer { .. } => {
                         unreachable!("loyalty-player plans are answered via ChoosePlayer")
                     }
@@ -1304,6 +1325,9 @@ impl<L: CardLookup> Engine<L> {
                     PlanKind::ChooseCardName { .. } => {
                         unreachable!("card-name plans are answered via ChooseCardName")
                     }
+                    PlanKind::ChooseCardType { .. } => {
+                        unreachable!("card-type plans are answered via ChooseCardType")
+                    }
                     PlanKind::ChooseColor { .. } | PlanKind::IntrinsicMana { .. } => {
                         unreachable!("color plans are answered via ChooseColor")
                     }
@@ -1399,14 +1423,19 @@ impl<L: CardLookup> Engine<L> {
                 Ok(())
             }
             (
-                Pending::ChooseCardName { player: p, types },
+                Pending::ChooseCardName {
+                    player: p,
+                    types,
+                    excluded_types,
+                },
                 PlayerAction::ChooseCardName { card, face },
             ) if *p == player => {
                 let printed = self
                     .lookup
                     .card(card)
                     .and_then(|def| def.faces.get(usize::from(face)))
-                    .filter(|face| types.is_empty() || face.types.intersects(*types));
+                    .filter(|face| types.is_empty() || face.types.intersects(*types))
+                    .filter(|face| !face.types.intersects(*excluded_types));
                 let Some((named, name)) =
                     crate::object::PrintedFace::new(card, face).zip(printed.map(|face| face.name))
                 else {
@@ -1445,6 +1474,19 @@ impl<L: CardLookup> Engine<L> {
                 };
                 if let Some(obj) = self.state.object_mut(object) {
                     obj.remember_name(obj.rules_acquisition(), named, name);
+                }
+                self.state.invalidate_projections();
+                Ok(())
+            }
+            (
+                Pending::ChooseCardType { player: p, options },
+                PlayerAction::ChooseCardType(card_type),
+            ) if *p == player && options.contains(&card_type) => {
+                let Some(PlanKind::ChooseCardType { object }) = self.pending_plan.take() else {
+                    return Err(EngineError::IllegalAction("no card-type choice pending"));
+                };
+                if let Some(obj) = self.state.object_mut(object) {
+                    obj.set_chosen_card_type(card_type);
                 }
                 self.state.invalidate_projections();
                 Ok(())
@@ -1598,61 +1640,6 @@ impl<L: CardLookup> Engine<L> {
                         source: None,
                     };
                     self.awaiting_answer = true;
-                    return Ok(());
-                }
-                // Delayed pay-or-lose (Pact of Negation).
-                if matches!(self.pending_plan, Some(PlanKind::DelayedPay { .. })) {
-                    let Some(PlanKind::DelayedPay { cost, source }) = self.pending_plan.take()
-                    else {
-                        unreachable!()
-                    };
-                    if answer {
-                        let mut legal = self.compute_legal(player);
-                        self.narrow_to_mana(&mut legal);
-                        self.mana_window = Some(PaymentWindow {
-                            player,
-                            suspended: PaymentContinuation::Pact { cost, source },
-                        });
-                        self.pending = Pending::Priority {
-                            player,
-                            legal: Box::new(legal),
-                        };
-                        self.awaiting_answer = true;
-                    } else {
-                        let _ = sba::lose_by_effect(&mut self.state, player);
-                    }
-                    return Ok(());
-                }
-                // Echo: pay the echo cost or sacrifice the permanent.
-                if matches!(
-                    self.pending_plan,
-                    Some(PlanKind::DelayedPaySacrifice { .. })
-                ) {
-                    let Some(PlanKind::DelayedPaySacrifice {
-                        cost,
-                        card,
-                        version,
-                    }) = self.pending_plan.take()
-                    else {
-                        unreachable!()
-                    };
-                    let paid = answer
-                        && casting::pay_mana_from(
-                            &mut self.state,
-                            player,
-                            baylee_core::ids::DamageSourceRef {
-                                object: card,
-                                version,
-                            },
-                            &cost,
-                        );
-                    debug_assert!(!answer || paid, "echo cost was offered as payable");
-                    if !paid {
-                        if let Some(obj) = self.state.object_mut(card) {
-                            obj.kind = ObjectKind::Card;
-                        }
-                        let _ = self.state.sacrifice_object(card, Cause::Effect);
-                    }
                     return Ok(());
                 }
                 // An optional clause inside a resolving ability ("you may
@@ -1826,7 +1813,7 @@ impl<L: CardLookup> Engine<L> {
                     };
                     // "Yes" is taken like every answer a question offers.
                     // A cast it cannot follow through is reversed (CR 601.2,
-                    // 732.1) and the card stays in hand: the offer was the
+                    // 733.1) and the card stays in hand: the offer was the
                     // miracle's one chance (CR 702.94a), so that is a "no".
                     // It used to be refused, which a driver that proposes
                     // yes again reads as a question with no answer (the
@@ -1921,7 +1908,21 @@ impl<L: CardLookup> Engine<L> {
                 {
                     let mut wizard = self.cast_wizard.take().expect("wizard active");
                     wizard.kicked = answer;
-                    wizard.stage = cast_wizard::WizardStage::Replicate;
+                    wizard.stage = cast_wizard::WizardStage::Buyback;
+                    self.cast_wizard = Some(wizard);
+                    self.continue_cast_wizard();
+                    return Ok(());
+                }
+                // Wizard path: buyback yes/no. The question named the price
+                // and nothing has moved since it was asked.
+                if self
+                    .cast_wizard
+                    .as_ref()
+                    .is_some_and(|w| w.stage == cast_wizard::WizardStage::Buyback)
+                {
+                    let mut wizard = self.cast_wizard.take().expect("wizard active");
+                    wizard.buyback = answer.then(|| self.buyback_on_offer(&wizard)).flatten();
+                    wizard.stage = cast_wizard::WizardStage::Multikicker;
                     self.cast_wizard = Some(wizard);
                     self.continue_cast_wizard();
                     return Ok(());
@@ -1974,12 +1975,11 @@ impl<L: CardLookup> Engine<L> {
                     .is_some_and(|w| w.stage == cast_wizard::WizardStage::PitchChoice)
                 {
                     let mut wizard = self.cast_wizard.take().expect("wizard active");
-                    wizard.pitch = objects.into_iter().collect();
-                    wizard.stage = cast_wizard::WizardStage::ReturnCreature;
+                    wizard.pitch.extend(objects);
                     self.cast_wizard = Some(wizard);
                     // Taken like every other answer the wizard asks, and a
                     // cast that cannot go on from it is reversed (CR 601.2,
-                    // 732.1). It was the one wizard answer refused instead,
+                    // 733.1). It was the one wizard answer refused instead,
                     // after the wizard had already been dropped: a refusal
                     // that moved the engine, and a question left standing
                     // with nothing behind it.
@@ -2050,7 +2050,7 @@ impl<L: CardLookup> Engine<L> {
                     .is_some_and(|w| w.stage == cast_wizard::WizardStage::Sacrifice)
                 {
                     let mut wizard = self.cast_wizard.take().expect("wizard active");
-                    wizard.sacrifices.extend(objects);
+                    wizard.cost_objects.extend(objects);
                     self.cast_wizard = Some(wizard);
                     self.continue_cast_wizard();
                     return Ok(());

@@ -165,16 +165,51 @@ below remain the basis for runtime card images and finishes.
    same footing as the card images Scryfall already serves here. The
    planeswalker symbol at E623 is named on the table and is used nowhere.
 
-3. **Scryfall:** honor rate limits (≤ 10 req/s), cache card images
-   (encouraged by their terms), "data and images provided by Scryfall"
-   attribution in clients: `Phrase::ScryfallCredit`, under the Fan Content
-   notice on the front door and under the version in the game menu, which a
-   client seated straight into a game shows instead (#325). The cache is for our own players and never a
+3. **Scryfall** (wording as read on 04.11.2026 at
+   [scryfall.com/docs/api](https://scryfall.com/docs/api) and
+   [/docs/api/rate-limits](https://scryfall.com/docs/api/rate-limits)). The
+   rate limits are for `api.scryfall.com` only: ten requests a second, and two
+   a second for `/cards/search`, `/cards/named`, `/cards/random` and
+   `/cards/collection`. "The direct file origins located at *.scryfall.io do
+   not have rate limits." "We encourage you to cache the data you download
+   from Scryfall or process it locally in your own system, at least for 24
+   hours." "If you need to rapidly look up card names, prices, or resolve a
+   large number of card images, you must use the bulk data files." "You may not
+   simply repackage, republish, or proxy Scryfall data. Your software must
+   create additional value for end-users." "It is not acceptable to ignore HTTP
+   429 responses."
+
+   What the client does under that: a picture is fetched by a URL built from a
+   printing's id the client already holds (the compiled registry, a game's
+   print table), so resolving a picture calls no API. A draw asks `cards.scryfall.io` and
+   `backs.scryfall.io`, which have no rate limit, or a gateway's `/art`, and
+   nothing paces it. `api.scryfall.com` is asked for a card's text in a game
+   with no gateway, one request at a time and under two a second, and for a
+   card's printings when a player opens that dialog.
+
+   **The background fill goes straight to Scryfall** (asked for by the owner,
+   04.11.2026; `docs/client.md`, "The cache fills itself"). A desktop client
+   keeps every fully implemented card's pictures in the player's own cache
+   directory ahead of need. It asks `cards.scryfall.io` and `backs.scryfall.io`
+   directly, signed in or not, and never a gateway and never
+   `api.scryfall.com`. It has no rate to keep and takes at most three at once
+   out of courtesy; it honours a 429 and `Retry-After`, backs off on a 5xx and
+   stops after eight failures in a row. A picture is filed by what it shows and
+   not by the host that served it, so the copy is one copy per device. It goes
+   no further than that directory: nothing serves, shares or ships it. The
+   notes of an HTTP 403 further down this page are each of the day of their
+   entry; the pages answered on 04.11.2026.
+
+   "Data and images provided by Scryfall" attribution in clients:
+   `Phrase::ScryfallCredit`, under the Fan Content notice on the front door and
+   under the version in the game menu, which a client seated straight into a
+   game shows instead (#325). The cache is for our own players and never a
    mirror for anyone else, because their terms forbid republishing or
    proxying their data: the gateway's `/art` serves only a signed-in session
    and marks what it serves `private` (#273; `docs/protocol.md` §"Card
-   art"), and `/catalog/text`, `/catalog/search`, `/pool` and `/printings`
-   serve only a signed-in session too (#270; §"Card text"). The gateway
+   art"), and `/catalog/text`, `/catalog/search`, `/pool`, `/pool/facts` and
+   `/printings` serve only a signed-in session too (#270; §"Card text"). The
+   gateway
    asks Scryfall on nobody's behalf: it no longer fetches a printing its
    catalog lacks for whoever asked. A free account is enough, a guest's
    included, which the terms allow: "If you have an account system,
@@ -185,6 +220,22 @@ below remain the basis for runtime card images and finishes.
    as an asset. It is the same rule and it is worth spelling out, because the
    back is the one card image a client would be tempted to bundle: it never
    changes and every game needs it.
+
+   **`GET /pool/facts` is the game's own table, not a feed** (4.11.2026; the
+   rule read that day: "You may not simply repackage, republish, or proxy
+   Scryfall data"). It serves the client's filters and, later, its deck
+   validation, and it holds only what they read: per card of this game's own
+   pool, keyed on our registry index and not on a Scryfall id, each format's
+   status, and which `(set, rarity)` pairs the card has printings in; set
+   names, because the dialog offers sets by name. No printing id, collector
+   number, language, artist, price, image, date or card text is in it, and a
+   card outside the pool is not: about 12 500 of 39 000 cards. It answers a
+   signed-in session only, as `/pool` does. A client keeps a copy for its
+   own use, by version, as it keeps card text. A new field needs this look
+   again before it is added (`crates/baylee-cardtext/src/poolfacts.rs`).
+   The official ban lists (`GET /banlists`, `docs/banlists-and-formats.md`)
+   say no more than this table does: the pool's cards a format bans or
+   restricts, for the same signed-in sessions, and no card outside the pool.
 
    **The feedback service's admin UI shows card pictures, and fetches none
    of them** (beta.7, 10.10.2026). A report names cards (`[Lightning
@@ -392,7 +443,7 @@ below remain the basis for runtime card images and finishes.
    and nothing about the game or the player; the rulings' address is
    followed only on `api.scryfall.com`. The text a model is told names
    Scryfall as its source. Scryfall's API documentation answered HTTP 403
-   to this check as well, so no newly verified wording is claimed here;
+   to this check on 31.10.2026, so no newly verified wording is claimed here;
    the headers are the project's brief.
 4. **Privacy:** self-hosted; minimal account data; account deletion
    endpoint (`DELETE /account`, `docs/protocol.md` §"Deleting an account

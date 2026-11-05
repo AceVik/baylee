@@ -17,8 +17,16 @@ never a reason to edit a card by hand.
 - Lotus Ring: its granted mana ability has no printed line, and it is a priced granted mana ability with no board test.
 - Demonmail Hauberk, Murderer's Axe: mana sheet row with neither printed sentence nor cost.
 - Orzhov Locket, Letter of Acceptance: a written row that cannot name its printed sentence.
+- Found by the review of PR #410 (01.11.2026), whose full run finished them wrong. Hand-owned since (`codegen --adopt-stub`, then written and played as printed in the same review, so a full run no longer writes over them); each reader rule is still wrong and still finishes any other card that prints the sentence the same way:
+  - Hazy Homunculus: "can't be blocked as long as defending player controls an untapped land" comes out as plain unblockable (the condition is dropped in `scriptgen/statics.rs::cant_block_by`).
+  - Wall of Vipers: "Destroy this creature and target creature it's blocking" loses "destroy this creature" (two +0/+0 pump links accepted, `scriptgen/effects.rs::pump_effect`; the `Destroy` link emits only the target).
+  - Opalescence: `AddType$ Creature` with mana-value P/T is read as `Modifier::AnimateNoncreatureArtifact`, which also adds the artifact type (`scriptgen/statics.rs::pt_modifiers`; right only for artifacts). The card now uses `Modifier::CreatureWithManaValuePT`, which that rule could emit for a non-artifact filter.
+  - Mercenary Informer: "target nontoken Mercenary" loses "nontoken" (the script's valid-string carries none; nothing holds the printed word against `Filter::IsToken`).
 
 ## Engine gaps
+
+- Shallow Grave: its effect exists since Corpse Dance (`Effect::TopOfYourGraveyard`, 4 November 2026). Nothing but its card file and its own test is left, and the same effects do it.
+- Comet Storm, Strength of the Tajuru, Zethi: a target count that grows with the kicks. `Amount::TimesKicked` reaches effects and entries, not `TargetReq`.
 
 - Kolaghan's Command, Silumgar's Command: target in more than two modes.
 - Behold the Beyond: a quantity-only search (CR 701.23d) that may not settle for fewer.

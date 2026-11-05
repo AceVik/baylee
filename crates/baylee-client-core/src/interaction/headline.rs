@@ -211,6 +211,7 @@ impl Prompt {
                 Phrase::ChooseLandType.text(lang).to_string()
             }
             Self::ChooseSubtype { .. } => Phrase::ChooseCreatureType.text(lang).to_string(),
+            Self::ChooseCardType { .. } => Phrase::ChooseCardType.text(lang).to_string(),
             Self::ChooseCardName { .. } => Phrase::ChooseCardName.text(lang).to_string(),
             Self::ChooseColor { .. } => Phrase::ChooseColour.text(lang).to_string(),
             Self::ChooseNumber { min, max, reason } => {
@@ -353,6 +354,7 @@ fn choice_noun(reason: ChoicePrompt) -> Phrase {
         | ChoicePrompt::EntryReplacement
         | ChoicePrompt::Dredge
         | ChoicePrompt::DrawReplacement
+        | ChoicePrompt::Vote
         | ChoicePrompt::Generic => Phrase::NounCards,
     }
 }
@@ -377,6 +379,9 @@ fn cards_line(
         ChoicePrompt::EntryReplacement => Some(Phrase::ChooseEntryReplacement),
         ChoicePrompt::Dredge => Some(Phrase::ChooseDredge),
         ChoicePrompt::DrawReplacement => Some(Phrase::ChooseDrawReplacement),
+        // A vote is not "choose 1 card": the answer is a ballot the table is
+        // told (CR 701.38a), and the tally stands beside it (`ballots_line`).
+        ChoicePrompt::Vote => Some(Phrase::CastYourVote),
         _ => None,
     };
     if let Some(phrase) = sentence {
@@ -538,6 +543,9 @@ fn number_line(
         NumberPrompt::Replicate { cost } => {
             Phrase::ReplicateHowOften.fill(lang, &[&cost.to_string(), &min, &max])
         }
+        NumberPrompt::Multikicker { cost } => {
+            Phrase::MultikickerHowOften.fill(lang, &[&cost.to_string(), &min, &max])
+        }
         NumberPrompt::CombatDamage {
             index, of, left, ..
         } => Phrase::CombatDamageShare.fill(
@@ -678,6 +686,27 @@ fn choose_line_of(lang: Lang, noun: &str, min: u32, max: u32) -> String {
     }
 }
 
+/// A buyback cost in full, its mana and then what else it asks, in the order
+/// the cards print them: "{3}", "sacrifice a permanent", "pay 3 life, discard
+/// a card at random". The whole price, because the question is where the
+/// player decides it and nothing after it says the rest.
+pub fn buyback_price(
+    lang: Lang,
+    cost: baylee_core::mana::ManaCost,
+    parts: baylee_engine::choice::BuybackParts,
+) -> String {
+    let counted =
+        |phrase: Phrase, n: u8| (n > 0).then(|| phrase.fill_count(lang, usize::from(n), &[]));
+    let pieces = [
+        (cost != baylee_core::mana::ManaCost::ZERO).then(|| cost.to_string()),
+        (parts.life > 0).then(|| Phrase::BuybackPriceLife.fill(lang, &[&parts.life.to_string()])),
+        counted(Phrase::BuybackPriceSacrifice, parts.sacrifices),
+        counted(Phrase::BuybackPriceDiscard, parts.discards),
+        counted(Phrase::BuybackPriceDiscardRandom, parts.random_discards),
+    ];
+    pieces.into_iter().flatten().collect::<Vec<_>>().join(", ")
+}
+
 /// The roster is taken for the one question that is about another player.
 fn yes_no_line(lang: Lang, question: YesNoPrompt, statics: Option<&GameStatic>) -> String {
     match question {
@@ -701,6 +730,9 @@ fn yes_no_line(lang: Lang, question: YesNoPrompt, statics: Option<&GameStatic>) 
         }
         YesNoPrompt::ManaAnyType => Phrase::UseManaAnyType.text(lang).to_string(),
         YesNoPrompt::Kicker => Phrase::PayAdditionalCost.text(lang).to_string(),
+        YesNoPrompt::Buyback { cost, parts } => {
+            Phrase::BuybackAsk.fill(lang, &[&buyback_price(lang, cost, parts)])
+        }
         YesNoPrompt::PayLife { amount } => Phrase::PayLife.fill(lang, &[&amount.to_string()]),
         YesNoPrompt::PayTax { mana } => Phrase::PayTax.fill(lang, &[&mana.to_string()]),
         YesNoPrompt::PayMana { cost } => Phrase::PayMana.fill(lang, &[&cost.to_string()]),
@@ -747,8 +779,20 @@ fn yes_no_line(lang: Lang, question: YesNoPrompt, statics: Option<&GameStatic>) 
                 ],
             )
         }
-        YesNoPrompt::ApplyAdditionalCountersNext { additional, .. } => {
-            Phrase::ApplyAdditionalCountersNext.fill(lang, &[&additional.to_string()])
+        YesNoPrompt::ApplyAdditionalCountersNext {
+            additional, kind, ..
+        } => {
+            if let Some(kind) = kind {
+                Phrase::ApplyAdditionalCountersOfKindNext.fill(
+                    lang,
+                    &[
+                        &additional.to_string(),
+                        &counter_label_counted(kind, lang, usize::from(additional)),
+                    ],
+                )
+            } else {
+                Phrase::ApplyAdditionalCountersNext.fill(lang, &[&additional.to_string()])
+            }
         }
         YesNoPrompt::MayDo => Phrase::UseTheOptionalAbility.text(lang).to_string(),
         // The owner answers, about a card that may be somebody else's
@@ -758,6 +802,9 @@ fn yes_no_line(lang: Lang, question: YesNoPrompt, statics: Option<&GameStatic>) 
         // "No" is not "nothing": the card still leaves exile, for the hand.
         YesNoPrompt::Discover { .. } => Phrase::CastDiscovered.text(lang).to_string(),
         YesNoPrompt::SkipTurn { .. } => Phrase::SkipTurnToUntap.text(lang).to_string(),
+        YesNoPrompt::GuessNamedCardInHand { holder, .. } => {
+            Phrase::GuessNamedCardInHand.fill(lang, &[&seat_name(lang, statics, holder)])
+        }
         YesNoPrompt::Generic => Phrase::YesOrNo.text(lang).to_string(),
     }
 }
@@ -767,4 +814,41 @@ fn priority_line(lang: Lang, turn: Turn) -> String {
         Turn::Mine => Phrase::YourMove.text(lang).to_string(),
         Turn::Theirs => Phrase::YouMayRespond.text(lang).to_string(),
     }
+}
+
+/// The vote in progress, as the line beside the question or the wait:
+/// "Votes so far: Ada for Sol Ring, you for Juzám Djinn". `None` outside a
+/// vote and before its first ballot.
+///
+/// Every ballot, the reading seat's own and every other seat's, in the order
+/// cast, for every seat alike: each vote is announced as it is cast (CR
+/// 608.2d) and the next player votes knowing it (CR 701.38a). `name` is the
+/// renderer's name of a permanent on the table; one it cannot name is "a
+/// permanent".
+#[must_use]
+pub fn ballots_line(
+    lang: Lang,
+    view: &PlayerView,
+    statics: Option<&GameStatic>,
+    name: &dyn Fn(ObjectId) -> Option<String>,
+) -> Option<String> {
+    if view.ballots.is_empty() {
+        return None;
+    }
+    let ballots: Vec<String> = view
+        .ballots
+        .iter()
+        .map(|ballot| {
+            let voter = if ballot.voter == view.seat {
+                Phrase::You.text(lang).to_owned()
+            } else {
+                seat_name(lang, statics, ballot.voter)
+            };
+            let choice = name(ballot.choice)
+                .filter(|n| !n.trim().is_empty())
+                .unwrap_or_else(|| Phrase::APermanent.text(lang).to_owned());
+            Phrase::BallotFor.fill(lang, &[&voter, &choice])
+        })
+        .collect();
+    Some(Phrase::VotesSoFar.fill(lang, &[&ballots.join(", ")]))
 }

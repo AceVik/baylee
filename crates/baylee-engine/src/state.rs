@@ -24,6 +24,9 @@ mod draw_offer;
 mod entry_history;
 pub use draw_offer::{DrawReplacement, FrontDraw};
 mod draw_wish;
+// What `Engine::fork_for` does with every field (feature `simulation`).
+#[cfg(any(test, feature = "simulation"))]
+mod fork;
 mod hash;
 mod hidden_exile;
 mod lifetimes;
@@ -76,6 +79,8 @@ pub struct Player {
     pub id: PlayerId,
     /// Life total.
     pub life: i32,
+    /// Starting life total from the preset (CR 103.4), constant during the game.
+    pub starting_life: i32,
     /// Poison counters.
     pub poison: u16,
     /// Energy counters.
@@ -114,12 +119,23 @@ pub struct Player {
     pub turns_started: u32,
     /// Independent obligations to skip the next turn; one is consumed per omitted turn.
     pub turns_to_skip: u32,
+    /// Combat-phase skips waiting for this player's next combat (CR 614.10).
+    pub combats_to_skip: u32,
     /// Exact attackers from this seat's most recently completed actual turn.
     pub last_turn_attackers: Vec<baylee_core::ids::DamageSourceRef>,
     /// Exact incarnations that blocked or became blocked since this player's latest upkeep.
     pub blocked_since_upkeep: Vec<baylee_core::ids::DamageSourceRef>,
     /// The completed interval retained during the player's current upkeep.
     pub blocked_before_upkeep: Vec<baylee_core::ids::DamageSourceRef>,
+    /// The last stamp issued as this player's latest upkeep began, read as
+    /// [`Self::turn_start_timestamp`] is: an object stamped at exactly this
+    /// value was there before it.
+    pub upkeep_began: u64,
+    /// [`Self::upkeep_began`] of the upkeep before that one: during their
+    /// upkeep the beginning of "your last upkeep" (CR 702.30a) is this, and
+    /// not the step they are in. Zero while they have had no such upkeep,
+    /// which everything on the clock came after, the opening board included.
+    pub last_upkeep_began: u64,
     /// Whether this player cast a spell or put a nontoken permanent onto the
     /// battlefield during their most recently completed turn (Arboria's
     /// "during their last turn"); false before their first turn ends.
@@ -382,7 +398,7 @@ pub struct GameState {
     pub per_turn: PerTurn,
     /// Exact-card play permissions, some lasting across several turns.
     pub play_permissions: Vec<PlayPermission>,
-    /// Registered delayed triggers (suspend finishes, pact payments).
+    /// Registered delayed triggers (suspend finishes, a pact's price).
     pub delayed: Vec<DelayedTrigger>,
     /// Lands marked by a particular source incarnation; survives its departure.
     pub counter_links: Vec<crate::resolve::linked_counters::CounterLink>,
@@ -425,7 +441,7 @@ pub struct GameState {
     /// turn instead of the normal successor.
     pub extra_turns: std::collections::VecDeque<PlayerId>,
     /// Players controlling other players during their next actual turn
-    /// (CR 722.1), waiting for that turn or in it.
+    /// (CR 723.1), waiting for that turn or in it.
     pub turn_controls: Vec<crate::state::PlayerTurnControl>,
     /// While the current turn is an extra one, the player whose normal
     /// turn it was added after: "the turns directly after the specified
@@ -1110,7 +1126,7 @@ impl GameState {
 
     /// Keeps the game as it stands, for [`Self::roll_back`].
     ///
-    /// CR 732.1: an action that cannot legally be completed is reversed and
+    /// CR 733.1: an action that cannot legally be completed is reversed and
     /// "any payments already made are canceled", and no ability triggers and
     /// no effect applies as a result of it. A payment is written part by
     /// part, so the one sure way to cancel whatever of it was written is to
@@ -1203,6 +1219,10 @@ impl GameState {
             let lost = u32::try_from(i64::from(old) - i64::from(new)).unwrap_or(u32::MAX);
             self.per_turn.life_lost_amount[seat] =
                 self.per_turn.life_lost_amount[seat].saturating_add(lost);
+        } else if new > old {
+            let gained = u32::try_from(i64::from(new) - i64::from(old)).unwrap_or(u32::MAX);
+            self.per_turn.life_gained_amount[seat] =
+                self.per_turn.life_gained_amount[seat].saturating_add(gained);
         }
         self.journal.record(GameEvent::LifeChanged {
             player,

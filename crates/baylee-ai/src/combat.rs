@@ -50,7 +50,7 @@ impl Fighter {
         })
     }
 
-    fn has(self, k: KeywordSet) -> bool {
+    pub(crate) fn has(self, k: KeywordSet) -> bool {
         self.keywords & k.bits() != 0
     }
 
@@ -899,7 +899,7 @@ pub(crate) fn aim(
 /// `seat`'s creatures on the battlefield that pass `keep`, phased out or
 /// not, as they will be at the next combat: damage marked now is gone by
 /// then (CR 514.2).
-fn creatures(
+pub(crate) fn creatures(
     view: &PlayerView,
     seat: PlayerId,
     keep: impl Fn(&PublicObject) -> bool,
@@ -917,7 +917,7 @@ fn creatures(
 
 /// Able to block now and through the next turn: untapped, and phased in —
 /// ours phase back in only on our own untap step (CR 502.1).
-fn ready(o: &PublicObject) -> bool {
+pub(crate) fn ready(o: &PublicObject) -> bool {
     !o.status.contains(ObjectStatus::TAPPED) && !o.status.contains(ObjectStatus::PHASED_OUT)
 }
 
@@ -930,7 +930,7 @@ fn ready(o: &PublicObject) -> bool {
 /// menace attacker takes two or nothing. Whatever is left over then stands
 /// in front of a trampler as well, since every extra blocker's toughness is
 /// damage kept off the player (CR 702.19b).
-fn through(attackers: &[Fighter], blockers: &[Fighter]) -> i32 {
+pub(crate) fn through(attackers: &[Fighter], blockers: &[Fighter]) -> i32 {
     let mut free: Vec<Fighter> = blockers.to_vec();
     // Double strike is twice the damage, and with trample the second step
     // meets no blocker (CR 702.19d), so a wall of toughness T lets 2P - T

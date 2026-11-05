@@ -23,17 +23,21 @@ use anyhow::{Context as _, bail};
 use baylee_cards::formats::Shape;
 use baylee_core::ids::PlayerId;
 use baylee_core::preset::AIProfile;
-use baylee_engine::choice::Pending;
+use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_gamehost::Session;
 use baylee_train::convert4::RolloutStepSidecar4;
 use baylee_train::deckgen::{self, Archetype};
 use baylee_train::features4::{
-    CoverageMatrix4, SourceKind4, StepProvenance4, side_utility, view_only_state_hash,
+    CoverageMatrix4, SourceKind4, StepProvenance4, view_only_state_hash,
 };
 use baylee_train::housedeck::HouseDeck;
+use baylee_train::netplay4::search::{
+    KnownDecks, SearchConfig4, SearchedAnswer4, Selection4, follow_decision, search_decision,
+    terminal_utility,
+};
 use baylee_train::netplay4::{
-    BatchLimits4, BatchedNet4, ModelIdentity, NetPlayer4, PolicyMode4, inspect_model_identity,
-    valid_raw_temperature,
+    BatchLimits4, BatchedNet4, CatalogPolicy4, CriticSemantics4, ModelIdentity, NetPlayer4,
+    PolicyMode4, inspect_catalog, inspect_model_identity, valid_raw_temperature,
 };
 use baylee_train::selfplay::table_for;
 use baylee_train::working::{Working, repo_root};
@@ -47,6 +51,7 @@ mod attempts;
 mod collector;
 mod diagnostics;
 mod failure_terminal;
+mod lookahead;
 mod seat_players;
 mod shadow;
 
@@ -88,7 +93,16 @@ fn main() -> anyhow::Result<()> {
     } else {
         Some(inspect_model_identity(&args.model)?)
     };
+    if let Some(refusal) = catalog_refusal(&args) {
+        bail!(refusal);
+    }
     let collection = collector::Contract::new(&args, model_identity.as_ref())?;
+    if let Some(refusal) = search_refusal(&args, &collection, model_identity.as_ref()) {
+        bail!(refusal);
+    }
+    let search_config = search_config(&args)?;
+    let search = search_metadata(&args, search_config, model_identity.as_ref());
+    let catalog = catalog_metadata(&args, &collection)?;
     if args.shadow_teacher.is_some()
         && model_identity
             .as_ref()
@@ -96,6 +110,12 @@ fn main() -> anyhow::Result<()> {
     {
         bail!("--shadow-teacher requires encoder 7 or 8");
     }
+    let shadow_spec = args
+        .shadow_teacher
+        .as_deref()
+        .map(|teacher| shadow::Spec::parse(teacher, args.llm_profiles.as_deref()))
+        .transpose()?
+        .map(Arc::new);
     if args.legacy_v3
         && (args.record_out.is_some() || args.temperature != 0.0 || args.thinking_steps != 1)
     {
@@ -245,7 +265,16 @@ fn main() -> anyhow::Result<()> {
             // Only batched runs name it, so unbatched records stay as they were.
             run["inference_batch_rows"] = json!(args.inference_batch);
         }
-        if let Some(profile) = &args.shadow_teacher {
+        if let Some(search) = &search {
+            // Only searched runs name it; convert4 certifies no policy-gradient
+            // dataset from a run that does.
+            run["search"] = search.clone();
+        }
+        if let Some(catalog) = &catalog {
+            // Only runs that accept another catalog than this build's name it.
+            run["catalog"] = catalog.clone();
+        }
+        if let Some(spec) = &shadow_spec {
             let metadata_path = if args.model.is_dir() {
                 args.model.join("model.onnx.json")
             } else {
@@ -264,7 +293,7 @@ fn main() -> anyhow::Result<()> {
                     .is_some_and(|v| v.len() == 64),
                 "Shadow requires catalog identity"
             );
-            run["shadow_teacher"] = shadow::metadata(profile);
+            run["shadow_teacher"] = spec.contract();
             run["shadow_structure_sha256"] = metadata["structure_sha256"].clone();
         }
         fs::write(rec_dir.join("run.json"), serde_json::to_vec_pretty(&run)?)?;
@@ -308,6 +337,7 @@ fn main() -> anyhow::Result<()> {
             .opponent_path
             .as_deref()
             .map(|path| (path, collection.opponent_identity.as_ref())),
+        catalog_policy(&args),
     )?;
 
     let started = Instant::now();
@@ -322,7 +352,7 @@ fn main() -> anyhow::Result<()> {
         let games_lines = games_lines.clone();
         let model_path = args.model.clone();
         let rec_out = args.record_out.clone();
-        let shadow_profile = args.shadow_teacher.clone();
+        let shadow_spec = shadow_spec.clone();
         let deals = end_deal;
         let seats = args.seats;
         let first_seed = args.first_seed;
@@ -331,17 +361,23 @@ fn main() -> anyhow::Result<()> {
         let temp = args.temperature;
         let fair = args.fair_scouting;
         let no_base = args.no_baseline;
-        let legacy = args.legacy_v3;
+        let catalog = catalog_policy(&args);
+        let format = if args.legacy_v3 {
+            ModelFormat::LegacyV3
+        } else {
+            ModelFormat::Net(catalog)
+        };
         let expected_identity = model_identity.clone();
         let collection = collection.clone();
         let run_metadata_sha = run_metadata_sha.clone();
         let attempts = attempts.clone();
+        let search_max = args.search_max_decisions_per_game;
 
         handles.push(std::thread::spawn(move || -> anyhow::Result<()> {
             let mut net:Box<dyn EvaluationPlayer> = if collection.uses_seat_pool() {
-                Box::new(seat_players::SeatPlayers::load(&model_path,&collection,policy_mode,&shared_nets)?)
+                Box::new(seat_players::SeatPlayers::load(&model_path,&collection,policy_mode,&shared_nets,catalog)?)
             } else {
-                load_player(&model_path,legacy,k_steps,temp,policy_mode,expected_identity.as_ref(),shared_nets.learner.as_ref())?
+                load_player(&model_path,format,k_steps,temp,policy_mode,expected_identity.as_ref(),shared_nets.learner.as_ref())?
             };
 
             let shard_name = format!("w{worker_id:02}-0000.jsonl.gz");
@@ -356,6 +392,10 @@ fn main() -> anyhow::Result<()> {
             loop {
                 let d = next_deal.fetch_add(1, Ordering::Relaxed);
                 if d >= deals {
+                    break;
+                }
+                // A watching model that said a limit teaches no further game.
+                if shadow_spec.as_ref().is_some_and(|spec| spec.spent()) {
                     break;
                 }
                 if let Some(ledger) = &attempts { ledger.claim(d, worker_id)?; }
@@ -387,16 +427,17 @@ fn main() -> anyhow::Result<()> {
                             "policy_seed": policy_seed, "model": model_path}))?,
                     )?;
                 }
-                let mut shadow = match (&rec_out, &shadow_profile) {
-                    (Some(dir), Some(profile)) => Some(shadow::ShadowGame::new(
+                let mut shadow = match (&rec_out, &shadow_spec) {
+                    (Some(dir), Some(spec)) => Some(spec.game(
                         dir,
                         &rec_game_id,
                         d,
-                        profile,
                         policy_seed ^ d.rotate_left(29),
                     )?),
                     _ => None,
                 };
+                let mut game_search =
+                    search_config.map(|config| lookahead::GameSearch::new(config, search_max));
                 let (
                     net_u,
                     net_capped,
@@ -427,10 +468,14 @@ fn main() -> anyhow::Result<()> {
                     if collection.purpose == collector::Purpose::FailureTerminalResearchV1 {
                         Some(collection.learner_identity.as_ref().context("research learner")?.encoder_version)
                     } else {None},
+                    game_search.as_mut(),
                 )?;
 
                 if let Some((f, offset)) = &mut shard_file {
                     diagnostics::bind_fallback_events(&mut fallback_events, &rec_bytes)?;
+                    if let Some(search) = game_search.as_mut() {
+                        diagnostics::bind_fallback_events(&mut search.events, &rec_bytes)?;
+                    }
                     let mut gz = GzEncoder::new(Vec::new(), Compression::fast());
                     gz.write_all(&rec_bytes)?;
                     let compressed = gz.finish()?;
@@ -438,7 +483,7 @@ fn main() -> anyhow::Result<()> {
                     f.write_all(&compressed)?;
                     f.flush()?;
                     if attempts.is_some() { f.get_ref().sync_all()?; }
-                    let line = serde_json::to_string(&json!({
+                    let mut entry = json!({
                         "game": rec_game_id,
                         "i": d,
                         "seed": seed,
@@ -461,7 +506,12 @@ fn main() -> anyhow::Result<()> {
                         },
                         "rollout_sidecar": rollout_sidecar,
                         "fallback_events": fallback_events,
-                    }))?;
+                    });
+                    if let Some(search) = &game_search {
+                        // Only searched runs name it, as run.json does.
+                        entry["search_events"] = json!(search.events);
+                    }
+                    let line = serde_json::to_string(&entry)?;
                     *offset += len;
                     if let Some(index) = games_lines.lock().expect("games lock").as_mut() {
                         writeln!(index, "{line}")?;
@@ -494,6 +544,7 @@ fn main() -> anyhow::Result<()> {
                         false,
                         None,
                         None,
+                        None,
                     )?;
                     (bu, bc)
                 };
@@ -508,7 +559,11 @@ fn main() -> anyhow::Result<()> {
                     "net_capped": net_capped, "base_capped": base_capped,
                     "refused": ref_cnt, "stalls": st_cnt, "house_fallbacks": fb,
                     "fallback_events": fallback_events,
+                    "search": game_search.as_ref().map(|search| search.tally.report()),
                     "decks": table_decks.iter().map(|deck| &deck.key).collect::<Vec<_>>()}));
+                if let Some(search) = &game_search {
+                    st.search.add(&search.tally);
+                }
                 st.net_utility_sum += f64::from(net_u);
                 st.base_utility_sum += f64::from(base_u);
                 if net_capped {
@@ -537,10 +592,11 @@ fn main() -> anyhow::Result<()> {
             let mut st = stats_arc.lock().expect("stats lock");
             let coverage = net.coverage();
             for pk in 0..coverage.counts.len() {
-                for sk in 0..4 {
+                for sk in 0..coverage.counts[pk].len() {
                     st.coverage.counts[pk][sk] += coverage.counts[pk][sk];
                 }
             }
+            st.rule_refs_left_out += net.rule_refs_left_out();
             Ok(())
         }));
     }
@@ -664,7 +720,7 @@ fn main() -> anyhow::Result<()> {
     summary["accepted_deck_keys"] = json!(accepted_deck_keys);
     summary["accepted_deck_count"] = json!(accepted_deck_count);
     summary["generated_deck_count"] = json!(generated_deck_count);
-    summary["shadow_teacher"] = json!(args.shadow_teacher.as_deref().map(shadow::metadata));
+    summary["shadow_teacher"] = json!(shadow_spec.as_ref().map(|spec| spec.contract()));
     summary["coverage_matrix"] = json!(st.coverage.counts);
     summary["model_family"] = json!(
         model_identity
@@ -678,6 +734,15 @@ fn main() -> anyhow::Result<()> {
     summary["evaluator_dirty"] = json!(baylee_build::DIRTY);
     summary["latency_scope"] = json!("decision inference only; observation updates are excluded");
     summary["inference_batch"] = shared_nets.report();
+    if let Some(catalog) = &catalog {
+        summary["catalog"] = catalog.clone();
+        summary["catalog"]["rule_refs_left_out"] = json!(st.rule_refs_left_out);
+    }
+    if let Some(search) = &search {
+        summary["search"] = json!({"config": search, "counts": st.search.report(),
+            "latency_scope": "searched_ms is the wall time of each searched decision, \
+                forks and rollouts included; latency_ms leaves searched decisions out"});
+    }
     if collection.purpose == collector::Purpose::FailureTerminalResearchV1 {
         // The evaluation aggregate has an MTG denominator and cannot summarize
         // censored research episodes. Preserve every attempt in the named ledger.
@@ -728,6 +793,22 @@ fn main() -> anyhow::Result<()> {
         st.refused,
         started.elapsed().as_secs_f64(),
     );
+    if let Some(config) = search_config {
+        let counts = &st.search;
+        eprintln!(
+            "[eval4] search K,P,H={},{},{} {:?} | decisions={} searched={} changed={} changes={:?} skipped={:?} refused={:?}",
+            config.candidates(),
+            config.particles(),
+            config.horizon(),
+            config.selection(),
+            counts.decisions,
+            counts.searched,
+            counts.changed,
+            counts.changes,
+            counts.skipped,
+            counts.refused,
+        );
+    }
     Ok(())
 }
 

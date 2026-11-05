@@ -6,6 +6,101 @@ the two lanes in use now are remote and cheap, which changes the constraint
 from "one at a time" to "what is each one actually good at". Maintained by
 the orchestrator; entries dated, newest first.
 
+## 2026-11-02 — Landing review of PR #410 and the unfinished vote work
+
+- **A new special action needs every action consumer.** Foretell's casting
+  mode was mapped, but its initial hand-to-exile action was missing from the
+  LLM menu, the wake filter and the neural candidate encoder. A legal offer
+  must survive both automatic passing and action encoding/decoding. Append
+  new neural candidates to preserve existing candidate indices.
+- **Public decisions need observable state while the next player decides.**
+  Council's Judgment needs the voter and choice in the journal immediately,
+  plus the live ballots in every seat and spectator view. A hash alone does
+  not tell a neural policy the tally; its candidate features must include it.
+- **Rebase integration reaches simulation code too.** The newer simulation
+  transcript and redeal walkers must handle the vote event, the chosen card
+  type and Foretell's turn-bearing rider. A clean textual rebase does not
+  prove the merged enum consumers compile.
+- **A zero placeholder is not a counter placement.** Giada's entry
+  replacement creates the first +1/+1 counters; Doubling Season cannot be
+  used up on zero before that happens. Recheck applicability after each
+  choice (CR 616.1f), and do not let an ordinary additive replacement create
+  a new counter kind. Additions can need ordering even without a doubler
+  when one introduces a new kind. The decision must name that kind rather
+  than claim every replacement adds counters of every kind.
+
+## 2026-11-01 — Review of the requested cards (PR #410, Kimi)
+
+One reviewer and four read-only sub-reviews read e6844a069 against its oracle
+text and the brief. What the author got wrong, so the brief can learn it:
+
+1. **A full codegen run is a pool-wide change, and it rewrote review holds.**
+   The run dropped the 287 `// Held back:` findings the Argon review had
+   written and finished ten held cards nobody judged (all ten turned out
+   fixed by now, but by luck), and finished 67 other stubs from main's
+   readers, four of them wrong: Hazy Homunculus lost its condition, Wall of
+   Vipers lost "destroy this creature", Opalescence made enchantments
+   artifacts, Mercenary Informer lost "nontoken". Codegen now keeps a held
+   stub held (`stubgen::render_full_run`). After a full run, read every card
+   whose coverage changed, not only the ones the batch meant to touch; a
+   generated card is played by every game the next day.
+2. **"Until this creature leaves the battlefield" is `exile_until`.** Angel
+   of Sanctions and Angel of Condemnation were written as `exile_linked`
+   plus a leaves trigger, the shape docs/card-dsl.md names as the one that
+   never gives its prisoner back. The tests killed the Angel after the exile,
+   never before it resolved, so the gap (CR 610.3a) never showed.
+3. **An "if" after the trigger event is an intervening "if"** (CR 603.4),
+   the trigger's `condition`, not a check inside the effect. Resolute
+   Archangel and Gisela checked only on resolution; Knight of the White
+   Orchid did it right. The tests had the condition true every time.
+4. **"You may" on a targeted trigger is still a `MayDo`.** Angel of
+   Serenity's "up to three" let the controller choose none, but not decline
+   at resolution.
+5. **A new enum variant reaches every crate that matches it.** The PM's
+   `cargo check` on the touched crates passed; `baylee-train` did not
+   compile (`Pending::ChooseCardType`, `CastModeKind::Foretell`), and its v4
+   encoder offered land names to "choose a nonland card name". Map a new
+   variant onto existing trained slots rather than widen them, and build
+   the workspace before calling a batch done. `cargo check` is not the
+   lint either: the gate's `clippy -D warnings` failed on eight more
+   places in the batch's client, xtask and test code (functions past 100
+   lines, identical match arms, a hand-written `Option::as_slice`).
+6. **A rider kept "while in exile" must be dropped on every other move.**
+   `Rider::Foretold` survived stack → exile, so a foretold spell countered
+   into exile could be cast for its foretell cost again (CR 400.7).
+7. **Look CR numbers up.** Starting life is CR 103.4, not 103.3; CR 205.2a
+   lists fifteen card types, and Attraction is an artifact type (205.3g),
+   not one to offer. The `cr-check` report against the current rules finds
+   these in seconds.
+8. **The boards still let the wrong reading pass** (as on 31.10): libraries
+   of nothing but Plains under a "basic Plains" search (The Birth of
+   Meletis, Knight of the White Orchid, Loyal Warhound), a condition that is
+   always true, a control spell that costs a colour the board cannot make
+   (Herald of War), `>= 1` where exactly one is meant. Twenty-one new
+   pieces had no docs/card-dsl.md entry and most engine pieces only a card
+   test, against §3.
+9. **Still open: three pieces are one card's sentence.**
+   `Effect::ExileAttackingForThenMaySearchBasicLands` (Settle the
+   Wreckage), `Effect::ExileMostVotedNotControlledByYou` (Council's
+   Judgment) and `Effect::SacrificeEventDealDamageToEachBlocker` (Ib
+   Halfheart) play right but are named for, and usable by, one card each
+   (§3). The general sentences are "exile all [filter] the chosen player
+   controls, then that player may search for that many" (`Amount::ThisWay`
+   and the basic-land search exist), a vote verb with its outcome as data,
+   and "sacrifice the event object; if you do, [effects]". Left for a
+   follow-up; the review fixed behaviour, not names.
+
+## 2026-11-01 — Owner-requested cards and cross-surface casting modes
+
+1. **Treat a new casting mode as one vertical rules slice, not only an engine flag.**
+   Foretell needs consistent offer, pricing, payment, reversal, public prompt and desktop selection behavior. The engine, Seat narrator and desktop client must agree on the same `CastModeKind`, while replay and per-turn cleanup retain deterministic state.
+2. **Keep alternative costs composable and reversible.**
+   Pitch spells can require more than one hand card and can combine different payment parts. Offered legality and committed payment must use the same cost calculation, with atomic rollback when a later choice or payment cannot complete.
+3. **Represent choice-derived rules as data, not card-specific conditionals.**
+   Chosen card types and colors feed shared protection, cast restrictions and prompt code. This keeps Serra's Emissary, Iona and Chrome Mox on the same choice lifetime and prevents stale projections after zone changes.
+4. **Play both acceptance and refusal paths for optional clauses.**
+   Bruna's cast trigger, Goblin Matron's search and similar `may` abilities need yes/no scenarios plus illegal-target controls. A trigger that merely appears on the stack does not demonstrate that the printed option resolves correctly.
+
 ## 2026-10-31 — *Mirrodin* (`mrd`) Batch 2 review
 
 Two reviewers read the batch against its oracle text. One card played wrong;
@@ -59,7 +154,7 @@ one, and every one of them passed every gate.
    number.** Mindslaver's control was keyed on `turn.number` and the active
    seat, so it was dropped when two turns passed before its player's (four
    seats, or the controller's two extra turns) and lasted into the player's
-   own extra turn after it. CR 722.1 names the turn the player takes and ends
+   own extra turn after it. CR 723.1 names the turn the player takes and ends
    at the next turn's beginning: stamp the control as that turn begins.
 5. **Every resume path advances the program as the plain path does.** The
    damage contest's plain path returns to `run`, which steps past it; the
@@ -5274,7 +5369,7 @@ resolved battle-damage holds:
 - A declaration whose mana tax the pool does not cover now opens a payment
   window (`PaymentContinuation::AttackTax`) with nothing paid yet. Passing
   declares out of the pool. A window left short is undone the way a cast is
-  (CR 732.1, `give_back_window`), and the step asks again with
+  (CR 733.1, `give_back_window`), and the step asks again with
   `CombatDeclared::TaxDeclined`.
 - The offer counts one unit per mana source the window would offer
   (`Engine::attack_mana_reach`), an estimate and not a promise. That is why a
@@ -5942,3 +6037,93 @@ fixtures must settle characteristics before measuring a no-new-events boundary.
   happened to be zero and the fixtures passed; `record::seen` caught it only
   after the rebase. A new input to a replay hash must contribute nothing for
   its legacy value, so the term is now added only when the setting is on.
+
+## 2026-11-01 — The four cards PR #410's full run finished wrong, and public votes
+
+- Hazy Homunculus, Wall of Vipers, Opalescence and Mercenary Informer are
+  hand-owned and played as printed now; their reader rules are still wrong
+  (`docs/generated-held-back.md`). Each was `Generated`, green and stronger
+  than printed, because the reader dropped one clause it did not refuse.
+- A borrowed modifier carries its whole sentence. `AnimateNoncreatureArtifact`
+  also adds the artifact type and asks "noncreature"; Opalescence's sentence
+  is neither, so it got `Modifier::CreatureWithManaValuePT` and its own rule
+  tests rather than a second static beside an `AddType`.
+- The discriminating board for a condition is the one where the wrong reading
+  answers differently: a *tapped* land for "untapped land", a token copy for
+  "nontoken", an unblocked attacker for "it's blocking", an Aura for
+  "non-Aura". Rite of Replication is the pool's way to make a token of any
+  creature type a test needs.
+- A vote was a `Generic` card choice nobody else could see. Each ballot is
+  announced as it is cast (CR 608.2d), so it is a journaled event, a log line
+  and a public view field at once; the in-progress resolution is on the
+  `Engine`, not in the hashed state, so no replay hash moved.
+
+## 2026-11-04 — Buyback and multikicker
+
+- An optional cost is not a way of casting. Kicker's `Kicked` mode exists for a
+  kicker with its own targets; a cost that sits on top of every way, a flashback
+  and a free cast included (CR 118.9d), is a question, and a `CastModeKind` for
+  it would have needed one per way.
+- `Duel::battlefield` replaces the seat's list. Calling it twice looked like a
+  board of six lands and a Familiar and was a board of one Familiar, and the
+  failure read as a rules bug in the reduction.
+- `grep -h` over several named files does not keep their order here, and four
+  oracle ids went into a test against the wrong names. The test said so at
+  once, because the wrong "Counterspell" asked for no target: read an id beside
+  its file name.
+- Thunderscape Familiar is black and green. A card remembered is a card to open.
+- Adding a field to `FaceDef` adds a child to every face in `cardstructure`'s
+  generated tree, so every card drifts for every older export. `build.rs` now
+  writes the two new fields only where a card prints one. Check that visitor
+  before the next face field.
+- `kicked` was never cleared on arrival: no pool permanent read it. A reader of
+  a spell-shaped field on a permanent has to normalise it where the X is.
+- `Engine` holds its `CastWizard` by value and tests hold arrays of `Engine`: an
+  `Option<ManaCost>` on the wizard pushed two of them past clippy's 16 KiB, in
+  files nobody had touched. A number beside the printed cost did the same job.
+- A spell whose only target a copy bounced loses it: the copy's Capsize aimed
+  where the original did made the original fizzle, which is the rule and looked
+  like buyback failing.
+- The state hash is a format: every written game record holds its values, and
+  `replay_exact` must go on matching them. Two ways to break it, both met here.
+  A new hashed field has to write nothing while it is unset (`hash_times_kicked`,
+  `TextChangeEntry`'s `Hash`, the wizard's fingerprint). A new variant goes at
+  the END of its enum, because `derive(Hash)` writes the discriminant: a variant
+  in the middle of `Amount` or `Modifier` renumbers all that follow, and the
+  record first diverged at an innocent `PlayLand`, 46 inputs in. Do not
+  re-capture the fixture to silence that: `capture_acceptance_record` is for a
+  rule that changed, and a green test would hide every real record now broken.
+
+## 2026-11-05 — Review of the buyback and multikicker batch
+
+Twenty-nine buyback cards read sentence by sentence against the cached
+Scryfall oracle text (every `//! Oracle:` header equals it); all 29 are right as
+written. The engine rules (`b58b4279a`, `a931801e8`, `00d097a09`, `36d97ecc6`)
+hold against CR 702.27a, 702.33c–d, 616.1e, 702.34a and 702.88a. What the author
+got wrong was in the tests, not in the cards:
+
+- **A test helper that did the setup hid a rule.** `cast_from_hand` taps every
+  land into the pool before the cast, so all the "sacrifice a land" buyback tests
+  met a land that was already tapped. The cast a player makes, off untapped
+  lands, puts the sacrifice question before the mana and pays the cost after the
+  payment window (CR 601.2g then 601.2h); nothing played that. When a cost names
+  a permanent that also makes mana, cast with `cast_with_floating` after tapping
+  by hand, or not at all, and sacrifice the land that is still untapped.
+- **A card with two branches was played at one.** Whim of Volrath has "one color
+  word … or one basic land type"; only the colour word was driven. Searing Touch
+  says "any target" and was aimed at a creature. Read a "or" in the oracle text
+  as two tests.
+- **A delayed "next end step" has a case where the current step is the one.**
+  Corpse Dance can be cast in an end step; the exile then belongs to the
+  following turn's. It was right, and unplayed.
+- **Five copies of the same engine test per card.** Each of the 28 buyback files
+  carries a countered, a lost-target and a declined test that prove the engine's
+  rule (`buyback_tests`, `spell_endings`) again with that card's name on it. They
+  pass for the rule and would pass for a wrong card; the sentence of the card is
+  what a card file is for (§4 "Test the card, not its neighbours").
+- **A client string that is shorter than the cost.** `BuybackParts` carries a
+  count of sacrifices and not what is sacrificed, so the question for Reaping the
+  Rewards, Constant Mists and Pegasus Stampede reads "sacrifice a permanent" for
+  a printed "sacrifice a land". The sacrifice question that follows offers only
+  lands, so no wrong play is possible, but the price is misnamed. Not changed
+  here: it widens a wire struct and `VIEW_VERSION`.

@@ -62,3 +62,41 @@ fn shown_hand_search_matches_the_displayed_language_and_the_original_name() {
         assert_eq!(rows[0].name, "Wald");
     }
 }
+
+/// A shown hand names its cards to this seat, so its rows answer as a pile's.
+#[test]
+fn a_shown_hand_answers_what_the_table_says_of_the_cards_it_names() {
+    use baylee_cardtext::{CardLine, PoolFactsBody, PoolSet};
+    let mut view = ViewBuilder::new(2).build();
+    view.shared_hands.push(baylee_view::SharedHand {
+        player: PlayerId::new(1),
+        public: true,
+        cards: ViewBuilder::new(2)
+            .with_hand(vec![("Forest", 1, 20)])
+            .build()
+            .hand,
+    });
+    let facts: crate::cardquery::PoolFacts = PoolFactsBody::assemble(
+        vec![PoolSet {
+            code: "m21".to_string(),
+            name: "M21".to_string(),
+        }],
+        vec![CardLine {
+            index: view.shared_hands[0].cards[0].card.index.get(),
+            legalities: [("modern".to_string(), "legal".to_string())].into(),
+            printed: vec![("m21".to_string(), "rare".to_string())],
+        }],
+    )
+    .into();
+    let names = Names {
+        facts: Some(&facts),
+        ..Names::projected()
+    };
+    let mut browser = Browser::new();
+    for (line, rows) in [("r:rare s:m21", 1), ("f:modern", 1), ("r:common", 0)] {
+        browser.set_filter(line);
+        assert_eq!(browser.rows(&view, None, names).len(), rows, "`{line}`");
+    }
+    browser.set_filter("r:rare");
+    assert!(browser.rows(&view, None, Names::projected()).is_empty());
+}
