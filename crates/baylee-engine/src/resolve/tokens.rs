@@ -46,7 +46,9 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 Some(_) => res.targets.first().copied(),
                 None => Some(res.source),
             };
-            let kicked = state.object(res.on_stack).is_some_and(|o| o.kicked);
+            let kicked = state
+                .object(res.on_stack)
+                .is_some_and(crate::object::GameObject::kicked);
             let count = 1 + if kicked { u32::from(kicked_bonus) } else { 0 };
             // Copiable values, not `base`: a token copy of a Cursed Mirror
             // that became an Elf is a copy of the Elf (CR 707.2), and `base`
@@ -128,7 +130,9 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             None
         }
         Effect::CreateTokenCopyOfEquipped { kicked_bonus, mods } => {
-            let kicked = state.object(res.on_stack).is_some_and(|o| o.kicked);
+            let kicked = state
+                .object(res.on_stack)
+                .is_some_and(crate::object::GameObject::kicked);
             let count = 1 + if kicked { u32::from(kicked_bonus) } else { 0 };
             if let Some(equipped) = state.object(res.source).and_then(|o| o.attached_to) {
                 create_modified_token_copies(state, res, equipped, mods, count);

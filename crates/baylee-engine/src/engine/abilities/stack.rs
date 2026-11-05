@@ -160,7 +160,7 @@ impl<L: CardLookup> Engine<L> {
         )
         .then(|| self.state.object(source))
         .flatten()
-        .map_or((0, false, 0), |o| (o.x_value, o.kicked, o.times_kicked));
+        .map_or((0, 0), |o| (o.x_value, o.times_kicked));
         let id = self.state.arena.insert_with(|id| {
             let mut obj = GameObject::new_ability_on_stack(
                 id,
@@ -179,7 +179,7 @@ impl<L: CardLookup> Engine<L> {
                 obj.riders
                     .push(crate::object::Rider::AbilitySourceVersion(version));
             }
-            (obj.x_value, obj.kicked, obj.times_kicked) = announced;
+            (obj.x_value, obj.times_kicked) = announced;
             if let Some(version) = counter_version {
                 obj.riders
                     .push(crate::object::Rider::CounterSourceVersion(version));

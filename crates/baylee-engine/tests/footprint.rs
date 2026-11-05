@@ -95,6 +95,10 @@ const CACHE_BUDGET: usize = 8;
 /// Lowered 304 → 296 the same day: the chosen card type is a rider
 /// (`Rider::ChosenCardType`), as the second chosen basic land type is, since
 /// one card in the pool chooses one.
+///
+/// Raised 296 → 304 on 2026-11-04 by `GameObject::times_kicked`: one byte,
+/// rounded up by the object's alignment. Lowered back to 296 on 2026-11-05 by
+/// deriving `kicked` from that count instead of storing a redundant boolean.
 const OBJECT_BUDGET: usize = 296;
 
 #[test]

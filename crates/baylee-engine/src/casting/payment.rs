@@ -330,7 +330,7 @@ pub(super) fn spending_object(
     let original = state.object(card)?;
     if let Some(form) = form {
         let mut projected = form.project(original);
-        projected.kicked = matches!(what, SpendFor::KickedSpell(..));
+        projected.set_kicked(matches!(what, SpendFor::KickedSpell(..)));
         return Some(Cow::Owned(projected));
     }
     if let Some(face) = face {
@@ -344,7 +344,7 @@ pub(super) fn spending_object(
         ));
         projected.cache.clear();
         projected.face_index = u8::try_from(face).ok()?;
-        projected.kicked = matches!(what, SpendFor::KickedSpell(..));
+        projected.set_kicked(matches!(what, SpendFor::KickedSpell(..)));
         return Some(Cow::Owned(projected));
     }
     Some(Cow::Borrowed(original))

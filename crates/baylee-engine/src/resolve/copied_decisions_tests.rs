@@ -101,7 +101,6 @@ fn spell_copy_keeps_how_it_was_kicked_and_that_its_buyback_was_paid() {
     let original = state.create_bare(caster, ObjectKind::Spell, name, ZoneLocation::Stack);
     {
         let spell = state.object_mut(original).unwrap();
-        spell.kicked = true;
         spell.times_kicked = 3;
         spell.riders.push(crate::object::Rider::Buyback);
     }
@@ -115,7 +114,7 @@ fn spell_copy_keeps_how_it_was_kicked_and_that_its_buyback_was_paid() {
     )
     .unwrap();
     let copy = state.object(copy).unwrap();
-    assert!(copy.kicked);
+    assert!(copy.kicked());
     assert_eq!(copy.times_kicked, 3);
     assert!(copy.riders.contains(&crate::object::Rider::Buyback));
 }

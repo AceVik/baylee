@@ -173,7 +173,6 @@ pub(super) fn copy_spell(
     let target_players = from.target_players;
     let chosen_player = from.chosen_player;
     let x_value = from.x_value;
-    let kicked = from.kicked;
     let times_kicked = from.times_kicked;
     let bought_back = from.riders.contains(&crate::object::Rider::Buyback);
     let replicated = from.replicated;
@@ -220,7 +219,6 @@ pub(super) fn copy_spell(
         obj.target_players = target_players;
         obj.chosen_player = chosen_player;
         obj.x_value = x_value;
-        obj.kicked = kicked;
         obj.times_kicked = times_kicked;
         if bought_back {
             obj.riders.push(crate::object::Rider::Buyback);

@@ -355,7 +355,6 @@ fn plain(object: &GameObject) -> Result<(), &'static str> {
         source_power_lki: _,
         paid: _,
         x_value: _,
-        kicked: _,
         times_kicked: _,
         replicated: _,
         alt_cast: _,

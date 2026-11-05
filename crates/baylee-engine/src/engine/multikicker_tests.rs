@@ -232,7 +232,7 @@ fn no_payment_is_not_kicked() {
         .list(ZoneLocation::Stack)
         .last()
         .unwrap();
-    assert!(!engine.state().object(spell).unwrap().kicked);
+    assert!(!engine.state().object(spell).unwrap().kicked());
     resolve(&mut engine);
     assert_eq!(engine.state().players[0].life, 19);
 }
@@ -331,7 +331,7 @@ fn a_permanent_that_comes_back_was_never_kicked() {
         .unwrap();
     let _ = engine.apply(ME, PlayerAction::PassPriority);
     let object = engine.state().object(body).unwrap();
-    assert!(!object.kicked);
+    assert!(!object.kicked());
     assert_eq!(object.times_kicked, 0);
 }
 
@@ -348,7 +348,7 @@ fn a_targeted_spell_keeps_its_count_on_the_stack() {
         .last()
         .unwrap();
     let object = engine.state().object(spell).unwrap();
-    assert!(object.kicked);
+    assert!(object.kicked());
     assert_eq!(object.times_kicked, 2);
     assert_eq!(
         object.characteristics().mana_value(),

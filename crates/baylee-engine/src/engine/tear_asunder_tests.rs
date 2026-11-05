@@ -68,7 +68,7 @@ fn tear_asunder_kicked_cast_offers_creatures_on_every_seat_but_no_lands() {
     e.apply(P0, PlayerAction::ChooseObjects { objects: vec![elf] })
         .unwrap();
     let spell = *e.state.zones.list(ZoneLocation::Stack).last().unwrap();
-    assert!(e.state.object(spell).unwrap().kicked);
+    assert!(e.state.object(spell).unwrap().kicked());
     assert_eq!(
         e.state.players[0].mana_pool.total(),
         0,
@@ -121,7 +121,7 @@ fn tear_asunder_creature_only_board_requires_the_complete_kicked_cost() {
     .unwrap();
     let spell = *e.state.zones.list(ZoneLocation::Stack).last().unwrap();
     assert!(
-        e.state.object(spell).unwrap().kicked,
+        e.state.object(spell).unwrap().kicked(),
         "the sole affordable way is kicked"
     );
     // The broader requirement still rejects a land at resolution.

@@ -702,7 +702,9 @@ pub(super) fn exec_immediate(
             life::batch57::exec(state, res, op)
         }
         Effect::IfKicked { then, otherwise } => {
-            let kicked = state.object(res.on_stack).is_some_and(|o| o.kicked);
+            let kicked = state
+                .object(res.on_stack)
+                .is_some_and(crate::object::GameObject::kicked);
             let branch = if kicked { then } else { otherwise };
             run_nested(state, res, branch)
         }

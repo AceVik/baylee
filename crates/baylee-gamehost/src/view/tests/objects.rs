@@ -567,7 +567,6 @@ fn a_spell_on_the_stack_shows_every_seat_how_it_was_kicked_and_bought_back() {
     {
         let object = state.object_mut(spell).unwrap();
         object.kind = ObjectKind::Spell;
-        object.kicked = true;
         object.times_kicked = 3;
         object.riders.push(baylee_engine::object::Rider::Buyback);
     }
