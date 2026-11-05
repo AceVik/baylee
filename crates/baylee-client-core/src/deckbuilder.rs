@@ -518,16 +518,13 @@ impl SortDir {
 
     /// Tooltip explaining the current sort direction.
     #[must_use]
-    pub const fn hint(self, lang: crate::i18n::Lang) -> &'static str {
-        use crate::i18n::Lang;
-        match (self, lang) {
-            (Self::Asc, Lang::De) => "Reihenfolge: Aufsteigend (Asc)",
-            (Self::Asc, Lang::En) => "Order: Ascending (Asc)",
-            (Self::Desc, Lang::De) => "Reihenfolge: Absteigend (Desc)",
-            (Self::Desc, Lang::En) => "Order: Descending (Desc)",
-            (Self::Unset, Lang::De) => "Reihenfolge: Standard (Unset)",
-            (Self::Unset, Lang::En) => "Order: Default (Unset)",
+    pub fn hint(self, lang: Lang) -> &'static str {
+        match self {
+            Self::Asc => Phrase::SortDirAscHint,
+            Self::Desc => Phrase::SortDirDescHint,
+            Self::Unset => Phrase::SortDirUnsetHint,
         }
+        .text(lang)
     }
 }
 
@@ -1131,19 +1128,15 @@ pub use view::{Draft, Grouping, STAT_GROUPS, Section, SectionKey};
 
 /// Localized display label for a card [`Rarity`].
 #[must_use]
-pub const fn rarity_label(rarity: Rarity, german: bool) -> &'static str {
-    match (rarity, german) {
-        (Rarity::Common, true) => "Gewöhnlich",
-        (Rarity::Common, false) => "Common",
-        (Rarity::Uncommon, true) => "Ungewöhnlich",
-        (Rarity::Uncommon, false) => "Uncommon",
-        (Rarity::Rare, true) => "Selten",
-        (Rarity::Rare, false) => "Rare",
-        (Rarity::Mythic, true) => "Mythisch",
-        (Rarity::Mythic, false) => "Mythic",
-        (Rarity::Special | Rarity::Bonus, true) => "Spezial",
-        (Rarity::Special | Rarity::Bonus, false) => "Special",
+pub fn rarity_label(rarity: Rarity, lang: Lang) -> &'static str {
+    match rarity {
+        Rarity::Common => Phrase::BuildRarityCommon,
+        Rarity::Uncommon => Phrase::BuildRarityUncommon,
+        Rarity::Rare => Phrase::BuildRarityRare,
+        Rarity::Mythic => Phrase::BuildRarityMythic,
+        Rarity::Special | Rarity::Bonus => Phrase::BuildRaritySpecial,
     }
+    .text(lang)
 }
 
 #[cfg(test)]

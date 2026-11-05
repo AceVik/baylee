@@ -105,7 +105,6 @@ pub(crate) fn draw(commands: &mut Commands, env: &Env) -> Entity {
     let kit = env.kit;
     let m = kit.m;
     let lang = env.lang();
-    let german = lang == Lang::De;
     let deck = env.deck();
     let ui = env.ui();
     let column = commands
@@ -215,28 +214,16 @@ pub(crate) fn draw(commands: &mut Commands, env: &Env) -> Entity {
         kit,
         '\u{f51e}',
         tokens::ACCENT,
-        if german {
-            "Ø MANABETRAG"
-        } else {
-            "AVG MANA VALUE"
-        },
+        Phrase::BuildStatAvgMana.text(lang),
         &format!("{avg_cmc:.2}"),
-        &if german {
-            format!("\u{03a3} {total_cmc} Mana \u{b7} {nonland_count} Zauber")
-        } else {
-            format!("\u{03a3} {total_cmc} mana \u{b7} {nonland_count} spells")
-        },
+        &Phrase::BuildStatManaSub.fill(lang, &[&total_cmc.to_string(), &nonland_count.to_string()]),
     );
     let kpi_lands = kpi_tile(
         commands,
         kit,
         '\u{f6fc}',
         tokens::GOLD,
-        if german {
-            "LÄNDER-ANTEIL"
-        } else {
-            "LAND SHARE"
-        },
+        Phrase::BuildStatLandShare.text(lang),
         &format!("{land_pct} %"),
         &Phrase::BuildLandShare.fill(lang, &[&counts.lands.to_string(), &counts.main.to_string()]),
     );
@@ -245,17 +232,9 @@ pub(crate) fn draw(commands: &mut Commands, env: &Env) -> Entity {
         kit,
         '\u{f0e7}',
         Color::srgb(0.45, 0.78, 0.96),
-        if german {
-            "INSTANT-TEMPO"
-        } else {
-            "INSTANT SPEED"
-        },
+        Phrase::BuildStatInstantSpeed.text(lang),
         &format!("{instant_speed} ({instant_pct}%)"),
-        &if german {
-            format!("{legendary_count} Legendäre Karten")
-        } else {
-            format!("{legendary_count} legendary cards")
-        },
+        &Phrase::BuildStatLegendary.fill(lang, &[&legendary_count.to_string()]),
     );
     let kpi_record = kpi_tile(
         commands,
@@ -266,17 +245,11 @@ pub(crate) fn draw(commands: &mut Commands, env: &Env) -> Entity {
         } else {
             tokens::ACCENT
         },
-        if german {
-            "BILANZ & RANG"
-        } else {
-            "RECORD & RANK"
-        },
+        Phrase::BuildStatRecord.text(lang),
         &if record.games_played > 0 {
             format!("{}S / {}Sp ({win_pct}%)", record.wins, record.games_played)
-        } else if german {
-            "0 Spiele".to_string()
         } else {
-            "0 games".to_string()
+            Phrase::BuildStatNoGames.text(lang).to_string()
         },
         &format!("Stufe {tier_lvl}/11 \u{b7} {tier_title}"),
     );
@@ -434,11 +407,7 @@ pub(crate) fn draw(commands: &mut Commands, env: &Env) -> Entity {
             &format!(
                 "{} \u{b7} {}",
                 Phrase::BuildColourPips.text(lang),
-                if german {
-                    "Symbole in Kosten vs. Mana-Quellen"
-                } else {
-                    "Cost pips vs. mana sources"
-                }
+                Phrase::BuildPipsVsSources.text(lang)
             ),
         );
         let mut pip_items = vec![pips_head];
@@ -566,11 +535,7 @@ pub(crate) fn draw(commands: &mut Commands, env: &Env) -> Entity {
             let detail = cell(
                 commands,
                 kit,
-                &if german {
-                    format!("{p_cnt} Pips \u{b7} {s_cnt} Quellen")
-                } else {
-                    format!("{p_cnt} pips \u{b7} {s_cnt} sources")
-                },
+                &Phrase::BuildPipsDetail.fill(lang, &[&p_cnt.to_string(), &s_cnt.to_string()]),
                 m.small * 0.88,
                 tokens::INK,
                 false,
@@ -647,15 +612,7 @@ pub(crate) fn draw(commands: &mut Commands, env: &Env) -> Entity {
         type_items.push(line(commands, kit, &[name, track, count_lbl]));
     }
 
-    let rarity_head = caption(
-        commands,
-        kit,
-        if german {
-            "Seltenheits-Verteilung"
-        } else {
-            "Rarity distribution"
-        },
-    );
+    let rarity_head = caption(commands, kit, Phrase::BuildRarityDistribution.text(lang));
     type_items.push(rarity_head);
     let rarity_row = commands
         .spawn((
@@ -698,7 +655,7 @@ pub(crate) fn draw(commands: &mut Commands, env: &Env) -> Entity {
         let txt = cell(
             commands,
             kit,
-            &format!("{} \u{b7} {cnt}", rarity_label(rarity, german)),
+            &format!("{} \u{b7} {cnt}", rarity_label(rarity, lang)),
             m.small * 0.88,
             tokens::INK,
             cnt > 0,
@@ -734,27 +691,18 @@ pub(crate) fn draw(commands: &mut Commands, env: &Env) -> Entity {
         0.0
     };
 
-    let odds_head = caption(
-        commands,
-        kit,
-        if german {
-            "Starthand-Chancen (7 Karten) & Simulator"
-        } else {
-            "Opening hand odds (7 cards) & simulator"
-        },
-    );
+    let odds_head = caption(commands, kit, Phrase::BuildOddsHead.text(lang));
     let odds_text = cell(
         commands,
         kit,
-        &if german {
-            format!(
-                "\u{2265} 2 Länder: {p_2plus_lands:.0}% \u{b7} 2\u{2013}4 Länder: {p_2to4_lands:.0}% \u{b7} Spielzug MV \u{2264} 2: {p_early_play:.0}%"
-            )
-        } else {
-            format!(
-                "\u{2265} 2 lands: {p_2plus_lands:.0}% \u{b7} 2\u{2013}4 lands: {p_2to4_lands:.0}% \u{b7} MV \u{2264} 2 play: {p_early_play:.0}%"
-            )
-        },
+        &Phrase::BuildOddsText.fill(
+            lang,
+            &[
+                &format!("{p_2plus_lands:.0}"),
+                &format!("{p_2to4_lands:.0}"),
+                &format!("{p_early_play:.0}"),
+            ],
+        ),
         m.small,
         tokens::ACCENT,
         true,
@@ -827,11 +775,8 @@ pub(crate) fn draw(commands: &mut Commands, env: &Env) -> Entity {
         let hand_summary = cell(
             commands,
             kit,
-            &if german {
-                format!("Gezogene Hand: {hand_lands} Länder \u{b7} {hand_spells} Nichtländer")
-            } else {
-                format!("Drawn hand: {hand_lands} lands \u{b7} {hand_spells} non-lands")
-            },
+            &Phrase::BuildHandSummary
+                .fill(lang, &[&hand_lands.to_string(), &hand_spells.to_string()]),
             m.small * 0.9,
             tokens::GOLD,
             true,

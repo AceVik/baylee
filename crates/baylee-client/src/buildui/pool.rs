@@ -345,7 +345,7 @@ fn chip_row(commands: &mut Commands, env: &Env) -> Entity {
         kids.push(controls::chip(
             commands,
             kit,
-            rarity_label(rarity, lang == Lang::De),
+            rarity_label(rarity, lang),
             true,
             None,
             true,
@@ -360,10 +360,7 @@ fn chip_row(commands: &mut Commands, env: &Env) -> Entity {
     let deck_fav_count =
         u32::try_from(env.prefs.deck_card_favourites_for(deck_key).len()).unwrap_or(0);
     let global_fav_count = u32::try_from(env.prefs.card_favourites.len()).unwrap_or(0);
-    let fav_deck_tip = match lang {
-        Lang::De => "Nur Favoriten dieses Decks anzeigen",
-        Lang::En => "Show only favourites for this deck",
-    };
+    let fav_deck_tip = Phrase::BuildFavDeckTip.text(lang);
     kids.push(controls::chip(
         commands,
         kit,
@@ -377,13 +374,8 @@ fn chip_row(commands: &mut Commands, env: &Env) -> Entity {
             crate::lobby::HoverHint(fav_deck_tip.to_string()),
         ),
     ));
-    let (fav_global_label, fav_global_tip) = match lang {
-        Lang::De => (
-            "\u{2605} Allgemein",
-            "Nur allgemeine Karten-Favoriten anzeigen",
-        ),
-        Lang::En => ("\u{2605} General", "Show only general card favourites"),
-    };
+    let fav_global_label = Phrase::BuildFavGlobalChip.text(lang);
+    let fav_global_tip = Phrase::BuildFavGlobalTip.text(lang);
     kids.push(controls::chip(
         commands,
         kit,
@@ -407,10 +399,7 @@ fn chip_row(commands: &mut Commands, env: &Env) -> Entity {
         false,
         (Press::Build(BuildPress::TogglePlayable), stop("playable")),
     ));
-    let group_label = match lang {
-        Lang::De => "Nach Typ",
-        Lang::En => "By type",
-    };
+    let group_label = Phrase::BuildGroupByType.text(lang);
     kids.push(controls::chip(
         commands,
         kit,
@@ -435,24 +424,15 @@ fn chip_row(commands: &mut Commands, env: &Env) -> Entity {
         &[
             (
                 crate::hud::glyph::VIEW_ROWS,
-                match lang {
-                    Lang::De => "Listenansicht",
-                    Lang::En => "List view",
-                },
+                Phrase::BuildViewList.text(lang),
             ),
             (
                 crate::hud::glyph::VIEW_GRID,
-                match lang {
-                    Lang::De => "Rasteransicht",
-                    Lang::En => "Grid view",
-                },
+                Phrase::BuildViewGrid.text(lang),
             ),
             (
                 crate::hud::glyph::VIEW_BIG,
-                match lang {
-                    Lang::De => "Kompaktansicht",
-                    Lang::En => "Compact view",
-                },
+                Phrase::BuildViewCompact.text(lang),
             ),
         ],
         selected_view,
@@ -605,47 +585,20 @@ fn sort_controls(commands: &mut Commands, env: &Env) -> Entity {
             Press::Build(BuildPress::ToggleSortMenu),
             stop("sort-menu"),
             focus::MenuOpener(BuildMenu::Sort),
-            crate::lobby::HoverHint(
-                match lang {
-                    Lang::De => "Sortierkriterium wählen",
-                    Lang::En => "Choose sort criterion",
-                }
-                .to_string(),
-            ),
+            crate::lobby::HoverHint(Phrase::BuildSortCriterionTip.text(lang).to_string()),
         ),
     );
 
-    let (dir_glyph, dir_tip, dir_lit) = match (deck.sort_dir(), lang) {
-        (baylee_client_core::deckbuilder::SortDir::Asc, Lang::De) => (
-            '\u{f160}',
-            "Sortierung: Aufsteigend (klicken für Absteigend)",
-            true,
-        ),
-        (baylee_client_core::deckbuilder::SortDir::Asc, Lang::En) => (
-            '\u{f160}',
-            "Sort direction: Ascending (click for Descending)",
-            true,
-        ),
-        (baylee_client_core::deckbuilder::SortDir::Desc, Lang::De) => (
-            '\u{f161}',
-            "Sortierung: Absteigend (klicken für Zurücksetzen)",
-            true,
-        ),
-        (baylee_client_core::deckbuilder::SortDir::Desc, Lang::En) => (
-            '\u{f161}',
-            "Sort direction: Descending (click to unset)",
-            true,
-        ),
-        (baylee_client_core::deckbuilder::SortDir::Unset, Lang::De) => (
-            '\u{f0dc}',
-            "Sortierung: Standardreihenfolge (klicken für Aufsteigend)",
-            false,
-        ),
-        (baylee_client_core::deckbuilder::SortDir::Unset, Lang::En) => (
-            '\u{f0dc}',
-            "Sort direction: Default order (click for Ascending)",
-            false,
-        ),
+    let (dir_glyph, dir_tip, dir_lit) = match deck.sort_dir() {
+        baylee_client_core::deckbuilder::SortDir::Asc => {
+            ('\u{f160}', Phrase::BuildSortDirAscTip.text(lang), true)
+        }
+        baylee_client_core::deckbuilder::SortDir::Desc => {
+            ('\u{f161}', Phrase::BuildSortDirDescTip.text(lang), true)
+        }
+        baylee_client_core::deckbuilder::SortDir::Unset => {
+            ('\u{f0dc}', Phrase::BuildSortDirUnsetTip.text(lang), false)
+        }
     };
     let dir_btn = icon_button(
         commands,
@@ -935,14 +888,7 @@ pub(crate) fn filters_body(commands: &mut Commands, env: &Env) -> Vec<Entity> {
         })
         .collect();
     out.push(wrap(commands, &values));
-    out.push(caption(
-        commands,
-        kit,
-        match lang {
-            Lang::De => "Seltenheit",
-            Lang::En => "Rarity",
-        },
-    ));
+    out.push(caption(commands, kit, Phrase::FilterKeyRarity.text(lang)));
     let rarities: Vec<Entity> = [
         baylee_client_core::deckbuilder::Rarity::Common,
         baylee_client_core::deckbuilder::Rarity::Uncommon,
@@ -954,7 +900,7 @@ pub(crate) fn filters_body(commands: &mut Commands, env: &Env) -> Vec<Entity> {
         controls::chip(
             commands,
             kit,
-            rarity_label(rarity, lang == Lang::De),
+            rarity_label(rarity, lang),
             deck.rarity() == Some(rarity),
             None,
             false,
@@ -985,10 +931,7 @@ pub(crate) fn filters_body(commands: &mut Commands, env: &Env) -> Vec<Entity> {
     let fav_global = controls::chip(
         commands,
         kit,
-        match lang {
-            Lang::De => "\u{2605} Allgemein",
-            Lang::En => "\u{2605} General",
-        },
+        Phrase::BuildFavGlobalChip.text(lang),
         env.ui().fav_global,
         None,
         false,

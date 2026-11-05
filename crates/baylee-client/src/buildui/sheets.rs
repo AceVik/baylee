@@ -87,10 +87,8 @@ pub(super) fn menu(commands: &mut Commands, holder: Entity, env: &Env) {
                 let deck_key = deck.editing().unwrap_or("new");
                 let is_deck_fav = env.prefs.deck_card_favourite(deck_key, &card.english_name);
                 let is_global_fav = env.prefs.card_favourite(&card.english_name);
-                let (deck_fav_label, global_fav_label) = match lang {
-                    Lang::De => ("Favorit (dieses Deck)", "Favorit (allgemein)"),
-                    Lang::En => ("Favourite (this deck)", "Favourite (general)"),
-                };
+                let deck_fav_label = Phrase::BuildCardFavDeckItem.text(lang);
+                let global_fav_label = Phrase::BuildCardFavGlobalItem.text(lang);
                 items.push(MenuItem {
                     text: deck_fav_label,
                     keys: is_deck_fav.then_some("\u{2713}"),
@@ -135,10 +133,8 @@ pub(super) fn menu(commands: &mut Commands, holder: Entity, env: &Env) {
                     let deck_key = deck.editing().unwrap_or("new");
                     let is_deck_fav = env.prefs.deck_card_favourite(deck_key, &card.english_name);
                     let is_global_fav = env.prefs.card_favourite(&card.english_name);
-                    let (deck_fav_label, global_fav_label) = match lang {
-                        Lang::De => ("Favorit (dieses Deck)", "Favorit (allgemein)"),
-                        Lang::En => ("Favourite (this deck)", "Favourite (general)"),
-                    };
+                    let deck_fav_label = Phrase::BuildCardFavDeckItem.text(lang);
+                    let global_fav_label = Phrase::BuildCardFavGlobalItem.text(lang);
                     items.push(MenuItem {
                         text: deck_fav_label,
                         keys: is_deck_fav.then_some("\u{2713}"),
