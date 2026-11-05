@@ -265,7 +265,9 @@ impl Offline {
     pub(crate) fn perform(&mut self, request: LobbyRequest, lang: Lang) -> LobbyEvent {
         match request {
             LobbyRequest::Library(request) => self.library(request, lang),
-            LobbyRequest::ListDecks => LobbyEvent::Decks(
+            LobbyRequest::ListDecks => {
+                let artists = super::thumbnails::cached_artists();
+                LobbyEvent::Decks(
                 self.decks
                     .iter()
                     .filter(|d| {
@@ -279,7 +281,7 @@ impl Offline {
                         // the same thing here as it would there.
                         let mut digest =
                             baylee_cards::digest::digest(&d.cards, &d.sideboard, &d.commanders);
-                        credit_known_artists(&mut digest);
+                        credit_cached_artists(&mut digest, &artists);
                         DeckSummary {
                             legality: client_core::lobby::DeckLegality::default(),
                             id: d.id.clone(),
@@ -300,7 +302,8 @@ impl Offline {
                         }
                     })
                     .collect(),
-            ),
+            )
+            }
             LobbyRequest::LoadPool => LobbyEvent::Pool {
                 cards: baylee_cards::pool::rows().iter().map(pool_row).collect(),
                 // No catalog, so no rules text and no translated names. The
@@ -505,33 +508,36 @@ impl Offline {
     fn library(&mut self, request: client_core::lobby::library::Request, lang: Lang) -> LobbyEvent {
         use client_core::lobby::library::{HouseDeck, Reply, Request, Snapshot};
         let reply = match request {
-            Request::House => Reply::House(
-                self.decks
-                    .iter()
-                    .filter(|d| d.id.starts_with(BUILTIN))
-                    .map(|d| {
-                        let mut digest =
-                            baylee_cards::digest::digest(&d.cards, &d.sideboard, &d.commanders);
-                        credit_known_artists(&mut digest);
-                        HouseDeck {
-                            id: d.id.clone(),
-                            name: d.name.clone(),
-                            format: d.format(),
-                            description: String::new(),
-                            version: 1,
-                            cards: d.cards.len(),
-                            sideboard: d.sideboard.len(),
-                            commanders: d.commanders.clone(),
-                            copies: digest.copies,
-                            identity: digest.identity,
-                            leaders: digest.leaders,
-                            signature: digest.signature,
-                            unplayable: digest.unplayable,
-                            blocked: Vec::new(),
-                        }
-                    })
-                    .collect(),
-            ),
+            Request::House => {
+                let artists = super::thumbnails::cached_artists();
+                Reply::House(
+                    self.decks
+                        .iter()
+                        .filter(|d| d.id.starts_with(BUILTIN))
+                        .map(|d| {
+                            let mut digest =
+                                baylee_cards::digest::digest(&d.cards, &d.sideboard, &d.commanders);
+                            credit_cached_artists(&mut digest, &artists);
+                            HouseDeck {
+                                id: d.id.clone(),
+                                name: d.name.clone(),
+                                format: d.format(),
+                                description: String::new(),
+                                version: 1,
+                                cards: d.cards.len(),
+                                sideboard: d.sideboard.len(),
+                                commanders: d.commanders.clone(),
+                                copies: digest.copies,
+                                identity: digest.identity,
+                                leaders: digest.leaders,
+                                signature: digest.signature,
+                                unplayable: digest.unplayable,
+                                blocked: Vec::new(),
+                            }
+                        })
+                        .collect(),
+                )
+            }
             Request::Version(id, 1) if id.starts_with(BUILTIN) => self.deck(&id).map_or_else(
                 || Reply::Failed(Phrase::LibraryReadFailed.text(lang).into()),
                 |d| {
@@ -935,19 +941,19 @@ fn reference_printing(card: u32) -> Option<client_core::deckbuilder::Printing> {
     })
 }
 
-/// Fills known artist credits on a digest's `leaders` and `signature` so
-/// offline and Central-mode decks and Vorlagen have their credited illustration
-/// immediately (`docs/legal.md` Principle 4).
-pub(crate) fn credit_known_artists(digest: &mut baylee_core::deckdigest::Digest) {
-    let cached = super::thumbnails::cached_artists();
+/// Fills the credits this device has already looked up on a digest's `leaders`
+/// and `signature`. A credit belongs to one printing, so it is read by that
+/// printing's Scryfall id and never by the card's name (`docs/legal.md` §3);
+/// until one is known the tile shows no art.
+pub(crate) fn credit_cached_artists(
+    digest: &mut baylee_core::deckdigest::Digest,
+    artists: &std::collections::BTreeMap<String, String>,
+) {
     for picture in digest.leaders.iter_mut().chain(digest.signature.as_mut()) {
-        if !picture.artist.trim().is_empty() {
-            continue;
-        }
-        if let Some(artist) = super::thumbnails::known_artist(&picture.name, &picture.scryfall_id)
-            .or_else(|| cached.get(&picture.scryfall_id).map(String::as_str))
+        if picture.artist.trim().is_empty()
+            && let Some(artist) = artists.get(&picture.scryfall_id)
         {
-            picture.artist = artist.to_string();
+            picture.artist.clone_from(artist);
         }
     }
 }
