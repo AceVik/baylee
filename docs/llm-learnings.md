@@ -6507,3 +6507,20 @@ got wrong was in the tests, not in the cards:
   information or client rendering requirement. Desktop, house AI and LLM seats
   already play the combat and priority decisions; no card-specific seat policy
   is needed.
+
+## 2026-11-05 — Icy Prison's table-wide upkeep payment
+
+- Reuse `AnyPlayerMayPayManaOr` with `SacrificeSelf` rather than restricting the
+  offer to the controller. The shared continuation asks in APNAP order, stops at
+  the first payment and runs the sacrifice fallback exactly once when everybody
+  declines. Existing linked exile returns only the card exiled with Icy Prison,
+  under its owner's control, whenever the enchantment leaves the battlefield.
+- Four played tests cover the ETB target choice, refusal by every player, payment
+  by the controller, payment by a later player before the third player is asked,
+  and destruction with an unrelated exiled card present. The multiplayer test was
+  red against the controller-only card: it asked only player 0 instead of players
+  0 and 1. The general any-player payment and linked-exile suites remain green.
+- Desktop and LLM seats reuse the ordinary mana-payment question; no new pending
+  shape or client mechanism is needed. The house AI now reads the fallback through
+  `payment_unpaid_effects`, with a regression that was red before that reader
+  change. The full 363-test AI suite passes; no card-specific seat policy exists.
