@@ -1078,16 +1078,10 @@ fn empty_matches(
     commands.entity(badge).add_child(icon);
 
     let (heading_str, sub_str) = if no_gateways {
-        match lang {
-            Lang::De => (
-                "Noch kein Community-Gateway gespeichert",
-                "Füge unten eine Gateway-Adresse hinzu, um dich zu verbinden und online zu spielen.",
-            ),
-            Lang::En => (
-                "No community gateways saved yet",
-                "Add a gateway address below to connect and play online.",
-            ),
-        }
+        (
+            Phrase::GatewayNoneSaved.text(lang),
+            Phrase::GatewayNoneSavedHint.text(lang),
+        )
     } else {
         (
             Phrase::GatewayNoMatches.text(lang),

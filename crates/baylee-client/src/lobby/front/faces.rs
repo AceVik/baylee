@@ -445,10 +445,7 @@ fn gateway_head(commands: &mut Commands, state: &LobbyState, kit: Kit, _music_on
     let leaving_central = !state.lobby.gateway_chosen() && state.left_central_bound;
     if is_central_login_face(state) {
         let lang = state.lobby.lang();
-        let auth_title = match lang {
-            Lang::De => "Baylee Authentifizierung",
-            Lang::En => "Baylee Authentication",
-        };
+        let auth_title = Phrase::FrontAuthTitle.text(lang);
         let title = super::door::card_title_lockup(commands, kit, '\u{f3ed}', auth_title);
         commands
             .entity(title)

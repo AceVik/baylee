@@ -203,32 +203,25 @@ pub(crate) enum DecksPress {
 }
 
 /// All play modes / formats selectable in the Decks format dropdown:
-/// `(wire_id, icon, german_label, english_label)`.
-pub(crate) const DECK_FORMATS: [(&str, char, &str, &str); 9] = [
-    ("commander", '\u{f521}', "Commander", "Commander"),
-    ("highlander", '\u{f3ed}', "Highlander", "Highlander"),
-    ("standard", '\u{f005}', "Standard", "Standard"),
-    ("pioneer", '\u{f14e}', "Pioneer", "Pioneer"),
-    ("modern", '\u{f0e7}', "Modern", "Modern"),
-    ("legacy", '\u{f02d}', "Legacy", "Legacy"),
-    ("vintage", '\u{f51f}', "Vintage", "Vintage"),
-    ("pauper", '\u{f51e}', "Pauper", "Pauper"),
-    ("freeform", '\u{f534}', "Freiform", "Freeform"),
+/// `(wire_id, icon, label)`.
+pub(crate) const DECK_FORMATS: [(&str, char, Phrase); 9] = [
+    ("commander", '\u{f521}', Phrase::PlayFormatCommander),
+    ("highlander", '\u{f3ed}', Phrase::PlayFormatHighlander),
+    ("standard", '\u{f005}', Phrase::PlayFormatStandard),
+    ("pioneer", '\u{f14e}', Phrase::PlayFormatPioneer),
+    ("modern", '\u{f0e7}', Phrase::PlayFormatModern),
+    ("legacy", '\u{f02d}', Phrase::PlayFormatLegacy),
+    ("vintage", '\u{f51f}', Phrase::PlayFormatVintage),
+    ("pauper", '\u{f51e}', Phrase::PlayFormatPauper),
+    ("freeform", '\u{f534}', Phrase::FormatFreeform),
 ];
 
 /// Returns the localized name and icon for a format index (`None` = Alle Formate).
 fn format_filter_display(lang: Lang, format: Option<u8>) -> (char, &'static str) {
-    if let Some((_, icon, de, en)) = format.and_then(|i| DECK_FORMATS.get(usize::from(i))) {
-        (*icon, if lang == Lang::De { *de } else { *en })
+    if let Some((_, icon, label)) = format.and_then(|i| DECK_FORMATS.get(usize::from(i))) {
+        (*icon, label.text(lang))
     } else {
-        (
-            '\u{f0b0}',
-            if lang == Lang::De {
-                "Alle Formate"
-            } else {
-                "All formats"
-            },
-        )
+        ('\u{f0b0}', Phrase::DecksAllFormats.text(lang))
     }
 }
 
@@ -368,20 +361,18 @@ pub(super) fn draw(
     if state.menu == Some(ShellMenu::DeckFormat)
         && let Some(anchor) = format_anchor
     {
-        let all_label = if lang == Lang::De {
-            "Alle Formate"
-        } else {
-            "All formats"
-        };
+        let all_label = Phrase::DecksAllFormats.text(lang);
         let mut items = Vec::with_capacity(DECK_FORMATS.len() + 1);
         items.push(menus::item(
             all_label,
             Press::Decks(DecksPress::Format(u8::MAX)),
         ));
-        for (i, (_, _, de, en)) in DECK_FORMATS.iter().enumerate() {
+        for (i, (_, _, label)) in DECK_FORMATS.iter().enumerate() {
             let at = u8::try_from(i).unwrap_or(0);
-            let label = if lang == Lang::De { *de } else { *en };
-            items.push(menus::item(label, Press::Decks(DecksPress::Format(at))));
+            items.push(menus::item(
+                label.text(lang),
+                Press::Decks(DecksPress::Format(at)),
+            ));
         }
         menus::draw(commands, root, kit, anchor, items);
     }
@@ -648,30 +639,9 @@ fn view_switcher(commands: &mut Commands, kit: Kit, lang: Lang, current: DecksVi
         commands,
         kit,
         &[
-            (
-                '\u{f009}',
-                if lang == Lang::De {
-                    "Kachel-Ansicht"
-                } else {
-                    "Gallery view"
-                },
-            ),
-            (
-                '\u{f03a}',
-                if lang == Lang::De {
-                    "Listen-Ansicht"
-                } else {
-                    "List view"
-                },
-            ),
-            (
-                '\u{f00a}',
-                if lang == Lang::De {
-                    "Kompakt-Raster"
-                } else {
-                    "Compact grid"
-                },
-            ),
+            ('\u{f009}', Phrase::DecksViewGallery.text(lang)),
+            ('\u{f03a}', Phrase::DecksViewList.text(lang)),
+            ('\u{f00a}', Phrase::DecksViewCompactGrid.text(lang)),
         ],
         active,
         |i| Press::Decks(DecksPress::SetView(modes[i])),
@@ -802,11 +772,7 @@ fn filter_strip(
     commands.entity(strip).add_child(format_btn);
 
     if ui.tab == DecksTab::Mine {
-        let fav_label = if lang == Lang::De {
-            "Favoriten"
-        } else {
-            "Favourites"
-        };
+        let fav_label = Phrase::DecksFavouritesFilter.text(lang);
         let fav_chip = quick_filter_pill(
             commands,
             kit,
@@ -818,11 +784,7 @@ fn filter_strip(
         commands.entity(strip).add_child(fav_chip);
     }
 
-    let playable_label = if lang == Lang::De {
-        "100% spielbar"
-    } else {
-        "100% playable"
-    };
+    let playable_label = Phrase::DecksPlayableFilter.text(lang);
     let playable_chip = quick_filter_pill(
         commands,
         kit,
@@ -839,11 +801,7 @@ fn filter_strip(
         || (ui.tab == DecksTab::Mine && ui.favourites_only)
         || ui.playable_only;
     if has_filters {
-        let reset_label = if lang == Lang::De {
-            "Filter zurücksetzen"
-        } else {
-            "Reset filters"
-        };
+        let reset_label = Phrase::DecksResetFilters.text(lang);
         let reset = quick_filter_pill(
             commands,
             kit,
@@ -867,10 +825,8 @@ fn filter_strip(
         let shown = filtered_mine_indices(state, prefs).len();
         let summary_text = if shown == total {
             format!("{total} Decks")
-        } else if lang == Lang::De {
-            format!("{shown} von {total} Decks")
         } else {
-            format!("{shown} of {total} decks")
+            Phrase::DecksShownOfMine.fill(lang, &[&shown.to_string(), &total.to_string()])
         };
         let summary = parts::line(commands, kit, &summary_text, kit.m.small, tokens::MUTED);
         commands.entity(strip).add_child(summary);
@@ -878,15 +834,9 @@ fn filter_strip(
         let total = lobby.library().house.len();
         let shown = filtered_house_indices(state).len();
         let summary_text = if shown == total {
-            if lang == Lang::De {
-                format!("{total} Vorlagen")
-            } else {
-                format!("{total} templates")
-            }
-        } else if lang == Lang::De {
-            format!("{shown} von {total} Vorlagen")
+            Phrase::DecksTemplatesTotal.fill(lang, &[&total.to_string()])
         } else {
-            format!("{shown} of {total} templates")
+            Phrase::DecksShownOfTemplates.fill(lang, &[&shown.to_string(), &total.to_string()])
         };
         let summary = parts::line(commands, kit, &summary_text, kit.m.small, tokens::MUTED);
         commands.entity(strip).add_child(summary);
@@ -1179,10 +1129,7 @@ fn mine(
     if order.is_empty() {
         let query = lobby.field(Field::DeckSearch).trim();
         let said = if query.is_empty() {
-            match lang {
-                Lang::De => "Keine Decks entsprechen den aktiven Filtern.".to_string(),
-                Lang::En => "No decks match the active filters.".to_string(),
-            }
+            Phrase::DecksNoneMatchFilters.text(lang).to_string()
         } else {
             Phrase::DecksNoMatch.fill(lang, &[query])
         };
@@ -1191,7 +1138,6 @@ fn mine(
     }
     let now = parts::now_secs();
     let view = state.decks.view;
-    let german = lang == Lang::De;
     let mut walked = 0;
     for index in order {
         let deck = &lobby.decks()[index];
@@ -1219,22 +1165,14 @@ fn mine(
             .collect();
         let variants = prefs.variants_for_deck(&deck.id);
         if !variants.is_empty() {
-            let v_label = if german {
-                format!("+{} Formate", variants.len())
-            } else {
-                format!("+{} formats", variants.len())
-            };
+            let v_label = Phrase::DecksVariantsBadge.fill(lang, &[&variants.len().to_string()]);
             badges.push((v_label, tokens::ACCENT));
         }
         let stats = prefs.stats_for_deck(&deck.id);
         let rank = stats.rank_tier();
         let rank_tier = rank.level();
         let rank_ink = rank_tier_ink(rank_tier);
-        let step_lbl = if german {
-            format!("Stufe {rank_tier}/11")
-        } else {
-            format!("Tier {rank_tier}/11")
-        };
+        let step_lbl = Phrase::DecksRankStep.fill(lang, &[&rank_tier.to_string()]);
         let rank_badge = Some((
             format!("{step_lbl} · {}", rank.title(lang)),
             rank_ink,
@@ -1243,25 +1181,25 @@ fn mine(
         let stats_line = if stats.games_played > 0 {
             let rate = stats.win_rate_pct().unwrap_or(0);
             let streak = if stats.best_streak >= 2 {
-                if german {
-                    format!(" · Serie {}", stats.best_streak)
-                } else {
-                    format!(" · Streak {}", stats.best_streak)
-                }
+                format!(
+                    " \u{b7} {}",
+                    Phrase::DecksStreak.fill(lang, &[&stats.best_streak.to_string()])
+                )
             } else {
                 String::new()
             };
-            let text = if german {
-                format!(
-                    "\u{f091} {} S / {} Sp. ({rate}%){streak}",
-                    stats.wins, stats.games_played
+            let text = format!(
+                "\u{f091} {}",
+                Phrase::DecksStatsLine.fill(
+                    lang,
+                    &[
+                        &stats.wins.to_string(),
+                        &stats.games_played.to_string(),
+                        &rate.to_string(),
+                        &streak,
+                    ],
                 )
-            } else {
-                format!(
-                    "\u{f091} {}W / {}G ({rate}%){streak}",
-                    stats.wins, stats.games_played
-                )
-            };
+            );
             Some((
                 text,
                 if rank_tier >= 4 {
@@ -1271,12 +1209,10 @@ fn mine(
                 },
             ))
         } else {
-            let text = if german {
-                "Noch keine Spiele gespielt".to_string()
-            } else {
-                "No games played yet".to_string()
-            };
-            Some((text, tokens::MUTED))
+            Some((
+                Phrase::DecksNoGamesYet.text(lang).to_string(),
+                tokens::MUTED,
+            ))
         };
         let subtitle = if deck.commanders.is_empty() {
             deck.signature.as_ref().map(|sig| sig.name.clone())
@@ -1370,7 +1306,6 @@ fn mine(
 #[allow(clippy::too_many_lines)] // hero badge + title + subtitle + primary actions + Vorlagen mini-tiles
 fn empty_shelf(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Entity {
     let lang = state.lobby.lang();
-    let german = lang == Lang::De;
     let card = commands
         .spawn((
             Node {
@@ -1424,11 +1359,7 @@ fn empty_shelf(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Entity 
             Pickable::IGNORE,
         ))
         .id();
-    let sub_text = if german {
-        "Erstelle dein erstes eigenes Deck im Deckbuilder, importiere eine bestehende Liste oder starte direkt mit einer fertigen Vorlage."
-    } else {
-        "Create your first deck in the deckbuilder, import an existing list, or start right away from a template."
-    };
+    let sub_text = Phrase::DecksEmptySubtitle.text(lang);
     let subtitle = commands
         .spawn((
             Text::new(sub_text),
@@ -1625,10 +1556,7 @@ fn house(
     if order.is_empty() {
         let query = lobby.field(Field::DeckSearch).trim();
         let said = if query.is_empty() {
-            match lang {
-                Lang::De => "Keine Vorlagen entsprechen den aktiven Filtern.".to_string(),
-                Lang::En => "No templates match the active filters.".to_string(),
-            }
+            Phrase::DecksNoTemplatesMatchFilters.text(lang).to_string()
         } else {
             Phrase::DecksNoMatch.fill(lang, &[query])
         };
@@ -1838,10 +1766,7 @@ fn spawn_star(commands: &mut Commands, kit: Kit, lang: Lang, look: &TileLook) ->
 /// Spawns a compact 28×28 vertical `⋮` menu button placed right beside the
 /// favourite star in the top-right header of a deck or template tile.
 fn spawn_vertical_more(commands: &mut Commands, kit: Kit, lang: Lang, press: Press) -> Entity {
-    let tip = match lang {
-        Lang::De => "Weitere Aktionen",
-        Lang::En => "More actions",
-    };
+    let tip = Phrase::MoreActions.text(lang);
     let btn = commands
         .spawn((
             Role::Button,
@@ -2502,21 +2427,20 @@ fn preview_card_rarity(
 
 /// Categorizes a card's `kinds` into a display section key (`0..=6`).
 fn preview_type_section(kinds: &[&str], lang: Lang) -> (u8, &'static str) {
-    let de = lang == Lang::De;
     if kinds.contains(&"Creature") {
-        (1, if de { "Kreaturen" } else { "Creatures" })
+        (1, Phrase::DecksSectionCreatures.text(lang))
     } else if kinds.contains(&"Planeswalker") {
         (2, "Planeswalker")
     } else if kinds.contains(&"Instant") || kinds.contains(&"Sorcery") {
-        (3, if de { "Zaubersprüche" } else { "Spells" })
+        (3, Phrase::DecksSectionSpells.text(lang))
     } else if kinds.contains(&"Artifact") {
-        (4, if de { "Artefakte" } else { "Artifacts" })
+        (4, Phrase::DecksSectionArtifacts.text(lang))
     } else if kinds.contains(&"Enchantment") || kinds.contains(&"Battle") {
-        (5, if de { "Verzauberungen" } else { "Enchantments" })
+        (5, Phrase::DecksSectionEnchantments.text(lang))
     } else if kinds.contains(&"Land") {
-        (6, if de { "Länder" } else { "Lands" })
+        (6, Phrase::DecksSectionLands.text(lang))
     } else {
-        (5, if de { "Weitere Karten" } else { "Other cards" })
+        (5, Phrase::DecksSectionOther.text(lang))
     }
 }
 
@@ -2838,7 +2762,6 @@ fn preview_sheet(
 ) {
     let lobby = &state.lobby;
     let lang = lobby.lang();
-    let german = lang == Lang::De;
     let lib = lobby.library();
     let Some(index) = state.decks.preview else {
         return;
@@ -2957,11 +2880,7 @@ fn preview_sheet(
         commands,
         kit,
         Some('\u{f0ca}'),
-        if german {
-            "Nach Typ gruppieren"
-        } else {
-            "Group by type"
-        },
+        Phrase::DecksGroupByType.text(lang),
         grouped,
         Press::Decks(DecksPress::TogglePreviewGrouped),
     );
@@ -2972,26 +2891,9 @@ fn preview_sheet(
         commands,
         kit,
         &[
-            (
-                '\u{f03a}',
-                if german {
-                    "Listen-Ansicht"
-                } else {
-                    "List view"
-                },
-            ),
-            (
-                '\u{f009}',
-                if german { "Karten-Raster" } else { "Card grid" },
-            ),
-            (
-                '\u{f00a}',
-                if german {
-                    "Kompakt-Ansicht"
-                } else {
-                    "Compact view"
-                },
-            ),
+            ('\u{f03a}', Phrase::DecksViewList.text(lang)),
+            ('\u{f009}', Phrase::DecksViewCardGrid.text(lang)),
+            ('\u{f00a}', Phrase::DecksViewCompact.text(lang)),
         ],
         active_v,
         |i| Press::Decks(DecksPress::SetPreviewView(modes[i])),
@@ -3026,17 +2928,10 @@ fn preview_sheet(
                     for line in &snapshot.cards {
                         let row = baylee_core::deckrow::parse(line).ok();
                         let name = row.as_ref().map_or(line.as_str(), |r| r.name.as_str());
-                        let key = lookup_pool_card(name).map_or(
-                            (
-                                5,
-                                if german {
-                                    "Weitere Karten"
-                                } else {
-                                    "Other cards"
-                                },
-                            ),
-                            |pc| preview_type_section(&pc.kinds, lang),
-                        );
+                        let key = lookup_pool_card(name)
+                            .map_or((5, Phrase::DecksSectionOther.text(lang)), |pc| {
+                                preview_type_section(&pc.kinds, lang)
+                            });
                         buckets.entry(key).or_default().push(line.clone());
                     }
                     for ((_, label), rows) in buckets {

@@ -276,3 +276,9 @@ SectionAtTable = An einem Tisch
 SectionInLobby = In der Lobby
 UnreadMarker = Neu
 PrivacyButton = Chat & Privatsphäre…
+NoticeUnread =
+    { $count ->
+        [one] { $count } ungelesene Chat-Nachricht
+       *[other] { $count } ungelesene Chat-Nachrichten
+    }
+NoticeFriendRequest = Freundschaftsanfrage von { $player }

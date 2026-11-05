@@ -452,14 +452,7 @@ fn bar(commands: &mut Commands, root: Entity, state: &LobbyState, kit: Kit, seat
                 gateway: gateway_press,
                 bell: (
                     Press::Header(HeaderPress::Bell),
-                    hint::HoverHint(
-                        if lang == Lang::De {
-                            "Benachrichtigungen"
-                        } else {
-                            "Notifications"
-                        }
-                        .to_string(),
-                    ),
+                    hint::HoverHint(Phrase::HeaderNotifications.text(lang).to_string()),
                 ),
                 account: Press::Header(HeaderPress::Account),
                 back: Press::Header(HeaderPress::Return),
@@ -609,12 +602,7 @@ pub(crate) fn tools(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Ve
             Press::Header(HeaderPress::Friends),
         );
         commands.entity(friends).insert(hint::HoverHint(
-            if lang == Lang::De {
-                "Kontakte"
-            } else {
-                "Contacts"
-            }
-            .to_string(),
+            Phrase::HeaderContacts.text(lang).to_string(),
         ));
         tools.push(friends);
     }

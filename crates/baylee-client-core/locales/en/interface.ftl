@@ -9405,3 +9405,212 @@ BuildOddsText = ≥ 2 lands: { $two_plus }% · 2–4 lands: { $two_to_four }% ·
 # The simulated hand's summary.
 # Arguments: lands, spells
 BuildHandSummary = Drawn hand: { $lands } lands · { $spells } non-lands
+
+# The card download popover: the number of cards downloaded.
+CardFillTileCards = Cards downloaded
+
+# The card download popover: the download speed.
+CardFillTileSpeed = Speed
+
+# The card download popover: the size downloaded.
+CardFillTileDownloaded = Downloaded
+
+# The card download popover: the estimated total size.
+CardFillTileTotal = Total size (est.)
+
+# The card download popover: the estimated time left.
+CardFillTileRemaining = Remaining (est.)
+
+# A format the Decks screen filters by.
+PlayFormatHighlander = Highlander
+
+# The Decks screen's format filter: every format.
+DecksAllFormats = All formats
+
+# The Decks screen's view switch: tiles.
+DecksViewGallery = Gallery view
+
+# A list view of cards or decks.
+DecksViewList = List view
+
+# The Decks screen's view switch: a compact grid.
+DecksViewCompactGrid = Compact grid
+
+# A deck preview's view switch: a grid of cards.
+DecksViewCardGrid = Card grid
+
+# A compact view of cards, decks or replays.
+DecksViewCompact = Compact view
+
+# The Decks screen's filter: favourite decks only.
+DecksFavouritesFilter = Favourites
+
+# The Decks screen's filter: fully playable decks only.
+DecksPlayableFilter = 100% playable
+
+# The Decks screen's button that clears its filters.
+DecksResetFilters = Reset filters
+
+# The Decks screen's count while filtering.
+# Arguments: shown, total
+DecksShownOfMine = { $shown } of { $total } decks
+
+# The Decks screen's count of templates.
+# Arguments: total
+DecksTemplatesTotal = { $total } templates
+
+# The Decks screen's count of templates while filtering.
+# Arguments: shown, total
+DecksShownOfTemplates = { $shown } of { $total } templates
+
+# A deck tile's badge for the formats it has saved variants in.
+# Arguments: count
+DecksVariantsBadge = +{ $count } formats
+
+# A deck tile's rank step.
+# Arguments: level
+DecksRankStep = Tier { $level }/11
+
+# A deck tile's best win streak.
+# Arguments: count
+DecksStreak = Streak { $count }
+
+# A deck tile's record: wins, games, win rate and the streak (with its own separator, or nothing).
+# Arguments: wins, games, rate, streak
+DecksStatsLine = { $wins }W / { $games }G ({ $rate }%){ $streak }
+
+# A deck tile's record before any game.
+DecksNoGamesYet = No games played yet
+
+# The Decks screen when the filters leave no deck.
+DecksNoneMatchFilters = No decks match the active filters.
+
+# The Decks screen when the filters leave no template.
+DecksNoTemplatesMatchFilters = No templates match the active filters.
+
+# The Decks screen when there is no deck yet.
+DecksEmptySubtitle = Create your first deck in the deckbuilder, import an existing list, or start right away from a template.
+
+# The tooltip of a tile's or row's menu button.
+MoreActions = More actions
+
+# A deck preview's section of creatures.
+DecksSectionCreatures = Creatures
+
+# A deck preview's section of instants and sorceries.
+DecksSectionSpells = Spells
+
+# A deck preview's section of artifacts.
+DecksSectionArtifacts = Artifacts
+
+# A deck preview's section of enchantments and battles.
+DecksSectionEnchantments = Enchantments
+
+# A deck preview's section of lands.
+DecksSectionLands = Lands
+
+# A deck preview's section of the remaining cards.
+DecksSectionOther = Other cards
+
+# A deck preview's switch that groups its cards by type.
+DecksGroupByType = Group by type
+
+# The title of the Baylee Central sign-in card.
+FrontAuthTitle = Baylee Authentication
+
+# The tooltip of the front door's version line.
+FrontChangelogHint = Open release notes (changelog)
+
+# The community card for the chat group: its text.
+CommunityWhatsAppAbout = Join the WhatsApp community group to find fellow players, coordinate matches, and chat.
+
+# The community card for the chat group: its button.
+CommunityWhatsAppOpen = Open in WhatsApp / browser
+
+# The Discord community card's text.
+CommunityDiscordAbout = Our Discord server for tournaments, deckbuilding, voice channels, bug reports, and developer updates.
+
+# The Discord community card's button.
+CommunityDiscordOpen = Open Discord in browser
+
+# The source code card's text.
+CommunitySourceAbout = The complete source code of this client and gateway (AGPL-3.0-or-later) on GitHub.
+
+# The source code card's button.
+CommunitySourceOpen = Open repository in browser
+
+# The website card's text.
+CommunityWebsiteAbout = The central website for your Baylee account, downloads, release notes, and community gateways.
+
+# The website card's button.
+CommunityWebsiteOpen = Open baylee.app in browser
+
+# The gateway list when no community gateway is saved.
+GatewayNoneSaved = No community gateways saved yet
+
+# Under the empty gateway list.
+GatewayNoneSavedHint = Add a gateway address below to connect and play online.
+
+# The create-table sheet: the 40-life commander template.
+CreateTemplateCommander = 40 life · Legendary commander
+
+# The create-table sheet: the 20-life duel template.
+CreateTemplateDuel = 20 life · Classic 1v1 duel
+
+# The create-table sheet: the five-lands template.
+CreateTemplateFiveLand = 20 life · 5 basic lands in play
+
+# The create-table sheet: the mixed-formats template.
+CreateTemplateMixed = 20 life · Any deck format welcome
+
+# The create-table sheet's seats badge.
+# Arguments: count
+CreateSeats = { $count } seats
+
+# The create-table sheet's access badge with a password.
+CreatePasswordProtected = Password-protected
+
+# The create-table sheet's access badge without a password.
+CreatePublic = Public
+
+# The create-table sheet's first section.
+CreateSectionTable = Table & Seats
+
+# The create-table sheet's first section, explained.
+CreateSectionTableAbout = Table name in the lobby and number of seats at the table
+
+# The seat count hint for two seats.
+CreateSeatHintTwo = 1v1 Duel
+
+# The seat count hint for three seats.
+CreateSeatHintThree = 3-player Free-for-All
+
+# The seat count hint for four seats.
+CreateSeatHintFour = Classic 4-player Pod
+
+# The seat count hint for more seats.
+CreateSeatHintMany = Large Multiplayer Table
+
+# The create-table sheet's second section.
+CreateSectionMode = Game Mode & Starting Rules
+
+# The create-table sheet's second section, explained.
+CreateSectionModeAbout = Choose a format preset and fine-tune starting life or mulligans
+
+# The create-table sheet's third section offline.
+CreateSectionAccessOffline = Spectators & Table Access
+
+# The create-table sheet's third section online.
+CreateSectionAccess = Time Control & Access
+
+# The create-table sheet's third section offline, explained.
+CreateSectionAccessOfflineAbout = Spectator permissions for your match (password & decision clock apply to online tables)
+
+# The create-table sheet's third section online, explained.
+CreateSectionAccessAbout = Spectator permissions, password protection, and decision clock
+
+# The create-table sheet's spectators badge when they may watch.
+CreateSpectatorsAllowed = Spectators allowed
+
+# The create-table sheet's spectators badge when they may not.
+CreateNoSpectators = No spectators
