@@ -6556,3 +6556,22 @@ got wrong was in the tests, not in the cards:
   its exact options. The house AI already values and answers the shared effect;
   no card-specific presentation, policy or hidden information is needed. The
   activated/loyalty reader census now counts 2,996 readable rows out of 3,784.
+
+## 2026-11-05 — Krovikan Vampire's damage-linked return
+
+- Reuse `ForEachCreatureDamagedBySourceThatDiedThisTurn` at each player's end
+  step, guarded by `CreatureDamagedBySourceDiedThisTurn`. The existing return
+  effect moves the exact qualifying graveyard incarnation under the Vampire
+  controller's control; an independent `YouLoseControl` observer sacrifices that
+  returned permanent when the original Vampire changes control or leaves the
+  battlefield. No new engine or DSL mechanic is needed.
+- Five played regression tests join the existing cast-and-combat test. They
+  cover lethal blocking damage followed by the opponent's end-step return,
+  unrelated deaths, damage from an earlier turn, a later control change, and the
+  Vampire leaving play. All three positive ability tests were red against the
+  old ability-less card. The shared return and control-observer suites remain
+  green.
+- Desktop and LLM seats require no new pending shape or hidden information. The
+  house AI uses the existing generic triggered-ability and effect readers, with
+  the five Ice Age consumer regressions still green; no card-specific policy or
+  client presentation is needed.
