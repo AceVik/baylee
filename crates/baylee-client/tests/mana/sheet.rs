@@ -212,8 +212,17 @@ struct Seated {
     legal: LegalActions,
 }
 
-/// Walks a freshly opened table to this seat's own first main phase,
-/// answering **everything** on the way.
+fn our_first_main_is_ready(table: &Table) -> bool {
+    let view = table.view();
+    view.phase == baylee_view::Phase::FirstMain
+        && view.active == PlayerId::new(0)
+        && view.stack.is_empty()
+}
+
+/// Walks a freshly opened table to this seat's own first main phase with an
+/// empty stack, answering **everything** on the way. The empty stack matters:
+/// Altar of Shadows triggers in that phase, and a sorcery-speed Equip is not
+/// legal until that trigger has resolved.
 ///
 /// [`Table::walk_to_main`] answers the four questions a Forest-and-a-creature
 /// table asks and returns on anything else, which is right for the tests it
@@ -236,8 +245,7 @@ fn walk_to_our_main(table: &mut Table) -> bool {
         let us = PlayerId::new(0);
         let action = match pending {
             Pending::Priority { player, .. } if player == us => {
-                if table.view().phase == baylee_view::Phase::FirstMain && table.view().active == us
-                {
+                if our_first_main_is_ready(table) {
                     return true;
                 }
                 PlayerAction::PassPriority
