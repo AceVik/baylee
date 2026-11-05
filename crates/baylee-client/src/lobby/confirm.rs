@@ -15,8 +15,12 @@ pub(crate) enum Destructive {
     /// A saved gateway leaving this device's list, by address.
     ForgetGateway(String),
     /// A guest signing out, which is the end of it (#269). Carried out by
-    /// the sign-out itself, not by [`accept`].
-    SignOutGuest,
+    /// the sign-out itself, not by [`accept`]. `to_gateways` is the same end
+    /// by way of Switch gateway: the list follows, and Central stays signed
+    /// in (`clicks::to_the_gateways`).
+    SignOutGuest {
+        to_gateways: bool,
+    },
     /// The host leaving their table, which passes it on or closes it
     /// (DESIGN-v5 §5 "Leaving"), by game id.
     LeaveHosting(String),
@@ -36,7 +40,7 @@ impl Destructive {
             Destructive::Clear(_) => "clear-deck",
             Destructive::DeleteBuildDeck(_) => "delete-deck",
             Destructive::ForgetGateway(_) => "forget-gateway",
-            Destructive::SignOutGuest => "sign-out-guest",
+            Destructive::SignOutGuest { .. } => "sign-out-guest",
             Destructive::LeaveHosting(_) => "leave-hosting",
             Destructive::AddGateway(_) => "add-gateway",
         }
@@ -76,7 +80,7 @@ pub(super) fn accept(state: &mut LobbyState) -> Option<LobbyRequest> {
             state.forget_gateway(&url);
             None
         }
-        Destructive::SignOutGuest | Destructive::AddGateway(_) => None,
+        Destructive::SignOutGuest { .. } | Destructive::AddGateway(_) => None,
         Destructive::LeaveHosting(game) => state.lobby.leave_table(&game),
     }
 }
@@ -125,7 +129,7 @@ pub(super) fn draw(
                 Phrase::ForgetGatewayHint,
             )
         }
-        Destructive::SignOutGuest => (
+        Destructive::SignOutGuest { .. } => (
             Phrase::GuestSignOutQuestion,
             state
                 .lobby

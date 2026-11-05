@@ -5,13 +5,71 @@ use super::systems::keep_gateways;
 #[allow(clippy::wildcard_imports)] // the lobby's own vocabulary
 use super::*;
 
-/// Signs out: the session ends on the gateway as well as here, and a guest's
-/// with the guest, which this device then keeps no longer (#269).
+/// Signs out of everything: the session here ([`end_the_session`]), and
+/// Baylee Central's behind it.
+pub(super) fn sign_out(
+    state: &mut LobbyState,
+    prefs: &mut crate::prefs::Prefs,
+    scrolled: &mut Scrolled,
+    mailbox: &Mailbox,
+    settings: &mut Option<ResMut<crate::settings::ClientSettings>>,
+) {
+    end_the_session(state, prefs, scrolled, mailbox, settings);
+    #[cfg(not(target_arch = "wasm32"))]
+    if state.central_ready() {
+        super::central::logout(state, prefs);
+        super::central::enable(state);
+    }
+}
+
+/// Switch gateway, the header's and Settings': a guest is asked first,
+/// because leaving is its end as signing out is (#269), and everyone else
+/// goes at once ([`to_the_gateways`]).
+pub(super) fn switch_gateway(
+    state: &mut LobbyState,
+    prefs: &mut crate::prefs::Prefs,
+    scrolled: &mut Scrolled,
+    mailbox: &Mailbox,
+    settings: &mut Option<ResMut<crate::settings::ClientSettings>>,
+) {
+    if state.lobby.guest() {
+        state.confirmation = Some(confirm::Destructive::SignOutGuest { to_gateways: true });
+    } else {
+        to_the_gateways(state, prefs, scrolled, mailbox, settings);
+    }
+}
+
+/// Leaves the session held here for the list of gateways. Signed in at
+/// Baylee Central that is the account's list, and Central stays signed in.
+pub(super) fn to_the_gateways(
+    state: &mut LobbyState,
+    prefs: &mut crate::prefs::Prefs,
+    scrolled: &mut Scrolled,
+    mailbox: &Mailbox,
+    settings: &mut Option<ResMut<crate::settings::ClientSettings>>,
+) {
+    if state.lobby.token().is_some() || state.lobby.offline() {
+        end_the_session(state, prefs, scrolled, mailbox, settings);
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    if state.central_ready() {
+        super::central::back_from_a_session(state);
+        return;
+    }
+    if state.lobby.gateway_chosen() {
+        state.leave_gateway();
+    }
+}
+
+/// Ends the session held here: it ends on the gateway as well, a guest's with
+/// the guest, which this device then keeps no longer (#269), and nothing it
+/// bought stays for whoever comes next. The one way out of a session, for
+/// signing out and for switching gateway alike.
 ///
 /// Offline has no account to forget, so the same button is what leaves
 /// offline play — and the performer has to go with it, or the sign-in form's
 /// own requests would still be answered out of the local deck file.
-pub(super) fn sign_out(
+fn end_the_session(
     state: &mut LobbyState,
     prefs: &mut crate::prefs::Prefs,
     scrolled: &mut Scrolled,
@@ -42,11 +100,6 @@ pub(super) fn sign_out(
         }
     }
     dispatch(state, mailbox, ending);
-    #[cfg(not(target_arch = "wasm32"))]
-    if state.central_ready() {
-        super::central::logout(state, prefs);
-        super::central::enable(state);
-    }
 }
 
 /// A press that outlives the control it landed on.

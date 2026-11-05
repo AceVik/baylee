@@ -303,8 +303,11 @@ earlier remote merge.
 
 Central credentials and master keys live on a bounded serial worker. Account
 sign-out drops the handles and asks the worker to revoke its central session.
-The user may also leave a gateway while retaining central sign-in. There is one
-active Central session per account. A successful replacement login atomically
+The user may also leave a gateway while retaining central sign-in: Switch
+gateway, in the header or in Settings, ends the gateway's session as signing
+out does (`clicks::end_the_session`, the one way out of a session), a guest
+being asked first because that is its end, and returns to the account's list.
+There is one active Central session per account. A successful replacement login atomically
 revokes previous Central sessions, tickets and gateway leases; failed login
 does not sign out the current device. Every authenticated gateway HTTP request
 checks its server-only lease with Central, without an authorization cache. Local

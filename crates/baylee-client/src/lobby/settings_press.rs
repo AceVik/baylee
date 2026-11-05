@@ -370,12 +370,7 @@ impl SettingsPress {
             SettingsPress::Fill(press) if !press.on_device() => press.act(state),
             SettingsPress::SwitchGateway => {
                 state.settings = SettingsPane::Closed;
-                if state.lobby.token().is_some() || state.lobby.offline() {
-                    super::clicks::sign_out(state, prefs, scrolled, mailbox, settings);
-                }
-                if state.lobby.gateway_chosen() {
-                    state.leave_gateway();
-                }
+                super::clicks::switch_gateway(state, prefs, scrolled, mailbox, settings);
             }
             SettingsPress::RebindShell(action) => {
                 state.settings_view.refused = None;
