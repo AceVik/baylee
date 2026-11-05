@@ -222,7 +222,6 @@ fn leave_the_builder(state: &mut ResMut<LobbyState>, mailbox: &Mailbox) {
     if state.confirm_leave {
         state.confirm_leave = false;
     }
-    super::decksave::commit_session_version(state, mailbox);
     state.hub = Hub::Decks;
     let request = state.lobby.close_builder();
     dispatch(state, mailbox, request);
@@ -305,9 +304,7 @@ impl BuildPress {
                 }
                 state.drafts.forget(&[editing.as_deref()]);
                 // Discarded is discarded: leaving must not save it after all.
-                let builder = state.lobby.builder_mut();
-                let _ = builder.take_session_baseline();
-                builder.discard_edits();
+                state.lobby.builder_mut().discard_edits();
                 leave_the_builder(state, mailbox);
             }
             BuildPress::SaveDeck => {

@@ -126,8 +126,10 @@ pub(crate) fn keep_the_draft(
                     state.drafts.keep(&draft);
                 }
             }
-            if let Some(mailbox) = mailbox.as_deref() {
-                crate::lobby::decksave::commit_session_version(&mut state, mailbox);
+            if let Some(mailbox) = mailbox.as_deref()
+                && state.lobby.builder().dirty()
+            {
+                crate::lobby::decksave::auto_save_deck(&mut state, mailbox);
             }
             *kept = Keeper::default();
         }

@@ -1237,14 +1237,18 @@ enum Reply {
     ReplaysArchived(client_core::replay::library::ReplayPage),
     /// A replay change the gateway refused (archive, share), in its words.
     ReplayRefused(String),
-    /// An unversioned auto-save in the deck builder finished.
+    /// An auto-save in the deck builder finished. `archived`: the gateway
+    /// kept the state it replaced in the deck's history.
     AutoSaved {
         deck_id: Option<String>,
         saved_changes: u32,
+        archived: bool,
     },
     /// An auto-save did not reach the gateway, or was refused; `why` is
     /// `None` where another reply says what happened.
-    AutoSaveFailed { why: Option<String> },
+    AutoSaveFailed {
+        why: Option<String>,
+    },
 }
 
 /// What the shell should make of a successful response body.

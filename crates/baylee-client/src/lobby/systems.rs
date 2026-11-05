@@ -273,6 +273,7 @@ pub(super) fn poll(
                 Reply::AutoSaved {
                     deck_id,
                     saved_changes,
+                    archived,
                 } => {
                     let editing = state.lobby.builder().editing().map(str::to_owned);
                     let old_key = editing.as_deref().unwrap_or("new");
@@ -287,10 +288,11 @@ pub(super) fn poll(
                         }
                         state.lobby.remember_saved_deck(new_id);
                     }
-                    state
-                        .lobby
-                        .builder_mut()
-                        .mark_auto_saved(deck_id.as_deref(), saved_changes);
+                    state.lobby.builder_mut().mark_auto_saved(
+                        deck_id.as_deref(),
+                        saved_changes,
+                        archived,
+                    );
                     state.build.save = crate::buildui::SaveState::Saved {
                         at: 0.0,
                         minutes: 0,

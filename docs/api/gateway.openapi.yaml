@@ -1847,8 +1847,11 @@ paths:
       description: |-
         Replaces one of the account's decks with the body, under
         the rules `POST /decks` checks. A save that changes a list keeps the
-        state it replaces in the deck's history (`summary` names the change);
-        one that leaves `format` or `description` out keeps them.
+        state it replaces in the deck's history (`summary` names the change),
+        unless `versioned` is `false`; one that leaves `format` or `description`
+        out keeps them. A builder session sends `versioned` until an answer says
+        `archived`, so the session is one entry in the history and what the deck
+        held before it is kept however the session ends.
       operationId: update_deck
       tags:
       - Decks
@@ -1868,8 +1871,12 @@ paths:
               $ref: "#/components/schemas/DeckBody"
         required: true
       responses:
-        "204":
+        "200":
           description: Saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeckUpdated"
         "400":
           description: "The deck is refused: its name, a card line, a commander or the deck's size (the error names it)"
           content:
@@ -6388,15 +6395,9 @@ components:
         versioned:
           type: boolean
           description: >-
-            Whether a card-list change records a history version (`true`, the default) or
-            updates the current version in place during an active builder session (`false`).
-        superseded:
-          anyOf:
-          - $ref: "#/components/schemas/SupersededDeck"
-          - type: "null"
-          description: >-
-            When leaving a builder session that saved in place, the card lists the session
-            started from so the entire session records one history entry.
+            Whether a save that changes a list keeps the state it replaces in the deck's
+            history (`true`, the default). `false` updates the deck where it stands, for a
+            builder session whose first change has already been kept.
       required:
       - name
       - cards
@@ -6916,6 +6917,15 @@ components:
       - superseded_at
       - current
       description: A state a deck no longer holds.
+    DeckUpdated:
+      type: object
+      properties:
+        archived:
+          type: boolean
+          description: Whether this save kept the state it replaced in the deck's history.
+      required:
+      - archived
+      description: "`PUT /decks/{id}`."
     Delivered:
       type: object
       properties:
@@ -9444,25 +9454,6 @@ components:
       - kind
       - amount
       description: One kind of counter a starting permanent carries, and how many.
-    SupersededDeck:
-      type: object
-      properties:
-        cards:
-          type: array
-          items:
-            type: string
-          description: Main-deck lines as the builder opened them.
-        sideboard:
-          type: array
-          items:
-            type: string
-          description: Sideboard lines as the builder opened them.
-        commanders:
-          type: array
-          items:
-            type: string
-          description: Commanders as the builder opened them.
-      description: The card lists a deck held when the builder session began.
     TableClock:
       type: object
       properties:
