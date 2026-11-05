@@ -2851,6 +2851,13 @@ Filters, conditions, modifiers and durations:
   unless defending player controls [filter]" (CR 508.1c): Sea Serpent's and
   Pirate Ship's Island. The filter is asked of the permanents of the player
   the creature would attack, so an Island of your own does nothing.
+- **`Modifier::CantAttackUnlessYouControlMoreCreaturesThanDefender`** and
+  **`Modifier::CantBlockUnlessYouControlMoreCreaturesThanAttacker`** are
+  Goblin Goon's and Mogg Toady's two comparative restrictions (CR 508.1c,
+  509.1b). The effect's controller must control strictly more creatures than
+  the chosen defending player or the particular attacker's current controller;
+  a tie is illegal. Every controlled creature counts, including one not being
+  declared, and a planeswalker's controller is its defending player.
 - **`Trigger::State(&condition)`** is a state trigger (CR 603.8): "When you
   control no Islands, sacrifice this creature" is
   `triggered!(Trigger::State(&NO_ISLANDS), &[Effect::SacrificeSelf])` with

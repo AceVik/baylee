@@ -319,6 +319,8 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::CantEnterBattlefield(_)
         | Modifier::SpellsCostMoreMana(_)
         | Modifier::CantAttackIfDefenderControls(_)
+        | Modifier::CantAttackUnlessYouControlMoreCreaturesThanDefender
+        | Modifier::CantBlockUnlessYouControlMoreCreaturesThanAttacker
         | Modifier::CreatureAbilityManaAnyColor => false,
     }
 }
@@ -1892,6 +1894,8 @@ mod tests {
             Modifier::PlayersCantWin(PlayerRel::You),
             Modifier::EquipCostsLess(1),
             Modifier::CantActivateNonMana,
+            Modifier::CantAttackUnlessYouControlMoreCreaturesThanDefender,
+            Modifier::CantBlockUnlessYouControlMoreCreaturesThanAttacker,
         ]
     }
 
@@ -1930,7 +1934,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            194,
+            196,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -2028,7 +2032,8 @@ mod tests {
         // rather than changing a characteristic, so it locks nothing.
         // The attacker-filtered block tax and the life gain that becomes
         // nothing are two more rules-only modifiers.
-        assert_eq!((locking, all.len() - locking), (55, 139));
+        // Goblin Goon's two creature-count combat restrictions likewise lock no set.
+        assert_eq!((locking, all.len() - locking), (55, 141));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

@@ -1379,6 +1379,8 @@ fn apply(
         | Modifier::CantEnterBattlefield(_)
         | Modifier::SpellsCostMoreMana(_)
         | Modifier::CantAttackIfDefenderControls(_)
+        | Modifier::CantAttackUnlessYouControlMoreCreaturesThanDefender
+        | Modifier::CantBlockUnlessYouControlMoreCreaturesThanAttacker
         // A replacement, read where a card would reach a graveyard
         // (`replacement::graveyard_destination`).
         | Modifier::ExileInsteadOfYourGraveyard
