@@ -6698,7 +6698,6 @@ got wrong was in the tests, not in the cards:
   house AI uses the same offered-card values. Their focused private-inspection,
   long-list narration and valuation regressions pass without a card-specific
   presentation or policy.
-||||||| parent of f4e3e6fb7 (docs(learnings): close the review of PR 415)
 ## 2026-11-05 — Review of PR 415 (Ice Age to Icy Prison, author Kimi)
 
 Read by Claude Opus 5.5, with a second reader's ten findings checked by test.
@@ -6810,3 +6809,35 @@ code.
   read. A private `LookAtTopFind` with no match no longer asks an empty
   `ChooseCards` (it did before, with `max` 0); nothing the player could see
   changed and the replay record is byte-identical.
+
+## 2026-11-06 — Goblin Goon and Mogg Toady's comparative combat counts
+
+- Add two small text-layer modifiers for "can't attack/block unless you control
+  more creatures than defending/attacking player" (CR 508.1c, 509.1b). One
+  `CreatureCounts` helper counts each player's projected battlefield creatures
+  once per declaration. The comparison is strict and includes creatures outside
+  the declaration; blocks read the particular attacker's current controller, not
+  the active player. Both are rules-only modifiers and lock no characteristic
+  set. Block offers and direct declarations share the non-mana predicate, while
+  the existing payment window remains independent.
+- The reader accepts only the two confirmed script spellings, including the
+  block form's exact counted SVars and comparison. Altered filters, counts,
+  conditions, comparisons and unknown parameters remain honest stubs. Codegen
+  completed both Goblin Goon and the text-identical Mogg Toady with no skipped
+  clause; the scope validator recognizes these modifiers as counting the effect
+  controller's creatures instead of demanding a redundant filter.
+- Four played card tests were red against the old stubs and now pass. They cover
+  each defender in a three-player attack, ties, and both directions of a block
+  after the attacker's control changes. The control change must happen before
+  the engine builds `Pending::ChooseBlockers`: `refresh_offer` rebuilds only a
+  priority question. Eight direct requirement tests cover both offers and direct
+  declarations at the 1:0, 1:1, 2:1 and 2:2 boundaries. The final focused runs
+  also pass 465 combat tests, 13 effect tests, both reader regressions and the
+  three DSL static-ability tests; all 90 DSL unit tests passed as well.
+- Desktop and LLM seats consume the existing per-defender attack limits and
+  blocker/attacker pairings, with no new pending shape or card-specific policy.
+  All 363 house-AI tests, 101 seat-narrator tests and 151 desktop interaction
+  tests pass, and the desktop client including its tests compiles. `validate`
+  accepts all 12,543 cards, `require-card-tests`, affected Clippy with warnings
+  denied, formatting and `git diff --check` pass. The full gates remain
+  deliberately deferred at the owner's request.
