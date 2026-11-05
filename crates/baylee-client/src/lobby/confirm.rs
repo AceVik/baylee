@@ -56,7 +56,12 @@ pub(super) fn accept(state: &mut LobbyState) -> Option<LobbyRequest> {
             None
         }
         Destructive::DeleteBuildDeck(id) => {
-            state.drafts.forget(&[id.as_deref(), None]);
+            // A deck whose first save landed under the question has an id now.
+            let deck = state.lobby.builder();
+            let visit = deck.visit();
+            let id = id.or_else(|| deck.editing().map(str::to_owned));
+            state.deck_saves.throw_away(visit);
+            state.drafts.forget(&[id.as_deref()]);
             state.lobby.builder_mut().discard_edits();
             state.confirm_leave = false;
             state.hub = Hub::Decks;

@@ -23,6 +23,8 @@ struct Seen {
 struct Book {
     saves: Vec<Seen>,
     answers: VecDeque<(u16, String)>,
+    /// Everything else that was asked.
+    asked: Vec<String>,
 }
 
 /// A private, bounded gateway: every deck save waits for [`Gateway::answer`],
@@ -71,6 +73,11 @@ impl Gateway {
     /// Every deck save that has arrived, answered or not.
     fn saves(&self) -> Vec<Seen> {
         self.book.lock().unwrap().saves.clone()
+    }
+
+    /// Whether anything else has asked `route`.
+    fn asked(&self, route: &str) -> bool {
+        self.book.lock().unwrap().asked.iter().any(|r| r == route)
     }
 
     /// Answers the save waiting longest.
@@ -157,10 +164,14 @@ fn serve(mut stream: TcpStream, book: &Mutex<Book>, stop: &AtomicBool) {
             }
             thread::sleep(Duration::from_millis(1));
         }
-    } else if route == "GET /decks" {
-        (200, r#"[{"id":"d1","name":"Allytifact"}]"#.to_owned())
     } else {
-        (200, "{}".to_owned())
+        let listed = route == "GET /decks";
+        book.lock().unwrap().asked.push(route);
+        if listed {
+            (200, r#"[{"id":"d1","name":"Allytifact"}]"#.to_owned())
+        } else {
+            (200, "{}".to_owned())
+        }
     };
     let _ = write!(
         stream,
@@ -633,6 +644,212 @@ fn leaving_under_a_save_sends_the_rest_behind_it() {
     });
     frames(&mut app, SETTLED);
     assert_eq!(gateway.saves().len(), 2, "{:?}", gateway.saves());
+}
+
+/// The builder open on a new deck, one forest in it, that deck's `POST` out.
+fn creating_a_deck(gateway: &Gateway) -> App {
+    let mut app = signed_in(&gateway.base);
+    {
+        let mut state = state_mut(&mut app);
+        state.build = crate::buildui::BuildUi::opened();
+        let _ = state.lobby.build_deck();
+    }
+    frames(&mut app, 3);
+    add_a_forest(&mut app);
+    until(&mut app, "the deck's POST went out", |_| {
+        gateway.saves().len() == 1
+    });
+    assert_eq!(gateway.saves()[0].route, "POST /decks");
+    app
+}
+
+/// Leaving under a deck's first save makes one deck: what leaving sends
+/// waits for the id, however many ways there are out of the builder.
+#[test]
+fn leaving_a_new_deck_under_its_post_makes_one_deck() {
+    let gateway = Gateway::new();
+    let mut app = creating_a_deck(&gateway);
+    add_a_forest(&mut app);
+    press(&mut app, Press::Build(BuildPress::CloseBuilder));
+    assert_eq!(state(&app).lobby.screen(), &Screen::Table);
+    frames(&mut app, SETTLED);
+    assert_eq!(gateway.saves().len(), 1, "{:?}", gateway.saves());
+
+    gateway.answer(200, r#"{"deck_id":"n1"}"#);
+    until(&mut app, "the rest went out", |_| {
+        gateway.saves().len() == 2
+    });
+    assert_eq!(gateway.saves()[1].route, "PUT /decks/n1");
+    assert_eq!(gateway.saves()[1].body["cards"][0], "2 Forest");
+    gateway.answer(200, r#"{"archived":false}"#);
+    until(&mut app, "nothing is left to send", |app| {
+        !state(app).deck_save_out()
+    });
+    frames(&mut app, SETTLED);
+    assert_eq!(gateway.saves().len(), 2, "{:?}", gateway.saves());
+}
+
+/// A late answer is about the deck it was sent for. Opening another deck
+/// under a `POST` used to give that deck the new id and its favourites, and
+/// its next edit went over the first deck.
+#[test]
+fn an_answer_belongs_to_the_deck_it_was_sent_for() {
+    let gateway = Gateway::new();
+    let mut app = creating_a_deck(&gateway);
+    {
+        let mut prefs = app.world_mut().resource_mut::<crate::prefs::Prefs>();
+        prefs.edit().toggle_deck_card_favourite("new", "Forest");
+        prefs.edit().toggle_deck_card_favourite("d1", "Island");
+    }
+    press(&mut app, Press::Build(BuildPress::CloseBuilder));
+    until(&mut app, "the lobby settled", |app| {
+        !state(app).lobby.busy()
+    });
+    open_stored(&mut app, &["4 Llanowar Elves"]);
+
+    gateway.answer(200, r#"{"deck_id":"n1"}"#);
+    until(&mut app, "the answer landed", |app| {
+        !state(app).deck_save_out()
+    });
+    assert_eq!(state(&app).lobby.builder().editing(), Some("d1"));
+    let prefs = app.world().resource::<crate::prefs::Prefs>().all();
+    assert_eq!(prefs.deck_card_favourites_for("d1"), ["Island"]);
+    assert_eq!(
+        prefs.deck_card_favourites_for("n1"),
+        ["Forest"],
+        "the new deck's own favourites did follow it"
+    );
+
+    add_a_forest(&mut app);
+    until(&mut app, "the open deck's save", |_| {
+        gateway.saves().len() == 2
+    });
+    assert_eq!(gateway.saves()[1].route, "PUT /decks/d1");
+    assert_eq!(gateway.saves()[1].body["versioned"], true);
+}
+
+/// A refusal is the same: the deck it was about stays on the device, and the
+/// deck open now has nothing to answer for.
+#[test]
+fn a_failure_belongs_to_the_deck_it_was_sent_for() {
+    let gateway = Gateway::new();
+    let mut app = creating_a_deck(&gateway);
+    press(&mut app, Press::Build(BuildPress::CloseBuilder));
+    until(&mut app, "the lobby settled", |app| {
+        !state(app).lobby.busy()
+    });
+    open_stored(&mut app, &["4 Llanowar Elves"]);
+
+    gateway.answer(500, r#"{"error":"the database is down"}"#);
+    until(&mut app, "the player heard", |app| {
+        state(app).lobby.status().contains("the database is down")
+    });
+    assert_ne!(state(&app).build.save, SaveState::Failed);
+    assert!(state_mut(&mut app).drafts.of(None).is_some());
+}
+
+/// A late answer forgets the draft of what it saved and nothing else: "new"
+/// is the next new deck's by then.
+#[test]
+fn a_late_answer_leaves_the_next_decks_draft() {
+    let gateway = Gateway::new();
+    let mut app = creating_a_deck(&gateway);
+    press(&mut app, Press::Build(BuildPress::CloseBuilder));
+    until(&mut app, "the lobby settled", |app| {
+        !state(app).lobby.busy()
+    });
+    {
+        let mut state = state_mut(&mut app);
+        state.build = crate::buildui::BuildUi::opened();
+        let _ = state.lobby.build_deck();
+    }
+    frames(&mut app, 3);
+    assert!(state_mut(&mut app).lobby.builder_mut().add(0, Zone::Main));
+    frames(&mut app, 30);
+
+    gateway.answer(200, r#"{"deck_id":"n1"}"#);
+    until(&mut app, "the next deck's save went out", |_| {
+        gateway.saves().len() == 2
+    });
+    let kept = state_mut(&mut app).drafts.of(None).cloned();
+    assert!(
+        kept.is_some_and(|draft| draft.main.iter().any(|row| row.contains("Elves"))),
+        "the second deck's draft is still its only copy"
+    );
+    assert_eq!(gateway.saves()[1].route, "POST /decks", "and its own deck");
+}
+
+/// A new deck that never reached the gateway has its draft and nothing else:
+/// saving some other deck must not take it.
+#[test]
+fn a_failed_new_deck_keeps_its_draft_through_another_decks_save() {
+    let gateway = Gateway::new();
+    let mut app = creating_a_deck(&gateway);
+    press(&mut app, Press::Build(BuildPress::CloseBuilder));
+    gateway.answer(500, r#"{"error":"the database is down"}"#);
+    until(&mut app, "the refusal arrived", |app| {
+        !state(app).deck_save_out()
+    });
+    until(&mut app, "the lobby settled", |app| !state(app).lobby.busy());
+    assert!(state_mut(&mut app).drafts.of(None).is_some());
+
+    open_stored(&mut app, &["4 Llanowar Elves"]);
+    add_a_forest(&mut app);
+    until(&mut app, "the stored deck's save", |_| {
+        gateway.saves().len() == 2
+    });
+    gateway.answer(200, r#"{"archived":true}"#);
+    until(&mut app, "it landed", |app| {
+        !state(app).lobby.builder().dirty()
+    });
+    assert!(
+        state_mut(&mut app).drafts.of(None).is_some(),
+        "the new deck's draft is its only copy"
+    );
+}
+
+/// Discard takes back what had not gone out.
+#[test]
+fn discarding_takes_back_what_waited() {
+    let gateway = Gateway::new();
+    let mut app = editing_a_stored_deck(&gateway.base);
+    add_a_forest(&mut app);
+    until(&mut app, "the first save", |_| gateway.saves().len() == 1);
+    add_a_forest(&mut app);
+    frames(&mut app, SETTLED);
+    state_mut(&mut app).lobby.builder_mut().clear_deck();
+    frames(&mut app, 2);
+
+    press(&mut app, Press::Build(BuildPress::CloseBuilder));
+    assert!(state(&app).confirm_leave, "an empty deck cannot save");
+    press(&mut app, Press::Build(BuildPress::DiscardAndLeave));
+    gateway.answer(200, r#"{"archived":true}"#);
+    until(&mut app, "the answer landed", |app| {
+        !state(app).deck_save_out()
+    });
+    frames(&mut app, SETTLED);
+    assert_eq!(gateway.saves().len(), 1, "{:?}", gateway.saves());
+}
+
+/// A deck deleted while its `POST` is out cannot be called back, so it goes
+/// the moment it has an id. Nothing the player deleted turns up on the shelf.
+#[test]
+fn a_deck_deleted_under_its_post_goes_when_it_lands() {
+    let gateway = Gateway::new();
+    let mut app = creating_a_deck(&gateway);
+    add_a_forest(&mut app);
+    frames(&mut app, SETTLED);
+    press(&mut app, Press::Build(BuildPress::ToggleHeaderMenu));
+    press(&mut app, Press::Build(BuildPress::DeleteBuildDeck));
+    press(&mut app, Press::Shared(SharedPress::ConfirmDestructive));
+    assert_eq!(state(&app).lobby.screen(), &Screen::Table);
+
+    gateway.answer(200, r#"{"deck_id":"n1"}"#);
+    until(&mut app, "the deck was deleted", |_| {
+        gateway.asked("DELETE /decks/n1")
+    });
+    frames(&mut app, SETTLED);
+    assert_eq!(gateway.saves().len(), 1, "{:?}", gateway.saves());
 }
 
 /// Closing the client inside the wait keeps the edit on the device: its save

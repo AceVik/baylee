@@ -4920,7 +4920,12 @@ the next edit or a press of Save rather than looping on a refusal; its draft
 stays, and a deck that failed after it was left comes back with it. A `401`
 ends the session as any request's does, the draft kept the same way. Offline
 and on a Central account with no gateway the same saves go into the device's
-store, in the call.
+store, in the call. A save belongs to the visit it was made in
+(`DeckBuilder::visit`): its answer changes that visit's deck and no other, so
+a deck opened under a late answer keeps its id, its favourites and its draft,
+and what a new deck's first save learns (its id) reaches the saves behind it,
+so leaving under a `POST` still makes one deck. Discard takes back what had
+not gone out; a deck deleted under its `POST` is deleted when that lands.
 
 **The shell's builder (WP4).** The screen follows the shell design's §7 on the
 kit (`crate::shellkit`): the pool on the left, three fifths, the deck on the

@@ -304,6 +304,8 @@ impl BuildPress {
                 }
                 state.drafts.forget(&[editing.as_deref()]);
                 // Discarded is discarded: leaving must not save it after all.
+                let visit = state.lobby.builder().visit();
+                state.deck_saves.withdraw(visit);
                 state.lobby.builder_mut().discard_edits();
                 leave_the_builder(state, mailbox);
             }
