@@ -2477,6 +2477,35 @@ impl Lobby {
         self.deck.and_then(|i| self.decks.get(i))
     }
 
+    /// The deck the seat held now is playing, as far as this client can
+    /// tell: what the table lists in the chair, by name, which is all a
+    /// listing says. That is what plays, whatever was picked for the next
+    /// game since. A table the listing does not hold (the house's, say) was
+    /// sat down at with the deck picked, and nothing picks another during a
+    /// game. A chair handed back after a restart was not, and answers
+    /// nothing: a game counted for no deck beats one counted for the wrong
+    /// deck.
+    #[must_use]
+    pub fn played_deck(&self) -> Option<&DeckSummary> {
+        let Screen::Seated(handover) = &self.screen else {
+            return None;
+        };
+        let chair = self
+            .games
+            .iter()
+            .find(|game| game.id == handover.game_id)
+            .and_then(|game| game.seats.iter().find(|seat| seat.seat == handover.seat))
+            .filter(|chair| !chair.deck.is_empty());
+        match chair {
+            Some(chair) => self
+                .next_deck()
+                .filter(|deck| deck.name == chair.deck)
+                .or_else(|| self.decks.iter().find(|deck| deck.name == chair.deck)),
+            None if self.reclaimed.contains(&handover.game_id) => None,
+            None => self.next_deck(),
+        }
+    }
+
     /// Takes a deck off the shelf until its Undo runs out (S-10): it is
     /// hidden at once and deleted only by [`Self::flush_delete`]. A deck
     /// already waiting is flushed first, and that request is handed back.

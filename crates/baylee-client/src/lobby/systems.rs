@@ -880,7 +880,7 @@ pub(super) fn came_back(
             // Play's Recent games (this session), before the seat goes.
             super::play::remember(&mut state, duel.as_deref(), result, seat, team);
             if let Some(prefs) = prefs.as_mut()
-                && let Some(deck) = state.lobby.next_deck().cloned()
+                && let Some(deck) = state.lobby.played_deck().cloned()
             {
                 let won = client_core::interaction::outcome(&result, seat, team)
                     .won()
