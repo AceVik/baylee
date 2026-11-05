@@ -2043,7 +2043,7 @@ mod tests {
     fn a_melded_card_never_went_to_the_command_zone() {
         let engine = game(vec![FILLER, FILLER]);
         let mut state = engine.state().clone();
-        let cards = state.zones.list(ZoneLocation::Battlefield).to_vec();
+        let cards = state.zones.list(ZoneLocation::Battlefield).clone();
         state
             .object_mut(cards[1])
             .unwrap()
