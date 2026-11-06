@@ -1,14 +1,18 @@
 //! `BayleeAI` v6 Phase A: plans of paired arms, their table, the value report.
 //!
 //! An arm is a word: `raw@dev`, `tac-t05-s2@fresh`, `raw-menu@dev`, `raw-k4@dev`,
-//! `g=tap+cast+react@dev`, `plain-search@dev:256`, `raw-vs=s1r@dev:256`. The
+//! `g=tap+cast+react@dev`, `plain-search@dev:256`, `raw-vs=s1r@dev:256`,
+//! `plain-r=void+race@dev`. The
 //! flags it stands for are in [`arm_flags`]; every arm shares [`BASE`].
+// Counts of games and resamples, well below f64's exact 2^53 range.
+#![allow(clippy::cast_precision_loss)]
 use anyhow::{Context, Result, bail, ensure};
 use baylee_train_ops::evaluation::arms::{compare_arm, pool_arms};
 use baylee_train_ops::evaluation::value_report::{read_positions, report};
-use baylee_train_ops::evaluation::{atomic_json, read_json};
+use baylee_train_ops::evaluation::{atomic_json, read_json, sample};
 use clap::{Parser, Subcommand};
 use serde_json::{Value, json};
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 const MODEL: &str = "/home/ace/baylee-data/v6/train/v6w-newengine/B-refresh";
@@ -93,6 +97,20 @@ enum Command {
         /// The roots of the runs.
         roots: Vec<PathBuf>,
     },
+    /// Two arms of `ladder4` on the same deck pairs and seats, paired by slot,
+    /// clean games only, with a bootstrap over deck pairs.
+    LadderPairs {
+        /// Roots of the reference arm.
+        #[arg(long, required = true)]
+        reference: Vec<PathBuf>,
+        /// Roots of the arm against it.
+        #[arg(long, required = true)]
+        arm: Vec<PathBuf>,
+        #[arg(long, default_value_t = 20_000)]
+        resamples: usize,
+        #[arg(long)]
+        out: PathBuf,
+    },
     /// Reports the value heads of a run, baselines fitted on another run.
     Values {
         /// `--value-log` and summary of the run reported on.
@@ -147,11 +165,11 @@ fn opponent(word: &str) -> Result<Vec<String>> {
     let (model, extra): (&str, &[&str]) = match word {
         "s1r" => (
             "/mnt/xdata/baylee/opponents/v5-base/s1r",
-            &["--catalog-drift"],
+            &[],
         ),
         "live" => (
             "/mnt/xdata/baylee/opponents/v5/20261027/model-control-final1500",
-            &["--catalog-drift"],
+            &[],
         ),
         "v3a" => (
             "/mnt/xdata/baylee/opponents/v3/v3-a-dyn",
@@ -177,7 +195,7 @@ fn opponent(word: &str) -> Result<Vec<String>> {
 
 /// The flags of a word's left half.
 fn arm_flags(left: &str) -> Result<(Vec<String>, bool)> {
-    let mut flags: Vec<String> = Vec::new();
+    let mut flags: Vec<String> = vec!["--catalog-drift".into()];
     let mut seed = POLICY_SEED;
     let mut thinking = 2;
     let mut temperature = 0.0;
@@ -200,6 +218,8 @@ fn arm_flags(left: &str) -> Result<(Vec<String>, bool)> {
     for part in parts {
         if let Some(value) = part.strip_prefix("vs=") {
             flags.extend(opponent(value)?);
+        } else if let Some(groups) = part.strip_prefix("r=") {
+            flags.extend(["--tactics-rules".into(), groups.replace('+', ",")]);
         } else if part == "val" {
             flags.push("VALUE_LOG".into());
         } else if part == "base" {
@@ -407,7 +427,7 @@ fn seat_summary(root: &Path, game: u64) -> Result<Option<Value>> {
 /// Every game of `roots`, by arm: lost before it began, played clean, or played
 /// with the house finishing for a model out of budget.
 fn ladder_table(roots: &[PathBuf]) -> Result<Value> {
-    let mut arms = std::collections::BTreeMap::<String, [u64; 7]>::new();
+    let mut arms = BTreeMap::<String, [u64; 7]>::new();
     let mut games = Vec::new();
     for root in roots {
         let report = read_json(&root.join("ladder.json"))?;
@@ -457,6 +477,108 @@ fn ladder_table(roots: &[PathBuf]) -> Result<Value> {
     Ok(json!({"arms": arms, "games": games,
         "columns": ["scheduled", "lost_before_play", "clean", "clean_net_wins", "house_finished",
             "house_finished_net_wins", "house_answers"]}))
+}
+
+/// A clean game's result by its slot `(opponent, net's deck, model's deck)`.
+/// A slot is one seat of one deck pair; the arm's other games are left out.
+fn clean_slots(roots: &[PathBuf]) -> Result<BTreeMap<(String, String, String), f64>> {
+    let table = ladder_table(roots)?;
+    let mut slots = BTreeMap::new();
+    for game in table["games"].as_array().context("no games")? {
+        if game["played"] != true || game["house_finished"] != false {
+            continue;
+        }
+        let text = |key: &str| game[key].as_str().unwrap_or("").to_owned();
+        let won = if game["net_won"] == true { 1.0 } else { 0.0 };
+        slots.insert((text("profile"), text("net_deck"), text("llm_deck")), won);
+    }
+    Ok(slots)
+}
+
+/// The deck pair of a slot, whichever seat it is.
+fn deck_pair(slot: &(String, String, String)) -> (String, String) {
+    if slot.1 < slot.2 {
+        (slot.1.clone(), slot.2.clone())
+    } else {
+        (slot.2.clone(), slot.1.clone())
+    }
+}
+
+/// One slot clean in both arms.
+#[derive(Clone)]
+struct Slot {
+    opponent: String,
+    pair: (String, String),
+    reference: f64,
+    arm: f64,
+}
+
+/// Mean of `arm - reference` over slots, with a bootstrap that draws deck pairs,
+/// each carrying all its slots.
+fn slot_table(slots: &[Slot], resamples: usize) -> Value {
+    let mut pairs: BTreeMap<&(String, String), (f64, usize)> = BTreeMap::new();
+    for slot in slots {
+        let entry = pairs.entry(&slot.pair).or_default();
+        entry.0 += slot.arm - slot.reference;
+        entry.1 += 1;
+    }
+    let pairs: Vec<(f64, usize)> = pairs.into_values().collect();
+    let count = slots.len();
+    let reference: f64 = slots.iter().map(|slot| slot.reference).sum();
+    let arm: f64 = slots.iter().map(|slot| slot.arm).sum();
+    let mut rng = 20_261_106_u64;
+    let mut means: Vec<f64> = (0..resamples)
+        .map(|_| {
+            let (mut sum, mut seen) = (0.0, 0_usize);
+            for _ in 0..pairs.len() {
+                let (delta, slots) = pairs[sample(&mut rng, pairs.len())];
+                sum += delta;
+                seen += slots;
+            }
+            sum / seen.max(1) as f64
+        })
+        .collect();
+    means.sort_by(f64::total_cmp);
+    let at = |share: f64| means.get((resamples as f64 * share) as usize).copied();
+    json!({"slots": count, "pairs": pairs.len(), "reference_wins": reference, "arm_wins": arm,
+        "difference": (arm - reference) / count.max(1) as f64,
+        "interval": [at(0.025), at(0.975)],
+        "only_arm": slots.iter().filter(|slot| slot.arm > slot.reference).count(),
+        "only_reference": slots.iter().filter(|slot| slot.reference > slot.arm).count()})
+}
+
+/// The comparison fixed in `v6d-phase-d-notes.md`: per opponent and pooled, on
+/// the slots clean in both arms.
+fn ladder_pairs(reference: &[PathBuf], arm: &[PathBuf], resamples: usize) -> Result<Value> {
+    let (before, after) = (clean_slots(reference)?, clean_slots(arm)?);
+    let dropped = before.len().max(after.len());
+    let slots: Vec<Slot> = before
+        .iter()
+        .filter_map(|(slot, reference)| {
+            Some(Slot {
+                opponent: slot.0.clone(),
+                pair: deck_pair(slot),
+                reference: *reference,
+                arm: *after.get(slot)?,
+            })
+        })
+        .collect();
+    let mut table = serde_json::Map::new();
+    let opponents: std::collections::BTreeSet<&String> =
+        slots.iter().map(|slot| &slot.opponent).collect();
+    for opponent in opponents {
+        let own: Vec<_> = slots
+            .iter()
+            .filter(|slot| slot.opponent == *opponent)
+            .cloned()
+            .collect();
+        table.insert(opponent.clone(), slot_table(&own, resamples));
+    }
+    table.insert("pooled".to_owned(), slot_table(&slots, resamples));
+    table.insert("clean_reference".to_owned(), json!(before.len()));
+    table.insert("clean_arm".to_owned(), json!(after.len()));
+    table.insert("slots_without_a_pair".to_owned(), json!(dropped - slots.len()));
+    Ok(Value::Object(table))
 }
 
 /// `survey-<arm>.txt` of an arm, made once.
@@ -612,6 +734,16 @@ fn main() -> Result<()> {
         }
         Command::Ladder { out, roots } => {
             atomic_json(&out, &ladder_table(&roots)?)?;
+        }
+        Command::LadderPairs {
+            reference,
+            arm,
+            resamples,
+            out,
+        } => {
+            let table = ladder_pairs(&reference, &arm, resamples)?;
+            println!("{}", serde_json::to_string_pretty(&table)?);
+            atomic_json(&out, &table)?;
         }
         Command::Values {
             test,

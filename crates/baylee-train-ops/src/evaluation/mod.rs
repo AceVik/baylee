@@ -10,7 +10,7 @@ pub use crate::files::{atomic_json, read_json};
 use anyhow::{Context, Result};
 pub use paired::{compare, read_verified};
 use serde_json::Value;
-pub use summary::summarize;
+pub use summary::{sample, summarize};
 
 fn number(value: &Value, key: &str) -> Result<f64> {
     let n = value[key]

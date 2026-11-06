@@ -43,9 +43,13 @@ pub enum RuleGroup {
     Trip,
     /// A kill spent on a small target with a far bigger one in reach.
     Aim,
+    /// A turn ended with a proactive spell the mana in play could have paid.
+    Spend,
+    /// A usable instant held through the other side's spell, attack or end step.
+    React,
 }
 
-const GROUPS: [(RuleGroup, &str); 7] = [
+const GROUPS: [(RuleGroup, &str); 9] = [
     (RuleGroup::Void, "void"),
     (RuleGroup::Side, "side"),
     (RuleGroup::Mass, "mass"),
@@ -53,6 +57,8 @@ const GROUPS: [(RuleGroup, &str); 7] = [
     (RuleGroup::Race, "race"),
     (RuleGroup::Trip, "trip"),
     (RuleGroup::Aim, "aim"),
+    (RuleGroup::Spend, "spend"),
+    (RuleGroup::React, "react"),
 ];
 
 /// The groups a net plays by, and what they changed.
@@ -218,6 +224,41 @@ impl TacticRules4 {
     }
 }
 
+impl TacticRules4 {
+    /// What a pass is turned to by the groups that do not let a turn go by.
+    fn instead_of_pass(
+        &mut self,
+        cands: &EncodedCandidates4,
+        logits: &[f32],
+        view: &PlayerView,
+        pending: &Pending,
+        chosen: usize,
+    ) -> Option<usize> {
+        let Pending::Priority { legal, .. } = pending else {
+            return None;
+        };
+        if !matches!(
+            cands.candidates.get(chosen)?.action,
+            Some(PlayerAction::PassPriority)
+        ) {
+            return None;
+        }
+        if self.on(RuleGroup::Spend)
+            && let Some(better) = super::guard::spend(cands, logits, view, legal)
+        {
+            self.count(RuleGroup::Spend);
+            return Some(better);
+        }
+        if self.on(RuleGroup::React)
+            && let Some(better) = super::guard::react(cands, logits, view, legal)
+        {
+            self.count(RuleGroup::React);
+            return Some(better);
+        }
+        None
+    }
+}
+
 /// `action`'s group, if it is one of the struck.
 fn struck_by(
     action: Option<&PlayerAction>,
@@ -307,27 +348,25 @@ pub(in crate::netplay4) fn single_choice(
         .any()
         .then(|| review_single(rules, cands, logits, view, pending, active_source))
         .flatten();
-    let Some(reviewed) = reviewed else {
-        return select_single_choice(cands, logits, view, pending, active_source, temperature, rng);
-    };
+    let (left, asked) = reviewed
+        .as_ref()
+        .map_or((logits, pending), |review| (&review.logits[..], &*review.pending));
     // At temperature zero the plain answer costs nothing to know, and what a
     // group changed is what its count should say.
-    let plain = (temperature <= 1e-4).then(|| {
+    let plain = (reviewed.is_some() && temperature <= 1e-4).then(|| {
         select_single_choice(cands, logits, view, pending, active_source, temperature, rng).0
     });
-    let answer = select_single_choice(
-        cands,
-        &reviewed.logits,
-        view,
-        &reviewed.pending,
-        active_source,
-        temperature,
-        rng,
-    );
-    if plain.is_some_and(|plain| plain != answer.0) {
-        rules.count(reviewed.group);
+    let (mut chosen, logprob) =
+        select_single_choice(cands, left, view, asked, active_source, temperature, rng);
+    if let Some(review) = &reviewed
+        && plain.is_some_and(|plain| plain != chosen)
+    {
+        rules.count(review.group);
     }
-    answer
+    if let Some(better) = rules.instead_of_pass(cands, left, view, asked, chosen) {
+        chosen = better;
+    }
+    (chosen, logprob)
 }
 
 /// A subset question under the rule groups: an attack or several targets.

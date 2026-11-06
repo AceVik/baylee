@@ -133,7 +133,7 @@ fn owed_spells(view: &PlayerView, legal: &LegalActions) -> Vec<ObjectId> {
 }
 
 /// `Spend`: what a pass at the end of the own second main is turned to.
-fn spend(
+pub(super) fn spend(
     cands: &EncodedCandidates4,
     logits: &[f32],
     view: &PlayerView,
@@ -216,7 +216,7 @@ fn react_window(view: &PlayerView, legal: &LegalActions) -> Option<(usize, Vec<O
 }
 
 /// `React`: what a pass on the other seat's turn is turned to.
-fn react(
+pub(super) fn react(
     cands: &EncodedCandidates4,
     logits: &[f32],
     view: &PlayerView,
