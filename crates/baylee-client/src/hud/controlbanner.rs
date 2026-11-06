@@ -10,9 +10,8 @@
 //! its words and shows it only when the line or the language changes. The
 //! brain mark and the words carry it, the rose edge only repeats them.
 //!
-//! The source of the control (Mindslaver, Word of Command) is not named:
-//! the view does not carry it (`docs/client.md` §"Playing another player's
-//! turn").
+//! The card that gave the control (Mindslaver, Word of Command) stands after
+//! the sentence, where the view names one ([`with_source`]).
 
 use super::{UiFonts, glyph, icon_tf, palette, tf_bold};
 use crate::Duel;
@@ -118,19 +117,25 @@ pub fn show_control_banner(
     }
     *shown = Some((line, lang));
     if let Some(line) = line {
-        let source = duel
-            .view
-            .as_ref()
-            .and_then(|view| line.source(view))
-            .and_then(baylee_cards::by_index)
-            .and_then(|card| card.faces.first());
         let said = line.text(lang, duel.statics.as_ref());
-        text.0 = source.map_or_else(|| said.clone(), |face| format!("{said} ({})", face.name));
+        text.0 = duel.view.as_ref().map_or_else(
+            || said.clone(),
+            |view| with_source(said.clone(), line, view),
+        );
         node.display = Display::Flex;
     } else {
         text.0.clear();
         node.display = Display::None;
     }
+}
+
+/// A sentence about `line`, with the card that gave the control after it.
+#[must_use]
+pub fn with_source(said: String, line: ControlLine, view: &baylee_view::PlayerView) -> String {
+    line.source(view)
+        .and_then(baylee_cards::by_index)
+        .and_then(|card| card.faces.first())
+        .map_or_else(|| said.clone(), |face| format!("{said} ({})", face.name))
 }
 
 #[cfg(test)]

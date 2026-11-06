@@ -59,6 +59,55 @@ fn frames(app: &mut App) -> usize {
         .count()
 }
 
+/// The pointer on a badge opens the card that gave the control, in the
+/// printing its object wears, and says who holds the control and by what.
+/// Mindslaver is sacrificed for it, so that object lies in a graveyard.
+#[test]
+fn a_badge_opens_the_source_in_its_print_and_names_it() {
+    use baylee_core::ids::{CardIndex, PrintRef};
+    let source = CardIndex::new(6506);
+    let mut duel = controlling_duel();
+    let card = baylee_view::CardIdentity {
+        index: source,
+        print: PrintRef::new(195),
+        face: 0,
+    };
+    {
+        let view = duel.view.as_mut().expect("a view");
+        view.controls = vec![baylee_view::PlayerControl {
+            player: PlayerId::new(1),
+            controller: PlayerId::new(0),
+            source: Some(source),
+        }];
+        let mut object = baylee_client_core::test_support::printed(90, 0, "Mindslaver", 195);
+        object.card = Some(card);
+        view.graveyards[0].push(object);
+    }
+    let mut app = with_badges(duel);
+    app.update();
+    let mut links = app
+        .world_mut()
+        .query_filtered::<(&crate::hud::LogLink, &crate::hud::Hint), With<crate::hud::ControlBadge>>();
+    let (link, hint) = links.iter(app.world()).next().expect("a linked badge");
+    assert_eq!(link.card, Some(card));
+    let name = baylee_cards::by_index(source)
+        .and_then(|card| card.faces.first())
+        .expect("a registered card")
+        .name;
+    assert!(hint.0.contains(name), "{}", hint.0);
+}
+
+/// With no object to show, the badge opens nothing: no printing is guessed.
+#[test]
+fn a_badge_with_no_object_to_show_opens_nothing() {
+    let mut app = with_badges(controlling_duel());
+    app.update();
+    let mut links = app
+        .world_mut()
+        .query_filtered::<&crate::hud::LogLink, With<crate::hud::ControlBadge>>();
+    assert_eq!(links.iter(app.world()).count(), 0);
+}
+
 /// Their chair is shown as their decision arrives: their hand in its rose
 /// frame with the words saying whose it is, and the badge over their chip
 /// saying it is the chair shown. Back on this seat's own chair the frame

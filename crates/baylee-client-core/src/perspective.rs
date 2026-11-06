@@ -160,6 +160,29 @@ impl ControlLine {
     }
 }
 
+/// The card behind `player`'s control as the table can see it now: the view's
+/// `source` names the card, and its printing and finish are on the object. A
+/// cost may have moved that (Mindslaver is sacrificed), so the zones are read,
+/// the controller's own first for two copies in two printings. `None` where no
+/// object shows it: nothing is guessed.
+#[must_use]
+pub fn control_source(view: &PlayerView, player: PlayerId) -> Option<baylee_view::CardIdentity> {
+    let control = view.controls.iter().find(|c| c.player == player)?;
+    let source = control.source?;
+    let own = usize::from(control.controller.get());
+    let of = |zones: &[Vec<baylee_view::PublicObject>]| zones.get(own).cloned();
+    of(&view.graveyards)
+        .into_iter()
+        .chain(of(&view.exile))
+        .flatten()
+        .chain(view.graveyards.iter().flatten().cloned())
+        .chain(view.exile.iter().flatten().cloned())
+        .chain(view.battlefield.iter().cloned())
+        .chain(view.stack.iter().cloned())
+        .filter_map(|object| object.card)
+        .find(|card| card.index == source)
+}
+
 /// Whose chair the bottom of the table shows, and how it came to.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Perspective {

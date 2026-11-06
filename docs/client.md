@@ -7375,8 +7375,12 @@ shown chair's (`BoardModel::show_hand`, `Duel::shown_hand`).
   the chair shown. Its hint carries the sentence: for this seat's own, that a
   press plays from that chair; for a player somebody else decides for,
   "Controlled by Ben", with "Mia's turn — controlled by Ben" on Mia's turn
-  (`players::control_badge`, `show_the_control_badges`). The badge stands over
-  the chip on the table's edge, never on a print.
+  (`players::control_badge`, `show_the_control_badges`), and every hint names
+  the card that gave the control. The pointer on a badge opens that card in
+  its own printing and finish (owner, 06.11.2026): the view names the card and
+  `perspective::control_source` finds its object, a sacrificed Mindslaver in a
+  graveyard; where no object shows it, no printing is guessed and nothing
+  opens. The badge stands over the chip on the table's edge, never on a print.
 - **The controlled hand** wears a frame of its own: a rose edge and a faint
   rose ground under the cards, and in the headroom over them the brain mark
   and "Mia's hand · under your control" (`hud::hand::control_frame`).

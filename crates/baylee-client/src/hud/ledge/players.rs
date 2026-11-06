@@ -777,8 +777,8 @@ const BADGE_PT: f32 = 9.5;
 
 /// What a chip's control badge says, if anything, and its hint: decided
 /// from the view and the chair the table is shown from. One short word, since
-/// the chip clips what stands over it; who controls whom is the hint's, the
-/// banner's and the hand's to say.
+/// the chip clips what stands over it; who controls whom and by which card is
+/// the hint's, and the card itself the preview's.
 #[must_use]
 pub fn control_badge(
     view: &baylee_view::PlayerView,
@@ -787,6 +787,7 @@ pub fn control_badge(
     lang: Lang,
     player: PlayerId,
 ) -> Option<(String, String)> {
+    use crate::hud::controlbanner::with_source;
     use baylee_client_core::perspective::{ControlLine, controls};
     let name = |p| baylee_client_core::i18n::seat_name(lang, statics, p);
     if controls(view, player) {
@@ -795,33 +796,72 @@ pub fn control_badge(
         } else {
             Phrase::ControlUnderYours
         };
-        let hint = Phrase::ControlChipHint.fill(lang, &[&name(player)]);
+        let line = ControlLine::DecidingFor { player };
+        let hint = format!(
+            "{}\n{}",
+            with_source(line.text(lang, statics), line, view),
+            Phrase::ControlChipHint.fill(lang, &[&name(player)]),
+        );
         return Some((words.text(lang).to_string(), hint));
     }
-    let (controlled, controller) = ControlLine::of(view)?.pair(view.seat);
+    let line = ControlLine::of(view)?;
+    let (controlled, controller) = line.pair(view.seat);
     (controlled == player && controller != view.seat).then(|| {
         let hint = if view.active == player {
             Phrase::ControlTurnOf.fill(lang, &[&name(player), &name(controller)])
         } else {
             Phrase::ControlledBy.fill(lang, &[&name(controller)])
         };
-        (Phrase::ControlUnderYours.text(lang).to_string(), hint)
+        (
+            Phrase::ControlUnderYours.text(lang).to_string(),
+            with_source(hint, line, view),
+        )
     })
 }
+
+/// A control badge and what it is written through.
+type BadgeParts = (
+    Entity,
+    &'static ControlBadge,
+    &'static mut Visibility,
+    &'static mut Hint,
+    &'static Children,
+    Option<&'static LogLink>,
+);
 
 /// Writes and shows each chip's control badge while its player is
 /// controlled, and hides it after; a write only where one changed.
 pub fn show_the_control_badges(
+    mut commands: Commands,
     duel: Res<Duel>,
     settings: Res<crate::settings::ClientSettings>,
-    mut badges: Query<(&ControlBadge, &mut Visibility, &mut Hint, &Children)>,
+    mut badges: Query<BadgeParts>,
     mut texts: Query<&mut Text, With<ControlBadgeText>>,
 ) {
     let Some(view) = duel.view.as_ref() else {
         return;
     };
     let lang = Lang::of(&settings.lang);
-    for (badge, mut seen, mut hint, children) in &mut badges {
+    for (entity, badge, mut seen, mut hint, children, link) in &mut badges {
+        // The pointer on it opens the card that gave the control, in its own
+        // printing and finish.
+        let source = baylee_client_core::perspective::control_source(view, badge.player);
+        if link.and_then(|l| l.card) != source {
+            match source {
+                Some(card) => {
+                    commands.entity(entity).insert((
+                        LogLink {
+                            card: Some(card),
+                            token: None,
+                        },
+                        CardLens,
+                    ));
+                }
+                None => {
+                    commands.entity(entity).remove::<(LogLink, CardLens)>();
+                }
+            }
+        }
         let said = control_badge(
             view,
             &duel.perspective,

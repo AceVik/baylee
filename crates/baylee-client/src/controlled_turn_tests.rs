@@ -865,23 +865,17 @@ fn the_chips_say_who_is_under_whose_control() {
     let badge = |duel: &Duel, view: &PlayerView, player| {
         control_badge(view, &duel.perspective, None, Lang::En, player).map(|(words, _)| words)
     };
-    assert_eq!(
-        badge(&duel, &view, THEM).as_deref(),
-        Some("Shown · under your control")
-    );
+    assert_eq!(badge(&duel, &view, THEM).as_deref(), Some("Shown"));
     assert_eq!(badge(&duel, &view, ME), None, "my own chip is mine");
     duel.show_from(ME);
-    assert_eq!(
-        badge(&duel, &view, THEM).as_deref(),
-        Some("Under your control")
-    );
+    assert_eq!(badge(&duel, &view, THEM).as_deref(), Some("Controlled"));
 
     let mut theirs = view.clone();
     theirs.seat = THEM;
     theirs.controlled_hands.clear();
     let (words, hint) =
         control_badge(&theirs, &Perspective::default(), None, Lang::En, THEM).expect("public");
-    assert!(words.starts_with("Controlled by"), "{words}");
+    assert_eq!(words, "Controlled");
     assert!(hint.contains("turn — controlled by"), "{hint}");
 }
 
