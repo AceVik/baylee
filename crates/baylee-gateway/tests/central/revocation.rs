@@ -3,7 +3,7 @@
 //! and nothing further reaches the engine. What Central's push would carry is
 //! Central's own signed message; a second run has no push at all, and the
 //! gateway's catch-up has to learn on its own.
-use super::{CentralHttp, Endpoint, GatewayPurpose, Runtime, Token, common, seat, sdk};
+use super::{CentralHttp, Endpoint, GatewayPurpose, Runtime, Token, common, sdk, seat};
 use baylee_account::wire::Discovery;
 use std::time::Duration;
 
@@ -48,7 +48,13 @@ fn pushed_run(
     let mut seat = seat::LiveSeat::open(runtime, gateway, &bearer);
 
     // A renewal is no end: the same session, and its socket stands.
-    let renew = common::http(gateway.port, "POST", "/auth/session/renew", Some(&bearer), "");
+    let renew = common::http(
+        gateway.port,
+        "POST",
+        "/auth/session/renew",
+        Some(&bearer),
+        "",
+    );
     assert_eq!(renew.0, 200, "{}", renew.1);
     seat.assert_live(runtime);
 
@@ -87,7 +93,10 @@ fn pushed_run(
     // No way back in with what the client held.
     let renewed_bearer = common::json_field(&renew.1, "token").to_owned();
     for held in [&bearer, &renewed_bearer] {
-        assert_eq!(common::http(gateway.port, "GET", "/me", Some(held), "").0, 401);
+        assert_eq!(
+            common::http(gateway.port, "GET", "/me", Some(held), "").0,
+            401
+        );
         assert_eq!(
             common::http(gateway.port, "POST", "/auth/session/renew", Some(held), "").0,
             401
@@ -105,12 +114,7 @@ fn pushed_run(
 
 /// Central cannot reach the gateway: no message is posted, and the gateway
 /// learns within one round of its own.
-fn caught_up_run(
-    runtime: &Runtime,
-    gateway: &common::Gateway,
-    endpoint: &Endpoint,
-    origin: &str,
-) {
+fn caught_up_run(runtime: &Runtime, gateway: &common::Gateway, endpoint: &Endpoint, origin: &str) {
     let http = CentralHttp::new(endpoint.clone());
     let session = signed_in(&http);
     let (bearer, _) = admit(gateway.port, &session, &http, origin);

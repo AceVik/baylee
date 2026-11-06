@@ -129,7 +129,10 @@ impl LiveSeat {
             u16::from(frame.code),
             baylee_protocol::refusal::REFUSAL_CLOSE
         );
-        assert_eq!(frame.reason.as_str(), baylee_protocol::refusal::SESSION_ENDED);
+        assert_eq!(
+            frame.reason.as_str(),
+            baylee_protocol::refusal::SESSION_ENDED
+        );
         assert_eq!(
             self.probe.seat_frames.load(Ordering::SeqCst),
             received,

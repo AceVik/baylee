@@ -32,22 +32,40 @@ pub(super) fn run(
     let first = admitted.token.clone();
     let renew_in = admitted.renew_in.unwrap();
     assert!((44..=108).contains(&renew_in), "{renew_in}");
-    assert_eq!(common::http(gateway.port, "GET", "/me", Some(&first), "").0, 200);
+    assert_eq!(
+        common::http(gateway.port, "GET", "/me", Some(&first), "").0,
+        200
+    );
 
     // Renewal needs no Central, and only the current bearer may ask.
-    let (status, body) =
-        common::http(gateway.port, "POST", "/auth/session/renew", Some(&first), "");
+    let (status, body) = common::http(
+        gateway.port,
+        "POST",
+        "/auth/session/renew",
+        Some(&first),
+        "",
+    );
     assert_eq!(status, 200, "{body}");
     let second = bearer_of(&body);
     assert_ne!(first, second);
-    assert_eq!(common::http(gateway.port, "GET", "/me", Some(&second), "").0, 200);
+    assert_eq!(
+        common::http(gateway.port, "GET", "/me", Some(&second), "").0,
+        200
+    );
     assert_eq!(
         common::http(gateway.port, "GET", "/me", Some(&first), "").0,
         200,
         "the old bearer serves what was in flight"
     );
     assert_eq!(
-        common::http(gateway.port, "POST", "/auth/session/renew", Some(&first), "").0,
+        common::http(
+            gateway.port,
+            "POST",
+            "/auth/session/renew",
+            Some(&first),
+            ""
+        )
+        .0,
         401,
         "a used bearer cannot renew, so a copy of it cannot fork the session"
     );
@@ -61,7 +79,14 @@ pub(super) fn run(
         200
     );
     assert_eq!(
-        common::http(gateway.port, "POST", "/auth/session/renew", Some(&second), "").0,
+        common::http(
+            gateway.port,
+            "POST",
+            "/auth/session/renew",
+            Some(&second),
+            ""
+        )
+        .0,
         401,
         "a refresh retires the bearer before it too"
     );
@@ -71,5 +96,8 @@ pub(super) fn run(
     account.logout().unwrap();
     let http = super::CentralHttp::new(endpoint.clone());
     super::pushed(&http, bridge, gateway.port);
-    assert_eq!(common::http(gateway.port, "GET", "/me", Some(&bearer), "").0, 401);
+    assert_eq!(
+        common::http(gateway.port, "GET", "/me", Some(&bearer), "").0,
+        401
+    );
 }

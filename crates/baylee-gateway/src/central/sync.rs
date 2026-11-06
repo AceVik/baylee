@@ -80,7 +80,9 @@ async fn register(bridge: &Arc<Bridge>) {
     }
     let path = INVALIDATE_PATH.to_owned();
     if matches!(
-        bridge.exchange(wire::Request::RegisterInvalidate { path }).await,
+        bridge
+            .exchange(wire::Request::RegisterInvalidate { path })
+            .await,
         Ok(wire::Response::Done)
     ) {
         bridge.mark_registered();

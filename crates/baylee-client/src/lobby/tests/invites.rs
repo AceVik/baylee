@@ -273,10 +273,7 @@ fn the_gateways_refusals_are_said_as_sentences() {
 /// the words a hostile gateway adds go no further than the rule lets them.
 #[test]
 fn a_refusal_with_a_reason_is_said_in_the_clients_own_words() {
-    let held = answer(
-        503,
-        r#"{"error":"held","refusal":{"code":"maintenance"}}"#,
-    );
+    let held = answer(503, r#"{"error":"held","refusal":{"code":"maintenance"}}"#);
     assert_eq!(
         gateway_error(Lang::De, &held),
         Phrase::RefusalMaintenance.text(Lang::De)

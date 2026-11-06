@@ -207,7 +207,14 @@ async fn sign_in(state: &Shared, token: &str, purpose: Purpose) -> Result<Json<V
     }
     let now = sessions::now();
     let signed = Signed::new(central, admin, claims.terms.clone());
-    let live = opened(&state.sessions, &bridge.trust, &claims, &account_id, now, signed)?;
+    let live = opened(
+        &state.sessions,
+        &bridge.trust,
+        &claims,
+        &account_id,
+        now,
+        signed,
+    )?;
     let issued = state
         .sessions
         .issue(&live, now)
@@ -747,7 +754,10 @@ mod tests {
         #[test]
         fn a_revocation_before_the_session_opens_leaves_no_session() {
             let (book, trust) = (sessions::Book::default(), trust());
-            trust.gateway_token(&key().sign(&claims(1)).unwrap(), NOW).ok().unwrap();
+            trust
+                .gateway_token(&key().sign(&claims(1)).unwrap(), NOW)
+                .ok()
+                .unwrap();
             revoke(&book, &trust, 1);
             assert_eq!(open(&book, &trust, 1), Err(StatusCode::UNAUTHORIZED));
             assert!(book.get(&key_of(&sid(1)), NOW).is_none());

@@ -132,4 +132,3 @@ pub async fn take_profile(
         .await?;
     Ok(updated.rows_affected() == 1)
 }
-

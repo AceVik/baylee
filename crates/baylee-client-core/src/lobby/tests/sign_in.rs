@@ -35,7 +35,10 @@ fn a_renewed_bearer_is_the_same_session_and_a_new_sign_in_is_not() {
 #[test]
 fn a_bearer_comes_due_once_when_its_time_runs_out_and_a_renewal_sets_the_next() {
     let mut lobby = signed_in_as("first");
-    assert!(!lobby.bearer_due(1_000.0), "told nothing, it renews nothing");
+    assert!(
+        !lobby.bearer_due(1_000.0),
+        "told nothing, it renews nothing"
+    );
     lobby.apply(LobbyEvent::BearerRenewed {
         token: "first".to_string(),
         renew_in: 10,

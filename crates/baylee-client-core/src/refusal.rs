@@ -64,7 +64,10 @@ mod tests {
     #[test]
     fn a_refusal_survives_the_socket_librarys_error_event_and_nothing_else_is_one() {
         let error = socket_error(&Refusal::new("banned"));
-        assert_eq!(of_socket_error(&error).map(|r| r.code), Some("banned".into()));
+        assert_eq!(
+            of_socket_error(&error).map(|r| r.code),
+            Some("banned".into())
+        );
         assert_eq!(of_socket_error("connection reset"), None);
         assert_eq!(of_socket_error("refused:not a code"), None);
     }
@@ -114,7 +117,10 @@ mod tests {
     fn a_code_this_client_does_not_know_still_says_what_it_can() {
         let bare = say(&Refusal::new("region_closed"), Lang::En);
         assert!(!bare.contains("region_closed"), "a code is not a sentence");
-        let with = say(&with_text("region_closed", "Closed in your region."), Lang::En);
+        let with = say(
+            &with_text("region_closed", "Closed in your region."),
+            Lang::En,
+        );
         assert!(with.contains("Closed in your region."));
         assert!(with.starts_with(&bare), "its own words come first");
     }

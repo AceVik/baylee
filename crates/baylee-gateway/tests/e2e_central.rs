@@ -29,9 +29,9 @@ mod token;
 use baylee_account::{
     Account, CentralHttp, Endpoint, Token, data::AccountData, sdk, wire::GatewayPurpose,
 };
+use central_crypto::jwt::SigningKey;
 use central_crypto::opaque::server::ServerKeys;
 use central_http::DevelopmentServer;
-use central_crypto::jwt::SigningKey;
 use central_identity::{IdentityService, TokenKeys};
 use central_postgres::{AccountStore, DevConfig, LegacyRow, LegacyStore};
 use sea_orm::ConnectionTrait;
@@ -239,8 +239,22 @@ fn central_login_migrates_then_restores_and_admits_without_the_legacy_password()
     let served = serve(&runtime, &store, &legacy, "central", None);
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         let (gateway, endpoint, origin) = (&served.gateway, &served.endpoint, &served.origin);
-        run(gateway, endpoint, origin, &runtime, &operator, &served.bridge);
-        renewal::run(gateway, endpoint, origin, &runtime, &operator, &served.bridge);
+        run(
+            gateway,
+            endpoint,
+            origin,
+            &runtime,
+            &operator,
+            &served.bridge,
+        );
+        renewal::run(
+            gateway,
+            endpoint,
+            origin,
+            &runtime,
+            &operator,
+            &served.bridge,
+        );
         fresh::run(&runtime, &served.service, &operator, endpoint, gateway);
         registered::run(&runtime, &operator, endpoint);
         terms::run(&runtime, &operator, endpoint);

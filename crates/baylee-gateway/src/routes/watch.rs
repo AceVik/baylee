@@ -112,8 +112,8 @@ pub(crate) async fn watch_ws(
         .ok_or_else(|| err(StatusCode::UNAUTHORIZED, TICKET_REFUSED))?;
     crate::moderation::admit(&watcher)?;
     crate::terms_admit(&watcher)?;
-    let live = crate::central::watched(&state, &watcher)
-        .map_err(|status| err(status, TICKET_REFUSED))?;
+    let live =
+        crate::central::watched(&state, &watcher).map_err(|status| err(status, TICKET_REFUSED))?;
     let watcher = watcher.account_id;
     let place = crate::presence::socket_place(&state, &watcher)?;
     Ok(ws

@@ -637,7 +637,10 @@ mod tests {
         let frame = banned.close_frame().unwrap();
         assert_eq!(frame.code, baylee_protocol::refusal::REFUSAL_CLOSE);
         assert_eq!(frame.reason.as_str(), "banned");
-        assert_eq!(revoked.close_frame().unwrap().reason.as_str(), "session_ended");
+        assert_eq!(
+            revoked.close_frame().unwrap().reason.as_str(),
+            "session_ended"
+        );
     }
 
     #[test]
@@ -652,7 +655,10 @@ mod tests {
                 index.by_key.insert(filler, held);
             }
         }
-        assert_eq!(book.open(key(9), "c", LATER, NOW, signed()).err(), Some(Full));
+        assert_eq!(
+            book.open(key(9), "c", LATER, NOW, signed()).err(),
+            Some(Full)
+        );
         let same = book.open(key(0), "a", LATER, NOW, signed()).unwrap();
         assert!(Arc::ptr_eq(&live, &same));
     }
@@ -680,7 +686,10 @@ mod tests {
         let issued = book.issue(&live, NOW).unwrap();
         let found = book.by_bearer(&digest(&issued), NOW).unwrap();
         assert!(Arc::ptr_eq(&live, &found));
-        assert!(book.by_bearer(&digest(&issued), issued.expires_at).is_none());
+        assert!(
+            book.by_bearer(&digest(&issued), issued.expires_at)
+                .is_none()
+        );
         assert!(book.by_bearer(&[0; 32], NOW).is_none());
     }
 
@@ -714,7 +723,10 @@ mod tests {
         let old = book.issue(&live, NOW).unwrap();
         let refreshed = book.issue(&live, NOW).unwrap();
         assert!(book.renew(&digest(&old), NOW).is_none(), "retired");
-        assert!(book.by_bearer(&digest(&old), NOW).is_some(), "still in flight");
+        assert!(
+            book.by_bearer(&digest(&old), NOW).is_some(),
+            "still in flight"
+        );
         assert!(book.by_bearer(&digest(&old), NOW + OVERLAP_SECS).is_none());
         assert!(book.renew(&digest(&refreshed), NOW).is_some());
     }
@@ -748,7 +760,10 @@ mod tests {
         book.end(&key(1), Ended::Revoked);
         assert!(book.issue(&old, NOW).is_none(), "the key is gone");
         let new = book.open(key(1), "a", LATER, NOW, signed()).unwrap();
-        assert!(book.issue(&old, NOW).is_none(), "a new session holds the key");
+        assert!(
+            book.issue(&old, NOW).is_none(),
+            "a new session holds the key"
+        );
         assert!(book.issue(&new, NOW).is_some());
     }
 

@@ -36,11 +36,7 @@ impl CentralHttp {
         /// Central's limit on the document (`central_crypto::jwt::MAX_JWKS_BYTES`).
         const MAX_JWKS_BYTES: u64 = 16 * 1024;
         let url = format!("{}/.well-known/jwks.json", self.endpoint.origin());
-        let mut response = self
-            .agent
-            .get(url)
-            .call()
-            .map_err(|_| Error::Unavailable)?;
+        let mut response = self.agent.get(url).call().map_err(|_| Error::Unavailable)?;
         match response.status().as_u16() {
             200 => {}
             429 => return Err(Error::Busy),

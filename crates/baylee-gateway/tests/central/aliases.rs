@@ -48,7 +48,10 @@ pub(super) fn run(gateway: &common::Gateway, endpoint: &Endpoint, bridge: &Token
         .unwrap();
     let foreign = super::gateway_token(&session, &http, REGISTERED, GatewayPurpose::Admit);
     let (status, body) = login(gateway.port, &foreign);
-    assert_eq!(status, 401, "another gateway's token is refused here: {body}");
+    assert_eq!(
+        status, 401,
+        "another gateway's token is refused here: {body}"
+    );
     assert!(
         session
             .gateway_token(

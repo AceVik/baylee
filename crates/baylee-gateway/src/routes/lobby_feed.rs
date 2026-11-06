@@ -94,9 +94,11 @@ pub(crate) async fn lobby_ws(
             .map_err(|status| err(status, TICKET_REFUSED))?;
         (session.account_id, live)
     };
-    Ok(ws.on_upgrade(move |socket| {
-        run_lobby_socket(state, account_id, live, params.query, socket)
-    }))
+    Ok(
+        ws.on_upgrade(move |socket| {
+            run_lobby_socket(state, account_id, live, params.query, socket)
+        }),
+    )
 }
 
 /// The biggest frame a lobby socket takes: the client says nothing here, and

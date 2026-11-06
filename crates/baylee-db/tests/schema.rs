@@ -381,7 +381,10 @@ async fn central_sessions_leave_the_database_and_local_ones_stay() {
         .await
         .unwrap()
         .unwrap();
-    assert!(row.try_get::<bool>("", "gone").unwrap(), "the leases are gone");
+    assert!(
+        row.try_get::<bool>("", "gone").unwrap(),
+        "the leases are gone"
+    );
     sandbox.close().await;
 }
 

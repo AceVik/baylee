@@ -390,7 +390,10 @@ mod tests {
         let mut bytes = signature.as_bytes().to_vec();
         bytes[0] = if bytes[0] == b'A' { b'B' } else { b'A' };
         let forged = format!("{body}.{}", String::from_utf8(bytes).unwrap());
-        assert_eq!(trust().gateway_token(&forged, NOW).err(), Some(Refused::Token));
+        assert_eq!(
+            trust().gateway_token(&forged, NOW).err(),
+            Some(Refused::Token)
+        );
     }
 
     #[test]
@@ -399,13 +402,19 @@ mod tests {
         let (_, rest) = token.split_once('.').unwrap();
         let none = "eyJhbGciOiJub25lIiwidHlwIjoiYmF5bGVlLWdhdGV3YXkrand0In0";
         let forged = format!("{none}.{rest}");
-        assert_eq!(trust().gateway_token(&forged, NOW).err(), Some(Refused::Token));
+        assert_eq!(
+            trust().gateway_token(&forged, NOW).err(),
+            Some(Refused::Token)
+        );
     }
 
     #[test]
     fn a_revocation_message_is_not_a_gateway_token() {
         let token = signed(&revocation('a', 1, 1));
-        assert_eq!(trust().gateway_token(&token, NOW).err(), Some(Refused::Token));
+        assert_eq!(
+            trust().gateway_token(&token, NOW).err(),
+            Some(Refused::Token)
+        );
     }
 
     #[test]
@@ -418,9 +427,15 @@ mod tests {
     fn nothing_is_taken_before_the_first_catch_up_has_finished() {
         let starting = Trust::new(ISSUER.into(), vec![HERE.into()]);
         let token = signed(&gateway_claims());
-        assert_eq!(starting.gateway_token(&token, NOW).err(), Some(Refused::NotReady));
+        assert_eq!(
+            starting.gateway_token(&token, NOW).err(),
+            Some(Refused::NotReady)
+        );
         starting.set_keys(keys(), NOW);
-        assert_eq!(starting.gateway_token(&token, NOW).err(), Some(Refused::NotReady));
+        assert_eq!(
+            starting.gateway_token(&token, NOW).err(),
+            Some(Refused::NotReady)
+        );
         starting.caught_up();
         assert!(starting.gateway_token(&token, NOW).is_ok());
     }
@@ -428,14 +443,20 @@ mod tests {
     #[test]
     fn a_revoked_session_stays_refused_when_its_token_comes_back() {
         let trust = trust();
-        trust.pushed(&signed(&revocation('a', 1, 1)), NOW).ok().unwrap();
+        trust
+            .pushed(&signed(&revocation('a', 1, 1)), NOW)
+            .ok()
+            .unwrap();
         assert_eq!(refusal(&trust, &gateway_claims()), Some(Refused::Revoked));
     }
 
     #[test]
     fn a_revoked_sid_is_kept_as_long_as_a_token_can_name_it() {
         let trust = trust();
-        trust.pushed(&signed(&revocation('a', 1, 1)), NOW).ok().unwrap();
+        trust
+            .pushed(&signed(&revocation('a', 1, 1)), NOW)
+            .ok()
+            .unwrap();
         trust.sweep(NOW + REVOKED_KEEP_SECS - 1);
         assert_eq!(trust.state.lock().revoked.len(), 1);
         trust.sweep(NOW + REVOKED_KEEP_SECS);
@@ -464,14 +485,20 @@ mod tests {
         let trust = trust();
         let mut claims = revocation('a', 1, 1);
         claims.aud = "https://other.example".into();
-        assert_eq!(trust.pushed(&signed(&claims), NOW).err(), Some(Refused::Token));
+        assert_eq!(
+            trust.pushed(&signed(&claims), NOW).err(),
+            Some(Refused::Token)
+        );
         assert!(trust.state.lock().revoked.is_empty());
     }
 
     #[test]
     fn a_gap_still_applies_its_sessions_and_holds_the_number_back() {
         let trust = trust();
-        let applied = trust.pushed(&signed(&revocation('a', 5, 5)), NOW).ok().unwrap();
+        let applied = trust
+            .pushed(&signed(&revocation('a', 5, 5)), NOW)
+            .ok()
+            .unwrap();
         assert!(applied.gap);
         assert_eq!(applied.sids, vec![SID.to_owned()]);
         assert_eq!(trust.applied(), 0, "1 to 4 are still missing");
@@ -481,11 +508,29 @@ mod tests {
     #[test]
     fn numbers_move_with_a_page_and_never_back() {
         let trust = trust();
-        assert!(!trust.fetched(&signed(&revocation('a', 1, 3)), NOW).ok().unwrap().gap);
+        assert!(
+            !trust
+                .fetched(&signed(&revocation('a', 1, 3)), NOW)
+                .ok()
+                .unwrap()
+                .gap
+        );
         assert_eq!(trust.applied(), 3);
-        assert!(!trust.fetched(&signed(&revocation('b', 2, 2)), NOW).ok().unwrap().gap);
+        assert!(
+            !trust
+                .fetched(&signed(&revocation('b', 2, 2)), NOW)
+                .ok()
+                .unwrap()
+                .gap
+        );
         assert_eq!(trust.applied(), 3);
-        assert!(!trust.fetched(&signed(&revocation('c', 4, 9)), NOW).ok().unwrap().gap);
+        assert!(
+            !trust
+                .fetched(&signed(&revocation('c', 4, 9)), NOW)
+                .ok()
+                .unwrap()
+                .gap
+        );
         assert_eq!(trust.applied(), 9);
     }
 
@@ -517,7 +562,13 @@ mod tests {
         assert_eq!(trust.applied(), 7);
         trust.skip_to(3);
         assert_eq!(trust.applied(), 7);
-        assert!(!trust.fetched(&signed(&revocation('a', 8, 8)), NOW).ok().unwrap().gap);
+        assert!(
+            !trust
+                .fetched(&signed(&revocation('a', 8, 8)), NOW)
+                .ok()
+                .unwrap()
+                .gap
+        );
         assert_eq!(trust.applied(), 8);
     }
 

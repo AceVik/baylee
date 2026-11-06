@@ -140,7 +140,9 @@ impl Link {
         if let Some(bridge) = self.get()
             && bridge.http.endpoint().legacy_origin().is_none()
         {
-            bridge.trust.add_audience(format!("http://127.0.0.1:{port}"));
+            bridge
+                .trust
+                .add_audience(format!("http://127.0.0.1:{port}"));
         }
     }
 
@@ -488,13 +490,10 @@ async fn local_standing(state: &Shared, live: &crate::sessions::Live) -> Option<
         let linked = baylee_db::central::linked(&state.db, account).await.ok()?;
         return Some(!linked);
     }
-    let session = crate::store::resolve_digest(
-        &state.db,
-        live.key().to_vec(),
-        crate::auth::now_secs(),
-    )
-    .await
-    .ok()?;
+    let session =
+        crate::store::resolve_digest(&state.db, live.key().to_vec(), crate::auth::now_secs())
+            .await
+            .ok()?;
     Some(session.is_some_and(|session| {
         session.account_id == account && crate::moderation::admit(&session).is_ok()
     }))
