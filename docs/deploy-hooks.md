@@ -267,3 +267,18 @@ operator's own choice and is not checked.
 `baylee-deploy` and `baylee-reboot` (crate baylee-ops) read the gateway's
 JSON themselves. Malformed or missing counts are "unknown" and continue to
 block switching and rebooting.
+
+## Priority on a live host
+
+The gateway and the agent run above everything else on a live host (owner, 6.11.2026),
+and the engines the agent starts inherit that from it. Their units are installed on the server
+and are not in this repository, so this is a drop-in beside each unit:
+
+```ini
+[Service]
+Nice=-5
+CPUWeight=500
+IOWeight=500
+```
+
+Background units keep their own low settings, such as `Nice=10` for `baylee-deploy.service`.
