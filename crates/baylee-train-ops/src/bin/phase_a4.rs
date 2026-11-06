@@ -143,6 +143,13 @@ enum Command {
         /// Roots of the arm against it.
         #[arg(long, required = true)]
         arm: Vec<PathBuf>,
+        /// Roots of the reference arm in a later round on the same deck pairs.
+        /// Its games pair among themselves and join the same deck pairs.
+        #[arg(long)]
+        later_reference: Vec<PathBuf>,
+        /// Roots of the arm in that later round.
+        #[arg(long)]
+        later_arm: Vec<PathBuf>,
         #[arg(long, default_value_t = 20_000)]
         resamples: usize,
         #[arg(long)]
@@ -495,6 +502,7 @@ fn ladder_table(roots: &[PathBuf]) -> Result<Value> {
             tally[6] += house;
             games.push(json!({"root": root, "game": number, "played": true,
                 "profile": game["profile"], "mode": game["mode"], "net_won": won,
+                "drawn": game["drawn"],
                 "model_answers": model,
                 "house_answers": house, "declined": declined, "house_finished": finished,
                 "turns": summary["turns"], "net_deck": game["net_deck"], "llm_deck": game["llm_deck"]}));
@@ -648,7 +656,14 @@ fn clean_slots(roots: &[PathBuf]) -> Result<BTreeMap<(String, String, String), f
             continue;
         }
         let text = |key: &str| game[key].as_str().unwrap_or("").to_owned();
-        let won = if game["net_won"] == true { 1.0 } else { 0.0 };
+        // A draw counts one half, as everywhere else in the evaluation.
+        let won = if game["net_won"] == true {
+            1.0
+        } else if game["drawn"] == true {
+            0.5
+        } else {
+            0.0
+        };
         slots.insert((text("profile"), text("net_deck"), text("llm_deck")), won);
     }
     Ok(slots)
@@ -706,12 +721,10 @@ fn slot_table(slots: &[Slot], resamples: usize) -> Value {
         "only_reference": slots.iter().filter(|slot| slot.reference > slot.arm).count()})
 }
 
-/// The comparison fixed in `v6d-phase-d-notes.md`: per opponent and pooled, on
-/// the slots clean in both arms.
-fn ladder_pairs(reference: &[PathBuf], arm: &[PathBuf], resamples: usize) -> Result<Value> {
+/// The slots of one round clean in both arms, and how many each arm had clean.
+fn round_slots(reference: &[PathBuf], arm: &[PathBuf]) -> Result<(Vec<Slot>, usize, usize)> {
     let (before, after) = (clean_slots(reference)?, clean_slots(arm)?);
-    let dropped = before.len().max(after.len());
-    let slots: Vec<Slot> = before
+    let slots = before
         .iter()
         .filter_map(|(slot, reference)| {
             Some(Slot {
@@ -722,6 +735,27 @@ fn ladder_pairs(reference: &[PathBuf], arm: &[PathBuf], resamples: usize) -> Res
             })
         })
         .collect();
+    Ok((slots, before.len(), after.len()))
+}
+
+/// The comparison fixed in `v6d-phase-d-notes.md`: per opponent and pooled, on
+/// the slots clean in both arms. `later` is a second round of the same deck pairs,
+/// which pairs among itself: a slot of two rounds is two games, not one.
+fn ladder_pairs(
+    reference: &[PathBuf],
+    arm: &[PathBuf],
+    later: Option<(&[PathBuf], &[PathBuf])>,
+    resamples: usize,
+) -> Result<Value> {
+    let (mut slots, mut clean_reference, mut clean_arm) = round_slots(reference, arm)?;
+    let mut dropped = clean_reference.max(clean_arm) - slots.len();
+    if let Some((reference, arm)) = later {
+        let (more, before, after) = round_slots(reference, arm)?;
+        dropped += before.max(after) - more.len();
+        clean_reference += before;
+        clean_arm += after;
+        slots.extend(more);
+    }
     let mut table = serde_json::Map::new();
     let opponents: std::collections::BTreeSet<&String> =
         slots.iter().map(|slot| &slot.opponent).collect();
@@ -734,12 +768,9 @@ fn ladder_pairs(reference: &[PathBuf], arm: &[PathBuf], resamples: usize) -> Res
         table.insert(opponent.clone(), slot_table(&own, resamples));
     }
     table.insert("pooled".to_owned(), slot_table(&slots, resamples));
-    table.insert("clean_reference".to_owned(), json!(before.len()));
-    table.insert("clean_arm".to_owned(), json!(after.len()));
-    table.insert(
-        "slots_without_a_pair".to_owned(),
-        json!(dropped - slots.len()),
-    );
+    table.insert("clean_reference".to_owned(), json!(clean_reference));
+    table.insert("clean_arm".to_owned(), json!(clean_arm));
+    table.insert("slots_without_a_pair".to_owned(), json!(dropped));
     Ok(Value::Object(table))
 }
 
@@ -931,10 +962,18 @@ fn main() -> Result<()> {
         Command::LadderPairs {
             reference,
             arm,
+            later_reference,
+            later_arm,
             resamples,
             out,
         } => {
-            let table = ladder_pairs(&reference, &arm, resamples)?;
+            ensure!(
+                later_reference.is_empty() == later_arm.is_empty(),
+                "a later round needs both arms"
+            );
+            let later = (!later_arm.is_empty())
+                .then_some((later_reference.as_slice(), later_arm.as_slice()));
+            let table = ladder_pairs(&reference, &arm, later, resamples)?;
             println!("{}", serde_json::to_string_pretty(&table)?);
             atomic_json(&out, &table)?;
         }
