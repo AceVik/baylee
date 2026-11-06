@@ -3530,6 +3530,10 @@ OrderOnBottom = Put these on the bottom: the last is the bottom card
 
 # A scry (CR 701.22a): the looked-at cards go back on top or under the
 # library, each pile in an order.
+# CR 603.3b: several triggered abilities go on the stack at once, and their
+# controller chooses the order. The first in the row resolves first.
+TriggerOrderPrompt = Order your triggers: the first resolves first
+
 ScryPrompt = Scry: keep cards on top or put them on the bottom
 
 # The shared surveil/explore choice: keep cards on top or put them into
@@ -4821,6 +4825,10 @@ BrowseOrderHint = tap a card, then the card it goes in front of or a pile's end
 # An arrangement's pile that goes back on top of the library, its
 # first card the new top card.
 ArrangeLibraryTop = On top of the library
+
+# An arrangement's pile of triggered abilities going on the stack, its first
+# entry the one that resolves first.
+ArrangeStack = Onto the stack
 
 # An arrangement's pile that goes under the library, its last card the
 # new bottom card.

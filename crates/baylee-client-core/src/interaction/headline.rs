@@ -250,7 +250,7 @@ fn arrange_line(lang: Lang, reason: ArrangePrompt, onto: Option<ArrangePlace>) -
         (ArrangePrompt::Surveil, _) => Phrase::SurveilPrompt,
         (ArrangePrompt::DiscardToLibrary, _) => Phrase::DiscardToLibraryPrompt,
         (ArrangePrompt::TriggerOrder, _) | (ArrangePrompt::Order, Some(ArrangePlace::Stack)) => {
-            Phrase::PutInOrder
+            Phrase::TriggerOrderPrompt
         }
     };
     phrase.text(lang).to_string()

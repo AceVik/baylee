@@ -251,6 +251,55 @@ fn an_ordering_opens_the_tray_and_numbers_every_card() {
     );
 }
 
+/// Triggers going on the stack are no objects, so the sheet draws them from
+/// the view's rows, each told apart by what it is about, in the order they
+/// are being put.
+#[test]
+fn a_trigger_order_draws_the_views_rows_on_the_stack_tab() {
+    let row = |place: u32, about: &str| baylee_view::OrderedTrigger {
+        handle: ObjectId::queued_trigger(place),
+        item: baylee_view::StackItem::Ability {
+            source: obj(7),
+            ability: None,
+            text: None,
+            rules: None,
+            token: None,
+        },
+        name: "Dingus Egg".into(),
+        twin: place,
+        about_object: None,
+        about_name: Some(about.into()),
+        about_player: None,
+        amount: None,
+        asks_targets: false,
+        modal: false,
+    };
+    let mut view = ViewBuilder::new(2).build();
+    view.trigger_order = vec![row(1, "Forest"), row(0, "Mountain")];
+    let cards: Vec<ObjectId> = view.trigger_order.iter().map(|t| t.handle).collect();
+    let it = Interaction::new(
+        Pending::Arrange {
+            player: me(),
+            cards: cards.clone(),
+            piles: vec![ArrangePile::all_of(ArrangePlace::Stack, 2)],
+            prompt: ArrangePrompt::TriggerOrder,
+        },
+        me(),
+    );
+    let mut b = Browser::new();
+    b.follow(&view, Some(&it));
+    assert_eq!(b.locked(), Some(BrowseZone::Stack));
+    let rows = b.rows(&view, Some(&it), Names::projected());
+    let read: Vec<(ObjectId, &str)> = rows.iter().map(|r| (r.id, r.name.as_str())).collect();
+    assert_eq!(
+        read,
+        vec![
+            (cards[0], "Dingus Egg · Forest"),
+            (cards[1], "Dingus Egg · Mountain"),
+        ]
+    );
+}
+
 /// A scry draws its piles one after the other, each numbered from one: the
 /// top pile first, then the bottom — and the sort control, which would draw
 /// a second order over the one being built, has no say while it is built.

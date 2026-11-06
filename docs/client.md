@@ -6130,6 +6130,13 @@ plans that mana only for the projected spell with that identity, never for a
 same-named spell or an activated ability. The optional field is omitted when
 there is no object restriction, so older payloads retain their previous shape.
 
+## Ordering triggers
+
+`docs/protocol.md` §"The order of triggers" is the contract. Until its own sheet
+stands, the question is an arrangement like any other: the browser locks to the
+Stack tab and draws `PlayerView::trigger_order` as its rows, named by source and
+what each is about (`Browser::rows`), one pile, the first row resolving first.
+
 ## A choice you answer by picking, not by clicking the table
 
 Four of the engine's seventeen pending choices name something that is not on

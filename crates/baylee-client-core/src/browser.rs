@@ -1422,6 +1422,9 @@ impl Browser {
         if Self::private_cast_choice(interaction) || Self::about_the_shown(view, interaction) {
             return Some(BrowseZone::Looking);
         }
+        if !view.trigger_order.is_empty() {
+            return Some(BrowseZone::Stack);
+        }
         let mut only = None;
         for id in interaction.selectable() {
             let found = zones_of(view).into_iter().find(|zone| {
@@ -1502,6 +1505,39 @@ impl Browser {
         interaction.selectable().iter().any(|id| {
             !view.battlefield.iter().any(|o| o.id == *id) && !view.hand.iter().any(|h| h.id == *id)
         })
+    }
+
+    /// Triggers going on the stack are no objects yet and stand in no zone,
+    /// so their rows are the view's own account of them
+    /// ([`PlayerView::trigger_order`]). What each is about tells apart two of
+    /// one card's, which is the whole of the question.
+    fn trigger_rows(view: &PlayerView, it: &Interaction) -> Vec<BrowseRow> {
+        let Some(arrangement) = it.arrangement() else {
+            return Vec::new();
+        };
+        view.trigger_order
+            .iter()
+            .filter(|trigger| arrangement.dealt().contains(&trigger.handle))
+            .map(|trigger| BrowseRow {
+                id: trigger.handle,
+                name: match &trigger.about_name {
+                    Some(about) => format!("{} · {about}", trigger.name),
+                    None => trigger.name.clone(),
+                },
+                art: None,
+                zone: BrowseZone::Stack,
+                standing: RowStanding {
+                    selectable: it.selectable().contains(&trigger.handle),
+                    selected: it.is_selected(trigger.handle),
+                    focused: it.aim() == Some(crate::interaction::Pick::Object(trigger.handle)),
+                },
+                place: it.arrange_place(trigger.handle),
+                pile: arrangement.slot(trigger.handle).map(|(row, _)| row),
+                mana_value: 0,
+                types: baylee_core::types::TypeSet::EMPTY,
+                token: false,
+            })
+            .collect()
     }
 
     /// Private cast offers need their receipt and explicit cast/decline controls,
@@ -1685,6 +1721,7 @@ impl Browser {
                     token: false,
                 });
             }
+            out.extend(Self::trigger_rows(view, it));
         }
         // An arrangement is read in its own order and in no other: the
         // number on a card and where the card stands have to agree, or a

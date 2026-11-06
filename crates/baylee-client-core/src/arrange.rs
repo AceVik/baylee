@@ -193,7 +193,7 @@ impl Arrangement {
             Row::Pile(n) => match self.specs.get(n).map(|spec| spec.place) {
                 Some(ArrangePlace::LibraryBottom) => Phrase::ArrangeLibraryBottom,
                 Some(ArrangePlace::Graveyard) => Phrase::ArrangeGraveyard,
-                Some(ArrangePlace::Stack) => Phrase::ArrangeLibraryTop,
+                Some(ArrangePlace::Stack) => Phrase::ArrangeStack,
                 Some(ArrangePlace::LibraryTop) | None => Phrase::ArrangeLibraryTop,
             },
         }
