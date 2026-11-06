@@ -1460,7 +1460,10 @@ left by the round before: 23 % of `house`, 40 % of `decide`, 34 % of `search`, a
 | `86638cb18` | 7.534 | 12.061 | 17.440 |
 | a name shared, a commander found without a list, targets and grants read once | 7.220 | 11.028 | 16.352 |
 | a card with no list of its own builds none, a modifier before a filter, unchanged text copies no filter, a land's wording once | 6.936 | 10.619 | 15.607 |
-| all of it | −7.9 % | −12.0 % | −10.5 % |
+| a land's solve asks "tapped for mana" only where a replacement can read it, and lists no colours a card states outright | 6.904 | 10.541 | 15.474 |
+| all of it | −8.4 % | −12.6 % | −11.3 % |
+
+The last step gained 0.5 to 0.9 %, which is where this round stopped.
 
 - **`PublicObject::name` shares the table's string.** It was a `String` per object per
   view: 2.75 million allocations in `search`, a third of them all. It is a `SharedName`
@@ -1476,7 +1479,7 @@ left by the round before: 23 % of `house`, 40 % of `decide`, 34 % of `search`, a
   666 080 filter walks in `house` to find two kinds of effect. Both tests are pure, so
   the order is free, and 1.9 % of `house` went with it.
 
-All 48 games play the same: `actions`, `views` and `hashes` of every shape are equal to
+All 64 games play the same: `actions`, `views` and `hashes` of all four shapes are equal to
 the run at `86638cb18`, so the JSON a seat receives did not move by a byte. `VIEW_VERSION`
 stays; `wire_shape` reads the source, so its fingerprint was recorded again.
 
@@ -1488,3 +1491,154 @@ between views, because a condition in a mana ability can read anything.
 `compute_legal` has no such item: 90 000 instructions a call, `can_cast_paying` 4.5 % and
 the rest at 1 % or less. Layer refresh is 12 %, of which `layers::applies` is 5 %, and it
 tests about 15 candidates an object for 2 hits. Neither gave a cheap step.
+
+## What a whole `eval4` run waits on (2026-11-06)
+
+**The GPU, running the net.** Not the rules, not batching, and not one serial CPU
+thread. Read off Phase D's own runs of `v6d-rules/eval4` on the RTX 4070 Ti (1 024 deals,
+64 threads, inference batch 96, K = 2), sampled from outside and from the reports they
+wrote. None of this took the GPU lock or touched those runs.
+
+| What was read | Reading |
+|---|---|
+| Threads asleep in `futex_do_wait` | 64 of 64 game threads, at every sample |
+| CPU of one game thread | 1.5 to 2 %, so about one core for all the rules |
+| CPU of the two `netplay4-k*` lanes | 55 to 65 % each |
+| `nvidia-smi dmon` | SM 82 %, memory 35 % |
+| `nvidia-smi` utilization | 91 to 94 % |
+
+So the two busy cores `eval4` shows are one core of rules plus the two lanes feeding the
+card, and the other 22 have nothing to do. Every game is waiting for its row to come back.
+
+Batching is not what limits it. Phase D's filtered reruns give the same net at very
+different batch sizes, and the rate of rows does not move with them:
+
+| Run | Wall s | Calls | Rows | Rows a call | Rows a second | ms a call |
+|---|---:|---:|---:|---:|---:|---:|
+| `r-trip-dev` | 31 | 3 078 | 8 894 | 2.8 | 1 480 | 1.9 |
+| `r-side-dev` | 86 | 13 011 | 120 156 | 9.2 | 1 970 | 4.7 |
+| `r-land-dev` | 155 | 16 686 | 215 962 | 12.9 | 1 660 | 7.8 |
+| `r-curve-dev` | 177 | 17 971 | 249 799 | 13.9 | 1 640 | 8.5 |
+| `shadow-fresh` | 559 | 43 495 | 840 649 | 19.3 | 1 570 | 12.3 |
+| `shadow-dev` | 664 | 45 259 | 862 516 | 19.1 | 1 350 | 14.1 |
+
+The last two columns take off about 25 s of startup, an estimate from fitting wall time to
+rows over these runs, so the short run's figure is the rough one. Between 1 350 and 2 000
+rows a second, about 0.6 ms a row, with **no rise as calls grow**: the two largest batches
+are the slowest here. A call costs about what its rows cost. A fixed cost per call would show
+as rows a second climbing with rows a call, and it does not, so this is the net's arithmetic
+and not the launch overhead of small calls.
+
+That is why PGO gains 2 % there, and why no engine change will gain more: the rules are
+about one core of a run paced by the card. What would move it is less arithmetic a row. The
+session keeps TF32 off so that rollout probabilities agree with the FP32 behaviour audit
+(`netplay4/mod.rs`), which is a decision about numbers and not a performance bug, so it was
+left for the owner: an evaluation that does not feed PPO may not need it.
+
+Left open: a direct test of 64 against 128 threads, which needs the GPU to itself. The table
+above says more rows in flight should not help, but that is an inference from filtered runs
+whose games end at different times. Also seen and not chased: both lanes were in
+`do_mprotect_pkey` at one sample, which is glibc growing a heap for the per-call buffers of
+`run_rows`. With the card at 82 % that cannot be the limit.
+
+**The GPU lock is not a safe try-lock for a bystander.** `train_ops` takes it with
+`try_lock` (`files::lock`), so a stage that finds it held fails instead of waiting, and even
+`flock -n <lock> true` can abort a plan at the wrong moment. Read who holds it from
+`/proc/locks` by the file's inode, which takes nothing.
+
+## What goes on top of PGO (2026-11-06)
+
+PGO stays, so these are measured against it, not against the generic build. Notebook,
+Ryzen 7 PRO 7840U, trained on `house`, all from the same tree (the second step of §"The view
+asks less"). User CPU seconds of the whole process, pinned to one core, nine rounds with the
+builds alternating, median and [lowest]. **The notebook was not quiet:** a MediaVault
+`ffmpeg` held about nine of its sixteen threads throughout, load average 12, so trust the
+ratios and the lowest figures over the absolute times, and differences of a few percent not
+at all. Every build gives `--verify` digests equal to the generic build on all four shapes,
+hashes included.
+
+| Build | `house` s | `decide` s | `search` s | `frames` s |
+|---|---:|---:|---:|---:|
+| generic | 1.28 [1.20] | 1.79 [1.42] | 2.78 [2.59] | 1.09 [1.04] |
+| PGO, thin LTO | 0.86 [0.80] | 1.28 [1.19] | 2.22 [2.07] | 0.86 [0.79] |
+| PGO + mimalloc 0.1.52 | 0.85 [0.73] | 1.11 [1.03] | 1.96 [1.84] | 0.80 [0.73] |
+| PGO + mimalloc, `secure` | 0.95 [0.82] | 1.33 [1.21] | 2.26 [2.14] | 0.93 [0.75] |
+| PGO + BOLT 22, instrumented on `house` | 0.90 [0.76] | 1.23 [1.17] | 2.08 [1.95] | 0.84 [0.72] |
+| ~~PGO + fat LTO~~, not a fair test | 1.18 [1.08] | 1.51 [1.37] | 2.60 [2.37] | 1.01 [0.92] |
+
+- **mimalloc gains 7 to 13 % on `decide`, `search` and `frames`, and little on `house`
+  (−1 % median, −9 % lowest).** Its `secure` mode gives all of that back and more: guard pages
+  and encrypted free lists leave it 2 to 10 % slower than glibc here. So the only form worth
+  having is the unhardened one, and it is C. For the engine server that counts against it:
+  a C allocator under code that handles what players send, without the hardening, for 7 % of
+  a process that is not short of CPU. **Not for the server path.** For an offline CPU-bound
+  job it is a fair trade if one appears; `eval4` is not one (§"What a whole `eval4` run waits
+  on"). How it behaves with 64 threads allocating at once was not measured.
+- **BOLT after PGO is −2 to −6 % on three shapes and +5 % on `house`, inside this noise.**
+  The toolchain has no `llvm-bolt`; Ubuntu's `bolt-22` is a 40 MB download, 334 MB unpacked,
+  plus `libz3`, and worked unpacked without root. It needs `--emit-relocs` and a second
+  instrumented run in every deploy. **Not worth adding on this evidence.**
+- **Fat LTO on top of PGO is unanswered.** The row above gave a profile from a thin-LTO build
+  to a fat-LTO one, and landing next to the generic build looks like the profile that matched
+  nothing that `docs/releasing.md` §"Profile-guided builds" warns of. That was not confirmed
+  from the compiler's report. It says nothing about fat LTO: the fair test instruments with
+  fat LTO too. It was not run before the owner closed this round.
+
+None of this changed a shipped build setting. mimalloc lived in a scratch copy on the
+notebook and is in no `Cargo.toml` of this repository.
+
+## What the gateway costs a frame (2026-11-06)
+
+`tests/load.rs` now keeps one frame in flight and stamps it at the far end, so the two
+directions come apart, beside a bare websocket on loopback as the hop to subtract. The gateway
+under test is a release build at `faab6e469`, its PostgreSQL a private cluster on the same
+notebook, every seat a guest with a local session. 50 games and 200 lobby feeds open
+throughout. The same MediaVault load as above; two runs of each build, alternating.
+
+The second build skipped `authorization.valid` for a frame, to find what that check costs. It
+was a measurement, was never committed, and the source was restored.
+
+| One frame, p50 | Bare hop | Gateway | Gateway, check skipped |
+|---|---:|---:|---:|
+| seat → engine, quiet | 49–65 µs | 274–290 µs | 104–119 µs |
+| engine → seat, quiet | 34–38 µs | 61–62 µs | 61–65 µs |
+| seat → engine, 100 seats echoing | | 316–329 µs | 118–127 µs |
+| engine → seat, 100 seats echoing | | 54–55 µs | 50–52 µs |
+
+| 100 seats at 100 Hz | Gateway | Check skipped |
+|---|---:|---:|
+| Gateway CPU per forwarded frame | 58.8 µs | 28.5–30.6 µs |
+| … beside lobby churn | 97–100 µs | 60–67 µs |
+| Seat → engine → seat, p50 | 2.3–2.5 ms | 1.2–1.5 ms |
+| … p99 | 9.5–18.5 ms | 4.6–5.8 ms |
+
+**Forwarding a frame costs microseconds, and that part needs nothing:** about 60 µs on the way
+in over a bare hop, about 25 µs on the way out, about 30 µs of CPU, against any network a player
+is on. **The per-frame authorization check is the rest:** about 170 µs a frame in, half the
+gateway's CPU per frame, and twice the round trip under load, before counting the database's own
+CPU. It was left alone: the owner's rule forbids weakening an authentication check for speed, and
+`docs/proposals/central-session-tokens.md` is replacing it with a look in memory, which is what the
+right-hand column shows that design can gain for a local session.
+
+These figures are for a guest. A Central session adds a blocking HTTP exchange with Central to
+every frame, through four workers and sixty-four queue places (`central.rs`), and a refusal there
+closes the seat socket. That was read in the code and **not measured**: it needs a Central.
+
+Lobby and fan-out, same runs: 1.8 to 2.6 ms of gateway CPU per lobby change at 200 feeds, 30 to 34 µs
+a listing pushed, and 27 to 33 µs of CPU per 16 KiB frame fanned out at 125 000 to 220 000 frames
+a second. The October figures in §"The gateway" are from an M1 Max, so this is no regression
+by itself. Memory read higher than they did, 58 MB idle, 145 KiB a feed and 600 KiB a game against
+21.5 MB, 26 KiB and 344 KiB; whether that is Linux and glibc or something since was not chased.
+
+A first quiet run, with nothing else on the notebook, read higher in every column (bare 178 and
+67 µs, gateway 618 and 117 µs): an idle laptop's cores sleep between frames paced 5 ms apart.
+The difference between the columns, not the absolute value, is what these tables are for.
+
+**Presence held the lobby lock.** `presence::publish` asked every game about every online account
+under the lobby lock, once a second and on every lobby change. With 2 000 accounts online at 1 000
+games that was 155.5 ms under the lock that every seat frame takes, and is 0.66 ms now (one walk of
+the lobby, tested equal to the old reading; `presence_pass_under_the_lobby_lock`, on a busy machine,
+so read the ratio). The load bench opens no social sockets and does not show this.
+
+Also corrected: Linux's `ps` reports CPU in whole seconds, so the bench's gateway CPU read 0, 2 or
+3 s on Linux. It reads `/proc` to the clock tick now.
