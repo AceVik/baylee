@@ -597,10 +597,7 @@ impl<L: CardLookup> Engine<L> {
                     } => {
                         // Loyalty abilities: sorcery timing, once per turn
                         // per walker, enough loyalty for negative costs.
-                        if obj.controller != player
-                            || !sorcery_timing
-                            || self.loyalty_used(id)
-                        {
+                        if obj.controller != player || !sorcery_timing || self.loyalty_used(id) {
                             continue;
                         }
                         let price = self.activation_price(player, id, i, &Cost::FREE, None);
