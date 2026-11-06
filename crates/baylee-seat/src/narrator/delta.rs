@@ -168,15 +168,24 @@ pub(super) fn difference(told: &Told, state: &str) -> Option<String> {
             whole(section, &mut out);
             continue;
         }
-        // Every object the board still names stays, in any section, not
-        // only those in a changed line: an Equipment moved off Captain Storm
-        // loses the line that named him as its host, and he is still on his
-        // own line; a spell that left the stack named its target, which is
-        // still on the battlefield (Short Circuit and Bishop's Soldier).
-        let still: BTreeSet<&str> = now.iter().flat_map(|line| tags(line)).collect();
+        // Every object the section still names stays, not only those in a
+        // changed line: an Equipment moved off Captain Storm loses the line
+        // that named him as its host, and he is still on his own line.
+        let still: BTreeSet<&str> = section.lines.iter().flat_map(|line| tags(line)).collect();
+        // A stack line names its targets as well as itself, and only the
+        // spell left: Short Circuit resolved, Bishop's Soldier did not go.
+        let stack = section.heading.starts_with("Stack");
         let left: Vec<String> = vanished
             .iter()
-            .flat_map(|line| tags(line))
+            .flat_map(|line| {
+                let named = tags(line);
+                let own = named.iter().copied().min_by_key(|tag| line.find(tag));
+                if stack {
+                    own.into_iter().collect()
+                } else {
+                    named
+                }
+            })
             .filter(|t| !still.contains(t))
             .collect::<BTreeSet<&str>>()
             .into_iter()
