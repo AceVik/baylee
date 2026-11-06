@@ -319,6 +319,13 @@ fn a_refused_deck_reads_why() {
     let drawn = labels(&mut app);
     assert!(drawn.iter().any(|l| l.contains("No rings")), "{drawn:?}");
     assert!(drawn.iter().any(|l| l.contains("100")), "{drawn:?}");
+    // A big deck brings a reason a card, more than a window holds.
+    let scrolls = app
+        .world_mut()
+        .query::<&Scrollable>()
+        .iter(app.world())
+        .any(|list| list.0 == List::Check);
+    assert!(scrolls, "the reasons do not scroll");
     press(&mut app, Press::Shared(SharedPress::CloseRefusal));
     assert!(
         app.world()

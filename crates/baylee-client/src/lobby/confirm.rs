@@ -302,10 +302,28 @@ pub(super) fn draw_refusal(
         metrics,
         &Phrase::RefusedTitle.fill(lang, &[name]),
     );
-    let mut kids = vec![title];
+    // A hundred-card deck can bring a hundred reasons: they scroll between
+    // the heading and the way out.
+    let reasons = commands
+        .spawn((
+            Node {
+                width: percent(100),
+                max_height: Val::Vh(62.0),
+                min_height: px(0),
+                flex_direction: FlexDirection::Column,
+                row_gap: px(6),
+                overflow: Overflow::scroll_y(),
+                ..default()
+            },
+            super::Scrollable(super::List::Check),
+            ScrollPosition::default(),
+        ))
+        .id();
     for line in state.lobby.refusal_lines() {
-        kids.push(note(commands, fonts, metrics, &line));
+        let said = note(commands, fonts, metrics, &line);
+        commands.entity(reasons).add_child(said);
     }
+    let mut kids = vec![title, reasons];
     let actions = row(commands, metrics, true);
     let close = button(
         commands,

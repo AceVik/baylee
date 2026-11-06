@@ -704,6 +704,14 @@ fn a_room_says_what_it_holds_a_deck_to() {
     let found = presses(&mut app);
     assert!(found.contains(&Press::Room(RoomPress::ChooseList(0, None))));
     assert!(found.contains(&Press::Room(RoomPress::CloseLists)));
+    // Twenty-odd lists stand taller than a window: the sheet has to scroll,
+    // or the last of them, a player's own, are out of reach.
+    let scrolls = app
+        .world_mut()
+        .query::<&Scrollable>()
+        .iter(app.world())
+        .any(|list| list.0 == List::Check);
+    assert!(scrolls, "the lists do not scroll");
     press(&mut app, Press::Room(RoomPress::CloseLists));
     assert!(!app.world().resource::<LobbyState>().lists_sheet);
 

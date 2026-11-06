@@ -119,13 +119,15 @@ pub(super) fn chooser(
         None,
         Press::Room(RoomPress::CloseLists),
     );
-    let surface = surfaces::sheet_box(
+    // Twenty-odd lists stand taller than a window, a player's own last.
+    let surface = surfaces::sheet_box_listed(
         commands,
         kit,
         SheetWidth::Small,
         Phrase::RoomListTitle.text(lang),
         &body,
         &[close],
+        super::super::Scrollable(List::Check),
     );
     let scrim = surfaces::sheet(commands, surface);
     commands
