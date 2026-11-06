@@ -63,6 +63,25 @@ pub(crate) struct Sources {
     pub ladders: Vec<PathBuf>,
 }
 
+/// Which parts of the training panel have a source. A machine without any
+/// shows no panel, rather than an empty one.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize)]
+pub(crate) struct Panels {
+    pub pipelines: bool,
+    pub llm_runs: bool,
+    pub ladders: bool,
+}
+
+impl Sources {
+    pub fn panels(&self) -> Panels {
+        Panels {
+            pipelines: !self.pipelines.is_empty() || !self.pipeline_roots.is_empty(),
+            llm_runs: !self.llm_roots.is_empty(),
+            ladders: !self.ladders.is_empty(),
+        }
+    }
+}
+
 /// Parses one `--pipeline` value: an absolute directory without `..`.
 pub(crate) fn parse_pipeline_dir(value: &str) -> Result<PathBuf, String> {
     let path = PathBuf::from(value);
@@ -217,6 +236,30 @@ mod tests {
             10,
         );
         assert_eq!(both.len(), 5);
+    }
+
+    #[test]
+    fn a_panel_exists_only_where_its_source_was_configured() {
+        assert_eq!(Sources::default().panels(), Panels::default());
+        let roots = Sources {
+            pipeline_roots: vec![PathBuf::from("/data/train")],
+            ladders: vec![PathBuf::from("/data/ladder.json")],
+            ..Sources::default()
+        };
+        assert_eq!(
+            roots.panels(),
+            Panels {
+                pipelines: true,
+                llm_runs: false,
+                ladders: true,
+            }
+        );
+        let one = Sources {
+            pipelines: vec![PathBuf::from("/data/run")],
+            llm_roots: vec![PathBuf::from("/data")],
+            ..Sources::default()
+        };
+        assert!(one.panels().pipelines && one.panels().llm_runs);
     }
 
     #[test]

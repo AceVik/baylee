@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0b1117">
-  <title>Pulse · Baylee</title>
+  <title>Pulse</title>
   <link rel="icon" id="favicon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='12' fill='%23123030'/%3E%3Cpath d='M5 21h8l4-10 6 19 4-9h8' fill='none' stroke='%2362e0ba' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="/style.css">
   <script src="/js/theme-early.js"></script>
@@ -48,6 +48,7 @@
     <a class="tab" data-tab="processes" href="#prozesse"><svg class="icon" aria-hidden="true"><use href="#i-processes"/></svg><span>Prozesse</span></a>
   </nav>
   <div class="host"><strong id="hostname">Workstation</strong><small id="uptime">—</small></div>
+  <nav class="peers" id="peers" aria-label="Andere Rechner" hidden></nav>
   <div class="topbar-actions">
     <div class="connection" role="status"><i id="connection-dot"></i><span id="connection">Verbinde …</span></div>
     <button class="pill-button alert-pill" id="alert-pill" type="button" aria-haspopup="dialog"><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg><span id="alert-count">Alles gut</span></button>

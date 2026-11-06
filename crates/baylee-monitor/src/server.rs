@@ -270,12 +270,7 @@ mod tests {
         State {
             facts: Facts {
                 hostname: "test".into(),
-                os: "test".into(),
-                kernel: None,
-                cpu: "test".into(),
-                physical_cores: Some(1),
-                threads: 2,
-                interval_ms: 1000,
+                ..Facts::default()
             },
             history: Arc::new(Mutex::new(history)),
             receiver,

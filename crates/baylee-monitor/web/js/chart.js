@@ -100,6 +100,7 @@ function fillRun(context, run, base) {
 
 export const formats = {
   percent: { axis: value => `${Math.round(value)} %`, value: value => `${number(value)} %`, ceiling: () => 100 },
+  perSecond: { axis: value => `${number(value)}/s`, value: value => `${number(value)}/s`, ceiling: niceCeiling },
   rate: { axis: rate, value: rate, ceiling: niceRateCeiling },
   watts: { axis: value => `${Math.round(value)} W`, value: value => `${number(value)} W`, ceiling: niceCeiling },
   celsius: { axis: value => `${Math.round(value)} °`, value: value => `${number(value)} °C`, ceiling: niceCeiling },

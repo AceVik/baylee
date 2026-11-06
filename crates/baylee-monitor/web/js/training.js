@@ -227,14 +227,14 @@ export function buildTraining(body, setTag) {
     else expandedStages.add(name);
     shownChecked = -1;
   });
-  return ({ training, s }) => {
+  return ({ training, s, facts }) => {
     if (!training || training.checked_ms === shownChecked) return;
     shownChecked = training.checked_ms;
     const now = training.checked_ms || s.point.at_ms;
     const live = training.pipelines.filter(pipeline => pipeline.active).length + training.llm_runs.filter(run => run.active).length;
     setTag(training.checked_ms ? `${live ? `${number(live)} aktiv · ` : ""}Stand ${time(training.checked_ms)}` : "Nur Anzeige");
     const cards = training.pipelines.map(pipeline => pipelineCard(pipeline, training, now));
-    if (!cards.length) cards.push(h("p", { class: "muted-note", text: "Keine Pipeline gefunden. Mit --pipeline-root <Verzeichnis> sucht Pulse train_ops-Pipelines selbst." }));
+    if (!cards.length && facts?.panels.pipelines) cards.push(h("p", { class: "muted-note", text: "Keine Pipeline gefunden." }));
     pipelines.replaceChildren(...cards);
     runs.node.hidden = training.llm_runs.length === 0;
     runs.list.replaceChildren(...training.llm_runs.map(run => llmCard(run, now)));

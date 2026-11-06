@@ -45,7 +45,8 @@ function guarded(name, draw) {
 
 function renderHeader(s) {
   setText($("hostname"), data.facts?.hostname ?? "Workstation");
-  setText($("uptime"), s.uptime_secs == null ? "Laufzeit nicht verfügbar" : `Läuft seit ${span(s.uptime_secs * 1000)}`);
+  const since = s.uptime_secs == null ? "Laufzeit nicht verfügbar" : `Läuft seit ${span(s.uptime_secs * 1000)}`;
+  setText($("uptime"), [data.facts?.machine, since].filter(Boolean).join(" · "));
   setText($("sample-time"), `${time(s.point.at_ms)} · Messung ${number(s.sample_ms)} ms`);
   const range = currentRange();
   const first = range.points[0];
@@ -53,10 +54,19 @@ function renderHeader(s) {
   setText($("range-note"), first ? `Verlauf ab ${shortTime(first.at_ms)} · ${note}` : "Verlauf wird aufgebaut");
 }
 
+/** The other machines' pages. The service has checked each address is a bare one. */
+function renderPeers() {
+  const peers = data.facts?.peers ?? [];
+  const nav = $("peers");
+  nav.hidden = !peers.length;
+  nav.replaceChildren(...peers.map(peer => h("a", { class: "peer-link", href: peer.url, title: `Pulse auf ${peer.name} öffnen`, text: `→ ${peer.name}` })));
+}
+
 function render() {
   const current = context();
   if (!current || document.hidden) return;
   renderHeader(current.s);
+  dashboard.sync(current);
   if (view === "dashboard") {
     for (const card of cards) if (!card.node.hidden) guarded(card.id, () => card.render(current));
   } else if (view === "performance") {
@@ -83,6 +93,7 @@ function onMessage(event) {
   }
   if (message.type === "hello") {
     receiveHello(message);
+    renderPeers();
     return;
   }
   if (message.type !== "sample") return;

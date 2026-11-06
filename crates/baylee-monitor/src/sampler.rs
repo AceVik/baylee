@@ -5,8 +5,11 @@
 
 use crate::{
     background::{self, Latest},
+    battery::{self, PowerView},
     gpu::Gpus,
+    machine,
     network::{self, Link},
+    npu::{self, NpuView, Npus},
     power::Power,
     processes::{self, Extra},
     procfs::{
@@ -40,8 +43,15 @@ const SENSORS_EVERY: Duration = Duration::from_secs(2);
 const STORAGE_EVERY: Duration = Duration::from_secs(5);
 /// Threads, swap and sockets per process are details, not a 1 Hz signal.
 const PROCESSES_EVERY: Duration = Duration::from_secs(3);
+/// A battery moves over minutes, and each reading goes through a slow controller.
+const BATTERY_EVERY: Duration = Duration::from_secs(5);
+/// An NPU's contexts come and go with whole jobs, and its counters keep count
+/// in between, so a slower look loses nothing.
+const NPU_EVERY: Duration = Duration::from_secs(5);
 /// Interfaces kept per history point. The busiest ones come first in `networks`.
 const MAX_HISTORY_NETS: usize = 12;
+
+const POWER_SUPPLY: &str = "/sys/class/power_supply";
 
 pub(crate) struct Sampler {
     system: System,
@@ -51,8 +61,12 @@ pub(crate) struct Sampler {
     extras: Latest<BTreeMap<u32, Extra>>,
     storage: Latest<StorageView>,
     disk_rates: storage::rates::Tracker,
-    gpu: Latest<GpuView>,
+    /// `None` on a machine without a GPU source: no thread and nothing to show.
+    gpu: Option<Latest<GpuView>>,
     gpu_stale_ms: u64,
+    /// `None` without a battery, and the same below without an NPU.
+    supply: Option<Latest<PowerView>>,
+    npus: Option<Latest<NpuView>>,
     power: Power,
     previous: Instant,
     stat: Stat,
@@ -65,9 +79,34 @@ impl Sampler {
         let mut system = System::new().context("System telemetry unavailable")?;
         system.refresh_cpu_all();
         refresh_processes(&mut system);
-        let gpu = Latest::new(GpuView::default());
-        let mut gpus = Gpus::new();
-        background::spawn("gpu", interval, gpu.clone(), move || gpus.sample())?;
+        let brand = system.cpus().first().map_or("", sysinfo::Cpu::brand);
+        let mut gpus = Gpus::new(brand);
+        let gpu = if gpus.is_empty() {
+            None
+        } else {
+            let latest = Latest::new(GpuView::default());
+            background::spawn("gpu", interval, latest.clone(), move || gpus.sample())?;
+            Some(latest)
+        };
+        let supply_root = Path::new(POWER_SUPPLY);
+        let supply = if battery::present(supply_root) {
+            let latest = Latest::new(PowerView::default());
+            background::spawn("battery", BATTERY_EVERY, latest.clone(), move || {
+                battery::read(supply_root)
+            })?;
+            Some(latest)
+        } else {
+            None
+        };
+        let class = Path::new(npu::ACCEL_CLASS);
+        let npus = if npu::present(class) {
+            let latest = Latest::new(NpuView::default());
+            let mut devices = Npus::new(class);
+            background::spawn("npu", NPU_EVERY, latest.clone(), move || devices.sample())?;
+            Some(latest)
+        } else {
+            None
+        };
         let threads = system.cpus().len();
         let sensors = Latest::new(SensorView::default());
         background::spawn("sensors", SENSORS_EVERY, sensors.clone(), move || {
@@ -96,6 +135,8 @@ impl Sampler {
             disk_rates: storage::rates::Tracker::default(),
             gpu,
             gpu_stale_ms: (5 * interval.as_millis() as u64).max(5000),
+            supply,
+            npus,
             power: Power::new(),
             previous: Instant::now(),
             stat: stat::parse(&read_text("/proc/stat")),
@@ -118,13 +159,18 @@ impl Sampler {
             physical_cores: System::physical_core_count().ok(),
             threads: self.system.cpus().len(),
             interval_ms,
+            machine: machine::model(Path::new(machine::DMI)),
+            ..Facts::default()
         }
     }
 
     /// The GPU thread's newest view. A driver that stopped answering gives
     /// nothing at all: its last busy value would be a lie.
     fn fresh_gpu_view(&self) -> GpuView {
-        let view = self.gpu.get();
+        let Some(gpu) = &self.gpu else {
+            return GpuView::default();
+        };
+        let view = gpu.get();
         if background::now_ms().saturating_sub(view.checked_ms) <= self.gpu_stale_ms {
             (*view).clone()
         } else {
@@ -196,7 +242,7 @@ impl Sampler {
         self.system.refresh_cpu_usage();
         refresh_processes(&mut self.system);
         let gpu = self.fresh_gpu_view();
-        let (cpu_watts, cpu_power_status) = self.power.sample();
+        let (cpu_watts, cpu_power_status) = package_power(self.power.sample(), gpu.package_watts);
         let sensors = self.sensors.get();
         let networks = self
             .network
@@ -234,12 +280,35 @@ impl Sampler {
             storage,
             networks,
             sockets,
+            power_supply: self
+                .supply
+                .as_ref()
+                .map(|supply| (*supply.get()).clone())
+                .unwrap_or_default(),
+            npus: self
+                .npus
+                .as_ref()
+                .map(|npus| npus.get().npus.clone())
+                .unwrap_or_default(),
             processes,
             ..Snapshot::default()
         };
         snapshot.point = history_point(&snapshot, background::now_ms());
         snapshot.sample_ms = started.elapsed().as_secs_f64() * 1000.0;
         snapshot
+    }
+}
+
+/// The package's power: a real energy counter where it is readable, else an
+/// APU's own sensor, which estimates the same and needs no privileges.
+fn package_power(counter: (Option<f64>, String), sensor: Option<f64>) -> (Option<f64>, String) {
+    match (counter, sensor) {
+        (counter @ (Some(_), _), _) | (counter, None) => counter,
+        (_, sensor) => (
+            sensor,
+            "APU-Package aus dem PPT-Sensor: CPU, GPU und SoC zusammen, von der Firmware geschätzt"
+                .into(),
+        ),
     }
 }
 
@@ -268,6 +337,17 @@ fn history_point(snapshot: &Snapshot, at_ms: u64) -> Point {
         cpu_watts: snapshot.cpu.watts.map(tenths),
         cpu_temp: snapshot.sensors.cpu_temp.map(|t| tenths(f64::from(t))),
         gpu_temp: primary.and_then(|g| g.temperature).map(|t| t as f32),
+        battery: snapshot
+            .power_supply
+            .batteries
+            .first()
+            .and_then(|b| b.percent)
+            .map(|p| tenths(f64::from(p))),
+        npu_commands: snapshot
+            .npus
+            .first()
+            .and_then(|n| n.commands_per_s)
+            .map(tenths),
         psi_cpu: some10(snapshot.pressure.cpu),
         psi_mem: some10(snapshot.pressure.memory),
         psi_io: some10(snapshot.pressure.io),
@@ -517,6 +597,56 @@ mod tests {
         assert_eq!(history_point(&snapshot, 0).gpu_watts, None);
         snapshot.gpus.clear();
         assert_eq!(history_point(&snapshot, 0).gpu_watts, None);
+    }
+
+    #[test]
+    fn an_apus_sensor_fills_in_only_where_no_counter_answers() {
+        let counter = |watts| (watts, "Zähler".to_owned());
+        let (watts, status) = package_power(counter(Some(65.0)), Some(4.2));
+        assert_eq!(watts, Some(65.0), "measured energy beats an estimate");
+        assert_eq!(status, "Zähler");
+        let (watts, status) = package_power(counter(None), Some(4.2));
+        assert_eq!(watts, Some(4.2));
+        assert!(status.contains("CPU, GPU und SoC"), "{status}");
+        let (watts, status) = package_power(counter(None), None);
+        assert_eq!(watts, None);
+        assert_eq!(status, "Zähler", "why there is no figure stays said");
+    }
+
+    #[test]
+    fn a_machine_without_battery_or_npu_records_nothing_for_them() {
+        let point = history_point(&snapshot(), 0);
+        assert_eq!(point.battery, None);
+        assert_eq!(point.npu_commands, None);
+    }
+
+    #[test]
+    fn the_first_battery_and_npu_enter_the_history() {
+        let mut snapshot = snapshot();
+        snapshot
+            .power_supply
+            .batteries
+            .push(crate::battery::Battery {
+                name: "BAT0".into(),
+                percent: Some(76.04),
+                state: "discharging",
+                energy_wh: None,
+                full_wh: None,
+                design_wh: None,
+                watts: None,
+                volts: None,
+                cycles: None,
+                charge_limit: None,
+                empty_in_secs: None,
+                charged_in_secs: None,
+            });
+        snapshot.npus.push(crate::npu::Npu {
+            commands_per_s: Some(12.34),
+            ..crate::npu::Npu::default()
+        });
+        let point = history_point(&snapshot, 0);
+        assert_eq!(point.battery, Some(76.0));
+        assert_eq!(point.npu_commands, Some(12.3));
     }
 
     #[test]

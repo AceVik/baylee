@@ -23,6 +23,8 @@ export const DEFAULT_ALERTS = {
   gpuTempCrit: 92,
   diskTempWarn: 70,
   diskTempCrit: 80,
+  batteryWarn: 20,
+  batteryCrit: 8,
   gpuIdleMinutes: 5,
   notify: false,
   sound: false,

@@ -3,6 +3,7 @@
 //! `/proc/diskstats`, to the newest view it finds here.
 
 mod inventory;
+pub(crate) use inventory::pcie_link;
 pub(crate) mod rates;
 mod udev;
 mod usage;
@@ -149,11 +150,18 @@ fn partition(
 
 /// The mounts of a partition or of a device stacked on it, best first: the
 /// filesystem's own root before bind mounts, then the shortest path.
+///
+/// A btrfs subvolume reports an anonymous device (`0:35`), not its partition's,
+/// so only its source can place it. Without this the system disk of a btrfs
+/// machine shows no usage on its own row.
 fn mounted_on<'a>(partition: &RawPartition, mounts: &'a [Mount]) -> Vec<&'a Mount> {
+    let source = format!("/dev/{}", partition.name);
     let mut found: Vec<_> = mounts
         .iter()
         .filter(|mount| {
-            mount.device == partition.device || partition.holders.contains(&mount.device)
+            mount.device == partition.device
+                || partition.holders.contains(&mount.device)
+                || (mount.device.0 == 0 && mount.source == source)
         })
         .collect();
     found.sort_by_key(|mount| (mount.root != "/", mount.path.len()));
@@ -352,6 +360,50 @@ mod tests {
         let (disks, volumes) = assemble(raw, &mounts, names, fake_usage);
         assert_eq!(disks[1].partitions[1].mount.as_deref(), Some("/"));
         assert!(volumes.is_empty(), "it is mapped, not a loose volume");
+    }
+
+    #[test]
+    fn btrfs_subvolumes_land_on_their_partition_by_source() {
+        let raw = vec![RawDisk {
+            name: "nvme0n1".into(),
+            device: (259, 0),
+            size: 1000,
+            transport: "NVMe",
+            partitions: vec![RawPartition {
+                name: "nvme0n1p2".into(),
+                device: (259, 2),
+                number: 2,
+                size: 999,
+                holders: Vec::new(),
+            }],
+            ..RawDisk::default()
+        }];
+        let mounts = mountinfo::parse(
+            "45 1 0:35 /@ubuntu / rw,noatime shared:1 - btrfs /dev/nvme0n1p2 rw,subvol=/@ubuntu\n\
+             38 45 0:35 /@ubuntu_home /home rw,noatime shared:43 - btrfs /dev/nvme0n1p2 rw,subvol=/@ubuntu_home\n",
+        );
+        let (disks, volumes) = assemble(raw, &mounts, names, fake_usage);
+        let system = &disks[0].partitions[0];
+        assert_eq!(system.mount.as_deref(), Some("/"));
+        assert_eq!(system.fs_type.as_deref(), Some("btrfs"));
+        assert_eq!(system.more_mounts, 1, "/home is the same filesystem");
+        assert_eq!(system.usage.as_ref().unwrap().used, 40);
+        assert!(volumes.is_empty(), "it is mapped, not a loose volume");
+    }
+
+    #[test]
+    fn an_anonymous_device_does_not_claim_a_partition_by_number() {
+        let raw = vec![RawDisk {
+            name: "sdb".into(),
+            device: (8, 16),
+            size: 500,
+            ..RawDisk::default()
+        }];
+        // A tmpfs has no `/dev/` source, whatever its numbers are.
+        let mounts = mountinfo::parse("1 0 0:16 / /tmp rw - tmpfs tmpfs rw\n");
+        let (disks, volumes) = assemble(raw, &mounts, names, fake_usage);
+        assert!(disks[0].partitions.is_empty());
+        assert_eq!(volumes[0].mount, "/tmp");
     }
 
     #[test]

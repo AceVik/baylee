@@ -266,6 +266,9 @@ code { font-family: var(--mono); font-size: var(--small); }
 .host { min-width: 0; line-height: 1.25; }
 .host strong { display: block; font-size: 13px; font-weight: 620; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .host small { display: block; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.peers { display: flex; gap: 6px; flex: none; }
+.peer-link { display: inline-flex; align-items: center; min-height: 30px; padding: 2px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--ink-2); font-size: 12px; font-weight: 560; text-decoration: none; white-space: nowrap; }
+.peer-link:hover { color: var(--ink); border-color: var(--axis); }
 .topbar-actions { display: flex; align-items: center; gap: 10px; margin-left: auto; }
 .connection { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 12px; white-space: nowrap; }
 .connection i { width: 8px; height: 8px; border-radius: 50%; background: var(--warn); }
@@ -360,6 +363,7 @@ main { padding: 0 20px 20px; }
 .tile-value { font-size: 29px; font-weight: 640; letter-spacing: -1.1px; }
 .tile-number small { font-size: 14px; color: var(--muted); }
 .tile-caption { font-size: var(--small); color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tile-caption.wrap { white-space: normal; }
 .tile-spark { position: absolute; inset: auto calc(var(--pad) * -1) -14px; width: calc(100% + var(--pad) * 2); height: 40%; }
 .grid.editing .tile-link { pointer-events: none; }
 
@@ -443,7 +447,8 @@ main { padding: 0 20px 20px; }
 
 /* Disks */
 
-.disk-list { display: grid; gap: 12px; }
+/* minmax(0, …): an auto track would size to a long model name and never let it shorten. */
+.disk-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
 .disk { padding: 12px; border-radius: var(--radius-small); background: var(--surface-2); }
 .disk-head { display: flex; align-items: center; gap: 10px; }
 .disk-head > .icon { color: var(--muted); }
@@ -453,7 +458,7 @@ main { padding: 0 20px 20px; }
 .disk-temp { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .disk-temp.hot::before { content: "▲ "; color: var(--crit); font-size: 10px; }
 .disk-rates { display: block; margin-top: 6px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
-.parts { display: grid; gap: 8px; margin-top: 10px; padding-left: 12px; border-left: 2px solid var(--line); }
+.parts { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; margin-top: 10px; padding-left: 12px; border-left: 2px solid var(--line); }
 .part { display: grid; gap: 5px; padding: 8px 10px; border-radius: 11px; background: var(--surface); }
 .part.quiet { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; padding: 5px 10px; background: none; }
 .part.quiet .part-foot { margin-left: auto; }
@@ -468,7 +473,7 @@ main { padding: 0 20px 20px; }
 .part-tags { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
 .part-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .part-foot small:empty { display: none; }
-.volumes { display: grid; gap: 8px; }
+.volumes { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
 .volume { background: var(--surface-2); }
 
 /* Process table */
@@ -666,7 +671,13 @@ textarea { width: 100%; margin-top: 10px; padding: 10px; border: 1px solid var(-
 @media (min-width: 2100px) { :root { --row: 96px; } }
 
 @media (max-width: 1000px) {
-  .host { display: none; }
+  /* Which machine this is stays on screen at every width. The bar gives up the
+     wordmark and tab icons first, then wraps, and never pushes a button off. */
+  .host { flex: none; }
+  .host small { display: none; }
+  .brand span { display: none; }
+  .tab .icon { display: none; }
+  .topbar { flex-wrap: wrap; row-gap: 6px; }
   .performance { grid-template-columns: minmax(0, 1fr); }
   .perf-side { position: static; max-height: none; overflow: visible; }
   .perf-list { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px; scroll-snap-type: x proximity; scrollbar-width: thin; }
@@ -678,10 +689,6 @@ textarea { width: 100%; margin-top: 10px; padding: 10px; border: 1px solid var(-
 @media (max-width: 900px) {
   .connection span { display: none; }
   .topbar { gap: 10px; }
-}
-
-@media (max-width: 760px) {
-  .tab .icon { display: none; }
 }
 
 /* Phones: nothing below 12 px of body text, tabs in thumb reach. */
@@ -741,7 +748,7 @@ textarea { width: 100%; margin-top: 10px; padding: 10px; border: 1px solid var(-
 
 /* Touch screens of any width: 44 px targets. */
 @media (pointer: coarse) {
-  .pill-button, .icon-button, .segmented button, th button, .text-button, .tab, .toggle { min-height: 44px; }
+  .pill-button, .icon-button, .segmented button, th button, .text-button, .tab, .toggle, .peer-link, .brand { min-height: 44px; }
   .icon-button, .segmented button, th button { min-width: 44px; }
   .icon-button, .grip { width: 44px; height: 44px; }
   .card-tools .icon-button { width: 44px; height: 44px; }

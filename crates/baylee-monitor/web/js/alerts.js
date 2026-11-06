@@ -11,7 +11,7 @@
 import { $, h, icon, keyed, setText } from "./dom.js";
 import { bytes, celsius, number, percent, rate, shortTime, span, time } from "./format.js";
 import { allFilesystems, usageLevel } from "./disks.js";
-import { recentPoints } from "./data.js";
+import { data, recentPoints } from "./data.js";
 import { saveSettings, settings } from "./store.js";
 
 /** An alert ends only after this long without its condition, so it cannot flap. */
@@ -85,6 +85,19 @@ function heatAlerts(s, add) {
   }
 }
 
+function batteryAlerts(s, add) {
+  const limits = settings.alerts;
+  // A notebook used as a server: no mains means an outage, and a benchmark on
+  // battery measures another machine.
+  if (s.power_supply.on_mains === false) add("warn", "on-battery", "Läuft auf Akku", "Kein Netzstrom. Messungen sind mit denen am Netz nicht vergleichbar.", 10000);
+  for (const battery of s.power_supply.batteries) {
+    if (battery.state !== "discharging" || battery.percent == null) continue;
+    const left = battery.empty_in_secs == null ? "" : `, noch ca. ${span(battery.empty_in_secs * 1000)}`;
+    if (battery.percent <= limits.batteryCrit) add("crit", `battery:${battery.name}`, "Akku fast leer", `${percent(battery.percent)}${left}.`, 5000);
+    else if (battery.percent <= limits.batteryWarn) add("warn", `battery:${battery.name}`, "Akku wird leer", `${percent(battery.percent)}${left}.`, 5000);
+  }
+}
+
 function trainingAlerts(s, training, add) {
   if (!training) return;
   const running = training.units.some(unit => unit.gone_ms == null && unit.active_state === "active");
@@ -101,7 +114,9 @@ function trainingAlerts(s, training, add) {
   const failed = training.services?.failed_names ?? [];
   if (failed.length) add("warn", "services", `${training.services.failed} Systemdienst${failed.length === 1 ? "" : "e"} fehlgeschlagen`, failed.join(", "));
   const minutes = settings.alerts.gpuIdleMinutes;
-  if (running && minutes > 0 && s.gpus.length) {
+  // An integrated GPU idles through any CPU job; only a discrete one is the
+  // sign of a stalled training.
+  if (running && minutes > 0 && s.gpus.some(gpu => !gpu.integrated)) {
     const window = recentPoints(minutes * 60);
     const covered = window.length && s.point.at_ms - window[0].at_ms >= minutes * 54000;
     if (covered && window.every(point => point.gpu != null && point.gpu < 5)) add("warn", "gpu-idle", "GPU untätig, obwohl ein Training läuft", `Seit ${minutes} Min. unter 5 % Auslastung.`);
@@ -114,6 +129,7 @@ function collect(s, training) {
   diskAlerts(s.storage, add);
   memoryAlerts(s, add);
   heatAlerts(s, add);
+  batteryAlerts(s, add);
   trainingAlerts(s, training, add);
   return found;
 }
@@ -246,7 +262,9 @@ export function renderAlerts() {
   setText($("alert-count"), shown.length ? `${shown.length} ${shown.length === 1 ? "Warnung" : "Warnungen"}` : "Alles gut");
   const mark = pill.querySelector("use");
   mark?.setAttribute("href", worst === "crit" ? "#i-alert" : worst === "warn" ? "#i-warn" : "#i-check");
-  document.title = worst ? `${worst === "crit" ? "⛔" : "⚠"} ${shown[0].alert.title} · Pulse` : "Pulse · Baylee";
+  // Two machines in two tabs: the title says which is which, alert or not.
+  const page = data.facts?.hostname ? `Pulse · ${data.facts.hostname}` : "Pulse";
+  document.title = worst ? `${worst === "crit" ? "⛔" : "⚠"} ${shown[0].alert.title} · ${page}` : page;
   if (worst !== document.documentElement.dataset.alarm) {
     document.documentElement.dataset.alarm = worst;
     $("favicon").href = favicon(worst);

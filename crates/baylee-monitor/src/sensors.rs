@@ -123,24 +123,36 @@ fn read_chip(chip: &Path, chip_name: &str, readings: &mut Vec<Reading>) {
         .filter_map(Result::ok)
         .map(|entry| entry.file_name().to_string_lossy().into_owned())
         .filter_map(|file| {
-            let stem = file.strip_suffix("_input")?.to_owned();
+            // Some power sensors, a discrete `amdgpu` among them, only average.
+            let stem = file
+                .strip_suffix("_input")
+                .or_else(|| file.strip_suffix("_average"))?
+                .to_owned();
             let (kind, scale) = classify(&stem)?;
             let index: u32 = stem.trim_start_matches(char::is_alphabetic).parse().ok()?;
             Some((kind, index, stem, scale))
         })
         .collect();
     files.sort_by_key(|(kind, index, ..)| (*kind, *index));
+    files.dedup_by(|a, b| a.2 == b.2);
     for (kind, _, stem, scale) in files {
         let value = |suffix: &str| {
             let text = fs::read_to_string(chip.join(format!("{stem}_{suffix}"))).ok()?;
             Some(text.trim().parse::<f64>().ok()? / scale)
         };
-        let Some(reading) = value("input") else {
+        // An instant power reading is mostly noise: 1.8 to 28 W on an idle APU
+        // whose average stayed near 4 W.
+        let answer = if kind == "power" {
+            value("average").or_else(|| value("input"))
+        } else {
+            value("input")
+        };
+        let Some(reading) = answer else {
             continue; // A sensor may refuse to answer: `-ENODATA`, not a zero.
         };
         let reading = reading as f32;
-        if kind == "temp" && !plausible_temperature(reading) {
-            continue;
+        if kind == "temp" && (!plausible_temperature(reading) || reading == 0.0) {
+            continue; // A ThinkPad's unused sensor slots read exactly 0 °C.
         }
         let limit = |suffix: &str| {
             value(suffix)
@@ -173,7 +185,9 @@ fn classify(stem: &str) -> Option<(&'static str, f64)> {
     }
 }
 
-/// The die temperature, by the names the common drivers use.
+/// The die temperature, by the names the common drivers use. Failing those,
+/// what a notebook's firmware calls `CPU`, and last what ACPI says, which is
+/// near the CPU on most boards and better than no figure.
 fn cpu_temperature(readings: &[Reading]) -> Option<f32> {
     const KNOWN: [(&str, &str); 5] = [
         ("k10temp", "Tctl"),
@@ -182,12 +196,17 @@ fn cpu_temperature(readings: &[Reading]) -> Option<f32> {
         ("coretemp", "Package id 0"),
         ("cpu_thermal", "temp1"),
     ];
-    KNOWN.iter().find_map(|(chip, label)| {
+    let temperature = |wanted: &dyn Fn(&Reading) -> bool| {
         readings
             .iter()
-            .find(|r| r.kind == "temp" && r.chip == *chip && r.label == *label)
+            .find(|r| r.kind == "temp" && wanted(r))
             .map(|r| r.value)
-    })
+    };
+    KNOWN
+        .iter()
+        .find_map(|(chip, label)| temperature(&|r| r.chip == *chip && r.label == *label))
+        .or_else(|| temperature(&|r| r.label == "CPU"))
+        .or_else(|| temperature(&|r| r.chip == "acpitz"))
 }
 
 #[cfg(test)]
@@ -270,6 +289,65 @@ mod tests {
         assert_eq!(cpu_temperature(&readings[..2]), None);
         let intel = [reading("coretemp", "Package id 0", 44.0)];
         assert_eq!(cpu_temperature(&intel), Some(44.0));
+    }
+
+    #[test]
+    fn without_a_die_sensor_the_cpu_temperature_falls_back() {
+        let reading = |chip: &str, label: &str, value| Reading {
+            chip: chip.into(),
+            label: label.into(),
+            kind: "temp",
+            value,
+            max: None,
+            crit: None,
+        };
+        let notebook = [
+            reading("acpitz", "temp1", 36.0),
+            reading("thinkpad", "CPU", 38.0),
+        ];
+        assert_eq!(cpu_temperature(&notebook), Some(38.0));
+        assert_eq!(cpu_temperature(&notebook[..1]), Some(36.0));
+        let with_die = [
+            reading("thinkpad", "CPU", 38.0),
+            reading("k10temp", "Tctl", 40.0),
+        ];
+        assert_eq!(
+            cpu_temperature(&with_die),
+            Some(40.0),
+            "the die comes first"
+        );
+    }
+
+    #[test]
+    fn a_thinkpads_empty_sensor_slots_are_left_out() {
+        let scratch = Scratch::new("hwmon-thinkpad");
+        let chip = "hwmon/hwmon5";
+        scratch.write(&format!("{chip}/name"), "thinkpad\n");
+        scratch.write(&format!("{chip}/temp1_input"), "36000\n");
+        scratch.write(&format!("{chip}/temp1_label"), "CPU\n");
+        scratch.write(&format!("{chip}/temp4_input"), "0\n");
+        scratch.write(&format!("{chip}/fan1_input"), "3958\n");
+        let readings = read_hwmon(&scratch.path("hwmon"));
+        let labels: Vec<_> = readings.iter().map(|r| r.label.as_str()).collect();
+        assert_eq!(labels, ["fan1", "CPU"], "temp4 reads 0 and means nothing");
+    }
+
+    #[test]
+    fn power_prefers_the_drivers_average_and_takes_it_alone() {
+        let scratch = Scratch::new("hwmon-power");
+        let both = "hwmon/hwmon8";
+        scratch.write(&format!("{both}/name"), "amdgpu\n");
+        scratch.write(&format!("{both}/power1_input"), "28137000\n");
+        scratch.write(&format!("{both}/power1_average"), "4170000\n");
+        scratch.write(&format!("{both}/power1_label"), "PPT\n");
+        let alone = "hwmon/hwmon9";
+        scratch.write(&format!("{alone}/name"), "amdgpu\n");
+        scratch.write(&format!("{alone}/power1_average"), "245000000\n");
+        let readings = read_hwmon(&scratch.path("hwmon"));
+        assert_eq!(readings.len(), 2, "one reading per sensor, not per file");
+        assert!((readings[0].value - 4.17).abs() < 0.001);
+        assert_eq!(readings[0].label, "PPT");
+        assert!((readings[1].value - 245.0).abs() < 0.001);
     }
 
     #[test]

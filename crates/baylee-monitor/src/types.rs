@@ -1,13 +1,16 @@
 //! Wire values deliberately exclude command lines, environment and usernames.
 
 use crate::{
+    battery::PowerView,
+    machine::Peer,
+    npu::Npu,
     procfs::{pressure::Pressure, sockstat::Sockets, stat::CpuShares, swaps::SwapDevice},
     sensors::SensorView,
-    training::Training,
+    training::{Panels, Training},
 };
 use serde::Serialize;
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Default, Serialize)]
 pub(crate) struct Facts {
     pub hostname: String,
     pub os: String,
@@ -16,6 +19,12 @@ pub(crate) struct Facts {
     pub physical_cores: Option<usize>,
     pub threads: usize,
     pub interval_ms: u64,
+    /// The model, from the firmware's tables.
+    pub machine: Option<String>,
+    /// Other Pulse pages to link to, as `--peer` named them.
+    pub peers: Vec<Peer>,
+    /// Which panels have a source configured.
+    pub panels: Panels,
 }
 
 /// One moment in the graphs. Thousands of these are kept and sent to every new
@@ -34,6 +43,10 @@ pub(crate) struct Point {
     pub cpu_watts: Option<f32>,
     pub cpu_temp: Option<f32>,
     pub gpu_temp: Option<f32>,
+    /// Charge of the first battery, in percent.
+    pub battery: Option<f32>,
+    /// Commands finished per second on the first NPU.
+    pub npu_commands: Option<f32>,
     pub psi_cpu: Option<f32>,
     pub psi_mem: Option<f32>,
     pub psi_io: Option<f32>,
@@ -133,6 +146,8 @@ pub(crate) struct Snapshot {
     pub storage: StorageView,
     pub networks: Vec<Network>,
     pub sockets: Sockets,
+    pub power_supply: PowerView,
+    pub npus: Vec<Npu>,
     pub processes: Vec<Process>,
     pub sample_ms: f64,
 }
@@ -184,6 +199,10 @@ pub(crate) struct PcieLink {
 pub(crate) struct Gpu {
     pub index: u32,
     pub name: String,
+    /// Part of the CPU's package, sharing its power and its RAM.
+    pub integrated: bool,
+    /// Suspended, so it was left alone: a question would wake it.
+    pub asleep: bool,
     pub architecture: Option<String>,
     pub cores: Option<u32>,
     pub utilization: Option<u32>,
@@ -192,6 +211,9 @@ pub(crate) struct Gpu {
     pub memory_used: Option<u64>,
     pub memory_total: Option<u64>,
     pub memory_reserved: Option<u64>,
+    /// System RAM mapped for the GPU, what an integrated one mostly lives on.
+    pub gtt_used: Option<u64>,
+    pub gtt_total: Option<u64>,
     pub watts: Option<f64>,
     pub power_limit: Option<f64>,
     pub power_limit_default: Option<f64>,
@@ -211,6 +233,8 @@ pub(crate) struct Gpu {
     pub throttle: Vec<&'static str>,
     pub encoder: Option<u32>,
     pub decoder: Option<u32>,
+    /// One video engine for both directions, where there is no split.
+    pub video: Option<u32>,
     pub pcie: PcieLink,
     pub pcie_tx_bps: Option<f64>,
     pub pcie_rx_bps: Option<f64>,
@@ -228,6 +252,8 @@ pub(crate) struct GpuView {
     pub status: String,
     pub driver: Option<String>,
     pub cuda: Option<String>,
+    /// An APU's sensor: the whole package, so it is not any GPU's watts.
+    pub package_watts: Option<f64>,
 }
 
 /// How full a filesystem is and where that is heading.
@@ -360,6 +386,8 @@ mod tests {
     use super::*;
     use crate::{
         assets,
+        battery::Battery,
+        npu::NpuContext,
         procfs::stat::CpuShares,
         sensors::Reading,
         training::{Arm, Eval, Ladder, LlmRun, Pipeline, Progress, Services, Stage, Unit},
@@ -400,6 +428,8 @@ mod tests {
                 cpu_watts: Some(1.0),
                 cpu_temp: Some(1.0),
                 gpu_temp: Some(1.0),
+                battery: Some(1.0),
+                npu_commands: Some(1.0),
                 psi_cpu: Some(1.0),
                 psi_mem: Some(1.0),
                 psi_io: Some(1.0),
@@ -457,6 +487,9 @@ mod tests {
                 throttle: vec!["power_cap"],
                 encoder: Some(1),
                 decoder: Some(1),
+                video: Some(1),
+                gtt_used: Some(1),
+                gtt_total: Some(2),
                 pcie: link.clone(),
                 pcie_tx_bps: Some(1.0),
                 pcie_rx_bps: Some(1.0),
@@ -516,6 +549,53 @@ mod tests {
                 duplex: Some("full".into()),
                 mtu: Some(1500),
                 ..Network::default()
+            }],
+            power_supply: PowerView {
+                checked_ms: 1,
+                batteries: vec![Battery {
+                    name: "BAT0".into(),
+                    percent: Some(76.0),
+                    state: "discharging",
+                    energy_wh: Some(40.0),
+                    full_wh: Some(53.0),
+                    design_wh: Some(52.0),
+                    watts: Some(10.0),
+                    volts: Some(15.0),
+                    cycles: Some(19),
+                    charge_limit: Some(80),
+                    empty_in_secs: Some(1),
+                    charged_in_secs: Some(1),
+                }],
+                on_mains: Some(false),
+            },
+            npus: vec![Npu {
+                name: "RyzenAI-npu1".into(),
+                driver: Some("amdxdna".into()),
+                firmware: Some("1.5.5.391".into()),
+                pci_state: Some("D0".into()),
+                runtime: Some("active".into()),
+                columns: Some(5),
+                rows: Some(6),
+                columns_used: Some(1),
+                clock_mhz: Some(1028),
+                clock_control_mhz: Some(600),
+                clock_max_mhz: Some(1600),
+                tops_max: Some(10),
+                tasks_max: Some(6),
+                tasks: Some(1),
+                power_mode: Some("default"),
+                commands_per_s: Some(1.0),
+                busy: Some(1.0),
+                watts: Some(1.0),
+                contexts: vec![NpuContext {
+                    pid: 42,
+                    columns: 1,
+                    submitted: 2,
+                    completed: 1,
+                    errors: 0,
+                    active: true,
+                }],
+                ..Npu::default()
             }],
             processes: vec![Process {
                 pid: 42,
@@ -659,6 +739,32 @@ mod tests {
         "/snapshot/pressure/memory/some/0",
         "/snapshot/pressure/memory/full/0",
         "/snapshot/pressure/io/full/0",
+        "/snapshot/point/battery",
+        "/snapshot/power_supply/batteries/0/name",
+        "/snapshot/power_supply/batteries/0/percent",
+        "/snapshot/power_supply/batteries/0/state",
+        "/snapshot/power_supply/batteries/0/watts",
+        "/snapshot/power_supply/batteries/0/volts",
+        "/snapshot/power_supply/batteries/0/cycles",
+        "/snapshot/gpus/0/integrated",
+        "/snapshot/gpus/0/asleep",
+        "/snapshot/npus/0/asleep",
+        "/snapshot/npus/0/queried",
+        "/snapshot/npus/0/index",
+        "/snapshot/npus/0/name",
+        "/snapshot/npus/0/driver",
+        "/snapshot/npus/0/firmware",
+        "/snapshot/npus/0/runtime",
+        "/snapshot/npus/0/columns",
+        "/snapshot/npus/0/rows",
+        "/snapshot/npus/0/tasks",
+        "/snapshot/npus/0/busy",
+        "/snapshot/npus/0/watts",
+        "/snapshot/npus/0/contexts/0/pid",
+        "/snapshot/npus/0/contexts/0/columns",
+        "/snapshot/npus/0/contexts/0/completed",
+        "/snapshot/npus/0/contexts/0/errors",
+        "/snapshot/gpus/0/video",
         "/snapshot/gpus/0/index",
         "/snapshot/gpus/0/name",
         "/snapshot/gpus/0/architecture",
@@ -779,6 +885,12 @@ mod tests {
             physical_cores: Some(12),
             threads: 24,
             interval_ms: 1000,
+            machine: Some("ThinkPad".into()),
+            peers: vec![Peer {
+                name: "acenb".into(),
+                url: "http://192.168.0.12:8787".into(),
+            }],
+            panels: Panels::default(),
         };
         keys(&serde_json::to_value(facts).unwrap(), &mut wire);
         for (path, text) in assets::scripts() {

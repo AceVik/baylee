@@ -89,7 +89,7 @@ impl Mean {
     }
 }
 
-const NUMBERS: usize = 19;
+const NUMBERS: usize = 21;
 
 /// Every plain number of a point, in the order `Minute::finish` unpacks them.
 #[allow(clippy::cast_precision_loss)] // Rates.
@@ -106,6 +106,8 @@ fn numbers(point: &Point) -> [Option<f64>; NUMBERS] {
         optional(point.cpu_watts),
         optional(point.cpu_temp),
         optional(point.gpu_temp),
+        optional(point.battery),
+        optional(point.npu_commands),
         optional(point.psi_cpu),
         optional(point.psi_mem),
         optional(point.psi_io),
@@ -168,6 +170,8 @@ impl Minute {
             cpu_watts,
             cpu_temp,
             gpu_temp,
+            battery,
+            npu_commands,
             psi_cpu,
             psi_mem,
             psi_io,
@@ -191,6 +195,8 @@ impl Minute {
             cpu_watts: optional(cpu_watts),
             cpu_temp: optional(cpu_temp),
             gpu_temp: optional(gpu_temp),
+            battery: optional(battery),
+            npu_commands: optional(npu_commands),
             psi_cpu: optional(psi_cpu),
             psi_mem: optional(psi_mem),
             psi_io: optional(psi_io),
@@ -288,6 +294,27 @@ mod tests {
         assert_eq!(minute.disks, [("nvme0n1".to_owned(), 2000, 0, 20.0)]);
         assert_eq!(minute.nets, [("enp5s0".to_owned(), 20, 40)]);
         assert_eq!(minute.gpus, [(0, Some(50.0), None, Some(150.0), None)]);
+    }
+
+    #[test]
+    fn a_batterys_minute_is_a_mean_and_a_machine_without_one_stays_unknown() {
+        let mut history = History::new(10);
+        history.push(Point {
+            battery: Some(76.0),
+            npu_commands: Some(10.0),
+            ..point(60_000, 1.0)
+        });
+        history.push(Point {
+            battery: Some(74.0),
+            ..point(90_000, 1.0)
+        });
+        history.push(point(120_000, 1.0));
+        history.push(point(180_000, 1.0));
+        let minutes = history.recorded().minutes;
+        assert_eq!(minutes[0].battery, Some(75.0));
+        assert_eq!(minutes[0].npu_commands, Some(10.0), "a gap is not a zero");
+        assert_eq!(minutes[1].battery, None);
+        assert_eq!(minutes[1].npu_commands, None);
     }
 
     #[test]

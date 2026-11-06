@@ -5,7 +5,7 @@
 
 import { h, keyed, setText, statRows } from "./dom.js";
 import { disposeChartsIn, drawCoreStrip, drawSparkline } from "./chart.js";
-import { chartBlock, gpuStats, renderCores, shownNetworks } from "./cards.js";
+import { batteryLine, batteryStats, chartBlock, gpuStats, npuContextRows, npuNote, npuStats, renderCores, shownNetworks } from "./cards.js";
 import { data, diskPoint, gpuPoint, netPoint, recentPoints } from "./data.js";
 import { renderDisks } from "./disks.js";
 import { bytes, celsius, integer, linkSpeed, mhz, number, pcieLink, percent, perSecond, rate, span, DASH } from "./format.js";
@@ -25,8 +25,8 @@ function resources(s) {
   const list = [
     { id: "cpu", title: "CPU", color: "--s-cpu", value: point => point.cpu, max: 100, line: () => `${number(s.point.cpu)} %${s.sensors.cpu_temp == null ? "" : ` · ${celsius(s.sensors.cpu_temp)}`}` },
     { id: "ram", title: "Arbeitsspeicher", color: "--s-ram", value: point => point.ram, max: 100, line: () => `${bytes(s.memory.used)} / ${bytes(s.memory.total)} (${number(s.point.ram)} %)` },
-    { id: "swap", title: "Swap", color: "--s-swap", value: point => point.swap, max: 100, line: () => (s.swap.total ? `${bytes(s.swap.used)} / ${bytes(s.swap.total)}` : "Nicht eingerichtet") },
   ];
+  if (s.swap.total) list.push({ id: "swap", title: "Swap", color: "--s-swap", value: point => point.swap, max: 100, line: () => `${bytes(s.swap.used)} / ${bytes(s.swap.total)}` });
   for (const disk of s.storage.disks) {
     list.push({ id: `disk:${disk.name}`, title: disk.model, detail: disk.name, color: "--s-out", value: point => diskPoint(point, disk.name)?.[3], max: 100, line: () => `${number(disk.io?.busy_pct)} % · ${rate((disk.io?.read_bps ?? 0) + (disk.io?.write_bps ?? 0))}` });
   }
@@ -36,7 +36,13 @@ function resources(s) {
     list.push({ id: `net:${network.name}`, title: network.name, color: "--s-in", value: point => { const reading = entry(point); return reading ? reading[1] + reading[2] : null; }, line: () => `↓ ${rate(network.rx_bps)} ↑ ${rate(network.tx_bps)}` });
   }
   for (const gpu of s.gpus) {
-    list.push({ id: `gpu:${gpu.index}`, title: `GPU ${gpu.index}`, detail: gpu.name, color: "--s-gpu", value: point => gpuPoint(point, gpu.index)?.[1], max: 100, line: () => `${percent(gpu.utilization)}${gpu.temperature == null ? "" : ` · ${celsius(gpu.temperature)}`}` });
+    list.push({ id: `gpu:${gpu.index}`, title: `GPU ${gpu.index}`, detail: gpu.name, color: "--s-gpu", value: point => gpuPoint(point, gpu.index)?.[1], max: 100, line: () => (gpu.asleep ? "ruht" : `${percent(gpu.utilization)}${gpu.temperature == null ? "" : ` · ${celsius(gpu.temperature)}`}`) });
+  }
+  for (const npu of s.npus) {
+    list.push({ id: `npu:${npu.index}`, title: `NPU ${npu.index}`, detail: npu.name, color: "--s-out", value: point => point.npu_commands, line: () => (npu.asleep ? "ruht" : npu.busy != null ? percent(npu.busy) : npu.tasks == null ? "Keine Lastwerte" : `${integer(npu.tasks)} Aufgaben · keine Lastwerte`) });
+  }
+  if (s.power_supply.batteries.length) {
+    list.push({ id: "battery", title: "Akku", color: "--s-ram", value: point => point.battery, max: 100, line: () => `${percent(s.power_supply.batteries[0].percent)} · ${batteryLine(s)}` });
   }
   return list;
 }
@@ -235,8 +241,9 @@ function gpuDetail(panel, index) {
   const power = chartBlock(powerBox, { series: [{ label: "Leistung", color: "--s-gpu", value: point => entry(point)?.[3] }], format: "watts", label: "Verlauf der GPU-Leistung", compact: true });
   const heat = chartBlock(heatBox, { series: [{ label: "Temperatur", color: "--s-gpu", value: point => entry(point)?.[4] }], format: "celsius", label: "Verlauf der GPU-Temperatur", compact: true });
   const stats = h("dl", { class: "stats wide" });
+  const heading = h("h3", { text: "Prozesse auf dieser GPU" });
   const top = h("div", { class: "mini-list" });
-  panel.append(stats, h("h3", { text: "Prozesse auf dieser GPU" }), top);
+  panel.append(stats, heading, top);
   return context => {
     load(context);
     power(context);
@@ -244,15 +251,20 @@ function gpuDetail(panel, index) {
     const { s } = context;
     const gpu = s.gpus.find(item => item.index === index);
     if (!gpu) return;
+    powerBox.hidden = gpu.watts == null;
+    // A chip that names no processes has no list, rather than an empty one.
+    heading.hidden = !gpu.processes.length;
     statRows(stats, [
       ...gpuStats(gpu),
       ["VRAM", `${bytes(gpu.memory_used)} von ${bytes(gpu.memory_total)}${gpu.memory_reserved ? ` · ${bytes(gpu.memory_reserved)} reserviert` : ""}`],
-      ["Speicher-Controller", percent(gpu.memory_utilization)],
-      ["Video kodieren / dekodieren", `${percent(gpu.encoder)} / ${percent(gpu.decoder)}`],
-      ["Max. Takt", `${mhz(gpu.clock_graphics_max)} · Speicher ${mhz(gpu.clock_memory_max)}`],
-      ["Architektur", gpu.architecture ? `${gpu.architecture}${gpu.cores ? ` · ${integer(gpu.cores)} Kerne` : ""}` : DASH],
+      gpu.gtt_total ? ["GTT", `${bytes(gpu.gtt_used)} von ${bytes(gpu.gtt_total)}`, "Arbeitsspeicher, den die GPU eingeblendet hat"] : null,
+      gpu.memory_utilization == null ? null : ["Speicher-Controller", percent(gpu.memory_utilization)],
+      gpu.encoder == null && gpu.decoder == null ? null : ["Video kodieren / dekodieren", `${percent(gpu.encoder)} / ${percent(gpu.decoder)}`],
+      gpu.video == null ? null : ["Video-Einheit", percent(gpu.video), "Eine Einheit für Kodieren und Dekodieren"],
+      gpu.clock_graphics_max == null ? null : ["Max. Takt", `${mhz(gpu.clock_graphics_max)}${gpu.clock_memory_max == null ? "" : ` · Speicher ${mhz(gpu.clock_memory_max)}`}`],
+      gpu.architecture ? ["Architektur", `${gpu.architecture}${gpu.cores ? ` · ${integer(gpu.cores)} Kerne` : ""}`] : null,
       ["Treiber", s.gpu_driver ? `${s.gpu_driver}${s.gpu_cuda ? ` · CUDA ${s.gpu_cuda}` : ""}` : DASH],
-      ["PCIe-Wiederholungen", integer(gpu.pcie_replays), "Übertragungen, die der Bus wegen Fehlern wiederholen musste"],
+      gpu.pcie_replays == null ? null : ["PCIe-Wiederholungen", integer(gpu.pcie_replays), "Übertragungen, die der Bus wegen Fehlern wiederholen musste"],
     ]);
     const names = new Map(s.processes.map(process => [process.pid, process.name]));
     keyed(top, [...gpu.processes].sort((a, b) => (b.vram ?? 0) - (a.vram ?? 0)), process => process.pid, () => h("div", { class: "sensor" }, h("span"), h("strong")), (row, process) => {
@@ -262,9 +274,42 @@ function gpuDetail(panel, index) {
   };
 }
 
+function npuDetail(panel, index) {
+  const note = h("p", { class: "muted-note" });
+  panel.append(note);
+  const work = chartBlock(panel, { series: [{ label: "Befehle", color: "--s-out", value: point => point.npu_commands }], format: "perSecond", label: "Fertige NPU-Befehle je Sekunde. Das ist ein Zähler, keine Auslastung." });
+  const stats = h("dl", { class: "stats wide" });
+  const heading = h("h3", { text: "Kontexte" });
+  const contexts = h("div", { class: "mini-list" });
+  panel.append(stats, heading, contexts);
+  return context => {
+    work(context);
+    const npu = context.s.npus.find(item => item.index === index);
+    if (!npu) return;
+    const missing = npuNote(npu);
+    note.hidden = !missing;
+    setText(note, missing);
+    statRows(stats, npuStats(npu));
+    heading.hidden = !npu.contexts.length;
+    npuContextRows(contexts, npu, context.s);
+  };
+}
+
+function batteryDetail(panel) {
+  const level = chartBlock(panel, { series: [{ label: "Ladung", color: "--s-ram", value: point => point.battery }], format: "percent", max: 100, label: "Verlauf der Akkuladung" });
+  const stats = h("dl", { class: "stats wide" });
+  panel.append(stats);
+  return context => {
+    level(context);
+    if (context.s.power_supply.batteries.length) statRows(stats, batteryStats(context.s));
+  };
+}
+
 function detailFor(id, panel) {
   const [kind, name] = id.split(":");
   if (kind === "cpu") return cpuDetail(panel);
+  if (kind === "npu") return npuDetail(panel, Number(name));
+  if (kind === "battery") return batteryDetail(panel);
   if (kind === "ram") return ramDetail(panel);
   if (kind === "swap") return swapDetail(panel);
   if (kind === "disk") return diskDetail(panel, name);

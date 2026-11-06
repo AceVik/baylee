@@ -2,10 +2,7 @@
 //! It runs on its own thread: a bus throughput reading alone waits about
 //! 20 ms in the driver, and a driver in trouble can take far longer.
 
-use crate::{
-    background::now_ms,
-    types::{Gpu, GpuProcess, GpuView, PcieLink},
-};
+use crate::types::{Gpu, GpuProcess, GpuView, PcieLink};
 use nvml_wrapper::{
     Device, Nvml, bitmasks::device::ThrottleReasons, cuda_driver_version_major,
     cuda_driver_version_minor, enum_wrappers::device::Clock,
@@ -58,35 +55,24 @@ impl Fixed {
     }
 }
 
-pub(crate) struct Gpus {
-    nvml: Option<Nvml>,
-    unavailable: String,
+pub(super) struct Nvidia {
+    nvml: Nvml,
     since: BTreeMap<u32, u64>,
     fixed: BTreeMap<u32, Fixed>,
 }
 
-impl Gpus {
-    pub fn new() -> Self {
-        let (nvml, unavailable) = match Nvml::init() {
-            Ok(nvml) => (Some(nvml), String::new()),
-            Err(_) => (
-                None,
-                "NVIDIA-Telemetrie nicht verfügbar; andere GPU-Hersteller noch nicht unterstützt"
-                    .to_owned(),
-            ),
-        };
-        Self {
-            nvml,
-            unavailable,
+impl Nvidia {
+    /// `None` where the library or its driver is missing.
+    pub fn new() -> Option<Self> {
+        Some(Self {
+            nvml: Nvml::init().ok()?,
             since: BTreeMap::new(),
             fixed: BTreeMap::new(),
-        }
+        })
     }
 
     pub fn sample(&mut self) -> GpuView {
-        let Some(nvml) = &self.nvml else {
-            return view(vec![], self.unavailable.clone());
-        };
+        let nvml = &self.nvml;
         let Ok(count) = nvml.device_count() else {
             return view(vec![], "GPU-Treiber antwortet nicht".into());
         };
@@ -124,11 +110,9 @@ impl Gpus {
 
 fn view(gpus: Vec<Gpu>, status: String) -> GpuView {
     GpuView {
-        checked_ms: now_ms(),
         gpus,
         status,
-        driver: None,
-        cuda: None,
+        ..GpuView::default()
     }
 }
 
@@ -252,6 +236,7 @@ fn read_device(device: &Device, index: u32, fixed: &Fixed, since: &mut u64) -> G
         pcie_replays: device.pcie_replay_counter().ok(),
         process_status: process_status.into(),
         processes,
+        ..Gpu::default()
     }
 }
 

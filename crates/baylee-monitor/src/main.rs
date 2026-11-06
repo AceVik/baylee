@@ -3,10 +3,13 @@
 mod admission;
 mod assets;
 mod background;
+mod battery;
 mod gpu;
 mod history;
 mod listen;
+mod machine;
 mod network;
+mod npu;
 mod power;
 mod processes;
 mod procfs;
@@ -60,6 +63,10 @@ struct Options {
     /// A `ladder.json` to show as a card (repeatable, absolute, at most 4).
     #[arg(long = "ladder", value_name = "FILE", value_parser = training::parse_json_file)]
     ladders: Vec<PathBuf>,
+    /// Another machine's Pulse page to link to from the header, as
+    /// NAME=http://HOST:PORT (repeatable, at most 4).
+    #[arg(long = "peer", value_name = "NAME=URL", value_parser = machine::parse_peer)]
+    peers: Vec<machine::Peer>,
 }
 
 #[tokio::main(flavor = "current_thread")]
@@ -81,12 +88,27 @@ async fn main() -> anyhow::Result<()> {
         "At most {} each of --pipeline-root, --llm-root and --ladder",
         training::MAX_ROOT_FLAGS
     );
+    anyhow::ensure!(
+        options.peers.len() <= machine::MAX_PEERS,
+        "At most {} --peer links",
+        machine::MAX_PEERS
+    );
     let listener = listen::bind(options.bind, listen::ADDRESS_WAIT).await?;
     let interval = Duration::from_millis(options.interval_ms);
     let keep = (options.history_minutes * 60_000 / options.interval_ms) as usize;
     let mut sampler =
         tokio::task::spawn_blocking(move || sampler::Sampler::new(interval)).await??;
-    let facts = sampler.facts(options.interval_ms);
+    let sources = training::Sources {
+        pipelines: options.pipelines.clone(),
+        pipeline_roots: options.pipeline_roots.clone(),
+        llm_roots: options.llm_roots.clone(),
+        ladders: options.ladders.clone(),
+    };
+    let facts = types::Facts {
+        peers: options.peers.clone(),
+        panels: sources.panels(),
+        ..sampler.facts(options.interval_ms)
+    };
     // First published CPU rates need two observations separated by an interval.
     tokio::time::sleep(interval).await;
     let (sender, receiver) = watch::channel(Arc::new(String::new()));
@@ -99,15 +121,7 @@ async fn main() -> anyhow::Result<()> {
     };
     let history = state.history.clone();
     let latest_training = Arc::new(Mutex::new(training::Training::default()));
-    training::spawn(
-        training::Sources {
-            pipelines: options.pipelines.clone(),
-            pipeline_roots: options.pipeline_roots.clone(),
-            llm_roots: options.llm_roots.clone(),
-            ladders: options.ladders.clone(),
-        },
-        latest_training.clone(),
-    )?;
+    training::spawn(sources, latest_training.clone())?;
     // Dedicated thread, no timer burst catch-up and no blocking work on the HTTP executor.
     std::thread::Builder::new()
         .name("telemetry".into())

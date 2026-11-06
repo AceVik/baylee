@@ -21,7 +21,7 @@ export const SERIES = {
 const TILE_SECONDS = 120;
 const THROTTLE_WORDS = { power_cap: "Leistungslimit", hw_slowdown: "Hardware-Bremse", sw_thermal: "Temperatur (Software)", hw_thermal: "Temperatur (Hardware)", power_brake: "Externe Bremse", sync_boost: "Sync Boost" };
 
-export function legend(series, format) {
+export function legend(series, format, onlyPresent) {
   const items = series.map(entry => {
     const key = h("i", { class: "key" });
     key.style.setProperty("--key", `var(${entry.color})`);
@@ -31,17 +31,22 @@ export function legend(series, format) {
   return {
     node: h("div", { class: "legend" }, items.map(item => item.node)),
     update(point) {
-      for (const { entry, value } of items) {
+      for (const { entry, value, node } of items) {
         const reading = point ? entry.value(point) : null;
         setText(value, reading == null ? DASH : formats[format].value(reading));
+        if (onlyPresent) node.hidden = reading == null;
       }
     },
   };
 }
 
-/** A chart with a live legend, the usual body of a time card. */
-export function chartBlock(body, { series, format, max, label, compact }) {
-  const key = legend(series, format);
+/**
+ * A chart with a live legend, the usual body of a time card. `onlyPresent`
+ * drops a series this machine has no reading for from the legend, where a
+ * chart mixes sources not every machine has.
+ */
+export function chartBlock(body, { series, format, max, label, compact, onlyPresent }) {
+  const key = legend(series, format, onlyPresent);
   const chart = new Chart({ series, format, max, label, compact });
   body.append(key.node, chart.host);
   return ({ s, range }) => {
@@ -50,7 +55,7 @@ export function chartBlock(body, { series, format, max, label, compact }) {
   };
 }
 
-function tile({ key, title, target, color, value, max, read }) {
+function tile({ key, title, target, color, value, max, read, available }) {
   return {
     id: `tile-${key}`,
     title,
@@ -59,6 +64,7 @@ function tile({ key, title, target, color, value, max, read }) {
     h: 2,
     minW: 2,
     minH: 2,
+    available,
     build(body) {
       const big = h("span", { class: "tile-value" });
       const unit = h("small");
@@ -72,6 +78,7 @@ function tile({ key, title, target, color, value, max, read }) {
         setText(big, shown.big);
         setText(unit, shown.unit);
         setText(caption, shown.caption);
+        caption.classList.toggle("wrap", shown.wrap === true);
         bar.node.hidden = shown.percent == null;
         if (shown.percent != null) meter(bar.fill, shown.percent, shown.level);
         drawSparkline(spark, recentPoints(TILE_SECONDS), value, { color, max });
@@ -82,6 +89,79 @@ function tile({ key, title, target, color, value, max, read }) {
 
 const ramLevel = (value, warn, crit) => (value >= crit ? "crit" : value >= warn ? "warn" : "");
 const fixedRate = value => rate(value).split(" ");
+
+/** A card with a fault to report stays; one with no source at all does not exist. */
+const hasGpu = ({ s }) => s.gpus.length > 0 || Boolean(s.gpu_status);
+const hasBattery = ({ s }) => s.power_supply.batteries.length > 0;
+const hasNpu = ({ s }) => s.npus.length > 0;
+const hasSwap = ({ s }) => s.swap.total > 0;
+
+const BATTERY_WORDS = { charging: "lädt", discharging: "entlädt", full: "voll", not_charging: "lädt nicht", unknown: "Zustand unbekannt" };
+
+/** Mains or battery, and what the cells are doing. */
+export function batteryLine(s) {
+  const battery = s.power_supply.batteries[0];
+  const words = [s.power_supply.on_mains == null ? null : s.power_supply.on_mains ? "Netzbetrieb" : "Akkubetrieb", BATTERY_WORDS[battery.state]];
+  if (battery.empty_in_secs != null) words.push(`noch ca. ${span(battery.empty_in_secs * 1000)}`);
+  if (battery.charged_in_secs != null) words.push(`fertig in ca. ${span(battery.charged_in_secs * 1000)}`);
+  return words.filter(Boolean).join(" · ");
+}
+
+export function batteryStats(s) {
+  const battery = s.power_supply.batteries[0];
+  const wear = battery.full_wh && battery.design_wh ? (100 * battery.full_wh) / battery.design_wh : null;
+  return [
+    ["Stromversorgung", s.power_supply.on_mains == null ? null : s.power_supply.on_mains ? "Netzteil" : "Akku"],
+    ["Zustand", BATTERY_WORDS[battery.state]],
+    ["Energie", battery.energy_wh == null ? null : `${number(battery.energy_wh)} von ${number(battery.full_wh)} Wh`],
+    ["Kapazität", wear == null ? null : `${percent(wear)} des Neuzustands`, `Heute ${number(battery.full_wh)} Wh, neu ${number(battery.design_wh)} Wh`],
+    ["Fluss", battery.watts ? watts(battery.watts) : null, "Was gerade aus dem Akku oder in ihn fließt. Im Akkubetrieb ist das der Verbrauch des ganzen Rechners."],
+    ["Spannung", battery.volts == null ? null : `${number(battery.volts)} V`],
+    ["Ladezyklen", battery.cycles == null ? null : integer(battery.cycles)],
+    ["Ladegrenze", battery.charge_limit == null ? null : `${integer(battery.charge_limit)} %`, "Hier hört die Firmware auf zu laden, um die Zellen zu schonen"],
+  ].filter(([, value]) => value != null);
+}
+
+const POWER_MODE_WORDS = { default: "automatisch", low: "niedrig", medium: "mittel", high: "hoch", turbo: "Turbo" };
+
+/**
+ * What cannot be said, in words. A missing load must read as missing: the
+ * counters beside it are not a utilization.
+ */
+export function npuNote(npu) {
+  if (npu.asleep) return "Die NPU ruht. Pulse weckt sie für keine Messung.";
+  if (!npu.queried) return npu.driver === "amdxdna" ? "Kein Zugriff auf das Gerät (Gruppe render), darum nur Angaben aus sysfs." : "Für diesen Treiber kennt Pulse nur die Angaben aus sysfs.";
+  const missing = [npu.busy == null ? "Last" : null, npu.watts == null ? "Leistungsaufnahme" : null].filter(Boolean);
+  return missing.length ? `Der Treiber liefert auf diesem Chip keine ${missing.join(" und keine ")}. Belegte Spalten und Befehle/s sind Zähler, keine Auslastung.` : "";
+}
+
+export function npuStats(npu) {
+  const notReported = "vom Treiber nicht gemeldet";
+  return [
+    ["Modell", npu.name],
+    ["Treiber", npu.driver],
+    ["Firmware", npu.firmware],
+    ["Zustand", [npu.pci_state, npu.runtime === "suspended" ? "ruht" : npu.runtime === "active" ? "an" : npu.runtime].filter(Boolean).join(" · ") || null],
+    ["Last", npu.busy == null ? notReported : percent(npu.busy)],
+    ["Leistungsaufnahme", npu.watts == null ? notReported : watts(npu.watts)],
+    ["Rechenfeld", npu.columns == null ? null : `${integer(npu.columns)} Spalten × ${integer(npu.rows)} Zeilen`],
+    ["Belegt", npu.columns_used == null ? null : `${integer(npu.columns_used)} von ${integer(npu.columns)} Spalten`, "Von Kontexten reserviert; das sagt nichts darüber, ob sie gerade rechnen"],
+    ["Aufgaben", npu.tasks == null ? null : `${integer(npu.tasks)} von ${integer(npu.tasks_max)}`],
+    ["Befehle", npu.commands_per_s == null ? null : perSecond(npu.commands_per_s)],
+    ["Takt", npu.clock_mhz == null ? null : `${mhz(npu.clock_mhz)}${npu.clock_max_mhz ? `, bis ${mhz(npu.clock_max_mhz)}` : ""}`, "Die vom Treiber gewählte Stufe, kein gemessener Takt"],
+    ["Steuertakt", npu.clock_control_mhz == null ? null : mhz(npu.clock_control_mhz)],
+    ["Höchstleistung", npu.tops_max == null ? null : `${integer(npu.tops_max)} TOPS`],
+    ["Modus", npu.power_mode == null ? null : POWER_MODE_WORDS[npu.power_mode]],
+  ].filter(([, value]) => value != null);
+}
+
+export function npuContextRows(host, npu, s) {
+  const names = new Map(s.processes.map(process => [process.pid, process.name]));
+  keyed(host, npu.contexts, context => `${context.pid}|${context.columns}`, () => h("div", { class: "sensor" }, h("span"), h("strong")), (row, context) => {
+    setText(row.firstChild, `${names.get(context.pid) ?? "Prozess nicht lesbar"} · PID ${context.pid}`);
+    setText(row.lastChild, [`${integer(context.columns)} Sp.`, `${integer(context.completed)} Befehle`, context.errors ? `${integer(context.errors)} Fehler` : null].filter(Boolean).join(" · "));
+  });
+}
 
 const TILES = [
   tile({
@@ -104,10 +184,12 @@ const TILES = [
     color: "--s-gpu",
     value: point => point.gpu,
     max: 100,
+    available: hasGpu,
     read: s => {
       const gpu = s.gpus[0];
       if (!gpu) return { big: DASH, unit: "", percent: null, caption: s.gpu_status };
-      return { big: number(gpu.utilization), unit: "%", percent: gpu.utilization, caption: `${celsius(gpu.temperature)} · ${watts(gpu.watts)}` };
+      if (gpu.asleep) return { big: "ruht", unit: "", percent: null, caption: gpu.name };
+      return { big: number(gpu.utilization), unit: "%", percent: gpu.utilization, caption: [gpu.temperature == null ? null : celsius(gpu.temperature), gpu.watts == null ? null : watts(gpu.watts)].filter(Boolean).join(" · ") || gpu.name };
     },
   }),
   tile({
@@ -126,10 +208,12 @@ const TILES = [
     color: "--s-vram",
     value: point => point.vram,
     max: 100,
+    available: ({ s }) => s.gpus.some(gpu => gpu.memory_total != null),
     read: s => {
       const gpu = s.gpus[0];
-      if (!gpu || gpu.memory_used == null) return { big: DASH, unit: "", percent: null, caption: "Keine NVIDIA-GPU erkannt" };
-      return { big: number(gpu.memory_used / 2 ** 30), unit: "GiB", percent: s.point.vram, caption: `${percent(s.point.vram)} von ${bytes(gpu.memory_total)}` };
+      if (gpu?.memory_used == null) return { big: DASH, unit: "", percent: null, caption: gpu?.asleep ? "GPU ruht" : "Nicht verfügbar" };
+      const shared = gpu.gtt_used == null ? "" : ` · GTT ${bytes(gpu.gtt_used)}`;
+      return { big: number(gpu.memory_used / 2 ** 30), unit: "GiB", percent: s.point.vram, caption: `${percent(s.point.vram)} von ${bytes(gpu.memory_total)}${shared}` };
     },
   }),
   tile({
@@ -139,10 +223,8 @@ const TILES = [
     color: "--s-swap",
     value: point => point.swap,
     max: 100,
-    read: s => {
-      if (!s.swap.total) return { big: DASH, unit: "", percent: null, caption: "Kein Swap eingerichtet" };
-      return { big: number(s.swap.used / 2 ** 30), unit: "GiB", percent: s.point.swap, level: ramLevel(s.point.swap, settings.alerts.swapWarn, settings.alerts.swapCrit), caption: `${percent(s.point.swap)} von ${bytes(s.swap.total)}` };
-    },
+    available: hasSwap,
+    read: s => ({ big: number(s.swap.used / 2 ** 30), unit: "GiB", percent: s.point.swap, level: ramLevel(s.point.swap, settings.alerts.swapWarn, settings.alerts.swapCrit), caption: `${percent(s.point.swap)} von ${bytes(s.swap.total)}` }),
   }),
   tile({
     key: "net",
@@ -155,6 +237,38 @@ const TILES = [
       return { big: amount, unit, percent: null, caption: `↓ ${rate(s.point.net_rx)} · ↑ ${rate(s.point.net_tx)}` };
     },
   }),
+  tile({
+    key: "battery",
+    title: "Akku",
+    target: "battery",
+    color: "--s-ram",
+    value: point => point.battery,
+    max: 100,
+    available: hasBattery,
+    read: s => {
+      const battery = s.power_supply.batteries[0];
+      const limits = settings.alerts;
+      const draining = battery.state === "discharging";
+      const level = !draining || battery.percent == null ? "" : battery.percent <= limits.batteryCrit ? "crit" : battery.percent <= limits.batteryWarn ? "warn" : "";
+      return { big: number(battery.percent), unit: "%", percent: battery.percent, level, caption: batteryLine(s) };
+    },
+  }),
+  tile({
+    key: "npu",
+    title: "NPU",
+    target: "npu:0",
+    color: "--s-out",
+    value: point => point.npu_commands,
+    available: hasNpu,
+    read: s => {
+      const npu = s.npus[0];
+      if (npu.busy != null) return { big: number(npu.busy), unit: "%", percent: npu.busy, caption: npu.name };
+      if (npu.asleep) return { big: "ruht", unit: "", percent: null, caption: npu.name };
+      // No load to show, and the tile says so instead of filling the space.
+      const reason = npu.queried ? "Treiber liefert keine Last- und Leistungswerte" : "Nur Anwesenheit und Treiber bekannt";
+      return { big: npu.tasks == null ? "da" : integer(npu.tasks), unit: npu.tasks == null ? "" : npu.tasks === 1 ? "Aufgabe" : "Aufgaben", percent: null, caption: reason, wrap: true };
+    },
+  }),
 ];
 
 const inOut = (inLabel, outLabel, read, write) => [
@@ -162,7 +276,7 @@ const inOut = (inLabel, outLabel, read, write) => [
   { label: outLabel, color: "--s-out", value: write },
 ];
 
-const sensorChips = { k10temp: "CPU", coretemp: "CPU", zenpower: "CPU", asusec: "Mainboard", acpitz: "Mainboard", nct6798: "Mainboard" };
+const sensorChips = { k10temp: "CPU", coretemp: "CPU", zenpower: "CPU", asusec: "Mainboard", acpitz: "Mainboard", nct6798: "Mainboard", thinkpad: "ThinkPad", amdgpu: "GPU", acpi_fan: "ACPI" };
 
 function sensorName(reading, disks) {
   const { chip, label } = reading;
@@ -170,8 +284,10 @@ function sensorName(reading, disks) {
     const disk = disks.find(entry => entry.name.startsWith(`${chip}n`));
     return `${disk?.model ?? chip} · ${label}`;
   }
-  if (chip.startsWith("iwlwifi")) return `WLAN · ${label}`;
-  if (reading.kind === "fan") return `Lüfter · ${label}`;
+  if (chip.startsWith("iwlwifi") || chip.startsWith("ath")) return `WLAN · ${label}`;
+  if (/^BAT\d+$/.test(chip)) return `Akku · ${label}`;
+  // Two chips can both call theirs `fan1`.
+  if (reading.kind === "fan") return /^fan\d+$/.test(label) ? `Lüfter · ${sensorChips[chip] ?? chip} ${label}` : `Lüfter · ${label}`;
   return `${sensorChips[chip] ?? chip} · ${label}`;
 }
 
@@ -326,10 +442,11 @@ function buildPower(body) {
   const chart = chartBlock(body, {
     series: [
       { label: "GPU", color: "--s-gpu", value: point => point.gpu_watts },
-      { label: "CPU-Package", color: "--s-cpu", value: point => point.cpu_watts },
+      { label: "Package", color: "--s-cpu", value: point => point.cpu_watts },
     ],
     format: "watts",
-    label: "Verlauf der gemessenen GPU- und CPU-Leistung in Watt",
+    label: "Verlauf der gemessenen GPU- und Package-Leistung in Watt",
+    onlyPresent: true,
   });
   const note = h("p", { class: "muted-note" });
   body.append(note);
@@ -347,17 +464,23 @@ function buildGpu(body) {
     keyed(list, s.gpus, gpu => gpu.index, () => {
       const bar = meterBar();
       const memory = meterBar();
-      const node = h("article", { class: "gpu-item" }, h("strong"), h("div", { class: "meter-row" }, h("span", { text: "Last" }), bar.node, h("b")), h("div", { class: "meter-row" }, h("span", { text: "VRAM" }), memory.node, h("b")), h("div", { class: "chip-row" }), h("dl", { class: "stats" }));
-      node.bars = { bar, memory };
+      const shared = meterBar();
+      const node = h("article", { class: "gpu-item" }, h("strong"), h("div", { class: "meter-row" }, h("span", { text: "Last" }), bar.node, h("b")), h("div", { class: "meter-row" }, h("span", { text: "VRAM" }), memory.node, h("b")), h("div", { class: "meter-row" }, h("span", { text: "GTT" }), shared.node, h("b")), h("div", { class: "chip-row" }), h("dl", { class: "stats" }));
+      node.bars = { bar, memory, shared };
       return node;
     }, (node, gpu) => {
-      const [title, load, vram, chips, stats] = node.children;
-      setText(title, `${gpu.index} · ${gpu.name}`);
+      const [title, load, vram, gtt, chips, stats] = node.children;
+      setText(title, `${gpu.index} · ${gpu.name}${gpu.asleep ? " · ruht" : ""}`);
       meter(node.bars.bar.fill, gpu.utilization);
       setText(load.lastChild, percent(gpu.utilization));
       const memoryPercent = gpu.memory_total ? (100 * gpu.memory_used) / gpu.memory_total : null;
       meter(node.bars.memory.fill, memoryPercent);
       setText(vram.lastChild, `${bytes(gpu.memory_used)} / ${bytes(gpu.memory_total)}`);
+      gtt.hidden = !gpu.gtt_total;
+      if (gpu.gtt_total) {
+        meter(node.bars.shared.fill, (100 * gpu.gtt_used) / gpu.gtt_total);
+        setText(gtt.lastChild, `${bytes(gpu.gtt_used)} / ${bytes(gpu.gtt_total)}`);
+      }
       const reasons = gpu.throttle.map(code => THROTTLE_WORDS[code] ?? code).join("|");
       if (chips.dataset.key !== reasons) {
         chips.dataset.key = reasons;
@@ -370,16 +493,18 @@ function buildGpu(body) {
   };
 }
 
+/** Only what this chip reports: an APU has no PCIe link or fan of its own. */
 export function gpuStats(gpu) {
+  const power = gpu.watts == null ? (gpu.integrated ? "im Package enthalten" : null) : `${watts(gpu.watts)}${gpu.power_limit == null ? "" : ` von ${watts(gpu.power_limit)}`}`;
   return [
-    ["Temperatur", `${celsius(gpu.temperature)}${gpu.temp_slowdown ? ` · bremst ab ${gpu.temp_slowdown} °C` : ""}`],
-    ["Leistung", `${watts(gpu.watts)} von ${watts(gpu.power_limit)}`],
-    ["Takt", `${mhz(gpu.clock_graphics)} · Speicher ${mhz(gpu.clock_memory)}`],
-    ["PCIe", pcieLink(gpu.pcie)],
-    ["PCIe-Durchsatz", `↓ ${rate(gpu.pcie_rx_bps)} · ↑ ${rate(gpu.pcie_tx_bps)}`],
-    ["Lüfter", gpu.fans.length ? gpu.fans.map(percent).join(" / ") : DASH],
-    ["Leistungsstufe", gpu.pstate == null ? DASH : `P${gpu.pstate}`],
-  ];
+    ["Temperatur", gpu.temperature == null ? null : `${celsius(gpu.temperature)}${gpu.temp_slowdown ? ` · bremst ab ${gpu.temp_slowdown} °C` : ""}`],
+    ["Leistung", power, gpu.integrated ? "Der Sensor misst CPU, GPU und SoC zusammen; einen Wert nur für die GPU gibt es nicht" : null],
+    ["Takt", gpu.clock_graphics == null ? null : `${mhz(gpu.clock_graphics)} · Speicher ${mhz(gpu.clock_memory)}`],
+    ["PCIe", gpu.pcie.generation == null ? null : pcieLink(gpu.pcie)],
+    ["PCIe-Durchsatz", gpu.pcie_rx_bps == null ? null : `↓ ${rate(gpu.pcie_rx_bps)} · ↑ ${rate(gpu.pcie_tx_bps)}`],
+    ["Lüfter", gpu.fans.length ? gpu.fans.map(percent).join(" / ") : null],
+    ["Leistungsstufe", gpu.pstate == null ? null : `P${gpu.pstate}`],
+  ].filter(([, value]) => value != null);
 }
 
 function buildPressure(body) {
@@ -406,7 +531,24 @@ function buildTemps(body) {
     format: "celsius",
     label: "Verlauf der CPU- und GPU-Temperatur",
     compact: true,
+    onlyPresent: true,
   });
+}
+
+function buildNpu(body) {
+  const list = h("div", { class: "gpu-list" });
+  body.append(list);
+  return ({ s }) => {
+    keyed(list, s.npus, npu => npu.index, () => h("article", { class: "gpu-item" }, h("strong"), h("p", { class: "muted-note" }), h("dl", { class: "stats" }), h("div", { class: "mini-list" })), (node, npu) => {
+      const [title, note, stats, contexts] = node.children;
+      setText(title, npu.name);
+      const missing = npuNote(npu);
+      note.hidden = !missing;
+      setText(note, missing);
+      statRows(stats, npuStats(npu).filter(([label]) => label !== "Modell"));
+      npuContextRows(contexts, npu, s);
+    });
+  };
 }
 
 function buildSystem(body) {
@@ -415,6 +557,7 @@ function buildSystem(body) {
   return ({ s, facts }) => {
     statRows(stats, [
       ["Rechner", facts?.hostname ?? DASH],
+      facts?.machine ? ["Gerät", facts.machine] : null,
       ["System", facts?.os ?? DASH],
       ["Kernel", facts?.kernel ?? DASH],
       ["CPU", facts ? `${facts.cpu} · ${facts.physical_cores ?? "?"} Kerne / ${facts.threads} Threads` : DASH],
@@ -456,7 +599,7 @@ function buildProcessCard(body) {
 
 export const CARD_DEFINITIONS = [
   ...TILES,
-  { id: "training", title: "Training", w: 12, h: 6, minW: 6, minH: 3, build: buildTraining },
+  { id: "training", title: "Training", w: 12, h: 6, minW: 6, minH: 3, build: buildTraining, available: ({ facts }) => Boolean(facts?.panels && Object.values(facts.panels).some(Boolean)) },
   {
     id: "activity",
     title: "Auslastung",
@@ -464,19 +607,20 @@ export const CARD_DEFINITIONS = [
     h: 4,
     minW: 4,
     minH: 3,
-    build: body => chartBlock(body, { series: [SERIES.cpu, SERIES.gpu, SERIES.ram, SERIES.vram], format: "percent", max: 100, label: "Verlauf der CPU-, GPU-, RAM- und VRAM-Auslastung in Prozent" }),
+    build: body => chartBlock(body, { series: [SERIES.cpu, SERIES.gpu, SERIES.ram, SERIES.vram], format: "percent", max: 100, label: "Verlauf der CPU-, GPU-, RAM- und VRAM-Auslastung in Prozent", onlyPresent: true }),
   },
-  { id: "power", title: "Leistungsaufnahme", w: 4, h: 4, minW: 3, minH: 3, build: buildPower },
+  { id: "power", title: "Leistungsaufnahme", w: 4, h: 4, minW: 3, minH: 3, build: buildPower, available: ({ s }) => s.point.gpu_watts != null || s.point.cpu_watts != null },
   { id: "disks", title: "Datenträger", w: 6, h: 9, minW: 4, minH: 3, build: (body) => { const host = h("div"); body.append(host); return ({ s }) => renderDisks(host, s.storage); } },
   { id: "processes", title: "Prozesse", w: 6, h: 9, minW: 4, minH: 3, build: buildProcessCard },
-  { id: "swap", title: "Swap", w: 4, h: 6, minW: 3, minH: 3, build: buildSwap },
+  { id: "swap", title: "Swap", w: 4, h: 6, minW: 3, minH: 3, build: buildSwap, available: hasSwap },
   { id: "network", title: "Netzwerk", w: 4, h: 6, minW: 3, minH: 3, build: buildNetwork },
   { id: "diskio", title: "Datenträger-Aktivität", w: 4, h: 6, minW: 3, minH: 3, build: buildDiskIo },
   { id: "cores", title: "CPU-Kerne", w: 4, h: 6, minW: 3, minH: 3, build: buildCores },
-  { id: "gpu", title: "Grafikkarte", w: 4, h: 6, minW: 3, minH: 3, build: buildGpu },
-  { id: "sensors", title: "Sensoren", w: 4, h: 6, minW: 3, minH: 3, build: buildSensors },
-  { id: "temps", title: "Temperaturverlauf", w: 4, h: 4, minW: 3, minH: 3, build: buildTemps },
-  { id: "pressure", title: "Wartezeiten", w: 4, h: 4, minW: 3, minH: 3, build: buildPressure },
+  { id: "gpu", title: "Grafikkarte", w: 4, h: 6, minW: 3, minH: 3, build: buildGpu, available: hasGpu },
+  { id: "npu", title: "NPU", w: 4, h: 6, minW: 3, minH: 3, build: buildNpu, available: hasNpu },
+  { id: "sensors", title: "Sensoren", w: 4, h: 6, minW: 3, minH: 3, build: buildSensors, available: ({ s }) => s.sensors.readings.length > 0 || s.gpus.some(gpu => gpu.temperature != null) },
+  { id: "temps", title: "Temperaturverlauf", w: 4, h: 4, minW: 3, minH: 3, build: buildTemps, available: ({ s }) => s.point.cpu_temp != null || s.point.gpu_temp != null },
+  { id: "pressure", title: "Wartezeiten", w: 4, h: 4, minW: 3, minH: 3, build: buildPressure, available: ({ s }) => Boolean(s.pressure.cpu || s.pressure.memory || s.pressure.io) },
   { id: "system", title: "System", w: 4, h: 4, minW: 3, minH: 3, build: buildSystem },
   { id: "services", title: "Systemdienste", w: 4, h: 3, minW: 2, minH: 2, build: buildServices },
   { id: "alerts", title: "Warnungen", w: 8, h: 3, minW: 2, minH: 2, build: buildAlertsCard },

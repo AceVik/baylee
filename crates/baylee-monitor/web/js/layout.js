@@ -31,6 +31,8 @@ export class Dashboard {
     this.columns = WIDE;
     this.editing = false;
     this.undo = null;
+    /** Cards this machine has nothing for, until a sample says otherwise. */
+    this.missing = new Set(cards.filter(card => card.available).map(card => card.id));
     for (const card of cards) this.attach(card);
     new ResizeObserver(() => this.fit()).observe(grid);
     this.apply();
@@ -50,6 +52,14 @@ export class Dashboard {
 
   isHidden(id) {
     return settings.layout.hidden.includes(id);
+  }
+
+  /** Shows what this machine has. A card without a source is no card, not an empty one. */
+  sync(context) {
+    const missing = this.cards.filter(card => card.available && !card.available(context)).map(card => card.id);
+    if (missing.length === this.missing.size && missing.every(id => this.missing.has(id))) return;
+    this.missing = new Set(missing);
+    this.apply();
   }
 
   size(card) {
@@ -87,7 +97,7 @@ export class Dashboard {
         card.node.style.order = "";
         this.grid.append(card.node);
       }
-      card.node.hidden = this.isHidden(id);
+      card.node.hidden = this.isHidden(id) || this.missing.has(id);
       this.place(card);
     });
     this.grid.dispatchEvent(new CustomEvent("layoutchange"));
@@ -140,7 +150,7 @@ export class Dashboard {
 
   /** One step along the visible cards, for the keyboard. */
   moveBy(card, step) {
-    const order = this.order().filter(id => !this.isHidden(id));
+    const order = this.order().filter(id => !this.isHidden(id) && !this.missing.has(id));
     const at = order.indexOf(card.id);
     const target = order[at + step];
     if (!target) return;

@@ -55,6 +55,8 @@ const THRESHOLDS = [
   ["gpuTempCrit", "GPU: kritisch ab", "°C"],
   ["diskTempWarn", "SSD: Warnung ab", "°C"],
   ["diskTempCrit", "SSD: kritisch ab", "°C"],
+  ["batteryWarn", "Akku: Warnung unter", "%"],
+  ["batteryCrit", "Akku: kritisch unter", "%"],
   ["gpuIdleMinutes", "GPU untätig im Training nach", "Min."],
 ];
 
@@ -80,6 +82,7 @@ export function initSettings(dashboard) {
 
   const cardList = h("div", { class: "card-list" }, dashboard.cards.map(card =>
     h("label", { class: "toggle" }, h("input", { type: "checkbox", "data-card": card.id, onchange: event => dashboard.setHidden(card.id, !event.target.checked) }), h("span", { text: card.title }))));
+  const trainingView = h("button", { class: "pill-button", type: "button", text: "Training-Ansicht", onclick: () => dashboard.replaceLayout(JSON.parse(JSON.stringify(TRAINING_PRESET)), "Training-Ansicht aktiv") });
   const notify = h("input", { type: "checkbox", onchange: async event => { await enableNotifications(event.target.checked); sync(); } });
   const sound = h("input", { type: "checkbox", onchange: event => enableSound(event.target.checked) });
   const blocker = h("p", { class: "muted-note", hidden: true });
@@ -115,7 +118,7 @@ export function initSettings(dashboard) {
       cardList,
       h("div", { class: "button-row" },
         h("button", { class: "pill-button", type: "button", text: "Standard wiederherstellen", onclick: () => dashboard.replaceLayout(freshSettings().layout, "Standard-Layout wiederhergestellt") }),
-        h("button", { class: "pill-button", type: "button", text: "Training-Ansicht", onclick: () => dashboard.replaceLayout(JSON.parse(JSON.stringify(TRAINING_PRESET)), "Training-Ansicht aktiv") })),
+        trainingView),
     ),
     section(
       "Warnungen",
@@ -142,7 +145,11 @@ export function initSettings(dashboard) {
   function sync() {
     for (const group of groups) group.sync();
     for (const button of accents.children) button.setAttribute("aria-pressed", String(button.dataset.swatch === settings.accent));
-    for (const box of cardList.querySelectorAll("input")) box.checked = !settings.layout.hidden.includes(box.dataset.card);
+    for (const box of cardList.querySelectorAll("input")) {
+      box.checked = !settings.layout.hidden.includes(box.dataset.card);
+      box.closest("label").hidden = dashboard.missing.has(box.dataset.card);
+    }
+    trainingView.hidden = dashboard.missing.has("training");
     for (const input of document.querySelectorAll("[data-threshold]")) {
       if (document.activeElement !== input) input.value = settings.alerts[input.dataset.threshold];
     }

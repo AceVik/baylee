@@ -160,8 +160,8 @@ fn temperature(hardware: &Path) -> Option<f32> {
         .filter(|celsius| crate::sensors::plausible_temperature(*celsius))
 }
 
-/// A flash controller's bus link, from the PCI function behind it.
-fn pcie_link(function: &Path) -> Option<PcieLink> {
+/// A device's bus link, from the PCI function behind it.
+pub(crate) fn pcie_link(function: &Path) -> Option<PcieLink> {
     let width = |file: &str| number::<u32>(&function.join(file));
     let generation = |file: &str| pcie_generation(&text(&function.join(file))?);
     let link = PcieLink {
