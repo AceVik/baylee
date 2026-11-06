@@ -7089,3 +7089,25 @@ code.
   `codegen --tables --check`, `require-card-tests`, formatting and
   `git diff --check` pass. `validate` accepts 12,545 cards (11,175 finished,
   1,370 stubs). The full gates remain deferred at the owner's request.
+
+## 2026-11-07 — Violent Eruption's played damage division
+
+- Violent Eruption already composes the shared divided-damage spell shape with
+  the face-level madness cost; it needs no engine, DSL, protocol, desktop or
+  seat addition. Its three canonical tests pay the ordinary {1}{R}{R}{R},
+  distribute all four damage across two creatures and a player, reject a zero
+  share, remove one target with a real Lightning Bolt without redistributing
+  its share, and cast the discarded incarnation for exactly {1}{R}{R}. Prying
+  Eyes supplies the real discard rather than moving the card directly to exile.
+- `Duel::battlefield` replaces that seat's previous starting battlefield; it
+  does not append. Combining every land and creature for a seat in one call is
+  necessary when a test asserts an exact mana total. Removing ability zero with
+  `BAYLEE_MUTATE=5554:0` kills the ordinary distribution test, and the restored
+  card passes all three tests plus the eight shared divided-spell tests.
+- All 373 house-AI tests, the full seat suite (494 unit tests and every
+  integration target), 152 desktop interaction tests and nine `record::seen`
+  tests (two ignored) pass. The desktop client including tests compiles.
+  `codegen --tables --check`, `require-card-tests`, formatting and
+  `git diff --check` pass. `validate` accepts 12,545 cards (11,175 finished,
+  71 of the machine-owned cards untested, and 1,370 stubs). The full gates
+  remain deferred at the owner's request.

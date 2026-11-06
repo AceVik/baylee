@@ -11,7 +11,7 @@ card!(
     oracle_id = "842578ca-0a86-4e96-bfd5-45931488f7c1",
     scryfall_id = "419e6697-89ab-49f1-a867-8f86f001c80c",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Violent Eruption",
         mana_cost = mana!("{1}{R}{R}{R}"),
