@@ -18,6 +18,17 @@ pub fn line_shape(line: &str) -> LineShape {
     // which is the failure mode a measurement like this exists to have
     // early rather than after a table is built on it.
     let lower = line.to_lowercase();
+    // An ability word has no rules meaning (CR 207.2c): "Landfall — Whenever
+    // a land you control enters" is the trigger after the dash. Read from the
+    // start alone, every such sentence went to `Other`, and its ability
+    // showed its card's whole text, keywords and all.
+    let lower = lower
+        .split_once(" — ")
+        .filter(|(word, rest)| {
+            !word.contains([':', '{', '.'])
+                && (rest.starts_with("when") || rest.starts_with("at "))
+        })
+        .map_or(lower.as_str(), |(_, rest)| rest);
     // "As this creature enters" is a replacement rather than a trigger by
     // the rules (CR 614), and every card that prints it writes it as
     // `triggered!` here — so for the purpose of finding which sentence an

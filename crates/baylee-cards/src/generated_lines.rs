@@ -36020,7 +36020,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None, Some(1)],
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -36205,7 +36205,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None, None],
+        lines: &[Some(0), None],
         modes: &[],
         alternatives: &[],
     }],
@@ -36245,7 +36245,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None, None],
+        lines: &[Some(0), None],
         modes: &[],
         alternatives: &[],
     }],
@@ -36520,7 +36520,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 2,
-        lines: &[None, Some(1)],
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -36818,7 +36818,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None, None],
+        lines: &[Some(0), None],
         modes: &[],
         alternatives: &[],
     }],
@@ -36850,7 +36850,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 2,
-        lines: &[None, Some(1)],
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -41189,7 +41189,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -49423,7 +49423,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 2,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -49454,7 +49454,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -49555,7 +49555,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -49592,7 +49592,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -49624,7 +49624,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -49654,7 +49654,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -49662,7 +49662,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -49683,7 +49683,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 2,
-        lines: &[None, Some(1)],
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -49763,7 +49763,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -49873,7 +49873,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -49926,7 +49926,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -49957,7 +49957,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -50108,7 +50108,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -50126,7 +50126,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 2,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -50154,7 +50154,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -50262,7 +50262,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -50324,7 +50324,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -50401,7 +50401,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -50457,7 +50457,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -50610,7 +50610,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -50661,7 +50661,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -58235,7 +58235,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 3,
-        lines: &[Some(0), Some(1), None],
+        lines: &[Some(0), Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],
@@ -58279,7 +58279,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -59261,7 +59261,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, None, None],
+        lines: &[None, None, Some(2)],
         modes: &[],
         alternatives: &[],
     }],
@@ -59567,7 +59567,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -59735,7 +59735,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -59757,7 +59757,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -59823,7 +59823,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -59969,7 +59969,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -59985,7 +59985,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -59997,7 +59997,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 2,
-        lines: &[None, Some(1)],
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -60006,7 +60006,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -60788,7 +60788,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -62817,7 +62817,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -62835,7 +62835,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[Some(1), Some(2)],
         alternatives: &[],
     }],
@@ -62892,7 +62892,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -63133,7 +63133,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -63154,7 +63154,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -63196,7 +63196,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -63204,7 +63204,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -63224,7 +63224,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -63283,7 +63283,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -63313,7 +63313,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -63335,7 +63335,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 2,
-        lines: &[None, Some(1)],
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -63344,7 +63344,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -63444,7 +63444,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -63496,7 +63496,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -63571,7 +63571,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -63596,7 +63596,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -63626,7 +63626,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -63675,7 +63675,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -66650,7 +66650,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -69014,7 +69014,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -69022,7 +69022,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -69035,7 +69035,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -69156,7 +69156,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -69439,7 +69439,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -69614,7 +69614,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -69730,7 +69730,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -69743,7 +69743,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -69873,7 +69873,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -70512,7 +70512,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -75812,7 +75812,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 4,
         stackable: 1,
-        lines: &[None, None],
+        lines: &[None, Some(3)],
         modes: &[],
         alternatives: &[],
     }],
@@ -75857,7 +75857,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -75958,7 +75958,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -75974,7 +75974,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -76135,7 +76135,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -76218,7 +76218,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -76244,7 +76244,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -76264,7 +76264,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -76273,7 +76273,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -76404,7 +76404,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -77822,7 +77822,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -77983,7 +77983,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, None],
+        lines: &[None, Some(2)],
         modes: &[],
         alternatives: &[],
     }],
@@ -77992,7 +77992,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -78079,7 +78079,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -78111,7 +78111,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -78245,7 +78245,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         FaceLines {
             sentences: 1,
             stackable: 1,
-            lines: &[None],
+            lines: &[Some(0)],
             modes: &[],
             alternatives: &[],
         },
@@ -78261,7 +78261,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -78332,7 +78332,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -78441,7 +78441,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 2,
-        lines: &[Some(0), Some(0)],
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -78488,7 +78488,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -78535,7 +78535,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -78660,7 +78660,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -78727,7 +78727,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -78783,7 +78783,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -78940,7 +78940,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None, None],
+        lines: &[None, Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -79705,7 +79705,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None, None],
+        lines: &[None, Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -80684,7 +80684,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None, None],
+        lines: &[None, Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -81472,7 +81472,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[None, None],
         alternatives: &[],
     }],
@@ -81539,7 +81539,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -81640,7 +81640,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 6,
         stackable: 4,
-        lines: &[None, Some(2), None, Some(4), Some(5)],
+        lines: &[Some(1), Some(2), None, Some(4), Some(5)],
         modes: &[],
         alternatives: &[],
     }],
@@ -81893,7 +81893,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -81948,7 +81948,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -82069,7 +82069,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -84106,7 +84106,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -84203,7 +84203,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -84300,7 +84300,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -84681,7 +84681,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -84788,7 +84788,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -85270,7 +85270,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -85897,7 +85897,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, None, None, None],
+        lines: &[None, None, None, Some(2)],
         modes: &[],
         alternatives: &[],
     }],
@@ -86472,7 +86472,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -86480,7 +86480,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -86527,7 +86527,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -86545,7 +86545,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 2,
-        lines: &[None, Some(1)],
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -86581,7 +86581,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -86641,7 +86641,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 2,
-        lines: &[None, None],
+        lines: &[Some(1), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -86691,7 +86691,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -86725,7 +86725,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -86739,7 +86739,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -86757,7 +86757,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -86837,7 +86837,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -88845,7 +88845,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -90329,7 +90329,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -91405,7 +91405,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         FaceLines {
             sentences: 2,
             stackable: 2,
-            lines: &[Some(0), None],
+            lines: &[Some(0), Some(1)],
             modes: &[],
             alternatives: &[],
         },
@@ -92662,7 +92662,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 2,
-        lines: &[None, Some(1)],
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -96012,7 +96012,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -96023,7 +96023,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -97112,7 +97112,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 2,
-        lines: &[Some(0), None],
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -97659,7 +97659,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 2,
-        lines: &[Some(1), Some(1)],
+        lines: &[Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],
@@ -97765,7 +97765,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -97907,7 +97907,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 2,
-        lines: &[Some(0), Some(0)],
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -98045,7 +98045,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -98213,7 +98213,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 2,
-        lines: &[Some(0), None],
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -98242,7 +98242,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -98255,7 +98255,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -98464,7 +98464,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -98671,7 +98671,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -98790,7 +98790,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -98949,7 +98949,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -101280,7 +101280,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -101288,7 +101288,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -101439,7 +101439,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 2,
-        lines: &[Some(0), None],
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -101476,7 +101476,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -101529,7 +101529,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -101577,7 +101577,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 2,
-        lines: &[None, Some(1)],
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -102678,7 +102678,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -103650,7 +103650,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -103936,7 +103936,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -103957,7 +103957,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -104071,7 +104071,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[Some(0), None],
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -104669,7 +104669,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -104720,7 +104720,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 1,
-        lines: &[None],
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],

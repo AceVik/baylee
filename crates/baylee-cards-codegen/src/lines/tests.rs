@@ -1380,3 +1380,26 @@ fn life_loss_trigger_lines_keep_their_event_and_player_relation() {
         "Whenever an opponent loses life, draw a card."
     ));
 }
+
+/// An ability word is no part of a sentence's shape (CR 207.2c), and a modal
+/// sentence's dash is not one: `Choose one — ` stays what it was.
+#[test]
+fn an_ability_word_does_not_hide_the_trigger_after_it() {
+    let shape = |line| line_shape(line);
+    assert_eq!(
+        shape("Landfall — Whenever a land you control enters, you gain 1 life."),
+        LineShape::Triggered
+    );
+    assert_eq!(
+        shape("Constellation — Whenever an enchantment you control enters, scry 1."),
+        LineShape::Triggered
+    );
+    assert_ne!(
+        shape("Choose one — Target player draws a card."),
+        LineShape::Triggered
+    );
+    assert_ne!(
+        shape("{2}: Draw a card — when you do, scry 1."),
+        LineShape::Triggered
+    );
+}
