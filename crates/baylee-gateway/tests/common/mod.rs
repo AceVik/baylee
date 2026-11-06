@@ -434,6 +434,21 @@ fn try_http(port: u16, method: &str, path: &str) -> Option<(u16, String)> {
 
 /// Minimal blocking HTTP/1.1 client. The gateway is a separate process;
 /// nothing else needs this test's runtime thread.
+/// Waits until a gateway takes Central sign-ins: it answers `503` until it has
+/// Central's keys and one finished catch-up, and a token that is no token is
+/// refused only after that.
+pub fn central_ready(port: u16) {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+    let body = r#"{"token":"not.a.token"}"#;
+    while http(port, "POST", "/auth/central/login", None, body).0 == 503 {
+        assert!(
+            std::time::Instant::now() < deadline,
+            "a gateway must catch up with Central"
+        );
+        std::thread::sleep(std::time::Duration::from_millis(500));
+    }
+}
+
 pub fn http(port: u16, method: &str, path: &str, token: Option<&str>, body: &str) -> (u16, String) {
     use std::io::{Read, Write};
     let mut stream = std::net::TcpStream::connect(("127.0.0.1", port)).expect("connect http");

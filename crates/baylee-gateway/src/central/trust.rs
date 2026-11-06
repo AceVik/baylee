@@ -66,7 +66,7 @@ struct State {
 pub(crate) struct Trust {
     issuer: String,
     /// This gateway's origins: one, or the official gateway's with its alias.
-    audiences: Vec<String>,
+    audiences: Mutex<Vec<String>>,
     state: Mutex<State>,
 }
 
@@ -74,7 +74,7 @@ impl Trust {
     pub(crate) fn new(issuer: String, audiences: Vec<String>) -> Self {
         Self {
             issuer,
-            audiences,
+            audiences: Mutex::new(audiences),
             state: Mutex::new(State {
                 keys: None,
                 fetched_at: None,
@@ -99,6 +99,11 @@ impl Trust {
     /// a minute, whatever asks. `unknown_key` asks ahead of the five minutes.
     pub(crate) fn may_fetch_keys(&self, now: i64, unknown_key: bool) -> bool {
         let mut state = self.state.lock();
+        // With no keys held no token reaches this, so nothing outside can make
+        // it ask, and every Central sign-in is waiting on the answer.
+        if state.keys.is_none() {
+            return true;
+        }
         if state
             .asked_at
             .is_some_and(|asked| now < asked + KEYS_AT_MOST_SECS)
@@ -112,6 +117,12 @@ impl Trust {
             state.asked_at = Some(now);
         }
         due || unknown_key
+    }
+
+    /// One more origin a token may name. Only a development gateway adds one:
+    /// its own address, known once it is bound (`Link::bound`).
+    pub(crate) fn add_audience(&self, origin: String) {
+        self.audiences.lock().push(origin);
     }
 
     /// The first catch-up since this process started has finished.
@@ -148,7 +159,8 @@ impl Trust {
         now: i64,
     ) -> Result<C, JwtError> {
         let mut refused = JwtError::Audience;
-        for audience in &self.audiences {
+        let audiences = self.audiences.lock().clone();
+        for audience in &audiences {
             let expected = Expected {
                 issuer: &self.issuer,
                 audience,
@@ -475,6 +487,27 @@ mod tests {
         assert_eq!(trust.applied(), 3);
         assert!(!trust.fetched(&signed(&revocation('c', 4, 9)), NOW).ok().unwrap().gap);
         assert_eq!(trust.applied(), 9);
+    }
+
+    /// A restart while Central is away must not hold every sign-in a minute
+    /// past its return: with no keys, no token can ask, so nothing can flood.
+    #[test]
+    fn a_gateway_with_no_keys_may_keep_asking_for_them() {
+        let starting = Trust::new(ISSUER.into(), vec![HERE.into()]);
+        assert!(starting.may_fetch_keys(NOW, false));
+        assert!(starting.may_fetch_keys(NOW + 1, false));
+        starting.set_keys(keys(), NOW + 2);
+        assert!(!starting.may_fetch_keys(NOW + 3, false));
+    }
+
+    #[test]
+    fn an_audience_added_later_is_taken_and_no_other() {
+        let trust = trust();
+        let mut claims = gateway_claims();
+        claims.aud = "http://127.0.0.1:4000".into();
+        assert_eq!(refusal(&trust, &claims), Some(Refused::Token));
+        trust.add_audience("http://127.0.0.1:4000".into());
+        assert_eq!(refusal(&trust, &claims), None);
     }
 
     #[test]

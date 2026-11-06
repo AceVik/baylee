@@ -660,12 +660,13 @@ async fn main() {
             metrics::count,
         ))
         .layer(axum::middleware::from_fn(cors))
-        .with_state(state);
+        .with_state(state.clone());
 
     #[cfg(unix)]
     if let Some(path) = std::env::var_os("BAYLEE_UNIX_SOCKET").filter(|p| !p.is_empty()) {
         serve_unix(std::path::Path::new(&path), app.clone());
     }
+    state.central.bound(port);
     announce(port);
     axum::serve(
         listener,

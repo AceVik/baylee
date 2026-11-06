@@ -69,6 +69,94 @@ impl LiveSeat {
         }
     }
 
+    /// A frame still goes through to the engine and back.
+    pub(super) fn assert_live(&mut self, runtime: &Runtime) {
+        let received = self.probe.seat_frames.load(Ordering::SeqCst);
+        runtime.block_on(async {
+            let probe = v1::envelope::Msg::ClockProbe(v1::ClockProbe {
+                client_time_ms: 4343,
+                server_time_ms: 0,
+            });
+            common::send(&mut self.socket, &Envelope { msg: Some(probe) }).await;
+            tokio::time::timeout(common::WAIT_BUDGET, async {
+                while let Some(message) = common::next_msg(&mut self.socket).await {
+                    if matches!(message, v1::envelope::Msg::ClockProbe(back) if back.client_time_ms == 4343)
+                    {
+                        return;
+                    }
+                }
+                panic!("a live session's socket must reach its engine");
+            })
+            .await
+            .unwrap();
+        });
+        assert!(self.probe.seat_frames.load(Ordering::SeqCst) > received);
+    }
+
+    /// The socket closes for a refusal, saying so, and what the player sends
+    /// after that never reaches the engine. Nothing is sent before the close
+    /// is seen, so the only frames that could arrive are ones that got past it.
+    pub(super) fn assert_closed_for_a_refusal(&mut self, runtime: &Runtime) {
+        use tokio_tungstenite::tungstenite::Message;
+        let received = self.probe.seat_frames.load(Ordering::SeqCst);
+        let frame = runtime.block_on(async {
+            tokio::time::timeout(std::time::Duration::from_secs(5), async {
+                loop {
+                    match self.socket.next().await {
+                        Some(Ok(Message::Close(frame))) => return frame,
+                        Some(Ok(_)) => {}
+                        other => panic!("a socket ended without saying why: {other:?}"),
+                    }
+                }
+            })
+            .await
+            .expect("a revoked socket must close at once")
+        });
+        let frame = frame.expect("a close for a refusal says why");
+        assert_eq!(
+            u16::from(frame.code),
+            baylee_protocol::refusal::REFUSAL_CLOSE
+        );
+        assert_eq!(frame.reason.as_str(), baylee_protocol::refusal::SESSION_ENDED);
+        runtime.block_on(async {
+            let concede = v1::envelope::Msg::PlayerAction(v1::PlayerActionMsg {
+                game_id: String::new(),
+                seat_token: String::new(),
+                action_json: serde_json::to_vec(&PlayerAction::Concede).unwrap(),
+            });
+            let envelope = Envelope { msg: Some(concede) };
+            use prost::Message as _;
+            let _ = futures_util::SinkExt::send(
+                &mut self.socket,
+                Message::Binary(envelope.encode_to_vec().into()),
+            )
+            .await;
+            tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+        });
+        assert_eq!(
+            self.probe.seat_frames.load(Ordering::SeqCst),
+            received,
+            "no frame reaches the engine after a revocation"
+        );
+    }
+
+    /// The socket closes on its own within `limit`, with nothing pushed to the
+    /// gateway.
+    pub(super) fn assert_closes_within(&mut self, runtime: &Runtime, limit: std::time::Duration) {
+        use tokio_tungstenite::tungstenite::Message;
+        runtime.block_on(async {
+            tokio::time::timeout(limit, async {
+                while let Some(frame) = self.socket.next().await {
+                    if matches!(frame, Ok(Message::Close(_)) | Err(_)) {
+                        return;
+                    }
+                }
+            })
+            .await
+            .expect("the gateway's catch-up must end a revoked session");
+        });
+    }
+
     pub(super) fn assert_revoked(&mut self, runtime: &Runtime) {
         let received = self.probe.seat_frames.load(Ordering::SeqCst);
         runtime.block_on(async {

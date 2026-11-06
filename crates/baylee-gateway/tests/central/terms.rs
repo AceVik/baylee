@@ -4,7 +4,7 @@
 //! whose account has not accepted them, lets it go on once it accepted them
 //! at Central, and asks again after an admin published a new version.
 use super::{CentralHttp, Endpoint, common, config_file, sdk};
-use baylee_account::wire::TicketPurpose;
+use baylee_account::wire::GatewayPurpose;
 use baylee_account::{
     gateway::GatewayMetadata,
     terms::{TermsSubject, TermsVersion},
@@ -22,7 +22,7 @@ fn admit(port: u16, session: &sdk::Session, http: &CentralHttp) -> serde_json::V
         port,
         session,
         http,
-        TicketPurpose::Admit,
+        GatewayPurpose::Admit,
         "/auth/central/login",
     )
 }
@@ -31,13 +31,11 @@ fn signed_in(
     port: u16,
     session: &sdk::Session,
     http: &CentralHttp,
-    purpose: TicketPurpose,
+    purpose: GatewayPurpose,
     path: &str,
 ) -> serde_json::Value {
-    let ticket = session
-        .gateway_capability(http, ORIGIN.into(), purpose)
-        .unwrap();
-    let body = serde_json::to_string(&serde_json::json!({"ticket":ticket})).unwrap();
+    let token = super::gateway_token(session, http, ORIGIN, purpose);
+    let body = super::sign_in_body(&token);
     let (status, body) = common::http(port, "POST", path, None, &body);
     assert_eq!(status, 200, "admission: {body}");
     serde_json::from_str(&body).unwrap()
@@ -192,7 +190,7 @@ fn republished(gateway: &common::Gateway, console: u16, owner: &sdk::Session, ht
         gateway.port,
         owner,
         http,
-        TicketPurpose::Admin,
+        GatewayPurpose::Admin,
         "/auth/central/admin",
     )["token"]
         .as_str()

@@ -17,17 +17,22 @@ mod personal;
 mod registered;
 #[path = "central/renewal.rs"]
 mod renewal;
+#[path = "central/revocation.rs"]
+mod revocation;
+#[path = "central/seat.rs"]
+mod seat;
 #[path = "central/terms.rs"]
 mod terms;
 #[path = "central/token.rs"]
 mod token;
 
 use baylee_account::{
-    Account, CentralHttp, Endpoint, Token, data::AccountData, sdk, wire::TicketPurpose,
+    Account, CentralHttp, Endpoint, Token, data::AccountData, sdk, wire::GatewayPurpose,
 };
 use central_crypto::opaque::server::ServerKeys;
 use central_http::DevelopmentServer;
-use central_identity::IdentityService;
+use central_crypto::jwt::SigningKey;
+use central_identity::{IdentityService, TokenKeys};
 use central_postgres::{AccountStore, DevConfig, LegacyRow, LegacyStore};
 use sea_orm::ConnectionTrait;
 use std::{
@@ -47,7 +52,10 @@ impl Drop for BridgeFile {
 }
 
 fn bridge_file(endpoint: &Endpoint, bridge: &Token) -> BridgeFile {
-    config_file(&serde_json::json!({"endpoint":endpoint.origin(),"bridge":bridge}))
+    // The alias is known ahead; the gateway adds its own address once bound.
+    config_file(&serde_json::json!({
+        "endpoint":endpoint.origin(), "bridge":bridge, "origin":aliases::ALIAS,
+    }))
 }
 
 fn config_file(settings: &serde_json::Value) -> BridgeFile {
@@ -67,6 +75,73 @@ fn config_file(settings: &serde_json::Value) -> BridgeFile {
     let bytes = zeroize::Zeroizing::new(serde_json::to_vec(settings).unwrap());
     file.write_all(&bytes).unwrap();
     guard
+}
+
+/// A fresh signing key for one fixture's Central.
+fn token_keys() -> TokenKeys {
+    let key = SigningKey::from_seed(&SigningKey::generate_seed().unwrap());
+    TokenKeys::new(key, Vec::new()).unwrap()
+}
+
+/// A gateway token for `origin`, as the client asks for one.
+fn gateway_token(
+    session: &sdk::Session,
+    http: &CentralHttp,
+    origin: &str,
+    purpose: GatewayPurpose,
+) -> baylee_account::SignedToken {
+    session
+        .gateway_token(http, origin.into(), purpose)
+        .unwrap()
+        .0
+}
+
+/// The body of a sign-in with `token`.
+fn sign_in_body(token: &baylee_account::SignedToken) -> String {
+    serde_json::json!({ "token": token.expose() }).to_string()
+}
+
+/// Every revocation Central holds for a gateway, signed fresh, as its push
+/// would send them. Central's development service has no push sender, so the
+/// fixture stands in for that one step and nothing else: the message is
+/// Central's own, and the route it reaches is the gateway's real one.
+fn central_messages(http: &CentralHttp, credential: &Token) -> Vec<baylee_account::SignedToken> {
+    use baylee_account::wire::{Request, Response};
+    let mut messages = Vec::new();
+    let mut after = 0;
+    loop {
+        let asked = Request::GatewayRevocations { after };
+        let Response::GatewayRevocations { token, last, .. } =
+            http.exchange(&asked, Some(credential.into())).unwrap()
+        else {
+            panic!("Central answers what it asked about");
+        };
+        let Some(token) = token else {
+            return messages;
+        };
+        messages.push(token);
+        after = last;
+    }
+}
+
+/// Posts one message to the gateway's invalidate route.
+fn invalidate(port: u16, message: &str) -> u16 {
+    common::http_bytes(
+        port,
+        "POST",
+        "/auth/central/invalidate",
+        None,
+        "application/jwt",
+        message.as_bytes(),
+    )
+    .0
+}
+
+/// What Central's push does: everything it holds for this gateway reaches it.
+fn pushed(http: &CentralHttp, credential: &Token, port: u16) {
+    for message in central_messages(http, credential) {
+        assert_eq!(invalidate(port, message.expose()), 204);
+    }
 }
 
 /// The synthetic player's sign-in, with the password its move brought to
@@ -164,12 +239,13 @@ fn central_login_migrates_then_restores_and_admits_without_the_legacy_password()
     let served = serve(&runtime, &store, &legacy, "central", None);
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         let (gateway, endpoint, origin) = (&served.gateway, &served.endpoint, &served.origin);
-        run(gateway, endpoint, origin, &runtime, &operator);
-        renewal::run(gateway, endpoint, origin, &runtime, &operator);
+        run(gateway, endpoint, origin, &runtime, &operator, &served.bridge);
+        renewal::run(gateway, endpoint, origin, &runtime, &operator, &served.bridge);
         fresh::run(&runtime, &served.service, &operator, endpoint, gateway);
         registered::run(&runtime, &operator, endpoint);
         terms::run(&runtime, &operator, endpoint);
-        aliases::run(gateway, endpoint);
+        aliases::run(gateway, endpoint, &served.bridge);
+        revocation::run(&runtime, gateway, endpoint, origin, &served.bridge);
         official::run(&runtime, &operator, endpoint, &served.bridge, origin);
         personal::run(&runtime, &operator, endpoint);
         token::run(&runtime, &store, &operator, endpoint);
@@ -244,6 +320,7 @@ fn serve(
             ServerKeys::generate(),
             &bridge,
             &origin,
+            token_keys(),
         )
         .unwrap()
         .with_aliases(vec![aliases::ALIAS.into()])
@@ -262,6 +339,7 @@ fn serve(
             .await
             .unwrap();
     });
+    common::central_ready(gateway.port);
     Served {
         endpoint,
         gateway,
@@ -394,6 +472,7 @@ fn run(
     origin: &str,
     runtime: &Runtime,
     operator: &sea_orm::DatabaseConnection,
+    bridge: &Token,
 ) {
     // An account from before the cutover, with game data and settings.
     let old_token = common::login(gateway.port, "synthetic", "Synthetic");
@@ -486,10 +565,16 @@ fn run(
         )
         .is_err()
     );
-    restored_account(endpoint, origin, gateway.port, &expected);
+    restored_account(endpoint, origin, gateway.port, &expected, bridge);
 }
 
-fn restored_account(endpoint: &Endpoint, origin: &str, port: u16, expected: &AccountData) {
+fn restored_account(
+    endpoint: &Endpoint,
+    origin: &str,
+    port: u16,
+    expected: &AccountData,
+    bridge: &Token,
+) {
     let mut first = Account::login(
         endpoint.clone(),
         "synthetic".into(),
@@ -525,10 +610,11 @@ fn restored_account(endpoint: &Endpoint, origin: &str, port: u16, expected: &Acc
             .save(Some(serde_json::json!({"revoked":true})), None)
             .is_err()
     );
+    pushed(&CentralHttp::new(endpoint.clone()), bridge, port);
     assert_eq!(
         common::http(port, "GET", "/me", Some(&old_gateway_token), "").0,
         401,
-        "a successful new Central login immediately revokes the previous gateway lease"
+        "a successful new Central login ends the session before it, at every gateway"
     );
     second
         .save(Some(serde_json::json!({"device_two":2})), None)

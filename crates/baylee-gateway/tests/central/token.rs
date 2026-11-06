@@ -4,7 +4,7 @@
 //! the origin and mints the token at Central, an administrator approves it,
 //! the console takes the token, Central's players sign in there, its entry
 //! is listed online, a revoked token shows as such, and removing it unlinks.
-use super::{CentralHttp, Endpoint, TicketPurpose, common, sdk};
+use super::{CentralHttp, Endpoint, GatewayPurpose, common, sdk};
 use baylee_account::{Token, owner, wire::Discovery};
 use central_postgres::{AccountStore, Session};
 use sea_orm::{ConnectionTrait as _, DatabaseConnection, DbBackend, Statement};
@@ -176,10 +176,9 @@ pub(super) fn run(
     let (_, config) = common::http(gateway.port, "GET", "/auth/config", None, "");
     assert!(config.contains("\"central\":true"), "{config}");
     // Central's player signs in there.
-    let ticket = player
-        .gateway_capability(&http, origin.clone(), TicketPurpose::Admit)
-        .unwrap();
-    let body = serde_json::json!({ "ticket": ticket }).to_string();
+    common::central_ready(gateway.port);
+    let token = super::gateway_token(&player, &http, &origin, GatewayPurpose::Admit);
+    let body = super::sign_in_body(&token);
     let (status, body) = common::http(gateway.port, "POST", "/auth/central/login", None, &body);
     assert_eq!(status, 200, "a token-linked gateway admits: {body}");
     assert!(listed(&http, &origin), "listed online");

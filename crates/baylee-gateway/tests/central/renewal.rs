@@ -1,15 +1,15 @@
-//! A renewed Central session keeps its gateway session (baylee-central
-//! `docs/operations.md` §"Sessions"): Central moves the lease's expiry with
-//! the session, and the gateway takes that later expiry on its next check
-//! instead of refusing a lease that no longer matches the one it stored. Before
-//! renewal, every Central sign-in, and every game on it, ended 30 minutes in
-//! (beta.8a, 22.10.2026).
-use super::{Account, Endpoint, PASSWORD, common, cutover};
+//! A session outlives its bearers and its gateway token (`docs/central-login.md`
+//! §"Sessions"): a bearer renews without Central, a later gateway token carries
+//! the session on, and neither changes what a socket or a chair holds on to.
+use super::{Account, Endpoint, PASSWORD, Token, common, cutover};
 use sea_orm::DatabaseConnection;
-use std::time::Duration;
 use tokio::runtime::Runtime;
 
 const USERNAME: &str = "renewing";
+
+fn bearer_of(body: &str) -> String {
+    common::json_field(body, "token").to_owned()
+}
 
 pub(super) fn run(
     gateway: &common::Gateway,
@@ -17,11 +17,9 @@ pub(super) fn run(
     origin: &str,
     runtime: &Runtime,
     operator: &DatabaseConnection,
+    bridge: &Token,
 ) {
     common::login(gateway.port, USERNAME, "Renewing");
-    let source_id = gateway.text(&format!(
-        "SELECT id::text FROM account WHERE username_key = '{USERNAME}'"
-    ));
     assert_eq!(cutover(gateway, runtime, operator), 1);
     let account = Account::login(
         endpoint.clone(),
@@ -31,32 +29,47 @@ pub(super) fn run(
     )
     .unwrap();
     let admitted = account.admit(origin).unwrap();
-    // The lease bounds a Central session here; the bearer's own expiry
-    // renews itself on use, as every session's does.
-    let leased = format!(
-        "SELECT floor(extract(epoch FROM c.expires_at))::bigint FROM session_token s
-         JOIN central_gateway_session c ON c.token_hash = s.token_hash
-         WHERE s.account_id = '{source_id}'::uuid"
-    );
-    let first = gateway.scalar(&leased);
+    let first = admitted.token.clone();
+    let renew_in = admitted.renew_in.unwrap();
+    assert!((44..=108).contains(&renew_in), "{renew_in}");
+    assert_eq!(common::http(gateway.port, "GET", "/me", Some(&first), "").0, 200);
+
+    // Renewal needs no Central, and only the current bearer may ask.
+    let (status, body) =
+        common::http(gateway.port, "POST", "/auth/session/renew", Some(&first), "");
+    assert_eq!(status, 200, "{body}");
+    let second = bearer_of(&body);
+    assert_ne!(first, second);
+    assert_eq!(common::http(gateway.port, "GET", "/me", Some(&second), "").0, 200);
     assert_eq!(
-        common::http(gateway.port, "GET", "/me", Some(&admitted.token), "").0,
+        common::http(gateway.port, "GET", "/me", Some(&first), "").0,
+        200,
+        "the old bearer serves what was in flight"
+    );
+    assert_eq!(
+        common::http(gateway.port, "POST", "/auth/session/renew", Some(&first), "").0,
+        401,
+        "a used bearer cannot renew, so a copy of it cannot fork the session"
+    );
+
+    // A later gateway token carries the session on, with a new bearer: the way
+    // back for a client whose renewal was lost.
+    let refreshed = account.refresh_gateway(origin).unwrap();
+    assert_ne!(refreshed.token, second);
+    assert_eq!(
+        common::http(gateway.port, "GET", "/me", Some(&refreshed.token), "").0,
         200
     );
-    // Expiries are whole seconds: one later, the renewal is a later one.
-    std::thread::sleep(Duration::from_millis(1_100));
-    let renewed = account.renew().unwrap();
-    assert!(renewed > first, "a renewal moves the session forward");
     assert_eq!(
-        common::http(gateway.port, "GET", "/me", Some(&admitted.token), "").0,
-        200,
-        "the gateway takes the renewed lease"
+        common::http(gateway.port, "POST", "/auth/session/renew", Some(&second), "").0,
+        401,
+        "a refresh retires the bearer before it too"
     );
-    assert_eq!(gateway.scalar(&leased), renewed, "and keeps its expiry");
+
     // Signing out still ends it at once, renewed or not.
+    let bearer = refreshed.token.clone();
     account.logout().unwrap();
-    assert_eq!(
-        common::http(gateway.port, "GET", "/me", Some(&admitted.token), "").0,
-        401
-    );
+    let http = super::CentralHttp::new(endpoint.clone());
+    super::pushed(&http, bridge, gateway.port);
+    assert_eq!(common::http(gateway.port, "GET", "/me", Some(&bearer), "").0, 401);
 }

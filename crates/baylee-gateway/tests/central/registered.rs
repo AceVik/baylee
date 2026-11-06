@@ -1,12 +1,12 @@
 //! Real registered-gateway admission, live revocation and separated admin authority.
 use super::{CentralHttp, Endpoint, common, config_file, sdk};
-use baylee_account::wire::TicketPurpose;
+use baylee_account::wire::GatewayPurpose;
 use baylee_account::{gateway::GatewayMetadata, wire::Discovery};
 use futures_util::StreamExt as _;
 use sea_orm::{ConnectionTrait as _, DatabaseConnection, DbBackend, Statement};
 use tokio::runtime::Runtime;
-#[path = "seat.rs"]
-mod seat;
+
+use super::seat;
 
 fn admit(
     port: u16,
@@ -15,18 +15,12 @@ fn admit(
     origin: &str,
     admin: bool,
 ) -> String {
-    let ticket = session
-        .gateway_capability(
-            http,
-            origin.into(),
-            if admin {
-                TicketPurpose::Admin
-            } else {
-                TicketPurpose::Admit
-            },
-        )
-        .unwrap();
-    let body = serde_json::to_string(&serde_json::json!({"ticket":ticket})).unwrap();
+    let purpose = if admin {
+        GatewayPurpose::Admin
+    } else {
+        GatewayPurpose::Admit
+    };
+    let body = super::sign_in_body(&super::gateway_token(session, http, origin, purpose));
     let path = if admin {
         "/auth/central/admin"
     } else {
@@ -62,7 +56,9 @@ pub(super) fn run(runtime: &Runtime, operator: &DatabaseConnection, endpoint: &E
     // Approval is for the public list only (Central #51): a registered gateway
     // admits players while it waits, but the list does not show it yet.
     assert!(
-        owner.gateway_ticket(&http, origin.into()).is_ok(),
+        owner
+            .gateway_token(&http, origin.into(), GatewayPurpose::Admit)
+            .is_ok(),
         "a gateway awaiting approval admits players"
     );
     assert!(
@@ -84,7 +80,7 @@ pub(super) fn run(runtime: &Runtime, operator: &DatabaseConnection, endpoint: &E
     });
     assert!(
         owner
-            .gateway_capability(&http, origin.into(), TicketPurpose::Admin)
+            .gateway_token(&http, origin.into(), GatewayPurpose::Admin)
             .is_err(),
         "ownership does not silently grant gateway admin membership"
     );
@@ -121,6 +117,7 @@ pub(super) fn run(runtime: &Runtime, operator: &DatabaseConnection, endpoint: &E
             ),
         ],
     );
+    common::central_ready(gateway.port);
     let admin_port: u16 = std::fs::read_to_string(&admin_file.0)
         .unwrap()
         .trim()
@@ -133,8 +130,16 @@ pub(super) fn run(runtime: &Runtime, operator: &DatabaseConnection, endpoint: &E
         &http,
         origin,
         registered.gateway,
+        &registered.credential,
     );
-    check_revocation(&gateway, runtime, &owner, &http, origin, identity, &player);
+    let seated = Seated {
+        gateway: &gateway,
+        runtime,
+        http: &http,
+        origin,
+        credential: &registered.credential,
+    };
+    check_revocation(&seated, &owner, identity, &player);
     drop(gateway);
     drop(admin_file);
     drop(config);
@@ -147,6 +152,7 @@ fn check_access(
     http: &CentralHttp,
     origin: &str,
     registered: [u8; 16],
+    credential: &baylee_account::Token,
 ) -> String {
     common::login(gateway.port, "synthetic", "LocalName");
     let player = admit(gateway.port, owner, http, origin, false);
@@ -181,10 +187,11 @@ fn check_access(
             .unwrap(),
         3
     );
+    super::pushed(http, credential, gateway.port);
     assert_eq!(
         common::http(admin_port, "GET", "/admin/stats", Some(&admin), "").0,
         401,
-        "removing an admin immediately invalidates its existing gateway bearer"
+        "removing an admin ends its existing gateway bearer"
     );
     let listing = sdk::gateway_directory(http, None).unwrap();
     assert!(
@@ -225,15 +232,28 @@ fn concurrent_lease_checks(port: u16, token: &str) {
     });
 }
 
+/// Where a revocation is checked: this gateway, and what reaches it.
+struct Seated<'a> {
+    gateway: &'a common::Gateway,
+    runtime: &'a Runtime,
+    http: &'a CentralHttp,
+    origin: &'a str,
+    credential: &'a baylee_account::Token,
+}
+
 fn check_revocation(
-    gateway: &common::Gateway,
-    runtime: &Runtime,
+    seated: &Seated<'_>,
     owner: &sdk::Session,
-    http: &CentralHttp,
-    origin: &str,
     identity: baylee_account::wire::Identity,
     player: &str,
 ) {
+    let Seated {
+        gateway,
+        runtime,
+        http,
+        origin,
+        credential,
+    } = *seated;
     let mut active = seat::LiveSeat::open(runtime, gateway, player);
     let game_id = active.game.clone();
     let seat_token = active.token.clone();
@@ -254,6 +274,7 @@ fn check_revocation(
     let mut resumed = seat::ResumedSeat::claim(runtime, gateway, &fresh);
     assert_eq!(resumed.game, game_id);
     assert_ne!(resumed.token, seat_token);
+    super::pushed(http, credential, gateway.port);
     active.assert_revoked(runtime);
     resumed.assert_continues(runtime, &active.opening);
     assert_eq!(
@@ -295,6 +316,7 @@ fn check_revocation(
         "repeated admission reuses the immutable projection"
     );
     newer.logout(http).unwrap();
+    super::pushed(http, credential, gateway.port);
     assert_eq!(
         common::http(gateway.port, "GET", "/me", Some(&fresh), "").0,
         401

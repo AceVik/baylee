@@ -68,7 +68,7 @@ async fn apply(state: &Shared, bridge: &Arc<Bridge>, token: &str) -> bool {
     let Ok(applied) = taken else {
         return false;
     };
-    routes::ended(state, bridge, &applied);
+    routes::ended(&state.sessions, bridge, &applied);
     true
 }
 

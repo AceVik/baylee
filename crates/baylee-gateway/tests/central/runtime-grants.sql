@@ -5,7 +5,7 @@
 GRANT USAGE ON SCHEMA central_identity TO central_runtime;
 GRANT SELECT, INSERT ON central_identity.pending_accounts TO central_runtime;
 GRANT SELECT, INSERT, UPDATE, DELETE ON central_identity.accounts, central_identity.sessions,
-  central_identity.gateway_tickets, central_identity.private_objects TO central_runtime;
+  central_identity.private_objects TO central_runtime;
 GRANT SELECT, INSERT ON central_identity.migration_archives TO central_runtime;
 GRANT SELECT, INSERT, UPDATE ON central_identity.gateways TO central_runtime;
 -- Administrators approve, enable and disable gateways on the website
@@ -14,9 +14,12 @@ GRANT SELECT, INSERT, UPDATE (enabled) ON central_identity.gateway_approvals TO 
 -- Gateway tokens (docs/gateway-registry.md §"Gateway tokens"): stored by
 -- digest; afterwards only their revocation and last use change.
 GRANT SELECT, INSERT, UPDATE (revoked_at, last_used_at) ON central_identity.gateway_tokens TO central_runtime;
-GRANT SELECT, INSERT, DELETE ON central_identity.gateway_admins, central_identity.gateway_leases TO central_runtime;
--- A renewed session moves its leases' expiry with it, and nothing else of them.
-GRANT UPDATE (expires_at) ON central_identity.gateway_leases TO central_runtime;
+GRANT SELECT, INSERT, DELETE ON central_identity.gateway_admins TO central_runtime;
+-- Session tokens (docs/gateway-registry.md §"Session tokens"): a session as each gateway
+-- knows it, and each gateway's revocations, which the runtime can add and age out but
+-- never rewrite.
+GRANT SELECT, INSERT, UPDATE ON central_identity.gateway_streams TO central_runtime;
+GRANT SELECT, INSERT, DELETE ON central_identity.gateway_sids, central_identity.gateway_revocations TO central_runtime;
 GRANT SELECT, INSERT ON central_identity.gateway_terms, central_identity.gateway_terms_texts,
   central_identity.terms_acceptances TO central_runtime;
 -- A key's uses are spent by enrollment; issuing and revoking keys stay with the operator.

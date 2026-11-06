@@ -133,6 +133,17 @@ impl Link {
         self.file
     }
 
+    /// This gateway is bound to `port`. In development it may be reached at an
+    /// address nobody could write down before it bound, so a token for that
+    /// address is for it. Live, its origins are the ones it was told.
+    pub(crate) fn bound(&self, port: u16) {
+        if let Some(bridge) = self.get()
+            && bridge.http.endpoint().legacy_origin().is_none()
+        {
+            bridge.trust.add_audience(format!("http://127.0.0.1:{port}"));
+        }
+    }
+
     /// Use `bridge` from now on: a pasted token's, or none. A request that
     /// holds the earlier bridge finishes with it.
     fn set(&self, bridge: Option<Arc<Bridge>>) {

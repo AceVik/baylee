@@ -105,6 +105,50 @@ async fn take_profile(state: &Shared, claims: &GatewayClaims, account_id: &str) 
         .unwrap_or(false)
 }
 
+/// The session of a checked token, opened unless it was revoked meanwhile.
+///
+/// Asked after opening, and that order is the whole point: a revocation writes
+/// its `sid` down and then ends the session ([`ended`]), and a sign-in opens
+/// the session and then reads that list. Whichever comes first, one sees the
+/// other, so a revocation that lands during the waits of a sign-in cannot leave
+/// a session standing.
+fn opened(
+    book: &sessions::Book,
+    trust: &super::trust::Trust,
+    claims: &GatewayClaims,
+    account: &str,
+    now: i64,
+    signed: Signed,
+) -> Result<Arc<sessions::Live>, StatusCode> {
+    opened_around(book, trust, claims, account, now, signed, || {})
+}
+
+/// [`opened`], with `between` run at the one point that matters, so that a test
+/// can put a revocation exactly there instead of hoping two threads meet.
+fn opened_around(
+    book: &sessions::Book,
+    trust: &super::trust::Trust,
+    claims: &GatewayClaims,
+    account: &str,
+    now: i64,
+    signed: Signed,
+    between: impl FnOnce(),
+) -> Result<Arc<sessions::Live>, StatusCode> {
+    let key = key_of(&claims.sid);
+    let live = book
+        .open(key.clone(), account, claims.exp, now, signed)
+        .map_err(|sessions::Full| StatusCode::SERVICE_UNAVAILABLE)?;
+    if let Some(signed) = live.signed() {
+        signed.set_terms(claims.terms.clone());
+    }
+    between();
+    if trust.revoked(&claims.sid) {
+        book.end(&key, Ended::Revoked);
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+    Ok(live)
+}
+
 /// A sign-in from a gateway token: the account, its session in the book, and a
 /// bearer for it.
 async fn sign_in(state: &Shared, token: &str, purpose: Purpose) -> Result<Json<Value>, StatusCode> {
@@ -160,22 +204,8 @@ async fn sign_in(state: &Shared, token: &str, purpose: Purpose) -> Result<Json<V
         account = allowed(state, &account_id).await?;
     }
     let now = sessions::now();
-    let key = key_of(&claims.sid);
     let signed = Signed::new(central, admin, claims.terms.clone());
-    let live = state
-        .sessions
-        .open(key.clone(), &account_id, claims.exp, now, signed)
-        .map_err(|sessions::Full| StatusCode::SERVICE_UNAVAILABLE)?;
-    if let Some(signed) = live.signed() {
-        signed.set_terms(claims.terms.clone());
-    }
-    // Asked after opening: a revocation writes its `sid` down and then ends
-    // the session, so one that came during the waits above is seen here, or
-    // finds the session open and ends it.
-    if bridge.trust.revoked(&claims.sid) {
-        state.sessions.end(&key, Ended::Revoked);
-        return Err(StatusCode::UNAUTHORIZED);
-    }
+    let live = opened(&state.sessions, &bridge.trust, &claims, &account_id, now, signed)?;
     let issued = state
         .sessions
         .issue(&live, now)
@@ -389,12 +419,17 @@ async fn renew(State(state): State<Shared>, headers: HeaderMap) -> Response {
     }
 }
 
+/// Ends the sessions a revocation names, which it has already written down.
+fn end_sessions(book: &sessions::Book, sids: &[String]) {
+    for sid in sids {
+        book.end(&key_of(sid), Ended::Revoked);
+    }
+}
+
 /// Applies a message that was taken: its sessions end now, and a gap sets the
 /// catch-up going.
-pub(super) fn ended(state: &Shared, bridge: &Bridge, applied: &super::trust::Applied) {
-    for sid in &applied.sids {
-        state.sessions.end(&key_of(sid), Ended::Revoked);
-    }
+pub(super) fn ended(book: &sessions::Book, bridge: &Bridge, applied: &super::trust::Applied) {
+    end_sessions(book, &applied.sids);
     if applied.gap {
         bridge.sync.notify_one();
     }
@@ -441,7 +476,7 @@ async fn invalidate(State(state): State<Shared>, headers: HeaderMap, body: Bytes
     }
     match taken {
         Ok(applied) => {
-            ended(&state, &bridge, &applied);
+            ended(&state.sessions, &bridge, &applied);
             StatusCode::NO_CONTENT
         }
         Err(Refused::Replayed) => StatusCode::NO_CONTENT,
@@ -624,6 +659,129 @@ mod tests {
             br#"{"token":"a.b.c","more":1}"#,
         ] {
             assert_eq!(status_of(body), StatusCode::BAD_REQUEST);
+        }
+    }
+
+    /// What the race below needs: a trust that holds keys, and what signs for
+    /// them.
+    mod race {
+        use super::super::super::trust::Trust;
+        use super::*;
+        use central_crypto::jwt::{KeySet, RevocationClaims, SigningKey};
+        use zeroize::Zeroizing;
+
+        const ISSUER: &str = "https://central.example";
+        const HERE: &str = "https://gateway.example";
+        const NOW: i64 = 1_800_000_000;
+
+        fn key() -> SigningKey {
+            SigningKey::from_seed(&Zeroizing::new([7; 32]))
+        }
+
+        fn trust() -> Trust {
+            let trust = Trust::new(ISSUER.into(), vec![HERE.into()]);
+            let keys = KeySet::new(vec![key().public().clone()]).unwrap();
+            trust.set_keys(keys, NOW);
+            trust.caught_up();
+            trust
+        }
+
+        fn sid(n: u64) -> String {
+            format!("{n:032x}")
+        }
+
+        fn claims(n: u64) -> GatewayClaims {
+            GatewayClaims {
+                iss: ISSUER.into(),
+                aud: HERE.into(),
+                sub: "018f0000-0000-7000-8000-000000000001".into(),
+                sid: sid(n),
+                jti: format!("{:032x}", n + (1 << 40)),
+                iat: NOW,
+                nbf: NOW,
+                exp: NOW + 3600,
+                purpose: Purpose::Admit,
+                name: None,
+                tag: None,
+                legacy_id: None,
+                terms: None,
+            }
+        }
+
+        /// Central's message revoking session `n`, as number `n`.
+        fn revocation(n: u64) -> String {
+            let claims = RevocationClaims {
+                iss: ISSUER.into(),
+                aud: HERE.into(),
+                jti: format!("{n:032x}"),
+                iat: NOW,
+                nbf: NOW,
+                exp: NOW + 60,
+                from: n,
+                seq: n,
+                sids: vec![sid(n)],
+            };
+            key().sign(&claims).unwrap().to_string()
+        }
+
+        fn signed() -> Signed {
+            Signed::new([1; 16], false, None)
+        }
+
+        fn open(book: &sessions::Book, trust: &Trust, n: u64) -> Result<(), StatusCode> {
+            opened(book, trust, &claims(n), "a", NOW, signed()).map(drop)
+        }
+
+        fn revoke(book: &sessions::Book, trust: &Trust, n: u64) {
+            let applied = trust.pushed(&revocation(n), NOW).ok().unwrap();
+            end_sessions(book, &applied.sids);
+        }
+
+        /// The revocation lands in the waits of a sign-in: after its token was
+        /// checked, before its session opened.
+        #[test]
+        fn a_revocation_before_the_session_opens_leaves_no_session() {
+            let (book, trust) = (sessions::Book::default(), trust());
+            trust.gateway_token(&key().sign(&claims(1)).unwrap(), NOW).ok().unwrap();
+            revoke(&book, &trust, 1);
+            assert_eq!(open(&book, &trust, 1), Err(StatusCode::UNAUTHORIZED));
+            assert!(book.get(&key_of(&sid(1)), NOW).is_none());
+        }
+
+        #[test]
+        fn a_revocation_after_the_session_opened_ends_it_and_its_holders_see() {
+            let (book, trust) = (sessions::Book::default(), trust());
+            let live = opened(&book, &trust, &claims(1), "a", NOW, signed()).unwrap();
+            revoke(&book, &trust, 1);
+            assert!(!live.stands(NOW));
+            assert!(book.get(&key_of(&sid(1)), NOW).is_none());
+        }
+
+        /// The race itself, placed rather than hoped for: the whole revocation
+        /// lands between the two steps of a sign-in. Two threads never meet
+        /// here, since verifying a signature takes far longer than the window:
+        /// a stress test passed with these two steps the wrong way round.
+        /// Swap them and this fails.
+        #[test]
+        fn a_revocation_between_the_steps_of_a_sign_in_leaves_no_session() {
+            let (book, trust) = (sessions::Book::default(), trust());
+            let answer = opened_around(&book, &trust, &claims(1), "a", NOW, signed(), || {
+                revoke(&book, &trust, 1);
+            });
+            assert_eq!(answer.err(), Some(StatusCode::UNAUTHORIZED));
+            assert!(book.get(&key_of(&sid(1)), NOW).is_none());
+        }
+
+        /// The other side of the same order: a sign-in that lands between the
+        /// two steps of a revocation. The `sid` is already written down, so it
+        /// is refused, and nothing is left for the revocation to miss.
+        #[test]
+        fn a_sign_in_between_the_steps_of_a_revocation_is_refused() {
+            let (book, trust) = (sessions::Book::default(), trust());
+            let applied = trust.pushed(&revocation(1), NOW).ok().unwrap();
+            assert_eq!(open(&book, &trust, 1), Err(StatusCode::UNAUTHORIZED));
+            end_sessions(&book, &applied.sids);
+            assert!(book.get(&key_of(&sid(1)), NOW).is_none());
         }
     }
 
