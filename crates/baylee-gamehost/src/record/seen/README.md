@@ -16,6 +16,6 @@ This is a game played by the house from seed 3 on the current engine, for the te
 
 When the owner has decided that the state hash changes, `refresh_fixture_hashes` (an ignored test in `seen.rs`) rewrites the `hash` values and checks every `seen` and the finish on the way. It is never the way past a red test after adding a feature: a rule that is new writes nothing into a game that never meets it, and a red `replay_exact` here means that promise broke (`docs/engine-internals.md`, "The replay contract"). When a rule fix makes the game diverge, `capture_acceptance_record` (ignored too) writes it again from `played(3)`. Either way, update the SHA256 below.
 
-Current SHA256: `581471d8065301f7628b1f5dde9210bd864d9611c5e11f490e9748c89bbcb3d0`, captured 3.11.2026 on branch `c42/llm-report-fixes-20261103`.
+Current SHA256: `8bdaa0a786d890364efbded706904effc79e34bc76989124b27e0b4f1c69986d`, refreshed 6.11.2026 on branch `c42/engine-perf`, when the hash began taking the arena in as one digest per chunk; captured 3.11.2026 on branch `c42/llm-report-fixes-20261103`.
 
 The games and names are synthetic repository test data, not a player record.

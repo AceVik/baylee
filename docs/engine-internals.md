@@ -2335,14 +2335,15 @@ stands. `house_rules_tests` pins all three, and pins the opening deal of a
 table that only keeps against the engine that asked in seat order.
 
 A record keeps the hash after every input, so the host hashes the game after
-every answer. `GameState` remembers, per arena chunk and per retained damage
-source, the bytes the hash last wrote for it (`state::hash::SnapshotMemo`), and
-feeds them again while the chunk is the same allocation; holding the chunk is
-what makes "same allocation" mean "same content", since any write to a shared
-chunk copies it. The bytes, and so every hash a record holds, are exactly the
-ones writing them out gives (`state::tests::the_remembered_hash_is_the_written_hash`,
-`hasher::tests`); a change that alters them breaks every stored record's replay
-and is a decision, not an optimisation.
+every answer. The hash takes the arena in as one digest per chunk, and each
+retained damage source as one digest, so a part nobody wrote costs eight bytes.
+`GameState` remembers those digests (`state::hash::SnapshotMemo`) and feeds them
+again while the chunk is the same allocation; holding the chunk is what makes
+"same allocation" mean "same content", since any write to a shared chunk copies
+it. The stream, and so every hash a record holds, is exactly the one digesting
+every part gives (`state::tests::the_remembered_hash_is_the_written_hash`,
+`hasher::tests`); once this contract binds again, a change that alters it breaks
+every stored record's replay and is a decision, not an optimisation.
 
 So a rule that is new writes nothing into a game that never meets it. A field
 the hash reads writes nothing while it is unset, or stays out if it follows from

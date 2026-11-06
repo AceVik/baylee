@@ -325,9 +325,7 @@ fn disguise_uses_creature_characteristics_for_restrictions_and_payment() {
         &SpellForm::Disguise.project(original)
     ));
     let id = baylee_core::mana::RestrictionId(42);
-    state
-        .restriction_info
-        .insert(42, (card, &Filter::CREATURE, SpendRider::None).into());
+    state.keep_provenance(42, (card, &Filter::CREATURE, SpendRider::None).into());
     state.players[0].mana_pool.add_restricted(RestrictedMana {
         color: ManaColor::Colorless,
         amount: 3,
@@ -368,7 +366,7 @@ fn directed_spending_preserves_restrictions_snow_and_actual_rider_units() {
                     to: ManaColor::Red,
                 },
             );
-            state.restriction_info.insert(
+            state.keep_provenance(
                 42,
                 (creature, &Filter::CREATURE, SpendRider::Uncounterable).into(),
             );

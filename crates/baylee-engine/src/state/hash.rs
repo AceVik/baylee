@@ -167,12 +167,12 @@ impl GameState {
         next_damage_batch.hash(&mut h);
         source_memory.hash(&mut h);
         h.usize(damage_sources.len());
-        match memo.as_deref_mut() {
-            Some(memo) => hash_sources_remembering(&mut h, damage_sources, &mut memo.sources),
-            None => {
-                for source in damage_sources {
-                    hash_object(&mut h, source);
-                }
+        if let Some(memo) = memo.as_deref_mut() {
+            hash_sources_remembering(&mut h, damage_sources, &mut memo.sources, &mut memo.tape);
+        } else {
+            let mut tape = Vec::new();
+            for source in damage_sources {
+                h.u64(digest_of(&mut tape, |written| hash_object(written, source)));
             }
         }
         turn.hash(&mut h);
@@ -218,12 +218,12 @@ impl GameState {
         for player in players {
             hash_player(&mut h, player);
         }
-        match memo.as_deref_mut() {
-            Some(memo) => hash_arena_remembering(&mut h, arena, &mut memo.chunks),
-            None => {
-                for (slot, generation, value) in arena.slots() {
-                    hash_slot(&mut h, slot, generation, value);
-                }
+        if let Some(memo) = memo.as_deref_mut() {
+            hash_arena_remembering(&mut h, arena, &mut memo.chunks, &mut memo.tape);
+        } else {
+            let mut tape = Vec::new();
+            for view in arena.chunk_views() {
+                h.u64(chunk_digest(&view, &mut tape));
             }
         }
         zones.hash(&mut h);
@@ -269,27 +269,12 @@ impl GameState {
         ltb_combat.hash(&mut h);
         synthetic_copies.hash(&mut h);
         hash_unordered(&mut h, restriction_info.iter(), |(id, provenance)| {
-            let mut one = Hasher::new();
-            id.hash(&mut one);
-            provenance.context.hash(&mut one);
-            provenance.source_version.hash(&mut one);
-            provenance.controller.hash(&mut one);
-            provenance.timestamp.hash(&mut one);
-            provenance.chosen_subtype.hash(&mut one);
-            provenance.source_watermark.hash(&mut one);
-            // Decides which spell this mana pays for, and writes nothing for
-            // the mana of every other restriction.
-            if let Some(exile) = provenance.last_linked_exile {
-                exile.hash(&mut one);
-            }
-            let restriction = provenance.restriction;
-            filter_hash(&mut one, restriction.filter);
-            restriction.ability_filter.hash(&mut one);
-            restriction.uses.hash(&mut one);
-            restriction.rider.hash(&mut one);
-            restriction.restricts.hash(&mut one);
-            restriction.until_end_of_turn.hash(&mut one);
-            one.finish()
+            debug_assert_eq!(
+                provenance.digest,
+                provenance_digest(*id, provenance),
+                "a kept mana provenance was written"
+            );
+            provenance.digest
         });
         next_restriction_id.hash(&mut h);
         // Seventeen bytes an entry, digested in one call: a streaming state
@@ -1480,6 +1465,35 @@ fn hash_unordered<T>(
     h.u64(sum);
 }
 
+/// What the snapshot hash takes an entry of `restriction_info` as
+/// ([`crate::mana_provenance::ManaProvenance::digest`]).
+pub(crate) fn provenance_digest(
+    id: u32,
+    provenance: &crate::mana_provenance::ManaProvenance,
+) -> u64 {
+    let mut one = Hasher::new();
+    id.hash(&mut one);
+    provenance.context.hash(&mut one);
+    provenance.source_version.hash(&mut one);
+    provenance.controller.hash(&mut one);
+    provenance.timestamp.hash(&mut one);
+    provenance.chosen_subtype.hash(&mut one);
+    provenance.source_watermark.hash(&mut one);
+    // Decides which spell this mana pays for, and writes nothing for the mana
+    // of every other restriction.
+    if let Some(exile) = provenance.last_linked_exile {
+        exile.hash(&mut one);
+    }
+    let restriction = provenance.restriction;
+    filter_hash(&mut one, restriction.filter);
+    restriction.ability_filter.hash(&mut one);
+    restriction.uses.hash(&mut one);
+    restriction.rider.hash(&mut one);
+    restriction.restricts.hash(&mut one);
+    restriction.until_end_of_turn.hash(&mut one);
+    one.finish()
+}
+
 /// Hashes an ability list by what names it, which is never its address.
 ///
 /// A printed list is named by its face: [`AbilityList`] carries the two
@@ -1696,16 +1710,18 @@ fn hash_characteristics(h: &mut Hasher, characteristics: &Characteristics) {
     x_on_stack.hash(h);
 }
 
-/// What [`GameState::snapshot_hash`] last wrote for each arena chunk: the
-/// chunk's key and the bytes its slots made.
+/// What [`GameState::snapshot_hash`] last digested of each arena chunk: the
+/// chunk's key and the digest of the bytes its slots make.
 ///
-/// A game is hashed after every input its record keeps, and between two
-/// inputs most chunks are not written at all. A chunk whose key still
-/// matches has the same slots ([`crate::arena::ChunkKey`] says why), and
-/// its slots' bytes depend on nothing else, so its bytes are fed again
-/// instead of written again. The stream is byte for byte the one writing
-/// would make; `the_remembered_hash_is_the_written_hash` holds the two
-/// together over whole games.
+/// The hash takes the arena in as one digest per chunk rather than as the
+/// slots' bytes, so that a chunk nobody wrote costs eight bytes and not a
+/// few hundred. A game is hashed after every input its record keeps, and
+/// between two inputs most chunks are not written at all. A chunk whose key
+/// still matches has the same slots ([`crate::arena::ChunkKey`] says why),
+/// and its slots' bytes depend on nothing else, so its digest is fed again
+/// instead of made again. The stream is the one digesting every chunk would
+/// make; `the_remembered_hash_is_the_written_hash` holds the two together
+/// over whole games.
 ///
 /// A clone starts with an empty memo: a decision checkpoint is a clone, and
 /// a memo's keys would hold its chunks shared for nothing.
@@ -1718,16 +1734,18 @@ pub(crate) struct SnapshotMemo(pub(super) std::sync::Mutex<MemoTables>);
 
 #[derive(Default)]
 pub(super) struct MemoTables {
-    chunks: Vec<Option<ArenaTape>>,
+    chunks: Vec<Option<ChunkDigest>>,
     /// In `damage_sources` order, which only ever drops entries or adds
     /// them at the end.
-    sources: Vec<(Arc<GameObject>, Vec<u8>)>,
+    sources: Vec<(Arc<GameObject>, u64)>,
+    /// The bytes of the part being digested, kept for its allocation.
+    tape: Vec<u8>,
 }
 
-/// One chunk's key and bytes.
-struct ArenaTape {
+/// One chunk's key and digest.
+struct ChunkDigest {
     key: crate::arena::ChunkKey<GameObject>,
-    bytes: Vec<u8>,
+    digest: u64,
 }
 
 impl Clone for SnapshotMemo {
@@ -1752,13 +1770,30 @@ fn hash_slot(h: &mut Hasher, slot: u32, generation: u8, value: Option<&GameObjec
     }
 }
 
-/// The arena's slots in order, each chunk's bytes taken from `memo` while
-/// the chunk is the one they were written for, and written (and kept)
-/// otherwise.
+/// The digest of what `write` writes, on `tape`'s allocation.
+fn digest_of(tape: &mut Vec<u8>, write: impl FnOnce(&mut Hasher)) -> u64 {
+    let mut written = Hasher::tape_into(Some(std::mem::take(tape)));
+    write(&mut written);
+    *tape = written.into_tape();
+    xxhash_rust::xxh3::xxh3_64(tape)
+}
+
+/// The digest of one arena chunk's slots.
+fn chunk_digest(view: &crate::arena::ChunkView<'_, GameObject>, tape: &mut Vec<u8>) -> u64 {
+    digest_of(tape, |written| {
+        for (slot, generation, value) in view.slots() {
+            hash_slot(written, slot, generation, value);
+        }
+    })
+}
+
+/// The arena's chunks in order, each one's digest taken from `memo` while
+/// the chunk is the one it was made of, and made (and kept) otherwise.
 fn hash_arena_remembering(
     h: &mut Hasher,
     arena: &Arena<GameObject>,
-    memo: &mut Vec<Option<ArenaTape>>,
+    memo: &mut Vec<Option<ChunkDigest>>,
+    tape: &mut Vec<u8>,
 ) {
     let mut chunks = 0;
     for (i, view) in arena.chunk_views().enumerate() {
@@ -1767,17 +1802,13 @@ fn hash_arena_remembering(
             memo.push(None);
         }
         match &mut memo[i] {
-            Some(tape) if view.is(&tape.key) => h.bytes(&tape.bytes),
+            Some(kept) if view.is(&kept.key) => h.u64(kept.digest),
             entry => {
-                let mut written = Hasher::tape_into(entry.take().map(|t| t.bytes));
-                for (slot, generation, value) in view.slots() {
-                    hash_slot(&mut written, slot, generation, value);
-                }
-                let bytes = written.into_tape();
-                h.bytes(&bytes);
-                *entry = Some(ArenaTape {
+                let digest = chunk_digest(&view, tape);
+                h.u64(digest);
+                *entry = Some(ChunkDigest {
                     key: view.key(),
-                    bytes,
+                    digest,
                 });
             }
         }
@@ -1785,36 +1816,34 @@ fn hash_arena_remembering(
     memo.truncate(chunks);
 }
 
-/// The retained damage sources in order, each one's bytes taken from
-/// `memo` while it is the same allocation they were written for. The
-/// list only loses entries or gains them at its end, so one cursor through
-/// the memo finds every one still there.
+/// The retained damage sources in order, each one's digest taken from
+/// `memo` while it is the same allocation it was made of. The list only
+/// loses entries or gains them at its end, so one cursor through the memo
+/// finds every one still there.
 fn hash_sources_remembering(
     h: &mut Hasher,
     sources: &[Arc<GameObject>],
-    memo: &mut Vec<(Arc<GameObject>, Vec<u8>)>,
+    memo: &mut Vec<(Arc<GameObject>, u64)>,
+    tape: &mut Vec<u8>,
 ) {
     let mut old = std::mem::take(memo).into_iter();
     let mut next = old.next();
     for source in sources {
         // Past every remembered entry the list has since dropped. Were the
-        // order ever different, an entry would only be written again: a
+        // order ever different, an entry would only be digested again: a
         // remembered entry is used for the very allocation it was made of.
         let mut found = None;
-        while let Some((kept, bytes)) = next.take() {
+        while let Some((kept, digest)) = next.take() {
             next = old.next();
             if Arc::ptr_eq(&kept, source) {
-                found = Some(bytes);
+                found = Some(digest);
                 break;
             }
         }
-        let bytes = found.unwrap_or_else(|| {
-            let mut written = Hasher::tape_into(None);
-            hash_object(&mut written, source);
-            written.into_tape()
-        });
-        h.bytes(&bytes);
-        memo.push((Arc::clone(source), bytes));
+        let digest =
+            found.unwrap_or_else(|| digest_of(tape, |written| hash_object(written, source)));
+        h.u64(digest);
+        memo.push((Arc::clone(source), digest));
     }
 }
 

@@ -1010,8 +1010,7 @@ fn every_field_that_decides_the_future_moves_the_snapshot_hash() {
                 });
         }),
         ("restriction_info", |s, id| {
-            s.restriction_info
-                .insert(1, (id, &Filter::Any, SpendRider::None).into());
+            s.keep_provenance(1, (id, &Filter::Any, SpendRider::None).into());
         }),
         ("next_restriction_id", |s, _| s.next_restriction_id += 1),
         ("ltb_abilities", |s, id| {
@@ -1283,14 +1282,14 @@ fn the_exile_linked_mana_pays_for_moves_the_snapshot_hash() {
     let (mut state, id) = hash_fixture();
     let provenance: crate::mana_provenance::ManaProvenance =
         (id, &Filter::Any, SpendRider::None).into();
-    state.restriction_info.insert(1, provenance);
+    state.keep_provenance(1, provenance);
     let unlinked = state.snapshot_hash();
     let mut linked = provenance;
     linked.last_linked_exile = Some(baylee_core::ids::DamageSourceRef {
         object: id,
         version: 3,
     });
-    state.restriction_info.insert(1, linked);
+    state.keep_provenance(1, linked);
     assert_ne!(state.snapshot_hash(), unlinked);
 }
 

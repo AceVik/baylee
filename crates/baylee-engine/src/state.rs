@@ -46,7 +46,8 @@ mod tests;
 mod upkeep_history;
 
 pub(crate) use hash::{
-    SnapshotMemo, characteristics_fingerprint, mana_cost_fingerprint, structural_fingerprint,
+    SnapshotMemo, characteristics_fingerprint, mana_cost_fingerprint, provenance_digest,
+    structural_fingerprint,
 };
 
 pub use delayed::{DelayedAction, DelayedTrigger, DelayedWhen, PlayerTurnControl};

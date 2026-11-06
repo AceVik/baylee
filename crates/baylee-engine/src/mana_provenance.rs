@@ -17,6 +17,10 @@ pub struct ManaProvenance {
     pub(crate) source_watermark: Option<WatermarkId>,
     /// Exact exile that `ManaUse::LastLinkedExile` alone admits.
     pub(crate) last_linked_exile: Option<baylee_core::ids::DamageSourceRef>,
+    /// What the snapshot hash takes the entry as. Made as [`deposit`] keeps
+    /// it: an entry is never written again and a game keeps every one, so
+    /// the hash after every answer reads this instead of digesting them all.
+    pub(crate) digest: u64,
 }
 impl ManaProvenance {
     pub(crate) fn capture(
@@ -56,6 +60,7 @@ impl ManaProvenance {
                 restricts: false,
                 until_end_of_turn: false,
             }),
+            digest: 0,
         }
     }
 
@@ -145,6 +150,15 @@ impl ManaProvenance {
     }
 }
 
+impl GameState {
+    /// Keeps `provenance` under `id`: the one door into `restriction_info`,
+    /// so no entry is kept without the digest the hash reads.
+    pub(crate) fn keep_provenance(&mut self, id: u32, mut provenance: ManaProvenance) {
+        provenance.digest = crate::state::provenance_digest(id, &provenance);
+        self.restriction_info.insert(id, provenance);
+    }
+}
+
 /// Every unit retains its original producer, including ordinary intrinsic mana.
 /// Ridden entries annotate the ordinary counters; they never count twice.
 pub(crate) fn deposit(
@@ -176,7 +190,7 @@ pub(crate) fn deposit(
         return false;
     };
     state.next_restriction_id = next;
-    state.restriction_info.insert(id, provenance);
+    state.keep_provenance(id, provenance);
     let mana = RestrictedMana {
         color,
         amount,
@@ -237,6 +251,7 @@ impl
             chosen_subtype: None,
             source_watermark: None,
             last_linked_exile: None,
+            digest: 0,
         }
     }
 }
