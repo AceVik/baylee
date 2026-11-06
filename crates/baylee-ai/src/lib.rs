@@ -1096,11 +1096,12 @@ pub fn plan_for_spell(
     policy::plan_for_spell(cost, pool, view, legal, spell)
 }
 
-/// Plans mana taps for activating an ability on `source` at `cost`, reserving
-/// `source` when `taps_self` is true and including a restricted mana source
-/// whose restriction admits an ability of `source` when unrestricted sources
-/// alone are short: mana that pays for abilities (CR 106.6), and never mana
-/// that may be spent only to cast a spell.
+/// Plans mana taps for activating an ability on `source` at `cost`, tapping
+/// `source` last, only where nothing else pays and never when `taps_self` is
+/// true, and including a restricted mana source whose restriction admits an
+/// ability of `source` when unrestricted sources alone are short: mana that
+/// pays for abilities (CR 106.6), and never mana that may be spent only to
+/// cast a spell.
 #[must_use]
 pub fn plan_for_activation(
     cost: &baylee_core::mana::ManaCost,

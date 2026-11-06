@@ -614,3 +614,52 @@ fn a_saga_makes_its_construct_with_other_mana() {
         "the token is made"
     );
 }
+
+/// "{1}{W}: This land becomes a 1/5 white Soldier creature until end of
+/// turn." Nothing stops the Watchtower paying for itself, and the plan had it
+/// do that ahead of a Swarmyard kept for its regeneration, so the only offer
+/// beside untapped Plains and Swarmyard made a creature that could not block
+/// (codex attempt 32, q173). An activation's source is tapped for it last.
+#[test]
+fn a_land_that_animates_itself_is_tapped_for_it_last() {
+    let (mut session, view, legal) =
+        position(&["Forbidding Watchtower", "Plains", "Swarmyard"], &[], &[]);
+    let tower = named(&view, "Forbidding Watchtower");
+    let reach = super::super::reachable_abilities(&view, &legal);
+    let animate = reach
+        .iter()
+        .find(|r| r.source == tower)
+        .expect("the Plains and the Swarmyard pay {1}{W}");
+    assert!(
+        animate.plan.steps.iter().all(|s| s.source != tower),
+        "the land stays untapped"
+    );
+    let ability_index = animate.ability_index;
+    let plan = animate.plan.clone();
+    run(
+        &mut session,
+        &plan,
+        PlayerAction::ActivateAbility {
+            source: tower,
+            ability_index,
+        },
+    );
+    let (view, _) = resolve_the_stack(&mut session);
+    let soldier = view.object(tower).expect("the Watchtower");
+    assert!(
+        soldier
+            .types
+            .contains(baylee_core::types::TypeSet::CREATURE)
+    );
+    assert!(!soldier.status.is_tapped());
+
+    // Where nothing else pays it is still a legal activation, and offered.
+    let (_, view, legal) = position(&["Forbidding Watchtower", "Plains"], &[], &[]);
+    let tower = named(&view, "Forbidding Watchtower");
+    let reach = super::super::reachable_abilities(&view, &legal);
+    let animate = reach.iter().find(|r| r.source == tower);
+    assert!(
+        animate.is_some_and(|r| r.plan.steps.iter().any(|s| s.source == tower)),
+        "the Watchtower may pay for itself when it has to"
+    );
+}

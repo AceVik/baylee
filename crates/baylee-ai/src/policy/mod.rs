@@ -2354,11 +2354,33 @@ pub(crate) fn plan_for_activation(
     let mut pool = *pool;
     pool.spending = spending;
     let (restricted, plain) = split_restricted(offers(view, legal));
-    let mut plain = usable(view, legal, plain);
-    if taps_self {
-        plain.retain(|s| s.id != source);
-    }
-    if let Some(plan) = manaplan::plan(cost, &pool, &plain) {
+    let plain = usable(view, legal, plain);
+    let others: Vec<Source> = plain.iter().filter(|s| s.id != source).cloned().collect();
+    // The source last, whatever else it could pay with: an ability on a
+    // permanent mostly wants the permanent as it is, and a land animated by
+    // its own tap is a creature that cannot block (codex attempt 32, q173).
+    // A cost that taps it leaves it no mana to give at all.
+    activation_plan(cost, &pool, view, &others, &restricted, source, true).or_else(|| {
+        if taps_self {
+            return None;
+        }
+        activation_plan(cost, &pool, view, &plain, &restricted, source, false)
+    })
+}
+
+/// The plan from `plain`, or from `plain` and the best restricted tap whose
+/// mana may pay for an ability of `source`; `source`'s own restricted tap
+/// only when it is not `reserved`.
+fn activation_plan(
+    cost: &ManaCost,
+    pool: &baylee_view::ManaPoolView,
+    view: &PlayerView,
+    plain: &[Source],
+    restricted: &[Offer],
+    source: ObjectId,
+    reserved: bool,
+) -> Option<manaplan::Plan> {
+    if let Some(plan) = manaplan::plan(cost, pool, plain) {
         return Some(plan);
     }
     if restricted.is_empty() {
@@ -2367,7 +2389,7 @@ pub(crate) fn plan_for_activation(
     let agent = HeuristicAgent::new(crate::AIProfile::default());
     let best = restricted
         .iter()
-        .filter(|o| !taps_self || o.source.id != source)
+        .filter(|o| !reserved || o.source.id != source)
         .filter(|o| {
             o.only_for.as_ref().is_some_and(|restriction| {
                 agent.admits_activation(view, restriction, Some(o.source.id), source)
@@ -2383,11 +2405,12 @@ pub(crate) fn plan_for_activation(
             )
         })?;
     let mut all: Vec<Source> = plain
-        .into_iter()
+        .iter()
         .filter(|s| s.id != best.source.id)
+        .cloned()
         .collect();
     all.push(best.source.clone());
-    manaplan::plan(cost, &pool, &all)
+    manaplan::plan(cost, pool, &all)
 }
 
 /// Whether `id` may be tapped for: the engine lists it as castable once paid
