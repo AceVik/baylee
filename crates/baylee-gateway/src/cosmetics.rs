@@ -47,6 +47,35 @@ const MAX_AGE: &str = "public, max-age=31536000, immutable";
 /// into an image at all.
 pub const MAX_UPLOAD_BYTES: usize = 8 * 1024 * 1024;
 
+/// The most pixels a picture may say it has, read from its header before
+/// anything is decoded.
+///
+/// [`MAX_UPLOAD_BYTES`] says nothing about this: a flat PNG of a few hundred
+/// kilobytes can claim gigabytes once decoded, and this process is the one
+/// everybody plays on. Sixty-four megapixels is every phone's ordinary
+/// photograph, and at three bytes each it is what bounds a decode.
+const MAX_PIXELS: u64 = 64_000_000;
+
+/// The longest side a picture may have, for the decoder's own limits.
+const MAX_SIDE: u32 = 16_384;
+
+/// What one decode may allocate, for the decoders that count: the
+/// [`MAX_PIXELS`] picture at four bytes a pixel, with room to spare.
+const MAX_DECODE_BYTES: u64 = 320 * 1024 * 1024;
+
+/// How many pictures are decoded at once, whoever sent them: decoding is
+/// the heavy half of an upload, in memory and in time.
+const DECODING_AT_ONCE: usize = 2;
+
+/// How many pictures one account may upload per [`UPLOAD_WINDOW`].
+///
+/// Cropping a sleeve is one upload per try, so this is a lot of tries; every
+/// one of them is a decode, and a kept file if its bytes are new.
+const UPLOADS_PER_WINDOW: usize = 60;
+
+/// The window [`UPLOADS_PER_WINDOW`] is counted over.
+const UPLOAD_WINDOW: std::time::Duration = std::time::Duration::from_hours(1);
+
 /// What a cosmetic is for, which is the same thing as what size it is stored
 /// at.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -118,6 +147,10 @@ pub struct Store {
     /// The lock is this process's, so one image directory serves one
     /// gateway.
     files: tokio::sync::Mutex<()>,
+    /// Whose turn it is to decode ([`DECODING_AT_ONCE`]).
+    decoding: tokio::sync::Semaphore,
+    /// Each account's uploads ([`UPLOADS_PER_WINDOW`]).
+    uploads: crate::auth::RateLimiter,
 }
 
 impl Store {
@@ -140,6 +173,8 @@ impl Store {
         Self {
             dir,
             files: tokio::sync::Mutex::new(()),
+            decoding: tokio::sync::Semaphore::new(DECODING_AT_ONCE),
+            uploads: crate::auth::RateLimiter::new(UPLOAD_WINDOW, UPLOADS_PER_WINDOW),
         }
     }
 
@@ -304,6 +339,9 @@ pub enum Rejected {
     TooLarge,
     /// The bytes are not an image this build can read.
     NotAnImage,
+    /// The picture says it is bigger than [`MAX_PIXELS`] or [`MAX_SIDE`], or
+    /// would take more than [`MAX_DECODE_BYTES`] to decode.
+    TooManyPixels,
     /// The directory could not be written.
     Storage,
 }
@@ -315,6 +353,10 @@ impl Rejected {
         match self {
             Self::Disabled => (StatusCode::SERVICE_UNAVAILABLE, "image uploads are off"),
             Self::TooLarge => (StatusCode::PAYLOAD_TOO_LARGE, "image too large"),
+            Self::TooManyPixels => (
+                StatusCode::PAYLOAD_TOO_LARGE,
+                "the picture has too many pixels",
+            ),
             // Named formats, because the common failure is a picture that is
             // perfectly good and simply not one of them — a phone photograph
             // is often HEIC and a browser export often WebP. "Not an image"
@@ -341,7 +383,7 @@ impl Rejected {
 /// hash of what it holds: one encoding is what makes the same picture uploaded
 /// twice the same file.
 fn normalise(kind: Kind, bytes: &[u8]) -> Result<Vec<u8>, Rejected> {
-    let decoded = image::load_from_memory(bytes).map_err(|_| Rejected::NotAnImage)?;
+    let decoded = decode(bytes)?;
     let (w, h) = kind.size();
     // Crop to the target's shape *before* scaling to its size. `resize_exact`
     // on its own stretches, and a sleeve is the one place that is impossible
@@ -367,6 +409,35 @@ fn normalise(kind: Kind, bytes: &[u8]) -> Result<Vec<u8>, Rejected> {
         // them off to convert a picture that was fine.
         .map_err(|_| Rejected::Storage)?;
     Ok(out)
+}
+
+/// `bytes` as a picture, once its header says it is one this process can
+/// afford to decode.
+///
+/// The header is read on its own first because the decoders' limits are not
+/// all strict (`max_alloc` is a hint some ignore), and the size a header
+/// claims is the one thing that is known before anything is allocated.
+fn decode(bytes: &[u8]) -> Result<image::DynamicImage, Rejected> {
+    let reader = || {
+        image::ImageReader::new(std::io::Cursor::new(bytes))
+            .with_guessed_format()
+            .map_err(|_| Rejected::NotAnImage)
+    };
+    let refused = |e: image::ImageError| match e {
+        image::ImageError::Limits(_) => Rejected::TooManyPixels,
+        _ => Rejected::NotAnImage,
+    };
+    let (width, height) = reader()?.into_dimensions().map_err(refused)?;
+    if u64::from(width) * u64::from(height) > MAX_PIXELS {
+        return Err(Rejected::TooManyPixels);
+    }
+    let mut limits = image::Limits::default();
+    limits.max_image_width = Some(MAX_SIDE);
+    limits.max_image_height = Some(MAX_SIDE);
+    limits.max_alloc = Some(MAX_DECODE_BYTES);
+    let mut reader = reader()?;
+    reader.limits(limits);
+    reader.decode().map_err(refused)
 }
 
 /// The largest rectangle of the target's shape that fits inside a source of
@@ -474,7 +545,8 @@ pub type TableCosmetics = HashMap<usize, SeatCosmetics>;
 /// @return 400: `$ErrorBody` "The body is not a PNG or a JPEG"
 /// @return 403: `$ErrorBody` "A guest (`guests cannot upload images`), a banned account (`ban`), or one that must accept the terms in force first (`terms_required`)"
 /// @return 404: `$ErrorBody` "No `kind`, or one that is neither `sleeve` nor `playmat`"
-/// @return 413: String text/plain "A body over 8 mebibytes (axum's rejection)"
+/// @return 413: String text/plain "A body over 8 mebibytes (axum's rejection), or as an `$ErrorBody` a picture of over 64 megapixels or 16384 pixels a side"
+/// @return 429: `$ErrorBody` "More than 60 uploads by this account in an hour"
 /// @return 500: `$ErrorBody` "The picture could not be stored"
 /// @return 503: `$ErrorBody` "Uploads are off on this gateway (`BAYLEE_DECK_IMAGE_PATH=off`), or its account store or Baylee Central is unavailable"
 pub async fn upload(
@@ -496,6 +568,12 @@ pub async fn upload(
     let Some(kind) = params.get("kind").and_then(|k| Kind::parse(k)) else {
         return err(StatusCode::NOT_FOUND, "no such image kind").into_response();
     };
+    if !state.deck_images.uploads.allow(&owner) {
+        return err(StatusCode::TOO_MANY_REQUESTS, "too many uploads").into_response();
+    }
+    let Ok(turn) = state.deck_images.decoding.acquire().await else {
+        return err(StatusCode::INTERNAL_SERVER_ERROR, "upload failed").into_response();
+    };
     let store = Arc::clone(&state.deck_images);
     let bytes = body.to_vec();
     // Decoding and rescaling a photograph is not something to do on the async
@@ -506,6 +584,7 @@ pub async fn upload(
         Ok(Err(rejected)) => return refused(rejected),
         Err(_) => return err(StatusCode::INTERNAL_SERVER_ERROR, "upload failed").into_response(),
     };
+    drop(turn);
     let id = prepared.id.clone();
     // The owner first and then the file, both under the store's lock, which
     // an account's deletion holds from its delete until the files nobody
