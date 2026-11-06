@@ -30,6 +30,10 @@ pub(crate) enum SettingsPress {
     ToggleAuto(baylee_client_core::prefs::AutoRule),
     /// Return every card ability to manual responses.
     ResetAbilityOrders,
+    /// Goes on without asking when every pair of triggers is known.
+    ToggleTriggerAccept,
+    /// Forgets what the player taught about sorting triggers.
+    ForgetTriggerOrders,
     /// Forget one ability's policy.
     ForgetAbility(baylee_core::ids::AbilityRef),
     /// Stop the table moving, or let it move again.
@@ -465,6 +469,11 @@ impl SettingsPress {
                 .edit()
                 .ability_orders
                 .retain(|order| order.ability != ability),
+            SettingsPress::ToggleTriggerAccept => {
+                let mut edit = prefs.edit();
+                edit.trigger_order.accept_known = !edit.trigger_order.accept_known;
+            }
+            SettingsPress::ForgetTriggerOrders => prefs.edit().trigger_order.forget(),
             SettingsPress::ToggleAuto(rule) => {
                 let mut edit = prefs.edit();
                 rule.toggle(&mut edit.auto);

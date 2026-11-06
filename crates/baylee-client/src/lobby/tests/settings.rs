@@ -1165,3 +1165,39 @@ fn native_button_settings_dispatch_toggles_the_actual_preference_once() {
     }
     assert_eq!(app.world().resource::<testing::Activations>().0.len(), 2);
 }
+
+/// Settings › Gameplay holds what the client remembers about sorting
+/// triggers: off by default, and the player can empty it.
+#[test]
+fn the_memory_of_sorted_triggers_can_be_turned_on_and_emptied() {
+    use baylee_client_core::triggerorder::TriggerKey;
+    use baylee_core::ids::{AbilityRef, CardIndex};
+    let key = |card| Some(TriggerKey::Card(AbilityRef::new(CardIndex::new(card), 0)));
+    let accept = Press::Settings(SettingsPress::ToggleTriggerAccept);
+    let forget = Press::Settings(SettingsPress::ForgetTriggerOrders);
+    let mut app = settings_at(baylee_client_core::settings_map::Section::Gameplay);
+    let memory = |app: &App| {
+        app.world()
+            .resource::<crate::prefs::Prefs>()
+            .all()
+            .trigger_order
+            .clone()
+    };
+    assert!(!memory(&app).accept_known, "off unless turned on");
+    assert!(
+        !presses(&mut app).contains(&forget),
+        "nothing to forget yet"
+    );
+    press(&mut app, accept);
+    assert!(memory(&app).accept_known);
+    app.world_mut()
+        .resource_mut::<crate::prefs::Prefs>()
+        .edit()
+        .trigger_order
+        .learn(&[key(1), key(2)], &[key(2), key(1)]);
+    app.update();
+    app.update();
+    press(&mut app, forget);
+    assert!(memory(&app).is_empty());
+    assert!(memory(&app).accept_known, "what the player allowed stays");
+}

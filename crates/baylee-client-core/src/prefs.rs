@@ -913,6 +913,10 @@ pub struct Preferences {
     pub auto: AutoRules,
     /// Per-card-ability yields and optional answers, synced with the account.
     pub ability_orders: Vec<crate::automation::AbilityOrder>,
+    /// How the player sorts simultaneous triggers (CR 603.3b), with the
+    /// account like the answers above: a habit belongs to the player, not
+    /// to the machine they happen to sit at.
+    pub trigger_order: crate::triggerorder::memory::TriggerMemory,
     /// Whether the table holds still: cards and the camera go straight to
     /// where they belong instead of moving there.
     ///

@@ -296,6 +296,8 @@ pub enum Row {
     Stops,
     /// The answers given to abilities.
     AbilityAnswers,
+    /// What the client remembers about sorting triggers.
+    TriggerOrder,
     // Account
     /// The handle, and copying it.
     Handle,
@@ -613,6 +615,13 @@ pub const ROWS: &[RowDef] = &[
         A,
         P::RowAbilityAnswers,
         P::HelpAbilityAnswers,
+    ),
+    def(
+        Row::TriggerOrder,
+        S::Gameplay,
+        A,
+        P::RowTriggerOrder,
+        P::HelpTriggerOrder,
     ),
     def(Row::Handle, S::Account, A, P::RowHandle, P::HelpHandle),
     def(Row::SignOut, S::Account, A, P::RowSignOut, P::HelpSignOut),

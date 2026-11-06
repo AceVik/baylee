@@ -1,6 +1,7 @@
 //! Settings › Gameplay (the account's): automation's four rules, where to
-//! stop (the rails and their presets), and the ability answers the client
-//! keeps giving — today's Automation, re-homed (`DESIGN-v5` §12).
+//! stop (the rails and their presets), the ability answers the client keeps
+//! giving — today's Automation, re-homed (`DESIGN-v5` §12) — and what it
+//! remembers about sorting triggers.
 //!
 //! Both rails stand at once here: every seat bar carries only the row its
 //! turn belongs to, and a player arranging stops wants the whole
@@ -117,6 +118,31 @@ pub(crate) fn gameplay(out: &mut Out, view: &View) {
         }
     }
     out.block(Row::AbilityAnswers, &lines);
+
+    let memory = &prefs.trigger_order;
+    let accept = out.toggle(
+        "trigger-order-accept",
+        memory.accept_known,
+        Press::Settings(SettingsPress::ToggleTriggerAccept),
+    );
+    let mut lines = vec![out.line(
+        Phrase::TriggerOrderAccept.text(lang),
+        Some(Phrase::TriggerOrderAcceptDetail.text(lang)),
+        &[accept],
+    )];
+    if memory.is_empty() {
+        lines.push(out.words(Phrase::TriggerOrderNothingKept.text(lang), true));
+    } else {
+        let forget = out.button(
+            "trigger-order-forget",
+            Phrase::Reset.text(lang),
+            Weight::Secondary,
+            Press::Settings(SettingsPress::ForgetTriggerOrders),
+        );
+        let kept = Phrase::TriggerOrderKept.fill(lang, &[&memory.len().to_string()]);
+        lines.push(out.line(&kept, None, &[forget]));
+    }
+    out.block(Row::TriggerOrder, &lines);
 }
 
 /// The stops' chips (one per [`RAIL_ROWS`] entry, in its order) stood in

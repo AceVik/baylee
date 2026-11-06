@@ -9705,3 +9705,22 @@ ReplaysPlayers = { $count } players
 
 # A replay row's badge for a replay the engine reproduced exactly.
 ReplaysExact = Exact
+TriggerOrderWins = This order wins: your opponent falls first.
+TriggerOrderSurvives = This order keeps you from losing.
+TriggerOrderRemembered = As you sorted these before.
+TriggerOrderCountedLater = What gets counted comes into being first.
+TriggerOrderShuffleFirst = Shuffle first, then look at the top of the library.
+TriggerOrderLookFirst = Look at the top first, then draw.
+TriggerOrderInformFirst = See more first, then decide.
+TriggerOrderSourceStays = The card stays until its other triggers are done.
+TriggerOrderRemovalFirst = Remove first, then boost.
+TriggerOrderOpponentFirst = Your opponent is hit before you are.
+TriggerOrderGainFirst = Gain life first, then lose it.
+TriggerOrderNoOpinion = No order stands out here.
+TriggerOrderNoDifference = The order makes no difference here.
+RowTriggerOrder = Sorting triggers
+HelpTriggerOrder = When several of your triggers happen at once, the client suggests an order and remembers the pairs you turn around.
+TriggerOrderAccept = Go on without asking
+TriggerOrderAcceptDetail = Uses your remembered order by itself when every pair in it is known.
+TriggerOrderNothingKept = Nothing remembered yet
+TriggerOrderKept = Pairs remembered: {0}

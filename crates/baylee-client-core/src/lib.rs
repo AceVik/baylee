@@ -172,6 +172,8 @@ pub mod text_choice;
 /// Separate decision actor, resource owner and entitled private hands.
 pub mod decision;
 pub mod decisionfold;
+/// The order a player's own simultaneous triggers go on the stack.
+pub mod triggerorder;
 
 /// Whose chair the bottom of the table is shown from while this seat
 /// controls another player (CR 723.5), and who decides for whom.
