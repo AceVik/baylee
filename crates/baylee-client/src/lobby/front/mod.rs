@@ -256,6 +256,19 @@ pub(super) struct FrontCast {
     pub(super) going: Option<Panel>,
 }
 
+/// The stage the panels stand on, for [`glide_the_stage`].
+#[derive(Component)]
+pub(super) struct FrontStage;
+
+/// How tall the stage stood when nothing moved, and on which panel: a panel
+/// measures a little differently once the stage holds it to a height, and a
+/// motion that started from any other number would start with a step.
+#[derive(Resource, Default, Clone, Copy, PartialEq, Debug)]
+pub(super) struct StageAtRest {
+    panel: Panel,
+    height: f32,
+}
+
 /// A panel on screen, for [`pose_front`] and [`fade_front`].
 #[derive(Component)]
 pub(super) struct FrontCard(pub(super) Panel);
@@ -467,6 +480,63 @@ fn carousel_pose(panel: Panel, round: f32, width: f32) -> Pose {
 fn smoothstep(from: f32, to: f32, x: f32) -> f32 {
     let t = ((x - from) / (to - from)).clamp(0.0, 1.0);
     t * t * (3.0 - 2.0 * t)
+}
+
+/// The stage's height in one frame of a motion: from the panel going to the
+/// panel coming, on the motion's own curve.
+fn stage_height(from: f32, to: f32, t: f32) -> f32 {
+    from + (to - from) * ease(t)
+}
+
+/// Eases the stage between the panels' heights while a motion runs.
+///
+/// The logo stands in a column centred on the page and the stage is the
+/// tallest part of it, so a panel of another height moved everything above
+/// and below it, at once, on the frame the tree changed. Held to a height that
+/// travels with the motion, the column glides with the passage instead. The
+/// panels stand on the stage's centre and may overhang it meanwhile.
+pub(super) fn glide_the_stage(
+    motion: Res<FrontMotion>,
+    mut rest: ResMut<StageAtRest>,
+    cards: Query<(&FrontCard, &ComputedNode)>,
+    mut stages: Query<(&mut Node, &ComputedNode), With<FrontStage>>,
+) {
+    let Ok((mut stage, computed)) = stages.single_mut() else {
+        return;
+    };
+    let height = |node: &ComputedNode| node.size().y * node.inverse_scale_factor();
+    if !motion.moving() {
+        if computed.size().y > 0.0 {
+            rest.set_if_neq(StageAtRest {
+                panel: motion.to,
+                height: height(computed),
+            });
+        }
+        if stage.height != Val::Auto {
+            stage.height = Val::Auto;
+            stage.grid_template_rows = vec![GridTrack::auto()];
+        }
+        return;
+    }
+    // The panel it stood on keeps that height, either way round, so a motion
+    // turned back on itself runs back along the same numbers. The other is
+    // measured the frame after it was drawn: until then the stage stands.
+    let panel = |wanted: Panel| {
+        if wanted == rest.panel {
+            return Some(rest.height);
+        }
+        cards
+            .iter()
+            .find(|(card, _)| card.0 == wanted)
+            .map(|(_, node)| height(node))
+            .filter(|height| *height > 0.0)
+    };
+    let from = panel(motion.from).unwrap_or(rest.height);
+    let wanted = stage_height(from, panel(motion.to).unwrap_or(from), motion.t);
+    if wanted > 0.0 && stage.height != px_fixed(wanted) {
+        stage.height = px_fixed(wanted);
+        stage.grid_template_rows = vec![GridTrack::px(wanted)];
+    }
 }
 
 /// Writes this frame's pose onto the standing panels: where they are, which
@@ -750,6 +820,7 @@ pub(super) fn stage(
                 grid_template_rows: vec![GridTrack::auto()],
                 ..default()
             },
+            FrontStage,
             // What the scene behind is framed around: the stage keeps its
             // place while the panels on it move, and is as tall as the
             // panels on it, not as the room kept for them (#295).
@@ -1850,6 +1921,25 @@ mod tests {
             }
             assert!((materials.get(&handle).unwrap().params.low.w - 0.8).abs() < 1e-6);
             assert!(materials.len() <= 3, "only one clone per fading surface");
+        }
+    }
+
+    /// The logo follows the stage: it may not step, so the height leaves
+    /// where the panel going stood, arrives where the panel coming stands,
+    /// and on the way never moves further in a frame than the curve allows.
+    #[test]
+    fn the_stage_travels_between_the_panels_heights_without_a_step() {
+        let (from, to) = (452.0, 396.0);
+        assert!((stage_height(from, to, 0.0) - from).abs() < 1e-3);
+        assert!((stage_height(from, to, 1.0) - to).abs() < 1e-3);
+        let frames = 48_u8;
+        let mut last = from;
+        for frame in 1..=frames {
+            let t = f32::from(frame) / f32::from(frames);
+            let height = stage_height(from, to, t);
+            assert!(height <= last, "it goes one way");
+            assert!(last - height < 2.5, "a step of {} at {t}", last - height);
+            last = height;
         }
     }
 

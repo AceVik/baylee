@@ -144,6 +144,7 @@ impl Plugin for LobbyPlugin {
             .init_resource::<front::FrontMotion>()
             .init_resource::<entrance::Entrance>()
             .init_resource::<front::FrontCast>()
+            .init_resource::<front::StageAtRest>()
             .init_resource::<front::RowPlaces>()
             .init_resource::<front::terms::SheetFocus>()
             .init_resource::<front::keys::MovedByTheLobby>()
@@ -202,6 +203,7 @@ impl Plugin for LobbyPlugin {
                         shell::animate_screen_transition,
                         retrace_runs,
                         front::pose_front,
+                        front::glide_the_stage,
                         // After the rebuild, so a tile just stood up glows
                         // as the round says on its first frame.
                         front::door::beckon,

@@ -4461,6 +4461,13 @@ duel taking the screen still drops it on the frame it does (`teardown`).
 
 ### The front door stands in a scene
 
+The logo stands in a column centred on the page, and the stage under it is as tall
+as its panel, so two panels of different heights would move everything above and
+below them on the frame the tree changes. `front::glide_the_stage` holds the stage to
+a height that travels between the two on the motion's own curve, and the column
+glides with the passage (measured 06.11.2026: a 30 px step in one frame before,
+nothing over about 2 px a frame after). Under `reduce_motion` it is a cut.
+
 The existing gateway/sign-in forms stand above a sunlit garden city, river,
 bridges and mountains: a first glimpse of the future **Baylees World**. This is
 background artwork, not a playable world. The approved portrait of petite,
