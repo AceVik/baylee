@@ -46,7 +46,7 @@ pub(super) struct Feed {
     dial: Option<TicketDial>,
     /// The gateway epoch the dial began in, so a session refused on a
     /// gateway this lobby has since left signs nobody out.
-    epoch: u64,
+    pub(super) epoch: u64,
     /// Seconds left before another attempt, after one failed.
     cooldown: f32,
 }
@@ -264,14 +264,22 @@ fn perform(feed: &mut Feed, state: &LobbyState, mailbox: &Mailbox, mut step: Ste
 
 /// The dial is over without a socket: wait, then try again, and say the
 /// gateway is gone meanwhile.
-fn give_up(feed: &mut Feed, state: &LobbyState, mailbox: &Mailbox) {
+pub(super) fn give_up(feed: &mut Feed, state: &LobbyState, mailbox: &Mailbox) {
+    let epoch = feed.epoch;
     feed.hang_up();
     feed.cooldown = REDIAL_SECS;
     // Said at once rather than when the next poll times out; the next
     // listing, from either path, says it is back. A socket that named no
-    // gateway lost none.
-    if state.gateway.contains("://") {
-        post(mailbox, LobbyEvent::GatewayLost);
+    // gateway lost none, and a session that has ended lost nothing: a gateway
+    // closes the socket of the account it deletes, and this runs before
+    // `poll`, so that close can stand behind the deletion's own answer.
+    if state.gateway.contains("://")
+        && let Ok(mut box_) = mailbox.0.lock()
+    {
+        box_.push(Reply::Remote(
+            epoch,
+            Box::new(Reply::Event(LobbyEvent::GatewayLost)),
+        ));
     }
 }
 

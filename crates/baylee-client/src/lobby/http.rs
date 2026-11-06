@@ -118,6 +118,9 @@ pub(super) fn dispatch(state: &mut LobbyState, mailbox: &Mailbox, request: Optio
                 super::central::login(state, mailbox, username, password);
                 return;
             }
+            // A guest is the gateway's own, with nothing of Central's behind
+            // it, so its end goes to the gateway, as its door did.
+            LobbyRequest::DeleteAccount { .. } if state.lobby.guest() => {}
             LobbyRequest::DeleteAccount { mut password } => {
                 use zeroize::Zeroize as _;
                 password.zeroize();

@@ -252,7 +252,7 @@ fn a_press_behind_the_sheet_does_nothing() {
 }
 
 /// Presses `press` through the lobby's one door for a press.
-fn click(app: &mut App, press: Press) {
+pub(super) fn click(app: &mut App, press: Press) {
     app.world_mut()
         .run_system_once(
             move |mut state: ResMut<LobbyState>,
@@ -385,6 +385,7 @@ fn a_guest_declines_and_is_deleted_without_a_password() {
     let state = app.world().resource::<LobbyState>();
     assert!(!signed_in(&app));
     assert!(state.lobby.kept_guest().is_none(), "the guest is kept");
+    assert!(state.guests.is_empty(), "its dead token is kept");
     assert!(!state.terms.up());
 }
 

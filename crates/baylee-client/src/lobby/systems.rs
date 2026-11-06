@@ -238,7 +238,19 @@ pub(super) fn poll(
                             }
                         }
                     }
+                    let deleted = matches!(event, LobbyEvent::AccountDeleted);
+                    let guest_deleted = deleted && state.lobby.guest();
                     let next = state.lobby.apply(event);
+                    if deleted {
+                        state.gateway_epoch = state.gateway_epoch.wrapping_add(1);
+                    }
+                    if guest_deleted {
+                        forget_the_guest(&mut state, &mut settings);
+                        #[cfg(not(target_arch = "wasm32"))]
+                        if state.central_ready() {
+                            super::central::back_from_a_session(&mut state);
+                        }
+                    }
                     if let Some(kept) = guest_in {
                         let gateway = state.gateway.clone();
                         state.uses.record(&gateway);
@@ -296,11 +308,7 @@ pub(super) fn poll(
                     let guest = state.lobby.guest();
                     state.lobby.session_ended();
                     if guest {
-                        let gateway = state.gateway.clone();
-                        state.guests.remove(&gateway);
-                        if let Some(settings) = settings.as_mut() {
-                            keep_gateways(&state, settings);
-                        }
+                        forget_the_guest(&mut state, &mut settings);
                     }
                     // Signed in at Central the list is what stands now
                     // (`front::Panel::of`), and the keys go with it.
@@ -682,6 +690,19 @@ pub(super) fn keep_gateways(state: &LobbyState, settings: &mut crate::settings::
     settings.gateway_uses.clone_from(&state.uses);
     settings.guests.clone_from(&state.guests);
     settings.save();
+}
+
+/// A guest gone for good takes this device's way back to it along (#269):
+/// signed out, deleted, or no longer known to its gateway.
+pub(super) fn forget_the_guest(
+    state: &mut LobbyState,
+    settings: &mut Option<ResMut<crate::settings::ClientSettings>>,
+) {
+    let gateway = state.gateway.clone();
+    state.guests.remove(&gateway);
+    if let Some(settings) = settings.as_mut() {
+        keep_gateways(state, settings);
+    }
 }
 
 /// Leaves a finished game and comes back here.

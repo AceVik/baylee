@@ -1,7 +1,7 @@
 //! The pointer: a click on a lobby control turned into an intent.
 
 use super::press::{Cx, in_lineage, in_lineage_entity};
-use super::systems::keep_gateways;
+use super::systems::forget_the_guest;
 #[allow(clippy::wildcard_imports)] // the lobby's own vocabulary
 use super::*;
 
@@ -93,11 +93,7 @@ fn end_the_session(
     state.offline = None;
     let ending = state.lobby.sign_out();
     if guest {
-        let gateway = state.gateway.clone();
-        state.guests.remove(&gateway);
-        if let Some(settings) = settings.as_mut() {
-            keep_gateways(state, settings);
-        }
+        forget_the_guest(state, settings);
     }
     dispatch(state, mailbox, ending);
 }

@@ -143,6 +143,56 @@ fn at_the_tables(gateway: &str) -> App {
     app
 }
 
+/// The socket of the session at the tables closes: what the feed does then,
+/// in the frame before `poll`.
+fn the_socket_closes(app: &mut App) {
+    let world = app.world_mut();
+    let epoch = world.resource::<LobbyState>().gateway_epoch;
+    world.resource_scope(|world, mut feed: Mut<super::super::feed::Feed>| {
+        feed.epoch = epoch;
+        super::super::feed::give_up(
+            &mut feed,
+            world.resource::<LobbyState>(),
+            world.resource::<Mailbox>(),
+        );
+    });
+}
+
+/// A socket lost under a live session is a lost gateway, said at once, in
+/// the session's own epoch. Read from the mailbox: the next reply to arrive
+/// would say the gateway is back.
+#[test]
+fn a_socket_lost_under_a_session_says_the_gateway_is_gone() {
+    let mut app = at_the_tables("http://127.0.0.1:1");
+    the_socket_closes(&mut app);
+    let epoch = app.world().resource::<LobbyState>().gateway_epoch;
+    let mail = app.world().resource::<Mailbox>().0.lock().expect("mailbox");
+    assert!(mail.iter().any(|reply| matches!(
+        reply,
+        Reply::Remote(said, lost)
+            if *said == epoch && matches!(**lost, Reply::Event(LobbyEvent::GatewayLost))
+    )));
+}
+
+/// A gateway closes the socket of the account it deletes, beside the answer
+/// that says so. The answer can be in the mailbox first, and the close then
+/// stands behind it: the gateway has lost nobody (seen live, 06.11.2026).
+#[test]
+fn the_socket_closed_with_a_deleted_account_is_no_lost_gateway() {
+    let mut app = at_the_tables("http://127.0.0.1:1");
+    app.world()
+        .resource::<Mailbox>()
+        .0
+        .lock()
+        .expect("mailbox")
+        .push(Reply::Event(LobbyEvent::AccountDeleted));
+    the_socket_closes(&mut app);
+    app.update();
+    let lobby = &app.world().resource::<LobbyState>().lobby;
+    assert_eq!(lobby.token(), None);
+    assert!(!lobby.unreachable());
+}
+
 /// Runs frames until `done` or the budget runs out.
 fn frames_until(app: &mut App, what: &str, done: impl Fn(&mut App) -> bool) {
     for _ in 0..600 {

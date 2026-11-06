@@ -950,6 +950,48 @@ fn a_central_player_as_a_guest() -> App {
     app
 }
 
+/// A guest made at that door ends at its gateway like any guest: Central has
+/// no part in it, so declining the terms is not refused for want of Central.
+/// Nothing of it stays on this device, and the account's list stands again.
+#[test]
+fn a_guest_from_that_door_can_be_deleted_and_the_list_stands_again() {
+    let mut app = a_central_player_as_a_guest();
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .ask_to_delete_account();
+    super::front_terms::click(
+        &mut app,
+        Press::Settings(SettingsPress::ConfirmAccountDeletion),
+    );
+    {
+        let refusal = app
+            .world()
+            .resource::<LobbyState>()
+            .lobby
+            .deleting_account()
+            .and_then(|deletion| deletion.refusal.clone())
+            .unwrap_or_default();
+        assert!(!refusal.contains("Central"), "refused here: {refusal}");
+    }
+
+    land(&mut app, Reply::Event(LobbyEvent::AccountDeleted));
+    settle(&mut app);
+    let state = app.world().resource::<LobbyState>();
+    assert_eq!(state.lobby.token(), None);
+    assert!(state.guests.is_empty(), "its dead token is not kept");
+    assert!(
+        app.world()
+            .resource::<crate::settings::ClientSettings>()
+            .guests
+            .is_empty(),
+        "nor in the settings file"
+    );
+    assert!(state.central_ready(), "Central stays signed in");
+    assert!(state.showing_gateway_hub());
+    assert!(!state.gateway_selected);
+}
+
 /// A guest this device keeps for that gateway is offered by its handle, and
 /// is not taken up until the player presses it. No request goes first: the
 /// session is the whole of a guest (`Lobby::play_as_guest`), and terms are
