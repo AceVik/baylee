@@ -32433,7 +32433,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Acorn Harvest
+    &[FaceLines {
+        sentences: 2,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     // Ambassador Laquatus
     &[FaceLines {
@@ -32567,9 +32574,23 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         alternatives: &[],
     }],
     &[],
+    // Crippling Fatigue
+    &[FaceLines {
+        sentences: 2,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
-    &[],
-    &[],
+    // Deep Analysis
+    &[FaceLines {
+        sentences: 2,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     &[],
     // Enslaved Dwarf
@@ -34882,7 +34903,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Withered Wretch
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     // Akroma's Devoted
     &[FaceLines {

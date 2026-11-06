@@ -18562,7 +18562,8 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Withered Wretch
+    &["{1}: Exile target card from a graveyard."],
     &[],
     // Akroma's Devoted
     &["Cleric creatures have vigilance."],

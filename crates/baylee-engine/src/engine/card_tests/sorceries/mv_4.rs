@@ -3,6 +3,7 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
+mod acorn_harvest;
 mod aftershock;
 mod agonizing_memories;
 mod agonizing_syphon;
@@ -23,6 +24,7 @@ mod channel_the_suns;
 mod concentrate;
 mod creeping_mold;
 mod deadshot;
+mod deep_analysis;
 mod demolish;
 mod diabolic_tutor;
 mod eradicate;

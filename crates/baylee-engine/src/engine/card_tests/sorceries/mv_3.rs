@@ -19,6 +19,7 @@ mod choking_sands;
 mod cleansing;
 mod coercion;
 mod council_s_judgment;
+mod crippling_fatigue;
 mod death_s_duet;
 mod deconstruct;
 mod distorting_wake;

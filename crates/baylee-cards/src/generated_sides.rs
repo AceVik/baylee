@@ -263,7 +263,7 @@ pub static DOUBLE_FACED: [CardIndex; 118] = [
 ];
 
 /// Cards whose reference printing is uncommon.
-pub static UNCOMMON: [CardIndex; 3698] = [
+pub static UNCOMMON: [CardIndex; 3699] = [
     CardIndex::new(0),
     CardIndex::new(2),
     CardIndex::new(3),
@@ -2182,6 +2182,7 @@ pub static UNCOMMON: [CardIndex; 3698] = [
     CardIndex::new(6003),
     CardIndex::new(6007),
     CardIndex::new(6010),
+    CardIndex::new(6095),
     CardIndex::new(6097),
     CardIndex::new(6099),
     CardIndex::new(6102),
@@ -47447,6 +47448,13 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(6024),
+        baylee_core::card_metadata::ReferencePrintRules {
+            watermarks: &[None],
+            is_un: false,
+        },
+    ),
+    (
+        CardIndex::new(6095),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
