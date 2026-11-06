@@ -140,6 +140,9 @@ nicht, wird das Absichts-Menü gestrichen oder dient nur saubereren Labels.
 
 **Phase B, Vertrag.** `model_version = 6`, nächster freier Encoder (11 nutzt das Experiment
 `v6z`). Köpfe, Export, FP16-Parität, `seat4`-Auswahl, Trennung von Rumpf und Köpfen.
+Das Netz soll am Ende vor allem auf NPUs laufen (Eigentümer, 6. November). Darum gehört früh eine
+Probe auf die XDNA-NPU des Notebooks dazu: Welche Operatoren laufen dort, welche fallen auf die CPU
+zurück, wie weit tragen feste Formen und Quantisierung, und was kostet das an Spielstärke?
 
 **Phase C, Köpfe einzeln.** Je Kopf: Rumpf eingefroren, drei Seeds, gepaart gegen B-refresh.
 Reihenfolge nach Phase A; vorläufig Spalte gegen wirkungslose Zauber, Gegner-Leser, Bewerter,
