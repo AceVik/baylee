@@ -77,6 +77,21 @@ class RefreshCheckpoint(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, 'existing output'):
                     refresh_checkpoint(root / 'source', catalog, root / 'new')
 
+    def test_a_later_encoder_survives_the_refresh(self):
+        with tempfile.TemporaryDirectory() as root:
+            root = Path(root)
+            _, source = self.source(root / 'source', 2)
+            source['encoder_version'] = 10
+            torch.save(source, root / 'source/net.pt')
+            catalog = root / 'catalog.json'
+            catalog.write_text(json.dumps(source['structure']))
+            lineage = refresh_checkpoint(root / 'source', catalog, root / 'new')
+            saved, _, _ = load_export_checkpoint(root / 'new/net.pt')
+            self.assertEqual(saved['encoder_version'], 10)
+            self.assertEqual(lineage['source_encoder_version'], 10)
+            metadata = json.loads((root / 'new/meta.json').read_text())
+            self.assertEqual(metadata['encoder_version'], 10)
+
     def test_unknown_operators_reject_or_record_actual_donor_initialization(self):
         with tempfile.TemporaryDirectory() as root:
             root = Path(root)

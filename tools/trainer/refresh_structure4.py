@@ -103,7 +103,9 @@ def refresh_checkpoint(model, catalog, out, *, allow_new_operators=False):
         inherited_validation_metrics_scope="source catalog; refreshed catalog requires new validation")
     # Preserve training selection, config, architecture and pre-existing provenance.
     # A catalog refresh is a new lineage event, not a replacement training history.
-    payload = {**old, "encoder_version": M.ENCODER_VERSION, "structure": data,
+    # Encoder 6 upgrades to 7 above; a later encoder stays, or its export would
+    # read features the lower encoder never writes.
+    payload = {**old, "encoder_version": max(old["encoder_version"], M.ENCODER_VERSION), "structure": data,
                "state_dict": net.state_dict(), "structure_sha256": net.rules.digest,
                "structure_version": 1, "catalog_refresh": lineage}
     lineage["discarded_runtime_state"] = [key for key in ("optimizer", "rng", "h") if key in payload]
