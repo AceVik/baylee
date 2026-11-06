@@ -15,6 +15,28 @@ pub(super) fn exec_immediate(
 ) -> Option<Pending> {
     let you = res.controller;
     match op {
+        Effect::Madness => {
+            let card = res.event_object?;
+            let version = source_version(state, res)?;
+            if crate::engine::cast_wizard::madness_options(
+                state,
+                state.bases.as_ref(),
+                you,
+                card,
+                version,
+            )
+            .is_none()
+            {
+                state.madness_to_graveyard(card, version);
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::Madness { card, version });
+            Some(Pending::YesNo {
+                player: you,
+                prompt: YesNoPrompt::Madness { card },
+                source: resolving_ability(state, res),
+            })
+        }
         Effect::ExileMostVotedNotControlledByYou { filter } => vote::start(state, res, filter),
         Effect::ExileAttackingForThenMaySearchBasicLands { player } => {
             settle::start(state, res, player)

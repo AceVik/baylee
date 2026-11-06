@@ -1150,6 +1150,7 @@ fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, Str
             "don't pay".into(),
         ),
         YesNoPrompt::Miracle { card } => miracle_words(table, *card),
+        YesNoPrompt::Madness { card } => madness_words(table, *card),
         YesNoPrompt::DrawOffer { proposer } => (
             format!("{} offers a draw. Accept?", Table::player_id(*proposer)),
             "accept the draw".into(),
@@ -1288,6 +1289,51 @@ fn miracle_words(table: &Table<'_>, card: ObjectId) -> (String, String, String) 
         ),
         "cast it for its miracle cost".into(),
         table.for_decider("keep it in your hand"),
+    )
+}
+
+/// A printed mana price, including the `{0}` that an empty `ManaCost` means.
+fn printed_mana_cost(cost: &ManaCost) -> String {
+    let text = cost.to_string();
+    if text.is_empty() { "{0}".into() } else { text }
+}
+
+/// The visible printed madness cost, word for word for every part the
+/// reader admits. A future part gets the generic question rather than a
+/// price that only looks complete.
+fn madness_cost_words(table: &Table<'_>, card: ObjectId) -> Option<String> {
+    let identity = baylee_client_core::decision::known_cards(table.view)
+        .find(|known| known.id == card)
+        .map(|known| known.card)
+        .or_else(|| table.view.object(card).and_then(|object| object.card))?;
+    let cost = baylee_cards::by_index(identity.index)?
+        .faces
+        .get(usize::from(identity.face))?
+        .madness?;
+    let mut words = vec![printed_mana_cost(&cost.mana)];
+    for part in cost.parts {
+        match part {
+            baylee_cards_dsl::CostPart::PayLife(amount) if *amount > 0 => {
+                words.push(format!("pay {amount} life"));
+            }
+            baylee_cards_dsl::CostPart::PayLife(_) => {}
+            _ => return None,
+        }
+    }
+    Some(words.join(" and "))
+}
+
+fn madness_words(table: &Table<'_>, card: ObjectId) -> (String, String, String) {
+    let price = madness_cost_words(table, card)
+        .map(|price| format!(" {price}"))
+        .unwrap_or_default();
+    (
+        format!(
+            "Cast {} for its madness cost{price}? If you don't, it goes into your graveyard.",
+            table.named(card)
+        ),
+        format!("cast it for its madness cost{price}"),
+        table.for_decider("put it into your graveyard"),
     )
 }
 
@@ -1581,6 +1627,12 @@ fn cast_mode_label(card: Option<baylee_view::CardIdentity>, option: &CastModeDes
         CastModeKind::Prototype => format!("Cast it prototyped for {cost}"),
         CastModeKind::Disguise => face_down_label(card, &cost),
         CastModeKind::Miracle => format!("Cast it for its miracle cost {cost}"),
+        CastModeKind::Madness => {
+            format!(
+                "Cast it for its madness cost {}",
+                printed_mana_cost(&option.cost)
+            )
+        }
         CastModeKind::Foretell => format!("Cast it with foretell for {cost}"),
         CastModeKind::Flashback => format!("Cast it with flashback for {cost}"),
         CastModeKind::BeamMeUp => {
@@ -1616,22 +1668,24 @@ fn cast_mode_label(card: Option<baylee_view::CardIdentity>, option: &CastModeDes
                 baylee_client_core::i18n::Lang::En
             )
         ),
-        CastModeKind::Colors(colors) => {
-            use baylee_core::color::Color;
-            let names = [
-                (Color::White, "white"),
-                (Color::Blue, "blue"),
-                (Color::Black, "black"),
-                (Color::Red, "red"),
-                (Color::Green, "green"),
-            ]
-            .into_iter()
-            .filter_map(|(color, name)| colors.contains(color).then_some(name))
-            .collect::<Vec<_>>()
-            .join(" + ");
-            format!("Choose {names}")
-        }
+        CastModeKind::Colors(colors) => color_choice_label(colors),
     }
+}
+
+fn color_choice_label(colors: baylee_core::color::ColorSet) -> String {
+    use baylee_core::color::Color;
+    let names = [
+        (Color::White, "white"),
+        (Color::Blue, "blue"),
+        (Color::Black, "black"),
+        (Color::Red, "red"),
+        (Color::Green, "green"),
+    ]
+    .into_iter()
+    .filter_map(|(color, name)| colors.contains(color).then_some(name))
+    .collect::<Vec<_>>()
+    .join(" + ");
+    format!("Choose {names}")
 }
 
 /// The subtypes among the seat's own cards that a question allows, for a

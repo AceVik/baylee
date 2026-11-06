@@ -31,6 +31,9 @@ pub struct DecisionContext<'a> {
     pub cost: Option<ManaCost>,
     /// Selected casting route, including miracle's later mana opportunity.
     pub cast_mode: Option<CastModeKind>,
+    /// An alternative cost applied to the selected route. Madness keeps the
+    /// ordinary mode in `cast_mode`, so modal casts retain their own meaning.
+    pub alternative_cost: Option<CastModeKind>,
     /// Whether X also costs life (for example Toxic Deluge).
     pub life_x: bool,
     /// X already announced for targeting and resolution.
@@ -366,6 +369,7 @@ impl<L: CardLookup> Engine<L> {
                 .find(|a| matches!(a, AbilityDef::Spell { .. } | AbilityDef::ModalSpell { .. }))
                 .map_or(&[], |a| effects(a, mode)),
             cast_mode: wizard.option,
+            alternative_cost: wizard.alternative_cost,
             cost: wizard
                 .options
                 .iter()

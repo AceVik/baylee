@@ -1,11 +1,13 @@
-//! Discards an effect makes, and Library of Leng's way out of the graveyard.
+//! The shared discard move, and Library of Leng's way out of the graveyard.
 //!
 //! "To discard a card, move it from its owner's hand to that player's
 //! graveyard" (CR 701.9a). Library of Leng replaces where the card goes and
 //! nothing else: "discard it, but you may put it on top of your library
-//! instead of into your graveyard". The answer is asked before the discard
-//! is made (`resolve::discard`), kept in [`GameState::discard_answers`] and
-//! spent here, the one door an effect's discard goes through.
+//! instead of into your graveyard". The answer is asked before an effect's
+//! discard is made (`resolve::discard`), kept in
+//! [`GameState::discard_answers`] and spent here. Effect, cost and cleanup
+//! discards all pass through this door, so their journal event, graveyard
+//! successor and madness replacement cannot drift apart.
 //!
 //! A card put into the library this way is not revealed, so its
 //! characteristics are undefined to whatever reads the discard
@@ -113,6 +115,18 @@ impl GameState {
         }
         let known = reveal || !matches!(answer, Some(Some(_))) || cause != Cause::Effect;
         let types = self.record_discard(card, player, by, known);
+        // Madness replaces the discard's destination, not the discard event
+        // itself (CR 702.35a). A replacement that sends the card to its
+        // owner's library leaves no graveyard-bound discard for it to replace.
+        let madness = !matches!(answer, Some(Some(_)))
+            && self.object(card).is_some_and(|object| {
+                object.zone == Zone::Hand
+                    && object
+                        .card
+                        .and_then(|card| self.bases.card(card.index))
+                        .and_then(|def| def.faces.get(usize::from(object.face_index)))
+                        .is_some_and(|face| face.madness.is_some())
+            });
         match answer {
             Some(Some((rank, _))) if cause == Cause::Effect => {
                 let library = ZoneLocation::Library(owner);
@@ -132,16 +146,49 @@ impl GameState {
                 }
             }
             _ => {
-                let _ = self.move_object(
-                    card,
-                    ZoneLocation::Graveyard(owner),
-                    ZonePosition::Top,
-                    cause,
-                );
+                let destination = if madness {
+                    ZoneLocation::Exile(owner)
+                } else {
+                    ZoneLocation::Graveyard(owner)
+                };
+                if self
+                    .move_object(card, destination, ZonePosition::Top, cause)
+                    .is_ok()
+                    && madness
+                    && let Some(object) = self
+                        .object(card)
+                        .filter(|object| object.zone == Zone::Exile && object.owner == owner)
+                {
+                    self.journal.record(GameEvent::MadnessExiled {
+                        object: card,
+                        version: object.version,
+                        owner,
+                    });
+                }
             }
         }
         self.record_discard_successor(card, player);
         types
+    }
+
+    /// Madness's uncast card goes from exile to its owner's graveyard, but
+    /// only while it is still the incarnation the trigger exiled (CR 400.7,
+    /// 702.35a). This is not a second discard.
+    pub(crate) fn madness_to_graveyard(&mut self, card: ObjectId, version: u32) -> bool {
+        let Some(owner) = self
+            .object(card)
+            .filter(|object| object.zone == Zone::Exile && object.version == version)
+            .map(|object| object.owner)
+        else {
+            return false;
+        };
+        self.move_object(
+            card,
+            ZoneLocation::Graveyard(owner),
+            ZonePosition::Top,
+            Cause::Effect,
+        )
+        .is_ok()
     }
 
     /// Retain only the actual graveyard incarnation after a completed discard move.

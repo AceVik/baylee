@@ -84,6 +84,7 @@ pub(super) fn event_player_of(event: &GameEvent) -> Option<PlayerId> {
         | GameEvent::LandPlayed { player, .. }
         | GameEvent::Cycled { player, .. }
         | GameEvent::Discarded { player, .. }
+        | GameEvent::MadnessExiled { owner: player, .. }
         | GameEvent::LifeChanged { player, .. }
         | GameEvent::ManaProduced { player, .. }
         | GameEvent::LibrarySearched { player }
@@ -211,6 +212,7 @@ pub(super) fn event_object_of(event: &GameEvent) -> Option<ObjectId> {
         | GameEvent::SpellCast { object, .. }
         | GameEvent::SpellCopied { object, .. }
         | GameEvent::Discarded { object, .. }
+        | GameEvent::MadnessExiled { object, .. }
         | GameEvent::CounterChanged { object, .. }
         | GameEvent::AbilityTriggered { object, .. }
         | GameEvent::BecameTarget { object, .. }

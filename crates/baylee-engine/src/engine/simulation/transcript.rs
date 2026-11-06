@@ -146,6 +146,7 @@ fn for_each_object(event: &mut GameEvent, f: &mut impl FnMut(&mut ObjectId)) {
         | GameEvent::StackObjectDidNotResolve { object }
         | GameEvent::SpellCountered { object }
         | GameEvent::Discarded { object, .. }
+        | GameEvent::MadnessExiled { object, .. }
         | GameEvent::Cycled { object, .. }
         | GameEvent::AttackerUnblocked { object }
         | GameEvent::ControllerChanged { object, .. }

@@ -711,18 +711,10 @@ impl<L: CardLookup> Engine<L> {
                     }
                 }
                 CostPart::DiscardSelf => {
-                    let owner = self.state.object(source).map_or(player, |o| o.owner);
                     if let Some(reference) = self.state.source_identity(source) {
                         paid.discarded.push(reference);
                     }
-                    self.state.record_discard(source, player, None, true);
-                    self.state.move_object(
-                        source,
-                        ZoneLocation::Graveyard(owner),
-                        ZonePosition::Top,
-                        Cause::Cost,
-                    )?;
-                    self.state.record_discard_successor(source, player);
+                    self.state.discard_card(source, player, Cause::Cost, None);
                 }
                 CostPart::SacrificeSelf => {
                     self.state.sacrifice_object(source, Cause::Cost)?;

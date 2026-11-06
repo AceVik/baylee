@@ -639,6 +639,7 @@ fn render_face(
     enter_modifiers: &[String],
     flashback: Option<&str>,
     flashback_parts: &[String],
+    madness: Option<&str>,
     foretell: Option<&str>,
     cost_reduction: Option<&str>,
     entwine: Option<&str>,
@@ -700,6 +701,9 @@ fn render_face(
             .collect::<Vec<_>>()
             .join(", ");
         fields.push(format!("flashback_parts = &[{parts}]"));
+    }
+    if let Some(madness) = madness {
+        fields.push(format!("madness = {madness}"));
     }
     if let Some(ft) = foretell {
         fields.push(format!("foretell = {ft}"));

@@ -1540,6 +1540,7 @@ pub(super) fn resume_inner(
         | AwaitingOp::ChooseCoinRepeatPlayer(_)
         | AwaitingOp::CascadeCast { .. }
         | AwaitingOp::CastTarget { .. }
+        | AwaitingOp::Madness { .. }
         | AwaitingOp::TopOrBottom { .. }
         | AwaitingOp::SelectedCommander { .. }
         | AwaitingOp::GraveyardToTopOrder { .. }

@@ -1823,7 +1823,7 @@ impl<L: CardLookup> Engine<L> {
                     };
                     // "Yes" is taken like every answer a question offers.
                     // A cast it cannot follow through is reversed (CR 601.2,
-                    // 733.1) and the card stays in hand: the offer was the
+                    // 734.1) and the card stays in hand: the offer was the
                     // miracle's one chance (CR 702.94a), so that is a "no".
                     // It used to be refused, which a driver that proposes
                     // yes again reads as a question with no answer (the
@@ -2000,7 +2000,7 @@ impl<L: CardLookup> Engine<L> {
                     self.cast_wizard = Some(wizard);
                     // Taken like every other answer the wizard asks, and a
                     // cast that cannot go on from it is reversed (CR 601.2,
-                    // 733.1). It was the one wizard answer refused instead,
+                    // 734.1). It was the one wizard answer refused instead,
                     // after the wizard had already been dropped: a refusal
                     // that moved the engine, and a question left standing
                     // with nothing behind it.
@@ -2329,14 +2329,8 @@ impl<L: CardLookup> Engine<L> {
                 }
                 let since = self.state.journal.last_seq();
                 for card in objects {
-                    self.state.record_discard(card, player, None, true);
-                    self.state.move_object(
-                        card,
-                        ZoneLocation::Graveyard(player),
-                        ZonePosition::Top,
-                        Cause::TurnBased,
-                    )?;
-                    self.state.record_discard_successor(card, player);
+                    self.state
+                        .discard_card(card, player, Cause::TurnBased, None);
                 }
                 crate::graveyard_order::capture(&mut self.state, since);
                 // Then CR 514.2, and the step's check after it (CR 514.3a):
@@ -2373,7 +2367,7 @@ impl<L: CardLookup> Engine<L> {
     /// with nothing behind it, and the next answer to it panicked the engine
     /// ("target plan set"), or reached for a resolution that was never there.
     /// An activation that can't legally be completed is reversed and the
-    /// player who had priority keeps it (CR 733.1, CR 733.2), so that is what
+    /// player who had priority keeps it (CR 734.1, CR 734.2), so that is what
     /// happens: the activation's answers so far are dropped, nothing reaches
     /// the stack, and its activator is asked for priority again. The answer
     /// itself is accepted, because it was a legal one and it did end the

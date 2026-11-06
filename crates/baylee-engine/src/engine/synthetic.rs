@@ -76,6 +76,7 @@ pub fn land_face(name: &'static str) -> FaceDef {
         morph: None,
         escape: None,
         behold_or_pay: None,
+        madness: None,
     }
 }
 

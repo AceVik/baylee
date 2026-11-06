@@ -566,6 +566,17 @@ pub enum GameEvent {
         /// The resulting mutated creature.
         object: ObjectId,
     },
+    /// Madness replaced a discard's destination with exile (CR 702.35a).
+    /// This records the exact exile incarnation whose triggered ability may
+    /// offer the cast; an arbitrary hand-to-exile move is not madness.
+    MadnessExiled {
+        /// The discarded card, now in exile.
+        object: ObjectId,
+        /// Its identity after entering exile (CR 400.7).
+        version: u32,
+        /// Its owner, who controls the madness trigger.
+        owner: PlayerId,
+    },
 }
 
 /// Where in a library a card was put.
