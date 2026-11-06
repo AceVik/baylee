@@ -209,3 +209,55 @@ fn a_second_press_of_the_same_control_clicks_again() {
         [toggle, toggle]
     );
 }
+
+/// A list a person can read through stays whole, whatever it is scrolled to.
+#[test]
+fn a_short_list_of_friends_draws_every_row() {
+    assert_eq!(row_window(DRAWN_WHOLE, 3, 2), 0..DRAWN_WHOLE);
+}
+
+/// The window reaches over what is on screen from the top to the last row,
+/// and never past the end.
+#[test]
+fn a_long_list_draws_the_rows_around_where_it_is_scrolled_to() {
+    let total = 500;
+    let at_top = row_window(total, 0, 3);
+    assert_eq!(at_top, 0..WINDOW_ROWS);
+    let row = 200;
+    let window = row_window(total, row / WINDOW_STEP, 3);
+    assert!(window.start < row && row + 30 < window.end, "{window:?}");
+    assert_eq!(window.len(), WINDOW_ROWS);
+    let at_end = row_window(total, total / WINDOW_STEP, 3);
+    assert_eq!(at_end, total - WINDOW_ROWS..total);
+}
+
+/// What is not drawn stands in as height, in one piece on each side of the
+/// window, so the list's length and scrollbar hold.
+#[test]
+fn the_rows_left_out_keep_the_lists_length() {
+    let mut app = app();
+    let mut commands = app.world_mut().commands();
+    let mut kids = Vec::new();
+    let mut window = RowWindow::new(10..12, 50.0);
+    let drawn = (0..30)
+        .filter(|_| window.takes_row(&mut commands, &mut kids))
+        .count();
+    window.close(&mut commands, &mut kids);
+    app.update();
+    assert_eq!(drawn, 2);
+    let heights: Vec<Val> = kids
+        .iter()
+        .map(|kid| app.world().get::<Node>(*kid).expect("a spacer").height)
+        .collect();
+    assert_eq!(heights, [Val::Px(500.0), Val::Px(900.0)]);
+}
+
+/// The window moves in steps smaller than its reach above the view, so a
+/// scroll never lands on rows it has not drawn yet.
+#[test]
+fn the_window_moves_before_the_view_reaches_its_edge() {
+    let pitch = 56.0;
+    assert_eq!(window_chunk(0.0, pitch), 0);
+    assert_eq!(window_chunk(-30.0, pitch), 0);
+    assert_eq!(window_chunk(pitch * 8.5, pitch), 1);
+}

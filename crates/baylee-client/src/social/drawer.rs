@@ -1116,6 +1116,8 @@ fn sync_drawer(
         .as_ref()
         .map(|(e, b)| format!("{e:?}{}{}", b.text(), b.cursor()))
         .unwrap_or_default();
+    let pitch = ROW_PITCH * zoom.0;
+    let chunk = window_chunk(scrolls.iter().next().map_or(0.0, |s| s.y), pitch);
     let key = (
         machine.revision(),
         format!("{}{}", ui.find.text(), ui.find.cursor()),
@@ -1123,6 +1125,7 @@ fn sync_drawer(
         ui.typing,
         ui.drawer_menu.clone(),
         format!("{:?}", ui.field),
+        chunk,
     );
     let root = if let Some((root, _)) = roots.iter_mut().next() {
         root
@@ -1408,9 +1411,18 @@ fn sync_drawer(
         .table()
         .filter(|t| !t.watching)
         .map(|t| t.game.clone());
-    // Friends: online, then offline.
+    // Friends: online, then offline. A long list draws only the rows near what
+    // is in view, in one walk over both.
+    let listed = view
+        .online
+        .iter()
+        .chain(view.offline.iter())
+        .filter(|f| shown(&f.person.handle))
+        .count();
+    let mut window = RowWindow::new(row_window(listed, chunk, kids.len()), pitch);
     let friend_rows = |commands: &mut Commands,
                        kids: &mut Vec<Entity>,
+                       window: &mut RowWindow,
                        friends: &[&baylee_protocol::social::Friend],
                        title: ChatPhrase| {
         let friends: Vec<&&baylee_protocol::social::Friend> =
@@ -1424,6 +1436,9 @@ fn sync_drawer(
             format!("{} · {}", title.text(lang), friends.len()),
         ));
         for friend in friends {
+            if !window.takes_row(commands, kids) {
+                continue;
+            }
             let tag = friend.person.tag.clone();
             let line = row(commands);
             let card_bg = Color::srgba(0.06, 0.11, 0.15, 0.85);
@@ -1542,6 +1557,7 @@ fn sync_drawer(
                 kids.push(menu);
             }
         }
+        window.close(commands, kids);
     };
     // Online, by where they are (owner, 13.10.): playing, at a table,
     // in the lobby (and anywhere else).
@@ -1561,7 +1577,7 @@ fn sync_drawer(
             .copied()
             .filter(|f| place_of(f) == n)
             .collect();
-        friend_rows(&mut commands, &mut kids, &part, title);
+        friend_rows(&mut commands, &mut kids, &mut window, &part, title);
     }
     // Groups.
     if !me.guest && !view.groups.is_empty() {
@@ -1683,6 +1699,7 @@ fn sync_drawer(
     friend_rows(
         &mut commands,
         &mut kids,
+        &mut window,
         &view.offline,
         ChatPhrase::SectionOffline,
     );
@@ -1874,7 +1891,101 @@ fn sync_drawer(
 
 /// What the drawer was last drawn from: the machine's revision, the search
 /// box, the entry box, the keys, the open menu, the field.
-type DrawerKey = (u64, String, String, bool, Option<String>, String);
+type DrawerKey = (u64, String, String, bool, Option<String>, String, usize);
+
+/// The height of a friend's row with its margins, before the zoom. A row that
+/// wraps its buttons is taller; the spacers around the window are what the
+/// list measures, so this never adds up over the rows skipped.
+const ROW_PITCH: f32 = 56.0;
+/// A list up to this long draws every row.
+const DRAWN_WHOLE: usize = 80;
+/// The rows a longer list draws, and how far they reach above where it is
+/// scrolled to: enough for the tallest screen at the largest zoom.
+const WINDOW_ROWS: usize = 72;
+const WINDOW_ABOVE: usize = 16;
+/// Rows the list may scroll before the window moves: a rebuild of the rows in
+/// it, so not every row, and well inside [`WINDOW_ABOVE`].
+const WINDOW_STEP: usize = 8;
+const _: () = assert!(WINDOW_STEP < WINDOW_ABOVE);
+
+/// Which step of the window a list scrolled to `top` stands on.
+fn window_chunk(top: f32, pitch: f32) -> usize {
+    if pitch <= 0.0 {
+        return 0;
+    }
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let rows = (top.max(0.0) / pitch) as usize;
+    rows / WINDOW_STEP
+}
+
+/// The friend rows to draw of `total`, at step `chunk`, under `above` other
+/// rows. A heading or a request above them is about a row high, which
+/// [`WINDOW_ABOVE`] has room for.
+fn row_window(total: usize, chunk: usize, above: usize) -> std::ops::Range<usize> {
+    if total <= DRAWN_WHOLE {
+        return 0..total;
+    }
+    let first = (chunk * WINDOW_STEP)
+        .saturating_sub(above)
+        .saturating_sub(WINDOW_ABOVE)
+        .min(total.saturating_sub(WINDOW_ROWS));
+    first..(first + WINDOW_ROWS).min(total)
+}
+
+/// One walk over the friends: which rows it draws, and the empty height that
+/// stands for the ones it does not, so the list keeps its length.
+struct RowWindow {
+    rows: std::ops::Range<usize>,
+    pitch: f32,
+    next: usize,
+    skipped: usize,
+}
+
+impl RowWindow {
+    fn new(rows: std::ops::Range<usize>, pitch: f32) -> Self {
+        Self {
+            rows,
+            pitch,
+            next: 0,
+            skipped: 0,
+        }
+    }
+
+    /// Counts the next row; whether it is to be drawn.
+    fn takes_row(&mut self, commands: &mut Commands, kids: &mut Vec<Entity>) -> bool {
+        let at = self.next;
+        self.next += 1;
+        if self.rows.contains(&at) {
+            self.close(commands, kids);
+            true
+        } else {
+            self.skipped += 1;
+            false
+        }
+    }
+
+    /// Stands the rows skipped so far in as one empty height.
+    fn close(&mut self, commands: &mut Commands, kids: &mut Vec<Entity>) {
+        if self.skipped == 0 {
+            return;
+        }
+        #[allow(clippy::cast_precision_loss)]
+        let height = self.skipped as f32 * self.pitch;
+        self.skipped = 0;
+        kids.push(
+            commands
+                .spawn((
+                    Node {
+                        height: Val::Px(height),
+                        flex_shrink: 0.0,
+                        ..default()
+                    },
+                    Pickable::IGNORE,
+                ))
+                .id(),
+        );
+    }
+}
 
 /// The drawer's scrolling list, whose scroll survives its rebuilds.
 #[derive(Component)]
