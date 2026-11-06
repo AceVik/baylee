@@ -6863,3 +6863,17 @@ code.
   pending shape. The 364 house-AI tests, full seat suite, 151 interaction
   tests, `record::seen`, affected Clippy, `validate` and formatting checks pass;
   the full gates remain deferred at the owner's request.
+
+## 2026-11-06 — Gush reuses the alternative return payment
+
+- Gush needs no new engine, reader, desktop or seat code: two
+  `CostPart::ReturnToHand` parts use Daze's alternative-cost path and the
+  existing distinct-object matching. Its three played tests cover the ordinary
+  mana cost, two distinct controlled Islands returned before the spell resolves,
+  exactly two cards drawn, and rejection of a Forest or an opponent's Island.
+- A no-legal-cast assertion must account for `LegalActions::payable`: it means
+  every non-mana rule passes and the seat still has a mana source, not that the
+  complete cost is already payable. Tap the available sources before requiring
+  both `castable` and `payable` to omit the card. The shared cost tests, Daze,
+  house AI, full seat suite, desktop interaction tests, `record::seen`,
+  `validate`, affected Clippy and formatting checks pass.
