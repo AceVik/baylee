@@ -18798,7 +18798,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Cataclysm
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Cinder Crawler
     &[FaceLines {
         sentences: 1,
@@ -25042,7 +25049,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         stackable: 0,
         lines: &[None],
         modes: &[],
-        alternatives: &[],
+        alternatives: &[Some(0)],
     }],
     &[],
     // Haunted Crossroads
@@ -26402,7 +26409,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         stackable: 0,
         lines: &[None],
         modes: &[],
-        alternatives: &[],
+        alternatives: &[Some(0)],
     }],
     // Death Pit Offering
     &[FaceLines {
@@ -34688,7 +34695,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         alternatives: &[],
     }],
     &[],
-    &[],
+    // Weathered Wayfarer
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     // Wellwisher
     &[FaceLines {

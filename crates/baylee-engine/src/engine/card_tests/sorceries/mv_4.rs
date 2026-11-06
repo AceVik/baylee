@@ -18,6 +18,7 @@ mod barter_in_blood;
 mod bee_sting;
 mod break_asunder;
 mod calming_verse;
+mod cataclysm;
 mod channel_the_suns;
 mod concentrate;
 mod creeping_mold;
