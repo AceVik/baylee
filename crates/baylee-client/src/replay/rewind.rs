@@ -82,6 +82,8 @@ impl Duel {
             reveals: Default::default(),
             reveal_fold: Default::default(),
             hovered_log: None,
+            trigger_sheet: None,
+            trigger_answer: None,
             // ---- forgotten: the end. A jump back takes the end sheet down.
             closed: None,
             last_error: None,

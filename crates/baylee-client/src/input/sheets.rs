@@ -18,6 +18,10 @@ pub struct TrayWidgets<'w, 's> {
     pub(super) cards: Query<'w, 's, &'static TrayCard>,
     /// The end of each pile of an arrangement, while a card is held.
     pub(super) slots: Query<'w, 's, &'static crate::hud::ArrangeSlot>,
+    /// The arrows on the rows of the trigger sheet.
+    pub(super) moves: Query<'w, 's, &'static crate::hud::tray::triggers::TriggerMove>,
+    /// The trigger sheet's way to place twins one by one, or together again.
+    pub(super) splits: Query<'w, 's, &'static crate::hud::tray::triggers::TriggerSplit>,
     pub(super) tabs: Query<'w, 's, &'static TrayTab>,
     pub(super) close: Query<'w, 's, &'static TrayMinimise>,
     /// The tray's own button, which is not on the sheet at all — it

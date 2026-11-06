@@ -3,7 +3,7 @@
 
 use super::facts::{self, Change, Deeds, Facts, Reading, Stuff, Total};
 use super::memory::TriggerMemory;
-use super::{Aim, Reason, Standing, Table, TriggerKey, Waiting, suggest};
+use super::{Reason, Standing, Table, TriggerKey, Waiting, suggest};
 use baylee_cards::dsl::AbilityDef;
 use baylee_core::ids::{AbilityRef, CardIndex, ObjectId, PlayerId};
 
@@ -36,15 +36,16 @@ fn trigger(card: u32, facts: Facts) -> Waiting {
     Waiting {
         key: Some(key(card)),
         source: None,
-        aims: Vec::new(),
+        twin: card,
         facts,
     }
 }
 
 fn doing(deeds: Deeds) -> Facts {
-    let mut facts = Facts::default();
-    facts.deeds = deeds;
-    facts
+    Facts {
+        deeds,
+        ..Facts::default()
+    }
 }
 
 fn life(who: PlayerId, by: i32) -> Facts {
@@ -83,20 +84,20 @@ fn printed(name: &str) -> (TriggerKey, &'static AbilityDef) {
     )
 }
 
-/// A real card's trigger, as this player reads it.
-fn real(name: &str, event_player: Option<PlayerId>, target_player: Option<PlayerId>) -> Waiting {
+/// A real card's trigger, as this player reads it, about that player's event.
+fn real(name: &str, event_player: Option<PlayerId>) -> Waiting {
     let (key, ability) = printed(name);
     let opponents = [THEM];
     let reading = Reading {
         me: ME,
         opponents: &opponents,
-        target_player,
         event_player,
+        event_amount: None,
     };
     Waiting {
         key: Some(key),
         source: None,
-        aims: Vec::new(),
+        twin: event_player.map_or(0, |seat| u32::from(seat.get()) + 1),
         facts: facts::of_ability(ability, &reading),
     }
 }
@@ -127,8 +128,8 @@ fn first_to_fall(waiting: &[Waiting], order: &[usize], table: &Table) -> Option<
 fn eighteen_dingus_eggs_hit_the_opponent_first() {
     let mut waiting = Vec::new();
     for _ in 0..9 {
-        waiting.push(real("Dingus Egg", Some(ME), None));
-        waiting.push(real("Dingus Egg", Some(THEM), None));
+        waiting.push(real("Dingus Egg", Some(ME)));
+        waiting.push(real("Dingus Egg", Some(THEM)));
     }
     let table = table(6, 6);
     let suggestion = suggest(&waiting, &table, &TriggerMemory::default());
@@ -144,10 +145,7 @@ fn eighteen_dingus_eggs_hit_the_opponent_first() {
 /// still hits the opponent first.
 #[test]
 fn with_life_to_spare_the_opponent_is_still_hit_first_and_it_says_why() {
-    let waiting = [
-        real("Dingus Egg", Some(ME), None),
-        real("Dingus Egg", Some(THEM), None),
-    ];
+    let waiting = [real("Dingus Egg", Some(ME)), real("Dingus Egg", Some(THEM))];
     let suggestion = suggest(&waiting, &table(20, 20), &TriggerMemory::default());
     assert_eq!(suggestion.order, vec![1, 0]);
     assert_eq!(suggestion.reason, Reason::OpponentFirst);
@@ -364,15 +362,15 @@ fn a_question_answered_whole_goes_unasked_only_when_the_player_allowed_it() {
     assert!(suggestion.goes_unasked(&memory));
 }
 
-/// Copies aimed differently are no pair the teaching knows, and an ability
-/// nothing names can never be known.
+/// Copies that differ are no pair the teaching knows, and an ability nothing
+/// names can never be known.
 #[test]
 fn what_the_teaching_cannot_name_is_always_asked() {
     let mut memory = TriggerMemory::default();
     memory.accept_known = true;
-    let mut aimed = trigger(1, Facts::default());
-    aimed.aims = vec![Aim::Player(THEM)];
-    let waiting = [aimed, trigger(1, Facts::default())];
+    let mut other = trigger(1, Facts::default());
+    other.twin = 9;
+    let waiting = [other, trigger(1, Facts::default())];
     assert!(!suggest(&waiting, &table(20, 20), &memory).goes_unasked(&memory));
 
     let mut nameless = trigger(1, Facts::default());
@@ -522,15 +520,18 @@ fn nothing_to_go_on_says_so_and_moves_nothing() {
     assert_eq!(suggestion.reason, Reason::NoOpinion);
 }
 
-/// Copies of one ability aimed alike: there is nothing to decide.
+/// Twins need no pair of their own: nothing in the plan moves one past the
+/// other, and the teaching does not ask to know them.
 #[test]
-fn copies_of_one_ability_make_no_difference() {
+fn twins_stay_as_they_came_and_need_no_teaching() {
     let waiting = [
-        real("Dingus Egg", Some(THEM), None),
-        real("Dingus Egg", Some(THEM), None),
+        real("Dingus Egg", Some(THEM)),
+        real("Dingus Egg", Some(THEM)),
     ];
-    let suggestion = suggest(&waiting, &table(20, 20), &TriggerMemory::default());
-    assert_eq!(suggestion.reason, Reason::NoDifference);
+    let memory = TriggerMemory::default();
+    let suggestion = suggest(&waiting, &table(20, 20), &memory);
+    assert_eq!(suggestion.order, vec![0, 1]);
+    assert!(!suggestion.all_known, "there is no pair to know");
 }
 
 /// Whatever is asked, an order comes back holding every trigger once, and
@@ -585,7 +586,7 @@ fn every_question_gets_one_whole_order_and_always_the_same_one() {
 /// What a real card's script says, for the verbs a rule stands on.
 #[test]
 fn real_cards_read_as_printed() {
-    let egg = real("Dingus Egg", Some(THEM), None);
+    let egg = real("Dingus Egg", Some(THEM));
     assert_eq!(
         egg.facts.changes,
         vec![Change {
@@ -595,16 +596,16 @@ fn real_cards_read_as_printed() {
     );
     assert!(egg.facts.deeds.has(Deeds::HURTS_OPPONENT));
     assert!(
-        real("Dingus Egg", Some(ME), None)
+        real("Dingus Egg", Some(ME))
             .facts
             .deeds
             .has(Deeds::HURTS_ME)
     );
     assert!(
-        real("Dingus Egg", None, None).facts.changes.is_empty(),
+        real("Dingus Egg", None).facts.changes.is_empty(),
         "whose land it was is not known: nothing is certain"
     );
-    let warden = real("Soul Warden", None, None);
+    let warden = real("Soul Warden", None);
     assert!(warden.facts.deeds.has(Deeds::HEALS_ME));
     assert_eq!(
         warden.facts.changes,
@@ -641,8 +642,8 @@ fn a_trigger_that_sets_others_off_stands_where_they_belong() {
     let reading = Reading {
         me: ME,
         opponents: &opponents,
-        target_player: None,
         event_player: None,
+        event_amount: None,
     };
     let (_, warden) = printed("Soul Warden");
     let followers: Vec<_> = facts::follower(warden, &reading).into_iter().collect();
@@ -669,8 +670,8 @@ fn followers_are_followed_and_a_circle_of_them_ends() {
     let reading = Reading {
         me: ME,
         opponents: &opponents,
-        target_player: None,
         event_player: None,
+        event_amount: None,
     };
     let (_, warden) = printed("Soul Warden");
     let follower = facts::follower(warden, &reading).expect("a follower");
@@ -690,8 +691,8 @@ fn the_reading_keeps_up_with_the_pool() {
     let reading = Reading {
         me: ME,
         opponents: &opponents,
-        target_player: Some(THEM),
         event_player: Some(THEM),
+        event_amount: Some(2),
     };
     let (mut triggers, mut read) = (0_u32, 0_u32);
     for card in baylee_cards::all() {
@@ -713,4 +714,4 @@ fn the_reading_keeps_up_with_the_pool() {
 }
 
 /// Measured when the reading was written; raise it as verbs are added.
-const MEASURED_PERCENT: u32 = 85;
+const MEASURED_PERCENT: u32 = 84;

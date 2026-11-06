@@ -69,6 +69,9 @@ pub struct Arrangement {
     unplaced_row: bool,
     held: Option<ObjectId>,
     focus: Option<ObjectId>,
+    /// The order a suggestion started the only pile in, which is what
+    /// putting everything back goes back to.
+    opening: Option<Vec<ObjectId>>,
 }
 
 impl Arrangement {
@@ -98,6 +101,7 @@ impl Arrangement {
             unplaced_row,
             held: None,
             focus: cards.first().copied(),
+            opening: None,
         }
     }
 
@@ -291,10 +295,55 @@ impl Arrangement {
         if self.held.take().is_some() {
             return true;
         }
-        let fresh = Self::new(&self.dealt, &self.specs);
+        let opening = self.opening.take();
+        let mut fresh = Self::new(&self.dealt, &self.specs);
+        if let Some(order) = opening {
+            fresh.start_from(&order);
+        }
         let changed = fresh.piles != self.piles || fresh.unplaced != self.unplaced;
         *self = fresh;
         changed
+    }
+
+    /// Starts a single pile in this order, a suggestion the player only has
+    /// to confirm, and makes it what [`Self::cancel`] goes back to. `false`,
+    /// and nothing changed, when this is no such pile or `order` is not its
+    /// cards.
+    pub fn start_from(&mut self, order: &[ObjectId]) -> bool {
+        if !self.rearrange(order) {
+            return false;
+        }
+        self.focus = order.first().copied();
+        self.opening = Some(order.to_vec());
+        true
+    }
+
+    /// Stands a single pile in this order, whole. `false`, and nothing
+    /// changed, when this is no such pile or `order` is not its cards.
+    pub fn rearrange(&mut self, order: &[ObjectId]) -> bool {
+        let mut wanted = order.to_vec();
+        let mut dealt = self.dealt.clone();
+        wanted.sort_unstable();
+        dealt.sort_unstable();
+        if self.specs.len() != 1 || !self.unplaced.is_empty() || wanted != dealt {
+            return false;
+        }
+        self.piles[0] = order.to_vec();
+        true
+    }
+
+    /// Puts the keyboard on a card of the arrangement.
+    pub fn focus_on(&mut self, card: ObjectId) {
+        if self.dealt.contains(&card) {
+            self.focus = Some(card);
+        }
+    }
+
+    /// Whether the only pile stands as the question offered it: the one
+    /// order the clock would send when it runs out.
+    #[must_use]
+    pub fn is_as_offered(&self) -> bool {
+        matches!(self.piles.as_slice(), [only] if *only == self.dealt)
     }
 
     /// Why the arrangement cannot be sent yet, or `None` when it can.
@@ -375,6 +424,31 @@ impl Arrangement {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn stack_of(ids: &[ObjectId]) -> Arrangement {
+        let count = u32::try_from(ids.len()).unwrap();
+        Arrangement::new(ids, &[ArrangePile::all_of(ArrangePlace::Stack, count)])
+    }
+
+    #[test]
+    fn a_suggestion_starts_the_pile_and_is_what_cancel_goes_back_to() {
+        let (a, b, c) = (
+            ObjectId::new(1, 0),
+            ObjectId::new(2, 0),
+            ObjectId::new(3, 0),
+        );
+        let mut pile = stack_of(&[a, b, c]);
+        assert!(pile.is_as_offered());
+        assert!(pile.start_from(&[c, a, b]));
+        assert_eq!(pile.cards(Row::Pile(0)), &[c, a, b]);
+        assert!(!pile.is_as_offered());
+        assert_eq!(pile.focused(), Some(c));
+        assert!(pile.rearrange(&[a, b, c]));
+        assert_eq!(pile.cards(Row::Pile(0)), &[a, b, c]);
+        assert!(pile.cancel());
+        assert_eq!(pile.cards(Row::Pile(0)), &[c, a, b], "the suggestion again");
+        assert!(!pile.start_from(&[a, b]), "not its cards");
+    }
 
     fn obj(n: u32) -> ObjectId {
         ObjectId::new(n, 0)

@@ -51,6 +51,7 @@ Two consequences worth knowing before changing anything here:
 | Fast-forward to next phase (decisions still yours) | `Tab` | implemented |
 | Fast-forward to the next turn | `⇧Tab` | implemented |
 | Number choices (X) | arrows, digits, `⌫` (or the `−`/`+` buttons) | implemented |
+| The order of triggers: walk the rows, take one up and put it down, move it, send | `W`/`S` or the arrows, `Space`, `W`/`S` or the arrows while it is up, `Enter` | implemented |
 | Scroll the sentence of the stack entry the cursor (or the pointer) is on, while it runs over its box: a line / a box less a line (the owner, 08.10.2026; the arrows are the number's first while one is being chosen) | `↑` `↓` / `PgUp` `PgDn` (`TextPageUp`/`TextPageDown`) | implemented |
 | Pick a row of the ability sheet (the digit drawn on it) | `1`–`9` | implemented |
 | Walk the ability sheet: its column / its mana pips | `W` `S` / `A` `D` | implemented |

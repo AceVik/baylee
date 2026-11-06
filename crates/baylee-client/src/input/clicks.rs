@@ -356,12 +356,36 @@ fn filter_press(duel: &mut Duel, act: baylee_client_core::filterdialog::Act, don
     }
 }
 
+/// The trigger sheet's own controls. Before the row they stand on, or an arrow
+/// would take the row up.
+fn trigger_sheet_click(
+    duel: &mut Duel,
+    entity: Entity,
+    tray: &TrayWidgets,
+    parents: &Query<&ChildOf>,
+) -> bool {
+    if let Some(step) = find_in_lineage(entity, &tray.moves, parents) {
+        crate::triggersheet::step(duel, step.object, step.later);
+        return true;
+    }
+    if let Some(split) = find_in_lineage(entity, &tray.splits, parents) {
+        if let Some(sheet) = duel.trigger_sheet.as_mut() {
+            sheet.toggle_split(split.0);
+        }
+        return true;
+    }
+    false
+}
+
 pub(super) fn browser_click(
     duel: &mut Duel,
     entity: Entity,
     tray: &mut TrayWidgets,
     parents: &Query<&ChildOf>,
 ) -> bool {
+    if trigger_sheet_click(duel, entity, tray, parents) {
+        return true;
+    }
     if let Some(card) = find_in_lineage(entity, &tray.cards, parents) {
         activate_card(duel, card.object);
         return true;

@@ -576,6 +576,9 @@ pub struct TrayRevision {
     /// the next can keep. A value and not a counter, for the reason the
     /// others are — it is compared, not bumped.
     arrangement: Option<baylee_client_core::arrange::Arrangement>,
+    /// The trigger sheet's reason and marks, which come a frame after the
+    /// question and may leave the arrangement as it was.
+    trigger_sheet: Option<baylee_client_core::triggerorder::sheet::Sheet>,
 
     /// Which pile cards this seat is offered, and by whom
     /// ([`crate::Duel::reach_of`]): the rows' two lights, in zone order.
@@ -725,6 +728,7 @@ pub fn sync_tray(
         && revision.selected == selected
         && revision.aim == aim
         && revision.arrangement.as_ref() == arrangement
+        && revision.trigger_sheet == duel.trigger_sheet
         && revision.lit == lit
         && revision.faces == faces_always
         && revision.texts == texts.generation()
@@ -755,6 +759,7 @@ pub fn sync_tray(
     revision.selected.clone_from(&selected);
     revision.aim = aim;
     revision.arrangement = arrangement.cloned();
+    revision.trigger_sheet.clone_from(&duel.trigger_sheet);
     revision.lit.clone_from(&lit);
     revision.faces = faces_always;
     revision.texts = texts.generation();
@@ -855,6 +860,7 @@ pub fn sync_tray(
         &lit,
         duel.pool_facts.as_deref(),
         duel.list_shelf.as_deref(),
+        duel.trigger_sheet.as_ref(),
     );
     commands.entity(root).add_child(tray);
 }
@@ -1378,3 +1384,4 @@ mod rows;
 mod spawn;
 #[cfg(test)]
 mod tests;
+pub(crate) mod triggers;

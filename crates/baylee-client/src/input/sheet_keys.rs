@@ -233,7 +233,22 @@ pub(super) fn arrange_keys(fired: Fired, duel: &mut Duel) -> bool {
     let Some(i) = duel.interaction.as_mut() else {
         return false;
     };
-    if i.arrangement().and_then(Arrangement::held).is_none() {
+    // The order of triggers is one column, so the keys up and down walk it,
+    // and with a row taken up they move it.
+    let held = i.arrangement().and_then(Arrangement::held);
+    if i.orders_triggers() {
+        let step = i32::from(fired.has(Action::CursorDown) || fired.has(Action::NumberDown))
+            - i32::from(fired.has(Action::CursorUp) || fired.has(Action::NumberUp));
+        if step == 0 {
+            return false;
+        }
+        match held {
+            Some(card) => crate::triggersheet::step(duel, card, step > 0),
+            None => crate::triggersheet::walk(duel, step > 0),
+        };
+        return true;
+    }
+    if held.is_none() {
         return false;
     }
     let mut consumed = false;

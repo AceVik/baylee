@@ -15,8 +15,9 @@
 use super::facts::{Change, Total};
 use super::{Reason, Standing, Table, Waiting};
 
-/// How many states the search may visit.
-const MAX_STATES: usize = 1 << 20;
+/// How many states the search may visit: it runs on the frame the question
+/// arrives, so a board of sixteen different lethal triggers is where it stops.
+const MAX_STATES: usize = 1 << 16;
 
 /// Poison counters that end a player (CR 704.5c).
 const LETHAL_POISON: i64 = 10;

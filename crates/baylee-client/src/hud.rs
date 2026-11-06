@@ -1911,9 +1911,9 @@ pub(crate) use sheet::granted::{
 };
 mod slip;
 pub(crate) mod spectators;
-mod stack;
+pub(crate) mod stack;
 pub(crate) mod suspended;
-mod tray;
+pub(crate) mod tray;
 
 #[cfg(test)]
 mod tests;

@@ -23,6 +23,12 @@ pub(super) fn clock_placement(
         .interaction
         .as_ref()
         .filter(|_| !armed)
+        // Rows moved from the offer: the clock would send the offer, and
+        // Confirm no longer says that.
+        .filter(|i| {
+            i.arrangement()
+                .is_none_or(baylee_client_core::arrange::Arrangement::is_as_offered)
+        })
         .and_then(|i| baylee_client_core::ledge::clock_answer(i.pending()))
         .filter(|button| {
             answers
@@ -188,4 +194,41 @@ pub(super) fn beside_ink(urgency: baylee_client_core::decisionclock::Urgency) ->
 /// system is kept away from.
 pub(super) fn clock_width() -> f32 {
     super::text_width(WIDEST, SENTENCE_PT, true) + baylee_client_core::ledge::SENTENCE_GAP
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use baylee_client_core::Interaction;
+    use baylee_client_core::ledge::PromptAction;
+    use baylee_core::ids::{ObjectId, PlayerId};
+    use baylee_engine::choice::{ArrangePile, ArrangePlace, ArrangePrompt, Pending};
+
+    /// The clock sends the offer. Its countdown stands in Confirm while Confirm
+    /// says that, and beside the question once the rows moved.
+    #[test]
+    fn the_clock_leaves_confirm_when_the_triggers_are_no_longer_as_offered() {
+        let me = PlayerId::new(0);
+        let (a, b) = (ObjectId::queued_trigger(0), ObjectId::queued_trigger(1));
+        let pending = Pending::Arrange {
+            player: me,
+            cards: vec![a, b],
+            piles: vec![ArrangePile::all_of(ArrangePlace::Stack, 2)],
+            prompt: ArrangePrompt::TriggerOrder,
+        };
+        let mut duel = Duel {
+            interaction: Some(Interaction::new(pending, me)),
+            ..Duel::default()
+        };
+        let answers = [(Says::Answer(PromptAction::Confirm), String::new())];
+        assert_eq!(
+            clock_placement(&duel, true, false, &answers),
+            (Clock::InButton, Some(PromptAction::Confirm))
+        );
+        assert!(duel.interaction.as_mut().unwrap().rearrange(&[b, a]));
+        assert_eq!(
+            clock_placement(&duel, true, false, &answers),
+            (Clock::Beside, None)
+        );
+    }
 }

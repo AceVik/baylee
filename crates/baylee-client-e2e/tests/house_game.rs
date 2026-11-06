@@ -101,3 +101,35 @@ fn the_table_fits_every_desktop_viewport() {
         })
     });
 }
+
+/// Several of the player's own triggers at once ask for their order, in the
+/// real client: the sheet stands, says what each does, and Enter sends it.
+#[test]
+#[ignore = "opens a client window: cargo dev e2e"]
+fn the_order_of_triggers_is_asked_and_enter_sends_the_suggestion() {
+    let launch = Launch::new().env(
+        "BAYLEE_DEV_SEAT_BOARD",
+        "Phyrexian Arena; Copper Tablet; Verdant Force; Thallid",
+    );
+    e2e::run_with(launch, |client| {
+        client.play_offline()?;
+        client.click(press("Play(PlayHouse)"))?;
+        client.wait_for(
+            "the opening hand",
+            std::time::Duration::from_secs(60),
+            |s| s.in_duel() && s.at_rest() && s.cards_in("hand").next().is_some(),
+        )?;
+        client.press("K")?;
+        let sheet = client.wait_for(
+            "the order of triggers",
+            std::time::Duration::from_secs(30),
+            |s| s.shows("Top resolves first"),
+        )?;
+        sheet.expect_shows("Copper Tablet")?;
+        sheet.expect_shows("Verdant Force")?;
+        client.press("Enter")?;
+        client
+            .wait_until("the sheet gone", |s| !s.shows("Top resolves first"))?
+            .expect_not_shown("Top resolves first")
+    });
+}

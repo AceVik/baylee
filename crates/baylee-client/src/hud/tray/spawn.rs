@@ -31,6 +31,7 @@ pub(super) fn spawn_tray(
     lit: &[(ObjectId, crate::Reach)],
     facts: Option<&baylee_client_core::cardquery::PoolFacts>,
     lists: Option<&baylee_client_core::cardquery::ListShelf>,
+    trigger_sheet: Option<&baylee_client_core::triggerorder::sheet::Sheet>,
 ) -> Entity {
     // The catalog reaching the panel's own decisions, which is the half
     // `Browser` cannot do for itself: it decides in `baylee-client-core`,
@@ -177,7 +178,8 @@ pub(super) fn spawn_tray(
     // sideways would have carried the sheet with it; that is now settled
     // where the minimise button already settles it — `tray_drag` lets the
     // control claim the press before the row it stands on does.
-    let tools = if compact {
+    // The order of triggers has nothing to filter: the rows are the answer.
+    let tools = if compact || trigger_sheet.is_some() {
         None
     } else {
         let title_row = commands
@@ -668,6 +670,22 @@ pub(super) fn spawn_tray(
         lit,
     };
     match answering.and_then(baylee_client_core::Interaction::arrangement) {
+        // The order of triggers has its own rows: what a trigger will do is
+        // the whole of the question, and a card's cost and type say nothing
+        // about it.
+        Some(arrangement) if trigger_sheet.is_some() => triggers::spawn_sheet(
+            commands,
+            list,
+            lang,
+            trigger_sheet.expect("the arm's guard"),
+            arrangement,
+            &rows,
+            grid,
+            faces,
+            textures,
+            assets,
+            &mut cards,
+        ),
         // An arrangement is drawn pile by pile, whatever the view: the piles
         // are the answer, and a list that ran them together would number
         // every card twice.

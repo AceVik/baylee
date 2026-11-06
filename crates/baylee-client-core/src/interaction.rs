@@ -1260,6 +1260,43 @@ impl Interaction {
         }
     }
 
+    /// Whether this question is the order of the asked player's own triggers
+    /// (CR 603.3b).
+    #[must_use]
+    pub const fn orders_triggers(&self) -> bool {
+        matches!(
+            self.pending,
+            Pending::Arrange {
+                prompt: ArrangePrompt::TriggerOrder,
+                ..
+            }
+        )
+    }
+
+    /// Starts the arrangement in this order: a suggestion. `false` when
+    /// there is no arrangement it fits.
+    pub fn start_arrangement(&mut self, order: &[ObjectId]) -> bool {
+        match &mut self.mode {
+            Mode::Arrange(arrangement) => arrangement.start_from(order),
+            _ => false,
+        }
+    }
+
+    /// Stands the arrangement's only pile in this order.
+    pub fn rearrange(&mut self, order: &[ObjectId]) -> bool {
+        match &mut self.mode {
+            Mode::Arrange(arrangement) => arrangement.rearrange(order),
+            _ => false,
+        }
+    }
+
+    /// Puts the keyboard on a card of the arrangement.
+    pub fn focus_arrangement_on(&mut self, card: ObjectId) {
+        if let Mode::Arrange(arrangement) = &mut self.mode {
+            arrangement.focus_on(card);
+        }
+    }
+
     /// Moves the held card of an arrangement one step. `false` when there
     /// is no arrangement, nothing is held, or there is nowhere to go.
     pub fn nudge(&mut self, nudge: Nudge) -> bool {

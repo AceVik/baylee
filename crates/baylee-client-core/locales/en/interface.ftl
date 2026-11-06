@@ -9717,10 +9717,23 @@ TriggerOrderRemovalFirst = Remove first, then boost.
 TriggerOrderOpponentFirst = Your opponent is hit before you are.
 TriggerOrderGainFirst = Gain life first, then lose it.
 TriggerOrderNoOpinion = No order stands out here.
-TriggerOrderNoDifference = The order makes no difference here.
 RowTriggerOrder = Sorting triggers
 HelpTriggerOrder = When several of your triggers happen at once, the client suggests an order and remembers the pairs you turn around.
 TriggerOrderAccept = Go on without asking
 TriggerOrderAcceptDetail = Uses your remembered order by itself when every pair in it is known.
 TriggerOrderNothingKept = Nothing remembered yet
-TriggerOrderKept = Pairs remembered: {0}
+# Arguments: count
+TriggerOrderKept = Pairs remembered: { $count }
+TriggerOrderHow = Top resolves first. Drag a row, or take it up with Space and move it with the arrows.
+TriggerOrderChooseTarget = Target chosen after this
+TriggerOrderChooseMode = Mode chosen after this
+TriggerOrderOptional = Optional
+TriggerOrderMark = Remembered
+# Arguments: about
+TriggerOrderAbout = About { $about }
+TriggerOrderMoveUp = Resolve earlier
+TriggerOrderMoveDown = Resolve later
+TriggerOrderResolvesFirst = Resolves first
+TriggerOrderResolvesLast = Resolves last
+TriggerOrderSplit = Sort one by one
+TriggerOrderJoin = Keep together

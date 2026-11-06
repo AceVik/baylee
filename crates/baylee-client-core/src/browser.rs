@@ -1524,7 +1524,8 @@ impl Browser {
                     Some(about) => format!("{} · {about}", trigger.name),
                     None => trigger.name.clone(),
                 },
-                art: None,
+                art: crate::triggerorder::sheet::card_of(trigger, view)
+                    .map(|card| ImageKey::of(card, ArtSize::Small)),
                 zone: BrowseZone::Stack,
                 standing: RowStanding {
                     selectable: it.selectable().contains(&trigger.handle),

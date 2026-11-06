@@ -62,6 +62,8 @@ impl Deeds {
     pub const PUMPS: Self = Self(1 << 6);
     /// Takes its own source away.
     pub const LEAVES: Self = Self(1 << 7);
+    /// Lets the player decline it as it resolves.
+    pub const MAY: Self = Self(1 << 11);
     /// Costs an opponent life or poisons them.
     pub const HURTS_OPPONENT: Self = Self(1 << 8);
     /// Costs the player life.
@@ -200,10 +202,21 @@ pub struct Reading<'a> {
     pub me: PlayerId,
     /// That player's opponents still in the game.
     pub opponents: &'a [PlayerId],
-    /// The player it aims at, or the controller of what it aims at.
-    pub target_player: Option<PlayerId>,
     /// The player its event names ("that land's controller").
     pub event_player: Option<PlayerId>,
+    /// The amount its event carried ("that much").
+    pub event_amount: Option<u32>,
+}
+
+/// Whom a damaging effect strikes, before any target is chosen: the question
+/// comes first (CR 603.3b, 603.3d).
+enum Struck {
+    /// These players.
+    Players(Vec<PlayerId>),
+    /// A player or something else, whichever the target turns out to be.
+    Open,
+    /// A permanent.
+    Object,
 }
 
 impl Reading<'_> {
@@ -211,34 +224,45 @@ impl Reading<'_> {
     fn players(&self, relation: PlayerRel) -> Vec<PlayerId> {
         match relation {
             PlayerRel::You => vec![self.me],
-            PlayerRel::Opponent => match self.opponents {
-                [only] => vec![*only],
-                _ => self.target_player.into_iter().collect(),
-            },
+            PlayerRel::Opponent => self.only_opponent(),
             PlayerRel::EachOpponent | PlayerRel::EachOtherPlayer => self.opponents.to_vec(),
             PlayerRel::EachPlayer => {
                 let mut everyone = vec![self.me];
                 everyone.extend_from_slice(self.opponents);
                 everyone
             }
-            PlayerRel::ControllerOfTarget | PlayerRel::TargetPlayerOrController => {
-                self.target_player.into_iter().collect()
-            }
             PlayerRel::ControllerOfEvent => self.event_player.into_iter().collect(),
             _ => Vec::new(),
         }
     }
 
-    /// The players a target names, when it is a player at all.
-    fn struck(&self, target: TargetSpec) -> Vec<PlayerId> {
+    /// The one opponent, where there is only one to mean.
+    fn only_opponent(&self) -> Vec<PlayerId> {
+        match self.opponents {
+            [only] => vec![*only],
+            _ => Vec::new(),
+        }
+    }
+
+    /// Whom a target strikes.
+    fn struck(&self, target: TargetSpec) -> Struck {
         match target {
-            TargetSpec::Player(relation) => self.players(relation),
+            TargetSpec::Player(relation) => Struck::Players(self.players(relation)),
+            TargetSpec::AnyOpponent => Struck::Players(self.only_opponent()),
             TargetSpec::AnyPlayer
-            | TargetSpec::AnyOpponent
             | TargetSpec::AnyTarget
             | TargetSpec::OpponentOrObject(_)
-            | TargetSpec::PlayerOrObject(_) => self.target_player.into_iter().collect(),
-            _ => Vec::new(),
+            | TargetSpec::PlayerOrObject(_) => Struck::Open,
+            _ => Struck::Object,
+        }
+    }
+
+    /// A number the trigger is sure of: printed, or the event's "that much".
+    const fn fixed(&self, amount: Amount) -> Option<u32> {
+        match amount {
+            Amount::Fixed(value) => Some(value),
+            Amount::EventAmount => self.event_amount,
+            _ => None,
         }
     }
 }
@@ -285,14 +309,6 @@ fn read_list(effects: &[Effect], certain: bool, reading: &Reading<'_>, facts: &m
     }
 }
 
-/// A fixed amount, if it is one.
-const fn fixed(amount: Amount) -> Option<u32> {
-    match amount {
-        Amount::Fixed(value) => Some(value),
-        _ => None,
-    }
-}
-
 /// What an amount counts as the trigger resolves.
 const fn counted(amount: Amount) -> Stuff {
     match amount {
@@ -324,7 +340,10 @@ fn gains(
             facts.deeds.add(Deeds::HEALS_ME);
             facts.makes.add(Stuff::LIFE);
         }
-        if let (true, Some(life)) = (certain, fixed(amount).and_then(|n| i32::try_from(n).ok())) {
+        if let (true, Some(life)) = (
+            certain,
+            reading.fixed(amount).and_then(|n| i32::try_from(n).ok()),
+        ) {
             facts.changes.push(Change {
                 who: seat,
                 what: Total::Life(life),
@@ -348,7 +367,10 @@ fn costs(
         } else {
             Deeds::HURTS_OPPONENT
         });
-        if let (true, Some(life)) = (certain, fixed(amount).and_then(|n| i32::try_from(n).ok())) {
+        if let (true, Some(life)) = (
+            certain,
+            reading.fixed(amount).and_then(|n| i32::try_from(n).ok()),
+        ) {
             facts.changes.push(Change {
                 who: seat,
                 what: Total::Life(-life),
@@ -371,7 +393,7 @@ fn draws(
             facts.deeds.add(Deeds::DRAWS);
             facts.makes.add(Stuff::HAND);
         }
-        if let (true, Some(cards)) = (certain, fixed(amount)) {
+        if let (true, Some(cards)) = (certain, reading.fixed(amount)) {
             facts.changes.push(Change {
                 who: seat,
                 what: Total::Draws(cards),
@@ -398,16 +420,12 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
             costs(amount, &reading.players(target), certain, reading, facts);
         }
         Effect::DealDamage { amount, target } => {
-            let struck = reading.struck(target);
-            if struck.is_empty() {
-                facts.reads.add(counted(amount));
-                facts.deeds.add(Deeds::REMOVES);
+            facts.reads.add(counted(amount));
+            match reading.struck(target) {
+                Struck::Players(struck) => costs(amount, &struck, certain, reading, facts),
+                Struck::Open => {}
+                Struck::Object => facts.deeds.add(Deeds::REMOVES),
             }
-            costs(amount, &struck, certain, reading, facts);
-        }
-        Effect::DealDamageToTargetController { amount } => {
-            let struck: Vec<PlayerId> = reading.target_player.into_iter().collect();
-            costs(amount, &struck, certain, reading, facts);
         }
         Effect::Poison { who, amount } => {
             facts.reads.add(counted(amount));
@@ -417,7 +435,7 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
                 } else {
                     Deeds::HURTS_OPPONENT
                 });
-                if let (true, Some(count)) = (certain, fixed(amount)) {
+                if let (true, Some(count)) = (certain, reading.fixed(amount)) {
                     facts.changes.push(Change {
                         who: seat,
                         what: Total::Poison(count),
@@ -469,7 +487,7 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
         | Effect::SearchLibraryOf { .. }
         | Effect::SearchLibraryUpTo { .. }
         | Effect::SearchLibraryOrGraveyard { .. }
-        | Effect::SearchSharedLandType { .. }
+        | Effect::SearchSharedLandType
         | Effect::SearchWithManaDifference { .. }
         | Effect::RevealLibrarySearch { .. }
         | Effect::OptionalBasicLandSearchFor { .. } => {
@@ -478,8 +496,8 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
         }
         Effect::ShuffleLibrary { .. }
         | Effect::ShuffleIntoLibrary { .. }
-        | Effect::ShuffleGraveyardIntoLibrary { .. }
-        | Effect::ShuffleTargetsIntoOwnersLibraries { .. } => facts.deeds.add(Deeds::SHUFFLES),
+        | Effect::ShuffleGraveyardIntoLibrary
+        | Effect::ShuffleTargetsIntoOwnersLibraries => facts.deeds.add(Deeds::SHUFFLES),
         Effect::Mill { amount, target } => {
             facts.reads.add(counted(amount));
             if reading.players(target).contains(&reading.me) {
@@ -488,17 +506,18 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
         }
 
         // What the player is asked as it resolves.
-        Effect::MayDo { .. }
-        | Effect::MayDoFor { .. }
-        | Effect::MayDoOnceEachTurn { .. }
-        | Effect::ChooseOne { .. }
+        Effect::MayDo { .. } | Effect::MayDoFor { .. } | Effect::MayDoOnceEachTurn { .. } => {
+            facts.deeds.add(Deeds::ASKS);
+            facts.deeds.add(Deeds::MAY);
+        }
+        Effect::ChooseOne { .. }
         | Effect::ChooseNumber { .. }
         | Effect::ChooseCardName { .. }
         | Effect::ChooseColors { .. }
         | Effect::DiscardCount { .. }
         | Effect::DiscardMatching { .. }
         | Effect::DiscardUpToThenDraw { .. }
-        | Effect::DiscardAnyThenDraw { .. }
+        | Effect::DiscardAnyThenDraw
         | Effect::Connive { .. }
         | Effect::Explore { .. } => facts.deeds.add(Deeds::ASKS),
         Effect::DiscardForPlayers { who, .. }
@@ -535,17 +554,17 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
         | Effect::ExileAll { .. }
         | Effect::ReturnToHand { .. }
         | Effect::ReturnAllToHand { .. }
-        | Effect::PutTargetOnTopOfLibrary { .. }
-        | Effect::PutTargetOnBottomOfLibrary { .. }
+        | Effect::PutTargetOnTopOfLibrary
+        | Effect::PutTargetOnBottomOfLibrary
         | Effect::RemoveTargetFromCombat { .. }
         | Effect::DealDamageEach { .. }
         | Effect::DealDamageDivided { .. } => facts.deeds.add(Deeds::REMOVES),
         Effect::SacrificeSelf
-        | Effect::ExileSource { .. }
+        | Effect::ExileSource
         | Effect::ExileSelfReturnAsFace { .. }
         | Effect::ExileSourceWithCounters { .. }
-        | Effect::MoveSourceToOwnerGraveyard { .. }
-        | Effect::PutSourceOnTopOfLibrary { .. } => facts.deeds.add(Deeds::LEAVES),
+        | Effect::MoveSourceToOwnerGraveyard
+        | Effect::PutSourceOnTopOfLibrary => facts.deeds.add(Deeds::LEAVES),
 
         // What is made bigger or brought in.
         Effect::PumpTarget {
@@ -606,7 +625,7 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
         | Effect::CreateTokenCopyOfSource { .. }
         | Effect::CreateTokenCopyOfTarget { .. }
         | Effect::CreateTokenThenCounters { .. }
-        | Effect::Populate { .. }
+        | Effect::Populate
         | Effect::Amass { .. }
         | Effect::Fabricate { .. }
         | Effect::PutFromHandOntoBattlefield { .. }

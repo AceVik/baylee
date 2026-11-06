@@ -97,6 +97,18 @@ fn printed_sentence(
     else {
         return None;
     };
+    ability_sentence(text, rules, ability, token, faces)
+}
+
+/// What [`printed_sentence`] reads, for an ability that is not on the stack
+/// yet: a trigger waiting to be put there (`hud::tray::triggers`).
+pub(in crate::hud) fn ability_sentence(
+    text: Option<baylee_view::StackText>,
+    rules: Option<baylee_view::RulesFace>,
+    ability: Option<baylee_core::ids::AbilityRef>,
+    token: Option<baylee_view::TokenAbility>,
+    faces: &FaceCtx<'_>,
+) -> Option<Vec<TextBlock>> {
     if let Some(token) = token {
         return crate::cardtext::token_sentence(token.token, token.index);
     }

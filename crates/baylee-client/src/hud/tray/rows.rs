@@ -643,7 +643,7 @@ pub(super) fn zone_label(
 /// would be lifted to a brighter nothing, and a chosen one rests at a tenth
 /// and would be lifted to a paler tenth. A hundred rows that did not answer
 /// the pointer is the whole list not answering it.
-fn row_slot(commands: &mut Commands, row: &BrowseRow, height: f32, pad: f32) -> Entity {
+pub(super) fn row_slot(commands: &mut Commands, row: &BrowseRow, height: f32, pad: f32) -> Entity {
     let (fill, hot) = if row.standing.selected {
         (palette::CANDLE_WASH, palette::CANDLE_WASH_LIT)
     } else {
@@ -789,7 +789,7 @@ fn spawn_mark(commands: &mut Commands, fonts: &UiFonts, row: &BrowseRow, size: f
 ///
 /// [`ImageKey`]: baylee_client_core::images::ImageKey
 #[allow(clippy::too_many_arguments)] // a row, the stores, and one number
-fn spawn_thumb(
+pub(super) fn spawn_thumb(
     commands: &mut Commands,
     lang: Lang,
     row: &BrowseRow,

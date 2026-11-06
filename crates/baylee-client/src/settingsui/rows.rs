@@ -51,7 +51,9 @@ impl Out<'_, '_, '_> {
     /// for the account's row before sign-in, "Sign in to change".
     pub(crate) fn row(&mut self, row: Row, control: Entity) -> Entity {
         let def = settings_map::of(row);
-        let control = if def.scope == Scope::Account && !self.signed_in {
+        let control = if self.answers(row) {
+            control
+        } else {
             self.commands.entity(control).despawn();
             controls::label(
                 self.commands,
@@ -60,8 +62,6 @@ impl Out<'_, '_, '_> {
                 self.kit.m.small,
                 tokens::MUTED,
             )
-        } else {
-            control
         };
         let storage = match def.scope {
             Scope::Account => Storage::Account,
@@ -80,6 +80,13 @@ impl Out<'_, '_, '_> {
         line
     }
 
+    /// Whether a row's controls answer here. What the account keeps waits for
+    /// a sign-in, but the sorted triggers are learned offline too, and what is
+    /// learned must be something a player can empty.
+    fn answers(&self, row: Row) -> bool {
+        settings_map::of(row).scope != Scope::Account || self.signed_in || row == Row::TriggerOrder
+    }
+
     /// A row whose control is a column of things (a list of keys, the
     /// rails): its label, help and tag over them, the column under.
     pub(crate) fn block(&mut self, row: Row, body: &[Entity]) -> Entity {
@@ -95,8 +102,7 @@ impl Out<'_, '_, '_> {
                 Pickable::IGNORE,
             ))
             .id();
-        let def = settings_map::of(row);
-        let readable = def.scope != Scope::Account || self.signed_in;
+        let readable = self.answers(row);
         let empty = self
             .commands
             .spawn((Node::default(), Pickable::IGNORE))

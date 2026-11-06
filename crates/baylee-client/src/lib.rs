@@ -606,6 +606,11 @@ pub struct Duel {
     /// (#300): previewed as the line showed it, in place of [`Self::hovered`]
     /// while it lasts.
     pub hovered_log: Option<hud::LogHover>,
+    /// The order of this seat's triggers, while it is being asked
+    /// ([`triggersheet`]).
+    pub(crate) trigger_sheet: Option<baylee_client_core::triggerorder::sheet::Sheet>,
+    /// The order just sent, for [`triggersheet::keep_up`] to learn from.
+    pub(crate) trigger_answer: Option<Vec<baylee_core::ids::ObjectId>>,
     /// The aspect ratio of the part of the window the table is *seen*
     /// through, once anything has measured it.
     ///
@@ -1382,6 +1387,7 @@ fn requested_batch_answer(duel: &mut Duel) -> Option<PlayerAction> {
 }
 
 mod mana_run;
+mod triggersheet;
 pub use mana_run::{
     ManaRun, advance_mana_run, foretell_mana_for, mana_for, suspend_mana_for,
     take_the_chosen_cast_mode,

@@ -298,7 +298,10 @@ pub const fn shortcut_for(action: PromptAction) -> Option<Action> {
 pub fn clock_answer(pending: &baylee_engine::choice::Pending) -> Option<PromptAction> {
     use baylee_engine::choice::PlayerAction;
     match baylee_engine::choice::timeout_answer(pending)? {
-        PlayerAction::PassPriority => Some(PromptAction::Confirm),
+        // The order of triggers: the offer sent back. A client that moved the
+        // rows shows the countdown beside them instead (`hud::ledge::clock`),
+        // because its Confirm no longer sends this.
+        PlayerAction::PassPriority | PlayerAction::Arrange { .. } => Some(PromptAction::Confirm),
         PlayerAction::MulliganKeep => Some(PromptAction::Keep),
         PlayerAction::DeclareAttackers { attackers } if attackers.is_empty() => {
             Some(PromptAction::DeclareNothing)
@@ -374,6 +377,15 @@ mod tests {
                 player: me,
                 count: 1,
             },
+            Pending::Arrange {
+                player: me,
+                cards: vec![ObjectId::queued_trigger(0), ObjectId::queued_trigger(1)],
+                piles: vec![baylee_engine::choice::ArrangePile::all_of(
+                    baylee_engine::choice::ArrangePlace::Stack,
+                    2,
+                )],
+                prompt: baylee_engine::choice::ArrangePrompt::TriggerOrder,
+            },
         ];
         let mut buttons = 0;
         for pending in asked {
@@ -397,7 +409,7 @@ mod tests {
             buttons += 1;
         }
         assert_eq!(
-            buttons, 6,
+            buttons, 7,
             "the questions above with an answer that does nothing"
         );
     }

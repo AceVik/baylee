@@ -285,6 +285,7 @@ pub(super) fn add_present_systems(app: &mut App) {
                     hud::grow_the_log.after(hud::sync_log),
                     hud::follow_the_log.after(hud::sync_log),
                     hud::hover_log_links.after(hud::sync_log),
+                    crate::triggersheet::keep_up,
                     hud::update_ai_log,
                     // Cards another seat revealed, after the shelf for the
                     // log's reason (both hang off the overlay's root).

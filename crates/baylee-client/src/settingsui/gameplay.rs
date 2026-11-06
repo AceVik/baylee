@@ -118,8 +118,13 @@ pub(crate) fn gameplay(out: &mut Out, view: &View) {
         }
     }
     out.block(Row::AbilityAnswers, &lines);
+    sorted_triggers(out, view);
+}
 
-    let memory = &prefs.trigger_order;
+/// What the client remembers about sorting triggers.
+fn sorted_triggers(out: &mut Out, view: &View) {
+    let lang = out.lang;
+    let memory = &view.prefs.trigger_order;
     let accept = out.toggle(
         "trigger-order-accept",
         memory.accept_known,

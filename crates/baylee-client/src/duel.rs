@@ -127,6 +127,11 @@ impl Duel {
     /// one system boundary, which is what lets input handlers stay plain
     /// functions of the board model.
     pub fn submit(&mut self, action: PlayerAction) {
+        if self.trigger_sheet.is_some()
+            && let PlayerAction::Arrange { piles } = &action
+        {
+            self.trigger_answer = piles.first().cloned();
+        }
         if !action.is_automation_setting()
             && self
                 .interaction

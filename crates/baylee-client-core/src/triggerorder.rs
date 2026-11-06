@@ -23,6 +23,7 @@ pub mod memory;
 mod outcome;
 mod plan;
 mod rules;
+pub mod sheet;
 #[cfg(test)]
 mod tests;
 
@@ -58,15 +59,6 @@ impl From<TokenAbility> for TriggerKey {
     }
 }
 
-/// What a trigger aims at, chosen as it goes on the stack (CR 603.3d).
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum Aim {
-    /// A player.
-    Player(PlayerId),
-    /// A permanent, a card or something on the stack.
-    Object(ObjectId),
-}
-
 /// One ability waiting to go on the stack, as far as it is public.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Waiting {
@@ -75,8 +67,9 @@ pub struct Waiting {
     pub key: Option<TriggerKey>,
     /// The object it came from, in this question only.
     pub source: Option<ObjectId>,
-    /// What it aims at.
-    pub aims: Vec<Aim>,
+    /// Triggers with one number are interchangeable: swapping them leaves a
+    /// game nobody could tell apart (`docs/protocol.md`).
+    pub twin: u32,
     /// What it will do.
     pub facts: Facts,
 }
@@ -84,11 +77,8 @@ pub struct Waiting {
 impl Waiting {
     /// Whether nothing tells these two apart, so swapping them changes
     /// nothing a player could care about.
-    fn same_as(&self, other: &Self) -> bool {
-        self.key.is_some()
-            && self.key == other.key
-            && self.aims == other.aims
-            && self.facts == other.facts
+    const fn same_as(&self, other: &Self) -> bool {
+        self.twin == other.twin
     }
 }
 
@@ -143,8 +133,6 @@ pub enum Reason {
     GainFirst,
     /// Nothing says one order is better than another.
     NoOpinion,
-    /// Nothing tells these apart: every order is the same.
-    NoDifference,
 }
 
 impl Reason {
@@ -164,7 +152,6 @@ impl Reason {
             Self::OpponentFirst => Phrase::TriggerOrderOpponentFirst,
             Self::GainFirst => Phrase::TriggerOrderGainFirst,
             Self::NoOpinion => Phrase::TriggerOrderNoOpinion,
-            Self::NoDifference => Phrase::TriggerOrderNoDifference,
         }
     }
 }
@@ -236,16 +223,9 @@ pub fn suggest(waiting: &[Waiting], table: &Table, memory: &TriggerMemory) -> Su
         }
     }
 
-    let reason = reason.unwrap_or_else(|| {
-        if all_alike(waiting) {
-            Reason::NoDifference
-        } else {
-            Reason::NoOpinion
-        }
-    });
     Suggestion {
         order: plan.order(),
-        reason,
+        reason: reason.unwrap_or(Reason::NoOpinion),
         remembered,
         all_known: !outweighed && all_known(waiting, memory),
     }
@@ -258,11 +238,6 @@ fn instances(waiting: &[Waiting], key: TriggerKey) -> impl Iterator<Item = usize
         .enumerate()
         .filter(move |(_, trigger)| trigger.key == Some(key))
         .map(|(index, _)| index)
-}
-
-/// Whether every two triggers here are the same.
-fn all_alike(waiting: &[Waiting]) -> bool {
-    waiting.windows(2).all(|pair| pair[0].same_as(&pair[1]))
 }
 
 /// Whether the player's teaching says something about every two triggers

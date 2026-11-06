@@ -1943,6 +1943,45 @@ target, and inverse-parent shadow transforms keep their shadows flat on the
 table while they bank and tap. Losing flying restores the original contact
 shadow. Inspection and reduced motion stop the idle banking.
 
+### The order of a player's own triggers
+
+Several of a seat's triggers going on the stack at once ask their order
+(`docs/protocol.md` §"The order of triggers"). The question opens the zone
+dialog on its own rows (`hud::tray::triggers`), the first to resolve at the top,
+with no tabs and no filter: the rows are the answer. `triggersheet::keep_up`
+lays the suggestion out as the question arrives, so a player who agrees only
+presses Enter, and Esc goes back to the suggestion, not to the offer.
+
+The suggestion is `client-core::triggerorder`'s, from what is public and in the
+same order every time, by three kinds of knowledge, a heavier one never undone by
+a lighter: an order that wins or that avoids a loss (`outcome`, an exact search
+over kinds of trigger, by life, poison and an empty library, claiming nothing past
+`MAX_STATES`), what the player taught (`memory`), and rules of good play (`rules`)
+read off the compiled ability (`facts`). All three speak in pairs and `plan` drops
+a pair that would close a circle, so contradictions cannot hang. The line over the
+rows says which pair decided. The rules, heaviest first: what gets counted comes
+first, a shuffle before a look, a look before a draw, seeing more before deciding,
+a source's others before it leaves, removal before a boost, the opponent hit
+first, life gained first. A trigger that sets off one of the player's permanents
+is read with what that does.
+
+The teaching is pairs of abilities, `TriggerMemory` in `Preferences`, so it rides
+with the account and needs nothing from a server. Only pairs the player turned
+around against the suggestion are kept, a later word over an earlier one, the
+newest with the most say, at most `MAX_PAIRS`. A keyword's trigger and a rule's own
+have no key of their own (`sheet::key_of`), and are always asked. Settings ›
+Gameplay empties it, and offers going on without asking when every pair of a
+question is known, off by default; a question the teaching did not decide whole is
+asked anyway.
+
+Twins (`OrderedTrigger::twin`) side by side are one row with a count, moved whole;
+*Sort one by one* splits them, and the answer lists every handle either way. A row
+moves by dragging, by its arrows, or from the keyboard. Its picture is the link to
+the hover preview, because a preview opened from the row would stand over the words
+being read. The clock's answer is the offer, so `ledge::clock_answer` names Confirm
+only while the rows stand as offered; the countdown stands beside the question
+otherwise, and the sheet itself shows none.
+
 ### The stack panel draws it
 
 `hud::spawn_stack_panel` is where that stops being theory. Each entry is a

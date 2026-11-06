@@ -261,7 +261,7 @@ mod tests {
     #[test]
     fn the_oldest_teaching_goes_first() {
         let mut memory = TriggerMemory::default();
-        for card in 0..u32::try_from(MAX_PAIRS).unwrap() + 1 {
+        for card in 0..=u32::try_from(MAX_PAIRS).unwrap() {
             memory.teach(key(card * 2 + 1), key(card * 2 + 2));
         }
         assert_eq!(memory.len(), MAX_PAIRS);

@@ -50,7 +50,7 @@ use baylee_client_core::manapip;
 mod cards;
 mod entry;
 mod motion;
-mod sentence;
+pub(in crate::hud) mod sentence;
 
 use cards::{spawn_stack_card, spawn_stack_sentence, spawn_stack_targets, stack_face};
 use entry::{bar_colours, fill_bar, spawn_controls, spawn_stack_entry};
