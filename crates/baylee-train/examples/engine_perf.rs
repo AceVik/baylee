@@ -124,9 +124,13 @@ impl Digests {
         }
     }
 
+    /// As JSON and not `Debug`: this is what a seat is asked, and a field a
+    /// question gains without saying anything new prints in `Debug` and stays
+    /// off the wire.
     fn question(&mut self, pending: &Pending) {
         if self.on {
-            self.views.feed(format!("{pending:?}").as_bytes());
+            self.views
+                .feed(&serde_json::to_vec(pending).expect("a question serializes"));
         }
     }
 
