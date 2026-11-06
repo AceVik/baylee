@@ -19,7 +19,7 @@ use zeroize::Zeroizing;
 
 mod link;
 mod routes;
-mod transport;
+mod trust;
 pub(crate) use link::{console_routes, restore};
 pub(crate) use routes::router;
 

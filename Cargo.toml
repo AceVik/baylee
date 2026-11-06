@@ -29,9 +29,9 @@ fluent-syntax = "0.12"
 unic-langid = "0.9"
 baylee-account = { path = "crates/baylee-account" }
 baylee-client-e2e = { path = "crates/baylee-client-e2e" }
-central-api = { git = "https://github.com/AceVik/baylee-central.git", rev = "df00faf8d9f434cfa2bf030b99e11edd04b08e25" }
-central-client = { git = "https://github.com/AceVik/baylee-central.git", rev = "df00faf8d9f434cfa2bf030b99e11edd04b08e25" }
-central-crypto = { git = "https://github.com/AceVik/baylee-central.git", rev = "df00faf8d9f434cfa2bf030b99e11edd04b08e25" }
+central-api = { git = "https://github.com/AceVik/baylee-central.git", rev = "aa13a1042cbba90a804a3aec80230bee7a880052" }
+central-client = { git = "https://github.com/AceVik/baylee-central.git", rev = "aa13a1042cbba90a804a3aec80230bee7a880052" }
+central-crypto = { git = "https://github.com/AceVik/baylee-central.git", rev = "aa13a1042cbba90a804a3aec80230bee7a880052" }
 baylee-core = { path = "crates/baylee-core" }
 baylee-cardtext = { path = "crates/baylee-cardtext" }
 baylee-deckio = { path = "crates/baylee-deckio" }
