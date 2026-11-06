@@ -522,6 +522,7 @@ pub(crate) async fn send_broadcast_batch(
 /// Ownership checks and synchronous engine enqueues share the lobby lock, so
 /// an old socket cannot act or detach after a replacement attaches. Network I/O
 /// and Central authorization always happen outside that critical section.
+#[allow(clippy::too_many_lines)] // the socket's whole life, in the order it happens
 async fn run_game_socket(
     state: Shared,
     game_id: String,

@@ -140,10 +140,7 @@ mod tests {
         let mut grace = Grace::default();
         assert!(grace.keeps_open(Standing::Unknown, now));
         assert!(grace.keeps_open(Standing::Unknown, now + UNKNOWN_FOR / 2));
-        assert!(grace.keeps_open(
-            Standing::Unknown,
-            now + UNKNOWN_FOR - Duration::from_millis(1)
-        ));
+        assert!(grace.keeps_open(Standing::Unknown, now + Duration::from_millis(59_999)));
         assert!(!grace.keeps_open(Standing::Unknown, now + UNKNOWN_FOR));
     }
 
@@ -159,10 +156,7 @@ mod tests {
         assert!(!grace.in_doubt());
         let later = now + UNKNOWN_FOR * 2;
         assert!(grace.keeps_open(Standing::Unknown, later));
-        assert!(grace.keeps_open(
-            Standing::Unknown,
-            later + UNKNOWN_FOR - Duration::from_secs(1)
-        ));
+        assert!(grace.keeps_open(Standing::Unknown, later + Duration::from_secs(59)));
     }
 
     /// Only Central's own refusal reads as a revocation: every other failure
@@ -178,7 +172,7 @@ mod tests {
     }
 
     /// A question that does not come back in time is an unknown answer.
-    #[tokio::test(start_paused = true)]
+    #[tokio::test]
     async fn a_question_that_takes_too_long_is_an_unknown_answer() {
         let never = std::future::pending::<Standing>();
         assert_eq!(asked(never).await, Standing::Unknown);

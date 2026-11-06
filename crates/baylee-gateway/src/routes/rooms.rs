@@ -212,23 +212,11 @@ pub(crate) async fn create_game(
     {
         let mut lobby = state.lobby.lock();
         super::participation::account(&lobby, &account_id, None)?;
-        if lobby.waiting().filter(|g| g.hosted_by(&account_id)).count() >= MAX_WAITING_ROOMS {
-            return Err(err(
-                StatusCode::TOO_MANY_REQUESTS,
-                "you already host as many waiting rooms as you may",
-            ));
-        }
+        room_for_a_room(&lobby, &account_id)?;
         let mut game = LobbyGame::blank(game_id.clone(), auth::now_secs());
         game.state = LobbyState::Waiting;
         game.host = Some(account_id.clone());
-        // Read by everybody in the lobby, so what could dress a line up as
-        // another is left out, as the room's own settings refuse it.
-        game.name = body
-            .name
-            .chars()
-            .filter(|c| !c.is_control() && !crate::is_bidi_control(*c))
-            .take(60)
-            .collect();
+        game.name = listed_name(&body.name);
         game.seats = (0..chairs).map(lobby::LobbySeat::open).collect();
         let seq = game.claim_seq();
         game.seats[0].account_id = Some(account_id);
@@ -252,6 +240,29 @@ pub(crate) async fn create_game(
         seat: 0,
         seat_token,
     }))
+}
+
+/// `429` when `account` hosts as many waiting rooms as it may.
+fn room_for_a_room(
+    lobby: &lobby::Lobby,
+    account: &str,
+) -> Result<(), (StatusCode, Json<ErrorBody>)> {
+    if lobby.waiting().filter(|g| g.hosted_by(account)).count() >= MAX_WAITING_ROOMS {
+        return Err(err(
+            StatusCode::TOO_MANY_REQUESTS,
+            "you already host as many waiting rooms as you may",
+        ));
+    }
+    Ok(())
+}
+
+/// A room's name as the lobby lists it: 60 characters, and nothing that could
+/// dress a line up as another, as the room's own settings refuse it.
+fn listed_name(name: &str) -> String {
+    name.chars()
+        .filter(|c| !c.is_control() && !crate::is_bidi_control(*c))
+        .take(60)
+        .collect()
 }
 
 /// Sitting down at a waiting room.

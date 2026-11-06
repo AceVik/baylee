@@ -1132,7 +1132,7 @@ fn rate_limit_ip(trusted: &[IpAddr], peer: IpAddr, headers: &HeaderMap) -> Strin
             let s = v6.segments();
             format!("{:x}:{:x}:{:x}:{:x}::/64", s[0], s[1], s[2], s[3])
         }
-        v4 => v4.to_string(),
+        v4 @ IpAddr::V4(_) => v4.to_string(),
     }
 }
 

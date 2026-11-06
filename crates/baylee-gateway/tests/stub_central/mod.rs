@@ -283,10 +283,15 @@ impl Drop for Settings {
 
 /// An account linked to a new Central identity with a session on lease `key`,
 /// which the stub knows. Answers its bearer.
-#[must_use]
 pub fn linked(gw: &common::Gateway, stub: &Stub, key: u8) -> String {
     use sha2::Digest as _;
-    let hex = |bytes: &[u8]| bytes.iter().map(|b| format!("{b:02x}")).collect::<String>();
+    use std::fmt::Write as _;
+    let hex = |bytes: &[u8]| {
+        bytes.iter().fold(String::new(), |mut out, b| {
+            write!(out, "{b:02x}").expect("writing to a String");
+            out
+        })
+    };
     let id = uuid::Uuid::now_v7();
     let central = uuid::Uuid::now_v7();
     let expires = stub.expires();

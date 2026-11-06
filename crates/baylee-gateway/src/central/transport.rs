@@ -3,7 +3,7 @@
 //! Every session check goes through here, so an exchange holds a task and no
 //! thread: `baylee_account::CentralHttp`, which a report's upload still uses,
 //! blocks a thread for as long as Central takes. The settings are that
-//! transport's, and they are the point of it: TLS verified against the WebPKI
+//! transport's, and they are the point of it: TLS verified against the `WebPKI`
 //! roots, no proxy, no redirect followed, `https` only on the live endpoint,
 //! and every wait bounded.
 //!
