@@ -50,6 +50,7 @@ pub fn refusal_reason(
         cost_sacrifices_self: false,
         cost_sacrifices_other: false,
         trigger_is_self: false,
+        counter_on_source: false,
         body: CardBody::default(),
         unclaimed: std::cell::RefCell::new(None),
     };

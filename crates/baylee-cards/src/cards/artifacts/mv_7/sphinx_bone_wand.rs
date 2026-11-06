@@ -24,7 +24,8 @@ card!(
         Trigger::SpellCast(&TRIGGER1),
         &[Effect::MayDo {
             effects: &[
-                Effect::AddCounter {
+                Effect::AddCounterFilter {
+                    filter: &Filter::This,
                     kind: CounterKind::Charge,
                     amount: Amount::Fixed(1)
                 },

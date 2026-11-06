@@ -4,3 +4,4 @@
 use super::*;
 
 mod altar_of_shadows;
+mod sphinx_bone_wand;

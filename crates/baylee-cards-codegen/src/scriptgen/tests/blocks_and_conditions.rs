@@ -1081,6 +1081,34 @@ fn defined_self_beside_a_target_puts_the_counter_on_the_source() {
     );
 }
 
+/// "Put a charge counter on this artifact. If you do, it deals damage … to
+/// any target" declares its target on the *second* line. The first line
+/// names the source (or nothing, which is the same), and `AddCounter` would
+/// still read the whole ability's target as its recipient: Sphinx-Bone Wand
+/// put its counters on the player it was shooting and dealt no damage.
+#[test]
+fn a_counter_on_the_source_before_a_later_target_stays_on_the_source() {
+    for defined in ["Defined$ Self | ", ""] {
+        let body = read(&format!(
+            "Name:Wand\nManaCost:7\nTypes:Artifact\n\
+             T:Mode$ SpellCast | ValidCard$ Instant,Sorcery | \
+             ValidActivatingPlayer$ You | TriggerZones$ Battlefield | \
+             Execute$ TrigCounter | OptionalDecider$ You | \
+             TriggerDescription$ x\n\
+             SVar:TrigCounter:DB$ PutCounter | {defined}CounterType$ CHARGE | \
+             CounterNum$ 1 | SubAbility$ DBDamage\n\
+             SVar:DBDamage:DB$ DealDamage | ValidTgts$ Any | \
+             NumDmg$ Y\n\
+             SVar:Y:Count$CardCounters.CHARGE\n"
+        ));
+        let text = body.abilities.join("\n");
+        assert!(
+            text.contains("Effect::AddCounterFilter { filter: &Filter::This"),
+            "`{defined}`: the counter is the wand's, not the target's: {text}"
+        );
+    }
+}
+
 /// A counter word the DSL registry has an id for reaches the card as
 /// the constant, on both the rules that read a counter code.
 ///

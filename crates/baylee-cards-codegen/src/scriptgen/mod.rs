@@ -365,6 +365,9 @@ struct Tx<'a> {
     cost_sacrifices_other: bool,
     /// Whether the triggered ability being read triggers on `Card.Self`.
     trigger_is_self: bool,
+    /// The `PutCounter` line being read names the source while a later line of
+    /// its chain declares the target (Sphinx-Bone Wand).
+    counter_on_source: bool,
     body: CardBody,
     /// The first `Api.Key` no rule claimed, if that is why this
     /// script was refused. Recorded rather than derived, because a
@@ -526,6 +529,7 @@ pub fn transcode(
         cost_sacrifices_self: false,
         cost_sacrifices_other: false,
         trigger_is_self: false,
+        counter_on_source: false,
         body: CardBody::default(),
         unclaimed: std::cell::RefCell::new(None),
     };

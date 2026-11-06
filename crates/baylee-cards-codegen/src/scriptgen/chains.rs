@@ -65,6 +65,16 @@ impl Tx<'_> {
             chain.effects.is_empty(),
         )?;
         let target = Self::effect_target(chain);
+        // "Put a charge counter on this artifact. If you do, it deals damage
+        // to any target": the counter line comes first and names the source,
+        // the target is declared by a later sub-ability and belongs to the
+        // whole ability (CR 603.3d). `AddCounter` would read that target as
+        // the counter's recipient, so the line reads as one that targets,
+        // which makes the `PutCounter` arm name the source explicitly.
+        self.counter_on_source = target.is_none()
+            && api == "PutCounter"
+            && matches!(p.peek("Defined"), None | Some("Self"))
+            && self.later_line_targets(sub.as_deref());
         // Whether an absent `Defined$` on this line means a chosen player:
         // only where this line declared the player target itself.
         let targets_a_player =
@@ -122,6 +132,29 @@ impl Tx<'_> {
         };
         chain.effects.extend(effects);
         self.chain_sub_ability(sub, chain)
+    }
+
+    /// Whether a line further down the `SubAbility$` chain declares a target.
+    fn later_line_targets(&self, first: Option<&str>) -> bool {
+        let mut seen = 0;
+        let mut next = first.map(str::to_string);
+        while let Some(name) = next.take() {
+            seen += 1;
+            let Some(body) = self.svars.get(&name) else {
+                return false;
+            };
+            if seen > 16 {
+                return false;
+            }
+            let Some((_, mut p)) = Params::parse(body) else {
+                return false;
+            };
+            if p.has("ValidTgts") {
+                return true;
+            }
+            next = p.take("SubAbility");
+        }
+        false
     }
 
     fn chain_sub_ability(&mut self, sub: Option<String>, chain: &mut Chain) -> Option<()> {
@@ -920,7 +953,13 @@ impl Tx<'_> {
                 // `AddCounterFilter` over `Filter::This` is the spelling that
                 // names the source whatever the ability targets.
                 match p.take("Defined").as_deref() {
-                    Some("Self") if target.is_some() => {
+                    Some("Self") if target.is_some() || self.counter_on_source => {
+                        return Some(vec![format!(
+                            "Effect::AddCounterFilter {{ filter: &Filter::This, \
+                             kind: {kind}, amount: {n} }}"
+                        )]);
+                    }
+                    None if self.counter_on_source => {
                         return Some(vec![format!(
                             "Effect::AddCounterFilter {{ filter: &Filter::This, \
                              kind: {kind}, amount: {n} }}"
