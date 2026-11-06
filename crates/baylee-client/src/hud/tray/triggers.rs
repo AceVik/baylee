@@ -307,6 +307,9 @@ fn spawn_row(
     commands.entity(body).add_child(head);
     if let Some(words) = sentence(trigger, faces) {
         let words = dialog_text(commands, fonts, &words, 11.5, palette::DIALOG_SOFT);
+        // This row grows with what the card says, so its words wrap, where a
+        // fixed band's line would be clipped.
+        commands.entity(words).insert(TextLayout::default());
         commands.entity(body).add_child(words);
     }
     let edge = match place {
