@@ -184,6 +184,19 @@ impl TacticRules4 {
                 struck.push((index, RuleGroup::Void));
             }
         }
+        if self.on(RuleGroup::Trick)
+            && side == Some(TargetSide::Helpful)
+            && let Some(pump) = source.and_then(|id| super::trick::pump_of_card(view, id))
+        {
+            let turned = super::trick::turned_by(view, me, pump);
+            if !turned.is_empty() {
+                for (index, target) in named.iter().enumerate() {
+                    if !matches!(target, Named::Object(id) if turned.contains(id)) {
+                        struck.push((index, RuleGroup::Trick));
+                    }
+                }
+            }
+        }
         if self.on(RuleGroup::Aim) && side == Some(TargetSide::Harmful) {
             let damage = active_source_fixed_damage(view, active_source);
             if damage.is_some() || kills_outright(&parts) {

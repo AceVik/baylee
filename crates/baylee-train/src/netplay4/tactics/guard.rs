@@ -136,6 +136,28 @@ fn owed_spells(view: &PlayerView, legal: &LegalActions) -> Vec<ObjectId> {
         .collect()
 }
 
+/// The cast of the best of `spells` the pool pays, else the tap towards them.
+pub(super) fn cast_or_tap(
+    cands: &EncodedCandidates4,
+    logits: &[f32],
+    view: &PlayerView,
+    legal: &LegalActions,
+    spells: &[ObjectId],
+) -> Option<usize> {
+    let actor = view.decision_player.unwrap_or(view.seat);
+    let pool = view
+        .seat(actor)
+        .map_or(0, |seat| u32::try_from(seat.mana_pool.total()).unwrap_or(0));
+    let cast = best(cands, logits, |action| {
+        matches!(action, PlayerAction::CastSpell { card }
+            if spells.contains(card) && is_x_spell_ready_from_castable(view, *card, pool))
+    });
+    cast.or_else(|| {
+        best(cands, logits, |action| is_mana_action(view, action))
+            .map(|tap| redirect_mana_source_for_colors(cands, logits, view, legal, tap))
+    })
+}
+
 /// `Spend`: what a pass at the end of the own second main is turned to.
 pub(super) fn spend(
     cands: &EncodedCandidates4,
@@ -155,17 +177,7 @@ pub(super) fn spend(
     if spells.is_empty() {
         return None;
     }
-    let pool = view
-        .seat(actor)
-        .map_or(0, |seat| u32::try_from(seat.mana_pool.total()).unwrap_or(0));
-    let cast = best(cands, logits, |action| {
-        matches!(action, PlayerAction::CastSpell { card }
-            if spells.contains(card) && is_x_spell_ready_from_castable(view, *card, pool))
-    });
-    cast.or_else(|| {
-        best(cands, logits, |action| is_mana_action(view, action))
-            .map(|tap| redirect_mana_source_for_colors(cands, logits, view, legal, tap))
-    })
+    cast_or_tap(cands, logits, view, legal, &spells)
 }
 
 /// The other seat's window this decision stands in (0 their spell on the
@@ -226,19 +238,8 @@ pub(super) fn react(
     view: &PlayerView,
     legal: &LegalActions,
 ) -> Option<usize> {
-    let actor = view.decision_player.unwrap_or(view.seat);
     let (_, spells) = react_window(view, legal)?;
-    let pool = view
-        .seat(actor)
-        .map_or(0, |seat| u32::try_from(seat.mana_pool.total()).unwrap_or(0));
-    let cast = best(cands, logits, |action| {
-        matches!(action, PlayerAction::CastSpell { card }
-            if spells.contains(card) && is_x_spell_ready_from_castable(view, *card, pool))
-    });
-    cast.or_else(|| {
-        best(cands, logits, |action| is_mana_action(view, action))
-            .map(|tap| redirect_mana_source_for_colors(cands, logits, view, legal, tap))
-    })
+    cast_or_tap(cands, logits, view, legal, &spells)
 }
 
 /// `Probe`: counts the net's probability of passing in each window, in tenths,

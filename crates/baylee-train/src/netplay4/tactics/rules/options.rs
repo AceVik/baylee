@@ -12,13 +12,14 @@ use baylee_view::{CardIdentity, PlayerView, PublicObject};
 
 use super::super::{
     abilities_of_battlefield_object, is_hostile_object_effects, lookup_card_identity,
+    lookup_spell_cost,
 };
 use super::read::{
     Hitter, actor, blockers_of, damage_through, hitters_of, is_creature, is_tapped, life,
-    opponents, worth,
+    opponents, toughness_left, worth,
 };
 use super::{RuleGroup, TacticRules4};
-use crate::features4::public_object_matches_basic_filter;
+use crate::features4::{public_object_matches_basic_filter, untapped_mana_production};
 
 /// What one ability or mode of a card does, and what it asks to target.
 type Part = (&'static [Effect], Option<TargetReq>);
@@ -162,8 +163,9 @@ fn part_is_void(view: &PlayerView, me: PlayerId, part: &Part) -> bool {
             || all_doomed(view, me, part))
 }
 
-/// What a mass effect sweeps, for the ones that hit both sides alike.
-fn swept(effect: &Effect) -> Option<&'static Filter> {
+/// What a mass effect sweeps, for the ones that hit both sides alike, and the
+/// damage it deals, if that is how it sweeps.
+fn swept(effect: &Effect, x: i32) -> Option<(&'static Filter, Option<i32>)> {
     match effect {
         Effect::DestroyAll { filter, .. }
         | Effect::DestroyAllThenForEachDestroyed { filter, .. }
@@ -172,16 +174,28 @@ fn swept(effect: &Effect) -> Option<&'static Filter> {
         | Effect::ReturnAllToHand {
             filter,
             opponents_only: false,
-        } => Some(*filter),
+        } => Some((*filter, None)),
+        Effect::DealDamageEach { amount, filter } => Some((*filter, damage_of(*amount, x))),
         _ => None,
     }
 }
 
-/// What the swept filter takes from each side, in worth: `(mine, theirs)`.
-fn sweep_toll(view: &PlayerView, me: PlayerId, filter: &Filter) -> (i32, i32) {
+/// A damage amount this reading can count, with X at `x`.
+fn damage_of(amount: Amount, x: i32) -> Option<i32> {
+    match amount {
+        Amount::Fixed(damage) => i32::try_from(damage).ok(),
+        Amount::X => Some(x),
+        _ => None,
+    }
+}
+
+/// What the swept filter takes from each side, in worth: `(mine, theirs)`. A
+/// sweep of damage takes what that much damage kills.
+fn sweep_toll(view: &PlayerView, me: PlayerId, filter: &Filter, damage: Option<i32>) -> (i32, i32) {
     let mut toll = (0, 0);
     for object in &view.battlefield {
-        if public_object_matches_basic_filter(me, object, filter) {
+        let survives = damage.is_some_and(|amount| toughness_left(object) > amount);
+        if !survives && public_object_matches_basic_filter(me, object, filter) {
             if object.controller == me {
                 toll.0 += worth(object);
             } else {
@@ -203,11 +217,11 @@ fn facing_lethal(view: &PlayerView, me: PlayerId) -> bool {
 
 /// A sweep that costs me more than it costs them, or hits nothing of theirs,
 /// unless it is what stands between me and dying.
-fn sweep_backfires(view: &PlayerView, me: PlayerId, part: &Part) -> bool {
-    let Some(filter) = part.0.iter().find_map(swept) else {
+fn sweep_backfires(view: &PlayerView, me: PlayerId, part: &Part, x: i32) -> bool {
+    let Some((filter, damage)) = part.0.iter().find_map(|effect| swept(effect, x)) else {
         return false;
     };
-    let (mine, theirs) = sweep_toll(view, me, filter);
+    let (mine, theirs) = sweep_toll(view, me, filter, damage);
     // Lands alone are a plan the toll cannot read: Armageddon wins from ahead on
     // the board at a cost in lands.
     let lands_only = view
@@ -216,6 +230,42 @@ fn sweep_backfires(view: &PlayerView, me: PlayerId, part: &Part) -> bool {
         .filter(|object| public_object_matches_basic_filter(me, object, filter))
         .all(|object| object.types.contains(TypeSet::LAND));
     theirs == 0 || (mine > theirs && !lands_only && !facing_lethal(view, me))
+}
+
+/// Burn with nothing of theirs to kill and no game to close: their life is more
+/// than this and two swings of the seat's creatures. Held, it answers the creature
+/// that comes; thrown, it is one card for a few points of a healthy life total.
+fn burn_is_idle(view: &PlayerView, me: PlayerId, part: &Part, x: i32) -> bool {
+    let [
+        Effect::DealDamage {
+            amount,
+            target: TargetSpec::AnyTarget,
+        },
+    ] = part.0
+    else {
+        return false;
+    };
+    let Some(damage) = damage_of(*amount, x) else {
+        return false;
+    };
+    let reaches = view.battlefield.iter().any(|object| {
+        object.controller != me
+            && ((is_creature(object) && toughness_left(object) <= damage)
+                || object.types.contains(TypeSet::PLANESWALKER))
+    });
+    let swing: i32 = hitters_of(view, me).iter().map(|hitter| hitter.power).sum();
+    !reaches && opponents(view, me).all(|player| life(view, player) > damage + 2 * swing)
+}
+
+/// What X can be for the spell `id`, on all the mana the seat can reach.
+fn reachable_x(view: &PlayerView, me: PlayerId, id: ObjectId) -> i32 {
+    let pool = view
+        .seat(me)
+        .map_or(0, |seat| u32::try_from(seat.mana_pool.total()).unwrap_or(0));
+    let mana = pool.saturating_add(untapped_mana_production(view, me));
+    let base = lookup_spell_cost(view, id)
+        .map_or(0, |(cost, tax)| cost.with_x(0).cmc().saturating_add(tax));
+    i32::try_from(mana.saturating_sub(base)).unwrap_or(0)
 }
 
 /// A lord printed without "you control" lifts their team too. Reads the swing
@@ -319,11 +369,18 @@ impl TacticRules4 {
         {
             return Some(RuleGroup::Side);
         }
+        let x = reachable_x(view, me, id);
         if self.on(RuleGroup::Mass)
             && !parts.is_empty()
-            && parts.iter().all(|part| sweep_backfires(view, me, part))
+            && parts.iter().all(|part| sweep_backfires(view, me, part, x))
         {
             return Some(RuleGroup::Mass);
+        }
+        if self.on(RuleGroup::Burn)
+            && !parts.is_empty()
+            && parts.iter().all(|part| burn_is_idle(view, me, part, x))
+        {
+            return Some(RuleGroup::Burn);
         }
         if self.on(RuleGroup::Gift) && lifts_their_team(view, me, abilities) {
             return Some(RuleGroup::Gift);
@@ -356,7 +413,7 @@ impl TacticRules4 {
         if self.on(RuleGroup::Side) && parts.iter().all(|part| hurts_only_me(view, me, part)) {
             return Some(RuleGroup::Side);
         }
-        if self.on(RuleGroup::Mass) && parts.iter().all(|part| sweep_backfires(view, me, part)) {
+        if self.on(RuleGroup::Mass) && parts.iter().all(|part| sweep_backfires(view, me, part, 0)) {
             return Some(RuleGroup::Mass);
         }
         if self.on(RuleGroup::Ping)

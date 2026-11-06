@@ -575,6 +575,10 @@ fn merged_arm(shadow: &Value, replayed: Option<&Value>) -> Result<Value> {
     let Some(replayed) = replayed else {
         return Ok(arm);
     };
+    ensure!(
+        replayed["evaluator_revision"] == shadow["evaluator_revision"],
+        "A replay and its shadow run must come from one build"
+    );
     let games: BTreeMap<u64, &Value> = replayed["deal_details"]
         .as_array()
         .context("no deals")?

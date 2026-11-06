@@ -17,6 +17,7 @@ mod read;
 mod targets;
 #[cfg(test)]
 mod tests;
+mod trick;
 
 use std::borrow::Cow;
 
@@ -68,9 +69,13 @@ pub enum RuleGroup {
     Curve,
     /// An attacker let through a blocker that would have lived.
     Wall,
+    /// Burn at a healthy face with nothing to kill and no game to close.
+    Burn,
+    /// A pump held while a fight it would turn is on.
+    Trick,
 }
 
-const GROUPS: [(RuleGroup, &str); 18] = [
+const GROUPS: [(RuleGroup, &str); 20] = [
     (RuleGroup::Void, "void"),
     (RuleGroup::Side, "side"),
     (RuleGroup::Mass, "mass"),
@@ -89,6 +94,8 @@ const GROUPS: [(RuleGroup, &str); 18] = [
     (RuleGroup::Ping, "ping"),
     (RuleGroup::Curve, "curve"),
     (RuleGroup::Wall, "wall"),
+    (RuleGroup::Burn, "burn"),
+    (RuleGroup::Trick, "trick"),
 ];
 
 /// A spell or land (no index) or an ability taken off the menu, and by which group.
@@ -236,6 +243,12 @@ impl TacticRules4 {
             && let Some(better) = ping::shot_to_fire(cands, view, legal)
         {
             self.count(RuleGroup::Ping);
+            return Some(better);
+        }
+        if self.on(RuleGroup::Trick)
+            && let Some(better) = trick::trick_to_cast(cands, logits, view, legal)
+        {
+            self.count(RuleGroup::Trick);
             return Some(better);
         }
         if self.on(RuleGroup::Spend)

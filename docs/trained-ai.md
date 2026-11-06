@@ -1873,7 +1873,7 @@ cards' rules, never from a card's name and never from anything the view does not
 | --- | --- |
 | `void` | strikes an option that changes nothing: a gate no target opens (Pyroblast with nothing blue), an amount of zero (Typhoon with no Island), a land animated while tapped or already a creature, a second copy of a legend, a kill on what the seat's own kill on the stack already names |
 | `side` | a target on the wrong side, as `TargetingContext::side` reads the effect |
-| `mass` | a sweep that takes more of the seat's board than theirs, or nothing of theirs, unless the seat is dying to the swing |
+| `mass` | a sweep (damage and X included) that takes more of the seat's board than theirs, or nothing of theirs, unless the seat is dying to the swing |
 | `gift` | a lord without "you control" that lifts their swing (Goblin King into a board of Goblins with a Mountain under them) |
 | `race` | keeps blockers home when the visible swing back kills within two turns and the seat cannot get there first |
 | `trip` | blocks an attacker that does something when it connects (Goblin Lackey) |
@@ -1885,6 +1885,8 @@ cards' rules, never from a card's name and never from anything the view does not
 | `land` | the land drop that pays for most of the hand this turn; a tapped land when nothing can be cast |
 | `ping` | "sacrifice this: N damage" waits for a kill or for its creature's death, and is not lost with it |
 | `curve` | a cheap spell does not strand the mana a dearer set would spend |
+| `burn` | burn waits for something to kill or a game to close |
+| `trick` | a pump goes off in the blocks when it turns a one-on-one fight |
 
 They answer through the tactical layer, so their records are tactical records and stay out of training. `eval4 --tactics-shadow` plays as the
 layer plays and counts per deal what each group alone would have changed. A deal a group does not touch is the same game with it on, so

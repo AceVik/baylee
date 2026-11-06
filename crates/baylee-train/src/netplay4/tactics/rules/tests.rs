@@ -395,6 +395,61 @@ fn a_second_legend_does_nothing() {
 }
 
 #[test]
+fn a_sweep_of_damage_counts_what_that_much_kills() {
+    let mine = [
+        "Forest",
+        "Mountain",
+        "Forest",
+        "Forest",
+        "Grizzly Bears",
+        "Grizzly Bears",
+    ];
+    let (_session, pending, view) = table(&["Savage Twister"], &mine, &["Llanowar Elves"]);
+    let cast = PlayerAction::CastSpell {
+        card: card_in_hand(&view, "Savage Twister"),
+    };
+    assert_eq!(groups("mass", &view, &pending, &cast), ["mass"]);
+}
+
+#[test]
+fn burn_waits_for_something_to_kill_or_a_game_to_close() {
+    let (_session, pending, view) = table(&["Lightning Bolt"], &["Mountain"], &[]);
+    let cast = PlayerAction::CastSpell {
+        card: card_in_hand(&view, "Lightning Bolt"),
+    };
+    assert_eq!(groups("burn", &view, &pending, &cast), ["burn"]);
+    let (_session, pending, view) = table(&["Lightning Bolt"], &["Mountain"], &["Grizzly Bears"]);
+    let cast = PlayerAction::CastSpell {
+        card: card_in_hand(&view, "Lightning Bolt"),
+    };
+    assert!(groups("burn", &view, &pending, &cast).is_empty());
+}
+
+#[test]
+fn a_pump_turns_a_fight_it_can_turn() {
+    let (mut session, pending, _) = block_question(&["Grizzly Bears"], &["Grizzly Bears"]);
+    let Pending::ChooseBlockers { blockers, .. } = pending else {
+        panic!("no block question");
+    };
+    let pair = (blockers[0].blocker, blockers[0].attackers[0]);
+    session
+        .act(
+            ME,
+            PlayerAction::DeclareBlockers {
+                blockers: vec![pair],
+            },
+        )
+        .unwrap();
+    while session.pending().asked() != Some(ME) {
+        step(&mut session);
+    }
+    let (_, view) = session.view_for_with_context(ME).unwrap();
+    assert_eq!(view.step, baylee_view::Step::DeclareBlockers);
+    assert_eq!(super::trick::turned_by(&view, ME, (3, 3)), [pair.0]);
+    assert!(super::trick::turned_by(&view, ME, (0, 0)).is_empty());
+}
+
+#[test]
 fn most_mana_spent_is_a_subset_sum() {
     assert_eq!(super::opening::best_spend(&[2, 3, 7], 6), 5);
     assert_eq!(super::opening::best_spend(&[4, 4], 7), 4);
