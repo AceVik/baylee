@@ -9,13 +9,14 @@ use super::*;
 
 /// The chosen gateway's `GET /auth/config`, landed.
 fn says(app: &mut App, central: bool, guests: bool) {
+    let epoch = app.world().resource::<LobbyState>().gateway_epoch;
     app.world()
         .resource::<Mailbox>()
         .0
         .lock()
         .expect("mailbox")
         .push(Reply::Remote(
-            0,
+            epoch,
             Box::new(Reply::Registration {
                 registration: Registration::Open,
                 art_cache: false,
@@ -164,6 +165,275 @@ fn launch_starts_at_central_sign_in_with_website_and_register_links() {
     );
     app.update();
     assert!(presses(&mut app).contains(&Press::Front(FrontPress::OpenWebsite)));
+}
+
+/// What a native launch leaves: Central's sign-in, and behind it the device's
+/// own gateways, each with its answer in hand, so nothing here reaches a
+/// network. No address is set either, as [`headless`] sets none.
+fn launched(device: &[&str]) -> App {
+    let mut app = headless();
+    let mut state = LobbyState::new();
+    state.gateway.clear();
+    for url in device {
+        state.probes.insert((*url).to_string(), Probe::Asking);
+    }
+    state
+        .central
+        .as_mut()
+        .expect("a launch turns Central on")
+        .local_gateways = device.iter().map(ToString::to_string).collect();
+    *app.world_mut().resource_mut::<LobbyState>() = state;
+    settle(&mut app);
+    app
+}
+
+const WITHOUT_ACCOUNT: Press = Press::Front(FrontPress::WithoutAccount);
+const BACK_TO_CENTRAL: Press = Press::Front(FrontPress::BackToCentral);
+
+/// Nobody stands before a closed door: the form a launch opens has no `‹`,
+/// and the door past it leads to the device's own gateways, whose rows are
+/// chosen as on any list.
+#[test]
+fn the_form_a_launch_opens_has_a_door_to_the_devices_gateways() {
+    let device = "https://device.invalid";
+    let mut app = launched(&[device]);
+    let found = presses(&mut app);
+    assert!(found.contains(&WITHOUT_ACCOUNT), "{found:?}");
+    assert!(
+        !found.contains(&Press::Front(FrontPress::LeaveGateway)),
+        "{found:?}"
+    );
+
+    press(&mut app, WITHOUT_ACCOUNT);
+    settle(&mut app);
+    let state = app.world().resource::<LobbyState>();
+    assert!(!state.central_pending(), "Central is off");
+    assert!(!state.lobby.gateway_chosen(), "the list is up");
+    assert_eq!(state.gateways, vec![device.to_string()]);
+    let found = presses(&mut app);
+    assert!(
+        found.contains(&Press::Front(FrontPress::SelectGateway(0))),
+        "{found:?}"
+    );
+    assert!(found.contains(&BACK_TO_CENTRAL), "{found:?}");
+    assert!(!found.contains(&WITHOUT_ACCOUNT), "{found:?}");
+}
+
+/// The form goes as it stood, its door still under it and no `‹` come from
+/// anywhere: the two panels stand on one stage while it leaves.
+#[test]
+fn the_form_a_launch_opens_leaves_the_stage_as_it_stood() {
+    let mut app = launched(&["https://device.invalid"]);
+    press(&mut app, WITHOUT_ACCOUNT);
+    let found = presses(&mut app);
+    assert!(found.contains(&WITHOUT_ACCOUNT), "{found:?}");
+    assert!(
+        found.contains(&Press::Front(FrontPress::OpenCentralRegister)),
+        "{found:?}"
+    );
+    assert!(
+        !found.contains(&Press::Front(FrontPress::LeaveGateway)),
+        "{found:?}"
+    );
+}
+
+/// Central's form keeps the device's addresses to itself; the player's
+/// leaving it is what lets them be asked.
+#[test]
+fn the_devices_gateways_are_asked_once_the_player_is_past_the_sign_in() {
+    // A closed port on this machine: nothing leaves it.
+    let device = "http://127.0.0.1:9";
+    let mut app = launched(&[]);
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .central
+        .as_mut()
+        .expect("Central")
+        .local_gateways = vec![device.to_string()];
+    assert!(
+        !app.world()
+            .resource::<LobbyState>()
+            .probes
+            .contains_key(device)
+    );
+    press(&mut app, WITHOUT_ACCOUNT);
+    assert!(
+        app.world()
+            .resource::<LobbyState>()
+            .probes
+            .contains_key(device)
+    );
+}
+
+/// What was typed for Central is not for any gateway, and a refusal from it
+/// is not news on the list. The username is the player's, and comes along.
+#[test]
+fn nothing_typed_for_central_stays_behind_the_door() {
+    let mut app = launched(&["https://device.invalid"]);
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.lobby.set_field(Field::Username, "synthetic");
+        state.lobby.set_field(Field::Password, "synthetic password");
+        state.lobby.say("A refusal of Central's");
+    }
+    press(&mut app, WITHOUT_ACCOUNT);
+    settle(&mut app);
+    let state = app.world().resource::<LobbyState>();
+    assert_eq!(state.lobby.field(Field::Password), "");
+    assert_eq!(state.lobby.status(), "");
+    assert_eq!(state.lobby.field(Field::Username), "synthetic");
+}
+
+/// A sign-in under way holds the door, as it holds `‹`: its answer is about
+/// to change what the door would leave.
+#[test]
+fn a_sign_in_under_way_holds_the_door() {
+    let mut app = launched(&["https://device.invalid"]);
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.lobby.set_field(Field::Username, "synthetic");
+        state.lobby.set_field(Field::Password, "synthetic password");
+        assert!(state.lobby.submit().is_some());
+        assert!(state.lobby.busy());
+    }
+    app.update();
+    assert!(!presses(&mut app).contains(&WITHOUT_ACCOUNT));
+    let mut state = app.world_mut().resource_mut::<LobbyState>();
+    super::super::central::without_account(&mut state);
+    assert!(state.central_pending(), "the sign-in still stands");
+}
+
+/// Back from the list is the form a launch opens, door and all, and the list
+/// comes back with what its addresses said: they are not asked twice.
+#[test]
+fn the_list_goes_back_to_the_form_a_launch_opens() {
+    let device = "https://device.invalid";
+    let mut app = launched(&[device]);
+    press(&mut app, WITHOUT_ACCOUNT);
+    settle(&mut app);
+    press(&mut app, BACK_TO_CENTRAL);
+    settle(&mut app);
+    {
+        let state = app.world().resource::<LobbyState>();
+        assert!(state.central_pending());
+        assert!(!state.central_bound(), "the form with no `‹`");
+        assert!(state.lobby.gateway_chosen());
+        assert_eq!(state.gateways, Vec::<String>::new(), "hidden again");
+        assert!(matches!(state.probes.get(device), Some(Probe::Asking)));
+    }
+    let found = presses(&mut app);
+    assert!(found.contains(&WITHOUT_ACCOUNT), "{found:?}");
+    assert!(!found.contains(&BACK_TO_CENTRAL), "{found:?}");
+    press(&mut app, WITHOUT_ACCOUNT);
+    settle(&mut app);
+    let state = app.world().resource::<LobbyState>();
+    assert_eq!(state.gateways, vec![device.to_string()]);
+    assert!(matches!(state.probes.get(device), Some(Probe::Asking)));
+}
+
+/// The list reaches a gateway that takes guests, and the guest comes in on
+/// its own face: nothing is signed in or accepted on the way. The gateway's
+/// `‹` leads to the list again, with its way back to the sign-in.
+#[test]
+fn a_gateway_that_takes_guests_is_reached_past_the_sign_in() {
+    let mut app = launched(&["https://guests.invalid"]);
+    press(&mut app, WITHOUT_ACCOUNT);
+    settle(&mut app);
+    assert!(
+        app.world_mut()
+            .resource_mut::<LobbyState>()
+            .select_gateway(0)
+    );
+    settle(&mut app);
+    says(&mut app, false, true);
+    assert!(presses(&mut app).contains(&Press::Front(FrontPress::GuestFace)));
+    press(&mut app, Press::Front(FrontPress::GuestFace));
+    settle(&mut app);
+    {
+        let state = app.world().resource::<LobbyState>();
+        assert_eq!(state.lobby.face(), baylee_client_core::lobby::Face::Guest);
+        assert!(state.lobby.token().is_none(), "a face, not yet a guest");
+        assert!(!state.terms.up(), "and no terms taken for the player");
+    }
+    press(&mut app, Press::Front(FrontPress::BackToSignIn));
+    settle(&mut app);
+    press(&mut app, Press::Front(FrontPress::LeaveGateway));
+    settle(&mut app);
+    assert!(presses(&mut app).contains(&BACK_TO_CENTRAL));
+}
+
+/// A gateway on the list that takes Central's accounts asks for Central's
+/// form as ever: with its `‹`, so no second way off it.
+#[test]
+fn a_central_gateway_past_the_sign_in_opens_centrals_form_with_its_way_back() {
+    let mut app = launched(&["https://central.invalid"]);
+    press(&mut app, WITHOUT_ACCOUNT);
+    settle(&mut app);
+    assert!(
+        app.world_mut()
+            .resource_mut::<LobbyState>()
+            .select_gateway(0)
+    );
+    settle(&mut app);
+    says(&mut app, true, false);
+    assert!(app.world().resource::<LobbyState>().central_bound());
+    let found = presses(&mut app);
+    assert!(
+        found.contains(&Press::Front(FrontPress::LeaveGateway)),
+        "{found:?}"
+    );
+    assert!(!found.contains(&WITHOUT_ACCOUNT), "{found:?}");
+}
+
+/// Signing out comes back to the sign-in, door and all, and not to the list.
+#[test]
+fn signing_out_of_central_comes_back_to_the_form_with_its_door() {
+    let mut app = launched(&[]);
+    let (handle, _jobs) = super::super::central::Handle::queued_for_test();
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        super::super::central::restored_for_test(&mut state, Vec::new());
+        state.central.as_mut().expect("Central").handle = Some(handle);
+    }
+    settle(&mut app);
+    app.update();
+    sign_out_from_the_header(&mut app);
+    settle(&mut app);
+    let state = app.world().resource::<LobbyState>();
+    assert!(state.central_pending());
+    assert!(!state.central_bound());
+    assert!(presses(&mut app).contains(&WITHOUT_ACCOUNT));
+}
+
+/// By keys alone: Esc does not leave the form a launch opens, Tab reaches the
+/// door and Enter goes through it, and the same way back from the list.
+#[test]
+fn the_door_and_the_way_back_answer_the_keys() {
+    use super::front_keys::{clears_a_despawned_focus, focused_id, press_key, tab};
+    fn walk_to(app: &mut App, stop: &str) {
+        for _ in 0..40 {
+            if focused_id(app) == Some(stop) {
+                return;
+            }
+            tab(app, false);
+        }
+        panic!("Tab never reaches {stop}");
+    }
+    let mut app = launched(&["https://device.invalid"]);
+    clears_a_despawned_focus(&mut app);
+    press_key(&mut app, KeyCode::Escape, Key::Escape, &[]);
+    assert!(
+        app.world().resource::<LobbyState>().central_pending(),
+        "Esc is no way past the sign-in"
+    );
+    walk_to(&mut app, "without-account");
+    press_key(&mut app, KeyCode::Enter, Key::Enter, &[]);
+    settle(&mut app);
+    assert!(!app.world().resource::<LobbyState>().central_pending());
+    walk_to(&mut app, "central");
+    press_key(&mut app, KeyCode::Enter, Key::Enter, &[]);
+    settle(&mut app);
+    assert!(app.world().resource::<LobbyState>().central_pending());
 }
 
 #[test]

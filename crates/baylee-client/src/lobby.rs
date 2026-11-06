@@ -504,6 +504,20 @@ fn install_builder(app: &mut App) {
 
 // ------------------------------------------------------------- resources
 
+/// Which of Central's forms went off the stage last, so that it leaves drawn
+/// as it stood, with its own way out and no other.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))] // a browser has no Central to leave
+pub(crate) enum LeftCentral {
+    /// None of them: nothing of Central's is on its way out.
+    No,
+    /// A form a gateway or a link asked for, with its `‹`.
+    WayBack,
+    /// The form a launch opens, with its door past the sign-in
+    /// (`central::without_account`) and no `‹`.
+    Door,
+}
+
 /// The lobby's state, plus the gateway it is talking to.
 #[derive(Resource)]
 #[allow(clippy::struct_excessive_bools)] // independent UI toggles and transport/selection state
@@ -516,7 +530,7 @@ pub struct LobbyState {
     pub gateway: String,
     pub(crate) gateways: Vec<String>,
     pub(crate) gateway_selected: bool,
-    pub(super) left_central_bound: bool,
+    pub(super) left_central: LeftCentral,
     gateway_epoch: u64,
     /// What each address said when asked about itself, by address.
     ///
@@ -953,7 +967,7 @@ impl LobbyState {
             community_dialog: None,
             art_cache: false,
             gateway_selected: false,
-            left_central_bound: false,
+            left_central: LeftCentral::No,
             gateway_epoch: 0,
             auth_probes: Arc::default(),
             probes: std::collections::HashMap::new(),
@@ -1062,6 +1076,20 @@ impl LobbyState {
             self.central
                 .as_ref()
                 .is_some_and(|state| state.handle.is_none() && state.has_way_back())
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            false
+        }
+    }
+
+    /// Central is off on a client that has it: the device's own gateways
+    /// stand alone, and a press brings the sign-in back
+    /// (`central::back_to_sign_in`).
+    pub(crate) fn central_off(&self) -> bool {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            self.central.is_none()
         }
         #[cfg(target_arch = "wasm32")]
         {

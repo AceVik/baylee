@@ -429,10 +429,18 @@ fn dot(commands: &mut Commands, kit: Kit, colour: Color) -> Entity {
         .id()
 }
 
+/// Which of Central's forms is on its way off the stage, drawn as it stood.
+fn leaving_central(state: &LobbyState) -> LeftCentral {
+    if state.lobby.gateway_chosen() {
+        LeftCentral::No
+    } else {
+        state.left_central
+    }
+}
+
 fn is_central_login_face(state: &LobbyState) -> bool {
-    let leaving_central = !state.lobby.gateway_chosen() && state.left_central_bound;
     state.central_pending()
-        || leaving_central
+        || leaving_central(state) != LeftCentral::No
         || (!state.lobby.gateway_chosen() && state.central_ready())
 }
 
@@ -442,7 +450,6 @@ fn is_central_login_face(state: &LobbyState) -> bool {
 /// `Settings`); at a direct gateway, `‹` back to the gateways, the reach dot,
 /// the gateway's name + version, and the top-right utility bar.
 fn gateway_head(commands: &mut Commands, state: &LobbyState, kit: Kit, _music_on: bool) -> Entity {
-    let leaving_central = !state.lobby.gateway_chosen() && state.left_central_bound;
     if is_central_login_face(state) {
         let lang = state.lobby.lang();
         let auth_title = Phrase::FrontAuthTitle.text(lang);
@@ -468,7 +475,7 @@ fn gateway_head(commands: &mut Commands, state: &LobbyState, kit: Kit, _music_on
                 Pickable::IGNORE,
             ))
             .id();
-        if state.central_bound() || leaving_central {
+        if state.central_bound() || leaving_central(state) == LeftCentral::WayBack {
             // A gateway asked for Central: `‹` goes back to the device's own.
             let back = glyph_button(
                 commands,
@@ -775,9 +782,37 @@ fn refused_guest_door(commands: &mut Commands, state: &LobbyState, kit: Kit) -> 
     })
 }
 
+/// The way past Central's sign-in, on the form with no `‹` (the one a launch
+/// and a signing out open) and on that form going off the stage, which leaves
+/// as it stood: to the device's own gateways (`central::without_account`).
+fn without_account_door(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Option<Entity> {
+    let lang = state.lobby.lang();
+    let open = (state.central_pending() && !state.central_bound())
+        || leaving_central(state) == LeftCentral::Door;
+    open.then(|| {
+        super::door::onward_cta(
+            commands,
+            kit,
+            Phrase::CentralWithoutAccount.text(lang),
+            (
+                Press::Front(if state.lobby.busy() {
+                    FrontPress::Nothing
+                } else {
+                    FrontPress::WithoutAccount
+                }),
+                keys::stop(state, "without-account"),
+                super::super::hint::HoverHint(
+                    Phrase::CentralWithoutAccountHint.text(lang).to_string(),
+                ),
+            ),
+        )
+    })
+}
+
 /// The sign-in face: the gateway/Central header, username and password,
 /// Sign in; under a rule, Register + Play offline (or Create account +
-/// Play as guest + Play offline).
+/// Play as guest + Play offline), and on Central's form with no `‹` the way
+/// on without an account.
 #[allow(clippy::too_many_lines)] // one face, read top to bottom
 pub(super) fn sign_in(
     commands: &mut Commands,
@@ -911,6 +946,7 @@ pub(super) fn sign_in(
     );
     let mut doors: Vec<Entity> = create.into_iter().chain(guest).chain(register).collect();
     doors.push(offline);
+    doors.extend(without_account_door(commands, state, kit));
     let line = rule(commands);
     let row = pair_if(
         commands,
@@ -1156,6 +1192,26 @@ fn gateway_title_row(
         ))
         .id();
     commands.entity(head).add_child(title);
+    // The way back to the sign-in: whoever came past it, or was signed out
+    // onto this list, has an account to reach again.
+    if state.central_off() {
+        let at_rest = !state.lobby.busy() && state.adding.is_none();
+        let sign_in = super::door::link(
+            commands,
+            kit,
+            Phrase::CentralSignInInstead.text(lang),
+            super::door::Look::Underlined,
+            (
+                Press::Front(if at_rest {
+                    FrontPress::BackToCentral
+                } else {
+                    FrontPress::Nothing
+                }),
+                keys::stop(state, "central"),
+            ),
+        );
+        commands.entity(head).add_child(sign_in);
+    }
     head
 }
 

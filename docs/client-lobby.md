@@ -9,7 +9,9 @@ picking. The existing motion preference also controls these materials and the
 ambient shader. Native/browser text editing, selection, paste and IME continue
 through the existing text-buffer and soft-keyboard paths.
 
-Entry starts with a locally stored gateway list. Adding an HTTP(S) address does
+A native client starts at Baylee Central's sign-in, and its *Continue without an
+account* opens the locally stored gateway list, which *Sign in with an account*
+leaves again (`docs/central-login.md`). Adding an HTTP(S) address does
 not select it; selecting one enables sign-in and probes its registration policy.
 No account request can be submitted before selection, including by keyboard.
 Gateway changes discard the previous account state and art-mirror configuration.

@@ -36,6 +36,7 @@ use super::super::{LobbyState, Mailbox, Press, Scrolled};
 
 const GATEWAY_STOPS: &[&str] = &[
     "central-sign-out",
+    "central",
     "gateway-search",
     "gateway-clear",
     "gateway-sort",
@@ -75,6 +76,7 @@ const SIGN_IN_STOPS: &[&str] = &[
     "register",
     "guest",
     "offline",
+    "without-account",
     "lang",
     "music",
     "settings",

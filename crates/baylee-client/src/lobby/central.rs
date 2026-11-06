@@ -4,7 +4,9 @@
 //! signs people in itself. Account secrets live on one bounded worker.
 #![forbid(unsafe_code)]
 
-use super::{Field, Lobby, LobbyEvent, LobbyState, Mailbox, Registration, Reply, http};
+use super::{
+    Field, LeftCentral, Lobby, LobbyEvent, LobbyState, Mailbox, Registration, Reply, http,
+};
 use baylee_account::{Account, Endpoint, Error};
 use baylee_client_core::{Phrase, i18n::Lang, lobby::gateway_list, prefs::Preferences};
 use std::sync::{
@@ -262,12 +264,20 @@ pub(super) fn enable(state: &mut LobbyState) {
         profile_handle: None,
     });
     state.gateway_selected = false;
-    state.left_central_bound = false;
+    state.left_central = LeftCentral::No;
     state.gateway_cursor = None;
     state.probes.clear();
     state.lobby.set_gateway_ready(true);
     state.lobby.set_registration(Registration::Off);
     state.lobby.set_guests_enabled(false);
+}
+
+/// [`enable`] from the device's list: what its addresses said of themselves
+/// stays true, and is there again when the list comes back.
+fn enable_over_the_list(state: &mut LobbyState) {
+    let probes = std::mem::take(&mut state.probes);
+    enable(state);
+    state.probes = probes;
 }
 
 impl State {
@@ -286,9 +296,7 @@ pub(super) fn from_link(state: &mut LobbyState) {
     if state.central.is_some() {
         return;
     }
-    let probes = std::mem::take(&mut state.probes);
-    enable(state);
-    state.probes = probes;
+    enable_over_the_list(state);
     if let Some(central) = &mut state.central {
         central.linked = true;
     }
@@ -307,9 +315,7 @@ pub(super) fn bound(state: &mut LobbyState) {
         .lobby
         .guests_enabled()
         .then(|| state.lobby.registration());
-    let probes = std::mem::take(&mut state.probes);
-    enable(state);
-    state.probes = probes;
+    enable_over_the_list(state);
     if let Some(central) = &mut state.central {
         central.bound = Some(gateway);
         central.guest_door = guest_door;
@@ -346,10 +352,34 @@ pub(super) fn guest_instead(state: &mut LobbyState) -> bool {
 
 /// Back from Central's sign-in that a gateway (or a link) asked for:
 /// Central is off again and the device's own gateways are back. Central
-/// turned on without either has no way back.
+/// turned on without either has no way back: `‹` and Esc stay put, and the
+/// way past it is the player's own press ([`without_account`]).
 pub(super) fn leave(state: &mut LobbyState) {
     if state.central.as_ref().is_some_and(State::has_way_back) {
         close(state);
+    }
+}
+
+/// Past the sign-in without an account, from the form a launch opens: nobody
+/// without an account, and nobody at all while Central is down, stands before
+/// a closed door. Central is off, the device's own gateways are back, and
+/// nothing typed for Central stays behind them. A gateway reached from there
+/// asks for what it asks for, its terms on their own sheet. Nothing while a
+/// sign-in is out, or once one stands.
+pub(super) fn without_account(state: &mut LobbyState) {
+    if state.central_pending() && !state.lobby.busy() {
+        state.lobby.clear_credentials();
+        state.lobby.clear_status();
+        close(state);
+    }
+}
+
+/// From the device's own gateways to Central's sign-in, the form a launch
+/// opens. Nothing when Central is on already.
+pub(super) fn back_to_sign_in(state: &mut LobbyState) {
+    if state.central.is_none() {
+        state.lobby.clear_status();
+        enable_over_the_list(state);
     }
 }
 
@@ -359,9 +389,13 @@ fn close(state: &mut LobbyState) {
         return;
     };
     state.gateway_epoch = state.gateway_epoch.wrapping_add(1);
+    state.left_central = if central.has_way_back() {
+        LeftCentral::WayBack
+    } else {
+        LeftCentral::Door
+    };
     state.gateways = central.local_gateways;
     state.gateway_selected = false;
-    state.left_central_bound = true;
     state.gateway_cursor = (!state.gateways.is_empty()).then_some(0);
     state.lobby.set_gateway_ready(false);
 }
@@ -491,7 +525,7 @@ pub(super) fn receive(
             state.lobby.set_registration(Registration::Off);
             state.lobby.set_guests_enabled(false);
             state.gateway_selected = false;
-            state.left_central_bound = false;
+            state.left_central = LeftCentral::No;
             state.gateway_filter = baylee_client_core::lobby::gateway_list::GatewayFilter::All;
             state.gateway_sort = baylee_client_core::lobby::gateway_list::GatewaySort::LastUsed;
             state.gateway_collapsed = [false, true, true];
@@ -785,7 +819,7 @@ pub(super) fn back_from_a_session(state: &mut LobbyState) {
     if let Some(central) = &mut state.central {
         central.admitting = false;
     }
-    state.left_central_bound = false;
+    state.left_central = LeftCentral::No;
     state.hub = super::Hub::Play;
     back_to_list(state);
     state.lobby.set_registration(Registration::Off);

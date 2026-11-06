@@ -71,11 +71,9 @@ pub(super) fn drawn(app: &mut App, table: &str) -> Vec<&'static str> {
     ids
 }
 
-/// A front door at a closed beta that takes guests: the sign-in face.
-fn at_the_door() -> App {
-    let mut app = headless();
-    // As the client runs: `bevy_input_focus`'s dispatch clears the focus of
-    // an entity a rebuild despawned before the next key is read.
+/// As the client runs: `bevy_input_focus`'s dispatch clears the focus of an
+/// entity a rebuild despawned before the next key is read.
+pub(super) fn clears_a_despawned_focus(app: &mut App) {
     app.add_systems(
         PreUpdate,
         |mut focus: ResMut<InputFocus>, alive: Query<()>| {
@@ -84,6 +82,12 @@ fn at_the_door() -> App {
             }
         },
     );
+}
+
+/// A front door at a closed beta that takes guests: the sign-in face.
+fn at_the_door() -> App {
+    let mut app = headless();
+    clears_a_despawned_focus(&mut app);
     {
         let mut state = app.world_mut().resource_mut::<LobbyState>();
         state.lobby.set_registration(Registration::Invite);

@@ -1456,6 +1456,10 @@ pub(super) fn front_door(
 pub(crate) enum FrontPress {
     #[cfg(not(target_arch = "wasm32"))]
     CentralSignOut,
+    /// Past Central's sign-in to the device's own gateways, no account needed.
+    WithoutAccount,
+    /// From the device's own gateways back to Central's sign-in.
+    BackToCentral,
     AddGateway,
     SelectGateway(usize),
     /// Asks, in the confirm dialog, whether a saved gateway leaves the list.
@@ -1535,6 +1539,19 @@ impl FrontPress {
             FrontPress::CentralSignOut => {
                 super::central::logout(state, prefs);
                 super::central::enable(state);
+            }
+            FrontPress::WithoutAccount => {
+                #[cfg(not(target_arch = "wasm32"))]
+                super::central::without_account(state);
+                // Nobody asked them yet: Central's form keeps the device's
+                // addresses to itself until the player leaves it.
+                for url in state.unasked_gateways() {
+                    http::probe_gateway(url, mailbox);
+                }
+            }
+            FrontPress::BackToCentral => {
+                #[cfg(not(target_arch = "wasm32"))]
+                super::central::back_to_sign_in(state);
             }
             FrontPress::AddGateway => {
                 if let Some(url) = state.check_gateway() {

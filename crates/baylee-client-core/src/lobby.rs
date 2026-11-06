@@ -2000,7 +2000,7 @@ impl Lobby {
     }
 
     /// Takes the line away. A blank line has no tone to read.
-    fn clear_status(&mut self) {
+    pub fn clear_status(&mut self) {
         self.write(String::new(), Tone::Note);
     }
 

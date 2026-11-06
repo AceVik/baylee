@@ -10,11 +10,23 @@ registers or signs in with a password at any gateway.
 
 A native launch starts at Central's sign-in (`LobbyState::new`), and signing
 out comes back to it; the account's gateways load once signed in. A player
-with no account registers at baylee.app or plays offline. `‹` on Central's
-form goes back to the device's own gateways only on a form opened for a chosen
-gateway, which a launch no longer reaches. Otherwise the device's list opens
-only when a session ends without signing out: Later on Central's terms, a
-failed move, or Central ending the session.
+with no account registers at baylee.app, plays offline or presses *Continue
+without an account* (`central::without_account`), the door under that form:
+it turns Central off and opens the device's own gateways, so nobody stands
+before a closed door, least of all while Central is down. Nothing typed for
+Central stays behind it, and it stands still while a sign-in is out. Only then
+are the device's addresses asked about themselves: Central's form keeps them
+to itself. A gateway chosen from that list lets in whom its mode lets in (§"Who
+a gateway lets in"), a guest through the gateway's own guest face and terms
+sheet, never by anything the door accepted. The door is the player's own press:
+`‹` and Esc do nothing on this form.
+
+The same list is where a session that ends without signing out lands: Later on
+Central's terms, a failed move, or Central ending the session. Wherever it
+stands with Central off, *Sign in with an account*
+(`central::back_to_sign_in`) goes back to the form a launch opens. `‹` on
+Central's form goes back to the device's list only on a form opened for a chosen
+gateway or a link, which has no door because it needs no second way off.
 
 The official gateway is bound to Central through its bridge since
 beta.8a (22.10.2026): new accounts register at baylee.app, and an account from

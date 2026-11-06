@@ -69,7 +69,7 @@ impl LobbyState {
         self.art_cache = false;
         self.gateway = url;
         self.gateway_selected = true;
-        self.left_central_bound = false;
+        self.left_central = LeftCentral::No;
         self.gateway_cursor = None;
         self.front_menu = false;
         self.lobby
@@ -136,7 +136,7 @@ impl LobbyState {
         }
         self.gateway_epoch = self.gateway_epoch.wrapping_add(1);
         self.gateway_selected = false;
-        self.left_central_bound = false;
+        self.left_central = LeftCentral::No;
         self.front_menu = false;
         self.lobby.set_gateway_ready(false);
         // The list is off screen until now, so this is when a sign-in made

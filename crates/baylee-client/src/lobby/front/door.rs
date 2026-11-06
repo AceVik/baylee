@@ -806,17 +806,25 @@ fn lang_menu_item(
     item
 }
 
-/// Styled "Register" CTA button sharing the bottom row of the Login form
-/// with [`offline_cta`].
-pub(super) fn register_cta(
+/// How a door under the sign-in reads: its ground at rest and under the
+/// pointer, its rim, and the mark before its word.
+struct DoorLook {
+    rest: Color,
+    hot: Color,
+    rim: Color,
+    glyph: char,
+    glyph_size: f32,
+}
+
+/// A door under the sign-in: a whole row's width, at the height and in the
+/// type of the others, told apart by its ground and its mark.
+fn door(
     commands: &mut Commands,
     kit: Kit,
     text: &str,
+    look: &DoorLook,
     action: impl Bundle,
 ) -> Entity {
-    let bg = Color::srgba(0.11, 0.18, 0.30, 0.94);
-    let hot = Color::srgba(0.16, 0.26, 0.42, 0.98);
-    let rim = tokens::PRIMARY_EDGE.with_alpha(0.68);
     let face = commands
         .spawn((
             Role::Button,
@@ -832,11 +840,11 @@ pub(super) fn register_cta(
                 border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL)),
                 ..default()
             },
-            BackgroundColor(bg),
-            BorderColor::all(rim),
-            crate::ambience::Feel::tinting_to(bg, hot),
+            BackgroundColor(look.rest),
+            BorderColor::all(look.rim),
+            crate::ambience::Feel::tinting_to(look.rest, look.hot),
             crate::ambience::FeelBorder {
-                rest: rim,
+                rest: look.rim,
                 hot: tokens::ACCENT,
                 press: tokens::PRIMARY_EDGE,
             },
@@ -845,8 +853,8 @@ pub(super) fn register_cta(
         .id();
     let icon = commands
         .spawn((
-            Text::new("\u{f234}"),
-            crate::hud::icon_tf(kit.fonts, kit.m.small * 0.88),
+            Text::new(look.glyph.to_string()),
+            crate::hud::icon_tf(kit.fonts, kit.m.small * look.glyph_size),
             TextColor(tokens::ACCENT),
             Pickable::IGNORE,
         ))
@@ -869,6 +877,24 @@ pub(super) fn register_cta(
     wrapper
 }
 
+/// Styled "Register" CTA button sharing the bottom row of the Login form
+/// with [`offline_cta`].
+pub(super) fn register_cta(
+    commands: &mut Commands,
+    kit: Kit,
+    text: &str,
+    action: impl Bundle,
+) -> Entity {
+    let look = DoorLook {
+        rest: Color::srgba(0.11, 0.18, 0.30, 0.94),
+        hot: Color::srgba(0.16, 0.26, 0.42, 0.98),
+        rim: tokens::PRIMARY_EDGE.with_alpha(0.68),
+        glyph: '\u{f234}',
+        glyph_size: 0.88,
+    };
+    door(commands, kit, text, &look, action)
+}
+
 /// Prominent "Play offline" action button sharing the bottom row of the
 /// Login form.
 pub(super) fn offline_cta(
@@ -877,59 +903,32 @@ pub(super) fn offline_cta(
     text: &str,
     action: impl Bundle,
 ) -> Entity {
-    let bg = Color::srgba(0.10, 0.23, 0.22, 0.94);
-    let hot = Color::srgba(0.15, 0.33, 0.31, 0.98);
-    let rim = tokens::ACCENT.with_alpha(0.60);
-    let face = commands
-        .spawn((
-            Role::Button,
-            Node {
-                width: Val::Percent(100.0),
-                padding: UiRect::axes(kit.m.px(13.0), px_fixed(0.0)),
-                min_height: px_fixed(kit.m.control * 0.88),
-                column_gap: kit.m.px(7.0),
-                flex_grow: 1.0,
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                border: UiRect::all(px_fixed(1.0)),
-                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL)),
-                ..default()
-            },
-            BackgroundColor(bg),
-            BorderColor::all(rim),
-            crate::ambience::Feel::tinting_to(bg, hot),
-            crate::ambience::FeelBorder {
-                rest: rim,
-                hot: tokens::ACCENT,
-                press: tokens::PRIMARY_EDGE,
-            },
-            crate::shellkit::sheen::Sheen,
-        ))
-        .id();
-    let icon = commands
-        .spawn((
-            Text::new("\u{f04b}"),
-            crate::hud::icon_tf(kit.fonts, kit.m.small * 0.86),
-            TextColor(tokens::ACCENT),
-            Pickable::IGNORE,
-        ))
-        .id();
-    let words = commands
-        .spawn((
-            Text::new(text),
-            crate::hud::tf_bold(kit.fonts, kit.m.small),
-            TextColor(tokens::INK),
-            TextLayout::no_wrap(),
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands.entity(face).add_children(&[icon, words]);
-    let wrapper = controls::hit(commands, kit, face, action);
-    commands
-        .entity(wrapper)
-        .entry::<Node>()
-        .and_modify(|mut node| node.width = Val::Percent(100.0));
-    wrapper
+    let look = DoorLook {
+        rest: Color::srgba(0.10, 0.23, 0.22, 0.94),
+        hot: Color::srgba(0.15, 0.33, 0.31, 0.98),
+        rim: tokens::ACCENT.with_alpha(0.60),
+        glyph: '\u{f04b}',
+        glyph_size: 0.86,
+    };
+    door(commands, kit, text, &look, action)
+}
+
+/// The row under those two on the form with no `‹`: the quietest of the
+/// three, because signing in is what this form is for.
+pub(super) fn onward_cta(
+    commands: &mut Commands,
+    kit: Kit,
+    text: &str,
+    action: impl Bundle,
+) -> Entity {
+    let look = DoorLook {
+        rest: Color::srgba(0.05, 0.09, 0.14, 0.88),
+        hot: Color::srgba(0.11, 0.18, 0.26, 0.96),
+        rim: tokens::BORDER,
+        glyph: '\u{f061}',
+        glyph_size: 0.84,
+    };
+    door(commands, kit, text, &look, action)
 }
 
 /// The one-line colophon (§3), on every face below Wide: the notice in the
