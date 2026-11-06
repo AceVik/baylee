@@ -7,6 +7,7 @@ mod clocks;
 mod frames;
 mod holds;
 mod log;
+mod loop_watch;
 mod mulligans;
 mod printings;
 mod project;

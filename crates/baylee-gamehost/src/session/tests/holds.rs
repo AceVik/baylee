@@ -67,8 +67,11 @@ fn a_seat_sees_its_own_hold_and_not_the_other_seats() {
         routed_view(&routed, seat).priority_held,
         "the seat that set the hold was never sent a view saying so"
     );
+    // Nothing moved, so the other seat is sent nothing, and the view it
+    // would be sent says nothing of it either.
+    assert!(routed.iter().all(|(to, _)| *to == seat));
     assert!(
-        !routed_view(&routed, PlayerId::new(1)).priority_held,
+        !seat_view(&session, PlayerId::new(1)).priority_held,
         "one seat's standing order is not the other's to read"
     );
 }

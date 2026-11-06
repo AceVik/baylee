@@ -186,6 +186,25 @@ fn a_modal_trigger_offers_every_mode_it_can_legally_choose() {
     );
 }
 
+/// A broken loop empties the trigger queue, so a mode question can be left
+/// asking about a trigger that is gone. Its answer closes it: refused, the
+/// question would stand for ever, and every answer the clock or the house
+/// gave it would be refused too.
+#[test]
+fn a_mode_question_whose_trigger_a_broken_loop_took_is_closed_by_its_answer() {
+    let p0 = PlayerId::new(0);
+    let mut engine = a_modal_trigger_asks(53, &[quiet_creature()]);
+    assert!(!engine.on_loop_detected(1), "a break ends no game");
+    engine
+        .apply(p0, PlayerAction::ChooseMode(0))
+        .expect("the answer closes the question");
+    assert!(
+        !matches!(engine.pending(), Pending::ChooseCastMode { .. }),
+        "{:?}",
+        engine.pending()
+    );
+}
+
 /// The first answer: the mode with no targets resolves on its own.
 #[test]
 fn a_modal_trigger_resolves_the_mode_that_was_chosen() {

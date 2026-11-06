@@ -1791,6 +1791,30 @@ impl<L: CardLookup> Engine<L> {
         if self.state.zones.stack_is_empty() && self.trigger_queue.is_empty() {
             self.breaking_loop = false;
         }
+        // Automation settings change who gets interrupted, not the game.
+        // They are answered in place: whatever was pending stays pending,
+        // and the priority round is untouched. Before the watch below, which
+        // is about the game repeating itself: a setting is taken from any
+        // seat at any time, and counting them would let one seat call a
+        // standing board a loop.
+        if action.is_automation_setting() {
+            self.set_automation(player, &action);
+            // Re-run the driver *without* clearing `awaiting_answer`: the
+            // question on the table has not been answered, so the machine
+            // must not step past it. All this does is give the new setting
+            // a chance to cover that same question — and if it does not,
+            // the pending stands exactly as it was.
+            self.run_until_choice();
+            return Ok(());
+        }
+        // A cast taken back and a draw offered come back to the situation
+        // they left by a player's own choice, as often as that player likes
+        // (CR 733.1 undoes the cast). That is not a loop, and a watch that
+        // counted it would break one or draw the game on their say-so, so
+        // each starts the count again. Refused, it restores what it reset.
+        if matches!(action, PlayerAction::CancelCast | PlayerAction::OfferDraw) {
+            self.action_loops = crate::loops::LoopWatch::default();
+        }
         let signature = self.action_loops.wants_sample().then(|| {
             self.state.loop_signature()
                 ^ self
@@ -1809,19 +1833,6 @@ impl<L: CardLookup> Engine<L> {
         if let Some(period) = self.action_loops.step(signature)
             && self.on_loop_detected(period)
         {
-            return Ok(());
-        }
-        // Automation settings change who gets interrupted, not the game.
-        // They are answered in place: whatever was pending stays pending,
-        // and the priority round is untouched.
-        if action.is_automation_setting() {
-            self.set_automation(player, &action);
-            // Re-run the driver *without* clearing `awaiting_answer`: the
-            // question on the table has not been answered, so the machine
-            // must not step past it. All this does is give the new setting
-            // a chance to cover that same question — and if it does not,
-            // the pending stands exactly as it was.
-            self.run_until_choice();
             return Ok(());
         }
         // Before turn 1 every seat answers its own mulligan, in any order.

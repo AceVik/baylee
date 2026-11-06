@@ -116,10 +116,21 @@ impl SeatAutomation {
         self.yields.binary_search(&ability).is_ok()
     }
 
+    /// How many yields, and how many remembered answers, one seat may hold.
+    ///
+    /// Three times the 1308 standing orders the busiest real client was
+    /// measured holding (`seatrate::BURST` in the gateway), so a real seat
+    /// never reaches it; but the handles are the seat's to name, a setting
+    /// moves no clock, and these lists are cloned with the engine at every
+    /// checkpoint. An entry past this is not kept.
+    pub const MAX_ENTRIES: usize = 4096;
+
     /// Enable or remove a standing yield without changing yes/no answers.
     pub fn set_yield(&mut self, ability: AbilityRef, enabled: bool) {
         match (self.yields.binary_search(&ability), enabled) {
-            (Err(i), true) => self.yields.insert(i, ability),
+            (Err(i), true) if self.yields.len() < Self::MAX_ENTRIES => {
+                self.yields.insert(i, ability);
+            }
             (Ok(i), false) => {
                 self.yields.remove(i);
             }
@@ -151,8 +162,10 @@ impl SeatAutomation {
             (Ok(i), None) => {
                 self.standing.remove(i);
             }
-            (Err(i), Some(a)) => self.standing.insert(i, (ability, a)),
-            (Err(_), None) => {}
+            (Err(i), Some(a)) if self.standing.len() < Self::MAX_ENTRIES => {
+                self.standing.insert(i, (ability, a));
+            }
+            (Err(_), _) => {}
         }
     }
 

@@ -30,6 +30,35 @@ impl Session {
         self.pump_at_most(4096)
     }
 
+    /// Whether a chair the house plays is being asked something, which only
+    /// a pump answers.
+    pub(super) fn house_owes(&self) -> bool {
+        self.engine.awaited().iter().any(|seat| {
+            let socket = self
+                .seats
+                .get(seat.get() as usize)
+                .is_some_and(SeatKind::answers_over_socket);
+            !socket && self.engine.pending_for(seat).is_some()
+        })
+    }
+
+    /// `seat`'s view, and its question if it holds one, for a change only it
+    /// can see. Nothing before the first frames were read, as [`Self::pump`].
+    pub(super) fn own_frames(&mut self, seat: PlayerId) -> Vec<(PlayerId, Envelope)> {
+        if !self.frames_read {
+            return Vec::new();
+        }
+        let mut out: Vec<_> = self
+            .view_envelopes(seat)
+            .into_iter()
+            .map(|env| (seat, env))
+            .collect();
+        if let Some(pending) = self.engine.pending_for(seat) {
+            out.push((seat, choice_envelope(self.seq, pending)));
+        }
+        out
+    }
+
     /// [`Session::pump`], answering at most `answers` house questions before
     /// it returns.
     ///

@@ -705,6 +705,14 @@ the "who is being asked" gate, and `Session::act` checks only that the seat is
 human. Without both of those a hold could be set and never taken back, because
 a held seat is by definition not the one being asked.
 
+A setting that says what already stands is answered with nothing and leaves no
+line in the record. One that changes something and lets nothing run on is
+answered to its own seat alone, with its view and its question; the other seats
+hear of it only if the game moved. A seat holds at most 4096 yields and 4096
+standing answers (`SeatAutomation::MAX_ENTRIES`), and an entry past that is not
+kept. No setting counts towards the loop watch, and a cast taken back or a draw
+offered starts its count again.
+
 Every `PriorityHold` cancels itself. `UntilStackEmpty { depth }` ends when the
 stack empties **or** when anything is added above `depth`, which is what makes
 a stale client safe: a view is a snapshot, so a client that sends the depth it

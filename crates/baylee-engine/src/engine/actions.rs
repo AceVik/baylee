@@ -460,9 +460,7 @@ impl<L: CardLookup> Engine<L> {
                     }) => {
                         // Refused with the plan back in its slot, for the
                         // reason the position is checked above.
-                        let (CastModeKind::Mode(mode), Some(front)) =
-                            (kind, self.trigger_queue.front_mut())
-                        else {
+                        let CastModeKind::Mode(mode) = kind else {
                             self.pending_plan = Some(PlanKind::ModalTrigger {
                                 source,
                                 ability_index,
@@ -470,6 +468,13 @@ impl<L: CardLookup> Engine<L> {
                             return Err(EngineError::IllegalAction(
                                 "no trigger awaiting this mode",
                             ));
+                        };
+                        // A broken loop empties the queue (`on_loop_detected`),
+                        // this trigger with it, and the question then asks
+                        // about nothing. Refusing the answer would leave it
+                        // open for ever, so the answer closes it.
+                        let Some(front) = self.trigger_queue.front_mut() else {
+                            return Ok(());
                         };
                         debug_assert!(
                             front.source == source && front.ability_index == ability_index,

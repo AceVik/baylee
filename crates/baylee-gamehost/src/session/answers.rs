@@ -260,11 +260,19 @@ impl Session {
             Source::Seat
         };
         let kept = self.record.is_some().then(|| action.clone());
+        let setting_was = (!moves_the_game).then(|| self.engine.automation(player).clone());
+        let journal_was = self.engine.state().journal.last_seq();
         self.last_attempt = Some((player, source, action.clone()));
         let applied = self.engine.apply(player, action);
         self.last_attempt = None;
         if applied.is_err() {
             return Err("illegal action for your seat".to_string());
+        }
+        // A setting that says what already stands is no news to anybody, and
+        // a seat may say it hundreds of times a second: answered with nothing,
+        // as an unchanged seat setting is, and no line in the record.
+        if setting_was.as_ref() == Some(self.engine.automation(player)) {
+            return Ok(Vec::new());
         }
         if let Some(action) = kept {
             self.recorded(player, source, action);
@@ -282,6 +290,15 @@ impl Session {
         if moves_the_game {
             self.moved(player, deciding);
             self.house_answered[player.get() as usize] = by;
+        }
+        // A setting the game did not move for changes one seat's table, so
+        // it costs nobody else a view. One that let the game run on is
+        // everybody's, and so is a pump the house still owes a step of.
+        if !moves_the_game
+            && self.engine.state().journal.last_seq() == journal_was
+            && !self.house_owes()
+        {
+            return Ok(self.own_frames(player));
         }
         Ok(self.pump_slice(answers))
     }
