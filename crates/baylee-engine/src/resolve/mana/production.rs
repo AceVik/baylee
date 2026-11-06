@@ -224,13 +224,13 @@ fn read_ability(
                 ProductionContext {
                     rules: context,
                     acquisition,
-                    tapped: ability.is_mana_ability()
-                        && cost.parts.contains(&baylee_cards_dsl::CostPart::TapSelf),
+                    tapped: tapped_for_mana(state, ability, cost),
                 },
                 production,
             );
         }
         AbilityDef::ModalActivated { cost, modes, .. } => {
+            let tapped = tapped_for_mana(state, ability, cost);
             for mode in *modes {
                 read_effects(
                     state,
@@ -239,8 +239,7 @@ fn read_ability(
                     ProductionContext {
                         rules: context,
                         acquisition,
-                        tapped: ability.is_mana_ability()
-                            && cost.parts.contains(&baylee_cards_dsl::CostPart::TapSelf),
+                        tapped,
                     },
                     production,
                 );
@@ -261,6 +260,15 @@ fn read_ability(
         }
         _ => {}
     }
+}
+
+/// Whether what `ability` makes counts as tapped for mana. Only a replacement
+/// reads the answer (`mana_rules::replace_types`), so a board with none is
+/// spared walking the ability to find out.
+fn tapped_for_mana(state: &GameState, ability: &AbilityDef, cost: &baylee_cards_dsl::Cost) -> bool {
+    state.effects.may_replace_mana()
+        && cost.parts.contains(&baylee_cards_dsl::CostPart::TapSelf)
+        && ability.is_mana_ability()
 }
 
 #[derive(Clone, Copy)]
@@ -369,27 +377,35 @@ fn read_mana(
             tapped: context.tapped,
         });
     } else {
-        let options = if *source == ManaSource::ExiledWithSource {
-            exiled_colors_for(
-                state,
-                DamageSourceRef {
-                    object: land.id,
-                    version: land.version,
-                },
-                context.acquisition,
-            )
-        } else {
-            colors_of(state, land.controller, *source, land.id)
-        };
-        let available = if *amount == Amount::DevotionToManaColor {
-            let devotion = super::devotion(state, land.controller).unwrap_or([0; 6]);
-            mask(
-                options
-                    .into_iter()
-                    .filter(|color| devotion[color.index()] != 0),
-            )
-        } else {
-            mask(options)
+        let devotion_only = *amount == Amount::DevotionToManaColor;
+        let available = match *source {
+            // What a card says outright needs no list to say it.
+            ManaSource::Fixed(color) if !devotion_only => mask([color]),
+            ManaSource::Choice(colors) if !devotion_only => mask(colors.iter().copied()),
+            _ => {
+                let options = if *source == ManaSource::ExiledWithSource {
+                    exiled_colors_for(
+                        state,
+                        DamageSourceRef {
+                            object: land.id,
+                            version: land.version,
+                        },
+                        context.acquisition,
+                    )
+                } else {
+                    colors_of(state, land.controller, *source, land.id)
+                };
+                if devotion_only {
+                    let devotion = super::devotion(state, land.controller).unwrap_or([0; 6]);
+                    mask(
+                        options
+                            .into_iter()
+                            .filter(|color| devotion[color.index()] != 0),
+                    )
+                } else {
+                    mask(options)
+                }
+            }
         };
         production.types |= if context.tapped {
             crate::mana_rules::replace_types(state, land, available)
