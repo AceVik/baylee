@@ -26,6 +26,47 @@ impl CentralHttp {
         &self.endpoint
     }
 
+    /// Central's published signing keys, as the JWKS document it serves: only
+    /// from the endpoint this transport was built with, never from anything a
+    /// token says, and bounded before it is read. The caller parses it.
+    ///
+    /// # Errors
+    /// Reports transport failure, any answer but a key set, and one too long.
+    pub fn jwks(&self) -> Result<Vec<u8>, Error> {
+        /// Central's limit on the document (`central_crypto::jwt::MAX_JWKS_BYTES`).
+        const MAX_JWKS_BYTES: u64 = 16 * 1024;
+        let url = format!("{}/.well-known/jwks.json", self.endpoint.origin());
+        let mut response = self
+            .agent
+            .get(url)
+            .call()
+            .map_err(|_| Error::Unavailable)?;
+        match response.status().as_u16() {
+            200 => {}
+            429 => return Err(Error::Busy),
+            500..=599 => return Err(Error::Unavailable),
+            _ => return Err(Error::Rejected),
+        }
+        let kind = response
+            .headers()
+            .get("Content-Type")
+            .and_then(|value| value.to_str().ok());
+        if kind != Some("application/jwk-set+json") {
+            return Err(Error::Rejected);
+        }
+        let mut bytes = Vec::new();
+        response
+            .body_mut()
+            .as_reader()
+            .take(MAX_JWKS_BYTES + 1)
+            .read_to_end(&mut bytes)
+            .map_err(|_| Error::Unavailable)?;
+        if u64::try_from(bytes.len()).map_or(true, |read| read > MAX_JWKS_BYTES) {
+            return Err(Error::Rejected);
+        }
+        Ok(bytes)
+    }
+
     /// Exchange a bounded native request. Remote errors are deliberately discarded.
     ///
     /// # Errors

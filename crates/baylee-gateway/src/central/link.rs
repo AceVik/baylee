@@ -89,6 +89,7 @@ pub(crate) async fn restore(state: &Shared) {
         state.central.endpoint.clone(),
         &token,
         placeholder(&stored.origin),
+        &stored.origin,
     );
     let metadata = match status(&probe).await {
         Ok(wire::Response::GatewayStatus {
@@ -104,6 +105,7 @@ pub(crate) async fn restore(state: &Shared) {
         state.central.endpoint.clone(),
         &token,
         metadata,
+        &stored.origin,
     )));
     tracing::info!(gateway = %uuid::Uuid::from_bytes(stored.gateway), "linked to Baylee Central by its stored token");
 }
@@ -339,6 +341,7 @@ async fn paste(
         state.central.endpoint.clone(),
         &token,
         placeholder("https://unknown.invalid"),
+        "https://unknown.invalid",
     );
     let (gateway, origin, metadata) = match status(&probe).await {
         Ok(wire::Response::GatewayStatus {
@@ -379,6 +382,7 @@ async fn paste(
         state.central.endpoint.clone(),
         &token,
         entry,
+        &origin,
     )));
     tracing::info!(
         target: "baylee_gateway::audit",
@@ -448,6 +452,12 @@ async fn remove(
         return Err(err(StatusCode::NOT_FOUND, "no token is pasted"));
     }
     state.central.set(None);
+    // Nobody signed in through this link stays signed in: nothing could
+    // revoke them any more.
+    state.sessions.end_all(
+        crate::sessions::Live::is_central,
+        crate::sessions::Ended::Revoked,
+    );
     tracing::info!(
         target: "baylee_gateway::audit",
         admin = %actor,

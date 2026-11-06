@@ -70,6 +70,11 @@ pub(crate) fn ban_refusal(ban: &store::Ban) -> Refusal {
         None => format!("This account is banned. Reason: {}", ban.reason),
     };
     let (status, Json(mut body)) = err_saying(StatusCode::FORBIDDEN, sentence);
+    body.refusal = Some(baylee_protocol::refusal::Refusal {
+        until: ban.until.and_then(|until| i64::try_from(until).ok()),
+        text: Some(ban.reason.clone()),
+        ..baylee_protocol::refusal::Refusal::new(baylee_protocol::refusal::BANNED)
+    });
     body.ban = Some(BanBody {
         reason: ban.reason.clone(),
         until,

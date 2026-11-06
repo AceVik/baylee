@@ -1,15 +1,19 @@
-use super::{Asker, Bridge, Shared};
+use super::{Bridge, Shared, trust::Refused};
+use crate::sessions::{self, Ended, Signed};
 use axum::{
     Json, Router,
-    extract::{ConnectInfo, DefaultBodyLimit, State},
-    http::{HeaderMap, StatusCode},
+    body::Bytes,
+    extract::{DefaultBodyLimit, State},
+    http::{HeaderMap, StatusCode, header::CONTENT_TYPE},
+    response::{IntoResponse, Response},
     routing::post,
 };
-use baylee_account::{
-    migration::Capability,
-    wire::{Identity, Request, Response, TicketPurpose},
-};
-use std::{net::SocketAddr, sync::Arc, time::Duration};
+use baylee_protocol::refusal::Refusal;
+use central_crypto::jwt::{GatewayClaims, Kind, Purpose};
+use serde::Deserialize;
+use serde_json::{Value, json};
+use std::{sync::Arc, time::Duration};
+use zeroize::Zeroizing;
 
 fn bridge(state: &Shared) -> Result<Arc<Bridge>, StatusCode> {
     state.central.get().ok_or(StatusCode::SERVICE_UNAVAILABLE)
@@ -33,187 +37,96 @@ async fn allowed(state: &Shared, account_id: &str) -> Result<crate::store::Accou
     Ok(account)
 }
 
-async fn redeem(
-    state: &Shared,
-    capability: Capability,
-    purpose: TicketPurpose,
-    address: &str,
-) -> Result<
-    (
-        Identity,
-        Option<String>,
-        Option<baylee_account::Token>,
-        Option<i64>,
-    ),
-    StatusCode,
-> {
-    match bridge(state)?
-        .exchange(
-            Request::RedeemGateway {
-                ticket: capability.ticket,
-                purpose,
-            },
-            Asker::SignIn(address),
-        )
-        .await?
-    {
-        Response::GatewayIdentity {
-            identity,
-            legacy_id,
-            lease,
-            expires_at,
-        } => Ok((identity, legacy_id, lease, expires_at)),
-        _ => Err(StatusCode::SERVICE_UNAVAILABLE),
-    }
+/// The key a Central session is known by here: its `sid`, which stays the
+/// same across its tokens and its bearers.
+pub(crate) fn key_of(sid: &str) -> sessions::Key {
+    format!("central:{sid}").into_bytes()
 }
 
-/// `POST /auth/central/login`: a Baylee Central account admitted here.
-///
-/// @route POST /auth/central/login
-/// @scope public
-/// @operation-id `central_login`
-/// @summary Sign in with Baylee Central
-/// @description Trades an `admit` ticket from Baylee Central for a session
-/// at this gateway, for the account Central names (a gateway that is not
-/// the migration gateway makes a local projection of it the first time,
-/// only while its registration is open). Answered as a sign-in is, and the
-/// session's every request is checked with Central. Every refusal is a bare
-/// status.
-/// @tag Central
-/// @security none
-/// @body `$CentralCapability`
-/// @return 200: `$CentralSession` "The session"
-/// @return 401: "The ticket is not good, the account is not linked here, it is a guest, or Central no longer admits it"
-/// @return 403: "This gateway takes no Central account (its mode is `guests`), the account is banned or must choose a new password first, or Central refused"
-/// @return 409: "Central answered a conflict"
-/// @return 413: String text/plain "The body is over 8 KiB"
-/// @return 429: "Central is busy, or too many sign-ins are on their way"
-/// @return 503: "No Baylee Central is configured, the database or Central is unavailable, or the account is new here and this gateway's registration is not open"
-async fn login(
-    State(state): State<Shared>,
-    ConnectInfo(peer): ConnectInfo<SocketAddr>,
-    headers: HeaderMap,
-    Json(capability): Json<Capability>,
-) -> Result<Json<serde_json::Value>, StatusCode> {
-    // The mode in force decides, before Central is asked anything
-    // (`authmode.rs`); the console's own sign-in below follows none.
-    if !state.auth_mode.current().central() {
-        return Err(StatusCode::FORBIDDEN);
-    }
-    let address = crate::rate_limit_ip(&state.trusted_proxies, peer.ip(), &headers);
-    login_for(&state, capability, TicketPurpose::Admit, &address).await
+/// What a sign-in or a refresh sends.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SignIn {
+    token: String,
 }
 
-/// `POST /auth/central/admin`: a gateway admin, by Baylee Central.
-///
-/// @route POST /auth/central/admin
-/// @scope public
-/// @operation-id `central_admin_login`
-/// @summary Sign in to the admin console with Baylee Central
-/// @description Trades an `admin` ticket from Baylee Central for a bearer
-/// that works on the admin listener only, where each request checks the
-/// Central session and the account's admin membership. Not on the migration
-/// gateway. Every refusal is a bare status.
-/// @tag Central
-/// @security none
-/// @body `$CentralCapability`
-/// @return 200: `$CentralAdminSession` "The admin bearer"
-/// @return 401: "The ticket is not good, or the account is a guest"
-/// @return 403: "This is the migration gateway, the account is banned or must choose a new password first, or Central refused"
-/// @return 409: "Central answered a conflict"
-/// @return 413: String text/plain "The body is over 8 KiB"
-/// @return 429: "Central is busy, or too many sign-ins are on their way"
-/// @return 503: "No Baylee Central is configured, or the database or Central is unavailable"
-async fn admin_login(
-    State(state): State<Shared>,
-    ConnectInfo(peer): ConnectInfo<SocketAddr>,
-    headers: HeaderMap,
-    Json(capability): Json<Capability>,
-) -> Result<Json<serde_json::Value>, StatusCode> {
-    if bridge(&state)?.legacy {
-        return Err(StatusCode::FORBIDDEN);
+/// What a client from before gateway tokens sends.
+#[derive(Deserialize)]
+struct OldSignIn {
+    #[serde(rename = "ticket")]
+    _ticket: serde::de::IgnoredAny,
+}
+
+/// The gateway token in a body. A client too old to have one hears that
+/// (`docs/protocol.md` §"Refusals"); anything else is a bad request.
+fn read_token(body: &[u8]) -> Result<Zeroizing<String>, Response> {
+    if let Ok(sign_in) = serde_json::from_slice::<SignIn>(body) {
+        return Ok(Zeroizing::new(sign_in.token));
     }
-    let address = crate::rate_limit_ip(&state.trusted_proxies, peer.ip(), &headers);
-    login_for(&state, capability, TicketPurpose::Admin, &address).await
+    if serde_json::from_slice::<OldSignIn>(body).is_ok() {
+        let refusal = json!({ "refusal": Refusal::update_required() });
+        return Err((StatusCode::UPGRADE_REQUIRED, Json(refusal)).into_response());
+    }
+    Err(StatusCode::BAD_REQUEST.into_response())
+}
+
+/// A gateway token checked here, with no word from Central unless it names a
+/// key not held, which may ask for the keys once.
+async fn checked(bridge: &Arc<Bridge>, token: &str) -> Result<GatewayClaims, StatusCode> {
+    let first = bridge.trust.gateway_token(token, sessions::now());
+    let claims = if matches!(first, Err(Refused::UnknownKey)) {
+        bridge.refresh_keys(true).await;
+        bridge.trust.gateway_token(token, sessions::now())
+    } else {
+        first
+    };
+    claims.map_err(|why| match why {
+        // Not a refusal of this token: nothing can be said of any yet.
+        Refused::NotReady => StatusCode::SERVICE_UNAVAILABLE,
+        _ => StatusCode::UNAUTHORIZED,
+    })
 }
 
 /// Takes the name and tag the account has at Central onto its projection
-/// here (`GatewayProfile`), at each sign-in, so a name chosen or changed on
-/// the website arrives with the next one. A name this gateway's rule
-/// refuses is not taken. Any refusal, Central being away included, leaves
-/// the projection as it is and the sign-in goes on; answers whether the
-/// projection was written.
-async fn take_profile(
-    state: &Shared,
-    lease: &baylee_account::Token,
-    purpose: TicketPurpose,
-    central: [u8; 16],
-    account_id: &str,
-) -> bool {
-    let Ok(bridge) = bridge(state) else {
-        return false;
-    };
-    let Ok(Response::GatewayProfile {
-        identity,
-        display_name,
-        tag,
-    }) = bridge
-        .exchange(
-            Request::GatewayProfile {
-                lease: baylee_account::Token::from_secret_bytes(lease.to_secret_bytes()),
-                purpose,
-            },
-            Asker::Account(&central),
-        )
-        .await
-    else {
-        return false;
-    };
-    if identity.account != central {
-        return false;
-    }
-    let display_name = display_name.filter(|name| crate::auth::valid_display_name(name));
-    let tag = tag
+/// here, at each sign-in, so a name chosen or changed on the website arrives
+/// with the next one. A name this gateway's rule refuses is not taken.
+/// Answers whether the projection was written.
+async fn take_profile(state: &Shared, claims: &GatewayClaims, account_id: &str) -> bool {
+    let display_name = claims
+        .name
+        .as_deref()
+        .filter(|name| crate::auth::valid_display_name(name));
+    let tag = claims
+        .tag
         .and_then(|tag| i32::try_from(tag).ok())
         .filter(|tag| *tag > 0);
-    baylee_db::central::take_profile(&state.db, account_id, display_name.as_deref(), tag)
+    baylee_db::central::take_profile(&state.db, account_id, display_name, tag)
         .await
         .unwrap_or(false)
 }
 
-async fn login_for(
-    state: &Shared,
-    capability: Capability,
-    purpose: TicketPurpose,
-    address: &str,
-) -> Result<Json<serde_json::Value>, StatusCode> {
-    let (identity, legacy, lease, expires_at) = redeem(state, capability, purpose, address).await?;
-    let (Some(lease), Some(expires_at)) = (lease, expires_at) else {
-        return Err(StatusCode::SERVICE_UNAVAILABLE);
-    };
-    // The barrier drains requests while a link is fixed, so a sign-in that
-    // fixes none has nothing to wait for: taking it would let any slow
-    // request refuse it, and stall every route behind it for as long.
-    let linked = baylee_db::central::linked_account(&state.db, identity.account)
-        .await
-        .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?;
-    let settled = linked.is_some_and(|account| legacy.as_ref().is_none_or(|l| *l == account));
-    let _guard = if settled {
-        None
-    } else {
-        Some(exclusive(state).await?)
-    };
-    let admin = matches!(purpose, TicketPurpose::Admin);
-    let account_id = match (bridge(state)?.legacy, legacy) {
+/// A sign-in from a gateway token: the account, its session in the book, and a
+/// bearer for it.
+async fn sign_in(state: &Shared, token: &str, purpose: Purpose) -> Result<Json<Value>, StatusCode> {
+    let bridge = bridge(state)?;
+    let claims = checked(&bridge, token).await?;
+    if claims.purpose != purpose {
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+    let central = claims.account().ok_or(StatusCode::UNAUTHORIZED)?;
+    let _guard = exclusive(state).await?;
+    let admin = purpose == Purpose::Admin;
+    let account_id = match (bridge.legacy, claims.legacy_id.clone()) {
         // The official gateway: a moved account is the legacy account it
-        // moved from, and nothing else. Central names the legacy account to
-        // the bridge only once its move is closed (baylee-central
-        // `docs/native-login.md` §"Legacy login"); the first admission fixes
-        // the link here, ends the account's password and its password
-        // sessions, and asks its sockets to sign in again.
+        // moved from, and nothing else. Central names the legacy account only
+        // once its move is closed (baylee-central `docs/native-login.md`
+        // §"Legacy login"); the first admission fixes the link here, ends the
+        // account's password and its password sessions, and asks its sockets
+        // to sign in again.
         (true, Some(legacy)) => {
-            match baylee_db::central::adopt(&state.db, &legacy, identity.account).await {
+            match baylee_db::central::adopt(&state.db, &legacy, central).await {
                 Ok(true) => {
+                    state.sessions.end_account(&legacy, Ended::SignedOut);
                     let _ = state.departed.send(legacy.clone());
                 }
                 Ok(false) => {}
@@ -229,82 +142,313 @@ async fn login_for(
         // `docs/web-accounts.md`).
         (true, None) => baylee_db::central::projection(
             &state.db,
-            identity.account,
+            central,
             admin || state.registration != crate::invite::Registration::Off,
         )
         .await
         .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?,
         (false, _) => baylee_db::central::projection(
             &state.db,
-            identity.account,
+            central,
             admin || state.registration == crate::invite::Registration::Open,
         )
         .await
         .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?,
     };
     let mut account = allowed(state, &account_id).await?;
-    if take_profile(state, &lease, purpose, identity.account, &account_id).await {
+    if take_profile(state, &claims, &account_id).await {
         account = allowed(state, &account_id).await?;
     }
-    let token = crate::auth::new_token();
-    baylee_db::central::issue_session(
-        &state.db,
-        &account_id,
-        crate::auth::token_digest(&token),
-        *lease.to_secret_bytes(),
-        expires_at,
-        purpose.as_str(),
-    )
-    .await
-    .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?;
-    let mut answer = serde_json::json!({
-        "token": token, "expires_at": expires_at, "username": account.username,
+    let now = sessions::now();
+    let key = key_of(&claims.sid);
+    let signed = Signed::new(central, admin, claims.terms.clone());
+    let live = state
+        .sessions
+        .open(key.clone(), &account_id, claims.exp, now, signed)
+        .map_err(|sessions::Full| StatusCode::SERVICE_UNAVAILABLE)?;
+    if let Some(signed) = live.signed() {
+        signed.set_terms(claims.terms.clone());
+    }
+    // Asked after opening: a revocation writes its `sid` down and then ends
+    // the session, so one that came during the waits above is seen here, or
+    // finds the session open and ends it.
+    if bridge.trust.revoked(&claims.sid) {
+        state.sessions.end(&key, Ended::Revoked);
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+    let issued = state
+        .sessions
+        .issue(&live, now)
+        .ok_or(StatusCode::UNAUTHORIZED)?;
+    let mut answer = json!({
+        "token": issued.token,
+        "expires_at": issued.expires_at,
+        "session_expires_at": live.expires_at(),
+        "username": account.username,
         "display_name": account.display_name,
     });
-    // Whether the account accepted the terms in force is Central's to say
-    // (`docs/protocol.md` §"Terms of use (WG-1)"); an admin session is
-    // checked only for its lease.
-    if matches!(purpose, TicketPurpose::Admit) {
-        let bridge = bridge(state)?;
-        let standing = crate::central::authorize(
-            state,
-            &bridge,
-            *lease.to_secret_bytes(),
-            identity.account,
-            expires_at,
-        )
-        .await?
-        .ok_or(StatusCode::UNAUTHORIZED)?;
-        crate::routes::mark_standing(state, standing, &mut answer);
+    // Whether the account accepted this gateway's terms is in its token;
+    // Central's own are a condition of the token. An admin session is
+    // checked for neither (`docs/protocol.md` §"Terms of use (WG-1)").
+    if !admin {
+        crate::routes::mark_standing(state, super::standing(state, &live), &mut answer);
     }
     Ok(Json(answer))
 }
 
-/// The Central routes, outside the migration barrier (each takes it itself)
-/// and with a body limit of their own.
+fn answered(result: Result<Json<Value>, StatusCode>) -> Response {
+    result.map_or_else(IntoResponse::into_response, IntoResponse::into_response)
+}
+
+/// `POST /auth/central/login`: a Baylee Central account admitted here.
 ///
-/// The bodies are `baylee_account::migration`'s types, which the API
-/// document is not read from, so their schemas are spelled here. A `Token`
-/// is 32 bytes as a JSON array of numbers (`[u8; 32]`).
+/// @route POST /auth/central/login
+/// @scope public
+/// @operation-id `central_login`
+/// @summary Sign in with Baylee Central
+/// @description Trades a gateway token from Baylee Central for a session at
+/// this gateway, for the account it names (a gateway that is not the migration
+/// gateway makes a local projection of it the first time, only while its
+/// registration is open). The token is checked here, with no word from
+/// Central. Answered as a sign-in is. Every refusal is a bare status, but for
+/// `426`.
+/// @tag Central
+/// @security none
+/// @body `$CentralSignIn`
+/// @return 200: `$CentralSession` "The session"
+/// @return 400: "The body is no sign-in"
+/// @return 401: "The token is not good here, its session was revoked, the account is not linked here or it is a guest"
+/// @return 403: "This gateway takes no Central account (its mode is `guests`), or the account is banned or must choose a new password first"
+/// @return 413: String text/plain "The body is over 8 KiB"
+/// @return 426: `$RefusalBody` "A client from before gateway tokens: `update_required`"
+/// @return 503: "No Baylee Central is configured, this gateway has not caught up with Central since it started, the database is unavailable, or the account is new here and this gateway's registration is not open"
+async fn login(State(state): State<Shared>, body: Bytes) -> Response {
+    // The mode in force decides, before anything is read (`authmode.rs`);
+    // the console's own sign-in below follows none.
+    if !state.auth_mode.current().central() {
+        return StatusCode::FORBIDDEN.into_response();
+    }
+    match read_token(&body) {
+        Ok(token) => answered(sign_in(&state, &token, Purpose::Admit).await),
+        Err(refused) => refused,
+    }
+}
+
+/// `POST /auth/central/admin`: a gateway admin, by Baylee Central.
+///
+/// @route POST /auth/central/admin
+/// @scope public
+/// @operation-id `central_admin_login`
+/// @summary Sign in to the admin console with Baylee Central
+/// @description Trades an `admin` gateway token from Baylee Central for a
+/// bearer that works on the admin listener only. It lasts as long as the token
+/// and is not renewed; Central revokes it when the account stops being an
+/// admin here. Not on the migration gateway. Every refusal is a bare status,
+/// but for `426`.
+/// @tag Central
+/// @security none
+/// @body `$CentralSignIn`
+/// @return 200: `$CentralAdminSession` "The admin bearer"
+/// @return 400: "The body is no sign-in"
+/// @return 401: "The token is not good here, its session was revoked, or the account is a guest"
+/// @return 403: "This is the migration gateway, or the account is banned or must choose a new password first"
+/// @return 413: String text/plain "The body is over 8 KiB"
+/// @return 426: `$RefusalBody` "A client from before gateway tokens: `update_required`"
+/// @return 503: "No Baylee Central is configured, this gateway has not caught up with Central since it started, or the database is unavailable"
+async fn admin_login(State(state): State<Shared>, body: Bytes) -> Response {
+    match bridge(&state) {
+        Ok(bridge) if bridge.legacy => return StatusCode::FORBIDDEN.into_response(),
+        Ok(_) => {}
+        Err(status) => return status.into_response(),
+    }
+    match read_token(&body) {
+        Ok(token) => answered(sign_in(&state, &token, Purpose::Admin).await),
+        Err(refused) => refused,
+    }
+}
+
+/// A later gateway token of a session this gateway holds.
+async fn refreshed(state: &Shared, token: &str) -> Result<Json<Value>, StatusCode> {
+    let bridge = bridge(state)?;
+    let claims = checked(&bridge, token).await?;
+    let now = sessions::now();
+    let live = state
+        .sessions
+        .get(&key_of(&claims.sid), now)
+        .ok_or(StatusCode::UNAUTHORIZED)?;
+    let signed = live.signed().ok_or(StatusCode::UNAUTHORIZED)?;
+    let admin = claims.purpose == Purpose::Admin;
+    if claims.account() != Some(signed.central) || admin != signed.admin {
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+    live.extend(claims.exp);
+    signed.set_terms(claims.terms);
+    let issued = state
+        .sessions
+        .issue(&live, now)
+        .ok_or(StatusCode::UNAUTHORIZED)?;
+    let mut answer = json!({
+        "token": issued.token,
+        "expires_at": issued.expires_at,
+        "session_expires_at": live.expires_at(),
+    });
+    if !admin {
+        crate::routes::mark_standing(state, super::standing(state, &live), &mut answer);
+    }
+    Ok(Json(answer))
+}
+
+/// `POST /auth/central/refresh`: a later gateway token for a session here.
+///
+/// @route POST /auth/central/refresh
+/// @scope public
+/// @operation-id `central_refresh`
+/// @summary Carry a Central session on with a later token
+/// @description Takes a later gateway token of a session this gateway holds:
+/// the session lasts as long as the token, the token's terms stand, and a new
+/// bearer comes back. It is also how a client whose renewal was lost gets back
+/// in. A session this gateway does not hold, as after its restart, signs in.
+/// @tag Central
+/// @security none
+/// @body `$CentralSignIn`
+/// @return 200: `$CentralRefreshed` "The new bearer"
+/// @return 400: "The body is no sign-in"
+/// @return 401: "The token is not good here, its session was revoked, or this gateway holds no such session"
+/// @return 413: String text/plain "The body is over 8 KiB"
+/// @return 426: `$RefusalBody` "A client from before gateway tokens: `update_required`"
+/// @return 503: "No Baylee Central is configured, or this gateway has not caught up with Central since it started"
+async fn refresh(State(state): State<Shared>, body: Bytes) -> Response {
+    match read_token(&body) {
+        Ok(token) => answered(refreshed(&state, &token).await),
+        Err(refused) => refused,
+    }
+}
+
+/// `POST /auth/session/renew`: a new bearer for the one presented.
+///
+/// @route POST /auth/session/renew
+/// @scope public
+/// @operation-id `session_renew`
+/// @summary Renew a session's bearer
+/// @description A Central session's bearer lives between 64 and 128 seconds.
+/// This replaces the current one, with no word from Central; the one replaced
+/// serves requests in flight for ten seconds more and renews nothing.
+/// @tag Central
+/// @security bearer
+/// @return 200: `$CentralRenewed` "The new bearer"
+/// @return 401: "No bearer, or not the current one of a live session"
+async fn renew(State(state): State<Shared>, headers: HeaderMap) -> Response {
+    let Some(bearer) = crate::bearer_token(&headers) else {
+        return StatusCode::UNAUTHORIZED.into_response();
+    };
+    let digest = crate::auth::token_digest(bearer);
+    match state.sessions.renew(&digest, sessions::now()) {
+        Some(issued) => Json(json!({
+            "token": issued.token,
+            "expires_at": issued.expires_at,
+        }))
+        .into_response(),
+        None => StatusCode::UNAUTHORIZED.into_response(),
+    }
+}
+
+/// Applies a message that was taken: its sessions end now, and a gap sets the
+/// catch-up going.
+pub(super) fn ended(state: &Shared, bridge: &Bridge, applied: &super::trust::Applied) {
+    for sid in &applied.sids {
+        state.sessions.end(&key_of(sid), Ended::Revoked);
+    }
+    if applied.gap {
+        bridge.sync.notify_one();
+    }
+}
+
+/// `POST /auth/central/invalidate`: Central ends sessions here.
+///
+/// @route POST /auth/central/invalidate
+/// @scope public
+/// @operation-id `central_invalidate`
+/// @summary Take a revocation from Baylee Central
+/// @description Anyone can reach this, so nothing is taken but a message
+/// signed by Central's keys, for this gateway, unexpired and not taken before.
+/// It names only `sid`s, and those sessions' sockets close at once. Nothing
+/// here is needed for a revocation to arrive: the gateway also catches up on
+/// its own.
+/// @tag Central
+/// @security none
+/// @return 204: "Taken, or taken before"
+/// @return 400: "Not `application/jwt`, or not text"
+/// @return 401: "Refused"
+/// @return 413: String text/plain "The body is over 16 KiB"
+/// @return 429: "Too many at once: try again"
+/// @return 503: "No Baylee Central is configured, or this gateway holds no keys yet"
+async fn invalidate(State(state): State<Shared>, headers: HeaderMap, body: Bytes) -> StatusCode {
+    // Before a signature is checked, so a flood costs little. A sender using
+    // this up delays the push and nothing else: the catch-up still comes.
+    if !state.invalidate_limiter.allow("central") {
+        return StatusCode::TOO_MANY_REQUESTS;
+    }
+    let jwt = headers
+        .get(CONTENT_TYPE)
+        .is_some_and(|kind| kind.as_bytes() == b"application/jwt");
+    let Some(token) = std::str::from_utf8(&body).ok().filter(|_| jwt) else {
+        return StatusCode::BAD_REQUEST;
+    };
+    let Ok(bridge) = bridge(&state) else {
+        return StatusCode::SERVICE_UNAVAILABLE;
+    };
+    let mut taken = bridge.trust.pushed(token, sessions::now());
+    if matches!(taken, Err(Refused::UnknownKey)) {
+        bridge.refresh_keys(true).await;
+        taken = bridge.trust.pushed(token, sessions::now());
+    }
+    match taken {
+        Ok(applied) => {
+            ended(&state, &bridge, &applied);
+            StatusCode::NO_CONTENT
+        }
+        Err(Refused::Replayed) => StatusCode::NO_CONTENT,
+        Err(Refused::Full) => StatusCode::TOO_MANY_REQUESTS,
+        Err(Refused::NotReady) => StatusCode::SERVICE_UNAVAILABLE,
+        Err(_) => StatusCode::UNAUTHORIZED,
+    }
+}
+
+/// The Central routes, outside the migration barrier (each takes it itself)
+/// and with body limits of their own.
 ///
 /// @openapi document
 /// ```yaml
 /// components:
 ///   schemas:
-///     CentralBytes32:
-///       type: array
-///       description: '32 bytes, as a JSON array of 32 numbers from 0 to 255.'
-///       items: { type: integer, minimum: 0, maximum: 255 }
-///       minItems: 32
-///       maxItems: 32
-///     CentralCapability:
+///     CentralSignIn:
 ///       type: object
-///       description: 'A one-use ticket Baylee Central issued for this gateway and this route''s purpose, good for 30 seconds.'
+///       description: 'A gateway token Baylee Central issued for this gateway: an EdDSA JWT, at most 2 KiB.'
 ///       properties:
-///         ticket:
-///           $ref: '#/components/schemas/CentralBytes32'
-///       required: [ticket]
+///         token:
+///           type: string
+///       required: [token]
 ///       additionalProperties: false
+///     RefusalBody:
+///       type: object
+///       description: 'Why, for a client to say in its own words; docs/protocol.md "Refusals".'
+///       properties:
+///         refusal:
+///           type: object
+///           properties:
+///             code:
+///               type: string
+///               pattern: '^[a-z0-9_]{1,32}$'
+///             min_version:
+///               type: string
+///             until:
+///               type: integer
+///               format: int64
+///             text:
+///               type: string
+///               maxLength: 200
+///           required: [code]
+///       required: [refusal]
 ///     CentralAdminSession:
 ///       type: object
 ///       description: 'A bearer for the admin listener.'
@@ -315,25 +459,33 @@ async fn login_for(
 ///         expires_at:
 ///           type: integer
 ///           format: int64
-///           description: 'When it ends, Unix seconds: the end of its Central lease.'
+///           description: 'When it ends, Unix seconds: the end of its gateway token.'
+///         session_expires_at:
+///           type: integer
+///           format: int64
+///           description: 'When the session ends, Unix seconds.'
 ///         username:
 ///           type: [string, 'null']
 ///           description: 'The account''s username here, `null` for an account only Central knows.'
 ///         display_name:
 ///           type: string
 ///           description: 'The name other players see.'
-///       required: [token, expires_at, username, display_name]
+///       required: [token, expires_at, session_expires_at, username, display_name]
 ///     CentralSession:
 ///       type: object
 ///       description: 'A session at this gateway, answered as a sign-in is.'
 ///       properties:
 ///         token:
 ///           type: string
-///           description: 'The session''s bearer token: 64 lowercase hex characters.'
+///           description: 'The session''s bearer: 64 lowercase hex characters. It lives 64 to 128 seconds; renew it before `expires_at`.'
 ///         expires_at:
 ///           type: integer
 ///           format: int64
-///           description: 'When it ends, Unix seconds: the end of its Central lease.'
+///           description: 'When the bearer ends, Unix seconds.'
+///         session_expires_at:
+///           type: integer
+///           format: int64
+///           description: 'When the session ends without a later token, Unix seconds.'
 ///         username:
 ///           type: [string, 'null']
 ///           description: 'The account''s username here, `null` for an account only Central knows.'
@@ -343,15 +495,42 @@ async fn login_for(
 ///         terms_stale:
 ///           type: boolean
 ///           description: 'Whether the account has yet to accept this gateway''s terms in force (at Central); only on a gateway with terms.'
-///         central_terms_stale:
+///       required: [token, expires_at, session_expires_at, username, display_name]
+///     CentralRefreshed:
+///       type: object
+///       description: 'A new bearer for a session carried on with a later token.'
+///       properties:
+///         token:
+///           type: string
+///         expires_at:
+///           type: integer
+///           format: int64
+///         session_expires_at:
+///           type: integer
+///           format: int64
+///         terms_stale:
 ///           type: boolean
-///           const: true
-///           description: 'Only there when the account has yet to accept Baylee Central''s own terms, which come first.'
-///       required: [token, expires_at, username, display_name]
+///       required: [token, expires_at, session_expires_at]
+///     CentralRenewed:
+///       type: object
+///       description: 'A new bearer for the same session.'
+///       properties:
+///         token:
+///           type: string
+///         expires_at:
+///           type: integer
+///           format: int64
+///       required: [token, expires_at]
 /// ```
 pub(crate) fn router() -> Router<Shared> {
-    Router::new()
+    let sign_in = Router::new()
         .route("/auth/central/login", post(login))
         .route("/auth/central/admin", post(admin_login))
-        .layer(DefaultBodyLimit::max(8192))
+        .route("/auth/central/refresh", post(refresh))
+        .route("/auth/session/renew", post(renew))
+        .layer(DefaultBodyLimit::max(8192));
+    let invalidating = Router::new()
+        .route("/auth/central/invalidate", post(invalidate))
+        .layer(DefaultBodyLimit::max(Kind::Revocation.max_bytes()));
+    sign_in.merge(invalidating)
 }

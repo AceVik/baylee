@@ -363,16 +363,12 @@ The user may also leave a gateway while retaining central sign-in: Switch
 gateway, in the header or in Settings, ends the gateway's session as signing
 out does (`clicks::end_the_session`, the one way out of a session), a guest
 being asked first because that is its end, and returns to the account's list.
-There is one active Central session per account. A successful replacement login atomically
-revokes previous Central sessions, tickets and gateway leases; failed login
-does not sign out the current device. Every authenticated gateway HTTP request
-checks its server-only lease with Central, without an authorization cache. Local
-activity cannot extend that lease's Central expiration. Idle lobby, chat, watch
-and game sockets recheck every five seconds and close when authorization fails;
-every received binary game frame is checked before forwarding to the engine.
-Already-authorized operations can finish concurrently with revocation. A seat
-capability is bound to the session that minted it and cannot inherit the new
-device's authorization when that device reclaims the seat.
+There is one active Central session per account. A successful replacement login
+atomically revokes the previous Central session, and Central tells the gateway
+that held it; a failed login does not sign out the current device. How a gateway
+checks a session, and how an end reaches it, is §"Sessions". A seat capability is
+bound to the session that minted it and cannot inherit the new device's
+authorization when that device reclaims the seat.
 
 Registered gateways use distinct redemption and heartbeat credentials. Operator
 approval of the claimed origin is a separate database privilege; an ordinary
@@ -397,6 +393,100 @@ audit actor is the Central UUID, not an asserted header. The operator bootstrap
 token remains a separate administrative route; neither mode receives a Central
 account session token. The gateway-owning account must also be explicitly listed
 as an admin if it needs SSO administration.
+
+## Sessions
+
+*The owner's design of 06.11.2026 (`docs/proposals/central-session-tokens.md`).*
+A gateway checks a session itself, in memory, with no network and no SQL before a
+frame. A revocation still reaches it at once where Central can reach it, and
+within seconds where it cannot.
+
+| Token | Issued by | Seen by | Lives | Form |
+| --- | --- | --- | --- | --- |
+| Central token | Central | Central alone | the session's 12 hours | JWT |
+| Gateway token | Central | one gateway (`aud`) | about 1 hour | JWT |
+| Session token | a gateway | that gateway | 64 to 128 s, drawn | random |
+
+- **Central token.** Never reaches a gateway. It is an opaque string to the client.
+- **Gateway token.** The client asks Central for one for a chosen gateway
+  (`GatewayToken`), and Central records the session as a `sid`, random per Central
+  session, gateway and purpose, so two gateways cannot correlate a player. It says
+  who the account is, the name and tag, and the newest terms of this gateway the
+  account accepted; Central's own terms are a condition of issue. It is good at no
+  other gateway and never at Central.
+- **Session token.** What the client presents from then on. It is known only to this
+  gateway, by its digest, and renews without Central (`POST /auth/session/renew`).
+  The lifetime is drawn so that sessions begun together do not renew together. Only
+  the current one renews; one replaced serves requests in flight for ten seconds.
+  A client whose renewal was lost presents its gateway token
+  (`POST /auth/central/refresh`), which also carries the session past the token's
+  hour. An `admin` session's token lasts as long as its gateway token instead,
+  because it works on the loopback admin listener alone and nothing there renews it.
+
+**Checking a JWT.** `central_crypto::jwt`, one implementation for Central and
+gateways: EdDSA only, compared to fixed header bytes, so nothing in a token selects
+an algorithm; `iss`, `aud`, `exp` and `nbf` always, with 30 s for the clock. Keys come
+only from the configured Central URL (`/.well-known/jwks.json`) over verified TLS,
+with no redirects, every five minutes and for an unknown `kid`, at most once a minute.
+Central lists a key before it signs and for at least 1 h 30 s after it stops.
+
+**Revocation.** Central sends a signed `baylee-revocation+jwt`, naming only `sid`s
+this gateway knows, to `POST /auth/central/invalidate` on its approved origin. The
+gateway verifies it through the keys, so there is no shared secret, and refuses one it
+took before. Each revocation has a number per gateway. The heartbeat's answer carries
+the last one, and a gateway behind asks for what it missed (`GatewayRevocations`, every
+30 seconds where it cannot beat), so a gateway Central cannot reach learns within
+seconds. A gap still applies its sessions and holds the number back. If the gateway
+missed numbers Central no longer holds, it ends every Central session it holds, and
+clients present fresh tokens, which Central gives only to live sessions. With no
+catch-up at all, a session ends when its token does: an hour at most.
+
+**After a start** the gateway holds nothing: no keys, no revoked `sid`, no sessions. It
+takes no Central sign-in until it has keys and one finished catch-up, and answers `503`
+until then, so a restart cannot forget a revocation of a token still valid. Central
+keeps every number for two hours by age alone, which covers every such token. While
+Central is unreachable after a start, Central's accounts wait; guests and local accounts
+do not.
+
+**In the gateway** (`sessions.rs`). A session is one state in memory with a stable key:
+`central:` and its `sid`, or a local session's digest. Every socket of the session
+watches it. A chair and a socket ticket remember the key, never a bearer. The check
+before a frame reaches an engine or a view reaches a client reads that state, the clock
+and the chair, and waits on nothing, so no stale action reaches an engine. A ban, a
+sign-out, a deletion or a revocation ends the state once, and every socket closes at
+once in both directions, saying why (`docs/protocol.md` §"Refusals"). The chair then
+follows the rules for a seat left empty. The engine holds no tokens: it dials out, and
+the gateway stamps the seat.
+
+**Guests and local accounts** use the same state. Their lifetime stays in the database,
+so a background check, away from any frame, keeps a guest's sliding lifetime moving
+while it plays and ends what lapsed; a database error there ends nothing. A seat with no
+session stands on an account's own state, which a ban or a deletion ends.
+
+**What changed for a player.** Terms Central puts in force bind at the next token, an
+hour at most after they do, and not at the next request as before. Removing a gateway
+link signs out everyone it signed in, at once.
+
+### Deploying this
+
+Central, gateways and clients change together; old ones are not supported (owner,
+06.11.2026, while nobody uses baylee.app yet). `PROTOCOL_VERSION` moved to 38.
+
+1. **The client release.** Publish it first, so the updater finds it. Installed clients
+   go on working until step 2. A client already updated cannot sign in until step 2: the
+   old Central does not know its request. Keep this gap short.
+2. **Central and the gateway, together.** The deploy hook builds the Central revision
+   the gateway links, so one deploy does both (baylee-central `docs/operations.md`
+   §"Deploying with the gateway").
+3. **Clients update themselves.** The updater goes to GitHub Releases and needs no
+   sign-in, and it installs on exit.
+
+**A client from before this release** cannot be made to show "Update required": no
+answer from a server changes its fixed text. Central answers it `426` at its first
+request, and it shows its own failed sign-in sentence ("Sign-in or restore failed…").
+Its updater is unaffected, so the launch that finds the update still runs the old client
+and the next is fixed. A client started between steps 1 and 2 never sees this. From this
+release on, a client too old says so in its own words (`docs/protocol.md` §"Refusals").
 
 ## The official gateway's aliases
 
@@ -628,14 +718,9 @@ owned client PIDs, HTTP listeners and backend containers were closed/verified.
 
 Sessions renew (since beta.8b): the account worker renews its Central session
 every ten minutes (`Account::renew`; a failure is retried a minute later and
-ends nothing), so it, and every gateway session admitted from it, lasts while
-the client runs, up to 12 hours after the password sign-in (baylee-central
-`docs/operations.md` §"Sessions"). The gateway takes the later lease expiry
-Central reports on its next check and stores it on the lease, which bounds
-the session (`central::authorize`, `baylee_db::central::extend_session`); an
-earlier one is refused. A gateway
-built before this compares the expiry exactly and so ends a session at its
-first renewal: gateways update together with Central.
+ends nothing), so it lasts while the client runs, up to 12 hours after the
+password sign-in (baylee-central `docs/operations.md` §"Sessions"). A gateway
+session lasts as long through a later gateway token (§"Sessions").
 
 Current operational limits: after the 12 hours, sign in again. New account
 registration and password changes/recovery are not exposed by this native UI.

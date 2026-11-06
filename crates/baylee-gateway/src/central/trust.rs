@@ -161,6 +161,11 @@ impl Trust {
         Ok(claims)
     }
 
+    /// Whether this `sid` was revoked.
+    pub(crate) fn revoked(&self, sid: &str) -> bool {
+        self.state.lock().revoked.contains_key(sid)
+    }
+
     /// A revocation message from a catch-up, which this gateway asked for.
     ///
     /// # Errors

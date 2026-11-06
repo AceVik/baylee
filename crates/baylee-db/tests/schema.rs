@@ -319,7 +319,7 @@ async fn a_moved_account_is_linked_at_its_first_admission_and_only_once() {
         .await
         .is_err()
     );
-    // The game data stays; the projection and the session issue under it.
+    // The game data stays.
     assert!(
         Deck::find_by_id(deck_id)
             .one(&sandbox.db)
@@ -327,17 +327,61 @@ async fn a_moved_account_is_linked_at_its_first_admission_and_only_once() {
             .unwrap()
             .is_some()
     );
-    central::issue_session(
-        &sandbox.db,
-        &alice,
-        vec![44; 32],
-        [45; 32],
-        OffsetDateTime::now_utc().unix_timestamp() + 60,
-        "admit",
+    central_password_retired(&sandbox.db, alice_id, bob_id).await;
+    sandbox.close().await;
+}
+
+/// A Central account's stored session went with its lease; a local account's
+/// and a guest's stay, and the table is gone.
+#[tokio::test]
+async fn central_sessions_leave_the_database_and_local_ones_stay() {
+    let before = u32::try_from(
+        Migrator::migrations()
+            .iter()
+            .position(|m| m.name() == "m20261106_000029_central_sessions_in_memory")
+            .expect("the migration is registered"),
     )
+    .expect("a handful");
+    let sandbox = Sandbox::open_at("central_sessions_in_memory", Some(before)).await;
+    let db = &sandbox.db;
+    let central = baylee_db::central::projection(db, *Uuid::now_v7().as_bytes(), true)
+        .await
+        .unwrap();
+    let guest = Uuid::now_v7();
+    db.execute_raw(Statement::from_sql_and_values(
+        DbBackend::Postgres,
+        "INSERT INTO account (id, display_name, guest, created_at, tag)
+         VALUES ($1, 'Guest', TRUE, clock_timestamp(), 7)",
+        [guest.into()],
+    ))
     .await
     .unwrap();
-    central_password_retired(&sandbox.db, alice_id, bob_id).await;
+    for (owner, byte) in [(Uuid::parse_str(&central).unwrap(), 1_u8), (guest, 2)] {
+        db.execute_raw(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            "INSERT INTO session_token (token_hash, account_id, expires_at)
+             VALUES ($1, $2, clock_timestamp() + interval '1 hour')",
+            [vec![byte; 32].into(), owner.into()],
+        ))
+        .await
+        .unwrap();
+    }
+    Migrator::up(db, None).await.unwrap();
+    let left = SessionToken::find().all(db).await.unwrap();
+    assert_eq!(left.len(), 1, "only the guest's session stays");
+    assert_eq!(left[0].account_id, guest);
+    // In this schema by name: the sandbox's `search_path` falls through to
+    // `public`, which holds its own copy.
+    let row = db
+        .query_one_raw(Statement::from_string(
+            DbBackend::Postgres,
+            "SELECT to_regclass(quote_ident(current_schema()) || '.central_gateway_session')
+                 IS NULL AS gone",
+        ))
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(row.try_get::<bool>("", "gone").unwrap(), "the leases are gone");
     sandbox.close().await;
 }
 
@@ -397,8 +441,8 @@ async fn a_projection_takes_its_name_and_tag_from_central() {
 }
 
 #[tokio::test]
-async fn central_gateway_projection_is_immutable_and_sessions_require_a_bound_live_lease() {
-    use baylee_db::central::{self, SessionBinding};
+async fn central_gateway_projection_is_immutable() {
+    use baylee_db::central;
     let sandbox = Sandbox::open("central_projection").await;
     let central = *Uuid::now_v7().as_bytes();
     assert!(
@@ -430,42 +474,6 @@ async fn central_gateway_projection_is_immutable_and_sessions_require_a_bound_li
         .unwrap()
         .unwrap();
     assert!(row.username.is_none() && row.email.is_none() && row.password_hash.is_none());
-    let expiry = OffsetDateTime::now_utc().unix_timestamp() + 60;
-    central::issue_session(&sandbox.db, &account, vec![8; 32], [9; 32], expiry, "admit")
-        .await
-        .unwrap();
-    match central::session_binding(&sandbox.db, vec![8; 32])
-        .await
-        .unwrap()
-    {
-        SessionBinding::Central(lease) => {
-            assert_eq!(lease.central, central);
-            assert_eq!(lease.lease, [9; 32]);
-            assert_eq!(lease.expires_at, expiry);
-        }
-        _ => panic!("a Central session needs its matching lease"),
-    }
-    assert!(
-        central::issue_session(&sandbox.db, &account, vec![10; 32], [11; 32], 1, "admit")
-            .await
-            .is_err()
-    );
-    assert_eq!(
-        SessionToken::find().count(&sandbox.db).await.unwrap(),
-        1,
-        "expired issuance leaves no ordinary bearer behind"
-    );
-    sandbox
-        .db
-        .execute_unprepared("DELETE FROM central_gateway_session")
-        .await
-        .unwrap();
-    assert!(matches!(
-        central::session_binding(&sandbox.db, vec![8; 32])
-            .await
-            .unwrap(),
-        SessionBinding::Rejected
-    ));
     assert!(sandbox.db.execute_raw(Statement::from_sql_and_values(DbBackend::Postgres,
         "UPDATE central_account_link SET central_id = '00000000-0000-0000-0000-000000000000' WHERE account_id = $1",
         [Uuid::parse_str(&account).unwrap().into()])).await.is_err(), "SQL NULL from uuid_extract_version must not pass the CHECK");

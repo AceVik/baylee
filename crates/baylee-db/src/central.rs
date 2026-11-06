@@ -1,6 +1,6 @@
 //! The gateway's side of Baylee Central: its projections of Central's
-//! accounts, their leases, and the legacy accounts' cutover (`legacy`). No
-//! password, session or private chat key is ever in an export.
+//! accounts and the legacy accounts' cutover (`legacy`). No password, session
+//! or private chat key is ever in an export.
 #![forbid(unsafe_code)]
 
 use sea_orm::{
@@ -13,10 +13,7 @@ mod link;
 mod sessions;
 pub use legacy::{Ban, LegacyAccount, adopt, legacy_accounts};
 pub use link::{StoredLink, clear_link, link, set_link};
-pub use sessions::{
-    GatewayLease, SessionBinding, extend_session, issue_session, linked_account, projection,
-    session_binding, take_profile,
-};
+pub use sessions::{projection, take_profile};
 
 /// Snapshot size admitted by the initial encrypted account-document format.
 pub const MAX_SNAPSHOT_BYTES: usize = 196_608;

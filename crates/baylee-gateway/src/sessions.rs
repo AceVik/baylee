@@ -63,17 +63,75 @@ pub(crate) struct Live {
     /// A guest's or a local account's: the database holds its lifetime, and
     /// `central::spawn_local_check` asks it, away from any frame.
     local: bool,
+    /// What Central's token said, for a Central session.
+    signed: Option<Signed>,
+}
+
+/// What a gateway token said of its session, so that a request needs no
+/// word from Central. A later token of the session may say other terms.
+pub(crate) struct Signed {
+    /// The account at Central.
+    pub(crate) central: [u8; 16],
+    /// An `admin` session, which works on the admin listener and nowhere else.
+    pub(crate) admin: bool,
+    /// The newest terms of this gateway the account accepted.
+    terms: Mutex<Option<central_crypto::jwt::TermsClaim>>,
+}
+
+impl Signed {
+    pub(crate) fn new(
+        central: [u8; 16],
+        admin: bool,
+        terms: Option<central_crypto::jwt::TermsClaim>,
+    ) -> Self {
+        Self {
+            central,
+            admin,
+            terms: Mutex::new(terms),
+        }
+    }
+
+    /// Whether the account accepted exactly these terms.
+    pub(crate) fn accepted(&self, version: &str, digest: &str) -> bool {
+        self.terms
+            .lock()
+            .as_ref()
+            .is_some_and(|terms| terms.version == version && terms.digest == digest)
+    }
+
+    /// What a fresh token of this session says.
+    pub(crate) fn set_terms(&self, terms: Option<central_crypto::jwt::TermsClaim>) {
+        *self.terms.lock() = terms;
+    }
 }
 
 impl Live {
-    fn new(key: Key, account: String, expires_at: i64, local: bool) -> Arc<Self> {
+    fn new(
+        key: Key,
+        account: String,
+        expires_at: i64,
+        local: bool,
+        signed: Option<Signed>,
+    ) -> Arc<Self> {
         Arc::new(Self {
             key,
             account,
             expires_at: AtomicI64::new(expires_at),
             end: watch::Sender::new(None),
             local,
+            signed,
         })
+    }
+
+    /// What Central's token said, for a Central session.
+    pub(crate) const fn signed(&self) -> Option<&Signed> {
+        self.signed.as_ref()
+    }
+
+    /// Whether Central signed this session in. A session ended for a link
+    /// that went is told apart from a guest's by this.
+    pub(crate) const fn is_central(&self) -> bool {
+        self.signed.is_some()
     }
 
     /// The stable key a chair is bound to.
@@ -140,7 +198,7 @@ impl Live {
 
     /// Moves the end later, never earlier: a fresh gateway token may extend a
     /// session and an old one presented late may not shorten it.
-    fn extend(&self, expires_at: i64) {
+    pub(crate) fn extend(&self, expires_at: i64) {
         self.expires_at.fetch_max(expires_at, Ordering::AcqRel);
     }
 }
@@ -182,12 +240,26 @@ impl Index {
         Some(live)
     }
 
-    /// A new bearer for `live`, never outliving the session. Under the lock
-    /// that found `live` standing, so no bearer outlives an ended session.
+    /// A new bearer for `live`, never outliving the session, and the only
+    /// current one: every bearer before it is retired, whichever way this one
+    /// came. Under the lock that found `live` standing, so no bearer outlives
+    /// an ended session. An admin session's lasts as long as the session: it
+    /// works on the loopback listener alone, and nothing there renews it.
     fn issue(&mut self, live: &Live, now: i64) -> Issued {
+        for digest in self.bearers_of.get(&live.key).into_iter().flatten() {
+            if let Some(bearer) = self.bearers.get_mut(digest) {
+                bearer.replaced = true;
+                bearer.expires_at = bearer.expires_at.min(now + OVERLAP_SECS);
+            }
+        }
         let token = crate::auth::new_token();
         let digest = crate::auth::token_digest(&token);
-        let expires_at = (now + bearer_secs()).min(live.expires_at());
+        let lasting = live.signed().is_some_and(|signed| signed.admin);
+        let expires_at = if lasting {
+            live.expires_at()
+        } else {
+            (now + bearer_secs()).min(live.expires_at())
+        };
         self.bearers_of
             .entry(live.key.clone())
             .or_default()
@@ -268,8 +340,9 @@ impl Book {
         account: &str,
         expires_at: i64,
         now: i64,
+        signed: Signed,
     ) -> Result<Arc<Live>, Full> {
-        self.open_as(key, account, expires_at, now, false)
+        self.open_as(key, account, expires_at, now, Some(signed))
     }
 
     /// [`Book::open`] for a guest or a local account, whose end the database
@@ -278,7 +351,7 @@ impl Book {
     /// # Errors
     /// [`Full`], as [`Book::open`].
     pub(crate) fn open_local(&self, key: Key, account: &str, now: i64) -> Result<Arc<Live>, Full> {
-        self.open_as(key, account, i64::MAX, now, true)
+        self.open_as(key, account, i64::MAX, now, None)
     }
 
     fn open_as(
@@ -287,7 +360,7 @@ impl Book {
         account: &str,
         expires_at: i64,
         now: i64,
-        local: bool,
+        signed: Option<Signed>,
     ) -> Result<Arc<Live>, Full> {
         let mut index = self.index.lock();
         if let Some(live) = index.by_key.get(&key).cloned() {
@@ -301,7 +374,8 @@ impl Book {
         if index.by_key.len() >= MAX_SESSIONS {
             return Err(Full);
         }
-        let live = Live::new(key.clone(), account.to_owned(), expires_at, local);
+        let local = signed.is_none();
+        let live = Live::new(key.clone(), account.to_owned(), expires_at, local, signed);
         index
             .by_account
             .entry(account.to_owned())
@@ -400,9 +474,6 @@ impl Book {
             .get(&bearer.key)
             .filter(|live| live.stands(now))
             .cloned()?;
-        let bearer = index.bearers.get_mut(digest)?;
-        bearer.replaced = true;
-        bearer.expires_at = bearer.expires_at.min(now + OVERLAP_SECS);
         Some(index.issue(&live, now))
     }
 
@@ -446,10 +517,14 @@ mod tests {
         vec![n; 32]
     }
 
+    fn signed() -> Signed {
+        Signed::new([1; 16], false, None)
+    }
+
     #[test]
     fn a_session_stands_until_it_runs_out_even_if_no_sweep_came() {
         let book = Book::default();
-        let live = book.open(key(1), "a", LATER, NOW).unwrap();
+        let live = book.open(key(1), "a", LATER, NOW, signed()).unwrap();
         assert!(live.stands(NOW));
         assert!(live.stands(LATER - 1));
         assert!(!live.stands(LATER), "the end itself is already too late");
@@ -459,8 +534,8 @@ mod tests {
     #[test]
     fn ending_flips_every_holder_and_keeps_the_first_reason() {
         let book = Book::default();
-        let socket = book.open(key(1), "a", LATER, NOW).unwrap();
-        let other = book.open(key(1), "a", LATER, NOW).unwrap();
+        let socket = book.open(key(1), "a", LATER, NOW, signed()).unwrap();
+        let other = book.open(key(1), "a", LATER, NOW, signed()).unwrap();
         assert!(Arc::ptr_eq(&socket, &other), "one state per session");
         book.end(&key(1), Ended::Revoked);
         assert!(!socket.stands(NOW));
@@ -473,7 +548,7 @@ mod tests {
     #[tokio::test]
     async fn a_watcher_wakes_at_the_end_and_one_that_comes_late_returns_at_once() {
         let book = Book::default();
-        let live = book.open(key(1), "a", LATER, NOW).unwrap();
+        let live = book.open(key(1), "a", LATER, NOW, signed()).unwrap();
         let watching = Arc::clone(&live);
         let watcher = tokio::spawn(async move { watching.ended().await });
         tokio::task::yield_now().await;
@@ -487,9 +562,9 @@ mod tests {
     #[test]
     fn an_ended_key_is_never_revived_for_its_old_sockets() {
         let book = Book::default();
-        let old = book.open(key(1), "a", LATER, NOW).unwrap();
+        let old = book.open(key(1), "a", LATER, NOW, signed()).unwrap();
         book.end(&key(1), Ended::Revoked);
-        let new = book.open(key(1), "a", LATER, NOW).unwrap();
+        let new = book.open(key(1), "a", LATER, NOW, signed()).unwrap();
         assert!(!Arc::ptr_eq(&old, &new));
         assert!(!old.stands(NOW), "the old socket stays closed");
         assert!(new.stands(NOW));
@@ -498,8 +573,8 @@ mod tests {
     #[test]
     fn a_key_never_passes_to_another_account() {
         let book = Book::default();
-        let first = book.open(key(1), "a", LATER, NOW).unwrap();
-        let second = book.open(key(1), "b", LATER, NOW).unwrap();
+        let first = book.open(key(1), "a", LATER, NOW, signed()).unwrap();
+        let second = book.open(key(1), "b", LATER, NOW, signed()).unwrap();
         assert!(!first.stands(NOW));
         assert_eq!(second.account(), "b");
         book.end_account("a", Ended::Banned);
@@ -509,19 +584,19 @@ mod tests {
     #[test]
     fn the_end_moves_later_and_never_earlier() {
         let book = Book::default();
-        let live = book.open(key(1), "a", LATER, NOW).unwrap();
-        book.open(key(1), "a", LATER + 100, NOW).unwrap();
+        let live = book.open(key(1), "a", LATER, NOW, signed()).unwrap();
+        book.open(key(1), "a", LATER + 100, NOW, signed()).unwrap();
         assert_eq!(live.expires_at(), LATER + 100);
-        book.open(key(1), "a", LATER - 100, NOW).unwrap();
+        book.open(key(1), "a", LATER - 100, NOW, signed()).unwrap();
         assert_eq!(live.expires_at(), LATER + 100);
     }
 
     #[test]
     fn a_ban_ends_every_session_of_that_account_and_no_other() {
         let book = Book::default();
-        let first = book.open(key(1), "a", LATER, NOW).unwrap();
-        let second = book.open(key(2), "a", LATER, NOW).unwrap();
-        let other = book.open(key(3), "b", LATER, NOW).unwrap();
+        let first = book.open(key(1), "a", LATER, NOW, signed()).unwrap();
+        let second = book.open(key(2), "a", LATER, NOW, signed()).unwrap();
+        let other = book.open(key(3), "b", LATER, NOW, signed()).unwrap();
         book.end_account("a", Ended::Banned);
         assert!(!first.stands(NOW) && !second.stands(NOW));
         assert!(other.stands(NOW));
@@ -531,8 +606,8 @@ mod tests {
     #[test]
     fn the_sweep_ends_what_ran_out_and_leaves_the_rest() {
         let book = Book::default();
-        let gone = book.open(key(1), "a", NOW + 1, NOW).unwrap();
-        let kept = book.open(key(2), "a", LATER, NOW).unwrap();
+        let gone = book.open(key(1), "a", NOW + 1, NOW, signed()).unwrap();
+        let kept = book.open(key(2), "a", LATER, NOW, signed()).unwrap();
         book.sweep(NOW + 1);
         assert_eq!(*gone.end.borrow(), Some(Ended::Expired));
         assert!(kept.stands(NOW + 1));
@@ -542,8 +617,8 @@ mod tests {
     #[test]
     fn a_socket_closes_with_why_its_session_ended_and_with_nothing_while_it_stands() {
         let book = Book::default();
-        let banned = book.open(key(1), "a", i64::MAX, NOW).unwrap();
-        let revoked = book.open(key(2), "b", i64::MAX, NOW).unwrap();
+        let banned = book.open(key(1), "a", i64::MAX, NOW, signed()).unwrap();
+        let revoked = book.open(key(2), "b", i64::MAX, NOW, signed()).unwrap();
         assert!(banned.close_frame().is_none());
         book.end(&key(1), Ended::Banned);
         book.end(&key(2), Ended::Revoked);
@@ -556,17 +631,17 @@ mod tests {
     #[test]
     fn a_full_book_refuses_a_new_session_and_still_finds_the_ones_it_holds() {
         let book = Book::default();
-        let live = book.open(key(0), "a", LATER, NOW).unwrap();
+        let live = book.open(key(0), "a", LATER, NOW, signed()).unwrap();
         {
             let mut index = book.index.lock();
             for n in 1..MAX_SESSIONS {
                 let filler = n.to_be_bytes().to_vec();
-                let held = Live::new(filler.clone(), "b".into(), LATER, false);
+                let held = Live::new(filler.clone(), "b".into(), LATER, false, None);
                 index.by_key.insert(filler, held);
             }
         }
-        assert_eq!(book.open(key(9), "c", LATER, NOW).err(), Some(Full));
-        let same = book.open(key(0), "a", LATER, NOW).unwrap();
+        assert_eq!(book.open(key(9), "c", LATER, NOW, signed()).err(), Some(Full));
+        let same = book.open(key(0), "a", LATER, NOW, signed()).unwrap();
         assert!(Arc::ptr_eq(&live, &same));
     }
 
@@ -577,19 +652,19 @@ mod tests {
     #[test]
     fn a_bearer_lives_between_its_bounds_and_never_past_its_session() {
         let book = Book::default();
-        let live = book.open(key(1), "a", LATER, NOW).unwrap();
+        let live = book.open(key(1), "a", LATER, NOW, signed()).unwrap();
         for _ in 0..512 {
             let issued = book.issue(&live, NOW).unwrap();
             assert!((NOW + 64..=NOW + 128).contains(&issued.expires_at));
         }
-        let short = book.open(key(2), "a", NOW + 5, NOW).unwrap();
+        let short = book.open(key(2), "a", NOW + 5, NOW, signed()).unwrap();
         assert_eq!(book.issue(&short, NOW).unwrap().expires_at, NOW + 5);
     }
 
     #[test]
     fn a_bearer_reaches_its_session_only_until_it_runs_out() {
         let book = Book::default();
-        let live = book.open(key(1), "a", LATER, NOW).unwrap();
+        let live = book.open(key(1), "a", LATER, NOW, signed()).unwrap();
         let issued = book.issue(&live, NOW).unwrap();
         let found = book.by_bearer(&digest(&issued), NOW).unwrap();
         assert!(Arc::ptr_eq(&live, &found));
@@ -600,7 +675,7 @@ mod tests {
     #[test]
     fn a_renewal_keeps_the_session_and_the_old_bearer_serves_only_what_is_in_flight() {
         let book = Book::default();
-        let live = book.open(key(1), "a", LATER, NOW).unwrap();
+        let live = book.open(key(1), "a", LATER, NOW, signed()).unwrap();
         let old = book.issue(&live, NOW).unwrap();
         let new = book.renew(&digest(&old), NOW).unwrap();
         let found = book.by_bearer(&digest(&new), NOW).unwrap();
@@ -612,16 +687,41 @@ mod tests {
     #[test]
     fn a_used_bearer_cannot_renew_again_so_a_copy_cannot_fork_the_session() {
         let book = Book::default();
-        let live = book.open(key(1), "a", LATER, NOW).unwrap();
+        let live = book.open(key(1), "a", LATER, NOW, signed()).unwrap();
         let old = book.issue(&live, NOW).unwrap();
         assert!(book.renew(&digest(&old), NOW).is_some());
         assert!(book.renew(&digest(&old), NOW).is_none());
     }
 
+    /// A refresh issues a bearer too; a copy of one from before it must not
+    /// count as current and fork the session.
+    #[test]
+    fn every_new_bearer_retires_the_ones_before_it_however_it_came() {
+        let book = Book::default();
+        let live = book.open(key(1), "a", LATER, NOW, signed()).unwrap();
+        let old = book.issue(&live, NOW).unwrap();
+        let refreshed = book.issue(&live, NOW).unwrap();
+        assert!(book.renew(&digest(&old), NOW).is_none(), "retired");
+        assert!(book.by_bearer(&digest(&old), NOW).is_some(), "still in flight");
+        assert!(book.by_bearer(&digest(&old), NOW + OVERLAP_SECS).is_none());
+        assert!(book.renew(&digest(&refreshed), NOW).is_some());
+    }
+
+    #[test]
+    fn an_admin_bearer_lasts_as_long_as_its_session_and_a_renewal_does_not_shorten_it() {
+        let book = Book::default();
+        let admin = Signed::new([1; 16], true, None);
+        let live = book.open(key(1), "a", LATER, NOW, admin).unwrap();
+        let issued = book.issue(&live, NOW).unwrap();
+        assert_eq!(issued.expires_at, LATER);
+        let renewed = book.renew(&digest(&issued), NOW).unwrap();
+        assert_eq!(renewed.expires_at, LATER);
+    }
+
     #[test]
     fn an_ended_session_takes_its_bearers_with_it() {
         let book = Book::default();
-        let live = book.open(key(1), "a", LATER, NOW).unwrap();
+        let live = book.open(key(1), "a", LATER, NOW, signed()).unwrap();
         let issued = book.issue(&live, NOW).unwrap();
         book.end(&key(1), Ended::Revoked);
         assert!(book.by_bearer(&digest(&issued), NOW).is_none());
@@ -632,10 +732,10 @@ mod tests {
     #[test]
     fn no_bearer_is_issued_for_an_ended_session_even_if_its_key_came_back() {
         let book = Book::default();
-        let old = book.open(key(1), "a", LATER, NOW).unwrap();
+        let old = book.open(key(1), "a", LATER, NOW, signed()).unwrap();
         book.end(&key(1), Ended::Revoked);
         assert!(book.issue(&old, NOW).is_none(), "the key is gone");
-        let new = book.open(key(1), "a", LATER, NOW).unwrap();
+        let new = book.open(key(1), "a", LATER, NOW, signed()).unwrap();
         assert!(book.issue(&old, NOW).is_none(), "a new session holds the key");
         assert!(book.issue(&new, NOW).is_some());
     }
@@ -643,8 +743,8 @@ mod tests {
     #[test]
     fn ending_a_session_leaves_the_bearers_of_others_alone() {
         let book = Book::default();
-        let gone = book.open(key(1), "a", LATER, NOW).unwrap();
-        let kept = book.open(key(2), "b", LATER, NOW).unwrap();
+        let gone = book.open(key(1), "a", LATER, NOW, signed()).unwrap();
+        let kept = book.open(key(2), "b", LATER, NOW, signed()).unwrap();
         book.issue(&gone, NOW).unwrap();
         let issued = book.issue(&kept, NOW).unwrap();
         book.end(&key(1), Ended::Revoked);
@@ -656,7 +756,7 @@ mod tests {
     #[test]
     fn the_sweep_drops_bearers_that_ran_out_and_keeps_live_ones() {
         let book = Book::default();
-        let live = book.open(key(1), "a", LATER, NOW).unwrap();
+        let live = book.open(key(1), "a", LATER, NOW, signed()).unwrap();
         let old = book.issue(&live, NOW).unwrap();
         let new = book.renew(&digest(&old), NOW).unwrap();
         book.sweep(NOW + OVERLAP_SECS);
@@ -679,7 +779,7 @@ mod tests {
     #[test]
     fn a_central_session_is_never_taken_for_a_local_one() {
         let book = Book::default();
-        drop(book.open(key(1), "a", LATER, NOW).unwrap());
+        drop(book.open(key(1), "a", LATER, NOW, signed()).unwrap());
         assert!(book.local_in_use().is_empty());
         assert_eq!(book.len(), 1, "it stays until it ends or runs out");
     }

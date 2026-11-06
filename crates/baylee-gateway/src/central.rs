@@ -58,11 +58,12 @@ pub(crate) struct Bridge {
     heartbeat: Option<Token>,
     metadata: Option<baylee_account::gateway::GatewayMetadata>,
     legacy: bool,
-    in_flight: tokio::sync::Semaphore,
-    pending: tokio::sync::Semaphore,
-    sign_ins: tokio::sync::Semaphore,
-    accounts: crate::auth::Gauge,
-    addresses: crate::auth::Gauge,
+    workers: Arc<tokio::sync::Semaphore>,
+    pending: Arc<tokio::sync::Semaphore>,
+    /// Central's keys and what it revoked, for this link.
+    trust: trust::Trust,
+    /// Wakes the catch-up early: a gap was seen.
+    sync: tokio::sync::Notify,
 }
 
 #[derive(Deserialize)]
@@ -157,33 +158,28 @@ impl Bridge {
         } else {
             Endpoint::development(&settings.endpoint).map_err(|_| ())?
         };
+        // Who a token may be for: the origin named, and the official bridge's
+        // compiled origins, under either of which a client may ask.
+        let mut audiences = if settings.bridge.is_some() {
+            endpoint.official_origins()
+        } else {
+            Vec::new()
+        };
+        audiences.extend(settings.origin.clone());
+        audiences.dedup();
         let (credential, heartbeat, metadata, legacy) = settings.validate(&endpoint)?;
-        Ok(Some(Arc::new(Self::on(
-            endpoint, credential, heartbeat, metadata, legacy,
-        ))))
-    }
-
-    /// A bridge to `endpoint`, its queue empty.
-    fn on(
-        endpoint: Endpoint,
-        credential: Token,
-        heartbeat: Option<Token>,
-        metadata: Option<baylee_account::gateway::GatewayMetadata>,
-        legacy: bool,
-    ) -> Self {
-        Self {
-            transport: transport::Transport::new(&endpoint),
+        let trust = trust::Trust::new(endpoint.origin().to_owned(), audiences);
+        Ok(Some(Arc::new(Self {
             http: CentralHttp::new(endpoint),
             credential,
             heartbeat,
             metadata,
             legacy,
-            in_flight: tokio::sync::Semaphore::new(IN_FLIGHT),
-            pending: tokio::sync::Semaphore::new(PENDING),
-            sign_ins: tokio::sync::Semaphore::new(SIGN_INS),
-            accounts: crate::auth::Gauge::new(PER_ACCOUNT),
-            addresses: crate::auth::Gauge::new(PER_ADDRESS),
-        }
+            workers: Arc::new(tokio::sync::Semaphore::new(4)),
+            pending: Arc::new(tokio::sync::Semaphore::new(64)),
+            trust,
+            sync: tokio::sync::Notify::new(),
+        })))
     }
 
     /// A pasted gateway token's bridge: one token serves both its players'
@@ -193,14 +189,39 @@ impl Bridge {
         endpoint: Endpoint,
         token: &Token,
         metadata: baylee_account::gateway::GatewayMetadata,
+        origin: &str,
     ) -> Arc<Self> {
-        Arc::new(Self::on(
-            endpoint,
-            Token::from_secret_bytes(token.to_secret_bytes()),
-            Some(Token::from_secret_bytes(token.to_secret_bytes())),
-            Some(metadata),
-            false,
-        ))
+        let trust = trust::Trust::new(endpoint.origin().to_owned(), vec![origin.to_owned()]);
+        Arc::new(Self {
+            http: CentralHttp::new(endpoint),
+            credential: Token::from_secret_bytes(token.to_secret_bytes()),
+            heartbeat: Some(Token::from_secret_bytes(token.to_secret_bytes())),
+            metadata: Some(metadata),
+            legacy: false,
+            workers: Arc::new(tokio::sync::Semaphore::new(4)),
+            pending: Arc::new(tokio::sync::Semaphore::new(64)),
+            trust,
+            sync: tokio::sync::Notify::new(),
+        })
+    }
+
+    /// Fetches Central's keys if that may go now: on time, or ahead of time
+    /// for a key not held, at most once a minute. A failed fetch keeps the
+    /// keys held, and what it failed with goes nowhere.
+    pub(crate) async fn refresh_keys(self: &Arc<Self>, unknown_key: bool) {
+        if !self
+            .trust
+            .may_fetch_keys(crate::sessions::now(), unknown_key)
+        {
+            return;
+        }
+        let bridge = self.clone();
+        let fetched = tokio::task::spawn_blocking(move || bridge.http.jwks()).await;
+        if let Ok(Ok(document)) = fetched
+            && let Ok(keys) = central_crypto::jwt::KeySet::from_jwks(&document)
+        {
+            self.trust.set_keys(keys, crate::sessions::now());
+        }
     }
 
     /// Whether this is the official gateway's bridge, the one credential
@@ -470,104 +491,55 @@ pub(crate) fn spawn_local_check(state: Shared) {
     });
 }
 
-/// Resolve local authorization and require a fresh Central check for its gateway lease.
-/// No Central account session or password is available to the gateway.
+/// The session behind a bearer's digest or a stored key, as this gateway holds
+/// it. A Central session is read from memory, with no word from Central: a
+/// session that stands was signed in with a good token and has not been
+/// revoked. Anything else is a local session, whose row says.
 pub(crate) async fn resolve_digest(
     state: &Shared,
     digest: Vec<u8>,
 ) -> Result<Option<crate::store::Session>, StatusCode> {
-    let binding = baylee_db::central::session_binding(&state.db, digest.clone())
-        .await
-        .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?;
-    match binding {
-        baylee_db::central::SessionBinding::Local => {}
-        baylee_db::central::SessionBinding::Rejected => return Ok(None),
-        baylee_db::central::SessionBinding::Central(binding) => {
-            if binding.purpose != "admit" {
-                return Ok(None);
-            }
-            let bridge = state.central.get().ok_or(StatusCode::SERVICE_UNAVAILABLE)?;
-            let Some(standing) = authorize(
-                state,
-                &bridge,
-                binding.lease,
-                binding.central,
-                binding.expires_at,
-            )
-            .await?
-            else {
-                return Ok(None);
-            };
-            let session = crate::store::resolve_digest(&state.db, digest, crate::auth::now_secs())
-                .await
-                .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?;
-            return Ok(session.map(|session| crate::store::Session {
-                terms: standing,
-                central: true,
-                ..session
-            }));
-        }
+    let now = crate::sessions::now();
+    let central = state
+        .sessions
+        .by_bearer(&digest, now)
+        .or_else(|| state.sessions.get(&digest, now).filter(|l| l.is_central()));
+    let Some(live) = central else {
+        return crate::store::resolve_digest(&state.db, digest, crate::auth::now_secs())
+            .await
+            .map_err(|_| StatusCode::SERVICE_UNAVAILABLE);
+    };
+    // An admin session works on the admin listener and nowhere else.
+    if live.signed().is_none_or(|signed| signed.admin) {
+        return Ok(None);
     }
-    let session = crate::store::resolve_digest(&state.db, digest, crate::auth::now_secs())
+    let Some(account) = crate::store::account(&state.db, live.account())
         .await
-        .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?;
-    Ok(session)
+        .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?
+    else {
+        return Ok(None);
+    };
+    Ok(Some(crate::store::Session {
+        key: live.key().to_vec(),
+        account_id: live.account().to_owned(),
+        guest: account.guest,
+        ban: account.ban_in_force(crate::auth::now_secs()).cloned(),
+        must_change_password: account.must_change_password,
+        terms: standing(state, &live),
+        central: true,
+    }))
 }
 
-/// Central's live check of an admission lease, with whether its account
-/// accepted Central's terms in force and the version of this gateway's
-/// terms Central confirmed (none confirmed: nothing to accept yet, so
-/// nothing is enforced). `None` when the lease is no longer good or no
-/// longer the one bound here. A renewed session's lease comes back with a
-/// later expiry (never an earlier one), which is stored here too
-/// ([`renewed`]).
-pub(crate) async fn authorize(
-    state: &Shared,
-    bridge: &Arc<Bridge>,
-    lease: [u8; 32],
-    account: [u8; 16],
-    expires: i64,
-) -> Result<Option<crate::terms::Standing>, StatusCode> {
-    let response = bridge
-        .exchange(
-            wire::Request::GatewayAuthorize {
-                lease: Token::from_secret_bytes(Zeroizing::new(lease)),
-                purpose: wire::TicketPurpose::Admit,
-                terms: state.terms.confirmed(),
-            },
-            Asker::Account(&account),
-        )
-        .await?;
-    Ok(match response {
-        wire::Response::GatewayAuthorization {
-            identity,
-            expires_at,
-            central_terms,
-            gateway_terms,
-        } if identity.account == account && expires_at >= expires => {
-            renewed(state, lease, expires, expires_at).await?;
-            Some(crate::terms::Standing::of(central_terms, gateway_terms))
-        }
-        _ => None,
-    })
-}
-
-/// Central renewed the session behind `lease` (baylee-central
-/// `docs/operations.md` §"Sessions"): its later expiry becomes this
-/// gateway's for the lease, which bounds the local session, so that lasts as
-/// long as Central's. Nothing when it did not move.
-async fn renewed(
-    state: &Shared,
-    lease: [u8; 32],
-    expires: i64,
-    expires_at: i64,
-) -> Result<(), StatusCode> {
-    if expires_at <= expires {
-        return Ok(());
-    }
-    baylee_db::central::extend_session(&state.db, lease, expires_at)
-        .await
-        .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)
+/// Whether the account accepted this gateway's terms in force, as its token
+/// said. Central's own are a condition of the token. None confirmed at
+/// Central: nothing to accept yet, so nothing is enforced.
+pub(crate) fn standing(state: &Shared, live: &crate::sessions::Live) -> crate::terms::Standing {
+    let accepted = state.terms.confirmed().is_none_or(|terms| {
+        let digest = crate::auth::hex_lower(&terms.digest);
+        live.signed()
+            .is_some_and(|signed| signed.accepted(&terms.version, &digest))
+    });
+    crate::terms::Standing::of(true, accepted)
 }
 
 /// Publish the terms in force to Central until it confirms them; only then
@@ -624,58 +596,38 @@ pub(crate) async fn publish_terms(state: &Shared) -> bool {
     }
 }
 
-/// Gateway administration accepts only a purpose-bound lease with current Central
-/// membership. The audit actor comes from that lease, never a client-supplied name.
+/// Gateway administration accepts only an `admin` session. Central revokes it
+/// when the account stops being an admin here. The audit actor comes from its
+/// token, never a client-supplied name.
 pub(crate) async fn admin_actor(
     state: &Shared,
     bearer: &str,
 ) -> Result<Option<String>, StatusCode> {
     let digest = crate::auth::token_digest(bearer);
-    let binding = baylee_db::central::session_binding(&state.db, digest.clone())
+    let Some(live) = state.sessions.by_bearer(&digest, crate::sessions::now()) else {
+        return Ok(None);
+    };
+    let Some(signed) = live.signed().filter(|signed| signed.admin) else {
+        return Ok(None);
+    };
+    if state.central.get().is_none_or(|bridge| bridge.legacy) {
+        return Ok(None);
+    }
+    let account = crate::store::account(&state.db, live.account())
         .await
         .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?;
-    let baylee_db::central::SessionBinding::Central(binding) = binding else {
+    let Some(account) = account else {
         return Ok(None);
     };
-    if binding.purpose != "admin" {
+    if account.ban_in_force(crate::auth::now_secs()).is_some() || account.must_change_password {
         return Ok(None);
     }
-    let Some(bridge) = state.central.get().filter(|bridge| !bridge.legacy) else {
-        return Ok(None);
-    };
-    let response = bridge
-        .exchange(
-            wire::Request::GatewaySession {
-                lease: Token::from_secret_bytes(Zeroizing::new(binding.lease)),
-                purpose: wire::TicketPurpose::Admin,
-            },
-            Asker::Gateway,
-        )
-        .await?;
-    let wire::Response::GatewaySession {
-        identity,
-        expires_at,
-    } = response
-    else {
-        return Ok(None);
-    };
-    if identity.account != binding.central || expires_at < binding.expires_at {
-        return Ok(None);
-    }
-    renewed(state, binding.lease, binding.expires_at, expires_at).await?;
-    let Some(session) = crate::store::resolve_digest(&state.db, digest, crate::auth::now_secs())
-        .await
-        .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?
-    else {
-        return Ok(None);
-    };
-    if crate::moderation::admit(&session).is_err() {
-        return Ok(None);
-    }
-    Ok(Some(uuid::Uuid::from_bytes(binding.central).to_string()))
+    Ok(Some(uuid::Uuid::from_bytes(signed.central).to_string()))
 }
 
-/// Bind a seat capability to the session which authorized its creation.
+/// Bind a seat capability to the session which authorized its creation: a
+/// Central session's key, or nothing for a local one, whose chair stands on
+/// the account (`routes::seat_socket::account_capability`).
 pub(crate) async fn seat_binding(
     state: &Shared,
     headers: &axum::http::HeaderMap,
@@ -683,17 +635,10 @@ pub(crate) async fn seat_binding(
     let bearer = crate::bearer_token(headers)
         .ok_or_else(|| crate::err(StatusCode::UNAUTHORIZED, "missing session"))?;
     let digest = crate::auth::token_digest(bearer);
-    match baylee_db::central::session_binding(&state.db, digest.clone()).await {
-        Ok(baylee_db::central::SessionBinding::Local) => Ok(None),
-        Ok(baylee_db::central::SessionBinding::Central(_)) => Ok(Some(digest)),
-        Ok(baylee_db::central::SessionBinding::Rejected) => {
-            Err(crate::err(StatusCode::UNAUTHORIZED, "expired session"))
-        }
-        Err(_) => Err(crate::err(
-            StatusCode::SERVICE_UNAVAILABLE,
-            "account authorization unavailable",
-        )),
-    }
+    Ok(state
+        .sessions
+        .by_bearer(&digest, crate::sessions::now())
+        .map(|live| live.key().to_vec()))
 }
 
 /// Drain in-flight account requests while a Central admission fixes a link

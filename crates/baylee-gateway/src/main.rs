@@ -154,6 +154,9 @@ struct AppState {
     /// Every session in memory: the state each of its sockets watches
     /// (`sessions.rs`). The check before a frame reaches an engine reads this.
     sessions: sessions::Book,
+    /// How many revocations may be pushed here, whoever sends them: the route
+    /// is open to anyone, and a signature is worth checking only so often.
+    invalidate_limiter: auth::RateLimiter,
     /// The shared secret an agent proves itself with (`BAYLEE_AGENT_TOKEN`).
     ///
     /// Without one no agent may connect, and therefore no game can start: an
@@ -451,6 +454,7 @@ async fn main() {
         lobby_changed: tokio::sync::broadcast::channel(16).0,
         departed: tokio::sync::broadcast::channel(16).0,
         sessions: sessions::Book::default(),
+        invalidate_limiter: auth::RateLimiter::new(std::time::Duration::from_secs(60), 600),
         agents: Mutex::new(engine::Agents::default()),
         metrics: metrics::Metrics::default(),
         agent_token,
@@ -985,6 +989,10 @@ struct ErrorBody {
     /// that sat a deck down, and only to the player whose deck it is.
     #[serde(skip_serializing_if = "Option::is_none")]
     refused: Option<Box<baylee_cardtext::DeckRefusal>>,
+    /// Why, for a client to say in its own words (`docs/protocol.md`
+    /// §"Refusals"): only on a refusal that has a stable reason.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    refusal: Option<baylee_protocol::refusal::Refusal>,
 }
 
 fn err(status: StatusCode, message: &'static str) -> (StatusCode, Json<ErrorBody>) {
@@ -995,6 +1003,9 @@ fn err(status: StatusCode, message: &'static str) -> (StatusCode, Json<ErrorBody
             ban: None,
             terms_required: None,
             refused: None,
+            // One constant, whichever route met the hold.
+            refusal: (message == admission::HELD)
+                .then(|| baylee_protocol::refusal::Refusal::new("maintenance")),
         }),
     )
 }
@@ -1011,6 +1022,7 @@ fn err_saying(status: StatusCode, message: String) -> (StatusCode, Json<ErrorBod
             ban: None,
             terms_required: None,
             refused: None,
+            refusal: None,
         }),
     )
 }
@@ -1213,6 +1225,7 @@ pub(crate) fn terms_admit(session: &store::Session) -> Result<(), (StatusCode, J
         "accept the terms of use in force to go on",
     );
     body.terms_required = Some(document);
+    body.refusal = Some(baylee_protocol::refusal::Refusal::new("terms"));
     Err((status, Json(body)))
 }
 
