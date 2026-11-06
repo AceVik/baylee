@@ -1,3 +1,58 @@
+#[test]
+fn flashback_validation_reads_both_spellings_and_mixed_costs() {
+    for (name, printed) in [
+        ("Moment's Peace", "Flashback {2}{G} (Then exile it.)"),
+        (
+            "Acorn Harvest",
+            "Flashback—{1}{G}, Pay 3 life. (Then exile it.)",
+        ),
+        (
+            "Crippling Fatigue",
+            "Flashback—{1}{B}, Pay 3 life. (Then exile it.)",
+        ),
+        (
+            "Deep Analysis",
+            "Flashback—{1}{U}, Pay 3 life. (Then exile it.)",
+        ),
+        ("Lava Dart", "Flashback—Sacrifice a Mountain."),
+    ] {
+        let def = baylee_cards::decks::by_name(name)
+            .and_then(baylee_cards::by_index)
+            .expect("registered flashback fixture");
+        let payload = serde_json::json!({ "oracle_text": printed });
+        let mut problems = 0;
+        super::check_card::check_flashback_matches_the_printing(
+            "fixture",
+            def,
+            &payload,
+            &mut problems,
+        );
+        assert_eq!(problems, 0, "{name}: {printed}");
+    }
+}
+
+#[test]
+fn flashback_validation_rejects_missing_and_additional_mana() {
+    for (name, printed) in [
+        ("Acorn Harvest", "Flashback—{1}{U}, Pay 3 life."),
+        ("Acorn Harvest", "Flashback—Pay 3 life."),
+        ("Lava Dart", "Flashback—{R}, Sacrifice a Mountain."),
+    ] {
+        let def = baylee_cards::decks::by_name(name)
+            .and_then(baylee_cards::by_index)
+            .expect("registered flashback fixture");
+        let payload = serde_json::json!({ "oracle_text": printed });
+        let mut problems = 0;
+        super::check_card::check_flashback_matches_the_printing(
+            "fixture",
+            def,
+            &payload,
+            &mut problems,
+        );
+        assert_eq!(problems, 1, "{name}: {printed}");
+    }
+}
+
 /// Every deck a dev table names is found in one of the two files; the
 /// owner's play decks sit down with what the pool has, their printings
 /// stripped in the file a bridge reads, and the acceptance decks lose

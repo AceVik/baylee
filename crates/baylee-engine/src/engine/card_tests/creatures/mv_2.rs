@@ -377,6 +377,7 @@ mod winged_sliver;
 mod wirewood_elf;
 mod wirewood_herald;
 mod wirewood_hivemaster;
+mod withered_wretch;
 mod wizened_cenn;
 mod wood_sage;
 mod wretched_anurid;

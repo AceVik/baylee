@@ -24649,6 +24649,8 @@ pub mod witching_well;
 pub mod withdraw;
 #[path = "lands/scry/witherbloom_campus.rs"]
 pub mod witherbloom_campus;
+#[path = "creatures/mv_2/withered_wretch.rs"]
+pub mod withered_wretch;
 #[path = "instants/mv_2/withering_boon.rs"]
 pub mod withering_boon;
 #[path = "enchantments/auras/mv_1/withering_hex.rs"]

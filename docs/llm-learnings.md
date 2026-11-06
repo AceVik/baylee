@@ -6988,3 +6988,32 @@ code.
   (11,160 finished, 1,383 stubs); `require-card-tests`, affected Clippy,
   formatting and `git diff --check` pass. The full gates remain deferred at
   the owner's request.
+
+## 2026-11-06 — Withered Wretch and mixed-cost flashback validation
+
+- Withered Wretch already had its append-only index (6095), cached printing and
+  corpus identity, so only the pool addition was needed: no index or
+  `corpus-keep` change. The existing activated target and exile effects read
+  the whole card. The full codegen run also made the earlier non-mana flashback
+  reader extension visible on Acorn Harvest, Crippling Fatigue and Deep
+  Analysis. Their token creation, pump, chosen-player draw, mixed alternative
+  costs and flashback exile all reuse existing engine and DSL pieces.
+- Eight played card tests cover both graveyards, exact generic mana payment,
+  no tap cost, no legal target and no replacement target, Squirrel identity and
+  count, -2/-2 until end of turn, either player drawing exactly two cards, the
+  exact 3-life payment, insufficient life and exile after flashback. The
+  focused 24-test flashback run also passes. No new pending shape or
+  card-specific desktop, seat or house policy was needed.
+- `validate` initially rejected the three mixed costs because its printing
+  reader recognized only `Flashback {…}`, not `Flashback—{…}`, and tried to
+  parse `, Pay 3 life` as mana. It now accepts either printed spelling and
+  compares the mana prefix before the first non-mana part. Two xtask regression
+  tests cover both spellings, non-mana-only flashback, and rejection of wrong,
+  missing or additional mana rather than weakening the comparison.
+- All 370 house-AI tests pass, including the per-card Withered Wretch reader
+  assertion and the reviewed 2,998-of-3,788 activation census. All 587 seat
+  tests, 151 desktop interaction tests and 9 `record::seen` tests pass; the
+  desktop client including tests compiles. `validate` accepts 12,544 cards
+  (11,164 finished, 1,380 stubs); `require-card-tests`, affected Clippy,
+  formatting and `git diff --check` pass. The full gates remain deferred at
+  the owner's request.
