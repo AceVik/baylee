@@ -22,7 +22,10 @@
 //! each other's places walks in order and reports as aligned — an upper
 //! bound wearing a count's clothes.
 
-use baylee_cards_dsl::{AbilityDef, AltCondition, AlternativeCost, CostPart, StepKind, Trigger};
+use baylee_cards_dsl::{
+    AbilityDef, AltCondition, AlternativeCost, CostPart, Effect, Filter, StepKind, Trigger,
+};
+use baylee_core::types::TypeSet;
 
 /// The sentences a printed oracle text is made of.
 ///
@@ -793,6 +796,103 @@ pub fn content_fits(ability: &baylee_cards_dsl::AbilityDef, line: &str) -> bool 
     }
 }
 
+/// Words a sentence carries when it is the text of this effect, as stems;
+/// empty makes no claim. Coarse, for [`trigger_words`]' reason: it refuses a
+/// swap and parses nothing.
+///
+/// `"equip "` and not `"equip"`: Lead Pipe's other sentence says "this
+/// Equipment".
+fn effect_words(effect: &Effect) -> &'static [&'static str] {
+    match effect {
+        Effect::Regenerate { .. } => &["regenerate"],
+        Effect::DealDamage { .. } | Effect::DealDamageEach { .. } => &["damage"],
+        Effect::DrawCards { .. } => &["draw", "cycling"],
+        Effect::AttachSelf { .. } => &["equip ", "equip\u{2014}", "attach", "reconfigure"],
+        Effect::ReturnToHand { .. } => &["return"],
+        Effect::SacrificeAmountForPlayers { .. } => &["sacrifice"],
+        Effect::AddCounter { .. } | Effect::AddCounterSource { .. } => &["counter"],
+        Effect::TransformSource => &["transform"],
+        Effect::CreateToken { .. } | Effect::CreateTokenN { .. } => &["create"],
+        Effect::GainLife { .. } => &["gain"],
+        Effect::Destroy { .. } => &["destroy"],
+        _ => &[],
+    }
+}
+
+/// Whether the sentence says this effect, or makes no claim either way.
+fn says_effect(effect: &Effect, lower: &str) -> bool {
+    if let Effect::MayDo { effects } = effect {
+        return effects.iter().all(|inner| says_effect(inner, lower));
+    }
+    let words = effect_words(effect);
+    words.is_empty() || words.iter().any(|word| lower.contains(word))
+}
+
+/// Whether a mana ability makes something no card prints a symbol for, read
+/// off the board. A line printing a symbol is then not its text, as
+/// [`mana_fits`] cannot say: it lets such an ability through every line.
+/// `ChosenOr` prints the `{W}` beside its choice, so it is not one.
+fn mana_has_no_symbol(effects: &[Effect]) -> bool {
+    use baylee_cards_dsl::effect::ManaSource as S;
+    effects.iter().any(|effect| {
+        matches!(
+            effect,
+            Effect::AddMana { source, .. }
+                if !matches!(source, S::Fixed(_) | S::Choice(_) | S::ChosenOr(_))
+        )
+    })
+}
+
+/// Whether a sacrifice's sentence names the card type its filter asks for, or
+/// the filter names none: Thaumatog's two costs differ by nothing else.
+fn sacrifice_named(part: &CostPart, head: &str) -> bool {
+    fn noun(filter: &Filter) -> Option<&'static str> {
+        match filter {
+            Filter::And(parts) => parts.iter().find_map(noun),
+            Filter::HasType(kind) => [
+                (TypeSet::LAND, "land"),
+                (TypeSet::CREATURE, "creature"),
+                (TypeSet::ARTIFACT, "artifact"),
+                (TypeSet::ENCHANTMENT, "enchantment"),
+            ]
+            .into_iter()
+            .find_map(|(printed, word)| (printed == *kind).then_some(word)),
+            _ => None,
+        }
+    }
+    let CostPart::Sacrifice(filter) = part else {
+        return true;
+    };
+    noun(filter).is_none_or(|word| head.contains(word))
+}
+
+/// Of the sentences an ability fits, does this one say what it pays and what
+/// it does?
+///
+/// [`cost_fits`] reads symbols, and a card printing two abilities at one
+/// mana cost is where they run out. The walk then took them in the file's
+/// order, which is free to differ from the card's, and each read the other's
+/// sentence: Masticore's regeneration said "deals 1 damage". The file's order
+/// is not to be moved, because a stored game's input names an index into it.
+fn says_what_it_does(ability: &AbilityDef, line: &str) -> bool {
+    use baylee_cards_dsl::AbilityDef as A;
+    let lower = line.to_lowercase();
+    let effects_said = |effects: &[Effect]| effects.iter().all(|e| says_effect(e, &lower));
+    match ability {
+        A::Activated { cost, effects, .. } | A::ActivatedConditional { cost, effects, .. } => {
+            let printed = without_reminder(line).to_lowercase();
+            let (head, body) = printed.split_once(':').unwrap_or((printed.as_str(), ""));
+            cost.parts
+                .iter()
+                .all(|part| part_named(part, head).unwrap_or(true) && sacrifice_named(part, head))
+                && effects_said(effects)
+                && !(mana_has_no_symbol(effects) && body.contains('{'))
+        }
+        A::Triggered { effects, .. } => effects_said(effects),
+        _ => true,
+    }
+}
+
 /// Which sentence each ability came from.
 ///
 /// One entry per ability in `abilities`, in step with it — `None` where an
@@ -824,6 +924,14 @@ pub fn map(abilities: &[AbilityDef], oracle: &str) -> Mapping {
             continue;
         }
         let fits = |line: &str| line_shape(line) == want && content_fits(ability, line);
+        // Where several sentences fit, the one that says what the ability
+        // does is the one. Only ever a tie-break: a line [`content_fits`]
+        // takes is kept when none of them says so, so no ability loses its
+        // sentence to a word this reader does not know.
+        let said = |line: &str| fits(line) && says_what_it_does(ability, line);
+        let tied = lines.iter().filter(|l| fits(l)).count() > 1;
+        let decided = tied && lines.iter().any(|l| said(l));
+        let fits = |line: &str| if decided { said(line) } else { fits(line) };
         // Two sentences this ability fits equally well means the content
         // check cannot tell them apart, and whichever the walk reaches
         // first is a coin toss the report would print as a hit. Counting
@@ -840,8 +948,14 @@ pub fn map(abilities: &[AbilityDef], oracle: &str) -> Mapping {
         }
         // Looking backwards is what a table is allowed to do and a
         // bijection is not: the ability is still *somewhere*, and only the
-        // order the code happens to list them in was different.
-        let back = lines.iter().position(|l| fits(l));
+        // order the code happens to list them in was different. A sentence
+        // no ability holds comes first: Plaza of Heroes' last ability fits
+        // the "any color" line its neighbour already has and the one after.
+        let unclaimed = |at: &usize| !found.contains(&u8::try_from(*at).ok());
+        let back = (0..lines.len())
+            .filter(|at| fits(lines[*at]))
+            .find(unclaimed)
+            .or_else(|| lines.iter().position(|l| fits(l)));
         // Landing on the sentence just claimed is **not** disorder — it is
         // the shared sentence this module exists to allow. Sun Titan's
         // "enters or attacks" is one line and two triggers, and calling
@@ -1010,7 +1124,15 @@ fn condition_fits(condition: AltCondition, lower: &str) -> bool {
 /// with a cost that leaves out half of what it charges is worse than one
 /// labelled "Alternative cost", because the player reads it as the card.
 fn parts_fit(parts: &[CostPart], lower: &str) -> bool {
-    parts.iter().all(|part| match part {
+    parts
+        .iter()
+        .all(|part| part_named(part, lower).unwrap_or(false))
+}
+
+/// Whether the printed words name this part of a cost, or `None` for a part
+/// this cannot read.
+fn part_named(part: &CostPart, lower: &str) -> Option<bool> {
+    Some(match part {
         // Printed in symbols, and read by `cost_fits` there; the prose says
         // nothing about either.
         CostPart::TapSelf | CostPart::UntapSelf => true,
@@ -1047,7 +1169,7 @@ fn parts_fit(parts: &[CostPart], lower: &str) -> bool {
         CostPart::ExileFromGraveyard(_) => {
             lower.contains("exile") && lower.contains("from your graveyard")
         }
-        _ => false,
+        _ => return None,
     })
 }
 

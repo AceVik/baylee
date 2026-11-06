@@ -33,10 +33,11 @@ pub fn line_shape(line: &str) -> LineShape {
         || (lower.starts_with("as ") && !lower.starts_with("as long as "))
         || lower.starts_with("ward ")
         || lower.starts_with("ward—")
-        // A keyword with a cost that is a triggered ability (CR 702.30a), not
-        // the activated one its `{` would otherwise make of it.
+        // A keyword with a cost that is a triggered ability (CR 702.30a, 702.24a),
+        // not the activated one its `{` would otherwise make of it.
         || lower.starts_with("echo ")
         || lower.starts_with("echo—")
+        || lower.starts_with("cumulative upkeep")
     {
         // A trigger on tapping for mana that adds mana and targets nothing
         // is a mana ability (CR 605.1b) and never a stack entry: Badgermole

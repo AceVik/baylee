@@ -660,6 +660,113 @@ fn an_ability_printed_as_a_keyword_is_honestly_lineless() {
     assert_eq!(map(&abilities, text).lines, vec![Some(1), None]);
 }
 
+/// Two activations at one cost, listed in the file the other way round from
+/// the card. Masticore prints the damage first and lists the regeneration
+/// first, and on cost alone the walk gave each the other's sentence, so a
+/// player pressed "Regenerate" and was asked for a target. The file's order
+/// cannot move: stored games hold these indices.
+#[test]
+fn two_activations_at_one_cost_are_told_apart_by_what_they_do() {
+    use baylee_cards_dsl::effect::TargetSpec;
+    use baylee_cards_dsl::{activated, cost};
+    static REGENERATE: [Effect; 1] = [Effect::regenerate(TargetSpec::ThisObject)];
+    let text = "{2}: This creature deals 1 damage to target creature.\n\
+                {2}: Regenerate this creature.";
+    let regenerate = activated!(cost!("{2}"), &REGENERATE);
+    let damage = activated!(
+        cost!("{2}"),
+        &[Effect::DealDamage {
+            amount: Amount::Fixed(1),
+            target: TargetSpec::Object(&Filter::CREATURE),
+        }]
+    );
+    let found = map(&[regenerate, damage], text);
+    assert_eq!(found.lines, vec![Some(1), Some(0)]);
+    assert_eq!(found.ambiguous, 0);
+    assert!(!found.in_order);
+
+    let found = map(&[damage, regenerate], text);
+    assert_eq!(found.lines, vec![Some(0), Some(1)]);
+    assert!(found.in_order);
+}
+
+/// The same mana in two costs, told apart by the rest of the cost, and a
+/// keyword line against a sentence: Lead Pipe lists its equip first and
+/// prints it last, and "this Equipment" in the other sentence is no equip.
+#[test]
+fn a_cost_of_the_same_mana_is_told_apart_by_what_else_it_charges() {
+    use baylee_cards_dsl::{activated, cost, equip};
+    let text = "{2}, Sacrifice this Equipment: Draw a card.\nEquip {2}";
+    let abilities = [
+        equip!(cost!("{2}")),
+        activated!(cost!("{2}", SacrificeSelf), draw(1)),
+    ];
+    let found = map(&abilities, text);
+    assert_eq!(found.lines, vec![Some(1), Some(0)]);
+    assert_eq!(found.ambiguous, 0);
+}
+
+/// Thaumatog's two abilities differ only in what they sacrifice, and the file
+/// lists them the other way round from the card.
+#[test]
+fn two_sacrifices_are_told_apart_by_what_they_take() {
+    use baylee_cards_dsl::{activated, cost};
+    const ENCHANTMENT: Filter = Filter::And(&[Filter::ENCHANTMENT, Filter::ControlledByYou]);
+    let text = "Sacrifice a land: This creature gets +1/+1 until end of turn.\n\
+                Sacrifice an enchantment: This creature gets +1/+1 until end of turn.";
+    let abilities = [
+        activated!(cost!(Sacrifice(&ENCHANTMENT)), &[]),
+        activated!(cost!(Sacrifice(&Filter::YOUR_LAND)), &[]),
+    ];
+    assert_eq!(map(&abilities, text).lines, vec![Some(1), Some(0)]);
+}
+
+/// Walking back, a sentence no ability holds comes before one that is held.
+/// Plaza of Heroes lists its exile ability before its last mana ability, and
+/// that ability read its neighbour's "any color" line.
+#[test]
+fn a_walk_back_takes_a_sentence_nobody_holds() {
+    use baylee_cards_dsl::{activated, cost, mana_ability};
+    static COLORS: [Effect; 1] = [Effect::mana_of_any_color()];
+    let text = "{T}: Add one mana of any color. Spend this mana only to cast a spell.\n\
+                {T}: Add one mana of any color among legendary permanents you control.\n\
+                {3}, {T}: Draw a card.";
+    let abilities = [
+        mana_ability!(&COLORS),
+        activated!(cost!("{3}", TapSelf), draw(1)),
+        mana_ability!(&COLORS),
+    ];
+    assert_eq!(map(&abilities, text).lines, vec![Some(0), Some(2), Some(1)]);
+}
+
+/// Cumulative upkeep is a trigger (CR 702.24a), printed like a keyword with a
+/// cost. Read as an activation it took the sentence of the card's real
+/// `{2}` ability, and the trigger had none: Tidal Control.
+#[test]
+fn cumulative_upkeep_is_the_triggers_line_and_no_activations() {
+    use baylee_cards_dsl::effect::PlayerRel;
+    use baylee_cards_dsl::{StepKind, Trigger, activated, cost, triggered};
+    let text = "Cumulative upkeep {2} (At the beginning of your upkeep, put an age counter on this \
+                permanent, then sacrifice it unless you pay its upkeep cost for each age counter \
+                on it.)\n\
+                {2}: Counter target spell.";
+    assert_eq!(
+        line_shape(text.lines().next().unwrap()),
+        LineShape::Triggered
+    );
+    let abilities = [
+        triggered!(
+            Trigger::StepBegin {
+                step: StepKind::Upkeep,
+                whose: PlayerRel::You,
+            },
+            draw(1)
+        ),
+        activated!(cost!("{2}"), &[Effect::CounterTargetSpell]),
+    ];
+    assert_eq!(map(&abilities, text).lines, vec![Some(0), Some(1)]);
+}
+
 /// Two triggers with the same verb, told apart by their subject.
 ///
 /// "you draw" and "an opponent draws" fit each other's sentences on the

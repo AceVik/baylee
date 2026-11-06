@@ -428,6 +428,41 @@ mod tests {
     use super::*;
     use crate::generated_lines::ABILITY_LINES;
 
+    /// A card file's order need not be the card's, and cannot be changed
+    /// once games are stored: an input names an index into it. So the table
+    /// is what must point each ability at its own sentence. Masticore's
+    /// regeneration read "deals 1 damage", and a player who pressed it for
+    /// the damage got no target.
+    #[test]
+    fn an_ability_listed_out_of_printed_order_reads_its_own_sentence() {
+        for (name, index, words) in [
+            ("Masticore", 1, "Regenerate this creature"),
+            ("Masticore", 2, "deals 1 damage"),
+            ("Lead Pipe", 0, "Equip {2}"),
+            ("Lead Pipe", 3, "Sacrifice this Equipment"),
+            ("Undead Gladiator", 0, "Cycling"),
+            ("Undead Gladiator", 1, "Return this card"),
+            ("Thaumatog", 0, "Sacrifice an enchantment"),
+            ("Thaumatog", 1, "Sacrifice a land"),
+            ("Smokestack", 0, "that player sacrifices"),
+            ("Smokestack", 1, "you may put a soot counter"),
+            ("Tidal Control", 0, "Cumulative upkeep"),
+            ("Tidal Control", 1, "Counter target red or green spell"),
+            ("Plaza of Heroes", 3, "among legendary permanents"),
+        ] {
+            let card = crate::all()
+                .find(|def| def.name() == name)
+                .unwrap_or_else(|| panic!("{name} is in the pool"))
+                .index;
+            let line = ability_line(card, 0, index).expect("it has a sentence");
+            let sentence = crate::oracle::sentence(card, 0, line.line).expect("a printed line");
+            assert!(
+                sentence.contains(words),
+                "{name} ability {index} reads {sentence:?}"
+            );
+        }
+    }
+
     /// Every bound is the lookup's own, because a stack entry is projected
     /// for every view of every frame and the four things a caller can get
     /// wrong are all ordinary: a retired card, a face the card does not

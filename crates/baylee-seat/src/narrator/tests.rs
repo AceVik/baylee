@@ -1075,6 +1075,55 @@ fn multikicker_is_asked_as_a_count_and_the_stack_says_what_was_paid() {
     assert!(text.contains("buyback paid"), "{text}");
 }
 
+/// What a row says is what it does. Masticore's file lists its regeneration
+/// before its damage and the card prints them the other way round, and the
+/// rows read the card in the file's order: "Regenerate" asked for a target
+/// and shot its own Masticore (codex attempt 69, q207).
+#[test]
+fn a_row_says_the_ability_it_activates() {
+    use baylee_engine::choice::LegalActions;
+    let (mut view, _) = board();
+    let masticore = card(95, "Masticore");
+    let object = masticore.id;
+    view.battlefield.push(masticore);
+    let pending = Pending::Priority {
+        player: ME,
+        legal: Box::new(LegalActions {
+            can_pass: true,
+            abilities: vec![(object, 1), (object, 2)],
+            ..Default::default()
+        }),
+    };
+    let log = LogTail {
+        from: 0,
+        entries: Vec::new(),
+    };
+    let request = request(view, pending, log);
+    let wake = Narrator::new(&request.context).wake(&request, &[], None);
+    let index_of = |words: &str| {
+        let row = wake
+            .text
+            .lines()
+            .find(|line| line.contains("Activate Masticore") && line.contains(words))
+            .unwrap_or_else(|| panic!("a row says {words}"));
+        let id = row.split_whitespace().next().expect("an option id");
+        let answer = wake
+            .menu
+            .resolve(&Decision {
+                ask: Some("q12".into()),
+                pick: vec![id.to_string()],
+                ..Default::default()
+            })
+            .expect("the option is on the menu");
+        let Act::Now(PlayerAction::ActivateAbility { ability_index, .. }) = answer.act else {
+            panic!("an activation, got {:?}", answer.act);
+        };
+        ability_index
+    };
+    assert_eq!(index_of("Regenerate this creature"), 1);
+    assert_eq!(index_of("deals 1 damage"), 2);
+}
+
 /// The engine asks "of your choice" as a resolving ability applies it
 /// (CR 608.2d), through the same question as a spell's mode. Unstable
 /// Frontier's choice said "How do you cast Unstable Frontier?", so a model
