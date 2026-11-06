@@ -116,11 +116,9 @@ fn sundering_eruption_destroys_land_and_gives_opponent_tapped_basic() {
         in_graveyard(&engine, p0, sundering_eruption()).is_some(),
         "Sundering Eruption moves to graveyard after resolving"
     );
-    assert!(
-        keywords(&engine, elf).contains(KeywordSet::CANT_BLOCK),
-        "and the rider reached the opponent's ground creature on the way \
-         past, which is the sentence the test below this one is about"
-    );
+    // The rider on the opponent's ground creature is shown by the block
+    // menus in the tests below; this one is about the land and the search.
+    assert!(on_battlefield(&engine, p1, llanowar_elves()).is_some());
 }
 
 /// `Sundering Eruption`'s third sentence: "Creatures without flying can't
@@ -146,7 +144,6 @@ fn sundering_eruption_grounds_the_defence_and_leaves_a_flier_alone() {
     assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
 
     let doomed = on_battlefield(&engine, p1, forest()).expect("a land to destroy");
-    let elf = on_battlefield(&engine, p1, llanowar_elves()).expect("the ground creature");
     let strix = on_battlefield(&engine, p1, baleful_strix()).expect("the flier");
     let wurm = on_battlefield(&engine, p0, rootbreaker_wurm()).expect("the 6/6 attacks");
 
@@ -172,20 +169,63 @@ fn sundering_eruption_grounds_the_defence_and_leaves_a_flier_alone() {
         .expect("\"may search\" — naming nothing is how a player declines");
     pass_until(&mut engine, stack_is_empty);
 
-    assert!(
-        keywords(&engine, elf).contains(KeywordSet::CANT_BLOCK),
-        "a creature without flying"
-    );
-    assert!(
-        !keywords(&engine, strix).contains(KeywordSet::CANT_BLOCK),
-        "and one with it is not in the set at all — which is the filter, \
-         not the seat: both creatures are the opponent's"
-    );
-
     let blocks = attack_and_collect_blocks(&mut engine, wurm, p1);
     assert_eq!(
         blocks.iter().map(|o| o.blocker).collect::<Vec<_>>(),
         vec![strix],
         "only the flier is offered a block, and it is offered one: {blocks:?}"
+    );
+}
+
+/// The 2024-06-07 ruling on `Sundering Eruption`: the effect "prevents all
+/// creatures without flying from blocking that turn, including creatures
+/// that lose flying after Sundering Eruption resolves and creatures without
+/// flying that enter the battlefield later in the turn". It is a rule about
+/// what players may do, which CR 611.2c does not lock to the objects there
+/// when it began, so a creature that arrives afterwards cannot block.
+#[test]
+fn sundering_eruption_stops_a_creature_that_arrives_afterwards_from_blocking() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(478, forest())
+        .battlefield(0, &[mountain(), mountain(), mountain(), rootbreaker_wurm()])
+        .battlefield(1, &[forest(), baleful_strix()])
+        .hand(0, &[sundering_eruption()])
+        .hand(1, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let doomed = on_battlefield(&engine, p1, forest()).expect("a land to destroy");
+    let strix = on_battlefield(&engine, p1, baleful_strix()).expect("the flier");
+    let wurm = on_battlefield(&engine, p0, rootbreaker_wurm()).expect("the 6/6 attacks");
+
+    tap_all_mana(&mut engine, p0);
+    cast_front_face(&mut engine, p0, sundering_eruption());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![doomed],
+            },
+        )
+        .expect("the land came out of the menu");
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::ChooseCards { player, .. } if *player == p1),
+    );
+    engine
+        .apply(p1, PlayerAction::ChooseObjects { objects: vec![] })
+        .expect("declining the search");
+    pass_until(&mut engine, stack_is_empty);
+
+    // After the spell resolved, a creature without flying arrives (Chord of
+    // Calling's shape): it is not in any set the spell fixed.
+    let elf = hand_to(&mut engine, p1, llanowar_elves(), ZoneLocation::Battlefield);
+
+    let blocks = attack_and_collect_blocks(&mut engine, wurm, p1);
+    assert_eq!(
+        blocks.iter().map(|o| o.blocker).collect::<Vec<_>>(),
+        vec![strix],
+        "the late arrival {elf:?} may not block, only the flier may: {blocks:?}"
     );
 }

@@ -13,11 +13,12 @@ use baylee_cards_dsl::prelude::*;
 
 /// "Creatures without flying" — every creature on the table and not only
 /// yours, which is what the printed sentence says and what makes this a
-/// `PumpFilter` with no `controlled_by` rather than a targeted grant.
+/// continuous effect with no `controlled_by` rather than a targeted grant.
 ///
-/// The set is fixed as the spell resolves (CR 611.2c), so a creature that
-/// arrives afterwards may block and one that loses flying in response may
-/// not.
+/// A rule about what players may do, not a change of characteristics, so
+/// the set is not fixed as the spell resolves (CR 611.2c): a creature that
+/// arrives afterwards, or loses flying afterwards, may not block either
+/// (ruling of 2024-06-07). Falter has the same shape.
 static GROUNDED: Filter = Filter::And(&[
     Filter::CREATURE,
     Filter::Not(&Filter::HasKeyword(KeywordSet::FLYING)),
@@ -48,14 +49,11 @@ card!(
             Effect::OptionalBasicLandSearchFor {
                 player: PlayerRel::ControllerOfTarget,
             },
-            Effect::PumpFilter {
-                filter: &GROUNDED,
-                controlled_by: None,
-                power: Amount::Fixed(0),
-                toughness: Amount::Fixed(0),
-                keywords: KeywordSet::CANT_BLOCK,
-                duration: Duration::UntilEndOfTurn,
-            },
+            Effect::continuous(
+                &GROUNDED,
+                Modifier::CantBlock(&Filter::Any),
+                Duration::UntilEndOfTurn,
+            ),
         ],
         targets = Some(TargetReq::one(TargetSpec::Object(&Filter::LAND)))
     )],
