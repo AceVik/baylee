@@ -15,9 +15,13 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::thread;
 use std::time::Instant;
 
-/// The picture a test server hands out, as a server's bytes.
+/// One pixel of PNG: what a reader asks of a picture is its header.
+const ONE_PIXEL: &[u8] = b"\x89PNG\r\n\x1a\n\0\0\0\rIHDR\0\0\0\x01\0\0\0\x01\x08\x06\0\0\0\x1f\x15\xc4\x89\0\0\0\rIDATx\x9cc\0\x01\0\0\x05\0\x01\r\n-\xb4\0\0\0\0IEND\xaeB`\x82";
+
+/// The picture a test server hands out, as a server's bytes: a real one, and
+/// after its end the path that asked, so that no two are the same.
 fn picture_of(path: &str) -> Vec<u8> {
-    format!("\u{ff}\u{d8} {path} \u{ff}\u{d9}").into_bytes()
+    [ONE_PIXEL, path.as_bytes()].concat()
 }
 
 /// How a test server answers one path.

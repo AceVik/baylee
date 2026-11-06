@@ -418,10 +418,19 @@ fn normalise(kind: Kind, bytes: &[u8]) -> Result<Vec<u8>, Rejected> {
 /// all strict (`max_alloc` is a hint some ignore), and the size a header
 /// claims is the one thing that is known before anything is allocated.
 fn decode(bytes: &[u8]) -> Result<image::DynamicImage, Rejected> {
+    // By name, and not whatever the build can read: a workspace build unifies
+    // `image`'s features, so more decoders may be linked than this route takes.
     let reader = || {
         image::ImageReader::new(std::io::Cursor::new(bytes))
             .with_guessed_format()
-            .map_err(|_| Rejected::NotAnImage)
+            .ok()
+            .filter(|reader| {
+                matches!(
+                    reader.format(),
+                    Some(image::ImageFormat::Png | image::ImageFormat::Jpeg)
+                )
+            })
+            .ok_or(Rejected::NotAnImage)
     };
     let refused = |e: image::ImageError| match e {
         image::ImageError::Limits(_) => Rejected::TooManyPixels,
