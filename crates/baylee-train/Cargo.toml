@@ -127,6 +127,11 @@ path = "src/bin/inspect.rs"
 required-features = ["play"]
 
 [[bin]]
+name = "journal4"
+path = "src/bin/journal4/main.rs"
+required-features = ["play"]
+
+[[bin]]
 name = "gamelog4"
 path = "src/bin/gamelog4/main.rs"
 required-features = ["llm"]

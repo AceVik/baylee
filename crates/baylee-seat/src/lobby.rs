@@ -352,6 +352,26 @@ impl Lobby {
         })
     }
 
+    /// Sets a room's rules before anybody is ready (`POST …/configure`): a room
+    /// opened without them holds the gateway's default of 40 life and a free
+    /// mulligan, which is no constructed game.
+    ///
+    /// # Errors
+    /// When the gateway refuses the update, or this session is not the host.
+    pub async fn configure(
+        &self,
+        session: &Session,
+        game_id: &str,
+        update: &baylee_core::preset::RoomUpdate,
+    ) -> anyhow::Result<()> {
+        let path = format!("/lobby/games/{}/configure", escape(game_id));
+        let body = serde_json::to_value(update).context("a room update")?;
+        self.call("POST", &path, Some(&session.token), Some(body))
+            .await?
+            .expect_ok("configure a room")?;
+        Ok(())
+    }
+
     /// Takes a free chair in the room with the deck (`POST …/join`): the
     /// one `seat` names, else the first free one.
     ///

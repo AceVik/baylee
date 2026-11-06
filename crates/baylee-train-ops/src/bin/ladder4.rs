@@ -68,6 +68,10 @@ struct Args {
     /// Passed to `seat4`: the model is older than this build's catalog.
     #[arg(long)]
     catalog_drift: bool,
+    /// The life a game starts at. A room left alone holds the gateway's default
+    /// of 40 with a free mulligan, which the net never played against `sharp`.
+    #[arg(long, default_value_t = 20)]
+    starting_life: i32,
 }
 
 #[derive(Clone, Debug)]
@@ -154,7 +158,9 @@ fn host(
         .arg("--reports")
         .arg(work.join("reports"))
         .arg("--journal")
-        .arg(work.join("journal.jsonl.gz"));
+        .arg(work.join("journal.jsonl.gz"))
+        .arg("--starting-life")
+        .arg(args.starting_life.to_string());
     if args.catalog_drift {
         command.arg("--catalog-drift");
     }

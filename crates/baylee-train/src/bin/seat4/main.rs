@@ -10,6 +10,7 @@ use std::time::Duration;
 
 use anyhow::{Context as _, bail, ensure};
 use baylee_core::ids::PlayerId;
+use baylee_core::preset::{RoomSetup, RoomUpdate};
 use baylee_seat::Disclosure;
 use baylee_seat::deck::Deck;
 use baylee_seat::link::SeatLink;
@@ -72,6 +73,13 @@ struct Args {
     /// (`docs/trained-ai.md` §"Card catalog compatibility").
     #[arg(long)]
     catalog_drift: bool,
+    /// Host only: the life each seat starts with. Absent, a room holds the
+    /// gateway's default of 40.
+    #[arg(long)]
+    starting_life: Option<i32>,
+    /// Host only: free opening redraws, with `--starting-life`.
+    #[arg(long, default_value_t = 0)]
+    free_mulligans: u8,
 }
 
 #[tokio::main(flavor = "current_thread")]
@@ -148,7 +156,22 @@ async fn run(
         let chair = if let Some(game_id) = &args.join {
             lobby.join(session, game_id, &deck_id, None, None).await?
         } else {
-            lobby.open(session, &deck_id, 2, &args.room_name).await?
+            let chair = lobby.open(session, &deck_id, 2, &args.room_name).await?;
+            if let Some(starting_life) = args.starting_life {
+                let setup = RoomSetup {
+                    starting_life,
+                    free_mulligans: args.free_mulligans,
+                    ..RoomSetup::default()
+                };
+                let update = RoomUpdate {
+                    name: args.room_name.clone(),
+                    chairs: 2,
+                    password: None,
+                    setup,
+                };
+                lobby.configure(session, &chair.game_id, &update).await?;
+            }
+            chair
         };
         println!(
             "{}",
