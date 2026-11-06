@@ -522,7 +522,8 @@ impl HeuristicAgent {
                 if let Some(objects) = land::returned(view, &options, min, max, prompt) {
                     return PlayerAction::ChooseObjects { objects };
                 }
-                if let Some(objects) = self.select_cards(view, &options, min, max, prompt) {
+                if let Some(objects) = self.select_cards(view, &options, min, max, prompt, context)
+                {
                     return PlayerAction::ChooseObjects { objects };
                 }
                 // Delve is the one question in this family that is part of a
@@ -885,6 +886,7 @@ impl HeuristicAgent {
                     PlayerAction::YesNo(self.proliferate_player(view, recipient) > 0)
                 }
                 YesNoPrompt::Miracle { card } => PlayerAction::YesNo(Self::miracle(view, card)),
+                YesNoPrompt::Madness { card } => PlayerAction::YesNo(Self::madness(view, card)),
                 // What refusing a tax costs is not the same question for
                 // every tax, so it is asked of the effect rather than of the
                 // prompt: ward counters the spell this seat has just cast.

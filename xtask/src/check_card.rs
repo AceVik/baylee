@@ -373,8 +373,9 @@ pub(crate) fn check_color_indicator_matches_the_printing(
 /// may make (CR 702.34a).
 ///
 /// Mana only, both ways: "Flashback—Pay 3 life" and the like are no
-/// `ManaCost` and are left to the card's coverage. Implemented cards only,
-/// the exemption every check here takes.
+/// `ManaCost` and are left to the card's coverage. For a mixed cost, the mana
+/// prefix before the first non-mana part is still checked. Implemented cards
+/// only, the exemption every check here takes.
 pub(crate) fn check_flashback_matches_the_printing(
     slug: &str,
     def: &baylee_cards::dsl::CardDef,
@@ -386,8 +387,11 @@ pub(crate) fn check_flashback_matches_the_printing(
     }
     let printed: Vec<String> = printed_text(payload)
         .lines()
-        .filter_map(|line| line.strip_prefix("Flashback "))
-        .filter_map(|rest| rest.split(" (").next())
+        .filter_map(|line| {
+            line.strip_prefix("Flashback ")
+                .or_else(|| line.strip_prefix("Flashback—"))
+        })
+        .filter_map(|rest| rest.split([',', '(']).next())
         .filter_map(|cost| cost.trim().parse::<baylee_core::mana::ManaCost>().ok())
         .map(|cost| cost.to_string())
         .collect();

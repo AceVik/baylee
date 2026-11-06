@@ -47,6 +47,7 @@ mod sudden_strength;
 mod thwart;
 mod turnabout;
 mod venomous_breath;
+mod violent_eruption;
 mod warpath;
 mod waterlogged_teachings;
 mod weave_fate;

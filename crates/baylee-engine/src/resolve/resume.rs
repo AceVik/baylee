@@ -1071,6 +1071,11 @@ pub(super) fn resume_inner(
                 return next_choice(state, res, since, pending);
             }
         }
+        AwaitingOp::KeepOneOfEach(selection) => {
+            if let Some(pending) = keep_one_of_each::resume(state, res, *selection, chosen) {
+                return next_choice(state, res, since, pending);
+            }
+        }
         AwaitingOp::ExileTokensCreatedWithThisForCounters { source, kind } => {
             let mut exiled = 0_u32;
             for &id in chosen {
@@ -1535,6 +1540,7 @@ pub(super) fn resume_inner(
         | AwaitingOp::ChooseCoinRepeatPlayer(_)
         | AwaitingOp::CascadeCast { .. }
         | AwaitingOp::CastTarget { .. }
+        | AwaitingOp::Madness { .. }
         | AwaitingOp::TopOrBottom { .. }
         | AwaitingOp::SelectedCommander { .. }
         | AwaitingOp::GraveyardToTopOrder { .. }

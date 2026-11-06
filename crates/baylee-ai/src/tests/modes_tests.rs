@@ -392,3 +392,38 @@ fn modal_mode_breaks_ties_by_worth_and_holds_when_no_mode_is_useful() {
         "Wrath of God is cast when the opponent's board outvalues ours"
     );
 }
+
+#[test]
+fn cataclysm_is_scored_by_the_permanents_actually_sacrificed() {
+    let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+    let cataclysm = hand_card(20, "Cataclysm");
+    let mut v = view(
+        0,
+        &[20, 20],
+        vec![
+            carded(
+                permanent(obj(10), me, 4),
+                "Ornithopter",
+                TypeSet::ARTIFACT.union(TypeSet::CREATURE),
+            ),
+            permanent(obj(11), me, 1),
+            carded(
+                permanent(obj(12), them, 2),
+                "Ornithopter",
+                TypeSet::ARTIFACT.union(TypeSet::CREATURE),
+            ),
+            permanent(obj(13), them, 1),
+        ],
+    );
+    v.hand = vec![cataclysm.clone()];
+    assert!(
+        agent().spell_score(&v, cataclysm.card) < 0,
+        "an equal sacrifice exchange is not worth the spell"
+    );
+
+    v.battlefield.push(permanent(obj(14), them, 3));
+    assert!(
+        agent().spell_score(&v, cataclysm.card) > 0,
+        "each artifact creature covers two choices while the extra opposing creature dies"
+    );
+}

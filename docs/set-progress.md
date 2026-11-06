@@ -12,6 +12,22 @@ The earlier feedback handoff's "seven Alpha Partials" tracked only seven cards
 whose cast-only tests were backfilled, not the entire set. Its subsequent "one
 remaining" claim was incorrect. This complete inventory supersedes those counts.
 
+## Madness and Basking Rootwalla — 2026-11-06
+
+- Basking Rootwalla is `Coverage::Implemented` through the selective
+  `codegen --promote-generated` transition. Its canonical test plays the
+  +2/+2 activation, the once-per-turn restriction and its renewal, the `{0}`
+  madness cast during an opponent's turn and the graveyard fallback on a
+  decline.
+- Madness is implemented as the printed destination replacement plus a real
+  triggered ability and an ordinary alternative-cost cast. Effect, chosen,
+  random, self and cleanup discards share one event/successor path. The cast
+  wizard covers X, targets, non-mana parts, additional costs and payment;
+  desktop, language-model and house seats consume the named route without
+  exposing hidden identities. The versioned fallback cannot move an old or
+  already-cast incarnation, and countering trigger versus spell remains
+  distinct.
+
 ## Buyback and multikicker — 2026-11-04
 
 Owner request, for the engine and every client of it. Rules read in the

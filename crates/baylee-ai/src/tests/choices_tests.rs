@@ -290,6 +290,31 @@ fn a_needle_names_the_opponents_permanent_it_would_stop() {
     );
 }
 
+/// A restricted naming question must be answered within its own bounds,
+/// rather than by the unrestricted Pithing Needle heuristic.
+#[test]
+fn a_nonland_name_choice_never_names_a_land() {
+    let v = view(0, &[20, 20], vec![]);
+    let PlayerAction::ChooseCardName { card, face } = HeuristicAgent::new(AIProfile::EXPERT).act(
+        &v,
+        &Pending::ChooseCardName {
+            player: v.seat,
+            types: TypeSet::EMPTY,
+            excluded_types: TypeSet::LAND,
+        },
+    ) else {
+        panic!("a nonland name choice is answered with a card name");
+    };
+    let printed = baylee_cards::by_index(card)
+        .and_then(|def| def.faces.get(usize::from(face)))
+        .expect("the agent names a printed face of a pool card");
+    assert!(
+        !printed.types.intersects(TypeSet::LAND),
+        "{} is not a land card name",
+        printed.name
+    );
+}
+
 #[test]
 fn third_iteration_jace_bounces_a_threat_instead_of_blindly_ticking_up() {
     let jace = carded(
@@ -540,6 +565,7 @@ fn balance_keeps_the_valuable_permanent_or_castable_hand_card() {
     hand.hand = vec![hand_card(1, "Llanowar Elves"), hand_card(2, "Endless Wurm")];
     for (view, keep, prompt) in [
         (&board, wurm, ChoicePrompt::KeepCreatures),
+        (&board, wurm, ChoicePrompt::KeepPermanents),
         (&hand, elves, ChoicePrompt::Keep),
     ] {
         for (name, profile) in PROFILES {
@@ -562,6 +588,60 @@ fn balance_keeps_the_valuable_permanent_or_castable_hand_card() {
             );
         }
     }
+}
+
+#[test]
+fn cataclysm_choice_preserves_the_best_whole_keep_set() {
+    let me = PlayerId::new(0);
+    let ornithopter = obj(10);
+    let small_creature = obj(11);
+    let v = view(
+        0,
+        &[20, 20],
+        vec![
+            carded(
+                permanent(ornithopter, me, 4),
+                "Ornithopter",
+                TypeSet::ARTIFACT.union(TypeSet::CREATURE),
+            ),
+            permanent(small_creature, me, 1),
+        ],
+    );
+    let cataclysm = hand_card(20, "Cataclysm");
+    let effects = baylee_cards::by_index(cataclysm.card.index)
+        .and_then(|definition| {
+            definition
+                .abilities
+                .iter()
+                .find_map(|ability| match ability {
+                    AbilityDef::Spell { effects, .. } => Some(*effects),
+                    _ => None,
+                })
+        })
+        .unwrap();
+    let pending = Pending::ChooseCards {
+        player: me,
+        options: vec![ornithopter, small_creature],
+        min: 1,
+        max: 1,
+        prompt: baylee_engine::choice::ChoicePrompt::KeepPermanents,
+        total: None,
+    };
+
+    assert_eq!(
+        HeuristicAgent::new(AIProfile::EXPERT).act_with_context(
+            &v,
+            &pending,
+            &baylee_engine::engine::DecisionContext {
+                effects,
+                ..Default::default()
+            },
+        ),
+        PlayerAction::ChooseObjects {
+            objects: vec![small_creature],
+        },
+        "the Ornithopter covers the artifact choice, so keeping it here would sacrifice the other creature unnecessarily",
+    );
 }
 
 /// A price is paid, and paid with the card this seat misses least.

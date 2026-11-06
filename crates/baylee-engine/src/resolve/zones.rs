@@ -1457,6 +1457,9 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             })
         }
         Effect::EqualizePermanents { filter } => equalize::start(state, res, Some(filter)),
+        Effect::KeepOneOfEachAndSacrificeRest { filters } => {
+            keep_one_of_each::start(state, res, filters)
+        }
         Effect::EqualizeHands => equalize::start(state, res, None),
         Effect::DiscardAmountForPlayers { who, amount } => {
             equalize::start_amount(state, res, who, None, &amount)

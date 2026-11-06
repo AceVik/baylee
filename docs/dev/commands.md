@@ -53,6 +53,7 @@ No `cargo xtask` alias exists; every line below follows `cargo run -p xtask --`.
 ```text
 codegen [--check | --tables | --registry]  # narrow modes need no corpus
 codegen --reclaim "<card>" --scripts <upstream-cardsfolder> [--check]
+codegen --promote-generated "<card>" --scripts <upstream-cardsfolder> [--check]
 codegen --complete-stub "<card>" --scripts <upstream-cardsfolder> [--check]
 codegen --hold-back "<card>" --hold-back-reason "<review finding>" [--check]
 codegen --hold-back-file <names.txt> --hold-back-reason "<review finding>" [--check]
@@ -88,6 +89,16 @@ dev-table --seats 4 --ai sharp [--play] [--teams 1,1,2] [--bridge house|scripted
   changes remain. It never downloads, moves files, or writes other cards,
   registries, indices or tables; follow an applied transfer with
   `codegen --tables` and the card tests, validation and gates.
+- `codegen --promote-generated` changes only explicitly named, finished
+  machine-owned cards from `Generated` to `Implemented` after their canonical
+  tests are accepted. It shares reclamation's pinned printing, Oracle,
+  identity, path and whole-selection preflight checks; it does not turn a
+  partial read into a complete one or bypass the honest-stub rule. `--check`
+  prints the selected diffs without writing and exits nonzero while changes
+  remain. Applying writes only those selected card files, never unrelated
+  cards, tables, registries or indices; run `codegen --tables` separately and
+  then the card tests, validation and gates. The full contract is in
+  `docs/cards.md`.
 - `codegen --complete-stub` finishes only explicitly named existing
   machine-owned stubs whose local scripts are now fully read. Repeat the flag
   for multiple names. It shares reclamation's pinned printing/Oracle/index/path

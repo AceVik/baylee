@@ -136,6 +136,7 @@ impl CastWizard {
     pub(super) const fn cost_choice(&self) -> CostChoice {
         CostChoice {
             option: self.option,
+            alternative_cost: self.alternative_cost,
             buyback: self.buyback.is_some(),
         }
     }

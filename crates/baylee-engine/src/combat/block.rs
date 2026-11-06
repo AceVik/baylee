@@ -404,7 +404,7 @@ pub fn block_options(
         .map(|a| a.creature)
         .filter(|attacker| {
             menace_satisfiable_by(state, defending, *attacker, &candidates, |blocker| {
-                rules.can_pay_mana(blocker, *attacker)
+                rules.allows(blocker, *attacker)
             })
         })
         .collect();
@@ -417,7 +417,7 @@ pub fn block_options(
                 .copied()
                 .filter(|attacker| {
                     can_block(state, defending, blocker, *attacker)
-                        && rules.can_pay_mana(blocker, *attacker)
+                        && rules.allows(blocker, *attacker)
                 })
                 .collect();
             (!attackers.is_empty()).then_some(crate::choice::BlockOption { blocker, attackers })
@@ -472,6 +472,8 @@ pub struct BlockRules<'a> {
     lures: Vec<&'a crate::effects::ContinuousEffect>,
     each: Vec<&'a crate::effects::ContinuousEffect>,
     unless_pay_mana: Vec<&'a crate::effects::ContinuousEffect>,
+    unless_more_creatures: Vec<&'a crate::effects::ContinuousEffect>,
+    creature_counts: Option<super::CreatureCounts>,
     max_blockers: Option<usize>,
     /// Mana the defending player could still make in the payment window.
     mana_reach: u64,
@@ -489,6 +491,8 @@ impl<'a> BlockRules<'a> {
             lures: Vec::new(),
             each: Vec::new(),
             unless_pay_mana: Vec::new(),
+            unless_more_creatures: Vec::new(),
+            creature_counts: None,
             max_blockers: None,
             mana_reach: 0,
         };
@@ -498,6 +502,9 @@ impl<'a> BlockRules<'a> {
                 | Modifier::CantBlockUnlessPayManaPerCounter(_)
                 | Modifier::CantBlockMatchingUnlessPayMana { .. } => {
                     rules.unless_pay_mana.push(fx);
+                }
+                Modifier::CantBlockUnlessYouControlMoreCreaturesThanAttacker => {
+                    rules.unless_more_creatures.push(fx);
                 }
                 Modifier::CanBlockAdditional(_) => rules.additional.push(fx),
                 Modifier::CanBlockAnyNumber => rules.any_number.push(fx),
@@ -514,6 +521,8 @@ impl<'a> BlockRules<'a> {
                 _ => {}
             }
         }
+        rules.creature_counts =
+            (!rules.unless_more_creatures.is_empty()).then(|| super::CreatureCounts::new(state));
         rules
     }
 
@@ -531,6 +540,44 @@ impl<'a> BlockRules<'a> {
     pub const fn reaching(mut self, mana: u64) -> Self {
         self.mana_reach = mana;
         self
+    }
+
+    /// Whether each applicable "unless you control more creatures than the
+    /// attacking player" restriction is met for this particular attacker.
+    #[must_use]
+    pub fn has_required_creature_advantage(&self, blocker: ObjectId, attacker: ObjectId) -> bool {
+        if self.unless_more_creatures.is_empty() {
+            return true;
+        }
+        let (Some(blocker_obj), Some(attacker_obj)) =
+            (self.state.object(blocker), self.state.object(attacker))
+        else {
+            return false;
+        };
+        self.creature_counts.as_ref().is_some_and(|counts| {
+            counts.satisfies(
+                self.state,
+                &self.unless_more_creatures,
+                blocker_obj,
+                attacker_obj.controller,
+            )
+        })
+    }
+
+    /// Whether every non-mana restriction permits this exact declaration.
+    /// Mana stays separate because its payment window may make it payable.
+    #[must_use]
+    pub fn can_declare(&self, defending: PlayerId, blocker: ObjectId, attacker: ObjectId) -> bool {
+        can_block(self.state, defending, blocker, attacker)
+            && self.has_required_creature_advantage(blocker, attacker)
+    }
+
+    /// All restrictions this offer can answer for one pair. Mana is included
+    /// here but not in the declaration's first pass, whose payment window
+    /// may still make the cost payable.
+    fn allows(&self, blocker: ObjectId, attacker: ObjectId) -> bool {
+        self.has_required_creature_advantage(blocker, attacker)
+            && self.can_pay_mana(blocker, attacker)
     }
 
     /// Whether this block's tax can be paid from its controller's pool or

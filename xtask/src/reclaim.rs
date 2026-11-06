@@ -26,6 +26,7 @@ struct Plan {
 enum Mode {
     Reclaim,
     CompleteStub,
+    PromoteGenerated,
 }
 
 impl Mode {
@@ -33,6 +34,7 @@ impl Mode {
         match self {
             Self::Reclaim => "reclaim",
             Self::CompleteStub => "complete-stub",
+            Self::PromoteGenerated => "promote-generated",
         }
     }
 
@@ -40,6 +42,7 @@ impl Mode {
         match self {
             Self::Reclaim => "reclaimed",
             Self::CompleteStub => "completed",
+            Self::PromoteGenerated => "promoted",
         }
     }
 }
@@ -64,6 +67,17 @@ pub(crate) fn complete_stubs(
     check: bool,
 ) -> anyhow::Result<()> {
     plan_with_mode(root, cache, scripts, names, Mode::CompleteStub)?.apply(check)
+}
+
+/// Promote only fully read machine-owned cards with accepted canonical tests.
+pub(crate) fn promote_generated(
+    root: &Path,
+    cache: &Path,
+    scripts: &Path,
+    names: &[String],
+    check: bool,
+) -> anyhow::Result<()> {
+    plan_with_mode(root, cache, scripts, names, Mode::PromoteGenerated)?.apply(check)
 }
 
 impl Plan {

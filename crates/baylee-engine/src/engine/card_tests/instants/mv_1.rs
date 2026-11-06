@@ -93,6 +93,7 @@ mod indestructible_aura;
 mod iron_will;
 mod ivory_charm;
 mod jump;
+mod lava_dart;
 mod leap;
 mod lifelace;
 mod lightning_bolt;
