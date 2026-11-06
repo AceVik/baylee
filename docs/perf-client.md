@@ -994,3 +994,34 @@ Der geteilte PostgreSQL lief weiter. Keine echten Modellaufrufe, keine
 Produktions-Gateways und keine Serveränderung. Diese Gates betreffen den
 eigenständigen P3-Branch; eine zusammengeführte Integration der vier Pakete
 und ein CI-Lauf nach Push werden nicht behauptet.
+
+## Build knobs on macOS (6 November 2026)
+
+Measured, not adopted: `.cargo/config.toml` keeps
+`-Csplit-debuginfo=packed`. M1 Max, load 4–8, one run per cell, so these
+numbers carry no span. Seconds, a target directory of its own per variant.
+"One card" is one edited card file, rebuilt.
+
+| Variant | Client cold | Engine tests cold | Client, one card | Engine tests, one card | Client relink | Binary | Target |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `packed`, `line-tables-only` (today) | 234 | 212 | 51 | 59 | 33.3 | 1018 MB | 22.7 GB |
+| `-Csplit-debuginfo=off` | 208 | 208 | 36 | 56 | 13.5 | 1018 MB | 20.8 GB |
+| `debug = 0` in dev and test | 216 | 199 | 32.7 | 51.9 | 17.5 | 936 MB | 18.1 GB |
+
+`off` with `rust-lld` does not link: it cannot load the TAPI file from Xcode.
+No other fast linker is installed here.
+
+`dsymutil` costs about 20 s of each client link on the Mac. The engine test
+cycle barely moves, so it is not bound by linking.
+
+What a backtrace keeps, read raw from a probe of two crates:
+
+- `packed`: every frame with file and line.
+- `off`: the panic's location; frames from a library crate keep file and line
+  while the target directory stays; frames of the binary crate have a name
+  only. A moved binary loses the lines altogether.
+- `debug = 0`: the panic's location and names, no lines.
+
+Why it stays as it is: the flag in `.cargo/config.toml` holds for every
+profile, `dist` included, so an `off` there would empty a Mac release's
+dSYM. Twenty seconds per link on one platform do not pay for that risk.
