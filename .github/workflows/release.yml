@@ -64,6 +64,7 @@ jobs:
     outputs:
       version: ${{ steps.v.outputs.version }}
       ci-run: ${{ steps.v.outputs.ci-run }}
+      client-profile: ${{ steps.v.outputs.client-profile }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -111,19 +112,53 @@ jobs:
             # Only a successful push to this repository's main, at this SHA.
             # A green PR run is not a source of release executables.
             run=$(cargo tools release resolve)
-            echo "ci-run=$run" >> "$GITHUB_OUTPUT"
+            # A tag ships a client built from this commit's profile, which no CI
+            # run has, so its packages are built here and not promoted
+            # (docs/releasing.md §"The client's profile"). A dry run promotes.
+            if [ "$GITHUB_REF_TYPE" = tag ]; then
+              echo "client-profile=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+            else
+              echo "ci-run=$run" >> "$GITHUB_OUTPUT"
+            fi
           else
             version="$version-dev.${GITHUB_SHA::10}"
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "releasing $version"
 
-  build:
+  # The profiles lie in a draft, which only write access can read, and the
+  # packages run every dependency's build script: so this job fetches and they
+  # do not. It always runs, because a skipped job would skip everything after
+  # it, and a missing profile fails it, which stops the release.
+  client-profile:
     needs: version
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - if: needs.version.outputs.client-profile != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          COMMIT: ${{ needs.version.outputs.client-profile }}
+        run: gh release download client-profiles --pattern "client-aarch64-apple-darwin-$COMMIT.profdata" --dir client-profile
+      - if: needs.version.outputs.client-profile != ''
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: client-profile
+          path: client-profile/
+          if-no-files-found: error
+          retention-days: 3
+
+  build:
+    needs: [version, client-profile]
     uses: ./.github/workflows/client-packages.yml
     with:
       version: ${{ needs.version.outputs.version }}
       source-run: ${{ needs.version.outputs.ci-run }}
+      client-profile: ${{ needs.version.outputs.client-profile }}
     permissions:
       contents: read
       actions: read

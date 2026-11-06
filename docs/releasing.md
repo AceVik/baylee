@@ -801,8 +801,32 @@ target, instrumented and with the harness; plays the scenes of
 of 500 cards, 500 friends and 450 chat lines, whole games with spells, attacks,
 blocks and questions, a stack of 80, a replay, a full board); merges the counts; and
 builds what ships from them, without the harness. It prints where the binaries are.
-`cargo tools pgo client ship <profile>` is that last step alone, in an emptied
-directory.
+`cargo tools pgo client ship <profile>` is that last step alone: it builds in
+`target/pgo-client/profiled`, emptied first, and stands the three binaries and their
+symbols in `target/<triple>/dist`, where `cargo tools package client` reads them.
+
+A release with a profile, from the top:
+
+1. On a real Mac, at the commit the tag will name, with no changes in the checkout:
+   `cargo tools pgo client --publish`. It trains, proves the build, and uploads the
+   profile to the draft release `client-profiles` as
+   `client-aarch64-apple-darwin-<commit>.profdata` (about 100 MB; `gh` must be signed
+   in with write access). A draft, because the site and the updater read the
+   published list.
+2. Tag that commit. `release.yml` still requires the green CI run, but a tag no
+   longer promotes it: no CI run has the profile, so `source-run` stays empty and
+   **every row builds fresh** in the release, about as long as a CI package run.
+   The checks a row runs on its packages run there as on a CI run.
+3. The job `client-profile` fetches the profile, the one job with write access and
+   no dependency's build script in it, and passes it on as an artifact. No profile
+   for this commit fails that job, and the release stops.
+4. The rows marked `profiled` (today `aarch64-apple-darwin`) run
+   `cargo tools pgo client ship`, which stops the row when the counts did not reach
+   the build. The others run `cargo build-client`. Packing and signing are unchanged.
+
+A dry run (`promote-ci`) still promotes the CI run and builds no profile, and CI
+itself never builds one. To profile another row: `profiled: true` on it in
+`client-packages.yml`, and its file in the `client-profile` job.
 
 The flags reach every crate built for the target, through `RUSTC_WRAPPER`, because a
 frame's time is in `bevy` and `wgpu` as much as in this workspace; a build script or
@@ -833,7 +857,9 @@ What the other targets need:
   but Rosetta, which would train the wrong processor. It stays generic.
 - Linux needs a desktop with a GPU, and `llvm-tools`. The steps are the same; nothing
   has been run there.
-- Windows needs the same, and whether `profiler_builtins` and `llvm-tools` exist on
-  `aarch64-pc-windows-msvc` is unknown. `x86_64-pc-windows-msvc` ships them.
+- `x86_64-pc-windows-msvc` needs a desktop with a GPU and `rustup component add
+  llvm-tools`, and `BAYLEE_E2E_MONITOR` to keep the window on the screen meant for it.
+  The tool reads the argument files cargo uses for a long command line there. Whether
+  `profiler_builtins` and `llvm-tools` exist on `aarch64-pc-windows-msvc` is unknown.
 - Every row until then stays a plain build; a row without a profile is not a
   failed row. Only a row that was asked for a profile stops without one.

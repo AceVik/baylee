@@ -11,6 +11,11 @@ on:
       source-run:
         type: string
         default: ''
+      # The commit whose client profile a release builds from: the artifact
+      # `client-profile` of this run, for the rows marked `profiled`.
+      client-profile:
+        type: string
+        default: ''
 permissions:
   contents: read
   actions: read
@@ -62,6 +67,7 @@ jobs:
           - os: macos-latest
             target: aarch64-apple-darwin
             mac: true
+            profiled: true
             timeout: 150
           # Intel Macs: cross-compiled on the arm runner (the macOS SDK
           # carries both slices; `rustup target add` is all it takes), and
@@ -140,7 +146,23 @@ jobs:
       # tests are checked for the target. Servers and tools are built for
       # Linux x86_64 only, where they run; this checked all of them on every
       # target until 29.10.2026 (2.5 min of each Mac row, 5 on Windows).
-      - if: inputs.source-run == ''
+      # A release ships a client built from its commit's profile (docs/releasing.md
+      # §"The client's profile"), and stops here without one: nothing builds a
+      # plain client in its place.
+      - if: inputs.source-run == '' && inputs.client-profile != '' && matrix.profiled
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: client-profile
+          path: ${{ runner.temp }}/client-profile
+      - if: inputs.source-run == '' && inputs.client-profile != '' && matrix.profiled
+        shell: bash
+        env:
+          PACKAGE_TARGET: ${{ matrix.target }}
+          CLIENT_PROFILE: ${{ inputs.client-profile }}
+        run: |
+          rustup component add llvm-tools
+          cargo tools pgo client ship "$RUNNER_TEMP/client-profile/client-$PACKAGE_TARGET-$CLIENT_PROFILE.profdata"
+      - if: inputs.source-run == '' && !(inputs.client-profile != '' && matrix.profiled)
         shell: bash
         env:
           BAYLEE_RELEASE_BUILD: '1'
