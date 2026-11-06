@@ -66,10 +66,28 @@ Fassung kommt er, wenn er in Messungen gewinnt.
 - **Gegner-Leser:** Verteilung über die gegnerische Hand aus öffentlichen Eingaben. Er ist die
   Voraussetzung für Suche im Live-Spiel, denn die heutige Suche läuft nur im Evaluator und
   kennt die echten Decklisten (`docs/trained-ai.md`, `lookahead-design.md`).
-- **Synergetiker und Deck-Kopf:** verdeckte Karten in rund 321.000 Listen vorhersagen, auf dem
-  eingefrorenen Kartenkenner; Plan-Vektor als Eingabespalte fürs Spiel; Deck-Vorschläge.
-- **Denkschritte über Optionen:** nur als Experiment. Der nächste Vorgänger (Arm c) verlor
-  5,1 pp, trotz besserer Imitation.
+- **Synergetiker:** lernt aus rund 321.000 Listen, verdeckte Karten vorherzusagen, auf dem
+  eingefrorenen Kartenkenner. Er arbeitet beim Spielen und beim Deck-Bau. Im Spiel liefert er:
+  - **eigene Seite:** Plan-Vektor des Decks und je Permanent und Handkarte, wie viel der Plan an
+    ihr hängt, also was geschützt, gehalten oder nicht getauscht werden soll;
+  - **gegnerische Seite:** aus den **gesehenen** Karten eine Verteilung über den Rest des Decks,
+    dazu die tragenden Teile seiner Synergie, also Ziele für Entfernen, Kontern und Angriffe.
+    Der Wert einer Karte ist, wie stark die Vorhersage des Plans fällt, wenn sie fehlt.
+  Diese Deck-Verteilung ist zugleich die Grundlage von Gegner-Leser und Vorausdenker. Sie nutzt nur
+  Öffentliches. Eingang ins Netz über Spalten, wie bei der Zielseite.
+- **Deck-Kopf:** Deck-Vorschläge auf demselben Synergetiker.
+- **Denken, drei Formen, nach gemessenem Nutzen:**
+  1. **Vorausdenken in der Engine** ist das eigentliche Denken: Züge werden wirklich durchgespielt.
+     Es ist die einzige Form mit gemessenem Gewinn (372 → 430), kostete aber das Elffache an
+     Zeit, 0,52 s je durchdachter Entscheidung mit GPU. Für das Live-Spiel braucht es
+     gezogene Welten statt echter Decklisten, also den Synergetiker, und die Engine im Sitz
+     (`lookahead-design.md`).
+  2. **Bedenkzeit nach Bedarf:** Gedacht wird nur, wo es zählt: knappe Entscheidung laut
+     Entscheider und Bewerter. Heute wurden 21 % der Entscheidungen durchsucht. Das ist auch
+     der Regler für die Spielstärken.
+  3. **Inneres Denken K:** Heute sehen die Denkschritte nur das Brett, und K brachte nichts.
+     Ein kleiner neuer Block, der Brett und Optionen sieht, lässt sich bei eingefrorenem Rumpf
+     trainieren. Experiment, kein Versprechen: Der nächste Vorgänger (Arm c) verlor 5,1 pp.
 - **Taktiker:** bleibt Programm und äußere Schicht von v6. Ein gelerntes Tor mit Start bei 497
   geht so nicht: `tactics.rs` und `choices.rs` (rund 8.300 Zeilen) arbeiten mit Masken,
   Tausch nach dem Sampling, Zustand und Mehrschritt-Logik, nicht mit Urteilen je Option.
@@ -108,7 +126,9 @@ Darum dient die LLM-Leiter nur für Meilensteine, nicht für jede Iteration. Bud
    schon).
 3. Kombinationen: `tap,cast,react`, und was die restlichen 44 Siege erklärt.
 4. Bewerter nur auf Duellen, je Spielphase, mit Kalibrierung.
-5. Leiter aufbauen: Haus-Stufen, B-refresh roh und mit Taktik, jede LLM-Stufe; das klärt auch
+5. Denken: K = 0, 1, 2, 4, 8 auf B-refresh (die Exporte gibt es), und Suche auf B-refresh mit
+   Taktik, damit bekannt ist, was sie auf dem heutigen Stand bringt.
+6. Leiter aufbauen: Haus-Stufen, B-refresh roh und mit Taktik, jede LLM-Stufe; das klärt auch
    die Argon-Zahl.
 
 **Tor A.** Ein Arm zählt, wenn das untere 95-%-Limit über +1 pp liegt. Bringt der Menü-Arm das
