@@ -924,7 +924,9 @@ pub(super) fn deck_refusal(response: &ehttp::Response) -> Option<baylee_cardtext
         .and_then(|body| body.refused)
 }
 
-/// The gateway's own `{"error":…}`, or the bare status if it sent none.
+/// A refusal with a stable reason in this client's words (`docs/protocol.md`
+/// §"Refusals"), else the gateway's own `{"error":…}`, or the bare status if
+/// it sent none.
 pub(super) fn gateway_error(lang: Lang, response: &ehttp::Response) -> String {
     /// Every refusal the gateway sends has this shape.
     #[derive(serde::Deserialize)]
@@ -932,6 +934,9 @@ pub(super) fn gateway_error(lang: Lang, response: &ehttp::Response) -> String {
         error: String,
     }
 
+    if let Some(refusal) = baylee_protocol::refusal::Refusal::read(&response.bytes) {
+        return client_core::refusal::say(&refusal, lang);
+    }
     response
         .text()
         .and_then(|body| serde_json::from_str::<Body>(body).ok())

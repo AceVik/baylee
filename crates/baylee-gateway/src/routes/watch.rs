@@ -102,7 +102,7 @@ pub(crate) async fn watch_ws(
         may_watch(game)?;
     }
     if let Some(why) = baylee_protocol::version_refusal("This client", params.protocol) {
-        return Ok(ws.on_upgrade(move |socket| refuse_seat(socket, why)));
+        return Ok(ws.on_upgrade(move |socket| refuse_seat(socket, why, params.protocol)));
     }
     // Whose socket it is, for the friends list's "watching" (`social/`):
     // the session that bought the ticket, if it still stands.

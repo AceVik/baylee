@@ -35,7 +35,9 @@ pub mod tape;
 /// Version 36 requires authoritative per-seat participation endings from engines.
 /// Version 37 asks a vote as one (`ChoicePrompt::Vote`, CR 701.38a).
 /// Counter-order prompts also carry the entry replacement's counter kind.
-pub const PROTOCOL_VERSION: u32 = 37;
+/// Version 38 is the sign-in by gateway token, with a session token that
+/// rotates, and says why a socket was refused (`HelloAck::refusal`).
+pub const PROTOCOL_VERSION: u32 = 38;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;

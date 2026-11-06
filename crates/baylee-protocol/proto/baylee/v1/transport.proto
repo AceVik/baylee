@@ -6,6 +6,15 @@ package baylee.v1;
 
 // ---------------------------------------------------------------- handshake
 
+// Why a server refused, for a client to say in its own words
+// (`docs/protocol.md` §"Refusals"). Empty fields are absent.
+message Refusal {
+  string code = 1;
+  string min_version = 2;
+  int64 until = 3;
+  string text = 4;
+}
+
 // A seat socket refused for its protocol (#271): the first and only frame
 // on it, sent by the gateway before the socket is closed. The client says
 // which protocol it speaks in the socket's query (`&protocol=`), so there
@@ -15,6 +24,8 @@ message HelloAck {
   uint32 protocol_version = 1;
   bool compatible = 2;
   string message = 3;
+  // Why, when `compatible` is false and the gateway can say.
+  Refusal refusal = 4;
 }
 
 message JoinGame {

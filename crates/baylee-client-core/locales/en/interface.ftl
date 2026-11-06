@@ -7030,6 +7030,36 @@ ShellStatsLine = { $online } online · { $waiting } waiting · { $playing } play
 # The gateway now refuses this client's protocol: an update is needed.
 ShellUpdateRequired = Update required — this gateway runs a newer version
 
+# Why a server refused (docs/protocol.md "Refusals"), in the client's words.
+# This client is too old. The updater needs no sign-in.
+RefusalUpdateRequired = Update required — this client is too old. It updates itself, and needs no sign-in for that.
+
+# The same, naming the lowest version that would be let in.
+# Arguments: version
+RefusalUpdateRequiredTo = Update required — this client is too old, version { $version } or newer is needed. It updates itself, and needs no sign-in for that.
+
+# The server is closed for maintenance.
+RefusalMaintenance = This server is closed for maintenance. Try again later.
+
+# The account is banned here.
+RefusalBanned = This account is banned here.
+
+# Terms of use have to be accepted first.
+RefusalTerms = Accept the terms of use in force to go on.
+
+# The session ended: signed out elsewhere, or by the server.
+RefusalSessionEnded = Your session has ended. Sign in again to go on.
+
+# The server is too busy for now.
+RefusalBusy = This server is busy just now. Try again in a moment.
+
+# A reason this client does not know yet.
+RefusalOther = This server refused. An update of this client may say more.
+
+# What a server added, quoted as its words after the client's own sentence.
+# Arguments: own, text
+RefusalServerSaid = { $own } The server says: “{ $text }”
+
 # The badge beside a closed-beta gateway's name on the front door.
 FrontClosedBeta = closed beta
 

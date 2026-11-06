@@ -172,7 +172,7 @@ pub(crate) async fn game_ws(
     // browser's `WebSocket` shows a script neither (#271).
     if let Some(why) = baylee_protocol::version_refusal("This client", params.protocol) {
         tracing::warn!(game_id = id, seat, why, "seat socket refused");
-        return Ok(ws.on_upgrade(move |socket| refuse_seat(socket, why)));
+        return Ok(ws.on_upgrade(move |socket| refuse_seat(socket, why, params.protocol)));
     }
     // By the token and not the account: a seat bridge's chair has none, and
     // a socket waiting for its engine has not replaced anything yet.
@@ -305,14 +305,20 @@ pub(crate) async fn authorize_seat_token(
 
 /// The one frame a seat socket of another protocol is sent before it closes
 /// (#271): a `HelloAck` that is not compatible, carrying this gateway's
-/// version and the sentence naming both.
-pub(crate) async fn refuse_seat(mut socket: WebSocket, why: String) {
+/// version and the sentence naming both. A client older than this gateway
+/// also hears that an update is what it needs; one newer than it does not,
+/// because updating it would change nothing.
+pub(crate) async fn refuse_seat(mut socket: WebSocket, why: String, theirs: u32) {
     use prost::Message as _;
     let ack = Envelope {
         msg: Some(v1::envelope::Msg::HelloAck(v1::HelloAck {
             protocol_version: baylee_protocol::PROTOCOL_VERSION,
             compatible: false,
             message: why,
+            refusal: (theirs < baylee_protocol::PROTOCOL_VERSION).then(|| v1::Refusal {
+                code: "update_required".into(),
+                ..v1::Refusal::default()
+            }),
         })),
     };
     if socket

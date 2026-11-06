@@ -499,6 +499,7 @@ fn spawn_refusing_table(table: u32) -> (u16, std::sync::mpsc::Receiver<String>) 
                         protocol_version: table,
                         compatible: false,
                         message: "This client speaks another protocol.".to_string(),
+                        refusal: None,
                     })),
                 };
                 if send(&mut ws, refusal).await.is_ok() {

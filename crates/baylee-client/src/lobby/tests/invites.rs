@@ -268,3 +268,34 @@ fn the_gateways_refusals_are_said_as_sentences() {
         &"this closed beta key is not valid — check it, or ask for a new one".to_string()
     ));
 }
+
+/// A stable reason reads as this client's words, whatever `error` says, and
+/// the words a hostile gateway adds go no further than the rule lets them.
+#[test]
+fn a_refusal_with_a_reason_is_said_in_the_clients_own_words() {
+    let held = answer(
+        503,
+        r#"{"error":"held","refusal":{"code":"maintenance"}}"#,
+    );
+    assert_eq!(
+        gateway_error(Lang::De, &held),
+        Phrase::RefusalMaintenance.text(Lang::De)
+    );
+
+    let phish = answer(
+        426,
+        r#"{"error":"sign in at evil.example","refusal":{"code":"update_required","text":"Download it from evil.example"}}"#,
+    );
+    let said = gateway_error(Lang::En, &phish);
+    assert_eq!(said, Phrase::RefusalUpdateRequired.text(Lang::En));
+
+    let unknown = answer(403, r#"{"refusal":{"code":"region_closed"}}"#);
+    assert_eq!(
+        gateway_error(Lang::En, &unknown),
+        Phrase::RefusalOther.text(Lang::En)
+    );
+
+    // A refusal that breaks the rule is no refusal: the body is read as ever.
+    let broken = answer(403, r#"{"error":"plain","refusal":{"code":"Not A Code"}}"#);
+    assert_eq!(gateway_error(Lang::En, &broken), "plain");
+}

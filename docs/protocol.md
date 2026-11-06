@@ -2457,6 +2457,53 @@ Gateway, agent, engine and clients must all speak protocol 4. The existing
 handshake refuses mixed versions explicitly; the gameplay view version is
 unchanged.
 
+## Refusals
+
+Any refusal from a gateway or Baylee Central may say why, in a form a client
+understands (owner, 06.11.2026). A server chooses a **reason**, never a
+sentence: the client says a known reason in its own words and offers its own
+action. A server may be hostile, so nothing in a refusal can phish, and nothing
+in one is a link the client follows.
+
+| Field | Rule |
+| --- | --- |
+| `code` | Required, `[a-z0-9_]{1,32}`. Stable: a code never changes meaning. |
+| `min_version` | Optional, `[0-9A-Za-z.+-]{1,32}`: the lowest client that would be let in. Dropped if it breaks the rule, so it cannot carry words. |
+| `until` | Optional, Unix seconds: when this ends. |
+| `text` | Optional, plain text, at most 200 characters, never markup. |
+
+| `code` | Means | The client's action |
+| --- | --- | --- |
+| `update_required` | This client is too old. | Its own updater, which needs no sign-in. |
+| `maintenance` | Closed for now. | Try again later. |
+| `banned` | The account is banned here. | None. |
+| `terms` | Terms of use come first. | Its own terms sheet. |
+| `session_ended` | The session ended. | Sign in again. |
+| `busy` | Too busy just now. | Try again in a moment. |
+
+A client treats any other `code` as unknown and shows a plain sentence of its
+own, so a new code needs no client release. `baylee_protocol::refusal` is the
+one reader: `Refusal::read` and `Refusal::cleaned`.
+
+**What a client does with `text`.** It removes control, direction and invisible
+characters, keeps one line, and shows it after its own sentence, labelled as the
+server's. It ignores `text` entirely for `update_required` and `terms`: "update
+required, download it from …" is what a hostile gateway would write, so those
+two have only the client's words and the client's action. No field names a
+destination; the updater's source and the terms sheet are built in.
+
+**How it travels.**
+
+- HTTP: on any status but 200, `Content-Type: application/json` with a `refusal`
+  object, in a body of at most 1 KiB (a client reads no more). A gateway's sits
+  beside `error`, for a client that reads only that. A bare `426` means
+  `update_required`.
+- `HelloAck`: the same fields in `refusal`. A gateway says `update_required` only
+  to a client older than itself; to a newer one it says nothing an update of that
+  client would answer.
+- A socket closed for a refusal: close code `4000`, the `code` as its reason, which
+  is why a code fits a close frame. `text` does not travel this way.
+
 ## Which side checks the protocol (#271)
 
 The gateway checks, and only against itself. Every peer says which protocol
