@@ -66,6 +66,7 @@ fn the_counter_gate_lets_only_a_cantrip_resolve() {
             "Dream Cache",
             "Index",
             "Introduction to Prophecy",
+            "Obsessive Search",
             "Open Communications",
             "Opt",
             "Preordain",
