@@ -361,8 +361,12 @@ fn policy_mode_name(args: &Args) -> &'static str {
 }
 
 fn load_brain(args: &Args, model: &std::path::Path) -> anyhow::Result<NetPlayer4> {
+    // `live4::brain` says the rest; Encoder 10 reads the views Encoder 7 reads.
     anyhow::ensure!(
-        baylee_train::netplay4::inspect_model_identity(model)?.encoder_version < 8,
+        !matches!(
+            baylee_train::netplay4::inspect_model_identity(model)?.encoder_version,
+            8 | 9
+        ),
         "Encoders 8 and 9 require versioned context on the wire; use offline eval4"
     );
     Ok(NetPlayer4::load(model)?
