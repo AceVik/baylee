@@ -1,4 +1,4 @@
-//! BayleeAI v6 Phase A: plans of paired arms, their table, the value report.
+//! `BayleeAI` v6 Phase A: plans of paired arms, their table, the value report.
 //!
 //! An arm is a word: `raw@dev`, `tac-t05-s2@fresh`, `raw-menu@dev`, `raw-k4@dev`,
 //! `g=tap+cast+react@dev`, `plain-search@dev:256`, `raw-vs=s1r@dev:256`. The
@@ -515,6 +515,42 @@ fn survey_row(word: &str, text: &str) -> Value {
     })
 }
 
+/// The table of `pairs`, printed and written to `out`.
+fn table(root: &Path, resamples: usize, out: &Path, pairs: &[String]) -> Result<()> {
+    // `A~B/C~D` is one arm on two sets of deals, pooled.
+    let reports: Vec<Value> = pairs
+        .iter()
+        .map(|spec| {
+            if !spec.contains('/') {
+                return pair(root, spec, resamples);
+            }
+            let parts: Vec<Value> = spec
+                .split('/')
+                .map(|part| pair(root, part, resamples))
+                .collect::<Result<_>>()?;
+            let mut pooled = pool_arms(&parts, resamples)?;
+            pooled["arm"] = json!(format!("{spec} (pooled)"));
+            pooled["reference"] = json!("");
+            Ok(pooled)
+        })
+        .collect::<Result<_>>()?;
+    println!("| arm | reference | deals | wins | ref | paired | better/worse | Tor A |");
+    println!("| --- | --- | --- | --- | --- | --- | --- | --- |");
+    for report in &reports {
+        println!("{}", row(report)?);
+    }
+    let kept: Vec<Value> = reports
+        .into_iter()
+        .map(|mut report| {
+            if let Some(fields) = report.as_object_mut() {
+                fields.remove("rows");
+            }
+            report
+        })
+        .collect();
+    atomic_json(out, &Value::Array(kept))
+}
+
 fn main() -> Result<()> {
     match Args::parse().command {
         Command::Plan {
@@ -546,40 +582,7 @@ fn main() -> Result<()> {
             resamples,
             out,
             pairs,
-        } => {
-            // `A~B/C~D` is one arm on two sets of deals, pooled.
-            let reports: Vec<Value> = pairs
-                .iter()
-                .map(|spec| {
-                    if !spec.contains('/') {
-                        return pair(&root, spec, resamples);
-                    }
-                    let parts: Vec<Value> = spec
-                        .split('/')
-                        .map(|part| pair(&root, part, resamples))
-                        .collect::<Result<_>>()?;
-                    let mut pooled = pool_arms(&parts, resamples)?;
-                    pooled["arm"] = json!(format!("{spec} (pooled)"));
-                    pooled["reference"] = json!("");
-                    Ok(pooled)
-                })
-                .collect::<Result<_>>()?;
-            println!("| arm | reference | deals | wins | ref | paired | better/worse | Tor A |");
-            println!("| --- | --- | --- | --- | --- | --- | --- | --- |");
-            for report in &reports {
-                println!("{}", row(report)?);
-            }
-            let kept: Vec<Value> = reports
-                .into_iter()
-                .map(|mut report| {
-                    if let Some(fields) = report.as_object_mut() {
-                        fields.remove("rows");
-                    }
-                    report
-                })
-                .collect();
-            atomic_json(&out, &Value::Array(kept))?;
-        }
+        } => table(&root, resamples, &out, &pairs)?,
         Command::Surveys {
             root,
             gamelog,

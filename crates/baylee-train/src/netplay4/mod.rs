@@ -144,6 +144,8 @@ pub struct NetPlayer4 {
     choice_guard: ChoiceGuard4,
     /// `eval4 --menu-payable`: the same, for what is offered rather than taken.
     payable_menu: Option<PayableMenu4>,
+    /// A journal's copy of the last menu with its logits; `None` keeps none.
+    pub(crate) last_menu: Option<serde_json::Value>,
 }
 
 fn ort_error(e: impl std::fmt::Display) -> anyhow::Error {
@@ -371,6 +373,7 @@ impl NetPlayer4 {
             rule_refs_left_out: 0,
             choice_guard: ChoiceGuard4::default(),
             payable_menu: None,
+            last_menu: None,
         }
     }
 

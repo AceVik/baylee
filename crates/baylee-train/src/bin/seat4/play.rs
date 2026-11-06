@@ -12,6 +12,7 @@ pub async fn play(
     link: &mut SeatLink,
     core: &mut LiveSeat4,
     audit: &mut Option<super::audit::Writer>,
+    journal: &mut Option<super::journal::Journal>,
 ) -> anyhow::Result<()> {
     let mut socket = link
         .connect()
@@ -53,6 +54,9 @@ pub async fn play(
                         if let (Some(audit), Some(decision)) = (audit.as_mut(), decision) {
                             audit.decision(decision, true)?;
                         }
+                    }
+                    if let (Some(journal), Some(row)) = (journal.as_mut(), core.take_journal_row()) {
+                        journal.write(&row)?;
                     }
                     if core.finished() {
                         return Ok(());

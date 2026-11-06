@@ -1,5 +1,6 @@
 //! A local neural opponent in an ordinary gateway room.
 mod audit;
+mod journal;
 mod model_selection;
 mod play;
 mod presence;
@@ -62,6 +63,10 @@ struct Args {
     /// Local aggregate reports, without player identities or hidden game records.
     #[arg(long)]
     reports: Option<PathBuf>,
+    /// This seat's views, questions and answers, for a reader of one game;
+    /// with --games 1 only. Never training data.
+    #[arg(long)]
+    journal: Option<PathBuf>,
 }
 
 #[tokio::main(flavor = "current_thread")]
@@ -71,6 +76,10 @@ async fn main() -> anyhow::Result<()> {
     ensure!(
         args.join.is_none() || args.games == 1,
         "--join requires --games 1"
+    );
+    ensure!(
+        args.journal.is_none() || args.games == 1,
+        "--journal requires --games 1"
     );
     // This local preview must not silently compete with the CUDA trainer.
     ensure!(
@@ -149,6 +158,11 @@ async fn run(
         let seat = PlayerId::new(u8::try_from(chair.seat).context("invalid seat")?);
         let mut core = None;
         let mut audit = None;
+        let mut journal = args
+            .journal
+            .as_deref()
+            .map(journal::Journal::create)
+            .transpose()?;
         let reopen_expired = args.join.is_none() && args.games == 0;
         let game = async {
             match wait_for_player(lobby, session, &chair, args.join.is_none(), reopen_expired)
@@ -160,12 +174,17 @@ async fn run(
             let mut brain = select_brain(args, &mut selected, &mut first_brain)?;
             audit = prepare_audit(args, &mut brain, games, seat)?;
             announce_model(args, &selected, &chair, audit.as_ref());
-            core = Some(LiveSeat4::new(brain, deck.list.clone(), seat));
+            let mut live = LiveSeat4::new(brain, deck.list.clone(), seat);
+            if journal.is_some() {
+                live.keep_journal();
+            }
+            core = Some(live);
             let mut link = SeatLink::new(lobby.clone(), chair.clone(), Some(session.clone()));
             play::play(
                 &mut link,
                 core.as_mut().context("missing pinned brain")?,
                 &mut audit,
+                &mut journal,
             )
             .await?;
             Ok(true)
@@ -190,6 +209,11 @@ async fn run(
                 })
             );
             continue;
+        }
+        if let Some(journal) = journal.take()
+            && journal.finish().is_err()
+        {
+            eprintln!("could not finish the journal");
         }
         let auditing = audit
             .as_mut()

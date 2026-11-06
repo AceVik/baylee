@@ -6,6 +6,8 @@
 //! deal's score is then the mean over the seeds, and the bootstrap over tables
 //! sees that mean, so sampling noise stays inside the interval: a table's
 //! difference carries the noise of its games, and more seeds only shrink it.
+// Counts are bounded by resident JSON input sizes, well below f64's exact 2^53 range.
+#![allow(clippy::cast_precision_loss)]
 use super::{case_key, flag, number, summarize};
 use anyhow::{Context, Result, ensure};
 use serde_json::{Value, json};

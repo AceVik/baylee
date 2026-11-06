@@ -39,7 +39,7 @@ struct Args {
     /// A deck manifest: `{"decks":[{"key","path"}]}`.
     #[arg(long)]
     decks: PathBuf,
-    /// `PROFILE:MODE:GAMES`, MODE being `raw` or `tactical`.
+    /// `PROFILE:MODE:GAMES`, MODE being `raw`, `tactical` or `tactical=GROUPS`.
     #[arg(long, required = true)]
     arm: Vec<String>,
     /// Games at once, over all arms.
@@ -87,7 +87,10 @@ fn schedule(args: &Args) -> Result<Vec<Game>> {
         let [count, mode, profile] = parts[..] else {
             bail!("an arm is PROFILE:MODE:GAMES, not {arm}");
         };
-        ensure!(matches!(mode, "raw" | "tactical"), "unknown mode {mode}");
+        ensure!(
+            matches!(mode, "raw" | "tactical") || mode.starts_with("tactical="),
+            "unknown mode {mode}"
+        );
         for game in 0..count.parse::<usize>().context("games")? {
             // Two games of a deal share the decks, with the seats swapped.
             let (first, second) = (
@@ -139,9 +142,13 @@ fn host(
         .arg("--name")
         .arg(format!("b{}", game.index))
         .arg("--reports")
-        .arg(work.join("reports"));
+        .arg(work.join("reports"))
+        .arg("--journal")
+        .arg(work.join("journal.jsonl.gz"));
     if game.mode == "raw" {
         command.arg("--raw-policy");
+    } else if let Some(groups) = game.mode.strip_prefix("tactical=") {
+        command.arg("--tactics-rules").arg(groups);
     }
     command
         .env_clear()
@@ -242,18 +249,26 @@ fn reap(child: &mut Child) {
     let _ = child.wait();
 }
 
-/// A corpus deck as the seats read one: its count lines under `Deck`.
-fn plain_deck(source: &Path, target: PathBuf) -> Result<PathBuf> {
-    let text =
-        std::fs::read_to_string(source).with_context(|| format!("reading {}", source.display()))?;
+/// A corpus deck's main deck as the seats read one: its count lines under
+/// `Deck`. A game has no sideboard, so nothing from `[sideboard]` on is played.
+fn main_deck(text: &str) -> String {
     let mut plain = String::from("Deck\n");
     for line in text.lines() {
+        if line.trim().to_ascii_lowercase().starts_with("[sideboard") {
+            break;
+        }
         if line.starts_with(|first: char| first.is_ascii_digit()) {
             plain.push_str(line);
             plain.push('\n');
         }
     }
-    std::fs::write(&target, plain)?;
+    plain
+}
+
+fn plain_deck(source: &Path, target: PathBuf) -> Result<PathBuf> {
+    let text =
+        std::fs::read_to_string(source).with_context(|| format!("reading {}", source.display()))?;
+    std::fs::write(&target, main_deck(&text))?;
     Ok(target)
 }
 
@@ -324,6 +339,49 @@ fn play(args: &Args, game: &Game) -> Result<Value> {
     }))
 }
 
+/// What a game of `profile` would leave of the book's monthly cap: below zero,
+/// the book cannot pay for a whole game. A seat that sat down on less would run
+/// out, the house would finish its game, and such a game counts for nothing. A
+/// house seat has no book.
+fn margin(settings: &Value, book: &Value, profile: &str) -> Option<f64> {
+    let entry = settings["profiles"].get(profile)?;
+    let (unit, budget) = entry["game_usd"].as_f64().map_or_else(
+        || ("tokens", entry["game_tokens"].as_f64()),
+        |usd| ("usd", Some(usd)),
+    );
+    let cap = settings["caps"][format!("month_{unit}")].as_f64()?;
+    let used: f64 = book["games"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .map(|game| {
+            let state = if game["settled"].is_null() {
+                "reserved"
+            } else {
+                "spent"
+            };
+            game[format!("{state}_{unit}")].as_f64().unwrap_or(0.0)
+        })
+        .sum();
+    Some(cap - used - budget?)
+}
+
+/// Why no further game starts, if something says so: the book, or a `STOP` file
+/// in the root, which ends a run while the games at the tables finish.
+fn stop_reason(args: &Args, game: &Game) -> Result<Option<&'static str>> {
+    if args.root.join("STOP").exists() {
+        return Ok(Some("stopped"));
+    }
+    let book = if args.ledger.exists() {
+        read_json(&args.ledger)?
+    } else {
+        Value::Null
+    };
+    let short = margin(&read_json(&args.profiles)?, &book, &game.profile)
+        .is_some_and(|margin| margin < 0.0);
+    Ok(short.then_some("budget"))
+}
+
 /// Plays `game` when its turn to start comes, trying again when it never got
 /// going: a game signs in twice, and the gateway takes 8 sign-ins from one
 /// address in five minutes, however many tables are free.
@@ -338,6 +396,17 @@ fn play_paced(args: &Args, game: &Game, next_start: &Mutex<Instant>) -> Value {
             start
         };
         std::thread::sleep(start.saturating_duration_since(Instant::now()));
+        match stop_reason(args, game) {
+            Ok(None) => {}
+            Ok(Some(reason)) => {
+                return json!({"game": game.index, "profile": game.profile, "mode": game.mode,
+                    "net_deck": game.net_key, "llm_deck": game.llm_key, "not_started": reason});
+            }
+            Err(error) => {
+                last = Some(format!("{error:#}"));
+                continue;
+            }
+        }
         match play(args, game) {
             Ok(result) => return result,
             Err(error) => last = Some(format!("{error:#}")),
@@ -426,4 +495,31 @@ fn main() -> Result<()> {
             .map_err(|_| anyhow::anyhow!("a table panicked"))?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_game_plays_the_main_deck_alone() {
+        let text = "# source\n[deck:x]\n4 Island\n\n[sideboard]\n3 Pyroblast\n";
+        assert_eq!(main_deck(text), "Deck\n4 Island\n");
+    }
+
+    #[test]
+    fn a_book_that_cannot_pay_a_whole_game_says_so() {
+        let settings = json!({"caps": {"month_usd": 1.0, "month_tokens": 100.0}, "profiles": {
+            "paid": {"game_usd": 0.4}, "free": {"game_tokens": 60}}});
+        let book = json!({"games": [
+            {"reserved_usd": 0.4, "spent_usd": 0.1, "settled": 5, "spent_tokens": 30},
+            {"reserved_usd": 0.4, "reserved_tokens": 30},
+        ]});
+        // 0.1 spent and 0.4 held leave 0.5: one game, with 0.1 over.
+        let paid = margin(&settings, &book, "paid").unwrap();
+        assert!((paid - 0.1).abs() < 1e-9, "{paid}");
+        // 30 spent and 30 held leave 40 of 100, short of a game of 60.
+        assert!(margin(&settings, &book, "free").unwrap() < 0.0);
+        assert_eq!(margin(&settings, &book, "house:sharp"), None);
+    }
 }

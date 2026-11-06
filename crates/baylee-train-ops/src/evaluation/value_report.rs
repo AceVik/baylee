@@ -6,6 +6,8 @@
 //! was fitted to, and the board baseline is a logistic regression on life, hand
 //! and permanent differences, fitted the same way. Intervals are table
 //! bootstraps, as everywhere else in the evaluation.
+// Counts are bounded by resident JSON input sizes, well below f64's exact 2^53 range.
+#![allow(clippy::cast_precision_loss)]
 use super::summary::sample;
 use anyhow::{Context, Result};
 use serde_json::{Value, json};
@@ -118,10 +120,10 @@ fn fit_board(positions: &[&Position]) -> [f64; 4] {
         for position in positions {
             let p = logistic(dot(&weights, &position.features));
             let spread = (p * (1.0 - p)).max(1e-6);
-            for i in 0..4 {
+            for (i, row) in hessian.iter_mut().enumerate() {
                 gradient[i] += (position.outcome - p) * position.features[i];
-                for j in 0..4 {
-                    hessian[i][j] += spread * position.features[i] * position.features[j];
+                for (cell, feature) in row.iter_mut().zip(position.features) {
+                    *cell += spread * position.features[i] * feature;
                 }
             }
         }
@@ -154,8 +156,9 @@ fn solve(mut matrix: [[f64; 4]; 4], mut rhs: [f64; 4]) -> [f64; 4] {
         rhs.swap(col, pivot);
         for row in col + 1..4 {
             let factor = matrix[row][col] / matrix[col][col];
-            for k in col..4 {
-                matrix[row][k] -= factor * matrix[col][k];
+            let pivot_row = matrix[col];
+            for (cell, pivot_cell) in matrix[row].iter_mut().zip(pivot_row).skip(col) {
+                *cell -= factor * pivot_cell;
             }
             rhs[row] -= factor * rhs[col];
         }
@@ -240,6 +243,9 @@ fn bins(scored: &[(f64, f64)]) -> Vec<Value> {
         .collect()
 }
 
+/// A position as scored: the head, the outcome, the table, the board baseline.
+type ScoredPosition = (f64, f64, u64, f64);
+
 /// Per table, the sum of squared-error gains of the head over a baseline, and
 /// the count, for the bootstrap.
 fn gain_interval(rows: &[(u64, f64)], resamples: usize) -> [f64; 2] {
@@ -312,7 +318,7 @@ fn row(
 ) -> Value {
     let rate = mean(fit.iter().map(|p| p.outcome));
     let board = fit_board(fit);
-    let scored: Vec<(f64, f64, u64, f64)> = test
+    let scored: Vec<ScoredPosition> = test
         .iter()
         .filter_map(|p| {
             score(p).map(|s| (s, p.outcome, p.deal / 2, logistic(dot(&board, &p.features))))
@@ -321,7 +327,7 @@ fn row(
     if scored.is_empty() {
         return json!({"slice": label, "n": 0});
     }
-    let brier = |f: &dyn Fn(&(f64, f64, u64, f64)) -> f64| {
+    let brier = |f: &dyn Fn(&ScoredPosition) -> f64| {
         mean(scored.iter().map(|s| (f(s) - s.1).powi(2)))
     };
     let head = brier(&|s| s.0);

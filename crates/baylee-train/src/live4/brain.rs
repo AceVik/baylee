@@ -40,6 +40,13 @@ pub trait Brain4 {
         deck: &DeckList,
         teams: &[Option<u8>],
     ) -> anyhow::Result<()>;
+    /// Keep what [`Self::menu`] reads, for a journal of the game.
+    fn keep_menu(&mut self) {}
+    /// The options of the last answer as the policy ranked them, if kept.
+    #[must_use]
+    fn menu(&self) -> Option<serde_json::Value> {
+        None
+    }
     /// Consume a genuinely changed authorized observation before any action.
     ///
     /// # Errors
@@ -73,6 +80,12 @@ impl Brain4 for NetPlayer4 {
     }
     fn retains_live_context(&self) -> bool {
         self.is_encoder7()
+    }
+    fn keep_menu(&mut self) {
+        self.last_menu = Some(serde_json::Value::Null);
+    }
+    fn menu(&self) -> Option<serde_json::Value> {
+        self.last_menu.clone()
     }
     fn initialize(
         &mut self,

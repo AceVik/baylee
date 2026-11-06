@@ -80,6 +80,9 @@ impl NetPlayer4 {
         if let Some(menu) = &mut self.payable_menu {
             menu.weigh(&mut cand_logits, cands);
         }
+        if self.last_menu.is_some() {
+            self.last_menu = Some(menu_trace(cands, &cand_logits, &pair_logits));
+        }
         let sampled = PolicySampler4 {
             mode: self.policy_mode,
             temperature: self.temperature,
@@ -100,6 +103,32 @@ impl NetPlayer4 {
         )?;
         Ok((sampled, cand_logits))
     }
+}
+
+/// The options as the net weighed them, for a journal of the game.
+fn menu_trace(
+    cands: &EncodedCandidates4,
+    cand_logits: &[f32],
+    pair_logits: &[f32],
+) -> serde_json::Value {
+    let options: Vec<_> = cands
+        .candidates
+        .iter()
+        .zip(cand_logits)
+        .map(|(cand, logit)| {
+            serde_json::json!({
+                "action": cand.action, "object": cand.object_id, "player": cand.player_id,
+                "index": cand.index_id, "logit": logit,
+            })
+        })
+        .collect();
+    let pairs: Vec<_> = cands
+        .pair_objects
+        .iter()
+        .zip(pair_logits)
+        .map(|(pair, logit)| serde_json::json!({"pair": pair, "logit": logit}))
+        .collect();
+    serde_json::json!({"head": cands.head as u8, "options": options, "pairs": pairs})
 }
 
 #[derive(Clone, Copy)]

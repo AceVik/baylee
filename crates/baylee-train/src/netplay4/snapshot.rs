@@ -54,6 +54,7 @@ impl NetPlayer4 {
             rule_refs_left_out,
             choice_guard: _,
             payable_menu: _,
+            last_menu: _,
         } = self;
         PlayerSnapshot4 {
             teams: teams.clone(),

@@ -87,6 +87,7 @@ pub struct LiveSeat4<B = NetPlayer4> {
     history: Sha256,
     last_decision: Option<LiveDecision4>,
     last_answered: Option<(u64, Vec<u8>)>,
+    journal: Option<Option<serde_json::Value>>,
     waiting: Option<Question>,
     ready: bool,
     curtain: bool,
@@ -109,6 +110,7 @@ impl<B: Brain4> LiveSeat4<B> {
             history: Sha256::new(),
             last_decision: None,
             last_answered: None,
+            journal: None,
             waiting: None,
             ready: false,
             curtain: false,
@@ -155,6 +157,18 @@ impl<B: Brain4> LiveSeat4<B> {
     #[must_use]
     pub const fn decision_audit(&self) -> Option<&LiveDecision4> {
         self.last_decision.as_ref()
+    }
+
+    /// Keeps a row of each answer for [`Self::take_journal_row`]: this seat's own
+    /// view, the question and the answer, for a reader of the game.
+    pub fn keep_journal(&mut self) {
+        self.brain.keep_menu();
+        self.journal = Some(None);
+    }
+
+    /// The row of the answer last generated, once.
+    pub fn take_journal_row(&mut self) -> Option<serde_json::Value> {
+        self.journal.as_mut()?.take()
     }
 
     /// A live socket gap cannot silently reuse incomplete recurrent memory.
@@ -331,6 +345,16 @@ impl<B: Brain4> LiveSeat4<B> {
                 history_sha256: audit::hex(&self.history.clone().finalize()),
                 provenance: answer.provenance,
             };
+            if let Some(row) = &mut self.journal {
+                *row = Some(serde_json::json!({
+                    "decision": decision.decision,
+                    "source": answer.provenance.source,
+                    "view": view.as_ref(),
+                    "pending": &*question.pending,
+                    "action": &answer.action,
+                    "menu": self.brain.menu(),
+                }));
+            }
             audit::extend(&mut self.history, b"question", &pending_json);
             audit::extend(&mut self.history, b"action", &action_json);
             self.last_decision = Some(decision);
