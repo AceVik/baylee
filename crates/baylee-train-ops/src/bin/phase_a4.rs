@@ -113,7 +113,7 @@ struct Arm {
 }
 
 fn file_name(word: &str) -> String {
-    word.replace(['@', ':'], "-")
+    word.replace(['@', ':', '#'], "-")
         .replace('=', "-")
         .replace('+', "_")
 }
@@ -228,6 +228,7 @@ fn arm(word: &str) -> Result<Arm> {
     let (left, right) = word
         .split_once('@')
         .context("an arm needs @dev or @fresh")?;
+    let right = right.split_once('#').map_or(right, |(right, _)| right);
     let (split, deals) = right.split_once(':').unwrap_or((right, "1024"));
     let first_seed = match split {
         "dev" => "930301000000000000",
@@ -273,7 +274,15 @@ fn stage(
             .map(|flag| (*flag).to_owned()),
     );
     let search = arm.flags.iter().any(|flag| flag == "--search");
-    let (threads, batch) = if search { (8, 136) } else { (threads, batch) };
+    let (threads, batch) = match word.split_once('#') {
+        // `WORD#48x64`, for a bench of the two.
+        Some((_, shape)) => {
+            let (t, b) = shape.split_once('x').context("#THREADSxBATCH")?;
+            (t.parse()?, b.parse()?)
+        }
+        None if search => (8, 136),
+        None => (threads, batch),
+    };
     command.extend([
         "--threads".into(),
         threads.to_string(),
