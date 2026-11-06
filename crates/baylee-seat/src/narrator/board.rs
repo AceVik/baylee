@@ -4,7 +4,8 @@ use super::{Table, object_name, tag, words};
 use baylee_core::ids::{Defender, ObjectId, PlayerId};
 use baylee_core::types::{SubtypeSet, TypeSet};
 use baylee_view::{
-    DayNight, HandObject, ManaPoolView, ObjectStatus, PublicObject, StackItem, Step, TargetRef,
+    DayNight, HandObject, ManaPoolView, ObjectStatus, OrderedTrigger, PublicObject, StackItem,
+    Step, TargetRef,
 };
 use std::fmt::Write as _;
 
@@ -386,35 +387,79 @@ fn stack(table: &Table<'_>, out: &mut String) {
     }
 }
 
-/// A stack object: a spell with its targets, or an ability with its text.
-pub(super) fn stack_line(table: &Table<'_>, object: &PublicObject) -> String {
-    let owner = table.whose(object.controller);
-    let mut line = if let Some(StackItem::Ability {
-        source,
+/// The printed sentence of an ability on the stack or going there, where a
+/// card prints one.
+fn ability_sentence(item: StackItem) -> Option<&'static str> {
+    let StackItem::Ability {
         ability,
         text,
         rules,
         ..
-    }) = object.stack_item
+    } = item
+    else {
+        return None;
+    };
+    let rules = rules?;
+    text.and_then(|t| baylee_cards::oracle::sentence(rules.card, usize::from(t.face), t.line))
+        .or_else(|| {
+            let index = ability?.index;
+            let at = baylee_cards::lines::ability_line(rules.card, usize::from(rules.face), index)?;
+            baylee_cards::oracle::sentence(rules.card, usize::from(rules.face), at.line)
+        })
+}
+
+/// A triggered ability waiting for its place on the stack (CR 603.3b): whose
+/// it is, what it says and, for two of one card's, what tells them apart.
+/// `rows` is the whole question, for the ones that need no order against it.
+pub(super) fn trigger_line(
+    table: &Table<'_>,
+    row: &OrderedTrigger,
+    rows: &[OrderedTrigger],
+) -> String {
+    let mut line = format!("{} {}", tag(row.handle), row.name);
+    if let Some(sentence) = ability_sentence(row.item) {
+        let _ = write!(line, ": \"{sentence}\"");
+    }
+    match (&row.about_name, row.about_player) {
+        (Some(object), Some(player)) => {
+            let _ = write!(line, " · about {object} ({})", table.player(player));
+        }
+        (Some(object), None) => {
+            let _ = write!(line, " · about {object}");
+        }
+        (None, Some(player)) => {
+            let _ = write!(line, " · about {}", table.player(player));
+        }
+        (None, None) => {}
+    }
+    if let Some(amount) = row.amount {
+        let _ = write!(line, " · that much is {amount}");
+    }
+    if row.modal {
+        line.push_str(" · its mode is chosen as it goes on the stack");
+    }
+    if row.asks_targets {
+        line.push_str(" · its targets are chosen as it goes on the stack");
+    }
+    if let Some(first) = rows.iter().find(|other| other.twin == row.twin)
+        && first.handle != row.handle
     {
+        let _ = write!(line, " · the same as {}", tag(first.handle));
+    }
+    line
+}
+
+/// A stack object: a spell with its targets, or an ability with its text.
+pub(super) fn stack_line(table: &Table<'_>, object: &PublicObject) -> String {
+    let owner = table.whose(object.controller);
+    let mut line = if let Some(item @ StackItem::Ability { source, .. }) = object.stack_item {
         let from = if table.visible(source) {
             table.named(source)
         } else {
             object_name(object)
         };
         let mut line = format!("{} {owner} ability of {from}", tag(object.id));
-        let sentence = rules.and_then(|rules| {
-            text.and_then(|t| {
-                baylee_cards::oracle::sentence(rules.card, usize::from(t.face), t.line)
-            })
-            .or_else(|| {
-                let index = ability?.index;
-                let at =
-                    baylee_cards::lines::ability_line(rules.card, usize::from(rules.face), index)?;
-                baylee_cards::oracle::sentence(rules.card, usize::from(rules.face), at.line)
-            })
-        });
-        if let Some(sentence) = sentence {
+        if let Some(sentence) = ability_sentence(item) {
             let _ = write!(line, ": \"{sentence}\"");
         }
         line

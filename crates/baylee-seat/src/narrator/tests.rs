@@ -1962,6 +1962,7 @@ mod owed;
 mod power_surge;
 mod raised;
 mod triage;
+mod trigger_order;
 mod upkeep_payments;
 
 /// A vote is told as one, and the ballot cast before it reaches the model

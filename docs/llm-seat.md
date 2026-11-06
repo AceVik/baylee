@@ -1144,6 +1144,13 @@ its taps: buyback and multikicker among them (`docs/llm-protocol.md`, "Prices
 above the printed one"). The narrator says what buyback does as it asks, and
 where more than one effect wants a resolved spell, what each answer does.
 
+A model orders its own triggers (CR 603.3b). The question lists each ability with
+its sentence, what it is about, and whether a target or a mode follows, under a
+short id (`#T3`), and says which end goes first: the id listed first resolves
+first. The answer is one list in `piles` holding every id. Rows that need no order
+between them say so ("the same as #T2"). The question is asked at every table,
+the collector's included (`docs/trained-ai.md` §"The order of triggers").
+
 A host's desktop client can seat a language model in a chair of its own
 gateway table, beside the house. The engine plays the house; a language
 model is a seat bridge the client starts (`llmseat::seating`, decided and

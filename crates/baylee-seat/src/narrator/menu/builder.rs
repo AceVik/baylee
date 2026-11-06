@@ -1444,7 +1444,7 @@ impl Builder<'_, '_> {
                  of them on top of your library instead of into your graveyard, in any order; \
                  each is still discarded."
             ),
-            ArrangePrompt::TriggerOrder => "QUESTION: Put these triggers in order.".into(),
+            ArrangePrompt::TriggerOrder => return self.trigger_order(cards, piles),
         };
         self.line(table.for_decider(&intro));
         let named: Vec<String> = cards.iter().map(|&c| table.named(c)).collect();
@@ -1482,6 +1482,31 @@ impl Builder<'_, '_> {
             "piles=[{}], every card in exactly one pile",
             shape.join(", ")
         ));
+    }
+
+    /// Triggered abilities going on the stack at once (CR 603.3b): one list,
+    /// each ability said as itself, since none is a card the table shows.
+    fn trigger_order(&mut self, cards: &[ObjectId], piles: &[ArrangePile]) {
+        let table = self.table;
+        self.line(table.for_decider(
+            "QUESTION: These triggered abilities of yours go on the stack at once, in the \
+             order you choose (CR 603.3b). The ability you list FIRST goes on the stack last, \
+             so it resolves FIRST; the one you list last resolves last. Their targets and \
+             modes are chosen after this, as each goes on the stack.",
+        ));
+        let rows = &table.view.trigger_order;
+        for &handle in cards {
+            let line = rows
+                .iter()
+                .find(|row| row.handle == handle)
+                .map_or_else(|| tag(handle), |row| board::trigger_line(table, row, rows));
+            self.object_line(handle, &line);
+        }
+        self.ask = Ask::Arrange {
+            cards: cards.to_vec(),
+            piles: piles.to_vec(),
+        };
+        self.answer("piles=[[every id above, the first to resolve first]]");
     }
 
     pub(super) fn attackers(&mut self, attackers: &[ObjectId], defenders: &[Defender]) {

@@ -903,6 +903,14 @@ fn not_a_card_here(name: &str) -> String {
 fn object(written: &str, among: &[ObjectId]) -> Result<ObjectId, String> {
     let bare = normal(written);
     let bare = bare.trim_start_matches('#');
+    // A trigger waiting for its place has no object to be the handle of.
+    if let Some(number) = bare.strip_prefix('t').and_then(|n| n.parse::<u32>().ok()) {
+        return among
+            .iter()
+            .copied()
+            .find(|id| id.queued_trigger_place().map(|place| place + 1) == Some(number))
+            .ok_or_else(|| format!("{written} is not one of the choices: {}", ids(among)));
+    }
     let (slot, generation) = match bare.split_once(['.', '#']) {
         Some((slot, generation)) => (slot, Some(generation)),
         None => (bare, None),

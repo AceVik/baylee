@@ -1,0 +1,37 @@
+DECISION q12 · turn 7, yours · main1 · 25 s
+
+You (P1): 17 life · library 45 · hand 4 · graveyard 1
+P2 (opponent): 14 life · library 44 · hand 3 · graveyard 1
+
+Your battlefield:
+  lands: Forest #21, Forest #22, Mountain #23
+  #30 Llanowar Elves · Creature — Elf Druid · 1/1
+  #31 Prodigal Sorcerer · Creature — Human Wizard Sorcerer · 1/1
+P2's battlefield:
+  lands: Plains #40, Plains #41 (tapped), Island #42
+  #45 Serra Angel · Creature — Angel · 4/4 · flying, vigilance
+  #46 face-down card · Creature · 2/2
+Stack: empty
+Your hand:
+  #50 Lightning Bolt {R} · Instant
+  #51 Giant Growth {G} · Instant
+  #52 Mountain · Basic Land — Mountain
+  #53 Rampant Growth {1}{G} · Sorcery
+Your graveyard (1): Shock #60
+P2's graveyard (1): Counterspell #61
+
+New cards (full text once; later by name):
+  Plains · Basic Land — Plains
+  Island · Basic Land — Island
+  Serra Angel {3}{W}{W} · Creature — Angel · 4/4
+    Flying
+    Vigilance
+  Counterspell {U}{U} · Instant
+    Counter target spell.
+
+QUESTION: These triggered abilities of yours go on the stack at once, in the order you choose (CR 603.3b). The ability you list FIRST goes on the stack last, so it resolves FIRST; the one you list last resolves last. Their targets and modes are chosen after this, as each goes on the stack.
+  #T4 Flametongue Kavu: "When this creature enters, it deals 4 damage to target creature." · about Flametongue Kavu (you) · its targets are chosen as it goes on the stack
+  #T3 Dingus Egg: "Whenever a land is put into a graveyard from the battlefield, this artifact deals 2 damage to that land's controller." · about Forest (P2)
+  #T2 Dingus Egg: "Whenever a land is put into a graveyard from the battlefield, this artifact deals 2 damage to that land's controller." · about Mountain (you)
+  #T1 Dingus Egg: "Whenever a land is put into a graveyard from the battlefield, this artifact deals 2 damage to that land's controller." · about Mountain (you) · the same as #T2
+Answer: piles=[[every id above, the first to resolve first]]

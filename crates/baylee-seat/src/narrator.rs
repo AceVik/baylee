@@ -653,10 +653,15 @@ pub fn prefix(context: &GameContext, deck_text: DeckText) -> String {
     out
 }
 
-/// An object's handle as the model reads and writes it: `#` and its slot.
+/// An object's handle as the model reads and writes it: `#` and its slot,
+/// or `#T` and a small number for a trigger waiting for its place on the
+/// stack, whose handle is no object's and is eight digits near its neighbours.
 #[must_use]
 pub fn tag(id: ObjectId) -> String {
-    format!("#{}", id.slot())
+    id.queued_trigger_place().map_or_else(
+        || format!("#{}", id.slot()),
+        |place| format!("#T{}", place + 1),
+    )
 }
 
 /// The view and the table it was told at: every name the narrator writes.
