@@ -483,7 +483,9 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // depends on the affected land and stays contextual rather than guessed.
     // Orcish Librarian's seeded exile and private order add one activation;
     // exiling the controller's own cards is not unconditionally valuable.
-    assert_eq!((read, of), (2996, 3786), "activated/loyalty reader census");
+    // Weathered Wayfarer adds one conditional library-search activation; the
+    // existing SearchLibrary reader understands its land-to-hand effect.
+    assert_eq!((read, of), (2997, 3787), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

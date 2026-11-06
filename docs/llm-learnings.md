@@ -6877,3 +6877,21 @@ code.
   both `castable` and `payable` to omit the card. The shared cost tests, Daze,
   house AI, full seat suite, desktop interaction tests, `record::seen`,
   `validate`, affected Clippy and formatting checks pass.
+
+## 2026-11-06 — Weathered Wayfarer's conditional land search
+
+- Weathered Wayfarer combines the existing `OpponentControlsMore(Filter::LAND)`
+  activation condition, `{W}` plus `TapSelf` costs and `SearchLibrary` into no
+  new engine, reader, desktop or seat path. Three played tests cover a nonbasic
+  land, exclusion of nonlands, reveal and shuffle, strict inequality at one land
+  each, the white pip and the tapped-source restriction.
+- A mandatory search for a stated quality still permits failing to find, so its
+  `ChooseCards` has `min = 0` even with `optional: false`; `optional` only
+  controls choosing fewer in an unrestricted search. An activated ability must
+  resolve before its search question appears: pass priority to reach it rather
+  than expecting the search immediately after `ActivateAbility`.
+- The house already reads the land-to-hand activation; its exact census rises
+  by one activation and one readable row. The full house-AI and seat suites,
+  analogous Greenseeker and Knight tests, desktop interaction tests,
+  `record::seen`, `validate`, affected Clippy and formatting checks pass. The
+  full gates remain deferred at the owner's request.
