@@ -59,7 +59,7 @@ use std::{
 
 /// Everything a test file needs, in one `use`.
 pub mod prelude {
-    pub use crate::screen::{at, card, in_hand, label, press, press_prefix, text};
+    pub use crate::screen::{Card, at, card, in_hand, label, press, press_prefix, text};
     pub use crate::{
         Client, Issue, Key, Launch, Layout, Monitor, Rect, Screen, Target, TextStep, Viewport, e2e,
     };

@@ -80,6 +80,7 @@ mod music;
 mod perf;
 mod recording;
 mod reveal;
+mod seed;
 mod state;
 mod window;
 
@@ -134,6 +135,22 @@ fn stage_reveals(mut control: ResMut<DevControl>, duel: Option<ResMut<Duel>>) {
             Some(duel) => reveal::stage(&job.body, duel),
             None => "{\"error\":\"no duel\"}".to_string(),
         };
+        let _ = job.reply.send(answer);
+    }
+}
+
+/// `/seed`: large data for a fixed scenario (`seed.rs`).
+fn seed_the_scenario(
+    mut control: ResMut<DevControl>,
+    host: Option<ResMut<crate::social::SocialHost>>,
+    duel: Option<ResMut<Duel>>,
+) {
+    if control.seed_jobs.is_empty() {
+        return;
+    }
+    let (mut host, mut duel) = (host, duel);
+    for job in std::mem::take(&mut control.seed_jobs) {
+        let answer = seed::answer(&job.body, host.as_deref_mut(), duel.as_deref_mut());
         let _ = job.reply.send(answer);
     }
 }
@@ -448,6 +465,7 @@ impl Plugin for DevControlPlugin {
             stepping: None,
             shell_jobs: Vec::new(),
             reveal_jobs: Vec::new(),
+            seed_jobs: Vec::new(),
             frame: 0,
             virtual_cursor: None,
             served: 0,
@@ -458,7 +476,7 @@ impl Plugin for DevControlPlugin {
         // for exactly the frame that follows, the way a real one is.
         .add_systems(
             PreUpdate,
-            (pump, shell_knobs, stage_reveals)
+            (pump, shell_knobs, stage_reveals, seed_the_scenario)
                 .chain()
                 .after(bevy::input::InputSystems),
         );
@@ -490,6 +508,9 @@ struct DevControl {
     shell_jobs: Vec<Job>,
     /// `/reveal` requests, answered by `stage_reveals` (they write the duel).
     reveal_jobs: Vec<Job>,
+    /// `/seed` requests, answered by `seed_the_scenario` (they write the social
+    /// machine and the duel).
+    seed_jobs: Vec<Job>,
     frame: u64,
     /// Client-only pointer, hidden from winit before its window synchronisation.
     virtual_cursor: Option<Vec2>,
@@ -506,6 +527,8 @@ impl DevControl {
     fn answer_later(&mut self, job: Job) {
         if job.path == "/reveal" {
             self.reveal_jobs.push(job);
+        } else if job.path == "/seed" {
+            self.seed_jobs.push(job);
         } else {
             self.shell_jobs.push(job);
         }
@@ -1078,7 +1101,7 @@ fn pump(
             }
             "/timescale" | "/pause" => set_clock(&job.path, &job.body, &mut clock),
             "/replay" => queue_replay_ask(&job.body, &mut commands),
-            "/shell" | "/reveal" => {
+            "/shell" | "/reveal" | "/seed" => {
                 control.answer_later(job);
                 continue;
             }

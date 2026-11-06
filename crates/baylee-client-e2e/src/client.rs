@@ -579,6 +579,29 @@ impl Client {
         );
     }
 
+    /// Asks nothing more and waits for the client to close itself
+    /// (`BAYLEE_DEV_IDLE_EXIT`), as a run that has to reach its exit handlers
+    /// must: a profile's counts are written there. `close` kills it.
+    ///
+    /// # Errors
+    /// When it has not gone by `within` (it is then killed), or left with an
+    /// error.
+    pub fn finish(mut self, within: Duration) -> Result<()> {
+        let started = Instant::now();
+        let Some(child) = self.child.as_mut() else {
+            return Ok(());
+        };
+        while started.elapsed() < within {
+            if let Some(status) = child.try_wait().context("the client's exit")? {
+                self.child = None;
+                ensure!(status.success(), "the client ended with {status}");
+                return refused(self.devctl.port());
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        bail!("the client did not close itself within {within:?}")
+    }
+
     /// Kills the client, waits for it and proves its port closed.
     pub fn close(mut self) -> Result<()> {
         self.stop()?;

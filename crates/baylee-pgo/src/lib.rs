@@ -34,7 +34,7 @@
 
 use std::{
     env,
-    ffi::OsStr,
+    ffi::{OsStr, OsString},
     fmt, fs,
     path::{Path, PathBuf},
     process::Command,
@@ -65,6 +65,22 @@ pub const PROVEN_ON: [&str; 3] = ["house", "frames", "decide"];
 /// crate, which the workload does not run. A selection that differs between the
 /// two builds leaves 14 156, 95 %, across every crate.
 pub const MOST_UNMATCHED_PERCENT: usize = 25;
+
+/// The crate whose hash the client's two builds share ([`ClientPlan`]), and how
+/// a function of it reads in a mangled name.
+const PINNED_CRATE: &str = "baylee_client";
+const OWN_CRATE: &str = "13baylee_client";
+
+/// Tells [`wrap_rustc`] to pin that crate and to leave what is not built for the
+/// target alone.
+const PIN: &str = "BAYLEE_PGO_PIN_CRATE";
+
+/// The fewest functions a client's training may reach. A run through the lobby
+/// alone reaches more than this; a client that died at the door does not.
+const FEWEST_CLIENT_FUNCTIONS: usize = 50_000;
+
+/// The share of a client's functions the compiler may find no counts for.
+pub const MOST_UNMATCHED_CLIENT_PERCENT: usize = 5;
 
 /// Lines of a failed build's output kept in its [`Failure`].
 const ERROR_LINES: usize = 30;
@@ -214,20 +230,7 @@ impl Plan {
                 .env("RUSTC_WORKSPACE_WRAPPER", &self.wrapper)
                 .env(FLAGS, flags.join(&FLAG_SEPARATOR.to_string()));
         }
-        let output = build
-            .output()
-            .map_err(|e| Failure(format!("{what}: {e}")))?;
-        let said = String::from_utf8_lossy(&output.stderr).into_owned();
-        if output.status.success() {
-            return Ok(said);
-        }
-        let last: Vec<&str> = said.lines().rev().take(ERROR_LINES).collect();
-        let last: Vec<&str> = last.into_iter().rev().collect();
-        Err(Failure(format!(
-            "{what}: {}\n{}",
-            output.status,
-            last.join("\n")
-        )))
+        output_of(&mut build, &what)
     }
 
     fn verify(&self, target: &Path, shape: &str) -> Result<Vec<u8>, Failure> {
@@ -243,6 +246,238 @@ impl Plan {
             Err(Failure(format!("{what}: {}", output.status)))
         }
     }
+}
+
+/// One profile-guided build of the client, on a machine with a screen.
+///
+/// The engine server's [`Plan`] trains on a workload that needs nothing but a
+/// CPU. A client's time goes through a window and a GPU, so a person's machine
+/// trains it, and the time goes into its dependencies (`bevy`, `wgpu`) as much
+/// as into this workspace: the flags reach every crate built for the target,
+/// through `RUSTC_WRAPPER`, and no build script or macro.
+///
+/// The harness that drives the training is the `dev-control` feature, and what
+/// ships never has it. A feature changes its crate's hash and with it every name
+/// in that crate, so the two builds would share nothing of `baylee-client`, where
+/// a good part of the frame's code is instantiated. [`wrap_rustc`] pins that one
+/// hash in both builds ([`PIN`]): the feature forwards to no dependency, so the
+/// other crates are the same crates anyway. What differs between the two builds
+/// then is only the harness's own code and the functions it is compiled into.
+/// [`ClientPlan::build`] requires that from the compiler's report, for the
+/// workspace's own crate as well as for the whole.
+#[derive(Clone, Debug)]
+pub struct ClientPlan {
+    /// The `cargo` to run.
+    pub cargo: PathBuf,
+    /// The `llvm-profdata` of this toolchain ([`profdata`]).
+    pub profdata: PathBuf,
+    /// A program that calls [`wrap_rustc`] first.
+    pub wrapper: PathBuf,
+    /// The checkout, at the commit being built.
+    pub root: PathBuf,
+    /// Where this commit's counts and profile go.
+    pub work: PathBuf,
+    /// Where the two builds keep their target directories. Emptied first.
+    pub targets: PathBuf,
+    /// The cargo profile: `dist` for what ships.
+    pub profile: String,
+    /// The target triple, which has to be this machine's: it runs the build.
+    pub triple: String,
+}
+
+/// What a finished [`ClientPlan`] made and what the compiler said of it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ClientBuild {
+    /// The directory of the profiled binaries.
+    pub binaries: PathBuf,
+    /// The merged profile.
+    pub profile: PathBuf,
+    /// Functions in the profile.
+    pub functions: usize,
+    /// Functions the compiler found no counts for.
+    pub unmatched: usize,
+    /// The functions of the client's own crate in the profile.
+    pub own_functions: usize,
+    /// Those of them the compiler found no counts for.
+    pub own_unmatched: usize,
+}
+
+impl ClientPlan {
+    /// Builds instrumented, has `train` run the binary, and builds what ships
+    /// from the counts it left.
+    ///
+    /// `train` gets the instrumented client and the directory its runs write to
+    /// through `LLVM_PROFILE_FILE`.
+    ///
+    /// # Errors
+    /// [`Failure`] at the first step that fails, when training left nothing, and
+    /// when the counts did not reach the build that ships.
+    pub fn build(
+        &self,
+        train: impl FnOnce(&Path, &Path) -> Result<(), Failure>,
+    ) -> Result<ClientBuild, Failure> {
+        let raw = self.work.join("raw");
+        let _ = fs::remove_dir_all(&raw);
+        let _ = fs::remove_dir_all(&self.targets);
+        fs::create_dir_all(&raw).map_err(|e| Failure(format!("{}: {e}", raw.display())))?;
+
+        let generate = self.targets.join("generate");
+        let flag = format!("-Cprofile-generate={}", raw.display());
+        self.cargo(&generate, &[&flag], true)?;
+        let client = self
+            .out(&generate)
+            .join(format!("baylee-client{}", env::consts::EXE_SUFFIX));
+        train(&client, &raw)?;
+        require_counts_written(&raw)?;
+
+        let merged = self.work.join("merged.profdata");
+        run(
+            Command::new(&self.profdata)
+                .arg("merge")
+                .arg("-o")
+                .arg(&merged)
+                .arg(&raw),
+            "merging the counts",
+        )?;
+        let functions = functions_in(&self.profdata, &merged)?;
+        if functions < FEWEST_CLIENT_FUNCTIONS {
+            return Err(Failure(format!(
+                "the training reached {functions} functions, and {FEWEST_CLIENT_FUNCTIONS} is \
+                 the fewest a client's run touches"
+            )));
+        }
+        let own_functions = own_functions_in(&self.profdata, &merged)?;
+
+        let profiled = self.targets.join("profiled");
+        let flag = format!("-Cprofile-use={}", merged.display());
+        let report = self.cargo(&profiled, &[&flag, REPORT_UNMATCHED], false)?;
+        let built = ClientBuild {
+            binaries: self.out(&profiled),
+            profile: merged,
+            functions,
+            unmatched: report.matches(UNMATCHED).count(),
+            own_functions,
+            own_unmatched: report
+                .lines()
+                .filter(|line| line.contains(UNMATCHED) && line.contains(OWN_CRATE))
+                .count(),
+        };
+        built.require_counts_used()?;
+        Ok(built)
+    }
+
+    /// Builds what `cargo build-client` selects, in `target`.
+    fn cargo(&self, target: &Path, flags: &[&str], harness: bool) -> Result<String, Failure> {
+        let what = format!("building in {}", target.display());
+        let mut build = Command::new(&self.cargo);
+        build
+            .args(["build-client", "--profile", &self.profile])
+            .args(["--target", &self.triple])
+            .current_dir(&self.root)
+            .env("CARGO_TARGET_DIR", target)
+            .env("RUSTC_WRAPPER", &self.wrapper)
+            .env(FLAGS, flags.join(&FLAG_SEPARATOR.to_string()))
+            .env(PIN, PINNED_CRATE);
+        if harness {
+            build.args(["--features", "baylee-client/dev-control"]);
+        } else {
+            // What ships; the training must not look for updates.
+            build.env("BAYLEE_RELEASE_BUILD", "1");
+        }
+        output_of(&mut build, &what)
+    }
+
+    /// Where a target directory's binaries are.
+    fn out(&self, target: &Path) -> PathBuf {
+        target.join(&self.triple).join(&self.profile)
+    }
+}
+
+impl ClientBuild {
+    /// Holds the compiler's report to the profile: as a whole, and for the
+    /// client's own crate, which a hash that differs would empty alone.
+    fn require_counts_used(&self) -> Result<(), Failure> {
+        for (what, unmatched, total) in [
+            ("the client", self.unmatched, self.functions),
+            ("its own crate", self.own_unmatched, self.own_functions),
+        ] {
+            if total == 0 || unmatched * 100 > total * MOST_UNMATCHED_CLIENT_PERCENT {
+                return Err(Failure(format!(
+                    "the profile did not reach {what}: the compiler found no counts for \
+                     {unmatched} functions against {total} in the profile, and \
+                     {MOST_UNMATCHED_CLIENT_PERCENT} % is the most it may"
+                )));
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Stops when the training left no counts: a client killed instead of closed
+/// writes none, and an empty merge would make a build with no profile.
+fn require_counts_written(raw: &Path) -> Result<(), Failure> {
+    let entries = fs::read_dir(raw).map_err(|e| Failure(format!("{}: {e}", raw.display())))?;
+    let written = entries
+        .filter_map(Result::ok)
+        .filter(|entry| entry.metadata().is_ok_and(|file| file.len() > 0))
+        .count();
+    if written == 0 {
+        return Err(Failure(format!(
+            "the training left no counts in {}",
+            raw.display()
+        )));
+    }
+    Ok(())
+}
+
+/// The functions a merged profile holds.
+fn functions_in(profdata: &Path, merged: &Path) -> Result<usize, Failure> {
+    let shown = shown_by(profdata, merged, &[])?;
+    shown
+        .lines()
+        .find_map(|line| line.strip_prefix("Total functions: "))
+        .and_then(|count| count.trim().parse().ok())
+        .ok_or_else(|| Failure(format!("the profile names no function count: {shown}")))
+}
+
+/// The functions of the client's own crate a merged profile holds.
+fn own_functions_in(profdata: &Path, merged: &Path) -> Result<usize, Failure> {
+    let shown = shown_by(profdata, merged, &["--all-functions"])?;
+    Ok(shown
+        .lines()
+        .filter(|line| line.contains(OWN_CRATE) && line.trim_end().ends_with(':'))
+        .count())
+}
+
+fn shown_by(profdata: &Path, merged: &Path, flags: &[&str]) -> Result<String, Failure> {
+    let output = Command::new(profdata)
+        .arg("show")
+        .args(flags)
+        .arg(merged)
+        .output()
+        .map_err(|e| Failure(format!("reading the profile: {e}")))?;
+    if !output.status.success() {
+        return Err(Failure(format!("reading the profile: {}", output.status)));
+    }
+    Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+}
+
+/// Runs a build and answers what the compiler said.
+fn output_of(build: &mut Command, what: &str) -> Result<String, Failure> {
+    let output = build
+        .output()
+        .map_err(|e| Failure(format!("{what}: {e}")))?;
+    let said = String::from_utf8_lossy(&output.stderr).into_owned();
+    if output.status.success() {
+        return Ok(said);
+    }
+    let last: Vec<&str> = said.lines().rev().take(ERROR_LINES).collect();
+    let last: Vec<&str> = last.into_iter().rev().collect();
+    Err(Failure(format!(
+        "{what}: {}\n{}",
+        output.status,
+        last.join("\n")
+    )))
 }
 
 fn run(command: &mut Command, what: &str) -> Result<(), Failure> {
@@ -297,13 +532,55 @@ pub fn profdata(rustc: &OsStr) -> Result<PathBuf, Failure> {
 #[must_use]
 pub fn wrap_rustc() -> Option<i32> {
     let flags = env::var(FLAGS).ok()?;
-    let mut args = env::args_os().skip(1);
-    let rustc = args.next()?;
-    let status = Command::new(rustc)
-        .args(args)
-        .args(flags.split(FLAG_SEPARATOR))
-        .status();
-    Some(status.map_or(1, |status| status.code().unwrap_or(1)))
+    let mut args: Vec<OsString> = env::args_os().skip(1).collect();
+    if args.is_empty() {
+        return None;
+    }
+    let rustc = args.remove(0);
+    let pin = env::var(PIN).ok();
+    if let Some(name) = &pin {
+        pin_metadata(&mut args, name);
+    }
+    let mut compile = Command::new(rustc);
+    compile.args(&args);
+    if pin.is_none() || built_for_the_target(&args) {
+        compile.args(flags.split(FLAG_SEPARATOR).filter(|flag| !flag.is_empty()));
+    }
+    Some(
+        compile
+            .status()
+            .map_or(1, |status| status.code().unwrap_or(1)),
+    )
+}
+
+/// Whether this is a crate that ends up in the binary. Cargo names the target
+/// only there: not for a build script or a macro, which run on this machine
+/// during the build and would leave their own counts, nor for a question to
+/// rustc, which compiles nothing.
+fn built_for_the_target(args: &[OsString]) -> bool {
+    args.iter().any(|arg| arg == "--crate-name")
+        && args
+            .iter()
+            .any(|arg| arg == "--target" || arg.to_string_lossy().starts_with("--target="))
+}
+
+/// Gives the library `name` the same hash in every build, by what it is called
+/// rather than by the features cargo hashed.
+fn pin_metadata(args: &mut [OsString], name: &str) {
+    let named = args
+        .windows(2)
+        .any(|pair| pair[0] == "--crate-name" && pair[1] == name);
+    let binary = args
+        .windows(2)
+        .any(|pair| pair[0] == "--crate-type" && pair[1] == "bin");
+    if !named || binary {
+        return;
+    }
+    for arg in args.iter_mut() {
+        if arg.to_string_lossy().starts_with("metadata=") {
+            *arg = OsString::from(format!("metadata=baylee-pgo-{name}"));
+        }
+    }
 }
 
 #[cfg(all(test, unix))]
@@ -492,5 +769,89 @@ esac"#,
         let tool = dir.path().join("lib/rustlib/x/bin/llvm-profdata");
         program(&tool, "exit 0");
         assert_eq!(profdata(rustc.as_os_str()).unwrap(), tool);
+    }
+}
+
+#[cfg(test)]
+mod pin_tests {
+    use super::*;
+
+    fn args(words: &[&str]) -> Vec<OsString> {
+        words.iter().map(OsString::from).collect()
+    }
+
+    /// Two builds that differ by a feature end up with one hash for the library.
+    #[test]
+    fn the_client_library_gets_one_hash_in_both_builds() {
+        let mut with_harness = args(&["--crate-name", "baylee_client", "-C", "metadata=aaa"]);
+        let mut shipped = args(&["--crate-name", "baylee_client", "-C", "metadata=bbb"]);
+        pin_metadata(&mut with_harness, "baylee_client");
+        pin_metadata(&mut shipped, "baylee_client");
+        assert_eq!(with_harness, shipped);
+    }
+
+    /// Every other crate keeps what cargo gave it, and so does the binary of the
+    /// same name, which links the library.
+    #[test]
+    fn nothing_else_is_pinned() {
+        let other = args(&["--crate-name", "bevy_ui", "-C", "metadata=aaa"]);
+        let mut pinned = other.clone();
+        pin_metadata(&mut pinned, "baylee_client");
+        assert_eq!(pinned, other);
+        let binary = args(&[
+            "--crate-name",
+            "baylee_client",
+            "--crate-type",
+            "bin",
+            "-C",
+            "metadata=aaa",
+        ]);
+        let mut pinned = binary.clone();
+        pin_metadata(&mut pinned, "baylee_client");
+        assert_eq!(pinned, binary);
+    }
+
+    #[test]
+    fn a_build_script_and_a_question_to_rustc_get_no_flags() {
+        let crate_for_the_target = args(&["--crate-name", "bevy_ui", "--target", "aarch64"]);
+        assert!(built_for_the_target(&crate_for_the_target));
+        assert!(!built_for_the_target(&args(&[
+            "--crate-name",
+            "build_script_build"
+        ])));
+        assert!(!built_for_the_target(&args(&[
+            "--target", "aarch64", "--print", "cfg"
+        ])));
+    }
+
+    fn build(unmatched: usize, own_unmatched: usize) -> ClientBuild {
+        ClientBuild {
+            binaries: PathBuf::new(),
+            profile: PathBuf::new(),
+            functions: 1000,
+            unmatched,
+            own_functions: 100,
+            own_unmatched,
+        }
+    }
+
+    /// The crate the pin exists for is held on its own: a hash that differs
+    /// empties that crate alone, which the whole's share could not show.
+    #[test]
+    fn a_profile_that_missed_the_clients_crate_stops_the_build() {
+        assert!(build(20, 2).require_counts_used().is_ok());
+        let failure = build(20, 90).require_counts_used().unwrap_err();
+        assert!(failure.0.contains("its own crate"), "{failure}");
+        assert!(build(900, 2).require_counts_used().is_err());
+    }
+
+    #[test]
+    fn a_training_that_wrote_nothing_stops_the_build() {
+        let dir = tempfile::tempdir().unwrap();
+        assert!(require_counts_written(dir.path()).is_err());
+        fs::write(dir.path().join("empty.profraw"), b"").unwrap();
+        assert!(require_counts_written(dir.path()).is_err());
+        fs::write(dir.path().join("run.profraw"), b"counts").unwrap();
+        assert!(require_counts_written(dir.path()).is_ok());
     }
 }

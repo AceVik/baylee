@@ -765,6 +765,13 @@ pub fn acceptance_text() -> String {
 /// `std::time` panics on wasm32, so it is not an option here.
 #[must_use]
 pub fn fresh_seed() -> u64 {
+    #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
+    if let Some(seed) = std::env::var("BAYLEE_DEV_SEED")
+        .ok()
+        .and_then(|seed| seed.parse().ok())
+    {
+        return seed;
+    }
     let mut bytes = [0u8; 8];
     match getrandom::fill(&mut bytes) {
         Ok(()) => u64::from_le_bytes(bytes),
