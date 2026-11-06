@@ -10847,6 +10847,12 @@ afresh. Measured with 45 s: exited 46 s after its last request, port closed.
 A client a person drives is not passive and never closes itself. This is the
 backstop, not the rule: close the client when the test is done.
 
+**Large data for a scene.** `/seed {"friends":500,"lines":450,"stack":80}` makes the
+rows a measurement of a long list or a scene of `cargo tools pgo client` stands on,
+without a gateway: friends and lobby chat lines go into the social machine as frames,
+and copies of a permanent onto the stack of the view the table holds. Every field is
+optional. The engine knows nothing of that stack, and its next view takes it away.
+
 **Virtual pointer and dedicated display (Windows and native desktop).**
 `POST /pointer` keeps its coordinates inside the client, whether passive mode
 is enabled or not. `devctl/window.rs` restores the virtual position before

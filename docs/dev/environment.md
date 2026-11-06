@@ -84,6 +84,10 @@ the document it names.
 - `BAYLEE_CENTRAL_ENDPOINT` (where a gateway token pasted into the console talks to: `live` by default, or an explicit numeric-loopback development origin such as `http://127.0.0.1:28790`; anything else refuses startup; `docs/central-login.md` §"Linking a gateway with a token").
 
 
+A client built with `dev-control` reads `BAYLEE_DEV_SEED` (a number): every game it
+starts takes that seed, so a scene plays the same game again
+(`cargo tools pgo client`). A shipped build has no such switch.
+
 A `dev-table` gateway reads `BAYLEE_DEV_SEAT_BOARD` (`0:Card;1:Card`, `baylee_cards::decks::deal_named`); a bad spec refuses startup. Keep board seeding behind the feature.
 
 CORS is `Access-Control-Allow-Origin: *` without `Allow-Credentials`: keep bearer-header auth, never set cookies.

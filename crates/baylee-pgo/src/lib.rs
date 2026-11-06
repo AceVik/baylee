@@ -316,6 +316,19 @@ impl ClientPlan {
         &self,
         train: impl FnOnce(&Path, &Path) -> Result<(), Failure>,
     ) -> Result<ClientBuild, Failure> {
+        let merged = self.train(train)?;
+        self.ship(&merged, &self.targets.join("profiled"))
+    }
+
+    /// The first half of [`Self::build`]: answers the merged profile, which belongs
+    /// to this commit and this toolchain.
+    ///
+    /// # Errors
+    /// [`Failure`] at the first step that fails, and when training left nothing.
+    pub fn train(
+        &self,
+        train: impl FnOnce(&Path, &Path) -> Result<(), Failure>,
+    ) -> Result<PathBuf, Failure> {
         let raw = self.work.join("raw");
         let _ = fs::remove_dir_all(&raw);
         let _ = fs::remove_dir_all(&self.targets);
@@ -339,21 +352,33 @@ impl ClientPlan {
                 .arg(&raw),
             "merging the counts",
         )?;
-        let functions = functions_in(&self.profdata, &merged)?;
+        Ok(merged)
+    }
+
+    /// The second half of [`Self::build`]: what ships, in `target`, from a merged
+    /// profile of this commit.
+    /// `target` is emptied first.
+    ///
+    /// # Errors
+    /// [`Failure`] when the build fails, when the profile holds too little, and
+    /// when its counts did not reach the build.
+    pub fn ship(&self, merged: &Path, target: &Path) -> Result<ClientBuild, Failure> {
+        // Cargo cannot see the flag: in a used directory it would keep the code
+        // and replay the report of the build before.
+        let _ = fs::remove_dir_all(target);
+        let functions = functions_in(&self.profdata, merged)?;
         if functions < FEWEST_CLIENT_FUNCTIONS {
             return Err(Failure(format!(
                 "the training reached {functions} functions, and {FEWEST_CLIENT_FUNCTIONS} is \
                  the fewest a client's run touches"
             )));
         }
-        let own_functions = own_functions_in(&self.profdata, &merged)?;
-
-        let profiled = self.targets.join("profiled");
+        let own_functions = own_functions_in(&self.profdata, merged)?;
         let flag = format!("-Cprofile-use={}", merged.display());
-        let report = self.cargo(&profiled, &[&flag, REPORT_UNMATCHED], false)?;
+        let report = self.cargo(target, &[&flag, REPORT_UNMATCHED], false)?;
         let built = ClientBuild {
-            binaries: self.out(&profiled),
-            profile: merged,
+            binaries: self.out(target),
+            profile: merged.to_owned(),
             functions,
             unmatched: report.matches(UNMATCHED).count(),
             own_functions,

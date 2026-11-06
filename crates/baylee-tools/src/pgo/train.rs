@@ -361,6 +361,9 @@ fn play(
         }
         along(&screen)?;
         let tries = asked.get(&question(&screen)).copied().unwrap_or(0);
+        if moved.1.elapsed() > Duration::from_secs(8) {
+            client.press("Escape")?;
+        }
         answer(client, &screen, &mut tried, tries)?;
         linger(0.2);
     }
@@ -389,6 +392,8 @@ fn answer(client: &Client, screen: &Screen, tried: &mut Vec<u64>, tries: u32) ->
                     if let Some(card) = card {
                         let (x, y) = card.rect.centre();
                         client.click(at(x, y))?;
+                    } else {
+                        client.press("Space")?;
                     }
                 }
                 (true, None, Some(card)) if screen.at("/reachable").as_u64().unwrap_or(0) > 0 => {

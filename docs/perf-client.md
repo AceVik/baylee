@@ -1025,3 +1025,57 @@ What a backtrace keeps, read raw from a probe of two crates:
 Why it stays as it is: the flag in `.cargo/config.toml` holds for every
 profile, `dist` included, so an `off` there would empty a Mac release's
 dSYM. Twenty seconds per link on one platform do not pay for that risk.
+
+## A client built from a profile (6 November 2026)
+
+M1 Max, commit 86638cb18, `--release` with `dev-control` in both binaries, plain and
+profiled in turn, load 7 to 13. Median [span], frames from 4 pairs, games from 3.
+Trained on a lobby walk, one game and a full board, the scenes then measured. The
+scenes of `cargo tools pgo client` came later and are wider.
+
+| Main schedule p50, ms, uncapped | Plain | Profiled |
+| --- | ---: | ---: |
+| Front door | 0.84 [0.81–0.86] | 0.75 [0.73–0.76] |
+| Lobby | 0.91 [0.86–0.94] | 0.80 [0.76–0.86] |
+| Deck page | 0.93 [0.89–0.98] | 0.85 [0.81–0.88] |
+| Duel | 1.54 [1.51–1.61] | 1.36 [1.32–1.38] |
+| Full board | 1.82 [1.81–1.87] | 1.63 [1.59–1.68] |
+
+Mean frame, uncapped, stays inside its span: lobby 7.15 against 7.04 ms, duel 7.80
+against 7.71, full board 7.98 against 8.11, about 125 to 140 frames a second either
+way. The main schedule is not what limits the Mac; whether the GPU or the
+presentation does was not separated.
+
+A whole game at 60 frames a second, on one seed, played the same in all six runs (35
+turns, sequence 849, life 0 and 37): 124, 123 and 127 s against 124, 124 and 121 s,
+since the game runs at the pace of its presentation, and 70.9, 70.4 and 74.4 s of
+CPU against 66.3, 65.7 and 63.7 s, about 7 % less. The binary went from 308 to 298
+MB. The owner decided for it on 7.11.2026 (`docs/releasing.md` §"The client's
+profile").
+
+## Long lists and the deck builder (6 November 2026)
+
+The owner reported stutter in the deck builder, long chats, long friend lists and
+huge stacks. Measured on the M1 Max, offline, with generated data.
+
+The builder on a list of 400 cards and a sideboard of 100, pool 12 543, capped at
+60, load 8 to 12: continuous wheel and pointer over both lists p50 16.7, p99 21 to
+40, max 22 to 52 ms; adding and taking away, colour filters, sorting, tabs, grouping
+and pool views mostly 19 to 39 ms, once 74, and 67 for a card fresh from the pool. A
+commander format makes no difference. Frames of 120 to 370 ms came only while a
+release build ran beside the client, and a time profile of the stutter shows no burst
+on the main or render thread. A key in the search box cost 25 to 42 ms, the worst
+lasting case: 6.6 ms of it folded every name of the pool through Unicode on each key,
+now only names that need it (not yet measured again).
+
+So the Mac does not show what the owner saw, and where he saw it is still to be asked:
+a real gateway, Windows, the notebook and higher quality presets were not tried.
+
+The friend list did show it. Every friend stood in the tree, open or not: 500 friends
+were 5 377 entities that every frame laid out, picked and extracted, and the median
+frame at rest rose from about 4.5 to 7.4 ms with the main thread about 60 % busy.
+From 80 friends the drawer now draws 72 rows around the view and empty height for the
+rest: about 1 500 entities, the median 5 to 5.6 ms on a slower build (`ci-release`).
+
+The chat is bounded (500 lines a conversation, 200 drawn), and the stack panel already
+draws a window of its rows; neither was changed.

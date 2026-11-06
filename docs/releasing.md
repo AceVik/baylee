@@ -771,7 +771,7 @@ build: 6 minutes (two cold builds of the engine's crates, then the proof).
 | Gateway | as before | none: it links no engine, so the games teach it nothing. A profile of its own would need a load that stands for live traffic, and a database to run it against, on the machine that is deploying |
 | Agent | as before | none, for the same reason, and it supervises processes rather than computing |
 | Seat bridge, seat agent, catalog, feedback, deploy tools | as before | none: not in the owner's list, and off the games' hot path |
-| Client | `client-packages.yml` | not yet: the engine's games say nothing about rendering, so its profile has to come from a real session, measured per target |
+| Client | `cargo tools pgo client` on a Mac, for `aarch64-apple-darwin` | §"The client's profile" |
 
 The flags reach workspace crates alone, through `RUSTC_WORKSPACE_WRAPPER`: cargo
 starts `baylee-deploy` (or `cargo tools`) in rustc's place, and it adds the one flag.
@@ -788,3 +788,52 @@ so the deploy that first installs this code still builds a plain engine server.
 
 `cargo tools pgo engine-server` runs the same steps by hand on a checkout;
 `LLVM_PROFDATA` names the tool where the toolchain has no `llvm-tools`.
+
+### The client's profile
+
+The owner decided on 7.11.2026 that the client is built from a profile too, with
+the weight on where it stutters. The engine's games say nothing about rendering, so
+it has steps of its own (`baylee_pgo::ClientPlan`), and it needs a machine with a
+screen and a GPU: `cargo tools pgo client` on a real Mac, one command, about 45
+minutes under load. It builds what `cargo build-client` selects for this machine's
+target, instrumented and with the harness; plays the scenes of
+`crates/baylee-tools/src/pgo/train.rs` (lobby and settings, the deck builder on a list
+of 500 cards, 500 friends and 450 chat lines, whole games with spells, attacks,
+blocks and questions, a stack of 80, a replay, a full board); merges the counts; and
+builds what ships from them, without the harness. It prints where the binaries are.
+`cargo tools pgo client ship <profile>` is that last step alone, in an emptied
+directory.
+
+The flags reach every crate built for the target, through `RUSTC_WRAPPER`, because a
+frame's time is in `bevy` and `wgpu` as much as in this workspace; a build script or
+a macro gets none.
+
+Training needs the harness and what ships must not have it. A feature changes its
+crate's hash, and with it every name in that crate. `dev-control` forwards to no
+dependency, so that one crate is all it changes, and the wrapper gives
+`baylee_client`'s library the same `-C metadata` in both builds (`PIN`). The shipped
+binary holds none of the harness (`strings` finds neither `BAYLEE_DEV_CONTROL` nor
+`BAYLEE_DEV_SEED`).
+
+Nothing is shipped from a step that failed. A scene that cannot take a step stops the
+build, a game that stands still for 45 seconds does, a run that left no counts does,
+and so does a profile under 50 000 functions. The compiler's report then has to show
+at most 5 % of the functions without counts, for the whole and for `baylee_client`
+alone, because a hash that differs empties that one crate and the whole's share
+would not show it. Measured on the M1 Max: 5 827 of 253 812 (2.3 %) and 446 of 44 538
+(1.0 %). The same profile with the pin taken out left 48 707 (19.2 %), and the
+build stopped; the engine's 25 % would have let that through.
+
+What it gains on the Mac, before the scenes grew: `docs/perf-client.md`
+§"A client built from a profile".
+
+What the other targets need:
+
+- `x86_64-apple-darwin` is cross-compiled on an arm Mac, so nothing there can run it
+  but Rosetta, which would train the wrong processor. It stays generic.
+- Linux needs a desktop with a GPU, and `llvm-tools`. The steps are the same; nothing
+  has been run there.
+- Windows needs the same, and whether `profiler_builtins` and `llvm-tools` exist on
+  `aarch64-pc-windows-msvc` is unknown. `x86_64-pc-windows-msvc` ships them.
+- Every row until then stays a plain build; a row without a profile is not a
+  failed row. Only a row that was asked for a profile stops without one.

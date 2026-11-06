@@ -19,13 +19,14 @@ use std::{
 };
 
 use anyhow::{Context as _, Result, bail};
-use baylee_pgo::{ClientPlan, Failure, Plan};
+use baylee_pgo::{ClientBuild, ClientPlan, Failure, Plan};
 
 pub fn run(root: &Path, args: &[String]) -> Result<()> {
     let target = root.join("target");
     match args.iter().map(String::as_str).collect::<Vec<_>>()[..] {
         ["engine-server"] => engine_server(root, &target),
         ["client"] => client(root, &target),
+        ["client", "ship", profile] => ship(root, &target, Path::new(profile)),
         ["train", binary, ref rest @ ..] => {
             let work = target.join("pgo-profiles/client");
             fs::create_dir_all(work.join("raw"))?;
@@ -37,7 +38,9 @@ pub fn run(root: &Path, args: &[String]) -> Result<()> {
                 only,
             )
         }
-        _ => bail!("usage: cargo tools pgo engine-server | client | train <client> [scene]"),
+        _ => bail!(
+            "usage: cargo tools pgo engine-server | client [ship <profile>] | train <client> [scene]"
+        ),
     }
 }
 
@@ -81,28 +84,43 @@ fn engine_server(root: &Path, target: &Path) -> Result<()> {
     Ok(())
 }
 
-fn client(root: &Path, target: &Path) -> Result<()> {
-    let work = target.join("pgo-profiles/client");
-    let plan = ClientPlan {
+fn client_plan(root: &Path, target: &Path) -> Result<ClientPlan> {
+    Ok(ClientPlan {
         cargo: cargo(),
         profdata: profdata()?,
         wrapper: std::env::current_exe().context("the running program")?,
         root: root.to_owned(),
-        work: work.clone(),
+        work: target.join("pgo-profiles/client"),
         targets: target.join("pgo-client"),
         profile: "dist".to_owned(),
         triple: host()?,
-    };
+    })
+}
+
+fn client(root: &Path, target: &Path) -> Result<()> {
+    let plan = client_plan(root, target)?;
     let built = plan.build(|client, raw| {
-        train::every_scene(client, raw, &work.join("scenes"))
+        train::every_scene(client, raw, &plan.work.join("scenes"))
             .map_err(|why| Failure(format!("the training: {why:#}")))
     })?;
+    report(&built);
+    Ok(())
+}
+
+/// Builds what ships from a profile made on another run of `client`.
+fn ship(root: &Path, target: &Path, profile: &Path) -> Result<()> {
+    let plan = client_plan(root, target)?;
+    let built = plan.ship(profile, &target.join("pgo-client/profiled"))?;
+    report(&built);
+    Ok(())
+}
+
+fn report(built: &ClientBuild) {
     println!(
         "{} functions, {} without counts; the client's own crate {} and {}",
         built.functions, built.unmatched, built.own_functions, built.own_unmatched
     );
     println!("{}", built.binaries.display());
-    Ok(())
 }
 
 /// The triple this machine builds for: the one its training can run.
