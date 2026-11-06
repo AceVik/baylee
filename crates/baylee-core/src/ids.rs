@@ -221,6 +221,37 @@ impl ObjectId {
     /// answers `None`, the answer a missing source should get.
     pub const NO_SOURCE: Self = Self(u32::MAX);
 
+    /// A triggered ability waiting to go on the stack, at `place` in the
+    /// queue, as the question about its order names it (CR 603.3b).
+    ///
+    /// Such an ability is no object yet, and neither its source nor its
+    /// card tells it from another: one Dingus Egg triggers once per land,
+    /// so a question naming sources could not say which of them goes first.
+    /// Like [`Self::NO_SOURCE`] this handle names no object: its slot is at
+    /// the far end the arena never reaches, so every lookup of it answers
+    /// `None`.
+    ///
+    /// # Panics
+    /// When `place` is past [`Self::MAX_SLOT`], more waiting abilities than
+    /// a game has objects.
+    #[inline]
+    #[must_use]
+    pub const fn queued_trigger(place: u32) -> Self {
+        Self::new(Self::MAX_SLOT - 1 - place, u8::MAX)
+    }
+
+    /// The queue place [`Self::queued_trigger`] named, `None` for any other
+    /// handle.
+    #[inline]
+    #[must_use]
+    pub const fn queued_trigger_place(self) -> Option<u32> {
+        if self.generation() == u8::MAX && self.slot() < Self::MAX_SLOT {
+            Some(Self::MAX_SLOT - 1 - self.slot())
+        } else {
+            None
+        }
+    }
+
     /// Packs a slot and a generation into one handle.
     ///
     /// # Panics

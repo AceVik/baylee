@@ -140,6 +140,7 @@ fn enter(state: &mut GameState, res: &Resolution, dungeon: Dungeon, room: u8) {
         synthetic_target: target.map(TargetReq::one),
         once_per_turn: false,
         chosen_mode: None,
+        in_chosen_order: false,
     });
 }
 

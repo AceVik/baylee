@@ -249,6 +249,9 @@ fn arrange_line(lang: Lang, reason: ArrangePrompt, onto: Option<ArrangePlace>) -
         (ArrangePrompt::Scry, _) => Phrase::ScryPrompt,
         (ArrangePrompt::Surveil, _) => Phrase::SurveilPrompt,
         (ArrangePrompt::DiscardToLibrary, _) => Phrase::DiscardToLibraryPrompt,
+        (ArrangePrompt::TriggerOrder, _) | (ArrangePrompt::Order, Some(ArrangePlace::Stack)) => {
+            Phrase::PutInOrder
+        }
     };
     phrase.text(lang).to_string()
 }

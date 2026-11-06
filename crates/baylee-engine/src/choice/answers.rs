@@ -1,8 +1,9 @@
 //! Answers: fitting a question to its options, why an answer is refused, and what a timeout answers.
 
 use super::{
-    AttackLimit, AttackerBound, BlockCapacity, BlockDemand, BlockOption, ChoicePrompt,
-    LegalActions, ManaAbilityChoice, Pending, PlayerAction, arrangement_fault, damage,
+    ArrangePrompt, AttackLimit, AttackerBound, BlockCapacity, BlockDemand, BlockOption,
+    ChoicePrompt, LegalActions, ManaAbilityChoice, Pending, PlayerAction, arrangement_fault,
+    damage, default_arrangement,
 };
 use baylee_core::ids::{ObjectId, PlayerId};
 
@@ -684,6 +685,13 @@ pub fn timeout_answer(pending: &Pending) -> Option<PlayerAction> {
         Pending::YesNo { prompt, .. } => prompt
             .declining_does_nothing()
             .then_some(PlayerAction::YesNo(false)),
+        // The order they were offered in is the one the timestamps give.
+        Pending::Arrange {
+            cards,
+            piles,
+            prompt: ArrangePrompt::TriggerOrder,
+            ..
+        } => default_arrangement(cards, piles).map(|piles| PlayerAction::Arrange { piles }),
         Pending::MulliganBottom { .. }
         | Pending::ChooseManaAbility { .. }
         | Pending::ChooseDamageSource { .. }

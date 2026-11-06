@@ -3,8 +3,9 @@
 //! After every mutation batch the engine scans new journal entries and
 //! matches them against the triggered abilities of permanents and cards
 //! whose abilities function in other zones. Matches go on the stack in APNAP
-//! order. Same-controller ordering currently follows timestamp; the
-//! player-facing ordering choice is M2 (documented in engine-internals).
+//! order. Same-controller ordering follows timestamp unless the game's
+//! `HouseRules::order_triggers` asks the controller instead (CR 603.3b;
+//! `engine::progress::trigger_order`).
 
 mod activations;
 pub(crate) mod battles;
@@ -145,6 +146,11 @@ pub struct PendingTrigger {
     /// `TargetReq` is read through it, and the shared tail records
     /// `once_per_turn` and stacks it.
     pub chosen_mode: Option<u8>,
+    /// Its place in the queue is its controller's, not the timestamps'
+    /// (CR 603.3b, `HouseRules::order_triggers`): the queue's sort leaves it
+    /// where it is and nobody is asked about it again. Always `false` in a
+    /// game without the rule.
+    pub in_chosen_order: bool,
 }
 
 fn object_text(state: &GameState, object: &crate::object::GameObject) -> TextChangeMap {
@@ -422,6 +428,7 @@ fn collect_emblems(
                                 once_per_turn: firing.once_per_turn,
                                 synthetic_target: None,
                                 chosen_mode: None,
+                                in_chosen_order: false,
                             });
                         }
                         // Once per matching event, as below.
@@ -557,6 +564,7 @@ fn graveyard_triggers(
                         synthetic_target: None,
                         once_per_turn: firing.once_per_turn,
                         chosen_mode: None,
+                        in_chosen_order: false,
                     });
                 }
             }
@@ -789,6 +797,7 @@ fn cast_this_spell_triggers(
                 once_per_turn: firing.once_per_turn,
                 synthetic_target: None,
                 chosen_mode: None,
+                in_chosen_order: false,
                 event_amount: None,
                 event_player: None,
             });
@@ -911,6 +920,7 @@ fn collect_for_objects(
                             once_per_turn: false,
                             synthetic_target: None,
                             chosen_mode: None,
+                            in_chosen_order: false,
                         });
                     }
                     // Once per spell, not once per window: two noncreature
@@ -1031,6 +1041,7 @@ fn collect_for_objects(
                             synthetic_target: target,
                             once_per_turn: false,
                             chosen_mode: None,
+                            in_chosen_order: false,
                         });
                     }
                     // Once per matching event, as below.
@@ -1128,6 +1139,7 @@ fn collect_for_objects(
                             once_per_turn: false,
                             synthetic_target: None,
                             chosen_mode: None,
+                            in_chosen_order: false,
                         });
                     }
                 }
@@ -1290,6 +1302,7 @@ fn collect_for_objects(
                             once_per_turn: firing.once_per_turn,
                             synthetic_target: None,
                             chosen_mode: None,
+                            in_chosen_order: false,
                         });
                     }
                     // No `break`. An ability triggers once per event that

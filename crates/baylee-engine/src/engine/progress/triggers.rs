@@ -492,9 +492,17 @@ impl<L: CardLookup> Engine<L> {
         self.trigger_queue.extend(standing);
         let active = self.state.turn.active.get();
         let seats = self.state.players.len() as u8;
-        self.trigger_queue
-            .make_contiguous()
-            .sort_by_key(|t| ((t.controller.get() + seats - active) % seats, t.timestamp));
+        // APNAP, then timestamps, except that an order a player chose stands
+        // (CR 603.3b): the sort is stable, and what it was chosen against
+        // comes first, as it was chosen before anything new was found.
+        self.trigger_queue.make_contiguous().sort_by_key(|t| {
+            let timestamp = if t.in_chosen_order { 0 } else { t.timestamp };
+            (
+                (t.controller.get() + seats - active) % seats,
+                !t.in_chosen_order,
+                timestamp,
+            )
+        });
     }
 
     #[allow(clippy::too_many_lines)] // the trigger queue processor is a flat state machine
@@ -529,19 +537,14 @@ impl<L: CardLookup> Engine<L> {
             // recorded when the trigger goes on the stack and `ability_fires`
             // is cleared at end of turn, but nothing ever read it back, so the
             // clause did nothing at all.
-            if t.once_per_turn
-                && self.state.ability_fires.contains_key(&(
-                    baylee_core::ids::DamageSourceRef {
-                        object: t.source,
-                        version: t.source_version.unwrap_or_else(|| {
-                            self.state.object(t.source).expect("trigger source").version
-                        }),
-                    },
-                    t.ability_index,
-                ))
-            {
+            if self.trigger_spent(&t) {
                 self.trigger_queue.pop_front();
                 continue;
+            }
+            // Their order comes first of all: what is chosen as each goes on
+            // the stack is chosen in that order (CR 603.3b).
+            if self.ask_trigger_order() {
+                return;
             }
             // Modal triggers: offer the mode choice first (CR 603.3c — the
             // controller announces it as the ability goes on the stack, and

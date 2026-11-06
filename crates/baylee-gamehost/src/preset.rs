@@ -78,6 +78,7 @@ pub fn from_proto(msg: &v1::GamePresetMsg) -> Result<GamePreset, String> {
             },
             starting_player: None,
             auto_discard_empty_optional_triggers: true,
+            order_triggers: false,
             decision_timeout_secs: h.decision_timeout_secs,
             reconnect_window_secs: h.reconnect_window_secs,
             timing_normalization: h.timing_normalization,

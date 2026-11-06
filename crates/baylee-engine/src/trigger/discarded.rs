@@ -69,6 +69,7 @@ pub(super) fn collect(
                 once_per_turn: firing.once_per_turn,
                 synthetic_target: None,
                 chosen_mode: None,
+                in_chosen_order: false,
             });
         }
     }

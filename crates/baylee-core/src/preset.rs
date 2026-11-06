@@ -124,6 +124,16 @@ pub struct HouseRules {
     pub takebacks: bool,
     /// Allow players to vote on time extensions (AI always accepts).
     pub time_extension_votes: bool,
+    /// Ask a player whose triggers differ what order they go on the stack
+    /// in (CR 603.3b); without it the timestamps decide.
+    ///
+    /// Off unless a table says so, which real tables do
+    /// ([`Self::for_a_table`]), and off in a training or evaluation preset,
+    /// so that the net's numbers and records stay what they are. A record
+    /// without the field keeps its timestamps, and writing a game with the
+    /// rule off writes exactly what it wrote before the field existed.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub order_triggers: bool,
 }
 
 /// Seconds a seat has to answer one question unless the table says
@@ -151,11 +161,23 @@ impl Default for HouseRules {
             timing_normalization: true,
             takebacks: false,
             time_extension_votes: true,
+            order_triggers: false,
         }
     }
 }
 
 impl HouseRules {
+    /// The rules of a game played at a table, by people or language models:
+    /// the defaults, with the questions [`Self::default`] leaves out of a
+    /// training or evaluation game because the net cannot be asked them.
+    #[must_use]
+    pub fn for_a_table() -> Self {
+        Self {
+            order_triggers: true,
+            ..Self::default()
+        }
+    }
+
     /// Number of opening redraws that cost no cards.
     #[must_use]
     pub fn free_mulligan_count(&self) -> u8 {

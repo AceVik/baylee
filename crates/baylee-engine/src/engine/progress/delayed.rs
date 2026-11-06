@@ -477,6 +477,7 @@ impl<L: CardLookup> Engine<L> {
                 once_per_turn: false,
                 synthetic_target: None,
                 chosen_mode: None,
+                in_chosen_order: false,
             });
     }
 

@@ -183,7 +183,7 @@ fn a_stolen_creature_is_summoning_sick_for_its_taker() {
 
 /// The timestamp orders more than layers: two triggered abilities of one
 /// controller that trigger together are put on the stack oldest first here
-/// (CR 603.3b lets the controller choose; the engine does not ask). Loyal
+/// (CR 603.3b lets the controller choose; this game does not ask). Loyal
 /// entered before the Bystander, and taking it does not make it newer, so
 /// at seat 1's end step Loyal's trigger still goes on the stack first.
 #[test]

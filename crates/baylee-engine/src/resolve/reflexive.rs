@@ -85,6 +85,7 @@ pub(super) fn arm(
             }),
             once_per_turn: false,
             chosen_mode: None,
+            in_chosen_order: false,
         });
     }
 }

@@ -1024,6 +1024,9 @@ impl<L: CardLookup> Engine<L> {
                     PlanKind::ChoosePhyrexianLife { .. } => {
                         unreachable!("a Phyrexian symbol is answered via YesNo")
                     }
+                    PlanKind::TriggerOrder => {
+                        unreachable!("an order is answered via Arrange")
+                    }
                     PlanKind::SpellEnding { .. } => {
                         unreachable!("a spell's ending is answered via ChooseMode")
                     }
@@ -1557,6 +1560,11 @@ impl<L: CardLookup> Engine<L> {
             (Pending::Arrange { player: p, .. }, PlayerAction::Arrange { piles })
                 if *p == player =>
             {
+                if matches!(self.pending_plan, Some(PlanKind::TriggerOrder)) {
+                    self.pending_plan = None;
+                    self.take_trigger_order(&piles[0]);
+                    return Ok(());
+                }
                 if self.resolution.is_none() {
                     crate::graveyard_order::answer(&mut self.state, &piles[0]);
                     return Ok(());

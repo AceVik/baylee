@@ -700,8 +700,36 @@ blocking for a teammate) is a further step, not this one.
 ## Events, replacement, triggers
 Proposed events are rewritten by applicable replacement effects (each at
 most once per event, CR 614.5), applied, journaled; matching triggers are
-collected and stacked APNAP (per-player ordering via ChoiceRequest).
+collected and stacked APNAP, each player's by timestamp unless the game asks.
 SBAs run as a fixpoint before every priority grant (plus format SBAs).
+
+### The order of a player's triggers
+
+CR 603.3b is a two-part process: first the triggered abilities whose trigger
+condition isn't another ability triggering, then the rest, each part per player
+in APNAP order and in any order they choose. No card in the pool triggers on an
+ability triggering, so every queue here is the first part. Under
+`HouseRules.order_triggers` the player at the front of the queue is asked before
+any of their triggers asks a mode or a target (`progress::trigger_order`; the
+wire is `docs/protocol.md` §"The order of triggers"). `PendingTrigger::in_chosen_order`
+marks what they have settled: the queue's sort leaves those first, in the order
+chosen, and nobody is asked about them again, so an answer outlives the target
+questions and the re-sorts between it and the stack. A trigger found after the
+answer waits behind them and is asked about in turn.
+
+Only triggers that differ are asked about. Two are the same when their bodies are
+equal (`Body`: effects, targets and intervening condition, not the trigger event),
+their text changes are equal, their sources are one object or two that only the
+handle tells apart, and their events are the same as far as the body reads them
+(`EventRead`, off the words of the script). A body that reads nothing of its event
+is the same ability whatever set it off, which keeps a board wipe under Blood Artist
+from being a question; Dingus Egg reads only whose land it was. A word that misses
+a reader costs a question and never a rule: those triggers go on by timestamp.
+A trigger with no legal target is asked about like any other, since a trigger put
+on the stack first may be what it could target.
+
+A game without the rule marks nothing, folds nothing into `snapshot_hash` and
+serialises no field, so stored records and the hashes they hold are untouched.
 
 ### Optional triggers with an empty target
 

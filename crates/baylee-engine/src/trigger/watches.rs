@@ -98,6 +98,7 @@ pub fn state_triggers(
                 once_per_turn: firing.once_per_turn,
                 synthetic_target: None,
                 chosen_mode: None,
+                in_chosen_order: false,
             });
         }
     }
@@ -186,6 +187,7 @@ pub(super) fn cast_copy_triggers(
                 once_per_turn: false,
                 synthetic_target: None,
                 chosen_mode: None,
+                in_chosen_order: false,
             });
         }
     }
@@ -287,6 +289,7 @@ pub(super) fn watch_triggers(
                     once_per_turn: false,
                     synthetic_target: None,
                     chosen_mode: None,
+                    in_chosen_order: false,
                 });
             }
             continue;
@@ -400,6 +403,7 @@ pub(super) fn watch_triggers(
             once_per_turn: false,
             synthetic_target: None,
             chosen_mode: None,
+            in_chosen_order: false,
         });
     }
 }
@@ -447,6 +451,7 @@ fn synthetic_watch_trigger(
         once_per_turn: false,
         synthetic_target: None,
         chosen_mode: None,
+        in_chosen_order: false,
     })
 }
 
@@ -820,8 +825,8 @@ pub(super) fn first_combat_damage_by(
 ///
 /// Timestamp `0` puts them ahead of the monarch's other triggers from the
 /// same batch in the queue, so they go on the stack first and resolve last.
-/// The rules let the controller choose that order (CR 603.3b), which this
-/// engine does not ask yet for any trigger.
+/// The rules let the controller choose that order (CR 603.3b), which a game
+/// under `HouseRules::order_triggers` asks.
 pub(super) fn monarch_triggers(
     state: &GameState,
     events: &[crate::event::JournalEntry],
@@ -854,6 +859,7 @@ pub(super) fn monarch_triggers(
         once_per_turn: false,
         synthetic_target: None,
         chosen_mode: None,
+        in_chosen_order: false,
     };
     for entry in events {
         match &entry.event {

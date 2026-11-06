@@ -26,6 +26,10 @@ pub enum ArrangePlace {
     /// (CR 701.25a), or a simultaneous arrival's order (CR 404.3).
     /// An ordered graveyard pile is listed top to bottom, newest first.
     Graveyard,
+    /// Onto the stack, for triggered abilities their controller is ordering
+    /// (CR 603.3b). Listed top to bottom like every other pile: **the first
+    /// resolves first**, and goes on the stack last.
+    Stack,
 }
 
 /// One destination of a [`Pending::Arrange`](super::Pending::Arrange): where,
@@ -91,6 +95,15 @@ pub enum ArrangePrompt {
     /// that the answer with no preference is the discard as printed, and a
     /// library pile in any order. Every card is still discarded.
     DiscardToLibrary,
+    /// Triggered abilities going on the stack at once, which their
+    /// controller puts there in any order (CR 603.3b). One pile
+    /// ([`ArrangePlace::Stack`]), and the question's `cards` are no cards:
+    /// each is an [`ObjectId::queued_trigger`], which names no object and
+    /// which a host's view explains. They are offered in the order the
+    /// timestamps would stack them, so the answer with no preference
+    /// ([`default_arrangement`], `timeout_answer`) is the order a game
+    /// without the question plays.
+    TriggerOrder,
 }
 
 /// The arrangement a player with no preference gives: the cards in the order

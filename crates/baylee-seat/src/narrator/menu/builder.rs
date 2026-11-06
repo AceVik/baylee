@@ -1444,6 +1444,7 @@ impl Builder<'_, '_> {
                  of them on top of your library instead of into your graveyard, in any order; \
                  each is still discarded."
             ),
+            ArrangePrompt::TriggerOrder => "QUESTION: Put these triggers in order.".into(),
         };
         self.line(table.for_decider(&intro));
         let named: Vec<String> = cards.iter().map(|&c| table.named(c)).collect();
@@ -1457,6 +1458,7 @@ impl Builder<'_, '_> {
                 ArrangePlace::LibraryTop => "the top of your library",
                 ArrangePlace::LibraryBottom => "the bottom of your library",
                 ArrangePlace::Graveyard => "your graveyard",
+                ArrangePlace::Stack => "the stack",
             });
             let order = if pile.ordered {
                 "; list them from the top down"

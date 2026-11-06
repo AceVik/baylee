@@ -935,7 +935,9 @@ pub(super) fn look_question(
         ],
         prompt: match away {
             ArrangePlace::Graveyard => ArrangePrompt::Surveil,
-            ArrangePlace::LibraryTop | ArrangePlace::LibraryBottom => ArrangePrompt::Scry,
+            ArrangePlace::LibraryTop | ArrangePlace::LibraryBottom | ArrangePlace::Stack => {
+                ArrangePrompt::Scry
+            }
         },
     }
 }

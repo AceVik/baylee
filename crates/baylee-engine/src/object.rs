@@ -689,7 +689,7 @@ impl CachedChar {
 pub use baylee_cards_dsl::CounterKind;
 
 /// Counters on an object.
-#[derive(Clone, Hash, Debug, Default)]
+#[derive(Clone, PartialEq, Eq, Hash, Debug, Default)]
 pub struct Counters(SmallVec<[(CounterKind, u16); 4]>);
 
 impl Counters {

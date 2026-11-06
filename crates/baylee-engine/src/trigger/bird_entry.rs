@@ -84,6 +84,7 @@ pub(super) fn collect(
             once_per_turn: false,
             synthetic_target: None,
             chosen_mode: None,
+            in_chosen_order: false,
         });
     }
 }

@@ -111,6 +111,7 @@ impl<L: CardLookup> Engine<L> {
             synthetic_target: None,
             once_per_turn: false,
             chosen_mode: None,
+            in_chosen_order: false,
         });
     }
 
@@ -170,6 +171,7 @@ impl<L: CardLookup> Engine<L> {
             synthetic_target: None,
             once_per_turn: false,
             chosen_mode: None,
+            in_chosen_order: false,
         });
     }
 

@@ -963,6 +963,9 @@ enum PlanKind {
         /// The spell.
         spell: ObjectId,
     },
+    /// The triggers at the queue's front, which its controller is putting
+    /// in the order they go on the stack (CR 603.3b).
+    TriggerOrder,
 }
 
 impl<L: CardLookup> Engine<L> {
@@ -1373,6 +1376,12 @@ impl<L: CardLookup> Engine<L> {
                     .event_mana_value
                     .map_or(0, |value| u64::from(value) + 1),
             );
+            // Decides whether its controller is asked again. Folded in only
+            // when set, as `order_triggers` below: a game without the rule
+            // keeps every hash a record holds.
+            if trigger.in_chosen_order {
+                extra = extra.wrapping_mul(31).wrapping_add(1);
+            }
         }
         extra = extra
             .wrapping_mul(31)
@@ -1508,6 +1517,10 @@ impl<L: CardLookup> Engine<L> {
         // as off and must keep every hash it recorded.
         if self.house_rules.auto_discard_empty_optional_triggers {
             extra = extra.wrapping_mul(31).wrapping_add(1);
+        }
+        // Likewise: it adds a question to an otherwise identical board.
+        if self.house_rules.order_triggers {
+            extra = extra.wrapping_mul(31).wrapping_add(2);
         }
         base ^ extra.rotate_left(17)
     }
@@ -1948,6 +1961,7 @@ mod room;
 mod storied;
 mod targeting;
 pub use decision::DecisionContext;
+pub use progress::QueuedTrigger;
 mod actions;
 mod announcement_context;
 #[cfg(test)]
@@ -2282,6 +2296,8 @@ mod this_object_tests;
 mod thrun_tests;
 #[cfg(test)]
 mod token_tests;
+#[cfg(test)]
+mod trigger_order_tests;
 #[cfg(test)]
 mod trigger_target_tests;
 #[cfg(test)]

@@ -438,14 +438,7 @@ impl<L: CardLookup> Engine<L> {
         effects: &[baylee_cards_dsl::Effect],
     ) -> NameRef {
         if source == ObjectId::NO_SOURCE {
-            let name = if matches!(effects, [baylee_cards_dsl::Effect::Radiation]) {
-                "Radiation"
-            } else if matches!(effects, [baylee_cards_dsl::Effect::IncreaseSpeed]) {
-                "Speed"
-            } else {
-                "Monarch"
-            };
-            return self.state.names.intern(name);
+            return self.state.names.intern(sourceless_trigger_name(effects));
         }
         self.state
             .object(source)
@@ -776,5 +769,17 @@ impl<L: CardLookup> Engine<L> {
                 i += 1;
             }
         }
+    }
+}
+
+/// What a triggered ability with no source goes by: a designation's or a
+/// rule's own (CR 725.2).
+pub(super) const fn sourceless_trigger_name(effects: &[baylee_cards_dsl::Effect]) -> &'static str {
+    if matches!(effects, [baylee_cards_dsl::Effect::Radiation]) {
+        "Radiation"
+    } else if matches!(effects, [baylee_cards_dsl::Effect::IncreaseSpeed]) {
+        "Speed"
+    } else {
+        "Monarch"
     }
 }

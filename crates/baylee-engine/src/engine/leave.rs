@@ -178,6 +178,11 @@ impl<L: CardLookup> Engine<L> {
     /// A choice of cards keeps what is left and asks for no more than that:
     /// a player can't choose what is impossible (CR 608.2d).
     pub(super) fn forget_the_departed(&mut self, exiled: &[ObjectId]) -> bool {
+        // Nothing asked names an object, and a trigger does not depend on its
+        // source (CR 113.7a): the asker's triggers stand and so does the order.
+        if matches!(self.pending_plan, Some(PlanKind::TriggerOrder)) {
+            return true;
+        }
         if let Pending::ChooseDamageSource { player, .. } = self.pending {
             let filter = match self.resolution.as_ref().and_then(|r| r.awaiting.as_ref()) {
                 Some(AwaitingOp::ShieldFromChosenSource { sources, .. }) => *sources,

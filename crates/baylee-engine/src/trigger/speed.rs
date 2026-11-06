@@ -37,6 +37,7 @@ pub(super) fn collect(events: &[JournalEntry], triggers: &mut Vec<PendingTrigger
             once_per_turn: false,
             synthetic_target: None,
             chosen_mode: None,
+            in_chosen_order: false,
         });
     }
 }
