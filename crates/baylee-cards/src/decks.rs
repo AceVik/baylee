@@ -504,6 +504,11 @@ fn format_for<'a>(mut decks: impl Iterator<Item = &'a LoadedDeck>) -> FormatId {
 }
 
 /// Builds a two-player preset from two loaded decks.
+///
+/// Its house rules are [`HouseRules::default`], which keeps out what a table
+/// adds (`HouseRules::for_a_table`): training, evaluation and self-play all
+/// come through here and through [`preset_for_all`], and must not meet a
+/// question the net cannot be asked. A host seating a person sets it.
 #[must_use]
 pub fn preset_for(seed: u64, a: &LoadedDeck, b: &LoadedDeck) -> GamePreset {
     let mut prints: Vec<PrintInfo> = Vec::new();

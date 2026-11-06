@@ -674,6 +674,7 @@ fn acceptance_duel_preset() -> GamePreset {
     let mut preset = baylee_cards::decks::preset_for(1, &allytifact, &victory);
     // Seat 0 is the connecting human.
     preset.seats[0].controller = baylee_core::preset::SeatController::Open;
+    preset.house_rules.order_triggers = true;
     preset
 }
 

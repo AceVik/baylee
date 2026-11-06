@@ -229,7 +229,7 @@ pub fn resolve(
     Ok(HouseRules {
         decision_timeout_secs: decision,
         reconnect_window_secs: reconnect,
-        ..HouseRules::default()
+        ..HouseRules::for_a_table()
     })
 }
 
@@ -339,6 +339,17 @@ mod tests {
             resolve(None, Some(MIN_DECISION_SECS - 1), None, 180).is_err(),
             "one second under the floor is not a fast game, it is an unreadable one"
         );
+    }
+
+    /// A table asks a player the order of their triggers (CR 603.3b),
+    /// whatever its clock; a preset built without a room does not.
+    #[test]
+    fn every_table_asks_the_order_of_triggers() {
+        for name in [None, Some("blitz"), Some("untimed")] {
+            let rules = resolve(name, None, None, 180).expect("a clock");
+            assert!(rules.order_triggers, "{name:?}");
+        }
+        assert!(!baylee_core::preset::HouseRules::default().order_triggers);
     }
 
     #[test]
