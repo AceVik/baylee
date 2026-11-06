@@ -52,6 +52,9 @@ mod explore;
 mod future_attacks;
 mod graveyard_choice;
 mod greatest_exchange;
+mod keep_one_of_each;
+#[cfg(test)]
+mod keep_one_of_each_tests;
 mod landwalk;
 mod target_groups;
 mod untap_suppression;

@@ -990,6 +990,7 @@ impl Effect {
             | Effect::ExchangeControl
             | Effect::DestroyChosenForPlayers { .. }
             | Effect::EqualizePermanents { .. }
+            | Effect::KeepOneOfEachAndSacrificeRest { .. }
             | Effect::EqualizeHands
             | Effect::DiscardForPlayers { .. }
             | Effect::DiscardAmountForPlayers { .. }
