@@ -268,7 +268,7 @@ mod tests {
     /// disagree on it do not talk. It is written down here so that raising
     /// it is a deliberate line in a diff rather than a number that drifted.
     #[test]
-    fn the_wire_version_is_thirty_six() {
+    fn the_wire_version_is_thirty_eight() {
         // 2: `SeatReady` and `Curtain` (#256).
         // 3: `SeatSettingMsg` (#265). An engine built before it drops the
         // frame without a word, so a client that sent one would wait for a
@@ -322,7 +322,10 @@ mod tests {
         // gateway now requires to release an account-bound game.
         // 37: a vote, `ChoicePrompt::Vote`, a variant an older client cannot
         // decode.
-        assert_eq!(PROTOCOL_VERSION, 37);
+        // 38: the sign-in by gateway token and a session token that rotates, which
+        // an older client cannot speak; `HelloAck::refusal` says why a socket was
+        // refused (`docs/protocol.md` §"Refusals").
+        assert_eq!(PROTOCOL_VERSION, 38);
     }
 
     #[test]
