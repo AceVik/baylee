@@ -84,6 +84,45 @@ fn a_combat_share_finishes_each_blocker_in_turn() {
                     index: 0,
                     of: 2,
                     left: 5,
+                    lethal: None,
+                },
+            },
+        );
+        assert_eq!(action, PlayerAction::ChooseNumber(expected), "{why}");
+    }
+}
+
+/// A trampler's damage divided among its blockers (CR 702.19b): what the
+/// question calls lethal, within its bounds, so the rest goes past them. The
+/// board would say otherwise here: this 5-toughness blocker is owed the 1 that
+/// is left of its marked damage, and the last one's `min` holds.
+#[test]
+fn a_tramplers_share_is_what_the_question_calls_lethal() {
+    use baylee_engine::choice::NumberPrompt;
+    let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+    let v = view(
+        0,
+        &[20, 20],
+        vec![permanent(obj(1), them, 5), permanent(obj(9), me, 8)],
+    );
+    for (min, max, lethal, expected, why) in [
+        (0, 8, 1, 1, "lethal and no more, with the rest to send on"),
+        (3, 5, 3, 3, "the last blocker's lethal, and 2 trample over"),
+        (0, 2, 3, 2, "all there is, short of lethal"),
+    ] {
+        let action = HeuristicAgent::new(AIProfile::EXPERT).act(
+            &v,
+            &Pending::ChooseNumber {
+                player: v.seat,
+                min,
+                max,
+                reason: NumberPrompt::CombatDamage {
+                    source: obj(9),
+                    recipient: obj(1),
+                    index: 0,
+                    of: 2,
+                    left: max,
+                    lethal: Some(lethal),
                 },
             },
         );

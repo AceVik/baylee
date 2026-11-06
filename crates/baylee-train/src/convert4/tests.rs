@@ -120,8 +120,10 @@ fn no_training_preset_asks_the_order_of_triggers() {
     let b = HouseDeck::named("victory").unwrap();
     let duel = table(19, &a, &b, [AIProfile::SHARP, AIProfile::EXPERT]);
     assert!(!duel.house_rules.order_triggers);
+    assert!(!duel.house_rules.divide_trample, "a trampler's damage too");
     let four = crate::selfplay::table_for(19, &[&a, &b, &a, &b], &[AIProfile::SHARP; 4], &[]);
     assert!(!four.house_rules.order_triggers);
+    assert!(!four.house_rules.divide_trample, "a trampler's damage too");
 }
 
 /// A language model's table asks the order of triggers (the collector's rooms

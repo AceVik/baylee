@@ -617,6 +617,7 @@ pub fn demo_duel(deck_file: &str, seed: u64) -> Option<GamePreset> {
     // Seat 0 is the person at the keyboard.
     preset.seats.first_mut()?.controller = baylee_core::preset::SeatController::Open;
     preset.house_rules.order_triggers = true;
+    preset.house_rules.divide_trample = true;
     Some(preset)
 }
 
@@ -640,6 +641,7 @@ pub fn practice_game(seed: u64) -> Option<GamePreset> {
         };
     }
     preset.house_rules.order_triggers = true;
+    preset.house_rules.divide_trample = true;
     preset.validate().ok()?;
     Some(preset)
 }

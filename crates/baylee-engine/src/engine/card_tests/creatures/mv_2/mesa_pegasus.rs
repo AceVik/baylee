@@ -116,6 +116,7 @@ fn mesa_pegasus_blocking_divides_the_attackers_damage_for_its_own_controller() {
             index: 0,
             of: 2,
             left: 6,
+            lethal: None,
         },
         "the first-declared blocker asked first"
     );
@@ -190,6 +191,7 @@ fn mesa_pegasus_bands_attacking_so_a_single_blocker_divides_for_the_active_playe
             index: 0,
             of: 2,
             left: 2,
+            lethal: None,
         },
         "the declared block's recipient asked first, the band's after it"
     );

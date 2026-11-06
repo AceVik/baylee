@@ -54,7 +54,9 @@ impl CombatAuto {
     }
 
     /// Assign lethal damage in recipient order, accounting for marked damage
-    /// and deathtouch. The engine gives the final recipient the remainder.
+    /// and deathtouch; a trampler's question says what is lethal itself. The
+    /// engine gives the final recipient the remainder, and with trample what
+    /// the last leaves over goes past it.
     /// When banding lets us assign damage to our own creatures, concentrate
     /// it on the current one instead of needlessly spreading it among them.
     pub fn answer(&mut self, view: &PlayerView, pending: &Pending) -> Option<PlayerAction> {
@@ -64,7 +66,12 @@ impl CombatAuto {
         let Pending::ChooseNumber {
             min,
             max,
-            reason: NumberPrompt::CombatDamage { recipient, .. },
+            reason:
+                NumberPrompt::CombatDamage {
+                    recipient,
+                    lethal: told,
+                    ..
+                },
             ..
         } = *pending
         else {
@@ -74,11 +81,13 @@ impl CombatAuto {
         let touch = view
             .object(self.source)
             .is_some_and(|o| o.keywords & keyword_bits::DEATHTOUCH != 0);
-        let lethal = if touch {
-            1
-        } else {
-            u32::try_from(i32::from(target.toughness.unwrap_or(0)) - i32::from(target.damage))
-                .unwrap_or(0)
+        let lethal = match (told, touch) {
+            (Some(told), _) => told,
+            (None, true) => 1,
+            (None, false) => {
+                u32::try_from(i32::from(target.toughness.unwrap_or(0)) - i32::from(target.damage))
+                    .unwrap_or(0)
+            }
         };
         let amount = if target.controller == resource_player(view) {
             max
@@ -112,8 +121,71 @@ mod tests {
                 index,
                 of: 4,
                 left,
+                lethal: None,
             },
         }
+    }
+
+    /// A trampler's share, as the engine asks it: bounded by `min`, and
+    /// saying what is lethal to the creature itself.
+    fn trample_share(index: u8, min: u32, left: u32, lethal: u32) -> Pending {
+        Pending::ChooseNumber {
+            player: baylee_core::ids::PlayerId::new(0),
+            min,
+            max: left,
+            reason: NumberPrompt::CombatDamage {
+                source: ObjectId::new(1, 0),
+                recipient: ObjectId::new(2 + u32::from(index), 0),
+                index,
+                of: 2,
+                left,
+                lethal: Some(lethal),
+            },
+        }
+    }
+
+    /// What the engine calls lethal stands, where the view alone would say
+    /// otherwise: a creature that took lethal damage and stayed still owes 1,
+    /// and the view's own subtraction says 0 (CR 702.19b). The last blocker's
+    /// `min` holds, and what is over it goes on.
+    #[test]
+    fn a_tramplers_division_takes_lethal_from_the_question_and_respects_min() {
+        let mut view = ViewBuilder::new(2)
+            .with_battlefield(0, vec![token(1, 0, "Trampler", 8, 8)])
+            .with_battlefield(
+                1,
+                vec![token(2, 1, "Stayed", 2, 2), token(3, 1, "Fresh", 3, 3)],
+            )
+            .build();
+        view.battlefield
+            .iter_mut()
+            .find(|o| o.id == ObjectId::new(2, 0))
+            .unwrap()
+            .damage = 2;
+
+        let first = trample_share(0, 0, 8, 1);
+        let mut auto = CombatAuto::begin(&view, &first).unwrap();
+        assert_eq!(
+            auto.answer(&view, &first),
+            Some(PlayerAction::ChooseNumber(1)),
+            "the question's lethal, not the view's 0"
+        );
+        view.seq += 1;
+        let last = trample_share(1, 3, 7, 3);
+        assert_eq!(
+            auto.answer(&view, &last),
+            Some(PlayerAction::ChooseNumber(3)),
+            "lethal to the last, and the other four trample over"
+        );
+
+        // Too little left for lethal: `min` is all there is.
+        let short = trample_share(1, 2, 2, 3);
+        assert_eq!(
+            CombatAuto::begin(&view, &short)
+                .unwrap()
+                .answer(&view, &short),
+            Some(PlayerAction::ChooseNumber(2))
+        );
     }
 
     #[test]

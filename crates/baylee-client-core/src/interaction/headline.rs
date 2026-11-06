@@ -511,10 +511,11 @@ fn number_line(
         index,
         of,
         left,
+        lethal,
     } = reason
         && let (Some(source), Some(recipient)) = (name(source), name(recipient))
     {
-        return Phrase::CombatDamageShareNamed.fill(
+        let share = Phrase::CombatDamageShareNamed.fill(
             lang,
             &[
                 &source,
@@ -526,6 +527,7 @@ fn number_line(
                 &max,
             ],
         );
+        return with_trample(lang, share, lethal);
     }
     match reason {
         NumberPrompt::Sacrifices => Phrase::ChooseSacrificeCount.fill(lang, &[&min, &max]),
@@ -553,16 +555,24 @@ fn number_line(
             Phrase::MultikickerHowOften.fill(lang, &[&cost.to_string(), &min, &max])
         }
         NumberPrompt::CombatDamage {
-            index, of, left, ..
-        } => Phrase::CombatDamageShare.fill(
+            index,
+            of,
+            left,
+            lethal,
+            ..
+        } => with_trample(
             lang,
-            &[
-                &(u64::from(index) + 1).to_string(),
-                &of.to_string(),
-                &left.to_string(),
-                &min,
-                &max,
-            ],
+            Phrase::CombatDamageShare.fill(
+                lang,
+                &[
+                    &(u64::from(index) + 1).to_string(),
+                    &of.to_string(),
+                    &left.to_string(),
+                    &min,
+                    &max,
+                ],
+            ),
+            lethal,
         ),
         NumberPrompt::DivideDamage {
             index, of, left, ..
@@ -576,6 +586,18 @@ fn number_line(
                 &max,
             ],
         ),
+    }
+}
+
+/// A share of a trampler's damage, with what its number decides: what is
+/// lethal here, and that what the blockers leave over goes on (CR 702.19b).
+fn with_trample(lang: Lang, share: String, lethal: Option<u32>) -> String {
+    match lethal {
+        Some(lethal) => {
+            let note = Phrase::CombatDamageTrample.fill(lang, &[&lethal.to_string()]);
+            format!("{share} {note}")
+        }
+        None => share,
     }
 }
 

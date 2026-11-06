@@ -116,6 +116,7 @@ fn timber_wolves_blocking_divides_the_attackers_damage_for_its_own_controller() 
                 index: 0,
                 of: 2,
                 left: 6,
+                lethal: None,
             },
             "the first-declared blocker asked first"
         );

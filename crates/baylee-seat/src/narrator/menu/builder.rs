@@ -1391,12 +1391,23 @@ impl Builder<'_, '_> {
                 index,
                 of,
                 left,
-            } => format!(
-                "Divide {}'s combat damage: how much goes to {} (creature {} of {of})? {left} is left to divide",
-                table.named(*source),
-                table.named(*recipient),
-                u16::from(*index) + 1
-            ),
+                lethal,
+            } => {
+                let trample = lethal.map_or_else(String::new, |lethal| {
+                    format!(
+                        ". It has trample: {lethal} is lethal damage to {}, and once every \
+                         blocker has been assigned lethal damage, whatever you leave after the \
+                         last blocker tramples over to what it is attacking",
+                        table.named(*recipient),
+                    )
+                });
+                format!(
+                    "Divide {}'s combat damage: how much goes to {} (creature {} of {of})? {left} is left to divide{trample}",
+                    table.named(*source),
+                    table.named(*recipient),
+                    u16::from(*index) + 1
+                )
+            }
             NumberPrompt::DivideDamage {
                 target,
                 index,

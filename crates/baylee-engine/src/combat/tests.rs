@@ -565,7 +565,7 @@ fn a_blocker_on_a_band_that_lost_banding_is_divided_by_its_controller() {
     block(&mut state, blocker, first);
     block(&mut state, blocker, second);
 
-    let owed = divisions_owed(&state, false);
+    let owed = divisions_owed(&state, false, false);
     assert_eq!(
         owed,
         vec![OwedDivision {
@@ -573,13 +573,14 @@ fn a_blocker_on_a_band_that_lost_banding_is_divided_by_its_controller() {
             chooser: P1,
             recipients: vec![first, second],
             amount: 3,
+            lethal: Vec::new(),
         }],
         "no creature it blocks has banding: its controller divides"
     );
 
     state.object_mut(first).expect("there").base_mut().keywords = KeywordSet::BANDING;
     state.refresh_characteristics();
-    let owed = divisions_owed(&state, false);
+    let owed = divisions_owed(&state, false, false);
     assert_eq!(owed.len(), 1);
     assert_eq!(
         owed[0].chooser, state.turn.active,
@@ -1022,6 +1023,154 @@ fn trample_over_a_blocker_hits_the_planeswalker_being_attacked() {
     assert_eq!(damage(&state, chump), 1, "the blocker takes lethal");
     assert_eq!(loyalty(&state, walker), 2, "the rest trampled elsewhere");
     assert_eq!(state.players[1].life, 20, "trample skipped the walker");
+}
+
+/// CR 702.19b: a trampler's division is dealt as its controller chose, the
+/// excess on a blocker included, and what it leaves goes to the player.
+#[test]
+fn a_tramplers_division_is_dealt_as_chosen_and_the_rest_goes_on() {
+    let mut state = empty_state();
+    let beast = creature(&mut state, P0, 8, 8, KeywordSet::TRAMPLE);
+    let first = creature(&mut state, P1, 0, 2, KeywordSet::EMPTY);
+    let second = creature(&mut state, P1, 0, 2, KeywordSet::EMPTY);
+    attack(&mut state, beast, P1);
+    block(&mut state, first, beast);
+    block(&mut state, second, beast);
+    state.combat.record_division(Division {
+        source: beast,
+        shares: vec![(first, 5), (second, 2)],
+    });
+
+    deal_combat_damage(&mut state, false);
+    assert_eq!(damage(&state, first), 5);
+    assert_eq!(damage(&state, second), 2);
+    assert_eq!(state.players[1].life, 19);
+    assert!(
+        state.combat.division(beast).is_none(),
+        "spent, so a second strike asks again"
+    );
+}
+
+/// The same, at a planeswalker: what the blockers leave comes off its loyalty
+/// and nothing reaches the player (CR 702.19b, 702.19f).
+#[test]
+fn a_tramplers_division_reaches_the_planeswalker_it_attacks() {
+    let mut state = empty_state();
+    let beast = creature(&mut state, P0, 5, 5, KeywordSet::TRAMPLE);
+    let first = creature(&mut state, P1, 0, 1, KeywordSet::EMPTY);
+    let second = creature(&mut state, P1, 0, 1, KeywordSet::EMPTY);
+    let walker = planeswalker(&mut state, P1, 6);
+    attack_walker(&mut state, beast, walker);
+    block(&mut state, first, beast);
+    block(&mut state, second, beast);
+    let owed = divisions_owed(&state, false, true);
+    assert_eq!(owed[0].lethal, vec![1, 1], "there is something to reach");
+    state.combat.record_division(Division {
+        source: beast,
+        shares: vec![(first, 1), (second, 1)],
+    });
+
+    deal_combat_damage(&mut state, false);
+    assert_eq!(loyalty(&state, walker), 3);
+    assert_eq!(state.players[1].life, 20);
+}
+
+/// Who owes a trampler's division, and what the question is told. Banding's
+/// is the defending player's and has no floor; a planeswalker that left
+/// leaves nothing to reach, so it has none either; and without the rule a
+/// trampler owes none.
+#[test]
+fn what_a_trampler_owes_follows_the_rule_and_what_it_can_reach() {
+    let mut state = empty_state();
+    let beast = creature(&mut state, P0, 5, 5, KeywordSet::TRAMPLE);
+    let first = creature(&mut state, P1, 0, 3, KeywordSet::EMPTY);
+    let second = creature(&mut state, P1, 0, 2, KeywordSet::EMPTY);
+    let walker = planeswalker(&mut state, P1, 6);
+    attack_walker(&mut state, beast, walker);
+    block(&mut state, first, beast);
+    block(&mut state, second, beast);
+
+    assert_eq!(divisions_owed(&state, false, false), vec![]);
+    assert_eq!(
+        divisions_owed(&state, false, true),
+        vec![OwedDivision {
+            source: beast,
+            chooser: P0,
+            recipients: vec![first, second],
+            amount: 5,
+            lethal: vec![3, 2],
+        }]
+    );
+
+    state
+        .move_object(
+            walker,
+            ZoneLocation::Graveyard(P1),
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::Effect,
+        )
+        .expect("the walker leaves");
+    assert_eq!(
+        divisions_owed(&state, false, true),
+        vec![OwedDivision {
+            source: beast,
+            chooser: P0,
+            recipients: vec![first, second],
+            amount: 5,
+            lethal: vec![],
+        }],
+        "CR 702.19f: past them there is nothing it may reach"
+    );
+
+    state.object_mut(second).expect("there").base_mut().keywords = KeywordSet::BANDING;
+    state.refresh_characteristics();
+    let owed = divisions_owed(&state, false, true);
+    assert_eq!(owed[0].chooser, P1, "CR 702.22j: banding hands it over");
+    assert!(owed[0].lethal.is_empty());
+}
+
+/// How a trampler's division is asked, share by share. Short of lethal on any
+/// creature, the rest stays on them; the last is owed lethal only while the
+/// rest can go on, and a share with one answer is no question.
+#[test]
+fn a_tramplers_shares_are_bounded_by_lethal() {
+    let owed = OwedDivision {
+        source: ObjectId::new(1, 0),
+        chooser: P0,
+        recipients: vec![
+            ObjectId::new(2, 0),
+            ObjectId::new(3, 0),
+            ObjectId::new(4, 0),
+        ],
+        amount: 10,
+        lethal: vec![3, 2, 4],
+    };
+    let next = |shares: &[i16], left, lethal, least, asked| {
+        assert_eq!(owed.left(shares), left, "{shares:?}");
+        assert_eq!(owed.lethal_next(shares), lethal, "{shares:?}");
+        assert_eq!(owed.least_next(shares), least, "{shares:?}");
+        assert_eq!(owed.asks_next(shares), asked, "{shares:?}");
+    };
+    next(&[], 10, Some(3), 0, true);
+    next(&[3], 7, Some(2), 0, true);
+    next(&[3, 2], 5, Some(4), 4, true);
+    next(&[3, 3], 4, Some(4), 4, false);
+    next(&[3, 6], 1, Some(4), 1, false);
+    next(&[1], 9, None, 0, true);
+    next(&[3, 1], 6, None, 6, false);
+    assert!(!owed.asks_next(&[10]), "nothing left to give the second");
+
+    let plain = OwedDivision {
+        lethal: vec![],
+        ..owed
+    };
+    assert_eq!(plain.lethal_next(&[]), None);
+    assert!(
+        plain.asks_next(&[10]),
+        "a share of nothing, as it always was"
+    );
+    assert_eq!(plain.least_next(&[3, 3]), 4, "the last takes the rest");
+    assert!(!plain.asks_next(&[3, 3]));
 }
 
 /// CR 506.4c: the attack survives the planeswalker leaving, but the

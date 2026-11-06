@@ -281,16 +281,21 @@ impl PolicySampler4<'_> {
                                     index,
                                     of,
                                     left,
+                                    lethal,
                                     ..
                                 },
                             ..
-                        } if *index + 1 < *of && *max > *min => {
-                            let rem_t = view.object(*recipient).map_or(*max, |o| {
-                                u32::try_from(
-                                    (i32::from(o.toughness.unwrap_or(1)) - i32::from(o.damage))
-                                        .max(1),
-                                )
-                                .unwrap_or(1)
+                        } if (*index + 1 < *of || lethal.is_some()) && *max > *min => {
+                            // A trampler's question says what is lethal, and
+                            // its last blocker is asked too (CR 702.19b).
+                            let rem_t = lethal.unwrap_or_else(|| {
+                                view.object(*recipient).map_or(*max, |o| {
+                                    u32::try_from(
+                                        (i32::from(o.toughness.unwrap_or(1)) - i32::from(o.damage))
+                                            .max(1),
+                                    )
+                                    .unwrap_or(1)
+                                })
                             });
                             let assign = if rem_t <= *left {
                                 rem_t.clamp(*min, *max)

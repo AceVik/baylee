@@ -7,8 +7,10 @@
 //!   (CR 508.1e), of each attacker with banding in turn;
 //! - a block on one member of a band blocking every member (CR 702.22h);
 //! - how a creature's combat damage is divided, where banding hands that
-//!   division to a player (CR 702.22j–k, 510.1d), asked as the damage step
-//!   begins, before any of it is dealt (CR 510.1, then 510.2).
+//!   division to a player (CR 702.22j–k, 510.1d) or two or more block it
+//!   (510.1c, and for a trampler 702.19b under `HouseRules::divide_trample`),
+//!   asked as the damage step begins, before any of it is dealt (CR 510.1,
+//!   then 510.2).
 use super::{CardLookup, Engine, EngineError, GameEvent, ObjectId, Pending, PlanKind, PlayerId};
 use crate::choice::{ChoicePrompt, NumberPrompt};
 use crate::combat::{Division, OwedDivision};
@@ -169,24 +171,27 @@ impl<L: CardLookup> Engine<L> {
             self.sync_static_effects();
             self.state.refresh_characteristics();
         }
-        let Some(owed) = crate::combat::divisions_owed(&self.state, first_strike_step)
-            .into_iter()
-            .next()
-        else {
+        let Some(owed) = crate::combat::divisions_owed(
+            &self.state,
+            first_strike_step,
+            self.house_rules.divide_trample,
+        )
+        .into_iter()
+        .next() else {
             return false;
         };
         self.ask_share(owed, Vec::new());
         true
     }
 
-    /// Asks the next recipient's share of `owed`.
+    /// Asks the next recipient's share of `owed`. The first always has a
+    /// choice to make: there are two or more recipients and something to give.
     fn ask_share(&mut self, owed: OwedDivision, shares: Vec<i16>) {
-        let given: i16 = shares.iter().sum();
-        let left = u32::try_from(owed.amount - given).unwrap_or(0);
+        let left = u32::try_from(owed.left(&shares)).unwrap_or(0);
         let index = shares.len();
         self.pending = Pending::ChooseNumber {
             player: owed.chooser,
-            min: 0,
+            min: u32::try_from(owed.least_next(&shares)).unwrap_or(0),
             max: left,
             reason: NumberPrompt::CombatDamage {
                 source: owed.source,
@@ -194,27 +199,33 @@ impl<L: CardLookup> Engine<L> {
                 index: u8::try_from(index).unwrap_or(u8::MAX),
                 of: u8::try_from(owed.recipients.len()).unwrap_or(u8::MAX),
                 left,
+                lethal: owed
+                    .lethal_next(&shares)
+                    .and_then(|lethal| u32::try_from(lethal).ok()),
             },
         };
         self.pending_plan = Some(PlanKind::CombatDamage { owed, shares });
         self.awaiting_answer = true;
     }
 
-    /// One share of a division. The next recipient is asked, or the last
-    /// takes what is left; then the next owed division is asked, or the
-    /// step the damage belongs to begins and deals it.
+    /// One share of a division. The next recipient is asked, or takes what
+    /// is left where that is all it can take; then the next owed division
+    /// is asked, or the step the damage belongs to begins and deals it. What
+    /// a trample division leaves after the last recipient is not written
+    /// down: it is what the damage step sends past them.
     ///
     /// Straight to `advance_step` and not back through the priority round:
     /// that round was complete when the first share was asked, and entered
     /// again it would open a new one in a step every player has passed.
     pub(super) fn answer_share(&mut self, owed: OwedDivision, mut shares: Vec<i16>, n: u32) {
         shares.push(i16::try_from(n).unwrap_or(i16::MAX));
-        if shares.len() + 1 < owed.recipients.len() {
-            self.ask_share(owed, shares);
-            return;
+        while shares.len() < owed.recipients.len() {
+            if owed.asks_next(&shares) {
+                self.ask_share(owed, shares);
+                return;
+            }
+            shares.push(owed.left(&shares));
         }
-        let given: i16 = shares.iter().sum();
-        shares.push(owed.amount - given);
         self.state.combat.record_division(Division {
             source: owed.source,
             shares: owed.recipients.iter().copied().zip(shares).collect(),

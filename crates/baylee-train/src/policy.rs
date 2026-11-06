@@ -1133,6 +1133,7 @@ mod tests {
                 index: 0,
                 of: 2,
                 left: 4,
+                lethal: None,
             },
         };
         assert!(matches!(

@@ -185,6 +185,34 @@ fn raw_scalar_uses_prediction_instead_of_max_x_override() {
     assert_eq!(tactical, PlayerAction::ChooseNumber(10));
 }
 
+/// At a table a trampler's last blocker is asked too (CR 702.19b). The net was
+/// never taught that question: the tactical answer is what it calls lethal,
+/// whatever the scalar says, and even a raw answer stays inside its bounds.
+#[test]
+fn a_tramplers_last_share_is_lethal_and_stays_in_bounds() {
+    let view = view();
+    let pending = Pending::ChooseNumber {
+        player: view.seat,
+        min: 3,
+        max: 5,
+        reason: NumberPrompt::CombatDamage {
+            source: baylee_core::ids::ObjectId::new(1, 0),
+            recipient: baylee_core::ids::ObjectId::new(2, 0),
+            index: 1,
+            of: 2,
+            left: 5,
+            lethal: Some(3),
+        },
+    };
+    let cands = menu(&view, &pending);
+    let (tactical, _, _) = select(PolicyMode4::Tactical, &view, &pending, &cands, &[], 0.9);
+    assert_eq!(tactical, PlayerAction::ChooseNumber(3));
+    for scalar in [0.0, 0.9] {
+        let (raw, _, _) = select(PolicyMode4::Raw, &view, &pending, &cands, &[], scalar);
+        assert!(pending.answer_fault(&raw).is_none(), "{raw:?}");
+    }
+}
+
 #[test]
 fn raw_sampler_refuses_unsupported_temperatures_and_nonfinite_outputs() {
     let view = view();

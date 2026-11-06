@@ -1685,6 +1685,16 @@ The profile input is the level knob at play time (novice … expert). Imitation
 tops out at the house's own level; any level above expert comes from RL and is
 labelled only once measured.
 
+## A trampler's damage
+
+`HouseRules::divide_trample` is set and stored as `order_triggers` below, so
+training and evaluation play without it and nothing the net has seen moves. At a
+table a share of a trampler's damage is a `NumberPrompt::CombatDamage` like any
+other: its prompt-kind code stays 7 and `lethal` is in no encoder. `convert4`
+treats it as it treats every share, left to the house and no training data.
+`netplay4` answers it as the other shares, and takes `lethal` from the question,
+which also covers the last blocker: there it leaves the rest to go past them.
+
 ## The order of triggers
 
 The net is not asked what order its triggers go on the stack in, and its numbers

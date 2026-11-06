@@ -797,6 +797,13 @@ impl HeuristicAgent {
                     }
                     baylee_core::ids::TargetRef::Player(_) => min,
                 },
+                // A trampler's damage (CR 702.19b): what the engine calls
+                // lethal, so each blocker falls in turn and the rest goes
+                // past them, as in a game that does not ask.
+                baylee_engine::choice::NumberPrompt::CombatDamage {
+                    lethal: Some(lethal),
+                    ..
+                } => lethal.clamp(min, max),
                 // A creature's combat damage divided among two or more
                 // (CR 510.1c–d, 702.22j–k): what finishes each creature in
                 // turn, and the last takes the rest.

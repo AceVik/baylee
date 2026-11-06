@@ -341,15 +341,18 @@ mod tests {
         );
     }
 
-    /// A table asks a player the order of their triggers (CR 603.3b),
-    /// whatever its clock; a preset built without a room does not.
+    /// A table asks a player the order of their triggers (CR 603.3b) and how
+    /// a trampler divides its damage (CR 702.19b), whatever its clock; a
+    /// preset built without a room does not.
     #[test]
     fn every_table_asks_the_order_of_triggers() {
         for name in [None, Some("blitz"), Some("untimed")] {
             let rules = resolve(name, None, None, 180).expect("a clock");
             assert!(rules.order_triggers, "{name:?}");
+            assert!(rules.divide_trample, "{name:?}");
         }
         assert!(!baylee_core::preset::HouseRules::default().order_triggers);
+        assert!(!baylee_core::preset::HouseRules::default().divide_trample);
     }
 
     #[test]

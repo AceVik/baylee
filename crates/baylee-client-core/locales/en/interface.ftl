@@ -3388,6 +3388,12 @@ CombatDamageShare = Combat damage to creature { $position } of { $total }, { $re
 # Arguments: source, recipient, position, total, remaining, min, max
 CombatDamageShareNamed = Combat damage from { $source } to { $recipient } ({ $position } of { $total }), { $remaining } left to divide ({ $min }–{ $max })
 
+# What follows either share while the attacker's trample can still reach past
+# its blockers (CR 702.19b): what is lethal to this creature, and what happens
+# to the rest. It starts with its own dash because it is added after the share.
+# Arguments: lethal
+CombatDamageTrample = – { $lethal } is lethal here. Once every blocker has lethal, the rest tramples over to what it attacks.
+
 # Replicate $cost: pay it how many times? ($min–$max)
 # Arguments: cost, min, max
 ReplicateHowOften = Replicate { $cost }: pay it how many times? ({ $min }–{ $max })

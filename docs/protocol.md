@@ -5199,6 +5199,19 @@ and a count the window cannot reach reverses the cast. So 50 is the most a
 spell can be kicked in one cast while lands remain. No printed multikicker asks
 for a count near it, and the rule itself sets no limit.
 
+`NumberPrompt::CombatDamage` is one creature's share of a division of combat
+damage. Where the attacker has trample and the table asks (CR 702.19b,
+`HouseRules.divide_trample`, absent means off, and it is not written while off),
+it carries `lethal`: what is lethal to `recipient` (deathtouch and marked damage
+counted). The last blocker is then asked too, with `min` that lethal or all that
+is left if less, and what it leaves over goes to the player, planeswalker or
+battle attacked once every blocker has lethal. A share short of lethal ends that:
+`lethal` is absent from then on, nothing goes past them, and the last takes the
+rest unasked, as in any other division. So does a share with one answer. Absent
+`lethal` decodes as `None`, which is every question sent before it existed, and a
+reader of 86 ignores the extra field and still reads `min` and `max`, so neither
+`PROTOCOL_VERSION` nor `VIEW_VERSION` moves.
+
 ### Where a resolved spell goes
 
 `Pending::ChooseCastMode` also asks where a resolved instant or sorcery goes,

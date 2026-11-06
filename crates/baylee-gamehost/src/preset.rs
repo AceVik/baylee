@@ -79,6 +79,7 @@ pub fn from_proto(msg: &v1::GamePresetMsg) -> Result<GamePreset, String> {
             starting_player: None,
             auto_discard_empty_optional_triggers: true,
             order_triggers: true,
+            divide_trample: true,
             decision_timeout_secs: h.decision_timeout_secs,
             reconnect_window_secs: h.reconnect_window_secs,
             timing_normalization: h.timing_normalization,
@@ -486,6 +487,7 @@ mod tests {
         assert_eq!(sent.house_rules.reconnect_window_secs, 90);
         assert!(sent.house_rules.takebacks);
         assert!(sent.house_rules.order_triggers, "a table asks");
+        assert!(sent.house_rules.divide_trample, "a table asks");
 
         let unsent = from_proto(&msg(vec![seat_msg(), seat_msg()])).expect("two seats");
         assert_eq!(unsent.house_rules, HouseRules::default());

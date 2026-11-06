@@ -10,6 +10,76 @@ use baylee_engine::{
 };
 use baylee_gamehost::{RegistryLookup, SeatContext, player_view};
 
+/// CR 702.19b through the real engine: auto gives each blocker lethal, the
+/// last's `min` holds, and the rest goes over them, which is what a game that
+/// does not ask plays.
+#[test]
+fn auto_gives_a_tramplers_blockers_lethal_and_sends_the_rest_on() {
+    let entry = |name| DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
+        card: baylee_cards::decks::by_name(name).unwrap(),
+        print: PrintRef::new(0),
+    };
+    let mut preset = baylee_cards::decks::probe_preset(73, entry("Forest").card).unwrap();
+    for seat in &mut preset.seats {
+        seat.starting_hand = Some(vec![]);
+        seat.starting_battlefield.clear();
+    }
+    preset.seats[0].starting_battlefield = vec![entry("Rootbreaker Wurm")];
+    preset.seats[1].starting_battlefield = vec![entry("Grizzly Bears"); 2];
+    preset.house_rules.divide_trample = true;
+    let mut engine = Engine::new(&preset, RegistryLookup).unwrap();
+    let them = PlayerId::new(1);
+    let mut auto: Option<CombatAuto> = None;
+    let mut asked = vec![];
+    for seq in 0..80 {
+        let pending = engine.pending().clone();
+        let seat = baylee_ai::pending_player(&pending).unwrap();
+        let view = player_view(
+            engine.state(),
+            seat,
+            seq,
+            Some(&pending),
+            &SeatContext::default(),
+            &[],
+        );
+        if !asked.is_empty() && !matches!(pending, Pending::ChooseNumber { .. }) {
+            assert_eq!(asked, vec![(0, 2), (2, 2)], "each `min` and what auto sent");
+            assert_eq!(engine.state().players[1].life, 18, "6 less 2 and 2");
+            assert!(
+                view.battlefield.iter().all(|o| o.name != "Grizzly Bears"),
+                "both took lethal"
+            );
+            return;
+        }
+        let action = match &pending {
+            Pending::Mulligan { .. } => PlayerAction::MulliganKeep,
+            Pending::Priority { .. } => PlayerAction::PassPriority,
+            Pending::ChooseAttackers { attackers, .. } => PlayerAction::DeclareAttackers {
+                attackers: vec![(attackers[0], Defender::Player(them))],
+            },
+            Pending::ChooseBlockers { blockers, .. } => PlayerAction::DeclareBlockers {
+                blockers: blockers
+                    .iter()
+                    .map(|option| (option.blocker, option.attackers[0]))
+                    .collect(),
+            },
+            Pending::ChooseNumber { min, .. } => {
+                let auto = auto.get_or_insert_with(|| CombatAuto::begin(&view, &pending).unwrap());
+                let action = auto.answer(&view, &pending).unwrap();
+                if let PlayerAction::ChooseNumber(n) = action {
+                    asked.push((*min, n));
+                }
+                action
+            }
+            other => panic!("unexpected: {other:?}"),
+        };
+        engine.apply(seat, action).unwrap();
+    }
+    panic!("the combat did not finish");
+}
+
 #[test]
 fn manual_first_share_then_auto_finishes_only_the_remaining_damage() {
     let entry = |name| DeckEntry {

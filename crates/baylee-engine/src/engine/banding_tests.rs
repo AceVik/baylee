@@ -329,6 +329,7 @@ fn a_creature_blocking_a_band_deals_its_damage_once_as_the_attacker_divides_it()
             index: 0,
             of: 2,
             left: 3,
+            lethal: None,
         },
         "the declared block first, the band's after it"
     );

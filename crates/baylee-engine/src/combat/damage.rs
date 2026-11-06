@@ -101,7 +101,12 @@ pub(crate) fn prepare_damage_step(state: &mut GameState, first: bool) -> bool {
 
 /// How much damage from `source` is lethal to `target` right now
 /// (CR 702.19b): toughness minus damage already marked, or 1 if the source
-/// has deathtouch (CR 702.2b — *any* nonzero damage is lethal).
+/// has deathtouch (CR 702.2c — *any* nonzero damage is lethal).
+///
+/// CR 702.19b also counts damage from other creatures assigned in the same
+/// step, and this does not: a creature blocking two attackers is owed the
+/// whole of this by each, which is more than the rules ask before anything
+/// tramples over.
 fn lethal_damage(state: &GameState, source: ObjectId, target: ObjectId) -> i16 {
     if has_keyword(state, source, K::DEATHTOUCH) {
         return 1;
@@ -200,13 +205,21 @@ fn blocking_creatures(state: &GameState) -> Vec<ObjectId> {
 ///   banding (CR 702.22k), and by its own controller if none has any more
 ///   (CR 510.1d).
 ///
-/// An attacker with trample blocked by creatures without banding is not
-/// asked: the engine assigns lethal damage to each blocker in declaration
-/// order and the rest to what it attacks, which is one of the assignments
-/// CR 702.19b lets its controller make (the simplification this module's
-/// header names).
+/// An attacker with trample blocked by two or more creatures without banding
+/// is divided by its controller only when `divide_trample` says so
+/// (`HouseRules::divide_trample`), and what is left after the last blocker
+/// then goes to what it attacks once each has lethal (CR 702.19b). With
+/// nothing there to reach, it can go nowhere past them (CR 702.19f), and
+/// the division is the plain one above. Without the rule nobody is asked:
+/// the engine assigns lethal damage to each blocker in declaration order and
+/// the rest to what it attacks, which is one of the assignments CR 702.19b
+/// lets its controller make.
 #[must_use]
-pub fn divisions_owed(state: &GameState, first_strike_step: bool) -> Vec<OwedDivision> {
+pub fn divisions_owed(
+    state: &GameState,
+    first_strike_step: bool,
+    divide_trample: bool,
+) -> Vec<OwedDivision> {
     let mut owed = Vec::new();
     for info in state.combat.attackers() {
         if !info.blocked || !assigns_damage_now(state, info.creature, first_strike_step) {
@@ -223,17 +236,27 @@ pub fn divisions_owed(state: &GameState, first_strike_step: bool) -> Vec<OwedDiv
             .find(|b| has_banding_in_group(state, **b, &blockers))
             .and_then(|b| state.object(*b))
             .map(|o| o.controller);
+        let trample = banding.is_none() && has_keyword(state, info.creature, K::TRAMPLE);
         let chooser = match banding {
             Some(defending) => Some(defending),
-            None if has_keyword(state, info.creature, K::TRAMPLE) => None,
+            None if trample && !divide_trample => None,
             None => state.object(info.creature).map(|o| o.controller),
         };
         if let Some(chooser) = chooser {
+            let lethal = if trample && active_damage_recipient(state, info.creature).is_some() {
+                blockers
+                    .iter()
+                    .map(|blocker| lethal_damage(state, info.creature, *blocker))
+                    .collect()
+            } else {
+                Vec::new()
+            };
             owed.push(OwedDivision {
                 source: info.creature,
                 chooser,
                 recipients: blockers,
                 amount,
+                lethal,
             });
         }
     }
@@ -262,6 +285,7 @@ pub fn divisions_owed(state: &GameState, first_strike_step: bool) -> Vec<OwedDiv
             chooser,
             recipients: blocked,
             amount,
+            lethal: Vec::new(),
         });
     }
     owed
@@ -373,13 +397,22 @@ fn assign_attacker_damage(
         }
     } else if blocked {
         let mut remaining = power;
-        for blocker in &live {
-            if remaining <= 0 {
-                break;
+        if let Some(division) = state.combat.division(attacker) {
+            // As its controller divided it; `Engine::answer_share` left over
+            // only what may go past them (CR 702.19b).
+            for (blocker, amount) in division.shares.iter().filter(|(b, _)| live.contains(b)) {
+                assign(out, attacker, DamageTarget::Object(*blocker), *amount);
+                remaining -= *amount;
             }
-            let assigned = remaining.min(lethal_damage(state, attacker, *blocker));
-            assign(out, attacker, DamageTarget::Object(*blocker), assigned);
-            remaining -= assigned;
+        } else {
+            for blocker in &live {
+                if remaining <= 0 {
+                    break;
+                }
+                let assigned = remaining.min(lethal_damage(state, attacker, *blocker));
+                assign(out, attacker, DamageTarget::Object(*blocker), assigned);
+                remaining -= assigned;
+            }
         }
         assign_defender(state, out, attacker, remaining);
     } else {

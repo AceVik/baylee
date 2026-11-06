@@ -14,6 +14,7 @@ mod refusals;
 mod scouting;
 mod shared_hand;
 mod simulation;
+mod trample_division;
 mod trigger_order;
 
 /// The awaited seat's clock answer, as a one-seat table asks it.

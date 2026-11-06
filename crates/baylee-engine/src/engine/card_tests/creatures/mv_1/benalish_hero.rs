@@ -212,6 +212,7 @@ fn benalish_heros_band_divides_a_blockers_damage_by_the_active_player() {
                     index: 0,
                     of: 2,
                     left: 2,
+                    lethal: None,
                 },
                 "the declared block's recipient asked first, the band's after it"
             );

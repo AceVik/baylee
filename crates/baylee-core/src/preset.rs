@@ -134,6 +134,16 @@ pub struct HouseRules {
     /// rule off writes exactly what it wrote before the field existed.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub order_triggers: bool,
+    /// Ask the controller of an attacker with trample blocked by two or more
+    /// creatures how its damage is divided (CR 702.19b); without it each
+    /// blocker takes lethal damage in declaration order and the rest goes
+    /// past them.
+    ///
+    /// Set and stored exactly as [`Self::order_triggers`], for the same
+    /// reason: only a table asks, and a game with the rule off writes and
+    /// hashes what it did before the field existed.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub divide_trample: bool,
 }
 
 /// Seconds a seat has to answer one question unless the table says
@@ -162,6 +172,7 @@ impl Default for HouseRules {
             takebacks: false,
             time_extension_votes: true,
             order_triggers: false,
+            divide_trample: false,
         }
     }
 }
@@ -174,6 +185,7 @@ impl HouseRules {
     pub fn for_a_table() -> Self {
         Self {
             order_triggers: true,
+            divide_trample: true,
             ..Self::default()
         }
     }

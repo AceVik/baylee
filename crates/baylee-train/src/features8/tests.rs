@@ -241,6 +241,31 @@ fn announcement_changes_tick_only_the_new_observation_clock() {
     assert_eq!(view.announced_cast, Some(source));
 }
 
+/// A trampler's share is a share of combat damage to the encoder: what the
+/// question adds at a table is in no input, so no trained input moves.
+#[test]
+fn a_tramplers_share_encodes_as_any_share_of_combat_damage() {
+    let session = fixture();
+    let view = session.observe_view_with_payment_context(P0);
+    let share = |lethal| Pending::ChooseNumber {
+        player: P0,
+        min: 0,
+        max: 5,
+        reason: NumberPrompt::CombatDamage {
+            source: baylee_core::ids::ObjectId::new(1, 0),
+            recipient: baylee_core::ids::ObjectId::new(2, 0),
+            index: 0,
+            of: 2,
+            left: 5,
+            lethal,
+        },
+    };
+    let plain = encode_state8(&view, Some(&share(None)), None, &[]);
+    let told = encode_state8(&view, Some(&share(Some(3))), None, &[]);
+    assert_eq!(&plain.global_feat[37..40], &[0.0, 5.0, 7.0]);
+    assert_eq!(plain.global_feat, told.global_feat);
+}
+
 #[test]
 fn scalar_question_reason_and_legal_bounds_are_observable() {
     let session = fixture();

@@ -608,17 +608,45 @@ carry, so the reader refuses it and those cards stay unread.
   (`NumberPrompt::CombatDamage`); client-core names both creatures in the
   question.
 
-What is still decided for the player: an attacker with trample blocked by
-two or more creatures without banding is not asked. The engine assigns
-lethal damage to each blocker in declaration order and the rest to what it
-attacks, one of the assignments CR 702.19b lets its controller make ("once
-all those blocking creatures are assigned lethal damage, any excess damage
-is assigned as its controller chooses"); a share question whose last
-recipient takes the rest cannot say that bound
-(`banding_tests::an_attacker_blocked_by_two_is_divided_by_its_controller`
-pins the question without trample). False Orders' re-block is the one
-effect in the pool that makes a creature become blocked, and it spreads its
-block through the band as 702.22h and 702.22i say
+**An attacker with trample blocked by two or more without banding** is divided
+by its controller under `HouseRules.divide_trample` (absent means off, and it is
+not written while off; `ask_combat_division` hands it to `divisions_owed`, which
+has no house rules of its own). A table asks; a training or evaluation game does
+not. CR 702.19b: "Once all those blocking creatures are assigned lethal damage,
+any excess damage is assigned as its controller chooses among those blocking
+creatures and the player, planeswalker, or battle the creature is attacking", and
+it need not assign lethal to all of them, "but in that case can't assign any
+damage to the player or planeswalker". The same `ask_share`/`answer_share` serve,
+one share per blocker in declaration order, and `OwedDivision::lethal` says
+what is different:
+
+- every blocker is asked, the last too, and what is left after it is not written
+  into the `Division`: the trample branch of `assign_attacker_damage` sends
+  `power - sum` to what the attacker attacks;
+- the last blocker's `min` is `min(lethal, left)` while every earlier blocker has
+  lethal, and it takes all that is left, unasked, once one does not;
+- a share with `min == max` is written down and not asked, so a share of nothing
+  is not asked either, where a plain division still asks it;
+- with nothing to reach (a planeswalker that left: 702.19f, so
+  `active_damage_recipient` is `None`) `lethal` is empty, and the question is the
+  plain division, which puts all of it on the blockers.
+
+`lethal_damage` is the auto path's: deathtouch 1 (702.2c), marked damage counted.
+It does not count "damage from other creatures that's being assigned during the
+same combat damage step" (702.19b), which only a creature blocking two attackers
+can be owed: such a blocker has to be given more than the rules ask before the
+rest goes on. A double striker is asked again in the second step, on what the
+first step marked: `collect_combat_damage` spends the divisions.
+
+Without the rule, and always for a single blocker, nobody is asked: the engine
+assigns lethal damage to each blocker in declaration order and the rest to what
+it attacks, one of the assignments 702.19b lets its controller make. Banding with
+trample keeps its own path above (702.22j)
+(`trample_division_tests`; `banding_tests::an_attacker_blocked_by_two_is_divided_by_its_controller`
+pins the question without trample).
+
+False Orders' re-block is the one effect in the pool that makes a creature become
+blocked, and it spreads its block through the band as 702.22h and 702.22i say
 (`AwaitingOp::BlockAttacker`).
 
 ### Piles that restrict blocks (Raging River)

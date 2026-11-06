@@ -18,11 +18,11 @@
 //! Attacks are aimed at a [`Defender`], so a planeswalker can be attacked
 //! and its loyalty comes off (CR 306.8); battles use their protector and defense.
 //!
-//! Not yet: an attacker with trample blocked by creatures without banding
-//! is not asked how to assign its damage (CR 702.19b). The engine assigns
-//! lethal damage to each blocker in declaration order and the rest to what
-//! it attacks, which is one of the assignments its controller could have
-//! chosen.
+//! An attacker with trample blocked by two or more creatures without banding
+//! is asked about only under `HouseRules::divide_trample` (CR 702.19b).
+//! Without the rule, and always for one blocker, the engine assigns lethal
+//! damage to each blocker in declaration order and the rest to what it
+//! attacks, which is one of the assignments its controller could have chosen.
 
 mod attack;
 mod block;
@@ -98,6 +98,52 @@ pub struct OwedDivision {
     pub recipients: Vec<ObjectId>,
     /// How much there is to divide: the creature's power (CR 510.1a).
     pub amount: i16,
+    /// What is lethal to each recipient, in their order, when what is left
+    /// after the last may trample past them (CR 702.19b). Empty for every
+    /// other division: all of that one goes to the recipients.
+    pub lethal: Vec<i16>,
+}
+
+impl OwedDivision {
+    /// What the answers so far, `shares`, leave to give.
+    pub(crate) fn left(&self, shares: &[i16]) -> i16 {
+        self.amount - shares.iter().sum::<i16>()
+    }
+
+    /// What is lethal to the next recipient, while what is left can still go
+    /// past them. Nothing goes past a creature short of lethal (CR 702.19b),
+    /// so one such share makes the rest a plain division among the creatures.
+    pub(crate) fn lethal_next(&self, shares: &[i16]) -> Option<i16> {
+        let short = shares
+            .iter()
+            .zip(&self.lethal)
+            .any(|(share, lethal)| share < lethal);
+        self.lethal.get(shares.len()).copied().filter(|_| !short)
+    }
+
+    /// The least the next recipient may be given: nothing, but for the last.
+    /// That one takes all that is left, or, where the rest may go past it,
+    /// what is lethal to it or what there is.
+    pub(crate) fn least_next(&self, shares: &[i16]) -> i16 {
+        let left = self.left(shares);
+        if shares.len() + 1 < self.recipients.len() {
+            0
+        } else {
+            self.lethal_next(shares)
+                .map_or(left, |lethal| lethal.min(left))
+        }
+    }
+
+    /// Whether the next share is a question. A trample division asks only
+    /// where there is a choice; any other asks every recipient but the last,
+    /// a share of nothing included, as it always has.
+    pub(crate) fn asks_next(&self, shares: &[i16]) -> bool {
+        if self.lethal.is_empty() {
+            shares.len() + 1 < self.recipients.len()
+        } else {
+            self.least_next(shares) < self.left(shares)
+        }
+    }
 }
 
 /// One declared blocker.

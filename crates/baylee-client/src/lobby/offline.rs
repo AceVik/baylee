@@ -727,8 +727,10 @@ impl Offline {
         }
         let refs: Vec<&baylee_cards::decks::LoadedDeck> = loaded.iter().collect();
         let mut preset = baylee_cards::decks::preset_for_all(crate::host::fresh_seed(), &refs);
-        // A table asks the order of triggers, this one too (`docs/protocol.md`).
+        // A table asks the order of triggers and how a trampler divides its
+        // damage, this one too (`docs/protocol.md`).
         preset.house_rules.order_triggers = true;
+        preset.house_rules.divide_trample = true;
         for (spec, chair) in preset.seats.iter_mut().zip(&room.chairs) {
             spec.controller = match chair.kind {
                 SeatKind::Human => SeatController::Open,

@@ -675,6 +675,7 @@ fn acceptance_duel_preset() -> GamePreset {
     // Seat 0 is the connecting human.
     preset.seats[0].controller = baylee_core::preset::SeatController::Open;
     preset.house_rules.order_triggers = true;
+    preset.house_rules.divide_trample = true;
     preset
 }
 

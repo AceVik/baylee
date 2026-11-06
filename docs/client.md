@@ -6257,6 +6257,14 @@ same (`Phrase::MultikickerHowOften`), and its top is capped at what the seat's
 own mana pays as an X's is (`Duel::cap_x`, `manaplan::greatest_repeat`): the
 engine leaves it open, up to its ceiling of 50, while a land is untapped.
 
+A share of a trampler's damage adds what the number decides, while the rest can
+still go past the blockers: "– 3 is lethal here. Once every blocker has lethal,
+the rest tramples over to what it attacks." (`Phrase::CombatDamageTrample`, after
+either share line). "Assign the rest automatically" takes that lethal from the
+question and not from the view, inside the question's `min` and `max`, so it plays
+what a game that does not ask plays (`CombatAuto`, `docs/protocol.md` §"What a
+number counts").
+
 A resolved spell two "instead"s want asks where it goes (`docs/protocol.md`,
 "Where a resolved spell goes"): "Where does the spell go?" over one row per
 ending, each saying what it does ("Back to your hand (buyback)", "Exile it, cast

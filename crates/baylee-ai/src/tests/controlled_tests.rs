@@ -439,6 +439,7 @@ fn their_divided_damage_spares_this_seats_blockers() {
             index: 0,
             of: 2,
             left: 5,
+            lethal: None,
         },
     };
     assert_eq!(agent().act(&v, &pending), PlayerAction::ChooseNumber(2));

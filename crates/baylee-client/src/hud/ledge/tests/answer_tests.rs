@@ -532,6 +532,7 @@ fn auto_damage_button_is_only_offered_for_combat_shares() {
                 index: 1,
                 of: 4,
                 left: 5,
+                lethal: None,
             },
             true,
         ),

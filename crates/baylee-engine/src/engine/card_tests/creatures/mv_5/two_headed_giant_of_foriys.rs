@@ -119,6 +119,7 @@ fn trample_into_a_banding_blocker_divides_among_the_blockers_and_none_tramples_o
             index: 0,
             of: 2,
             left: 4,
+            lethal: None,
         },
         "the first-declared blocker asked first"
     );

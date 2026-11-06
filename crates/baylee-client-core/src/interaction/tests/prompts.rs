@@ -268,6 +268,7 @@ fn prompt_headlines_are_written_for_a_player_not_a_developer() {
             index: 0,
             of: 2,
             left: 3,
+            lethal: None,
         },
     });
     assert_eq!(
@@ -1201,6 +1202,7 @@ fn division_and_band_questions_name_their_creatures() {
             index: 0,
             of: 2,
             left: 6,
+            lethal: None,
         },
     });
     assert_eq!(
@@ -1218,6 +1220,41 @@ fn division_and_band_questions_name_their_creatures() {
         i.prompt()
             .headline_naming(Lang::En, Turn::Mine, None, false, &|_| None),
         "Combat damage to creature 1 of 2, 6 left to divide (0–6)"
+    );
+    // A trampler's share says what is lethal and where the rest goes
+    // (CR 702.19b), named or not.
+    let i = interaction(Pending::ChooseNumber {
+        player: me(),
+        min: 2,
+        max: 4,
+        reason: baylee_engine::choice::NumberPrompt::CombatDamage {
+            source: obj(1),
+            recipient: obj(2),
+            index: 1,
+            of: 2,
+            left: 4,
+            lethal: Some(2),
+        },
+    });
+    assert_eq!(
+        i.prompt()
+            .headline_naming(Lang::En, Turn::Mine, None, false, &names),
+        "Combat damage from Craw Wurm to Grizzly Bears (2 of 2), 4 left to divide (2–4) \
+         – 2 is lethal here. Once every blocker has lethal, the rest tramples over to what \
+         it attacks."
+    );
+    assert_eq!(
+        i.prompt()
+            .headline_naming(Lang::De, Turn::Mine, None, false, &names),
+        "Kampfschaden von Craw Wurm an Grizzly Bears (2 von 2), noch 4 zu verteilen (2–4) \
+         – 2 ist hier tödlich. Sobald jeder Blocker tödlichen Schaden hat, geht der Rest als \
+         Trampelschaden an das Angriffsziel."
+    );
+    assert!(
+        i.prompt()
+            .headline(Lang::En, Turn::Mine, None, false)
+            .ends_with("– 2 is lethal here. Once every blocker has lethal, the rest tramples over to what it attacks."),
+        "without names too"
     );
 }
 

@@ -1161,6 +1161,7 @@ ChooseNumberIn = Wähle eine Zahl ({ $min }–{ $max })
 DamageShare = Schaden an Ziel { $position } von { $total }, noch { $remaining } zu verteilen ({ $min }–{ $max })
 CombatDamageShare = Kampfschaden an Kreatur { $position } von { $total }, noch { $remaining } zu verteilen ({ $min }–{ $max })
 CombatDamageShareNamed = Kampfschaden von { $source } an { $recipient } ({ $position } von { $total }), noch { $remaining } zu verteilen ({ $min }–{ $max })
+CombatDamageTrample = – { $lethal } ist hier tödlich. Sobald jeder Blocker tödlichen Schaden hat, geht der Rest als Trampelschaden an das Angriffsziel.
 ReplicateHowOften = Reproduktion { $cost }: wie oft zahlen? ({ $min }–{ $max })
 MultikickerHowOften = Mehrfachbonus { $cost }: wie oft zahlen? ({ $min }–{ $max })
 BuybackAsk = Rückkauf: { $price }? Der Zauberspruch kehrt beim Verrechnen auf deine Hand zurück.

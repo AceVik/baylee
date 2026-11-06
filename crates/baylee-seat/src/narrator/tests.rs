@@ -1076,6 +1076,57 @@ fn multikicker_is_asked_as_a_count_and_the_stack_says_what_was_paid() {
     assert!(text.contains("buyback paid"), "{text}");
 }
 
+/// A trampler's share tells a model what is lethal and where the rest goes
+/// (CR 702.19b); an ordinary division's says neither.
+#[test]
+fn a_tramplers_share_says_what_is_lethal_and_where_the_rest_goes() {
+    use baylee_engine::choice::NumberPrompt;
+    let (mut view, _) = board();
+    view.battlefield.push(card(95, "Craw Wurm"));
+    view.battlefield.push(card(96, "Grizzly Bears"));
+    let text = |lethal| {
+        let request = request(
+            view.clone(),
+            Pending::ChooseNumber {
+                player: ME,
+                min: 2,
+                max: 4,
+                reason: NumberPrompt::CombatDamage {
+                    source: id(95),
+                    recipient: id(96),
+                    index: 1,
+                    of: 2,
+                    left: 4,
+                    lethal,
+                },
+            },
+            LogTail {
+                from: 0,
+                entries: Vec::new(),
+            },
+        );
+        Narrator::new(&request.context)
+            .wake(&request, &[], None)
+            .text
+    };
+    let told = text(Some(2));
+    assert!(
+        told.contains("2 is lethal damage to Grizzly Bears #96"),
+        "{told}"
+    );
+    assert!(
+        told.contains("tramples over to what it is attacking"),
+        "{told}"
+    );
+    assert!(told.contains("(from 2 to 4)"), "{told}");
+    let plain = text(None);
+    assert!(
+        plain.contains("how much goes to Grizzly Bears #96"),
+        "{plain}"
+    );
+    assert!(!plain.contains("trample"), "{plain}");
+}
+
 /// What a row says is what it does. Masticore's file lists its regeneration
 /// before its damage and the card prints them the other way round, and the
 /// rows read the card in the file's order: "Regenerate" asked for a target

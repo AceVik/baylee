@@ -461,6 +461,11 @@ pub enum NumberPrompt {
     /// names (702.22j–k). How much of what is left goes to `recipient`,
     /// asked creature by creature in declaration order. The last takes the
     /// rest and is not asked, and a share may be 0.
+    ///
+    /// A trampler its controller divides (CR 702.19b,
+    /// `HouseRules::divide_trample`) is asked about the last blocker too,
+    /// unless nothing is left to decide: what that leaves over goes to what
+    /// the attacker attacks, so `min` there is what is lethal to it.
     CombatDamage {
         /// The creature whose damage is divided.
         source: ObjectId,
@@ -472,6 +477,11 @@ pub enum NumberPrompt {
         of: u8,
         /// The damage not yet given to a creature.
         left: u32,
+        /// What is lethal to `recipient`, on a trampler's question while the
+        /// rest can still go past the blockers; absent, it cannot: this is
+        /// an ordinary division, and a question from before the field.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        lethal: Option<u32>,
     },
     /// How many eligible permanents to sacrifice as an object enters.
     Sacrifices,

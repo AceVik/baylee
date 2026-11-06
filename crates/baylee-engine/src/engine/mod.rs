@@ -1522,6 +1522,10 @@ impl<L: CardLookup> Engine<L> {
         if self.house_rules.order_triggers {
             extra = extra.wrapping_mul(31).wrapping_add(2);
         }
+        // And so does this one.
+        if self.house_rules.divide_trample {
+            extra = extra.wrapping_mul(31).wrapping_add(3);
+        }
         base ^ extra.rotate_left(17)
     }
 
@@ -2296,6 +2300,8 @@ mod this_object_tests;
 mod thrun_tests;
 #[cfg(test)]
 mod token_tests;
+#[cfg(test)]
+mod trample_division_tests;
 #[cfg(test)]
 mod trigger_order_tests;
 #[cfg(test)]
