@@ -476,10 +476,10 @@ fn payment_context_brains_are_rejected_before_initialization_or_observation() {
             panic!("unsupported brain must not answer")
         }
     }
-    for encoder in [5, 6, 7] {
+    for encoder in [5, 6, 7, 10] {
         assert!(super::brain::validate_wire_encoder(encoder).is_ok());
     }
-    for encoder in [8, 9, 10] {
+    for encoder in [8, 9] {
         let mut live = LiveSeat4::new(PaymentBrain(encoder), DeckList::default(), ME);
         assert!(
             live.hear(&table())
