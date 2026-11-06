@@ -408,6 +408,7 @@ pub(crate) const fn paid_as_an_alternative_cost(part: &CostPart) -> bool {
         CostPart::PayLife(_)
             | CostPart::ExileFromHand(_)
             | CostPart::Sacrifice(_)
+            | CostPart::ReturnToHand(_)
             | CostPart::TapN { .. }
     )
 }
@@ -530,6 +531,7 @@ pub(crate) fn additional_card_costs_for(
                     | CostPart::ExilePermanent(_)
                     | CostPart::ExileFromGraveyard(_)
                     | CostPart::Discard(_)
+                    | CostPart::ReturnToHand(_)
                     | CostPart::TapN { .. }
             )
         })

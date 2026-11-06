@@ -117,18 +117,22 @@ impl<L: CardLookup> Engine<L> {
                 CostPart::PayLife(n) => {
                     self.state.change_life(player, -i32::from(*n), Cause::Cost);
                 }
-                CostPart::Sacrifice(_) => {
+                CostPart::Sacrifice(_) | CostPart::ReturnToHand(_) => {
                     let chosen = cost_objects
                         .next()
                         .copied()
                         .ok_or(EngineError::IllegalAction(
                             "an object cost the cast never asked about",
                         ))?;
-                    sacrificed_object = self.state.object(chosen).map(|o| (chosen, o.version));
-                    sacrificed_lki = self
-                        .state
-                        .object(chosen)
-                        .map(crate::object::SacrificedLki::of);
+                    // Only a sacrifice feeds sentences about the sacrificed
+                    // permanent; returning one is a different payment.
+                    if matches!(part, CostPart::Sacrifice(_)) {
+                        sacrificed_object = self.state.object(chosen).map(|o| (chosen, o.version));
+                        sacrificed_lki = self
+                            .state
+                            .object(chosen)
+                            .map(crate::object::SacrificedLki::of);
+                    }
                     super::super::cost_wizard::pay(&mut self.state, player, part, chosen)?;
                 }
                 CostPart::TapN { count, .. } => {
@@ -167,7 +171,6 @@ impl<L: CardLookup> Engine<L> {
                 | CostPart::PayCommanderColors
                 | CostPart::Crew(_)
                 | CostPart::Saddle(_)
-                | CostPart::ReturnToHand(_)
                 | CostPart::ExileFromGraveyard(_)
                 | CostPart::RemoveCounterSelf { .. }
                 | CostPart::RemoveCounterSelfX { .. }
