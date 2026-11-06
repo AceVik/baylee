@@ -1862,6 +1862,45 @@ RUSTFLAGS="-C profile-use=$P/eval4.profdata" CARGO_TARGET_DIR=$P/target-use \
   require every game's outcome and record to be equal, which `eval4` repeats exactly
   with the same arguments.
 
+## Rule groups over the tactical layer
+
+`netplay4::tactics::rules` holds groups of checks on top of the tactical layer, each with its own switch
+(`seat4 --tactics-rules`, `eval4 --tactics-rules`, a comma list or `all`). With no group on, the layer plays as it did. Each group
+takes one class of mistake a game against a language model showed, and reads it from the seat's view and the structure of the
+cards' rules, never from a card's name and never from anything the view does not show:
+
+| Group | What it does |
+| --- | --- |
+| `void` | strikes an option that changes nothing: a gate no target opens (Pyroblast with nothing blue), an amount of zero (Typhoon with no Island), a land animated while tapped or already a creature, a second copy of a legend, a kill on what the seat's own kill on the stack already names |
+| `side` | a target on the wrong side, as `TargetingContext::side` reads the effect |
+| `mass` | a sweep that takes more of the seat's board than theirs, or nothing of theirs, unless the seat is dying to the swing |
+| `gift` | a lord without "you control" that lifts their swing (Goblin King into a board of Goblins with a Mountain under them) |
+| `race` | keeps blockers home when the visible swing back kills within two turns and the seat cannot get there first |
+| `trip` | blocks an attacker that does something when it connects (Goblin Lackey) |
+| `aim` | a kill goes to what is worth killing: not far below the best target, and not a land with a creature in reach |
+| `spend`, `react` | a pass turned to the proactive spell or instant the mana could pay (`guard`'s arms, on the layer) |
+| `trade`, `wall`, `chump` | an even trade block, a blocker that would live, a chump when the seat would be left within one swing |
+| `press`, `walker` | a creature nothing can block left at home; attackers turned on a planeswalker |
+| `keep` | a hand of one land or none goes back; spare lands go to the bottom before spells |
+| `land` | the land drop that pays for most of the hand this turn; a tapped land when nothing can be cast |
+| `ping` | "sacrifice this: N damage" waits for a kill or for its creature's death, and is not lost with it |
+| `curve` | a cheap spell does not strand the mana a dearer set would spend |
+
+They answer through the tactical layer, so their records are tactical records and stay out of training. `eval4 --tactics-shadow` plays as the
+layer plays and counts per deal what each group alone would have changed. A deal a group does not touch is the same game with it on, so
+`phase_a4 group-plan` replays only the deals a group reaches (`eval4 --only-deals`) and `phase_a4 group-table` reads the whole paired
+comparison from the shadow run and those replays.
+
+## The ladder against language models
+
+`ladder4` plays `seat4` against `baylee-seat` on a private gateway (`llm_collector4 serve --guests`). A room left alone holds the gateway's default of
+40 life and a free mulligan, so `ladder4` sets 20 and none through the host's configure call. It plays the main deck of a corpus list
+(never `[sideboard]`). One gateway takes 10 guest sign-ins per address in five minutes and a game takes two, so a run of many games uses a gateway per
+opponent. `--stop-spent` stops starting games at a sum of money; the book's cap stays the hard limit above it and has to hold the open games'
+reservations, because a seat that sits down on less hands its game to the house, and such a game counts for nothing.
+Every game keeps `seat4 --journal`: this seat's views, questions, answers and the net's ranking, local and never training data. `journal4 read`,
+`ledger` and `audit` read them; `audit` runs the rule groups over them. `phase_a4 ladder-pairs` compares two arms paired by deck pair and seat.
+
 ## Where it stands (2026-09-30)
 
 - **Value net v2** (8.2M parameters, d002→d003: 200k games, every 32nd decision):
