@@ -34,6 +34,11 @@ unofficial, non-commercial fan project.
   hot paths; the engine is synchronous (`docs/dev/conventions.md`).
 - **Hidden information is unrepresentable** in a view, and the gateway runs
   no rules (`docs/architecture.md`, `docs/protocol.md`).
+- **Security beats speed.** Remote code execution on the gateway or the
+  engine service must stay impossible, and other players must not be able to
+  attack a client over the network. No `unsafe` or assembly on a path that
+  touches network or player data; no validation, limit or bounds check goes
+  for speed.
 - **Legal guardrails** bind every change to what a player sees: never copy
   the card-script corpus, no WotC assets (recordings of the game showing its
   card images are the one exception), check the rules we depend on, and
