@@ -412,8 +412,9 @@ pub struct Engine<L: CardLookup> {
     combat_declared: CombatDeclared,
     /// Where the current cleanup step stands; `Due` outside one.
     cleanup: Cleanup,
-    /// Planeswalkers that already used a loyalty ability this turn.
-    loyalty_used_this_turn: Vec<ObjectId>,
+    /// Planeswalker incarnations (object and version, CR 400.7) that already
+    /// used a loyalty ability this turn (CR 606.3).
+    loyalty_used_this_turn: Vec<baylee_core::ids::DamageSourceRef>,
     /// `true` while the current pending request is unanswered — the
     /// progression machine must never overwrite a fresh pending.
     awaiting_answer: bool,

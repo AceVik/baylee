@@ -3,6 +3,29 @@
 use super::*;
 
 impl<L: CardLookup> Engine<L> {
+    /// Whether this incarnation of `source` already activated a loyalty
+    /// ability this turn. A permanent that left and came back is a new
+    /// object (CR 400.7) and starts over (CR 606.3).
+    pub(crate) fn loyalty_used(&self, source: ObjectId) -> bool {
+        let Some(object) = self.state.object(source) else {
+            return false;
+        };
+        self.loyalty_used_this_turn
+            .iter()
+            .any(|used| used.object == source && used.version == object.version)
+    }
+
+    /// Records that this incarnation of `source` used its loyalty ability.
+    pub(crate) fn loyalty_used_mark(&mut self, source: ObjectId) {
+        if let Some(version) = self.state.object(source).map(|o| o.version) {
+            self.loyalty_used_this_turn
+                .push(baylee_core::ids::DamageSourceRef {
+                    object: source,
+                    version,
+                });
+        }
+    }
+
     /// Completes a loyalty activation after targeting: pushes the ability
     /// to the stack without re-paying (cost was paid at activation).
     ///
@@ -132,7 +155,7 @@ impl<L: CardLookup> Engine<L> {
         targets: SmallVec<[ObjectId; 2]>,
         cost: i8,
     ) -> Result<(), EngineError> {
-        if self.loyalty_used_this_turn.contains(&source) {
+        if self.loyalty_used(source) {
             return Err(EngineError::IllegalAction("loyalty already used this turn"));
         }
         let Some(AbilityDef::Loyalty {
@@ -230,7 +253,7 @@ impl<L: CardLookup> Engine<L> {
         targets: SmallVec<[ObjectId; 2]>,
         wanted: Option<baylee_cards_dsl::TargetReq>,
     ) -> Result<(), EngineError> {
-        self.loyalty_used_this_turn.push(source);
+        self.loyalty_used_mark(source);
         // Targets first if required.
         if targets.is_empty()
             && let Some(req) = wanted

@@ -214,3 +214,35 @@ fn sivitri_dragon_master_taxes_attackers_and_destroys_non_dragons() {
     pass_until(&mut e, stack_is_empty);
     assert!(on_battlefield(&e, P1, index::GRIZZLY_BEARS).is_none());
 }
+
+/// CR 400.7 and 606.3: a planeswalker that leaves and returns is a new
+/// permanent, so it may activate a loyalty ability again the same turn
+/// (Young Wolf under Agatha's Soul Cauldron is one, after undying).
+#[test]
+fn a_planeswalker_that_returns_may_activate_a_loyalty_ability_again_this_turn() {
+    let mut e = prepared(&[], &[index::THE_THEORIST_JACE_BELEREN], &[]);
+    let jace = on_battlefield(&e, P0, index::THE_THEORIST_JACE_BELEREN).unwrap();
+    activate_by_card(&mut e, P0, index::THE_THEORIST_JACE_BELEREN, 1);
+    pass_until(&mut e, stack_is_empty);
+    let again = |e: &mut Engine<RegistryLookup>| {
+        e.refresh_offer();
+        e.apply(
+            P0,
+            PlayerAction::ActivateAbility {
+                source: jace,
+                ability_index: 1,
+            },
+        )
+    };
+    assert!(again(&mut e).is_err(), "the same permanent is limited");
+    for zone in [ZoneLocation::Hand(P0), ZoneLocation::Battlefield] {
+        e.dev_state_mut(P0)
+            .unwrap()
+            .move_object(jace, zone, ZonePosition::Top, Cause::Effect)
+            .unwrap();
+    }
+    assert!(
+        again(&mut e).is_ok(),
+        "the returned permanent is a new object"
+    );
+}

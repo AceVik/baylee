@@ -599,7 +599,7 @@ impl<L: CardLookup> Engine<L> {
                         // per walker, enough loyalty for negative costs.
                         if obj.controller != player
                             || !sorcery_timing
-                            || self.loyalty_used_this_turn.contains(&id)
+                            || self.loyalty_used(id)
                         {
                             continue;
                         }

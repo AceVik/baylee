@@ -24,7 +24,7 @@ pub(super) struct Checkpoint {
     mulligans: Option<Vec<mulligan::SeatMulligan>>,
     combat_declared: CombatDeclared,
     cleanup: Cleanup,
-    loyalty_used_this_turn: Vec<ObjectId>,
+    loyalty_used_this_turn: Vec<baylee_core::ids::DamageSourceRef>,
     awaiting_answer: bool,
     resolution: Option<Resolution>,
     effect_plays: Vec<effect_play::EffectPlay>,
