@@ -157,6 +157,10 @@ struct AppState {
     /// How many revocations may be pushed here, whoever sends them: the route
     /// is open to anyone, and a signature is worth checking only so often.
     invalidate_limiter: auth::RateLimiter,
+    /// How many gateway tokens one address may have checked: a sign-in and a
+    /// refresh verify a signature here, for whoever sends one. Generous, since
+    /// a household or a LAN party shares an address.
+    token_limiter: auth::RateLimiter,
     /// The shared secret an agent proves itself with (`BAYLEE_AGENT_TOKEN`).
     ///
     /// Without one no agent may connect, and therefore no game can start: an
@@ -455,6 +459,7 @@ async fn main() {
         departed: tokio::sync::broadcast::channel(16).0,
         sessions: sessions::Book::default(),
         invalidate_limiter: auth::RateLimiter::new(std::time::Duration::from_secs(60), 600),
+        token_limiter: auth::RateLimiter::new(std::time::Duration::from_secs(60), 60),
         agents: Mutex::new(engine::Agents::default()),
         metrics: metrics::Metrics::default(),
         agent_token,

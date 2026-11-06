@@ -12,7 +12,7 @@ use central_crypto::jwt::{
     self, Expected, GatewayClaims, JwtError, KeySet, ReplayCache, RevocationClaims,
 };
 use parking_lot::Mutex;
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 /// How often the keys are fetched with nothing asking for them.
 const KEYS_EVERY_SECS: i64 = 300;
@@ -51,7 +51,7 @@ pub(crate) struct Applied {
 }
 
 struct State {
-    keys: Option<KeySet>,
+    keys: Option<Arc<KeySet>>,
     fetched_at: Option<i64>,
     asked_at: Option<i64>,
     synced: bool,
@@ -91,7 +91,7 @@ impl Trust {
     /// keys held stay in use.
     pub(crate) fn set_keys(&self, keys: KeySet, now: i64) {
         let mut state = self.state.lock();
-        state.keys = Some(keys);
+        state.keys = Some(Arc::new(keys));
         state.fetched_at = Some(now);
     }
 
@@ -168,14 +168,22 @@ impl Trust {
     /// # Errors
     /// [`Refused`], and nothing to act on.
     pub(crate) fn gateway_token(&self, token: &str, now: i64) -> Result<GatewayClaims, Refused> {
-        let state = self.state.lock();
-        let keys = state.keys.as_ref().filter(|_| state.synced);
+        let keys = {
+            let state = self.state.lock();
+            state.keys.clone().filter(|_| state.synced)
+        };
         let keys = keys.ok_or(Refused::NotReady)?;
-        let claims: GatewayClaims = self.verified(keys, token, now).map_err(refused)?;
-        if state.revoked.contains_key(&claims.sid) {
+        // Outside the lock, as below: a flood of tokens to verify must not
+        // stand between a revocation and the sessions it ends.
+        let claims: GatewayClaims = self.verified(&keys, token, now).map_err(refused)?;
+        if self.revoked(&claims.sid) {
             return Err(Refused::Revoked);
         }
         Ok(claims)
+    }
+
+    fn held_keys(&self) -> Result<Arc<KeySet>, Refused> {
+        self.state.lock().keys.clone().ok_or(Refused::NotReady)
     }
 
     /// Whether this `sid` was revoked.
@@ -188,10 +196,9 @@ impl Trust {
     /// # Errors
     /// [`Refused`], and nothing is applied.
     pub(crate) fn fetched(&self, token: &str, now: i64) -> Result<Applied, Refused> {
-        let mut state = self.state.lock();
-        let keys = state.keys.as_ref().ok_or(Refused::NotReady)?;
-        let claims: RevocationClaims = self.verified(keys, token, now).map_err(refused)?;
-        Ok(apply(&mut state, claims, now))
+        let keys = self.held_keys()?;
+        let claims: RevocationClaims = self.verified(&keys, token, now).map_err(refused)?;
+        Ok(apply(&mut self.state.lock(), claims, now))
     }
 
     /// A revocation message pushed to this gateway, which anyone can send:
@@ -200,9 +207,9 @@ impl Trust {
     /// # Errors
     /// [`Refused`], and nothing is applied.
     pub(crate) fn pushed(&self, token: &str, now: i64) -> Result<Applied, Refused> {
+        let keys = self.held_keys()?;
+        let claims: RevocationClaims = self.verified(&keys, token, now).map_err(refused)?;
         let mut state = self.state.lock();
-        let keys = state.keys.as_ref().ok_or(Refused::NotReady)?;
-        let claims: RevocationClaims = self.verified(keys, token, now).map_err(refused)?;
         state.replay.take(&claims, now).map_err(refused)?;
         Ok(apply(&mut state, claims, now))
     }

@@ -3,7 +3,7 @@ use crate::sessions::{self, Ended, Signed};
 use axum::{
     Json, Router,
     body::Bytes,
-    extract::{DefaultBodyLimit, State},
+    extract::{ConnectInfo, DefaultBodyLimit, State},
     http::{HeaderMap, StatusCode, header::CONTENT_TYPE},
     response::{IntoResponse, Response},
     routing::post,
@@ -12,7 +12,7 @@ use baylee_protocol::refusal::Refusal;
 use central_crypto::jwt::{GatewayClaims, Kind, Purpose};
 use serde::Deserialize;
 use serde_json::{Value, json};
-use std::{sync::Arc, time::Duration};
+use std::{net::SocketAddr, sync::Arc, time::Duration};
 use zeroize::Zeroizing;
 
 fn bridge(state: &Shared) -> Result<Arc<Bridge>, StatusCode> {
@@ -197,6 +197,13 @@ async fn sign_in(state: &Shared, token: &str, purpose: Purpose) -> Result<Json<V
     Ok(Json(answer))
 }
 
+/// Whether this address may have a token checked now. A signature is checked
+/// in this process, for anyone who sends one, so a flood is stopped here.
+fn within_budget(state: &Shared, addr: SocketAddr, headers: &HeaderMap) -> bool {
+    let ip = crate::rate_limit_ip(&state.trusted_proxies, addr.ip(), headers);
+    state.token_limiter.allow(&ip)
+}
+
 fn answered(result: Result<Json<Value>, StatusCode>) -> Response {
     result.map_or_else(IntoResponse::into_response, IntoResponse::into_response)
 }
@@ -222,8 +229,17 @@ fn answered(result: Result<Json<Value>, StatusCode>) -> Response {
 /// @return 403: "This gateway takes no Central account (its mode is `guests`), or the account is banned or must choose a new password first"
 /// @return 413: String text/plain "The body is over 8 KiB"
 /// @return 426: `$RefusalBody` "A client from before gateway tokens: `update_required`"
+/// @return 429: "Too many sign-ins from this address"
 /// @return 503: "No Baylee Central is configured, this gateway has not caught up with Central since it started, the database is unavailable, or the account is new here and this gateway's registration is not open"
-async fn login(State(state): State<Shared>, body: Bytes) -> Response {
+async fn login(
+    State(state): State<Shared>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Response {
+    if !within_budget(&state, addr, &headers) {
+        return StatusCode::TOO_MANY_REQUESTS.into_response();
+    }
     // The mode in force decides, before anything is read (`authmode.rs`);
     // the console's own sign-in below follows none.
     if !state.auth_mode.current().central() {
@@ -255,8 +271,17 @@ async fn login(State(state): State<Shared>, body: Bytes) -> Response {
 /// @return 403: "This is the migration gateway, or the account is banned or must choose a new password first"
 /// @return 413: String text/plain "The body is over 8 KiB"
 /// @return 426: `$RefusalBody` "A client from before gateway tokens: `update_required`"
+/// @return 429: "Too many sign-ins from this address"
 /// @return 503: "No Baylee Central is configured, this gateway has not caught up with Central since it started, or the database is unavailable"
-async fn admin_login(State(state): State<Shared>, body: Bytes) -> Response {
+async fn admin_login(
+    State(state): State<Shared>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Response {
+    if !within_budget(&state, addr, &headers) {
+        return StatusCode::TOO_MANY_REQUESTS.into_response();
+    }
     match bridge(&state) {
         Ok(bridge) if bridge.legacy => return StatusCode::FORBIDDEN.into_response(),
         Ok(_) => {}
@@ -318,8 +343,17 @@ async fn refreshed(state: &Shared, token: &str) -> Result<Json<Value>, StatusCod
 /// @return 401: "The token is not good here, its session was revoked, or this gateway holds no such session"
 /// @return 413: String text/plain "The body is over 8 KiB"
 /// @return 426: `$RefusalBody` "A client from before gateway tokens: `update_required`"
+/// @return 429: "Too many sign-ins from this address"
 /// @return 503: "No Baylee Central is configured, or this gateway has not caught up with Central since it started"
-async fn refresh(State(state): State<Shared>, body: Bytes) -> Response {
+async fn refresh(
+    State(state): State<Shared>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Response {
+    if !within_budget(&state, addr, &headers) {
+        return StatusCode::TOO_MANY_REQUESTS.into_response();
+    }
     match read_token(&body) {
         Ok(token) => answered(refreshed(&state, &token).await),
         Err(refused) => refused,
