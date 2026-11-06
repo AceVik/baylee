@@ -268,6 +268,40 @@ fn gain_interval(rows: &[(u64, f64)], resamples: usize) -> [f64; 2] {
     ]
 }
 
+fn logit(score: f64) -> f64 {
+    let score = score.clamp(1e-4, 1.0 - 1e-4);
+    (score / (1.0 - score)).ln()
+}
+
+/// How well the change of a score between one position of a game and the next
+/// says who wins, for the head and the board baseline. A search compares
+/// positions a move apart in one game, so this is nearer its question than a
+/// score across games, though still not the same: these two positions are a
+/// turn apart and one was really played.
+fn step_auc(
+    test: &[&Position],
+    score: &impl Fn(&Position) -> Option<f64>,
+    board: &[f64; 4],
+) -> (Option<f64>, Option<f64>) {
+    let mut games: BTreeMap<u64, Vec<&Position>> = BTreeMap::new();
+    for position in test {
+        games.entry(position.deal).or_default().push(position);
+    }
+    let (mut head, mut baseline) = (Vec::new(), Vec::new());
+    for positions in games.values() {
+        for pair in positions.windows(2) {
+            if let (Some(before), Some(after)) = (score(pair[0]), score(pair[1])) {
+                head.push((logit(after) - logit(before), pair[1].outcome));
+                baseline.push((
+                    dot(board, &pair[1].features) - dot(board, &pair[0].features),
+                    pair[1].outcome,
+                ));
+            }
+        }
+    }
+    (auc(&mut head), auc(&mut baseline))
+}
+
 /// One row: `score` against the baselines, on `test`, baselines fitted on `fit`.
 fn row(
     label: &str,
@@ -305,6 +339,16 @@ fn row(
     let mut pairs: Vec<(f64, f64)> = scored.iter().map(|s| (s.0, s.1)).collect();
     let (slope, shift) = recalibration(&pairs);
     let calibration = bins(&pairs);
+    // The head with its scale and shift taken from the other split: what it is
+    // worth once a constant bias is out of the way, which a search does not
+    // feel when it compares two positions.
+    let fitted: Vec<(f64, f64)> = fit
+        .iter()
+        .filter_map(|p| score(p).map(|s| (s, p.outcome)))
+        .collect();
+    let (fit_slope, fit_shift) = recalibration(&fitted);
+    let recalibrated = brier(&|s| logistic(fit_shift + fit_slope * logit(s.0)));
+    let (auc_step, auc_step_board) = step_auc(test, &score, &board);
     let games = scored
         .iter()
         .map(|s| s.2)
@@ -319,6 +363,8 @@ fn row(
         "mean_value": mean(scored.iter().map(|s| s.0)),
         "brier": head, "brier_uniform": uniform, "brier_constant": constant,
         "brier_board": board_brier,
+        "brier_recalibrated": recalibrated,
+        "auc_step": auc_step, "auc_step_board": auc_step_board,
         "skill_vs_constant": 1.0 - head / constant,
         "gain_vs_constant": constant - head,
         "gain_vs_constant_95": gain_interval(&gains, resamples),

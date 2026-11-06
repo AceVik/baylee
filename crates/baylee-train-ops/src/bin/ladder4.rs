@@ -55,6 +55,9 @@ struct Args {
     /// Offset into the deck manifest, so that a later run plays other decks.
     #[arg(long, default_value_t = 0)]
     first_deck: usize,
+    /// Seconds between two games' starts, over all tables.
+    #[arg(long, default_value_t = 80)]
+    start_gap_secs: u64,
 }
 
 #[derive(Clone, Debug)]
@@ -288,6 +291,14 @@ fn play(args: &Args, game: &Game) -> Result<Value> {
             timed_out = true;
             break;
         }
+        // A seat that never sat down leaves the host waiting for the whole
+        // limit, on a table with no game (the gateway's sign-in limit).
+        if let Ok(Some(status)) = model.try_wait()
+            && !status.success()
+        {
+            reap(&mut net);
+            bail!("the seat ended first: {status}");
+        }
         std::thread::sleep(Duration::from_secs(1));
     }
     reap(&mut net);
@@ -311,6 +322,28 @@ fn play(args: &Args, game: &Game) -> Result<Value> {
         "answers": inner.get("answers"), "neural_answers": inner.get("neural_answers"),
         "fallback_answers": inner.get("fallback_answers"), "failure": inner.get("failure"),
     }))
+}
+
+/// Plays `game` when its turn to start comes, trying again when it never got
+/// going: a game signs in twice, and the gateway takes 8 sign-ins from one
+/// address in five minutes, however many tables are free.
+fn play_paced(args: &Args, game: &Game, next_start: &Mutex<Instant>) -> Value {
+    let gap = Duration::from_secs(args.start_gap_secs);
+    let mut last = None;
+    for _ in 0..4 {
+        let start = {
+            let mut next = next_start.lock().expect("start clock");
+            let start = (*next).max(Instant::now());
+            *next = start + gap;
+            start
+        };
+        std::thread::sleep(start.saturating_duration_since(Instant::now()));
+        match play(args, game) {
+            Ok(result) => return result,
+            Err(error) => last = Some(format!("{error:#}")),
+        }
+    }
+    json!({"game": game.index, "profile": game.profile, "mode": game.mode, "error": last})
 }
 
 /// Wins, losses and the rest per arm.
@@ -364,18 +397,17 @@ fn main() -> Result<()> {
     )?;
     let queue = Arc::new(Mutex::new(games.into_iter()));
     let results = Arc::new(Mutex::new(Vec::new()));
+    let next_start = Arc::new(Mutex::new(Instant::now()));
     let workers: Vec<_> = (0..args.tables)
         .map(|_| {
             let (args, queue, results) = (args.clone(), queue.clone(), results.clone());
+            let next_start = next_start.clone();
             std::thread::spawn(move || {
                 loop {
                     let Some(game) = queue.lock().expect("queue").next() else {
                         return;
                     };
-                    let result = play(&args, &game).unwrap_or_else(|error| {
-                        json!({"game": game.index, "profile": game.profile, "mode": game.mode,
-                            "error": format!("{error:#}")})
-                    });
+                    let result = play_paced(&args, &game, &next_start);
                     let mut results = results.lock().expect("results");
                     results.push(result);
                     let so_far: &Vec<Value> = &results;
