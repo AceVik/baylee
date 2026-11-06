@@ -386,6 +386,22 @@ fn resolving_colors(state: &GameState, res: &Resolution, source: ManaSource) -> 
     colored(colors)
 }
 
+/// The colors `Effect::ManaForColorsAmong` adds right now, one mana of each.
+#[must_use]
+pub fn each_color_among(
+    state: &GameState,
+    you: PlayerId,
+    filter: &baylee_cards_dsl::Filter,
+    from: ObjectId,
+) -> Vec<ManaColor> {
+    colored(eval::colors_among(
+        state,
+        you,
+        filter,
+        eval::live_context(state, from),
+    ))
+}
+
 /// The colors this source can produce right now.
 ///
 /// `from` is the permanent whose ability is making the mana, and it is a

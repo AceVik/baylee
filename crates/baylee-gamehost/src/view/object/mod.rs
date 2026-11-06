@@ -621,6 +621,17 @@ fn board_mana(state: &GameState, id: ObjectId) -> Option<baylee_view::BoardMana>
             else {
                 return None;
             };
+            // "For each color among permanents you control" (Bloom Tender):
+            // the colours are the board's, and all of them come.
+            if let Some(filter) = baylee_cards_dsl::mana_of_each_color(cost, effects) {
+                let colors =
+                    baylee_engine::resolve::each_color_among(state, obj.controller, filter, id);
+                return (!colors.is_empty()).then(|| baylee_view::BoardMana {
+                    index: u32::try_from(index).unwrap_or(u32::MAX),
+                    colors,
+                    restricted_to: None,
+                });
+            }
             // An ability that is one "if" (Gemstone Caverns, River of Tears)
             // has no colour until the engine's own reader of the condition
             // has run, and that reader needs the game.

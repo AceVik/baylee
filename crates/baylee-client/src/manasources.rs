@@ -585,13 +585,20 @@ fn read_mana_ability_with_restrictions<T>(
         // the host ran it, and the `if` itself is no rider, so only the
         // cost can price this tap.
         if let Some(branched) = baylee_cards_dsl::mana_branched(cost, effects) {
-            let colors = branched_colors(view, id, index)?;
+            let colors = host_colors(view, id, index)?;
             return Some(read(
                 Cow::Borrowed(colors),
                 branched.amount,
                 false,
                 priced(cost, &[]),
             ));
+        }
+        // "For each color among permanents you control" (Bloom Tender): a
+        // bundle whose colours the host read off the board.
+        if baylee_cards_dsl::mana_of_each_color(cost, effects).is_some() {
+            let colors = host_colors(view, id, index)?;
+            let amount = u8::try_from(colors.len()).ok()?;
+            return Some(read(Cow::Borrowed(colors), amount, true, priced(cost, &[])));
         }
         // Bundle colours are fixed in the definition, not projected from
         // the board. Keep this already-owned Vec for the planner and read
@@ -639,9 +646,10 @@ fn read_mana_ability_with_restrictions<T>(
 }
 
 /// What the host says ability `index` of `object` makes now, for an ability
-/// [`baylee_cards_dsl::mana_branched`] reads: which side of its "if" runs is
-/// the board's to say, so the colours are read and not worked out.
-fn branched_colors(
+/// [`baylee_cards_dsl::mana_branched`] or
+/// [`baylee_cards_dsl::mana_of_each_color`] reads: the answer is the board's,
+/// so the colours are read and not worked out.
+fn host_colors(
     view: &PlayerView,
     object: baylee_core::ids::ObjectId,
     index: u32,
@@ -788,7 +796,7 @@ pub fn offers(
                     })
                     .or_else(|| {
                         baylee_cards_dsl::mana_branched(cost, effects)?;
-                        Some((branched_colors(view, object, index)?.to_vec(), true))
+                        Some((host_colors(view, object, index)?.to_vec(), true))
                     }),
                 _ => None,
             },
@@ -1619,6 +1627,22 @@ mod tests {
         assert_eq!(bubble.len(), 1);
         assert_eq!(bubble[0].colors, [ManaColor::White, ManaColor::Red]);
         assert!(bubble[0].fixed, "one mana, whichever side runs");
+    }
+
+    /// Bloom Tender makes one of each colour the host names: a bundle, so a
+    /// plan counts them all and the engine asks nothing.
+    #[test]
+    fn a_tap_for_each_colour_is_a_bundle_of_what_the_host_says() {
+        let (mut view, legal) = offering("Bloom Tender", &[0]);
+        assert!(sources(&view, &legal).is_empty(), "no word from the host");
+
+        view.battlefield[0].board_mana = Some(projected(&[ManaColor::White, ManaColor::Green], 0));
+        let read = sources(&view, &legal);
+        assert_eq!(read.len(), 1);
+        assert_eq!(read[0].colors, [ManaColor::White, ManaColor::Green]);
+        assert_eq!(read[0].amount, 2);
+        assert!(read[0].bundle);
+        assert!(!read[0].priced);
     }
 
     /// #149, and the whole of what it buys. Ancient Tomb prints one mana

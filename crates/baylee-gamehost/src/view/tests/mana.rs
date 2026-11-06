@@ -122,6 +122,16 @@ fn a_lone_reflecting_pool_is_nothing_to_plan_with() {
     );
 }
 
+/// Bloom Tender says the colours among its controller's permanents, and only
+/// those: the blue creature across the table adds none.
+#[test]
+fn a_tap_for_each_colour_says_the_colours_of_your_permanents() {
+    use baylee_core::generated::index::{BLOOM_TENDER, SAVANNAH_LIONS, WIND_DRAKE};
+    let (_, view) = board(&[BLOOM_TENDER, SAVANNAH_LIONS], &[WIND_DRAKE]);
+    let tender = projection(&view, "Bloom Tender").expect("two colours among them");
+    assert_eq!(tender.colors, vec![ManaColor::White, ManaColor::Green]);
+}
+
 /// A mana ability written as one "if" says which side runs now: the engine's
 /// reader of the condition, on the board as it stands. Both colours sit in the
 /// card's words, and neither is an answer without a game.

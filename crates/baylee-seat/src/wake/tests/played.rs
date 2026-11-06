@@ -789,3 +789,35 @@ fn a_land_made_a_swamp_taps_for_black_and_nothing_it_printed() {
         "three mana, not four"
     );
 }
+
+/// Bloom Tender: "{T}: For each color among permanents you control, add one
+/// mana of that color." One tap, one mana of each, and no colour to ask.
+/// Which colours is the board's: alone it makes {G}, and beside a white
+/// creature {G}{W}. Faeburrow Elder prints the same words and is both colours
+/// itself.
+#[test]
+fn a_tap_for_each_colour_among_your_permanents_makes_one_of_each() {
+    let (_, view, legal) = position(&["Bloom Tender"], &["Eladamri's Call"], &[]);
+    assert!(
+        reach_of(&reachable(&view, &legal), "Eladamri's Call").is_none(),
+        "alone it is green and makes {{G}}"
+    );
+
+    let (mut session, view, legal) = position(
+        &["Bloom Tender", "Savannah Lions"],
+        &["Eladamri's Call"],
+        &[],
+    );
+    let reach = reachable(&view, &legal);
+    let call = reach_of(&reach, "Eladamri's Call").expect("{G}{W} from one tap");
+    assert_eq!(call.plan.steps.len(), 1);
+    assert_eq!(call.plan.steps[0].color, None, "nothing to ask");
+    let card = call.object;
+    let plan = call.plan.clone();
+    run(&mut session, &plan, PlayerAction::CastSpell { card });
+    assert!(session.observe_view(ME).stack.iter().any(|o| o.id == card));
+
+    let (_, view, legal) = position(&["Faeburrow Elder"], &["Eladamri's Call"], &[]);
+    assert_eq!(baylee_ai::mana_sources(&view, &legal)[0].amount, 2);
+    assert!(reach_of(&reachable(&view, &legal), "Eladamri's Call").is_some());
+}

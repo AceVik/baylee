@@ -54,7 +54,8 @@ pub use effect::{
 pub use filter::{Filter, OriginalExpansion, ZoneRef};
 pub use manaread::{
     BranchedMana, Conversion, SimpleMana, mana_branched, mana_bundle, mana_conversion, mana_made,
-    mana_offer, mana_shape, mana_with_riders, mana_written, simple_mana, tap_only,
+    mana_of_each_color, mana_offer, mana_shape, mana_with_riders, mana_written, simple_mana,
+    tap_only,
 };
 // Re-exported so the authoring macros can name them through `$crate`, and so
 // a card file needs exactly one import (see `build::prelude`).

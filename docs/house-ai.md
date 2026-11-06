@@ -18,7 +18,8 @@ basic land types give it, so one with two (Urborg and Yavimaya together, a
 land Evil Presence made a Swamp under Yavimaya) makes either (NEW-09). A tap
 written as one "if" (Gemstone Caverns, River of Tears) makes what the host says
 the side that runs now makes (`BoardMana`, `mana_branched`), and a tap that adds
-two (a bounce land's `{U}{R}`, `mana_bundle`) counts as one of each. The
+two (a bounce land's `{U}{R}`, `mana_bundle`) or one of each colour among your
+permanents (Bloom Tender, `mana_of_each_color`) counts as one of each. The
 agent does not tap toward an unaffordable spell, nor toward one the engine
 would not cast once paid
 (`LegalActions::castable_once_paid`: in neither `castable` nor `payable`, such

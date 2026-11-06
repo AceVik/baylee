@@ -2234,6 +2234,13 @@ fn printed_mana_offer(
             None,
         ));
     }
+    // "For each color among permanents you control" (Bloom Tender): the host
+    // read the board, and the tap makes one of each it names.
+    if baylee_cards_dsl::mana_of_each_color(cost, effects).is_some() {
+        let board = object.board_mana.as_ref().filter(|m| m.index == index)?;
+        let amount = u8::try_from(board.colors.len()).ok()?;
+        return Some((board.colors.clone(), amount, true, priced(cost), None));
+    }
     let rider = effects.iter().any(|e| !matches!(e, Effect::AddMana { .. }));
     // The planner's door, as the client's: a tap that also does
     // something else (Adarkar Wastes' damage) is still a source,

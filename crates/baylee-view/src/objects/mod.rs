@@ -542,7 +542,8 @@ pub struct BoardMana {
     /// colours read onto the wrong row.
     pub index: u32,
     /// The colours it may make. More than one means the ability asks, except
-    /// for a fixed mixture whose repeated entries are all produced together.
+    /// for a fixed mixture whose repeated entries are all produced together, and
+    /// for an ability that adds one of each colour it reads (Bloom Tender).
     ///
     /// Never empty: an ability that makes nothing right now is reported as no
     /// [`PublicObject::board_mana`] at all.

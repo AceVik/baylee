@@ -58,6 +58,7 @@
 use crate::Condition;
 use crate::cost::{Cost, CostPart};
 use crate::effect::{Amount, Effect, ManaSource};
+use crate::filter::Filter;
 use baylee_core::mana::{ManaColor, ManaCost};
 
 /// What a simple mana ability makes.
@@ -365,6 +366,23 @@ pub fn mana_branched(cost: &Cost, effects: &[Effect]) -> Option<BranchedMana> {
     })
 }
 
+/// An ability whose **whole text** is "for each color among permanents you
+/// control, add one mana of that color": Bloom Tender, Faeburrow Elder. The
+/// filter it reads, when the ability is one.
+///
+/// [`mana_bundle`]'s package with the colours left open: one of each and no
+/// colour to ask, and which ones is the board's, so the host says
+/// (`PublicObject::board_mana`) and the count is how many it names. Free only:
+/// Tarnation Vista's `{1}` makes it a trade, which is no source.
+#[must_use]
+pub fn mana_of_each_color(cost: &Cost, effects: &[Effect]) -> Option<&'static Filter> {
+    let [Effect::ManaForColorsAmong(filter)] = effects else {
+        return None;
+    };
+    (cost.mana == ManaCost::ZERO && crate::mana_rule::activated_mana_ability(cost, effects, false))
+        .then_some(*filter)
+}
+
 /// What a tap that says "add" **more than once** produces, one colour per
 /// `AddMana`, in printed order.
 ///
@@ -511,7 +529,6 @@ mod tests {
     use super::*;
     use crate::cost::CostPart;
     use crate::effect::{ManaRestriction, SpendRider};
-    use crate::filter::Filter;
 
     fn tap() -> Cost {
         Cost {
@@ -637,6 +654,19 @@ mod tests {
         );
         let (_, restricted) = mana_made(&tap(), &effects).expect("the label can read it");
         assert!(!restricted);
+    }
+
+    /// Only a free ability that is nothing but the sentence: a `{1}` makes it
+    /// a trade, and anything beside it is a tap a plan cannot count.
+    #[test]
+    fn each_colour_is_read_only_when_it_is_the_whole_free_ability() {
+        let each = Effect::ManaForColorsAmong(&Filter::ControlledByYou);
+        let blue = Effect::mana(ManaColor::Blue, 1);
+        assert!(mana_of_each_color(&tap(), &[each]).is_some());
+        let priced = paid("{1}", &[CostPart::TapSelf]);
+        assert_eq!(mana_of_each_color(&priced, &[each]), None);
+        assert_eq!(mana_of_each_color(&tap(), &[each, blue]), None);
+        assert_eq!(mana_of_each_color(&tap(), &[blue]), None);
     }
 
     /// An "if" is read when it is the whole ability and each side is a mana
