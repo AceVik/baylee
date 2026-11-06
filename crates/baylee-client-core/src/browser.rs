@@ -1651,7 +1651,7 @@ impl Browser {
                 if !self.shows_choice_row(zone, mine, selectable) {
                     continue;
                 }
-                let shown = (names.shown)(object).unwrap_or_else(|| object.name.clone());
+                let shown = (names.shown)(object).unwrap_or_else(|| object.name.to_string());
                 // Both names are in the facts, because they are two ways of
                 // naming the same card and a player knows the one they
                 // learned it under. The projection is also the only name a

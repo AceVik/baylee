@@ -266,7 +266,7 @@ impl LogBook {
                 self.defenders.insert(
                     id,
                     Named {
-                        name: object.name.clone(),
+                        name: object.name.to_string(),
                         card: object.card,
                     },
                 );

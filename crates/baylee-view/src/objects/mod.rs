@@ -289,7 +289,7 @@ pub struct PublicObject {
     pub ability_sources: Vec<AbilitySource>,
     /// Projected name. Present even when `card` is `None`, so tokens and
     /// face-down permanents still render a label ("Soldier", "Face-down").
-    pub name: String,
+    pub name: crate::SharedName,
     /// Controller.
     pub controller: PlayerId,
     /// Owner — differs from the controller under control-changing effects, and
@@ -718,7 +718,7 @@ pub struct ObjectSummaryKey {
     /// the plain Soldier another set prints group by name alone — and every
     /// token merges, however roomy its row.
     token: Option<u16>,
-    name: String,
+    name: crate::SharedName,
     controller: PlayerId,
     /// Not drawn, but read: "a permanent you own" is a target filter, and a
     /// stolen token answers it differently from its twin.

@@ -159,10 +159,17 @@ fn read(state: &GameState, land: &GameObject) -> Production {
         && !current.rules_text_lost
         && let Some(list) = state.printed_ability_list(land.id)
     {
+        // `GameState::ability_text`, with what is the same for every ability
+        // of the land read once. A land on the battlefield is no ability on
+        // the stack, and the list carries the base wording of each.
+        let changed = state.text_changes.get(DamageSourceRef {
+            object: land.id,
+            version: land.version,
+        });
         for (index, ability) in list.abilities.iter().enumerate() {
             let context = RuleContext {
                 source: land.id,
-                text: state.ability_text(land.id, index as u32),
+                text: list.abilities.base_text(index).then(changed),
                 resolved_name: None,
                 reference: None,
             };

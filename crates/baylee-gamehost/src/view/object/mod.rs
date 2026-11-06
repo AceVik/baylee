@@ -79,7 +79,7 @@ fn exact_object_view(
     Some(baylee_view::DamageSourceView {
         source,
         name: if known || !obj.zone.is_hidden_by_default() {
-            public_name(state, obj, seat)
+            public_name(state, obj, seat).into()
         } else {
             "Unknown source".into()
         },
@@ -209,6 +209,15 @@ pub(super) fn target_objects(
 
 fn object_targets(state: &GameState, obj: &GameObject) -> Vec<TargetRef> {
     let id = obj.id;
+    let players = baylee_engine::eval::first_target_players(obj);
+    // Nearly every object of a table points at nothing.
+    if obj.targets.is_empty()
+        && players.is_empty()
+        && obj.second_targets().is_empty()
+        && obj.second_target_players().is_empty()
+    {
+        return Vec::new();
+    }
     obj.targets
         .iter()
         .enumerate()
@@ -217,11 +226,7 @@ fn object_targets(state: &GameState, obj: &GameObject) -> Vec<TargetRef> {
                 .recorded_target_reference(id, false, u32::try_from(index).expect("target slot"))
                 .map(TargetRef::Object)
         })
-        .chain(
-            baylee_engine::eval::first_target_players(obj)
-                .iter()
-                .map(TargetRef::Player),
-        )
+        .chain(players.iter().map(TargetRef::Player))
         .chain(
             obj.second_targets()
                 .iter()
@@ -307,6 +312,13 @@ pub(super) fn public_object(
     let obj = state.object(id)?;
     let chars = obj.characteristics();
     let known = may_know_card(obj, seat);
+    // Permanents only: the engine offers a granted ability on a permanent and
+    // nowhere else, and each entry here is one of those offers.
+    let grants = if obj.kind == ObjectKind::Permanent {
+        grants(board, id, seat)
+    } else {
+        Vec::new()
+    };
     Some(PublicObject {
         ability_sources: abilities::sources(state, obj, known),
         word_changes: word_changes(state, id),
@@ -435,9 +447,7 @@ pub(super) fn public_object(
             obj.controller,
             id,
         ),
-        granted_mana: (obj.kind == ObjectKind::Permanent)
-            .then(|| granted_mana(board, id))
-            .flatten(),
+        granted_mana: granted_mana(&grants),
         // Permanents only, for the reason the two fields above are: nothing
         // else can be tapped. Not gated on `known` either, and it does not
         // need to be: the abilities are read through the object's own
@@ -447,14 +457,7 @@ pub(super) fn public_object(
             .then(|| board_mana(board, id))
             .flatten(),
         flashback: graveyard_price(state, id, obj, seat, chars.mana_cost),
-        // Permanents only, for `granted_mana`'s reason: the engine offers a
-        // granted ability on a permanent and nowhere else, and each entry
-        // here is one of those offers.
-        grants: if obj.kind == ObjectKind::Permanent {
-            grants(board, id, seat)
-        } else {
-            Vec::new()
-        },
+        grants,
     })
 }
 
@@ -588,8 +591,11 @@ fn grant_home(
 /// The **first** grant that is a mana ability, which is the one a planner can
 /// use: a permanent may be granted several (Urza's Saga is granted two), and
 /// the plan taps it once either way.
-fn granted_mana(board: &ViewBoard<'_>, id: ObjectId) -> Option<baylee_view::GrantedMana> {
-    board.granted(id).find_map(|grant| grant_mana(&grant))
+///
+/// Read off `grants`, whose entries answer [`grant_mana`] for each grant in
+/// slot order: a permanent's grants are asked once a view.
+fn granted_mana(grants: &[baylee_view::GrantSource]) -> Option<baylee_view::GrantedMana> {
+    grants.iter().find_map(|grant| grant.mana.clone())
 }
 
 fn grant_mana(grant: &baylee_engine::effects::GrantedAbility) -> Option<baylee_view::GrantedMana> {

@@ -131,9 +131,7 @@ pub(crate) fn may_know_card(obj: &GameObject, seat: PlayerId) -> bool {
 
 /// Whether `id` is one of the table's commanders (CR 903.3).
 fn is_commander(state: &GameState, id: ObjectId) -> bool {
-    state
-        .object(id)
-        .is_some_and(|o| !state.merged_commanders(o).is_empty())
+    state.object(id).is_some_and(|o| state.holds_commander(o))
 }
 
 /// One of a seat's commanders, as the whole table may see it.
@@ -176,7 +174,7 @@ pub(crate) fn known_name(obj: &GameObject) -> baylee_core::ids::NameRef {
 }
 
 /// The public name of an object as `seat` may know it.
-fn public_name(state: &GameState, obj: &GameObject, seat: PlayerId) -> String {
+fn public_name(state: &GameState, obj: &GameObject, seat: PlayerId) -> baylee_view::SharedName {
     if let Some((dungeon, room)) = state.players.iter().find_map(|player| {
         player
             .dungeon
@@ -187,12 +185,13 @@ fn public_name(state: &GameState, obj: &GameObject, seat: PlayerId) -> String {
             "{} — {}",
             dungeon.name(),
             dungeon.rooms()[usize::from(room - 1)]
-        );
+        )
+        .into();
     }
     if may_know_card(obj, seat) {
-        state.names.get(known_name(obj)).to_string()
+        state.names.shared(known_name(obj)).into()
     } else {
-        "Face-down".to_string()
+        "Face-down".into()
     }
 }
 
@@ -958,8 +957,9 @@ pub(crate) fn trigger_order<L: baylee_engine::state::CardLookup>(
     }
     let state = engine.state();
     let controlled = engine.controlled_players(seat);
-    let read =
-        |obj: &GameObject| public_name(state, obj, zones::entitled_viewer(obj, seat, controlled));
+    let read = |obj: &GameObject| {
+        public_name(state, obj, zones::entitled_viewer(obj, seat, controlled)).to_string()
+    };
     engine
         .queued_triggers()
         .into_iter()

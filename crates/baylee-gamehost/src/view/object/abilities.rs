@@ -9,6 +9,12 @@ pub(super) fn sources(state: &GameState, obj: &GameObject, known: bool) -> Vec<A
     if !known || obj.status.contains(Status::FACE_DOWN) {
         return Vec::new();
     }
+    // A face up object's list is shared only when it has abilities of its own
+    // or a deck circled colours on it. The card that has neither, nearly every
+    // card, is answered here without building the list that would say so.
+    if obj.own_abilities.is_none() && obj.deck_choices.colors().is_empty() {
+        return Vec::new();
+    }
     let Some(list) = state.printed_ability_list(obj.id) else {
         return Vec::new();
     };

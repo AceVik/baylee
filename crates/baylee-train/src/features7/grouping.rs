@@ -58,7 +58,7 @@ struct PermanentGroupKey7 {
     card_key: Option<(u32, u8)>,
     rules_key: Option<(u32, u8)>,
     token: Option<u16>,
-    name: String,
+    name: baylee_view::SharedName,
     commander: bool,
     status_bits: u8,
     types_bits: u16,

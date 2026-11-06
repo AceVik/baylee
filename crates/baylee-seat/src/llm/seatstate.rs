@@ -626,7 +626,7 @@ impl Seat {
                     .iter()
                     .flatten()
                     .find(|o| o.id == card)
-                    .map(|o| o.name.clone())
+                    .map(|o| o.name.to_string())
             })?;
         let again = Table::new(view, &request.context).controlled().map_or_else(
             || "you have priority again".to_string(),

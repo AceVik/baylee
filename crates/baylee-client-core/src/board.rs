@@ -1235,7 +1235,7 @@ impl BoardModel {
                 let art = stack_art(&lookup, o, kind, reg);
                 StackItem {
                     id: o.id,
-                    name: o.name.clone(),
+                    name: o.name.to_string(),
                     kind,
                     controller: o.controller,
                     targets: o
@@ -1815,7 +1815,7 @@ fn zone_piles(view: &PlayerView, player: PlayerId) -> Vec<ZonePile> {
                 art: top
                     .and_then(|o| o.card)
                     .map(|c| ImageKey::of(c, ArtSize::Small)),
-                name: top.map(|o| o.name.clone()),
+                name: top.map(|o| o.name.to_string()),
                 top: top.map(|o| o.id),
                 fan,
             }
@@ -1833,7 +1833,7 @@ fn fanned(object: &PublicObject) -> FannedCard {
     FannedCard {
         object: object.id,
         art: object.card.map(|c| ImageKey::of(c, ArtSize::Small)),
-        name: object.name.clone(),
+        name: object.name.to_string(),
     }
 }
 
@@ -2135,7 +2135,7 @@ fn card_group(
     CardGroup {
         representative: obj.id,
         members: vec![obj.id],
-        name: obj.name.clone(),
+        name: obj.name.to_string(),
         power: obj.power,
         toughness: obj.toughness,
         base_power: printed.map_or(obj.base_power, |(power, _)| Some(power)),
@@ -2177,7 +2177,7 @@ fn token_chips(permanents: &[&PublicObject]) -> Vec<TokenChip> {
     let mut by_shape: HashMap<TokenShape, (u32, u32)> = HashMap::new();
     for obj in permanents.iter().filter(|o| o.card.is_none()) {
         let entry = by_shape
-            .entry((obj.name.clone(), obj.power, obj.toughness))
+            .entry((obj.name.to_string(), obj.power, obj.toughness))
             .or_insert((0, 0));
         entry.0 += 1;
         if obj.status.is_tapped() {

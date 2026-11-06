@@ -13,7 +13,7 @@ fn board_after_turn_one(board: &[&str]) -> Vec<String> {
         if view.turn > 1 {
             return view
                 .battlefield_of(PlayerId::new(0))
-                .map(|o| o.name.clone())
+                .map(|o| o.name.to_string())
                 .collect();
         }
         let action = match pending {

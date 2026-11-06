@@ -330,7 +330,7 @@ fn every_field_the_key_is_made_of_keeps_two_objects_apart() {
                 face: 1,
             });
         }),
-        ("name", |o| o.name = "Zombie".to_string()),
+        ("name", |o| o.name = "Zombie".into()),
         ("controller", |o| o.controller = PlayerId::new(1)),
         ("commander", |o| o.commander = true),
         ("status", |o| o.status = ObjectStatus::TAPPED),

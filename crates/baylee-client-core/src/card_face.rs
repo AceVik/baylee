@@ -230,7 +230,7 @@ impl Characteristics {
     #[must_use]
     pub fn projected(object: &PublicObject) -> Self {
         Self {
-            name: object.name.clone(),
+            name: object.name.to_string(),
             types: object.types,
             supertypes: object.supertypes,
             subtypes: object.subtypes,

@@ -83,7 +83,7 @@ fn commander_mana_planning_reads_the_command_zone_and_its_tax() {
     v.seats[0].commanders.push(baylee_view::CommanderView {
         object: commander.id,
         card: commander.card,
-        name: commander.name.clone(),
+        name: commander.name.to_string(),
         casts: 0,
     });
     v.command[0].push(commander);

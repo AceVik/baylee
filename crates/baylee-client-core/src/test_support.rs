@@ -29,7 +29,7 @@ pub fn target_snapshot(
             object: object.id,
             version: 1,
         },
-        name: object.name.clone(),
+        name: object.name.to_string(),
         card: object.card,
         rules: object.rules,
         token: object.token,
@@ -71,7 +71,7 @@ pub fn token(slot: u32, controller: u8, name: &str, power: i16, toughness: i16) 
         card: None,
         rules: None,
         prepared_spell: None,
-        name: name.to_string(),
+        name: name.into(),
         controller: PlayerId::new(controller),
         owner: PlayerId::new(controller),
         commander: false,
@@ -232,7 +232,7 @@ impl ViewBuilder {
             .map(|o| baylee_view::CommanderView {
                 object: o.id,
                 card: o.card,
-                name: o.name.clone(),
+                name: o.name.to_string(),
                 casts: 0,
             })
             .collect();

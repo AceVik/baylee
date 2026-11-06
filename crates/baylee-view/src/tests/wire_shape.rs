@@ -367,7 +367,9 @@ fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
     // parse; `PlayerView::trigger_order` beside them is additive.
     // `SeatIdentity::guest` is additive and omitted while false, so 86 still
     // names the shape.
-    const RECORDED: (u32, u64) = (86, 16_342_588_063_708_076_519);
+    // `PublicObject::name` is a `SharedName`: the same string on the wire
+    // (`shared_name.rs` tests it), so 86 still names the shape.
+    const RECORDED: (u32, u64) = (86, 14_781_493_616_329_904_121);
 
     let samples = core_samples();
     let sampled: std::collections::BTreeSet<String> =

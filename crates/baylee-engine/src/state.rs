@@ -243,6 +243,12 @@ impl Names {
         &self.0.list[id.get() as usize]
     }
 
+    /// Resolves a name to the table's own copy, for a reader that keeps it.
+    #[must_use]
+    pub fn shared(&self, id: NameRef) -> Arc<str> {
+        Arc::clone(&self.0.list[id.get() as usize])
+    }
+
     /// The interned `name`, without interning it: `None` when no object of
     /// this game has ever carried it, and so none carries it now.
     #[must_use]

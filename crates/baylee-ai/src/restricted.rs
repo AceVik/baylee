@@ -149,7 +149,7 @@ fn spell_object(view: &PlayerView, id: ObjectId) -> Option<Cow<'_, PublicObject>
         card: Some(held.card),
         rules: None,
         prepared_spell: None,
-        name: held.name.clone(),
+        name: held.name.as_str().into(),
         controller: baylee_client_core::decision::resource_player(view),
         owner: baylee_client_core::decision::resource_player(view),
         commander: held.commander,

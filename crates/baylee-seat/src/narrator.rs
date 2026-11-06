@@ -914,7 +914,7 @@ fn object_name(object: &PublicObject) -> String {
     if object.name.is_empty() {
         "an unnamed object".into()
     } else {
-        object.name.clone()
+        object.name.to_string()
     }
 }
 

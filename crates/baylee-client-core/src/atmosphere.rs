@@ -464,7 +464,7 @@ mod tests {
         // subtypes for anyone to read.
         let mut hidden = basic(1, &[]);
         hidden.card = None;
-        hidden.name = "Face-down".to_string();
+        hidden.name = "Face-down".into();
         assert_eq!(table(vec![hidden]), Weather::ZERO);
     }
 

@@ -142,7 +142,7 @@ fn on_the_stack(
 fn creatures(view: &PlayerView, seat: u8) -> Vec<String> {
     view.battlefield_of(PlayerId::new(seat))
         .filter(|o| o.types.contains(baylee_core::types::TypeSet::CREATURE))
-        .map(|o| o.name.clone())
+        .map(|o| o.name.to_string())
         .collect()
 }
 

@@ -255,7 +255,7 @@ fn copies(view: &PlayerView, texts: &dyn CardTextLookup, rows: &mut Vec<CardRef>
         let text = texts.text(rules.card, rules.face);
         rows.push(CardRef {
             name: shown_name(&object.name, text.as_ref()).to_string(),
-            english: object.name.clone(),
+            english: object.name.to_string(),
             card: rules.card,
             face: rules.face,
             art: None,

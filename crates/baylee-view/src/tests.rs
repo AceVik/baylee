@@ -19,7 +19,7 @@ fn obj(id: u32, controller: u8) -> PublicObject {
         card: None,
         rules: None,
         prepared_spell: None,
-        name: "Soldier".to_string(),
+        name: "Soldier".into(),
         controller: PlayerId::new(controller),
         owner: PlayerId::new(controller),
         commander: false,

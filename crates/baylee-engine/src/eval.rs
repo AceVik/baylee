@@ -169,7 +169,16 @@ pub fn matches_projected_with_context(
     }
     let this = context.source;
     let matches = |f: &Filter| matches_projected_with_context(f, state, obj, chars, you, context);
-    match &context.text.filter_leaf(*filter) {
+    // Unchanged wording is nearly every read, and a leaf is copied only to be
+    // rewritten.
+    let rewritten;
+    let filter = if context.text == crate::text_changes::TextChangeMap::IDENTITY {
+        filter
+    } else {
+        rewritten = context.text.filter_leaf(*filter);
+        &rewritten
+    };
+    match filter {
         Filter::Any => true,
         Filter::This => obj.id == this,
         Filter::Another => obj.id != this,
@@ -337,7 +346,7 @@ pub fn matches_projected_with_context(
         // the object as it last existed there, and `trigger::departed_matches`
         // hands in that object, counters and all.
         Filter::HasCounter(kind) => obj.counters.get(*kind) > 0,
-        Filter::IsCommander => !state.merged_commanders(obj).is_empty(),
+        Filter::IsCommander => state.holds_commander(obj),
         Filter::HasAdventure => obj
             .printed_face()
             .and_then(|face| crate::state::CardLookup::card(state.bases.as_ref(), face.card()))

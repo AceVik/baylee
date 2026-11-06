@@ -166,24 +166,26 @@ pub fn graveyard_cast_permissions(
     // "You may cast spells from your graveyard this turn": every spell, so
     // it is asked before the word "permanent" is.
     let mut permissions = Vec::new();
+    // The modifier first: it is one compare, and a filter is a walk that every
+    // other effect of the table would pay for only to be turned away.
     if state.effects.iter().any(|fx| {
         fx.controller == player
-            && crate::effects::matches_filter(state, fx, obj)
             && matches!(
                 fx.modifier,
                 baylee_cards_dsl::Modifier::CastSpellsFromGraveyard
             )
+            && crate::effects::matches_filter(state, fx, obj)
     }) {
         permissions.push(GraveyardPermission::Unlimited);
     }
     if types.is_permanent()
         && state.effects.iter().any(|fx| {
             fx.controller == player
-                && crate::effects::matches_filter(state, fx, obj)
                 && matches!(
                     fx.modifier,
                     baylee_cards_dsl::Modifier::CastPermanentSpellsFromGraveyard
                 )
+                && crate::effects::matches_filter(state, fx, obj)
         })
         && !permissions.contains(&GraveyardPermission::Unlimited)
     {

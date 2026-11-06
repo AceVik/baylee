@@ -1447,3 +1447,44 @@ to 22.1 W with one core busy against 4.0 to 4.4 W at rest, wider instructions or
 Energy here is time, so a build saves what it saves in seconds. The one reading off
 that line, 25.48 J at 24.35 W for `decide` under `v3`, is a single round of five and
 its cause was not found; the median does not rest on it.
+
+## The view asks less (2026-11-06)
+
+Counted as above, billions of instructions over `play_all`, from `86638cb18`. A fresh
+callgrind profile put `public_object` at the top of every shape, ahead of the leads
+left by the round before: 23 % of `house`, 40 % of `decide`, 34 % of `search`, about
+2 700 instructions an object at 632 269 objects in `house`. `compute_legal` was 14 %.
+
+| Step | `house` | `decide` | `search` |
+|---|---:|---:|---:|
+| `86638cb18` | 7.534 | 12.061 | 17.440 |
+| a name shared, a commander found without a list, targets and grants read once | 7.220 | 11.028 | 16.352 |
+| a card with no list of its own builds none, a modifier before a filter, unchanged text copies no filter, a land's wording once | 6.936 | 10.619 | 15.607 |
+| all of it | −7.9 % | −12.0 % | −10.5 % |
+
+- **`PublicObject::name` shares the table's string.** It was a `String` per object per
+  view: 2.75 million allocations in `search`, a third of them all. It is a `SharedName`
+  now, an `Arc<str>` from `Names`, and the same string on the wire. It reached 22 files,
+  not the 39 expected: a type that derefs to `str` leaves most readers alone.
+- **`merged_commanders` built a list to ask whether it was empty**, per object.
+  `holds_commander` asks.
+- **A permanent's grants were walked twice**, once for `granted_mana` and once for
+  `grants`. The first is read off the second now, which already held it.
+- **`abilities::sources` built a whole ability list to learn it was not shared.**
+  An object with no abilities of its own and no circled colours returns at once.
+- **`graveyard_cast_permissions` asked every effect its filter before its modifier**:
+  666 080 filter walks in `house` to find two kinds of effect. Both tests are pure, so
+  the order is free, and 1.9 % of `house` went with it.
+
+All 48 games play the same: `actions`, `views` and `hashes` of every shape are equal to
+the run at `86638cb18`, so the JSON a seat receives did not move by a byte. `VIEW_VERSION`
+stays; `wire_shape` reads the source, so its fingerprint was recorded again.
+
+What is left of `public_object` in `house` is 1 900 instructions an object and no single
+item above 3.6 % of the shape. That one is `LandProduction::of`, solved per view where a
+land asks what other lands make; it is 30 000 instructions a solve and cannot be kept
+between views, because a condition in a mana ability can read anything.
+
+`compute_legal` has no such item: 90 000 instructions a call, `can_cast_paying` 4.5 % and
+the rest at 1 % or less. Layer refresh is 12 %, of which `layers::applies` is 5 %, and it
+tests about 15 candidates an object for 2 hits. Neither gave a cheap step.

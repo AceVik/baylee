@@ -274,7 +274,12 @@ fn a_spell_only_a_filter_land_pays_for_is_reached_and_cast() {
             .map(|object| object.name.clone())
             .expect("a land of the seat's")
     };
-    let order: Vec<String> = storm.plan.steps.iter().map(|s| name(s.source)).collect();
+    let order: Vec<String> = storm
+        .plan
+        .steps
+        .iter()
+        .map(|s| name(s.source).to_string())
+        .collect();
     assert_eq!(
         order,
         [

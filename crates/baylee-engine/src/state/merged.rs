@@ -29,6 +29,18 @@ impl GameState {
             .unwrap_or(object)
     }
 
+    /// Whether a commander is within this permanent: whether
+    /// [`Self::merged_commanders`] lists anyone, without listing them.
+    #[must_use]
+    pub fn holds_commander(&self, object: &GameObject) -> bool {
+        self.commanders.iter().flatten().any(|commander| {
+            commander.object == object.id
+                || object
+                    .riders
+                    .contains(&Rider::MergedComponent(commander.object))
+        })
+    }
+
     /// Every commander within this permanent, including a departure snapshot.
     #[must_use]
     pub fn merged_commanders(&self, object: &GameObject) -> smallvec::SmallVec<[ObjectId; 2]> {

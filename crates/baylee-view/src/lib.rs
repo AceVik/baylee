@@ -41,6 +41,7 @@ mod objects;
 mod player_view;
 mod seats;
 mod seen;
+mod shared_name;
 mod shown_hands;
 mod spectator;
 mod status;
@@ -64,6 +65,7 @@ pub use player_view::{
 };
 pub use seats::{CommanderDamage, CommanderView, HouseAnswer, LossCause, ManaPoolView, SeatView};
 pub use seen::{Seen, SeenIn};
+pub use shared_name::SharedName;
 pub use shown_hands::{SeatSetting, SharedHand};
 pub use spectator::SpectatorView;
 pub use status::ObjectStatus;

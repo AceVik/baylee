@@ -55,7 +55,7 @@ fn permanent(types: baylee_core::types::TypeSet) -> baylee_view::PublicObject {
             card: baylee_core::ids::CardIndex::new(0),
             face: 0,
         }),
-        name: "Test".to_string(),
+        name: "Test".into(),
         controller: PlayerId::new(0),
         owner: PlayerId::new(0),
         commander: false,

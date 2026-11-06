@@ -104,7 +104,7 @@ fn known(object: &PublicObject) -> LogObject {
         id: object.id,
         card: object.card,
         token: None,
-        name: object.name.clone(),
+        name: object.name.to_string(),
     }
 }
 
