@@ -4172,6 +4172,16 @@ pub enum Effect {
         /// Destination for every card not selected.
         otherwise: SearchDest,
     },
+    /// In active-player order, each player chooses one permanent they control
+    /// for each filter, then sacrifices every other permanent they control.
+    /// A permanent may satisfy more than one filter (Cataclysm).
+    ///
+    /// This variant stays at the enum's end: the derived variant hash is part
+    /// of replay identity.
+    KeepOneOfEachAndSacrificeRest {
+        /// The kinds to keep, in the order the choices are made.
+        filters: &'static [&'static Filter],
+    },
 }
 
 #[cfg(test)]

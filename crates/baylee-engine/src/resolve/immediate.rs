@@ -423,6 +423,7 @@ pub(super) fn exec_immediate(
         | Effect::RegenerateAll { .. }
         | Effect::DestroyChosenForPlayers { .. }
         | Effect::EqualizePermanents { .. }
+        | Effect::KeepOneOfEachAndSacrificeRest { .. }
         | Effect::EqualizeHands
         | Effect::DiscardForPlayers { .. }
         | Effect::DiscardAmountForPlayers { .. }

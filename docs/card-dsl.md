@@ -3322,6 +3322,27 @@ finishes. The suspended choices participate in the engine snapshot fingerprint.
 See Wizards' 2016-06-08 rulings in the
 [Scryfall ruling record](https://api.scryfall.com/cards/ce648aa3-098b-4af0-a433-fd290bc85904/rulings).
 
+### Keeping one permanent of each kind (Cataclysm)
+
+`KeepOneOfEachAndSacrificeRest { filters }` takes a snapshot of every living
+player's controlled, unphased permanents. In active-player order, each player
+chooses at most one still-eligible permanent for each filter in list order. A
+multi-type permanent remains eligible after satisfying an earlier filter, so
+one artifact creature can cover both choices. A permanent matching no filter
+cannot be kept. Empty categories and forced one-card choices need no menu.
+
+Every choice finishes before any unchosen permanent is sacrificed; all such
+permanents still controlled by their original player are then sacrificed
+together. Kept identities are public through `CardsKept`, while no trigger,
+state-based action or priority intervenes. Empty and invalid resume answers
+never invent a choice: a departed player's group is skipped, and a category
+whose options disappeared through a departure advances without a selection.
+The complete continuation participates in the engine snapshot fingerprint.
+
+See Wizards' rulings on multi-type choices, APNAP order and simultaneous
+sacrifices in the
+[Scryfall ruling record](https://api.scryfall.com/cards/713160be-bcfd-4ef5-9457-c02b926ba06e/rulings).
+
 ### Generic cost increases (Gloom)
 
 `Modifier::SpellsCostMore(n)` and `Modifier::AbilitiesCostMore(n)` are rules
