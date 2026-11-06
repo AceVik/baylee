@@ -1068,8 +1068,8 @@ on the main or render thread. A key in the search box cost 25 to 42 ms, the wors
 lasting case: 6.6 ms of it folded every name of the pool through Unicode on each key,
 now only names that need it (not yet measured again).
 
-So the Mac does not show what the owner saw, and where he saw it is still to be asked:
-a real gateway, Windows, the notebook and higher quality presets were not tried.
+So the Mac does not show what the owner saw, and where it was seen is still to be
+asked: a real gateway, Windows, the notebook and higher quality presets were not tried.
 
 The friend list did show it. Every friend stood in the tree, open or not: 500 friends
 were 5 377 entities that every frame laid out, picked and extracted, and the median
