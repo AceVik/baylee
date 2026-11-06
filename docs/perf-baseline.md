@@ -1216,6 +1216,8 @@ Each step on top of the one before, in billions of instructions:
 | a view reads the grants and the lands' production once | 8.175 | 13.367 | 19.199 |
 | a zone sized before it is built, a seat set walked by its bits, a grant's wording read once a view | 7.778 | 12.161 | 17.617 |
 | a card nothing grants escape is not priced for it | 7.555 | 12.074 | 17.463 |
+| a land's basic-type colours stay on the stack | 7.537 | 12.062 | 17.431 |
+| all of it against `03b2223e8` | −28.9 % | −61.7 % | −20.2 % |
 
 Where the time went before: in `house`, `snapshot_hash` 28 %, the house agent's
 view 22 %, `Engine::apply` 31 %; in `decide`, the frames 41 %; in `search`,
@@ -1387,6 +1389,32 @@ was not measured here.
 Unlike `target-cpu`, PGO is not tied to a CPU: a profile changes how code is laid
 out, not which instructions may run. The owner decided the same day that it goes
 into what ships: `docs/releasing.md` §"Profile-guided builds".
+
+#### A whole `eval4` run, the net included
+
+What the 27 to 33 % does not say: those seconds leave the net out. `eval4` at
+`322d1eb30`, 256 deals against `sharp`, 64 threads, inference batch 96,
+CUDA, on the Ryzen 9 3900X under the GPU lock, generic against a build trained on 64
+deals of the same run. Other work shared the CPU (load average 9 to 30), so read the
+spread. CPU seconds are user time, from four alternating rounds.
+
+| Build | Wall seconds | CPU seconds |
+|---|---|---|
+| generic | 135.1, 136.2, 130.0, 137.0 (median 135.7) | 269, 271, 245, 279 (median 270) |
+| PGO | 137.2, 132.5, 132.3, 132.1 (median 132.4) | 267, 247, 246, 253 (median 250) |
+| change | −2.4 %, inside the spread | −7.4 %, a wide spread |
+
+An earlier three rounds on a busier machine gave no gain at all: generic 150.0,
+136.2, 134.6 s, PGO 131.2, 144.6, 139.9 s.
+
+**This run is not limited by the engine.** It burns about 270 CPU seconds in 135 wall
+seconds, two cores of twenty-four with 64 threads asked for, and two deals alone take
+43 s of startup. So PGO barely shortens it; what it frees is CPU, for whatever else
+runs beside it. A run that spends more of its time in the rules (house games, or a
+search with many rollouts) gains nearer the engine's figures; that was not measured.
+
+The games are the same. All 256 outcomes and record hashes are equal over all fourteen
+runs, seven of each build.
 
 #### Energy
 

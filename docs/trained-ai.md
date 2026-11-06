@@ -1823,7 +1823,10 @@ one creature. The second is a constraint `ChooseBlockers` does not state yet.
 Only for training and evaluation binaries that run on bigace. PGO took 27 to 32 % off
 the engine's own time there, and the same on two shapes the profile never saw
 (`docs/perf-baseline.md` §"What a build for one CPU gains"). Those numbers leave the
-net's time out; what a whole `eval4` run gains has to be measured on that binary.
+net's time out. A whole `eval4` run with the net against `sharp` gained about 2 % of
+its wall time and 7 % of its CPU time, because such a run keeps only two cores busy:
+it is not limited by the engine. Expect a run to gain by the share of it the rules
+take, and measure the binary it is for.
 
 Set `RUSTFLAGS` for the one build and give it its own `CARGO_TARGET_DIR`, as below.
 Never put it in `.cargo/config.toml` or `~/.cargo/config.toml`: gates and anything
