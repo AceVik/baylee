@@ -123,6 +123,12 @@ pub(super) fn low_spends(view: &PlayerView, legal: &LegalActions) -> Vec<ObjectI
             .find(|card| card.id == id)
             .is_none_or(|card| card.types.contains(TypeSet::INSTANT))
     };
+    let pool = view
+        .seat(me)
+        .map_or(0, |seat| u32::try_from(seat.mana_pool.total()).unwrap_or(0));
+    let mana = pool.saturating_add(untapped_mana_production(view, me));
+    // A spell a reducer brings within reach reads dearer than the mana here: it
+    // is left out of the sum and left alone.
     let spells: Vec<(ObjectId, u32)> = reachable_spells(view, legal)
         .into_iter()
         .filter(|id| !instant(*id) && is_spell_worth_casting_now(view, *id))
@@ -130,15 +136,12 @@ pub(super) fn low_spends(view: &PlayerView, legal: &LegalActions) -> Vec<ObjectI
             let (cost, tax) = lookup_spell_cost(view, id)?;
             (!cost.has_variable()).then(|| (id, cost.with_x(0).cmc().saturating_add(tax)))
         })
+        .filter(|spell| spell.1 <= mana)
         .take(MOST_SPELLS)
         .collect();
     if spells.len() < 2 {
         return Vec::new();
     }
-    let pool = view
-        .seat(me)
-        .map_or(0, |seat| u32::try_from(seat.mana_pool.total()).unwrap_or(0));
-    let mana = pool.saturating_add(untapped_mana_production(view, me));
     let (mut best, mut members) = (0_u32, 0_u32);
     for set in 1_u32..(1 << spells.len()) {
         let total: u32 = spells

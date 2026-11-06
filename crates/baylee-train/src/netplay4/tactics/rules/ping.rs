@@ -130,11 +130,7 @@ pub(super) fn shot_to_fire(
             .any(|object| toughness_left(object) <= total);
     let (source, index, _) = shots.iter().copied().find(|&(source, _, damage)| {
         view.object(source).is_some_and(|object| {
-            dying
-                || (doomed(view, me, object)
-                    && (killable(view, me, damage).next().is_some()
-                        || !view.battlefield.is_empty()))
-                || killable(view, me, damage).any(hits_for_value)
+            dying || doomed(view, me, object) || killable(view, me, damage).any(hits_for_value)
         })
     })?;
     cands.candidates.iter().position(|cand| {
