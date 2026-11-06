@@ -346,8 +346,18 @@ mod native {
                 Ok(tungstenite::Message::Pong(data)) => {
                     on_event(WsEvent::Message(WsMessage::Pong(data.to_vec())))
                 }
-                Ok(tungstenite::Message::Close(_))
-                | Err(tungstenite::Error::ConnectionClosed | tungstenite::Error::AlreadyClosed) => {
+                Ok(tungstenite::Message::Close(frame)) => {
+                    // A gateway says why in its close frame (`docs/protocol.md`
+                    // §"Refusals"), and the events have no room for one.
+                    let refusal = frame.and_then(|frame| {
+                        baylee_client_core::refusal::of_close(frame.code.into(), frame.reason.as_str())
+                    });
+                    let _ = on_event(refusal.map_or(WsEvent::Closed, |refusal| {
+                        WsEvent::Error(baylee_client_core::refusal::socket_error(&refusal))
+                    }));
+                    ControlFlow::Break(())
+                }
+                Err(tungstenite::Error::ConnectionClosed | tungstenite::Error::AlreadyClosed) => {
                     let _ = on_event(WsEvent::Closed);
                     ControlFlow::Break(())
                 }

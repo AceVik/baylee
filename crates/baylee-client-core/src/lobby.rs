@@ -1044,6 +1044,14 @@ pub enum LobbyEvent {
         /// gateway older than usernames (#269).
         username: Option<String>,
     },
+    /// The same session with a new bearer, and when to renew that one: nothing
+    /// else changes, and nothing watching the session starts again.
+    BearerRenewed {
+        /// The bearer for every later call.
+        token: String,
+        /// Seconds until it wants renewing.
+        renew_in: u64,
+    },
     /// A new guest, and its session (#269).
     GuestIn(KeptGuest),
     /// A session ended on the gateway ([`LobbyRequest::LogOut`]). Nothing
@@ -1233,6 +1241,11 @@ enum GatewaySelection {
     reason = "independent facts about the session and the request in flight"
 )]
 pub struct Lobby {
+    /// Moves at each sign-in and not when a bearer renews: what tells a new
+    /// session from the same one under a new token.
+    session_serial: u64,
+    /// Seconds until the bearer wants renewing; `None` for one that does not.
+    renew_in: Option<f32>,
     /// Why a table's list last turned a deck away, until it is put away.
     refusal: Option<baylee_cardtext::DeckRefusal>,
     /// The list of the table this player sits at, as last read: what those
@@ -1585,6 +1598,27 @@ impl Lobby {
             Field::SettingsSearch => &self.settings_search,
             Field::AccountPassword => &self.account_password,
         }
+    }
+
+    /// Which session this is. Compare this, never the token, to ask whether
+    /// a session is new: a Central session's bearer changes every minute or two.
+    #[must_use]
+    pub const fn session_serial(&self) -> u64 {
+        self.session_serial
+    }
+
+    /// Counts `seconds` down and answers `true` once, when the bearer wants
+    /// renewing. [`LobbyEvent::BearerRenewed`] sets the next time.
+    pub fn bearer_due(&mut self, seconds: f32) -> bool {
+        let Some(left) = self.renew_in.as_mut() else {
+            return false;
+        };
+        *left -= seconds;
+        if *left > 0.0 {
+            return false;
+        }
+        self.renew_in = None;
+        true
     }
 
     /// The account bearer token, once there is one.

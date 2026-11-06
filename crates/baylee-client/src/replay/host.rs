@@ -31,10 +31,51 @@ pub struct HostedAccess {
     pub gateway: String,
     /// What the gateway is called, for the veil.
     pub name: String,
-    /// The session that sat at the game.
-    pub token: String,
+    /// The session that sat at the game. A cell, because a replay outlives a
+    /// bearer: this reads the current one.
+    pub token: Bearer,
+    /// Which session that is: a tape fetched under one is not another's.
+    pub session: u64,
     /// The game's id.
     pub game: String,
+}
+
+/// A session's current bearer, shared with whatever outlives one.
+#[derive(Clone, Default)]
+pub struct Bearer(std::sync::Arc<std::sync::RwLock<String>>);
+
+impl PartialEq for Bearer {
+    fn eq(&self, other: &Self) -> bool {
+        self.get() == other.get()
+    }
+}
+
+impl Eq for Bearer {}
+
+impl Bearer {
+    /// A cell holding `token`.
+    #[must_use]
+    pub fn new(token: &str) -> Self {
+        let cell = Self::default();
+        cell.set(token);
+        cell
+    }
+
+    /// The bearer now.
+    #[must_use]
+    pub fn get(&self) -> String {
+        self.0.read().map(|held| held.clone()).unwrap_or_default()
+    }
+
+    /// Writes `token`, only if it changed: this runs every frame.
+    pub fn set(&self, token: &str) {
+        if self.0.read().is_ok_and(|held| held.as_str() == token) {
+            return;
+        }
+        if let Ok(mut held) = self.0.write() {
+            token.clone_into(&mut held);
+        }
+    }
 }
 
 impl std::fmt::Debug for HostedAccess {
@@ -562,7 +603,7 @@ type KeptTape = (TapeKey, Arc<Vec<u8>>);
 fn tape_key(access: &HostedAccess, perspective: Perspective, verify: Verify) -> TapeKey {
     (
         access.gateway.clone(),
-        access.token.clone(),
+        access.session.to_string(),
         access.game.clone(),
         perspective.wire(),
         // Any seat's view (§18.3): two seats are two tapes. Found live: a
@@ -640,7 +681,7 @@ fn ask(
     ]);
     request
         .headers
-        .insert("Authorization", format!("Bearer {}", access.token));
+        .insert("Authorization", format!("Bearer {}", access.token.get()));
     // A projection takes seconds; the gateway gives a job sixty.
     request.timeout = Some(std::time::Duration::from_secs(75));
     // The gateway's MAX_TAPE_BYTES is 32 MiB. Enforce it while receiving,

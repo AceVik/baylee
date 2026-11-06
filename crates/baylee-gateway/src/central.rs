@@ -470,6 +470,13 @@ async fn local_standing(state: &Shared, live: &crate::sessions::Live) -> Option<
     }))
 }
 
+/// Forgets what Central revoked that no token can still name.
+pub(crate) fn sweep(state: &Shared) {
+    if let Some(bridge) = state.central.get() {
+        bridge.trust.sweep(crate::sessions::now());
+    }
+}
+
 /// Asks the database about the local sessions sockets hold, away from any
 /// frame. This keeps a guest's sliding lifetime moving while it plays, and
 /// catches what ended without passing through this process's book. Sign-outs,

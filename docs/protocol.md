@@ -2649,16 +2649,18 @@ part of #294.
 ### Once a socket is open
 
 A ticket authorizes opening a socket; it does not replace the checks while
-the socket remains open. A seat socket checks its complete capability after
-receiving each binary game envelope and before forwarding it: the current seat
-token and, for a Central-bound seat, its original session and Central lease.
-It also checks every five seconds to close an idle socket whose authorization
-has ended. Reclaiming the chair cannot update an older socket's frozen session.
+the socket remains open. A seat socket resolves its session once, at the door,
+and then watches that session's state in memory (`docs/central-login.md`
+§"Sessions"). The check after each binary game envelope and before forwarding
+it reads the current seat token, that state and the clock, with no network and
+no SQL; a view on its way to the client passes the same state. The moment the
+session ends the socket closes, in both directions, and that comes ahead of a
+frame already waiting. Reclaiming the chair cannot update an older socket's
+frozen session.
 
-The final ownership check and engine enqueue share the lobby lock. The remote
-authorization check precedes that lock, so a frame already checked when a
-withdrawal occurs can still be forwarded. There is no five-second cache of
-authorization for subsequent game frames.
+The final ownership check and engine enqueue share the lobby lock. The session
+check precedes that lock, so a frame already checked when a withdrawal occurs
+can still be forwarded.
 
 Transport pings and pongs spend the same frame allowance but are not forwarded
 to the engine and need no per-frame database check. The flood regression uses
@@ -3787,23 +3789,22 @@ terms in force to Central (`PublishGatewayTerms`, under its credential, or
 the bridge's for the official origin) at start, every minute until Central
 confirms them, and at once after an admin published a version. Only a
 version Central confirmed is enforced, since players can accept only what
-Central holds; until then the terms are shown and nothing is refused. Every
-request of a Central-bound session asks Central anyway (the lease check);
-`GatewayAuthorize` answers it together with whether the account accepted
-Central's terms in force and exactly the confirmed version and digest of
-this gateway's. A session that has not is answered **`403` with
-`"terms_required": "gateway"`** (or `"central"`, which comes first) on every
-route but these: `GET /terms`, `POST /auth/logout`, `DELETE /account`
+Central holds; until then the terms are shown and nothing is refused. Central
+gives out a gateway token only to an account that accepted Central's own terms,
+and the token names the newest terms of this gateway the account accepted, which
+the gateway compares with exactly the confirmed version and digest of its own
+(`docs/central-login.md` §"Sessions"). A session that has not is answered **`403`
+with `"terms_required": "gateway"`** on every route but these: `GET /terms`, `POST /auth/logout`, `DELETE /account`
 (one's data on this gateway; a Central-bound session names no password,
 having just been checked at Central) and `POST /account/terms` (which
 answers a Central-bound session `409`: it accepts at Central). The lobby,
 watch and social sockets refuse it when they open, as their tickets do; a
-socket already open, a seat socket above all, is ended only by the lease
-check, so a running game finishes. `POST /auth/central/login` answers
-`"terms_stale"` (and `"central_terms_stale": true` when Central's own are
-not accepted) from Central's answer. The client accepts at Central
-(`AcceptTerms { subject: Gateway { origin }, version, digest }`) and simply
-goes on: the next request finds it accepted.
+socket already open, a seat socket above all, is ended only by its session's
+end, so a running game finishes. `POST /auth/central/login` answers
+`"terms_stale"` from the token. The client accepts at Central (`AcceptTerms {
+subject: Gateway { origin }, version, digest }`) and then presents a fresh gateway
+token (`POST /auth/central/refresh`), which carries the acceptance here. Terms
+Central puts in force of its own bind at the next token, an hour at most later.
 
 **Local accounts** (legacy, until the migration ends, M8): sign-in answers
 `"terms_stale"` from the account's own record, and `POST /account/terms

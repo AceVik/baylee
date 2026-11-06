@@ -124,6 +124,23 @@ impl Trust {
         self.state.lock().applied
     }
 
+    /// Whether any keys are held, without which no message can be read.
+    pub(crate) fn has_keys(&self) -> bool {
+        self.state.lock().keys.is_some()
+    }
+
+    /// Whether this gateway may take a sign-in: keys held and caught up once.
+    pub(crate) fn is_ready(&self) -> bool {
+        let state = self.state.lock();
+        state.keys.is_some() && state.synced
+    }
+
+    /// Moves past numbers Central no longer holds, never backwards.
+    pub(crate) fn skip_to(&self, number: u64) {
+        let mut state = self.state.lock();
+        state.applied = state.applied.max(number);
+    }
+
     fn verified<C: jwt::Claims>(
         &self,
         keys: &KeySet,
@@ -451,6 +468,27 @@ mod tests {
         assert_eq!(trust.applied(), 3);
         assert!(!trust.fetched(&signed(&revocation('c', 4, 9)), NOW).ok().unwrap().gap);
         assert_eq!(trust.applied(), 9);
+    }
+
+    #[test]
+    fn numbers_central_no_longer_holds_are_passed_and_never_gone_back_to() {
+        let trust = trust();
+        trust.skip_to(7);
+        assert_eq!(trust.applied(), 7);
+        trust.skip_to(3);
+        assert_eq!(trust.applied(), 7);
+        assert!(!trust.fetched(&signed(&revocation('a', 8, 8)), NOW).ok().unwrap().gap);
+        assert_eq!(trust.applied(), 8);
+    }
+
+    #[test]
+    fn a_gateway_is_ready_only_with_keys_and_a_finished_catch_up() {
+        let starting = Trust::new(ISSUER.into(), vec![HERE.into()]);
+        assert!(!starting.has_keys() && !starting.is_ready());
+        starting.set_keys(keys(), NOW);
+        assert!(starting.has_keys() && !starting.is_ready());
+        starting.caught_up();
+        assert!(starting.is_ready());
     }
 
     #[test]

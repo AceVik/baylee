@@ -526,6 +526,8 @@ pub(crate) enum LeftCentral {
 pub struct LobbyState {
     #[cfg(not(target_arch = "wasm32"))]
     pub(crate) central: Option<central::State>,
+    /// The session's current bearer, for what outlives one: a replay.
+    pub(crate) bearer: crate::replay::Bearer,
     /// The renderer-free state machine.
     pub lobby: Lobby,
     /// Explicitly selected gateway base URL for this session.
@@ -971,6 +973,7 @@ impl LobbyState {
             gateway_selected: false,
             left_central: LeftCentral::No,
             gateway_epoch: 0,
+            bearer: crate::replay::Bearer::default(),
             auth_probes: Arc::default(),
             probes: std::collections::HashMap::new(),
             adding: None,

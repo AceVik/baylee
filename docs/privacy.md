@@ -28,6 +28,8 @@ old gateway data is preserved during the transition. See
 | Account | Postgres `account` | until its player deletes it | `DELETE /account` |
 | Guest account | Postgres `account` (`guest`) | until its last session lapses, 29–30 days after its last request | the sweep, or signing out |
 | Session | Postgres `session_token` (hash only) | 12 h (account) / 30 days (guest), sliding | the sweep, use after expiry, signing out |
+| Baylee Central session | the gateway's memory only: the account, its `sid` and the digest of its bearer | until it ends, an hour at most without a later token | its end, or a restart |
+| A revoked `sid` | the gateway's memory only, with no account beside it | 1 h 30 s from when it was learned | that time, or a restart |
 | Closed beta key (#317) | Postgres `invite` (hash only), and which key admitted an account (`account.invite_id`) | until the operator removes the row | SQL by the operator; revoking only closes it |
 | Admin console numbers, and its lists of accounts and who is online | nowhere: read per request from the rows and memory above | — | — |
 | Confirmation link | Postgres `confirmation` (hash only) | 24 h valid | use, the next resend for that account, or the sweep once expired |

@@ -610,6 +610,10 @@ fn admission_answered(
         .ok()
         .and_then(|value| value.central_terms_stale)
         == Some(true);
+    let renewal = admission
+        .as_ref()
+        .ok()
+        .and_then(|value| Some((value.token.clone(), value.renew_in?)));
     let event = match admission {
         Ok(mut value) => LobbyEvent::LoggedIn {
             token: std::mem::take(&mut value.token),
@@ -634,6 +638,10 @@ fn admission_answered(
         }
         let central_bound = matches!(event, LobbyEvent::LoggedIn { .. });
         messages.push(Reply::Remote(epoch, Box::new(Reply::Event(event))));
+        if let Some((token, renew_in)) = renewal {
+            let renewed = LobbyEvent::BearerRenewed { token, renew_in };
+            messages.push(Reply::Remote(epoch, Box::new(Reply::Event(renewed))));
+        }
         if central_bound {
             messages.push(Reply::Remote(
                 epoch,

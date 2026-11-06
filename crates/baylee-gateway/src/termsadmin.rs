@@ -105,11 +105,11 @@ fn listed(terms: &Terms, confirmed: bool) -> ConsoleTerms {
 /// @tag Admin
 /// @security `adminToken`
 /// @server <http://127.0.0.1:28767> "The admin listener (loopback only)"
-/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease"
+/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin session"
 /// @return 403: `$ErrorBody` "A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a `Host` that is not this machine, refused before the token is read"
 /// @return 429: `$ErrorBody` "Ten wrong tokens in five minutes, or 600 requests in a minute; the right token is refused too until the window passes"
 /// @return-header 429 Retry-After: u64 "Seconds to wait: 300"
-/// @return 503: `$ErrorBody` "Baylee Central or the gateway's database is unavailable while an admin lease is checked"
+/// @return 503: `$ErrorBody` "The gateway's database is unavailable"
 async fn current(State(console): State<Admin>) -> Json<TermsInForce> {
     let book = &console.app.terms;
     Json(TermsInForce {
@@ -168,17 +168,17 @@ struct PublishBody {
 /// @tag Admin
 /// @security `adminToken`
 /// @server <http://127.0.0.1:28767> "The admin listener (loopback only)"
-/// @header-param X-Baylee-Admin: String required `pattern=^[\w.-]{1,64}$` "The acting admin's name, for the audit line and the version's `published_by`; ignored when the bearer is a Central admin lease, whose account acts"
+/// @header-param X-Baylee-Admin: String required `pattern=^[\w.-]{1,64}$` "The acting admin's name, for the audit line and the version's `published_by`; ignored when the bearer is a Central admin session, whose account acts"
 /// @body `$PublishBody`
 /// @return 201: `$TermsInForce` "Published and in force, as `GET /admin/terms` answers"
 /// @return 400: `$ErrorBody` "No valid `X-Baylee-Admin`, not terms to publish (an unknown field included), or texts or a version outside the bounds; the sentence says which"
-/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease"
+/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin session"
 /// @return 403: `$ErrorBody` "A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a `Host` that is not this machine, refused before the token is read"
 /// @return 409: `$ErrorBody` "The version was published before, or is the one in force"
 /// @return 413: "The body is over 16 KiB"
 /// @return 429: `$ErrorBody` "Ten wrong tokens in five minutes, or 600 requests in a minute; the right token is refused too until the window passes"
 /// @return-header 429 Retry-After: u64 "Seconds to wait: 300"
-/// @return 503: `$ErrorBody` "The gateway's database is unavailable (or Baylee Central, while an admin lease is checked)"
+/// @return 503: `$ErrorBody` "The gateway's database is unavailable"
 async fn publish(
     State(console): State<Admin>,
     axum::Extension(Actor(actor)): axum::Extension<Actor>,
@@ -287,11 +287,11 @@ pub(crate) struct PublishedTerms {
 /// @tag Admin
 /// @security `adminToken`
 /// @server <http://127.0.0.1:28767> "The admin listener (loopback only)"
-/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease"
+/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin session"
 /// @return 403: `$ErrorBody` "A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a `Host` that is not this machine, refused before the token is read"
 /// @return 429: `$ErrorBody` "Ten wrong tokens in five minutes, or 600 requests in a minute; the right token is refused too until the window passes"
 /// @return-header 429 Retry-After: u64 "Seconds to wait: 300"
-/// @return 503: `$ErrorBody` "The gateway's database is unavailable (or Baylee Central, while an admin lease is checked)"
+/// @return 503: `$ErrorBody` "The gateway's database is unavailable"
 async fn versions(State(console): State<Admin>) -> Result<Json<TermsVersions>, Refusal> {
     let versions = baylee_db::terms::versions(&console.app.db)
         .await

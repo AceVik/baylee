@@ -935,6 +935,7 @@ fn spawn_ticket_sweep(state: Shared) {
         loop {
             interval.tick().await;
             let now = std::time::Instant::now();
+            central::sweep(&state);
             let swept = state.tickets.sweep(now) + state.chair_tickets.sweep(now);
             if swept > 0 {
                 tracing::debug!(swept, "expired socket tickets swept");

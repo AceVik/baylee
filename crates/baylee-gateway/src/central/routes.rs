@@ -183,6 +183,7 @@ async fn sign_in(state: &Shared, token: &str, purpose: Purpose) -> Result<Json<V
     let mut answer = json!({
         "token": issued.token,
         "expires_at": issued.expires_at,
+        "renew_in": issued.renew_in,
         "session_expires_at": live.expires_at(),
         "username": account.username,
         "display_name": account.display_name,
@@ -290,6 +291,7 @@ async fn refreshed(state: &Shared, token: &str) -> Result<Json<Value>, StatusCod
     let mut answer = json!({
         "token": issued.token,
         "expires_at": issued.expires_at,
+        "renew_in": issued.renew_in,
         "session_expires_at": live.expires_at(),
     });
     if !admin {
@@ -346,6 +348,7 @@ async fn renew(State(state): State<Shared>, headers: HeaderMap) -> Response {
         Some(issued) => Json(json!({
             "token": issued.token,
             "expires_at": issued.expires_at,
+            "renew_in": issued.renew_in,
         }))
         .into_response(),
         None => StatusCode::UNAUTHORIZED.into_response(),
@@ -460,6 +463,9 @@ async fn invalidate(State(state): State<Shared>, headers: HeaderMap, body: Bytes
 ///           type: integer
 ///           format: int64
 ///           description: 'When it ends, Unix seconds: the end of its gateway token.'
+///         renew_in:
+///           type: integer
+///           description: 'Seconds from now to renew the bearer: relative, so that a client''s clock does not come into it.'
 ///         session_expires_at:
 ///           type: integer
 ///           format: int64
@@ -470,7 +476,7 @@ async fn invalidate(State(state): State<Shared>, headers: HeaderMap, body: Bytes
 ///         display_name:
 ///           type: string
 ///           description: 'The name other players see.'
-///       required: [token, expires_at, session_expires_at, username, display_name]
+///       required: [token, expires_at, renew_in, session_expires_at, username, display_name]
 ///     CentralSession:
 ///       type: object
 ///       description: 'A session at this gateway, answered as a sign-in is.'
@@ -482,6 +488,9 @@ async fn invalidate(State(state): State<Shared>, headers: HeaderMap, body: Bytes
 ///           type: integer
 ///           format: int64
 ///           description: 'When the bearer ends, Unix seconds.'
+///         renew_in:
+///           type: integer
+///           description: 'Seconds from now to renew the bearer: relative, so that a client''s clock does not come into it.'
 ///         session_expires_at:
 ///           type: integer
 ///           format: int64
@@ -495,7 +504,7 @@ async fn invalidate(State(state): State<Shared>, headers: HeaderMap, body: Bytes
 ///         terms_stale:
 ///           type: boolean
 ///           description: 'Whether the account has yet to accept this gateway''s terms in force (at Central); only on a gateway with terms.'
-///       required: [token, expires_at, session_expires_at, username, display_name]
+///       required: [token, expires_at, renew_in, session_expires_at, username, display_name]
 ///     CentralRefreshed:
 ///       type: object
 ///       description: 'A new bearer for a session carried on with a later token.'
@@ -505,12 +514,15 @@ async fn invalidate(State(state): State<Shared>, headers: HeaderMap, body: Bytes
 ///         expires_at:
 ///           type: integer
 ///           format: int64
+///         renew_in:
+///           type: integer
+///           description: 'Seconds from now to renew the bearer: relative, so that a client''s clock does not come into it.'
 ///         session_expires_at:
 ///           type: integer
 ///           format: int64
 ///         terms_stale:
 ///           type: boolean
-///       required: [token, expires_at, session_expires_at]
+///       required: [token, expires_at, renew_in, session_expires_at]
 ///     CentralRenewed:
 ///       type: object
 ///       description: 'A new bearer for the same session.'
@@ -520,7 +532,9 @@ async fn invalidate(State(state): State<Shared>, headers: HeaderMap, body: Bytes
 ///         expires_at:
 ///           type: integer
 ///           format: int64
-///       required: [token, expires_at]
+///         renew_in:
+///           type: integer
+///       required: [token, expires_at, renew_in]
 /// ```
 pub(crate) fn router() -> Router<Shared> {
     let sign_in = Router::new()
@@ -533,4 +547,56 @@ pub(crate) fn router() -> Router<Shared> {
         .route("/auth/central/invalidate", post(invalidate))
         .layer(DefaultBodyLimit::max(Kind::Revocation.max_bytes()));
     sign_in.merge(invalidating)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn status_of(body: &[u8]) -> StatusCode {
+        read_token(body).map_or_else(|refused| refused.status(), |_| StatusCode::OK)
+    }
+
+    #[test]
+    fn a_sign_in_carries_a_token() {
+        let token = read_token(br#"{"token":"a.b.c"}"#).ok().unwrap();
+        assert_eq!(token.as_str(), "a.b.c");
+    }
+
+    /// `docs/protocol.md` §"Refusals": a client from before gateway tokens
+    /// hears that it is too old, not that its request was bad.
+    #[test]
+    fn a_client_from_before_gateway_tokens_is_told_to_update() {
+        let old = br#"{"ticket":[1,2,3]}"#;
+        assert_eq!(status_of(old), StatusCode::UPGRADE_REQUIRED);
+    }
+
+    #[tokio::test]
+    async fn being_told_to_update_says_so_as_a_refusal_a_client_can_read() {
+        let refused = read_token(br#"{"ticket":[1]}"#).err().unwrap();
+        let body = axum::body::to_bytes(refused.into_body(), 1024)
+            .await
+            .unwrap();
+        let refusal = Refusal::read(&body).unwrap();
+        assert_eq!(refusal.code, "update_required");
+    }
+
+    #[test]
+    fn anything_else_is_a_bad_request_and_never_taken_for_an_old_client() {
+        for body in [
+            &b"not json"[..],
+            br#"{}"#,
+            br#"{"token":1}"#,
+            br#"{"token":"a.b.c","more":1}"#,
+        ] {
+            assert_eq!(status_of(body), StatusCode::BAD_REQUEST);
+        }
+    }
+
+    #[test]
+    fn a_session_key_cannot_be_taken_for_a_local_digest() {
+        let key = key_of("0123456789abcdef0123456789abcdef");
+        assert_ne!(key.len(), 32);
+        assert!(key.starts_with(b"central:"));
+    }
 }

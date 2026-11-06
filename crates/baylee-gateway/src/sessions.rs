@@ -272,7 +272,12 @@ impl Index {
                 replaced: false,
             },
         );
-        Issued { token, expires_at }
+        let renew_in = (expires_at - now - RENEW_MARGIN_SECS).max(1);
+        Issued {
+            token,
+            expires_at,
+            renew_in,
+        }
     }
 
     /// Drops the bearers that ran out by `now`.
@@ -297,6 +302,9 @@ pub(crate) struct Issued {
     pub(crate) token: String,
     /// When it stops working, in Unix seconds.
     pub(crate) expires_at: i64,
+    /// How many seconds from now to renew it: relative, so that a client's
+    /// clock does not come into it.
+    pub(crate) renew_in: i64,
 }
 
 /// The shortest and longest a bearer lives, in seconds. Drawn per bearer, so
@@ -305,6 +313,10 @@ const BEARER_SECS: std::ops::RangeInclusive<u16> = 64..=128;
 
 /// How long a replaced bearer still serves requests already on their way.
 const OVERLAP_SECS: i64 = 10;
+
+/// How long before a bearer ends its client is told to renew it: room for a
+/// slow network and one retry.
+const RENEW_MARGIN_SECS: i64 = 20;
 
 /// A lifetime from [`BEARER_SECS`]. The bias of reducing 16 random bits to 65
 /// values is far too small to matter for spreading renewals.

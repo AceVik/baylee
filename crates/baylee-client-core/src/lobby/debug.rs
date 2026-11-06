@@ -89,6 +89,7 @@ impl fmt::Debug for LobbyEvent {
             Self::Library(_) => "Library",
             Self::Registered => "Registered",
             Self::LoggedIn { .. } => "LoggedIn",
+            Self::BearerRenewed { .. } => "BearerRenewed",
             Self::GuestIn(_) => "GuestIn",
             Self::LoggedOut => "LoggedOut",
             Self::Decks(_) => "Decks",

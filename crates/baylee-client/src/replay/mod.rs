@@ -45,7 +45,7 @@ mod status_tests;
 mod tests;
 
 #[cfg(not(target_arch = "wasm32"))]
-pub use host::{HostedAccess, ReplayHost, ReplaySource};
+pub use host::{Bearer, HostedAccess, ReplayHost, ReplaySource};
 
 /// A replay's timeline, shared between the host and whoever draws it.
 /// Compared by identity: a timeline is built once per tape and never

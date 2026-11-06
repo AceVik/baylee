@@ -142,7 +142,7 @@ pub struct Session {
     /// said for a Central-bound session; a local session is always
     /// [`crate::terms::Standing::Accepted`] (its acceptance is advisory).
     pub terms: crate::terms::Standing,
-    /// Whether it is bound to a Baylee Central lease (`central.rs`).
+    /// Whether Baylee Central signed it in (`central.rs`).
     pub central: bool,
 }
 

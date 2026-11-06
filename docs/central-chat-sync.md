@@ -9,7 +9,7 @@ numeric-loopback development fixture); no gateway receives that password. Accoun
 until a Central step-up and deletion flow exists.
 
 Central permits one active account session. A successful login revokes previous
-sessions and gateway leases; failed logins do not. The account worker checks session
+sessions and tells the gateways that held them; failed logins do not. The account worker checks session
 status at least every ten seconds between jobs. A confirmed rejection causes the
 native account UI to sign out and drop chat keys. Transport failure never enables a
 legacy login or substitutes empty account data. A disconnected client learns of
@@ -59,8 +59,8 @@ device keys are never written by the new native adapter.
 The sole active account session derives one logical personal chat identity from its
 master key, issuer, immutable account ID and vault epoch. It is shared by the browser
 and native implementation. Gateway-scoped encrypted archives remain separate.
-This depends on Central's single-session revocation and the gateway's live lease
-validation: it is not a protocol for two concurrent chat writers. The current message
+This depends on Central's single-session revocation reaching the gateway
+(`central-login.md` §"Sessions"): it is not a protocol for two concurrent chat writers. The current message
 encryption has no shared ratchet. Known installation UUIDv7 values are separately
 retained in the encrypted archive (up to 1,024); restoring an installation does not
 create a new signing identity. Older identities remain readable archives.

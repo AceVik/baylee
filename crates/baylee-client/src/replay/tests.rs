@@ -37,7 +37,8 @@ fn hosted_replay_debug_never_exposes_the_session() {
     let source = ReplaySource::Hosted(HostedAccess {
         gateway: "https://gateway.example".into(),
         name: "Gateway".into(),
-        token: token.into(),
+        token: crate::replay::Bearer::new(token),
+        session: 1,
         game: "game".into(),
     });
     for debug in [format!("{source:?}"), format!("{source:#?}")] {
@@ -363,7 +364,8 @@ fn only_a_hosted_replay_has_a_game_id() {
     let mut hosted = host_of(ReplaySource::Hosted(HostedAccess {
         gateway: "http://127.0.0.1:9".to_string(),
         name: "Nowhere".to_string(),
-        token: "not-a-session".to_string(),
+        token: crate::replay::Bearer::new("not-a-session"),
+        session: 1,
         game: "the-game-of-the-replay-tests".to_string(),
     }));
     assert_eq!(hosted.game_id(), Some("the-game-of-the-replay-tests"));

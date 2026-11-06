@@ -497,21 +497,20 @@ the same gateway as an alias until those clients are gone. Then the old host
 only redirects, the aliases are removed, and the account document takes the
 new spelling ([#402](https://github.com/AceVik/baylee/issues/402)).
 
-A Central ticket and the lease redeemed from it carry the origin the client
+A gateway token carries the origin the client
 asked for (its audience): `https://baylee.acevik.de` from an installed client,
 `https://gateway.baylee.app` from one that pins the new address. The client
 pins it only once Central takes it (the flip in #402); until then every
 client asks for the old origin. So does a gateway's terms
 acceptance (`TermsSubject::Gateway`). Central holds the official gateway's
-origin together with its aliases, and it must take a ticket, a lease and a
+origin together with its aliases, and it must take a token request and a
 terms acceptance under any of them as the official gateway's. That is
 baylee-central's part (`OFFICIAL_ORIGIN` with its compiled `OFFICIAL_ALIASES`,
 pinned since #51), and it ships before a client with the new address: a new
-client asks for tickets for an origin an older Central does not know. The
-gateway keeps no list of its own. It redeems a ticket with its bridge
-credential, and Central checks the ticket's audience against the official
-origins; live, its bridge file's `origin` may name either of them
-(`Endpoint::official_origins`). Order: Central, then the gateway's half of
+client asks for tokens for an origin an older Central does not know. The
+gateway takes a token for either of its origins, and Central checks what a
+client asks for against the official origins; live, its bridge file's `origin`
+may name either of them (`Endpoint::official_origins`). Order: Central, then the gateway's half of
 this move (its host and bridge file), then the client release.
 
 The client has one mapping, `gateway_list::moved` (client-core): the old
@@ -576,9 +575,9 @@ Central as its digest. An admin pastes it into the gateway's console
   who loses one, or cannot say where one went, revokes the token on the
   website (`/account/gateways`) and pastes a new one; the console's
   **Remove the token** forgets the old one at the gateway.
-- One token serves both its players' sign-ins (`RedeemGateway`,
-  `GatewaySession`, `GatewayProfile`, `GatewayAuthorize`,
-  `PublishGatewayTerms`) and the heartbeat, for what its scopes allow; the
+- One token serves both its players' sign-ins (`GatewayRevocations`,
+  `RegisterInvalidate`, `PublishGatewayTerms`) and the heartbeat, for what its
+  scopes allow; the
   heartbeat names the gateway by `BAYLEE_GATEWAY_NAME` (Central's registered
   name when unset or refused) and its own version, on its origin.
 - `BAYLEE_CENTRAL_ENDPOINT` (`live` unless a numeric-loopback development

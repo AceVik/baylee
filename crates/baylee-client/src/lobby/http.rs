@@ -1256,6 +1256,44 @@ pub(super) fn read_side<T: serde::de::DeserializeOwned>(
 /// Asks `GET {gateway}{path}` with the session, off the lobby's one-request
 /// chain (WP0b-3: `/me`, `/lobby/stats`): nothing waits for it, and an
 /// answer for a gateway since left is dropped by its epoch.
+/// How soon a renewal that got no answer is tried again. A bearer wants
+/// renewing well before it ends, so a dropped request costs nothing.
+const BEARER_RETRY_SECS: u64 = 5;
+
+/// `POST /auth/session/renew`, with no word to Central: the new bearer, or the
+/// session's end. A `401` is the way any session ends here, and
+/// [`Reply::Expired`] signs the player in again from the gateway token.
+pub(super) fn renew_bearer(gateway: &str, token: &str, epoch: u64, mailbox: &Mailbox) {
+    #[derive(serde::Deserialize)]
+    struct Renewed {
+        token: String,
+        renew_in: u64,
+    }
+    let url = format!("{}/auth/session/renew", gateway.trim_end_matches('/'));
+    let request = bearer(
+        ehttp::Request::post(url, Vec::new()).with_timeout(Some(PROBE_TIMEOUT)),
+        Some(token),
+    );
+    let held = token.to_string();
+    let box_ = Arc::clone(&mailbox.0);
+    crate::transport::fetch(request, move |answer| {
+        let said = match read_side::<Renewed>(&answer) {
+            Side::Said(body) => Reply::Event(LobbyEvent::BearerRenewed {
+                token: body.token,
+                renew_in: body.renew_in,
+            }),
+            Side::Expired => Reply::Expired,
+            Side::Nothing => Reply::Event(LobbyEvent::BearerRenewed {
+                token: held,
+                renew_in: BEARER_RETRY_SECS,
+            }),
+        };
+        if let Ok(mut box_) = box_.lock() {
+            box_.push(Reply::Remote(epoch, Box::new(said)));
+        }
+    });
+}
+
 pub(super) fn ask_aside<T: serde::de::DeserializeOwned + Send + 'static>(
     gateway: &str,
     path: &str,

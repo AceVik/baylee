@@ -16,6 +16,10 @@ pub struct Admission {
     /// `Some(true)`, absent otherwise.
     #[serde(default)]
     pub central_terms_stale: Option<bool>,
+    /// Seconds until this bearer wants renewing, which the gateway counts so
+    /// that this machine's clock does not come into it.
+    #[serde(default)]
+    pub renew_in: Option<u64>,
 }
 
 impl Drop for Admission {

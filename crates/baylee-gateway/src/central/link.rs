@@ -268,11 +268,11 @@ async fn describe(state: &Shared) -> Result<ConsoleCentral, Refusal> {
 /// @security `adminToken`
 /// @server <http://127.0.0.1:28767> "The admin listener (loopback only)"
 /// @return 200: `$ConsoleCentral` "The link"
-/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease"
+/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin session"
 /// @return 403: `$ErrorBody` "A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a `Host` that is not this machine, refused before the token is read"
 /// @return 429: `$ErrorBody` "Ten wrong tokens in five minutes, or 600 requests in a minute; the right token is refused too until the window passes"
 /// @return-header 429 Retry-After: u64 "Seconds to wait: 300"
-/// @return 503: `$ErrorBody` "The gateway's database is unavailable (or Baylee Central, while an admin lease is checked)"
+/// @return 503: `$ErrorBody` "The gateway's database is unavailable"
 async fn current(State(console): State<Admin>) -> Result<Json<ConsoleCentral>, Refusal> {
     Ok(Json(describe(&console.app).await?))
 }
@@ -304,11 +304,11 @@ struct PasteBody {
 /// @operation-id `pasteCentralToken`
 /// @security `adminToken`
 /// @server <http://127.0.0.1:28767> "The admin listener (loopback only)"
-/// @header-param X-Baylee-Admin: String required `pattern=^[\w.-]{1,64}$` "The acting admin's name, for the audit line; ignored when the bearer is a Central admin lease, whose account acts"
+/// @header-param X-Baylee-Admin: String required `pattern=^[\w.-]{1,64}$` "The acting admin's name, for the audit line; ignored when the bearer is a Central admin session, whose account acts"
 /// @body `$PasteBody`
 /// @return 200: `$ConsoleCentral` "Linked, as `GET /admin/central` answers"
 /// @return 400: `$ErrorBody` "No valid `X-Baylee-Admin`, or not a token: `bgt_` and 64 lowercase hex digits"
-/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease"
+/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin session"
 /// @return 403: `$ErrorBody` "A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a `Host` that is not this machine, refused before the token is read"
 /// @return 409: `$ErrorBody` "The operator's file (`BAYLEE_CENTRAL_CONFIG_FILE`) sets the link"
 /// @return 413: "The body is over 16 KiB"
@@ -424,16 +424,16 @@ async fn paste(
 /// @operation-id `removeCentralToken`
 /// @security `adminToken`
 /// @server <http://127.0.0.1:28767> "The admin listener (loopback only)"
-/// @header-param X-Baylee-Admin: String required `pattern=^[\w.-]{1,64}$` "The acting admin's name, for the audit line; ignored when the bearer is a Central admin lease, whose account acts"
+/// @header-param X-Baylee-Admin: String required `pattern=^[\w.-]{1,64}$` "The acting admin's name, for the audit line; ignored when the bearer is a Central admin session, whose account acts"
 /// @return 204: "Unlinked"
 /// @return 400: `$ErrorBody` "No valid `X-Baylee-Admin`"
-/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease"
+/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin session"
 /// @return 403: `$ErrorBody` "A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a `Host` that is not this machine, refused before the token is read"
 /// @return 404: `$ErrorBody` "No token is pasted"
 /// @return 409: `$ErrorBody` "The operator's file (`BAYLEE_CENTRAL_CONFIG_FILE`) sets the link"
 /// @return 429: `$ErrorBody` "Ten wrong tokens in five minutes, or 600 requests in a minute; the right token is refused too until the window passes"
 /// @return-header 429 Retry-After: u64 "Seconds to wait: 300"
-/// @return 503: `$ErrorBody` "The gateway's database is unavailable (or Baylee Central, while an admin lease is checked)"
+/// @return 503: `$ErrorBody` "The gateway's database is unavailable"
 async fn remove(
     State(console): State<Admin>,
     axum::Extension(Actor(actor)): axum::Extension<Actor>,

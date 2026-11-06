@@ -3,6 +3,81 @@
 #[allow(clippy::wildcard_imports)] // this module's own vocabulary
 use super::*;
 
+fn signed_in_as(token: &str) -> Lobby {
+    let mut lobby = Lobby::default();
+    lobby.apply(LobbyEvent::LoggedIn {
+        token: token.to_string(),
+        username: None,
+    });
+    lobby
+}
+
+/// A Central session's bearer changes every minute or two. Whatever watches
+/// the session must see the same session: a new one would redial the lobby's
+/// socket and ask who the player is each time.
+#[test]
+fn a_renewed_bearer_is_the_same_session_and_a_new_sign_in_is_not() {
+    let mut lobby = signed_in_as("first");
+    let session = lobby.session_serial();
+    lobby.apply(LobbyEvent::BearerRenewed {
+        token: "second".to_string(),
+        renew_in: 44,
+    });
+    assert_eq!(lobby.token(), Some("second"));
+    assert_eq!(lobby.session_serial(), session);
+    lobby.apply(LobbyEvent::LoggedIn {
+        token: "third".to_string(),
+        username: None,
+    });
+    assert_ne!(lobby.session_serial(), session);
+}
+
+#[test]
+fn a_bearer_comes_due_once_when_its_time_runs_out_and_a_renewal_sets_the_next() {
+    let mut lobby = signed_in_as("first");
+    assert!(!lobby.bearer_due(1_000.0), "told nothing, it renews nothing");
+    lobby.apply(LobbyEvent::BearerRenewed {
+        token: "first".to_string(),
+        renew_in: 10,
+    });
+    assert!(!lobby.bearer_due(9.0));
+    assert!(lobby.bearer_due(2.0));
+    assert!(!lobby.bearer_due(100.0), "once, until the answer comes");
+    lobby.apply(LobbyEvent::BearerRenewed {
+        token: "second".to_string(),
+        renew_in: 5,
+    });
+    assert!(lobby.bearer_due(5.0));
+}
+
+/// A renewal runs on its own timer. It must not read as the answer to a
+/// request still in flight, or as the gateway being back.
+#[test]
+fn a_renewal_answers_nothing_else() {
+    let mut lobby = signed_in_as("first");
+    lobby.busy = true;
+    lobby.health.unreachable = true;
+    lobby.apply(LobbyEvent::BearerRenewed {
+        token: "first".to_string(),
+        renew_in: 5,
+    });
+    assert!(lobby.busy, "the request in flight is still in flight");
+    assert!(lobby.health.unreachable, "nobody heard from the gateway");
+}
+
+/// An answer that took its time must not put a bearer back on a client that
+/// signed out while it was on its way.
+#[test]
+fn a_late_renewal_gives_nobody_a_session() {
+    let mut lobby = Lobby::default();
+    lobby.apply(LobbyEvent::BearerRenewed {
+        token: "late".to_string(),
+        renew_in: 10,
+    });
+    assert_eq!(lobby.token(), None);
+    assert!(!lobby.bearer_due(100.0));
+}
+
 #[test]
 fn a_sign_in_needs_both_fields() {
     let mut lobby = Lobby::new();

@@ -37,9 +37,9 @@ pub(super) struct Feed {
     /// `ewebsock`'s receiver is a plain channel. Nothing else contends for
     /// it — one system touches it, once a frame.
     link: Mutex<Option<Link>>,
-    /// The account token and query the socket was opened for. A change here
+    /// The session and query the socket was opened for. A change here
     /// is what makes it re-dial.
-    asked: Option<(String, GameQuery)>,
+    asked: Option<(u64, GameQuery)>,
     /// The ticket request of the dial under way, if one is waiting.
     pending: Option<crate::net::PendingTicket>,
     /// Where the dial under way stands; `None` between dials.
@@ -114,13 +114,13 @@ pub(super) fn feed(
     // player who left a room to change decks has not left the room. The
     // sign-in screen has no token; a seated client has its seat's socket.
     let wanted = match (state.lobby.token(), state.lobby.screen()) {
-        (Some(token), Screen::Table | Screen::Build) => {
+        (Some(_), Screen::Table | Screen::Build) => {
             let query = if state.room_away {
                 state.lobby.search_query()
             } else {
                 state.lobby.query()
             };
-            Some((token.to_string(), query))
+            Some((state.lobby.session_serial(), query))
         }
         _ => None,
     };
@@ -137,7 +137,7 @@ pub(super) fn feed(
         let (dial, _) = TicketDial::start();
         feed.pending = Some(crate::net::request_ticket(
             &state.gateway,
-            &wanted.0,
+            state.lobby.token().unwrap_or_default(),
             TicketSocket::Lobby,
         ));
         feed.dial = Some(dial);
@@ -169,6 +169,14 @@ pub(super) fn feed(
             return;
         };
         for event in crate::transport::drain_socket(&link.receiver) {
+            // Closed for a reason: said at once, in this client's words. What
+            // follows is the same as for any other socket that went.
+            if let ewebsock::WsEvent::Error(text) = &event
+                && let Some(refusal) = client_core::refusal::of_socket_error(text)
+            {
+                let said = client_core::refusal::say(&refusal, state.lobby.lang());
+                post(&mailbox, LobbyEvent::Failed(said));
+            }
             match event {
                 ewebsock::WsEvent::Message(ewebsock::WsMessage::Text(text)) => {
                     // A frame we cannot read is not worth a red line across
@@ -233,7 +241,7 @@ fn perform(feed: &mut Feed, state: &LobbyState, mailbox: &Mailbox, mut step: Ste
                 // Refused before it opened: the ticket is spent or stale, and
                 // a fresh one is one request away. Nobody is told.
                 feed.set_link(None);
-                if let Some((token, _)) = feed.asked.as_ref() {
+                if let Some(token) = state.lobby.token().filter(|_| feed.asked.is_some()) {
                     feed.pending = Some(crate::net::request_ticket(
                         &state.gateway,
                         token,

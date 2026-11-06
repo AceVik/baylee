@@ -29,6 +29,19 @@ impl Lobby {
                   hide which events chain into another request"
     )]
     fn answer(&mut self, event: LobbyEvent) -> Option<LobbyRequest> {
+        // On a timer of its own, beside whatever is in flight: it answers no
+        // request, and one that got no answer says nothing of the gateway.
+        let event = match event {
+            LobbyEvent::BearerRenewed { token, renew_in } => {
+                // A late answer for a session that has gone changes nothing.
+                if let Performer::Gateway(held) = &mut self.performer {
+                    *held = token;
+                    self.renew_in = Some(renew_in as f32);
+                }
+                return None;
+            }
+            event => event,
+        };
         self.busy = false;
         // Any answer from the gateway, a refusal included, is the gateway
         // answering. Said first, so the event's own sentence can follow it.
@@ -57,10 +70,13 @@ impl Lobby {
                     password: self.password.text().to_string(),
                 })
             }
+            LobbyEvent::BearerRenewed { .. } => None,
             LobbyEvent::LoggedIn { token, username } => {
                 // Whoever signed in, the shell says again whether it was
                 // through Central (`set_central_bound`), after this event.
                 self.central_bound = false;
+                self.session_serial += 1;
+                self.renew_in = None;
                 self.performer = Performer::Gateway(token);
                 self.discover_seats = true;
                 self.reclaimed.clear();

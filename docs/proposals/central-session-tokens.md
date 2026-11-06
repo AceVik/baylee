@@ -1,6 +1,8 @@
 # Sitzungen zwischen Central, Gateway und Client
 
-Stand 6. November 2026, Entwurf des Eigentümers mit Ergänzungen. Noch nichts davon ist gebaut.
+Stand 6. November 2026, Entwurf des Eigentümers mit Ergänzungen. Gebaut auf `c42/session-tokens`
+(Baylee und baylee-central), noch nicht ausgerollt. Was gilt, steht in `docs/central-login.md`
+§"Sessions"; dieser Entwurf bleibt als Begründung stehen.
 
 ## Ziel
 

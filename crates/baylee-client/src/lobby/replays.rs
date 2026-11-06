@@ -530,12 +530,13 @@ pub(super) fn open_replay(
         ReplayRef::Hosted { game } => state
             .lobby
             .token()
-            .map(|token| {
+            .map(|_| {
                 (
                     crate::replay::ReplaySource::Hosted(crate::replay::HostedAccess {
                         gateway: state.gateway.clone(),
                         name: gateway_name.clone(),
-                        token: token.to_string(),
+                        token: state.bearer.clone(),
+                        session: state.lobby.session_serial(),
                         game: game.clone(),
                     }),
                     // From an end sheet there is no entry yet: what any

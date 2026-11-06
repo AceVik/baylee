@@ -40,10 +40,34 @@ pub fn of_close(code: u16, reason: &str) -> Option<Refusal> {
         .flatten()
 }
 
+/// The socket library's events carry no close frame, so a refusal rides in the
+/// text of its error event. These two are the only readers of that spelling.
+const SOCKET_ERROR: &str = "refused:";
+
+/// The text of the error event a socket closed by `refusal` raises.
+#[must_use]
+pub fn socket_error(refusal: &Refusal) -> String {
+    format!("{SOCKET_ERROR}{}", refusal.code)
+}
+
+/// The refusal in a socket's error event, cleaned; `None` for any other error.
+#[must_use]
+pub fn of_socket_error(text: &str) -> Option<Refusal> {
+    Refusal::new(text.strip_prefix(SOCKET_ERROR)?).cleaned()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use baylee_protocol::refusal::REFUSAL_CLOSE;
+
+    #[test]
+    fn a_refusal_survives_the_socket_librarys_error_event_and_nothing_else_is_one() {
+        let error = socket_error(&Refusal::new("banned"));
+        assert_eq!(of_socket_error(&error).map(|r| r.code), Some("banned".into()));
+        assert_eq!(of_socket_error("connection reset"), None);
+        assert_eq!(of_socket_error("refused:not a code"), None);
+    }
 
     fn with_text(code: &str, text: &str) -> Refusal {
         Refusal {

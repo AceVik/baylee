@@ -1601,7 +1601,7 @@ const INFO_EVERY: f32 = 300.0;
 /// What [`follow_the_account`] has asked, and when it asks next.
 #[derive(Default)]
 pub(super) struct Asked {
-    me_for: Option<String>,
+    me_for: Option<u64>,
     stats_in: f32,
     info_in: f32,
 }
@@ -1622,7 +1622,8 @@ pub(super) fn follow_the_account(
             return;
         }
     };
-    if asked.me_for.as_deref() != Some(token.as_str()) {
+    let session = state.lobby.session_serial();
+    if asked.me_for != Some(session) {
         // A new session: who it is, at once; the counts at once; `/info`
         // again only after a while (choosing the gateway just asked it).
         if state.lobby.me().is_none() {
@@ -1636,7 +1637,7 @@ pub(super) fn follow_the_account(
             );
         }
         *asked = Asked {
-            me_for: Some(token.clone()),
+            me_for: Some(session),
             stats_in: 0.0,
             info_in: INFO_EVERY,
         };
@@ -1660,6 +1661,24 @@ pub(super) fn follow_the_account(
     if asked.info_in <= 0.0 {
         asked.info_in = INFO_EVERY;
         http::probe_gateway(state.gateway.clone(), &mailbox);
+    }
+}
+
+/// Keeps a Central session's bearer alive, at a table as much as in the lobby,
+/// and keeps the cell a replay reads it from current. The clock is written past
+/// change detection: a bearer counting down changes nothing a screen draws.
+pub(super) fn keep_the_bearer(
+    time: Res<Time>,
+    mut state: ResMut<LobbyState>,
+    mailbox: Res<Mailbox>,
+) {
+    let due = state
+        .bypass_change_detection()
+        .lobby
+        .bearer_due(time.delta_secs());
+    state.bearer.set(state.lobby.token().unwrap_or_default());
+    if due && let Some(token) = state.lobby.token() {
+        http::renew_bearer(&state.gateway, token, state.gateway_epoch, &mailbox);
     }
 }
 
@@ -2008,6 +2027,8 @@ pub(super) fn install(app: &mut App) {
     app.init_resource::<Toasts>()
         .init_resource::<PopoverMotion>()
         .init_resource::<super::front::faces::StatusBannerMemory>()
+        // In every phase: a game is where a session sits longest.
+        .add_systems(Update, keep_the_bearer)
         .add_systems(
             Update,
             (

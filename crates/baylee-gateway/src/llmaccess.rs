@@ -142,11 +142,11 @@ pub(crate) struct ProfileAccessList {
 /// @tag Admin
 /// @security `adminToken`
 /// @server <http://127.0.0.1:28767> "The admin listener (loopback only)"
-/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease"
+/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin session"
 /// @return 403: `$ErrorBody` "A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a `Host` that is not this machine, refused before the token is read"
 /// @return 429: `$ErrorBody` "Ten wrong tokens in five minutes, or 600 requests in a minute; the right token is refused too until the window passes"
 /// @return-header 429 Retry-After: u64 "Seconds to wait: 300"
-/// @return 503: `$ErrorBody` "The gateway's database is unavailable (or Baylee Central, while an admin lease is checked)"
+/// @return 503: `$ErrorBody` "The gateway's database is unavailable"
 async fn list(State(console): State<Admin>) -> Result<Json<ProfileAccessList>, Refusal> {
     let stored = llm_access::all(&console.app.db)
         .await
@@ -238,11 +238,11 @@ async fn one_json(console: &Admin, id: &str) -> Result<ProfileAccessDetail, Refu
 /// @server <http://127.0.0.1:28767> "The admin listener (loopback only)"
 /// @path-param id: String "The profile's id: 1-64 of A-Z a-z 0-9 . - _"
 /// @return 400: `$ErrorBody` "The id is not 1-64 of A-Z a-z 0-9 . - _"
-/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease"
+/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin session"
 /// @return 403: `$ErrorBody` "A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a `Host` that is not this machine, refused before the token is read"
 /// @return 429: `$ErrorBody` "Ten wrong tokens in five minutes, or 600 requests in a minute; the right token is refused too until the window passes"
 /// @return-header 429 Retry-After: u64 "Seconds to wait: 300"
-/// @return 503: `$ErrorBody` "The gateway's database is unavailable (or Baylee Central, while an admin lease is checked)"
+/// @return 503: `$ErrorBody` "The gateway's database is unavailable"
 async fn one(
     State(console): State<Admin>,
     Path(id): Path<String>,
@@ -278,16 +278,16 @@ struct PolicyBody {
 /// @tag Admin
 /// @security `adminToken`
 /// @server <http://127.0.0.1:28767> "The admin listener (loopback only)"
-/// @header-param X-Baylee-Admin: String required `pattern=^[\w.-]{1,64}$` "The acting admin's name, for the audit line and `updated_by`; ignored when the bearer is a Central admin lease, whose account acts"
+/// @header-param X-Baylee-Admin: String required `pattern=^[\w.-]{1,64}$` "The acting admin's name, for the audit line and `updated_by`; ignored when the bearer is a Central admin session, whose account acts"
 /// @path-param id: String "The profile's id: 1-64 of A-Z a-z 0-9 . - _"
 /// @body `$PolicyBody`
 /// @return 400: `$ErrorBody` "No valid `X-Baylee-Admin`, an id outside 1-64 of A-Z a-z 0-9 . - _, not a policy (an unknown field included), another policy word, or the default mark with a policy other than `registered`"
-/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease"
+/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin session"
 /// @return 403: `$ErrorBody` "A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a `Host` that is not this machine, refused before the token is read"
 /// @return 413: "The body is over 16 KiB"
 /// @return 429: `$ErrorBody` "Ten wrong tokens in five minutes, or 600 requests in a minute; the right token is refused too until the window passes"
 /// @return-header 429 Retry-After: u64 "Seconds to wait: 300"
-/// @return 503: `$ErrorBody` "The gateway's database is unavailable (or Baylee Central, while an admin lease is checked)"
+/// @return 503: `$ErrorBody` "The gateway's database is unavailable"
 async fn set_policy(
     State(console): State<Admin>,
     axum::Extension(Actor(actor)): axum::Extension<Actor>,
@@ -416,18 +416,18 @@ fn joined(ids: &[Uuid]) -> String {
 /// @tag Admin
 /// @security `adminToken`
 /// @server <http://127.0.0.1:28767> "The admin listener (loopback only)"
-/// @header-param X-Baylee-Admin: String required `pattern=^[\w.-]{1,64}$` "The acting admin's name, for the audit line and `added_by`; ignored when the bearer is a Central admin lease, whose account acts"
+/// @header-param X-Baylee-Admin: String required `pattern=^[\w.-]{1,64}$` "The acting admin's name, for the audit line and `added_by`; ignored when the bearer is a Central admin session, whose account acts"
 /// @path-param id: String "The profile's id: 1-64 of A-Z a-z 0-9 . - _"
 /// @body `$AccountsBody`
 /// @return 400: `$ErrorBody` "No valid `X-Baylee-Admin`, an id outside 1-64 of A-Z a-z 0-9 . - _, not a list of accounts (an unknown field included), fewer than 1 or more than 200, or one that is not a UUID"
-/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease"
+/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin session"
 /// @return 403: `$ErrorBody` "A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a `Host` that is not this machine, refused before the token is read"
 /// @return 404: `$ErrorBody` "An id no account has; nobody was added"
 /// @return 409: `$ErrorBody` "A guest's account, which cannot seat a hosted model; nobody was added"
 /// @return 413: "The body is over 16 KiB"
 /// @return 429: `$ErrorBody` "Ten wrong tokens in five minutes, or 600 requests in a minute; the right token is refused too until the window passes"
 /// @return-header 429 Retry-After: u64 "Seconds to wait: 300"
-/// @return 503: `$ErrorBody` "The gateway's database is unavailable (or Baylee Central, while an admin lease is checked)"
+/// @return 503: `$ErrorBody` "The gateway's database is unavailable"
 async fn allow(
     State(console): State<Admin>,
     axum::Extension(Actor(actor)): axum::Extension<Actor>,
@@ -480,16 +480,16 @@ async fn allow(
 /// @tag Admin
 /// @security `adminToken`
 /// @server <http://127.0.0.1:28767> "The admin listener (loopback only)"
-/// @header-param X-Baylee-Admin: String required `pattern=^[\w.-]{1,64}$` "The acting admin's name, for the audit line; ignored when the bearer is a Central admin lease, whose account acts"
+/// @header-param X-Baylee-Admin: String required `pattern=^[\w.-]{1,64}$` "The acting admin's name, for the audit line; ignored when the bearer is a Central admin session, whose account acts"
 /// @path-param id: String "The profile's id: 1-64 of A-Z a-z 0-9 . - _"
 /// @body `$AccountsBody`
 /// @return 400: `$ErrorBody` "No valid `X-Baylee-Admin`, an id outside 1-64 of A-Z a-z 0-9 . - _, not a list of accounts (an unknown field included), fewer than 1 or more than 200, or one that is not a UUID"
-/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease"
+/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin session"
 /// @return 403: `$ErrorBody` "A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a `Host` that is not this machine, refused before the token is read"
 /// @return 413: "The body is over 16 KiB"
 /// @return 429: `$ErrorBody` "Ten wrong tokens in five minutes, or 600 requests in a minute; the right token is refused too until the window passes"
 /// @return-header 429 Retry-After: u64 "Seconds to wait: 300"
-/// @return 503: `$ErrorBody` "The gateway's database is unavailable (or Baylee Central, while an admin lease is checked)"
+/// @return 503: `$ErrorBody` "The gateway's database is unavailable"
 async fn disallow(
     State(console): State<Admin>,
     axum::Extension(Actor(actor)): axum::Extension<Actor>,
@@ -566,11 +566,11 @@ pub(crate) struct LookedUp {
 /// @server <http://127.0.0.1:28767> "The admin listener (loopback only)"
 /// @query-params `$LookupQuery`
 /// @return 400: `$ErrorBody` "A query parameter other than `q`, or a search over 100 characters"
-/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease"
+/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin session"
 /// @return 403: `$ErrorBody` "A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a `Host` that is not this machine, refused before the token is read"
 /// @return 429: `$ErrorBody` "Ten wrong tokens in five minutes, or 600 requests in a minute; the right token is refused too until the window passes"
 /// @return-header 429 Retry-After: u64 "Seconds to wait: 300"
-/// @return 503: `$ErrorBody` "The gateway's database is unavailable (or Baylee Central, while an admin lease is checked)"
+/// @return 503: `$ErrorBody` "The gateway's database is unavailable"
 async fn lookup(
     State(console): State<Admin>,
     query: Result<Query<LookupQuery>, axum::extract::rejection::QueryRejection>,
