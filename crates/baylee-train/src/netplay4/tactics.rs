@@ -5070,3 +5070,73 @@ fn mark_single_mana_source_with_view(
         ManaSource::IntrinsicBasicLandTypes | ManaSource::NotedActivationMana => {}
     }
 }
+
+/// View-only readings for `gamelog4 survey` and the dev-only guards: what the
+/// tactical layer says about a position, with no policy involved.
+pub mod reading {
+    use super::{
+        LegalActions, ObjectId, PlayerAction, PlayerView, has_reachable_mana_sink, is_mana_action,
+        is_spell_worth_casting_now_inner, lookup_spell_cost, spell_colors_reachable_inner,
+        untapped_mana_production,
+    };
+
+    /// The spells on offer that the seat's pool and untapped sources can pay
+    /// for, colours included.
+    #[must_use]
+    pub fn reachable_spells(view: &PlayerView, legal: &LegalActions) -> Vec<ObjectId> {
+        let actor = view.decision_player.unwrap_or(view.seat);
+        let pool = view
+            .seat(actor)
+            .map_or(0, |s| u32::try_from(s.mana_pool.total()).unwrap_or(0));
+        let reach = pool.saturating_add(untapped_mana_production(view, actor));
+        legal
+            .castable
+            .iter()
+            .chain(legal.payable.iter().filter(|id| !legal.castable.contains(id)))
+            .copied()
+            .filter(|&id| {
+                legal.castable.contains(&id)
+                    || lookup_spell_cost(view, id).is_none_or(|(cost, tax)| {
+                        let least = if cost.has_variable() {
+                            cost.with_x(1).cmc()
+                        } else {
+                            cost.with_x(0).cmc()
+                        };
+                        least.saturating_add(tax) <= reach
+                            && spell_colors_reachable_inner(
+                                view,
+                                actor,
+                                Some(legal),
+                                Some(id),
+                                None,
+                                &cost,
+                            )
+                    })
+            })
+            .collect()
+    }
+
+    /// The tactical layer's reading of whether a spell does anything now.
+    #[must_use]
+    pub fn worth_casting(view: &PlayerView, id: ObjectId) -> bool {
+        is_spell_worth_casting_now_inner(view, id)
+    }
+
+    /// Whether tapping for mana could buy anything now.
+    #[must_use]
+    pub fn mana_has_a_sink(view: &PlayerView, legal: &LegalActions) -> bool {
+        has_reachable_mana_sink(view, legal)
+    }
+
+    /// Whether this action only makes mana.
+    #[must_use]
+    pub fn makes_mana(view: &PlayerView, action: &PlayerAction) -> bool {
+        is_mana_action(view, action)
+    }
+
+    /// The printed mana value of a card with its tax.
+    #[must_use]
+    pub fn spell_cost(view: &PlayerView, id: ObjectId) -> Option<u32> {
+        lookup_spell_cost(view, id).map(|(cost, tax)| cost.with_x(0).cmc().saturating_add(tax))
+    }
+}

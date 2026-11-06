@@ -59,6 +59,7 @@ pub use snapshot::PlayerSnapshot4;
 mod structure;
 pub use structure::{CatalogBinding4, CatalogPolicy4, DriftedRule4};
 mod tactics;
+pub use tactics::reading;
 pub use crate::features4::{sample_pairs_constrained, sample_subset_constrained};
 use fallback::fallback_action;
 

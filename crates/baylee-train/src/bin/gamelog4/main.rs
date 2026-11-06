@@ -24,6 +24,7 @@ mod losses;
 mod names;
 mod patterns;
 mod show;
+mod survey;
 
 #[derive(Parser, Debug)]
 #[command(about = "Reads evaluated games turn by turn")]
@@ -80,6 +81,25 @@ enum Command {
         #[arg(long)]
         focus: Option<String>,
     },
+    /// Counts classes of choices a reader should look at, over deals of a
+    /// summary, by how often they occur in won and in lost games.
+    Survey {
+        /// The run's record directory.
+        #[arg(long)]
+        run: PathBuf,
+        /// eval4's summary of the same run.
+        #[arg(long)]
+        summary: PathBuf,
+        /// Which deals.
+        #[arg(long, value_enum, default_value_t = losses::Which::All)]
+        which: losses::Which,
+        /// Games replayed at once.
+        #[arg(long, default_value_t = 8)]
+        threads: usize,
+        /// Write every candidate here as a JSON line.
+        #[arg(long)]
+        cases: Option<PathBuf>,
+    },
 }
 
 fn main() -> anyhow::Result<()> {
@@ -107,5 +127,12 @@ fn main() -> anyhow::Result<()> {
             threads,
             focus,
         } => patterns::count(&run, &summary, which, threads, focus.as_deref()),
+        Command::Survey {
+            run,
+            summary,
+            which,
+            threads,
+            cases,
+        } => survey::count(&run, &summary, which, threads, cases.as_deref()),
     }
 }
