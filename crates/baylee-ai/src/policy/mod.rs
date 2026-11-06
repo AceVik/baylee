@@ -459,6 +459,7 @@ impl HeuristicAgent {
         min: u8,
         max: u8,
         prompt: baylee_engine::choice::ChoicePrompt,
+        context: &DecisionContext<'_>,
     ) -> Option<Vec<ObjectId>> {
         use baylee_engine::choice::ChoicePrompt;
         // Ahead of the skill gate, because this one needs no skill: the card
@@ -524,6 +525,13 @@ impl HeuristicAgent {
             ranked.truncate(usize::from(min.max(1).min(max)));
             return Some(ranked);
         }
+        if prompt == ChoicePrompt::KeepPermanents
+            && min == 1
+            && max == 1
+            && let Some(answer) = self.keep_one_of_each_answer(view, options, context)
+        {
+            return Some(answer);
+        }
         if matches!(
             prompt,
             ChoicePrompt::Keep
@@ -586,6 +594,63 @@ impl HeuristicAgent {
         };
         ranked.truncate(count);
         Some(ranked)
+    }
+
+    /// Answers one category of a keep-one-of-each effect by the value of the
+    /// complete retained set. The menu identifies its category only when its
+    /// legal objects are unique to that category; an ambiguous menu retains
+    /// the ordinary deterministic fallback rather than guessing.
+    fn keep_one_of_each_answer(
+        &self,
+        view: &PlayerView,
+        options: &[ObjectId],
+        context: &DecisionContext<'_>,
+    ) -> Option<Vec<ObjectId>> {
+        let mut effects = context.effects.iter().filter_map(|effect| match effect {
+            Effect::KeepOneOfEachAndSacrificeRest { filters } => Some(*filters),
+            _ => None,
+        });
+        let filters = effects.next()?;
+        if effects.next().is_some() {
+            return None;
+        }
+        let controlled: Vec<_> = view.battlefield_of(view.seat).collect();
+        let offered: std::collections::BTreeSet<_> = options.iter().copied().collect();
+        let mut categories = filters.iter().enumerate().filter(|(_, filter)| {
+            let matching: std::collections::BTreeSet<_> = controlled
+                .iter()
+                .filter(|object| {
+                    self.filter_matches(
+                        filter,
+                        view,
+                        object,
+                        baylee_cards_dsl::ZoneRef::Battlefield,
+                        context.source,
+                    ) != Some(false)
+                })
+                .map(|object| object.id)
+                .collect();
+            matching == offered
+        });
+        let (current, _) = categories.next()?;
+        if categories.next().is_some() {
+            return None;
+        }
+
+        let mut best: Option<(ObjectId, i64)> = None;
+        for option in options {
+            let (_, worth) = self.best_keep_one_of_each(
+                view,
+                context.source,
+                filters,
+                &controlled,
+                Some((current, *option)),
+            )?;
+            if best.is_none_or(|(_, best_worth)| worth > best_worth) {
+                best = Some((*option, worth));
+            }
+        }
+        best.map(|(option, _)| vec![option])
     }
 
     fn keep_permanents(&self, view: &PlayerView, options: &[ObjectId], max: u8) -> Vec<ObjectId> {
@@ -1161,6 +1226,10 @@ impl HeuristicAgent {
         }
         let mut net = 0_i64;
         for effect in effects {
+            if let Effect::KeepOneOfEachAndSacrificeRest { filters } = effect {
+                net += self.keep_one_of_each_net_worth(view, id, filters)?;
+                continue;
+            }
             let (filter, opponents_only, check_indest, dmg) = match effect {
                 Effect::DestroyAll { filter, .. } => (*filter, false, true, None),
                 Effect::ExileAll { filter, .. } => (*filter, false, false, None),
@@ -1205,6 +1274,151 @@ impl HeuristicAgent {
             }
         }
         Some(net)
+    }
+
+    /// The best result of choosing one permanent per filter before sacrificing
+    /// the rest. The objective is the worth of the whole retained set, not the
+    /// sum of independent category winners: a strong multi-type permanent may
+    /// have to leave a later category to a weaker card so that both survive.
+    fn keep_one_of_each_net_worth(
+        &self,
+        view: &PlayerView,
+        id: Option<ObjectId>,
+        filters: &[&Filter],
+    ) -> Option<i64> {
+        let mut net = 0;
+        for player in view.seats.iter().map(|seat| seat.player) {
+            let controlled: Vec<_> = view.battlefield_of(player).collect();
+            let (kept, _) = self.best_keep_one_of_each(view, id, filters, &controlled, None)?;
+            for object in controlled {
+                if kept.binary_search(&object.id).is_ok() {
+                    continue;
+                }
+                let worth = Self::permanent_worth(view, object);
+                if self.hostile(player, view.seat) {
+                    net += worth;
+                } else if player == view.seat {
+                    net -= worth;
+                }
+            }
+        }
+        Some(net)
+    }
+
+    /// Exact retained-set optimization for the small category lists this
+    /// effect prints. Candidates with the same match signature are
+    /// interchangeable, so only their most valuable representative survives.
+    /// The state cap declines a pathological custom filter list rather than
+    /// making spell evaluation exponential without a bound.
+    fn best_keep_one_of_each(
+        &self,
+        view: &PlayerView,
+        id: Option<ObjectId>,
+        filters: &[&Filter],
+        controlled: &[&baylee_view::PublicObject],
+        forced: Option<(usize, ObjectId)>,
+    ) -> Option<(Vec<ObjectId>, i64)> {
+        #[derive(Clone, Copy)]
+        struct Candidate {
+            id: ObjectId,
+            worth: i64,
+            matches: u64,
+        }
+
+        if filters.len() > u64::BITS as usize {
+            return None;
+        }
+        let mut candidates: Vec<Candidate> = Vec::new();
+        for object in controlled {
+            let mut matches = 0_u64;
+            for (index, filter) in filters.iter().enumerate() {
+                if self.filter_matches(
+                    filter,
+                    view,
+                    object,
+                    baylee_cards_dsl::ZoneRef::Battlefield,
+                    id,
+                ) != Some(false)
+                {
+                    matches |= 1_u64 << index;
+                }
+            }
+            if matches == 0 {
+                continue;
+            }
+            let candidate = Candidate {
+                id: object.id,
+                worth: Self::permanent_worth(view, object),
+                matches,
+            };
+            let forced_id = forced.map(|(_, id)| id);
+            if forced_id == Some(candidate.id) {
+                // A dominated candidate still matters when it is the menu
+                // answer being evaluated; without it a forced choice could
+                // silently turn into a different permanent.
+                candidates.push(candidate);
+            } else if let Some(existing) = candidates
+                .iter_mut()
+                .find(|existing| existing.matches == matches && Some(existing.id) != forced_id)
+            {
+                if (candidate.worth, std::cmp::Reverse(candidate.id))
+                    > (existing.worth, std::cmp::Reverse(existing.id))
+                {
+                    *existing = candidate;
+                }
+            } else {
+                candidates.push(candidate);
+            }
+        }
+        candidates.sort_by_key(|candidate| candidate.id);
+
+        let mut states = std::collections::BTreeMap::new();
+        states.insert(Vec::new(), 0_i64);
+        for (index, _) in filters.iter().enumerate() {
+            let mut next = std::collections::BTreeMap::new();
+            for (kept, worth) in &states {
+                for candidate in &candidates {
+                    if candidate.matches & (1_u64 << index) == 0
+                        || forced.is_some_and(|(at, id)| at == index && id != candidate.id)
+                    {
+                        continue;
+                    }
+                    let mut selected = kept.clone();
+                    let added = if let Err(at) = selected.binary_search(&candidate.id) {
+                        selected.insert(at, candidate.id);
+                        candidate.worth
+                    } else {
+                        0
+                    };
+                    next.entry(selected).or_insert(worth + added);
+                    if next.len() > 50_000 {
+                        return None;
+                    }
+                }
+            }
+            if next.is_empty() {
+                // No permanent matching this category means there is no
+                // choice to make, not that the whole effect has no answer.
+                if candidates
+                    .iter()
+                    .any(|candidate| candidate.matches & (1_u64 << index) != 0)
+                {
+                    return None;
+                }
+            } else {
+                states = next;
+            }
+        }
+        let mut best = None;
+        for (kept, worth) in states {
+            if best
+                .as_ref()
+                .is_none_or(|(_, best_worth): &(Vec<ObjectId>, i64)| worth > *best_worth)
+            {
+                best = Some((kept, worth));
+            }
+        }
+        best
     }
 
     /// Whether a mode of a modal spell has a legal, non-suicidal, non-idle
@@ -1685,6 +1899,7 @@ fn board_sweeper(effect: &Effect) -> bool {
             | Effect::ExileAll { .. }
             | Effect::ReturnAllToHand { .. }
             | Effect::DealDamageEach { .. }
+            | Effect::KeepOneOfEachAndSacrificeRest { .. }
     )
 }
 

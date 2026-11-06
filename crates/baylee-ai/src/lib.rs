@@ -522,7 +522,8 @@ impl HeuristicAgent {
                 if let Some(objects) = land::returned(view, &options, min, max, prompt) {
                     return PlayerAction::ChooseObjects { objects };
                 }
-                if let Some(objects) = self.select_cards(view, &options, min, max, prompt) {
+                if let Some(objects) = self.select_cards(view, &options, min, max, prompt, context)
+                {
                     return PlayerAction::ChooseObjects { objects };
                 }
                 // Delve is the one question in this family that is part of a
