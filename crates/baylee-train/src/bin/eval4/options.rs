@@ -50,6 +50,11 @@ struct Args {
     /// Opponent house profile (`novice`, `casual`, `steady`, `sharp`, `expert`).
     #[arg(long, default_value = "steady")]
     against: String,
+    /// Dev-only ceilings (`netplay4::tactics::guard`), comma separated: `cast`,
+    /// `tap`, `spend`, `mulligan`, `tactical`. `off` is none. Takes a value so
+    /// that `paired_eval4` can read the command. Never for training.
+    #[arg(long, default_value = "off")]
+    choice_guard: String,
     /// Baseline house profile for duplicate comparison (`steady`, `sharp`, `expert`).
     #[arg(long, default_value = "steady")]
     baseline: String,
@@ -327,6 +332,38 @@ enum ModelFormat {
     LegacyV3,
     /// A v4/v5 net, its card catalog bound under the policy.
     Net(CatalogPolicy4),
+}
+
+/// Reads `--choice-guard`.
+fn parse_choice_guard(text: &str) -> anyhow::Result<Option<ChoiceGuard4>> {
+    if text == "off" {
+        return Ok(None);
+    }
+    let mut guard = ChoiceGuard4::default();
+    for arm in text.split(',') {
+        match arm {
+            "cast" => guard.enable(GuardArm::Cast),
+            "tap" => guard.enable(GuardArm::Tap),
+            "spend" => guard.enable(GuardArm::Spend),
+            "mulligan" => guard.enable(GuardArm::Mulligan),
+            "tactical" => {
+                guard.tactical = baylee_train::netplay4::TacticalParts {
+                    priority: true,
+                    single: true,
+                    subset: true,
+                    pair: true,
+                    scalar: true,
+                };
+            }
+            "tactical-priority" => guard.tactical.priority = true,
+            "tactical-single" => guard.tactical.single = true,
+            "tactical-subset" => guard.tactical.subset = true,
+            "tactical-pair" => guard.tactical.pair = true,
+            "tactical-scalar" => guard.tactical.scalar = true,
+            other => bail!("unknown --choice-guard arm {other}"),
+        }
+    }
+    Ok(Some(guard))
 }
 
 fn parse_profile(name: &str) -> anyhow::Result<AIProfile> {

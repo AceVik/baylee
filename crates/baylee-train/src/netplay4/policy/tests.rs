@@ -42,6 +42,7 @@ fn select(
         temperature: 0.8,
         rng: &mut rng,
         active_source: None,
+        guard: &mut Default::default(),
     }
     .select(
         cands,
@@ -230,6 +231,7 @@ fn raw_sampler_refuses_unsupported_temperatures_and_nonfinite_outputs() {
             temperature,
             rng: &mut rng,
             active_source: None,
+            guard: &mut Default::default(),
         }
         .select(
             &cands,

@@ -36,8 +36,9 @@ use baylee_train::netplay4::search::{
     terminal_utility,
 };
 use baylee_train::netplay4::{
-    BatchLimits4, BatchedNet4, CatalogPolicy4, CriticSemantics4, ModelIdentity, NetPlayer4,
-    PolicyMode4, inspect_catalog, inspect_model_identity, valid_raw_temperature,
+    BatchLimits4, BatchedNet4, CatalogPolicy4, ChoiceGuard4, CriticSemantics4, GuardArm,
+    ModelIdentity, NetPlayer4, PolicyMode4, inspect_catalog, inspect_model_identity,
+    valid_raw_temperature,
 };
 use baylee_train::selfplay::table_for;
 use baylee_train::working::{Working, repo_root};
@@ -99,6 +100,21 @@ fn main() -> anyhow::Result<()> {
     let collection = collector::Contract::new(&args, model_identity.as_ref())?;
     if let Some(refusal) = search_refusal(&args, &collection, model_identity.as_ref()) {
         bail!(refusal);
+    }
+    let choice_guard = parse_choice_guard(&args.choice_guard)?;
+    if choice_guard.is_some()
+        && (!args.raw_policy
+            || args.temperature != 0.0
+            || args.seats != 2
+            || args.legacy_v3
+            || args.search.is_some()
+            || args.shadow_teacher.is_some()
+            || collection.purpose != collector::Purpose::Evaluation)
+    {
+        bail!(
+            "--choice-guard is a measurement: it needs --raw-policy at temperature 0, two seats \
+             and no search, shadow or collection, and its records are no training data"
+        );
     }
     let search_config = search_config(&args)?;
     let search = search_metadata(&args, search_config, model_identity.as_ref());
@@ -231,6 +247,7 @@ fn main() -> anyhow::Result<()> {
             "run": "eval4-rollout",
             "policy_mode": policy_mode,
             "policy_contract": policy_mode.contract(),
+            "choice_guard": args.choice_guard,
             "model_family": model_identity.as_ref().map(|identity|identity.model_family),
             "model_identity": model_identity,
             "evaluator_build": baylee_build::short(),
@@ -380,6 +397,9 @@ fn main() -> anyhow::Result<()> {
                 load_player(&model_path,format,k_steps,temp,policy_mode,expected_identity.as_ref(),shared_nets.learner.as_ref())?
             };
 
+            if let Some(guard) = choice_guard {
+                anyhow::ensure!(net.set_choice_guard(guard), "--choice-guard needs a net");
+            }
             let shard_name = format!("w{worker_id:02}-0000.jsonl.gz");
             let mut shard_file = match &rec_out {
                 Some(dir) => Some((
@@ -549,9 +569,11 @@ fn main() -> anyhow::Result<()> {
                     (bu, bc)
                 };
 
+                let guard_fired = net.take_choice_guard_fired();
                 let mut st = stats_arc.lock().expect("stats lock");
                 st.deals_completed += 1;
                 st.deal_details.push(json!({"deal": d, "table": table_idx,
+                    "choice_guard_fired": guard_fired,
                     "seed": seed, "focal_seat": focal_seat,
                     "net_utility": if collection.purpose == collector::Purpose::FailureTerminalResearchV1 {None}else{Some(net_u)},
                     "research_episode": if collection.purpose == collector::Purpose::FailureTerminalResearchV1 {Some(&outcome_json)}else{None},

@@ -34,6 +34,14 @@ trait EvaluationPlayer {
     fn rule_refs_left_out(&self) -> u64 {
         0
     }
+    /// Sets `--choice-guard` on this player, which only a net can honour.
+    fn set_choice_guard(&mut self, _guard: baylee_train::netplay4::ChoiceGuard4) -> bool {
+        false
+    }
+    /// Answers `--choice-guard` changed since this was last asked, by arm.
+    fn take_choice_guard_fired(&mut self) -> [u64; 4] {
+        [0; 4]
+    }
     /// Answers with a lookahead over `table` (`--search`); `None` when this
     /// player cannot search.
     fn search(
@@ -75,6 +83,13 @@ trait EvaluationPlayer {
 impl EvaluationPlayer for NetPlayer4 {
     fn fallback_diagnostic(&self) -> Option<&baylee_train::netplay4::FallbackDiagnostic4> {
         self.last_fallback()
+    }
+    fn set_choice_guard(&mut self, guard: baylee_train::netplay4::ChoiceGuard4) -> bool {
+        Self::set_choice_guard(self, guard);
+        true
+    }
+    fn take_choice_guard_fired(&mut self) -> [u64; 4] {
+        Self::take_choice_guard_fired(self)
     }
     fn policy_encoding(
         &self,

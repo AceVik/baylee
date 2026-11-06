@@ -82,6 +82,7 @@ impl NetPlayer4 {
             temperature: self.temperature,
             rng: &mut self.rng,
             active_source: self.last_announced_source.get(&view.seat.get()).copied(),
+            guard: &mut self.choice_guard,
         }
         .select(
             cands,
@@ -111,6 +112,8 @@ struct PolicySampler4<'a> {
     temperature: f32,
     rng: &'a mut Rng,
     active_source: Option<(ObjectId, Option<u32>)>,
+    /// `eval4 --choice-guard`: the rules a run holds this answer to.
+    guard: &'a mut super::ChoiceGuard4,
 }
 
 impl PolicySampler4<'_> {
@@ -152,10 +155,18 @@ impl PolicySampler4<'_> {
         }
         let mut target = TeacherTarget4::default();
 
+        let raw = self.mode == PolicyMode4::Raw;
+        let parts = self.guard.tactical;
+        let at_priority = matches!(pending, Pending::Priority { .. });
         let logprob: f32 = match cands.head {
             HeadKind4::SingleChoice => {
                 let active_source = self.active_source;
-                let (chosen_idx, lp) = if self.mode == PolicyMode4::Raw {
+                let (chosen_idx, lp) = if raw
+                    && !(if at_priority {
+                        parts.priority
+                    } else {
+                        parts.single
+                    }) {
                     sample_categorical(
                         &cand_logits[..cands.candidates.len()],
                         self.temperature,
@@ -172,6 +183,14 @@ impl PolicySampler4<'_> {
                         self.rng,
                     )
                 };
+                let chosen_idx = tactics::guard::review(
+                    self.guard,
+                    cands,
+                    &cand_logits[..cands.candidates.len()],
+                    view,
+                    pending,
+                    chosen_idx,
+                );
                 target.single_idx = chosen_idx as u16;
                 lp
             }
@@ -179,7 +198,7 @@ impl PolicySampler4<'_> {
                 let n = cands.candidates.len();
                 let raw_logits = &cand_logits[..n];
                 let active_source = self.active_source;
-                let adj_logits = if self.mode == PolicyMode4::Raw {
+                let adj_logits = if raw && !parts.subset {
                     raw_logits.to_vec()
                 } else {
                     choices::adjust_subset_logits(cands, raw_logits, view, pending, active_source)
@@ -224,7 +243,7 @@ impl PolicySampler4<'_> {
             HeadKind4::PairPick => {
                 let n = cands.pairs.len();
                 let raw_logits = &pair_logits[..n];
-                let adj_logits = if self.mode == PolicyMode4::Raw {
+                let adj_logits = if raw && !parts.pair {
                     raw_logits.to_vec()
                 } else {
                     choices::adjust_pair_logits(cands, raw_logits, view, pending)
@@ -262,7 +281,7 @@ impl PolicySampler4<'_> {
                 lp
             }
             HeadKind4::ScalarValue => {
-                let pred = if self.mode == PolicyMode4::Raw {
+                let pred = if raw && !parts.scalar {
                     scalar_pred.clamp(0.0, 1.0)
                 } else {
                     match pending {

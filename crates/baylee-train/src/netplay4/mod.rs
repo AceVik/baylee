@@ -59,9 +59,10 @@ pub use snapshot::PlayerSnapshot4;
 mod structure;
 pub use structure::{CatalogBinding4, CatalogPolicy4, DriftedRule4};
 mod tactics;
-pub use tactics::reading;
 pub use crate::features4::{sample_pairs_constrained, sample_subset_constrained};
 use fallback::fallback_action;
+pub use tactics::guard::{ChoiceGuard4, GuardArm, TacticalParts};
+pub use tactics::reading;
 
 /// Number of recurrent memory tokens per seat (`1` Global + `8` Relative Seats).
 pub const RECURRENT_SLOTS: usize = 9;
@@ -137,6 +138,8 @@ pub struct NetPlayer4 {
     /// Rule references left out of this player's steps because the model's
     /// catalog does not know them ([`CatalogPolicy4`]).
     rule_refs_left_out: u64,
+    /// `eval4 --choice-guard`: a measuring instrument, off unless a run asks.
+    choice_guard: ChoiceGuard4,
 }
 
 fn ort_error(e: impl std::fmt::Display) -> anyhow::Error {
@@ -298,6 +301,16 @@ impl NetPlayer4 {
         self.rule_refs_left_out
     }
 
+    /// Sets `eval4 --choice-guard` (`tactics::guard`) for this net.
+    pub const fn set_choice_guard(&mut self, guard: ChoiceGuard4) {
+        self.choice_guard = guard;
+    }
+
+    /// Answers the guard changed since this was last asked, by arm.
+    pub const fn take_choice_guard_fired(&mut self) -> [u64; 4] {
+        self.choice_guard.take_fired()
+    }
+
     /// A player whose steps run in `net`'s batches, together with every
     /// other player built on it.
     #[must_use]
@@ -335,6 +348,7 @@ impl NetPlayer4 {
             coverage: CoverageMatrix4::default(),
             last_fallback: None,
             rule_refs_left_out: 0,
+            choice_guard: ChoiceGuard4::default(),
         }
     }
 

@@ -129,7 +129,8 @@ impl Survey {
     }
 
     fn write_cases(&mut self, path: &Path) -> anyhow::Result<()> {
-        self.cases.sort_by_key(|case| (case.class, case.deal, case.turn));
+        self.cases
+            .sort_by_key(|case| (case.class, case.deal, case.turn));
         let mut out = BufWriter::new(File::create(path)?);
         for case in &self.cases {
             serde_json::to_writer(
@@ -159,7 +160,12 @@ fn staying(object: &PublicObject) -> i32 {
 
 /// Combat damage it deals: twice with double strike.
 fn hits(object: &PublicObject) -> i32 {
-    power(object).max(0) * if has(object, KeywordSet::DOUBLE_STRIKE) { 2 } else { 1 }
+    power(object).max(0)
+        * if has(object, KeywordSet::DOUBLE_STRIKE) {
+            2
+        } else {
+            1
+        }
 }
 
 fn creature(object: &PublicObject) -> String {
@@ -267,7 +273,13 @@ impl Reader {
         let floating = pool(view, seat);
         if floating > 0 && view.stack.is_empty() {
             self.wasted = true;
-            self.note("pool: passed with mana floating", view, floating, vec![], "");
+            self.note(
+                "pool: passed with mana floating",
+                view,
+                floating,
+                vec![],
+                "",
+            );
         }
         if view.active != seat
             || view.phase != Phase::SecondMain
@@ -310,7 +322,13 @@ impl Reader {
                 "",
             );
         } else if !quick.is_empty() {
-            self.note("M2 pass: only instants reachable", view, 0, named(&quick), "");
+            self.note(
+                "M2 pass: only instants reachable",
+                view,
+                0,
+                named(&quick),
+                "",
+            );
         }
         let abilities: Vec<String> = legal
             .abilities
@@ -343,9 +361,7 @@ impl Reader {
         };
         let walls: Vec<&PublicObject> = view
             .battlefield_of(foe)
-            .filter(|object| {
-                object.types.contains(TypeSet::CREATURE) && !object.status.is_tapped()
-            })
+            .filter(|object| object.types.contains(TypeSet::CREATURE) && !object.status.is_tapped())
             .collect();
         let swing: i32 = view
             .battlefield_of(foe)
@@ -433,7 +449,9 @@ impl Reader {
             .combat
             .attackers
             .iter()
-            .filter(|attacker| matches!(attacker.defending, Defender::Player(player) if player == seat))
+            .filter(
+                |attacker| matches!(attacker.defending, Defender::Player(player) if player == seat),
+            )
             .filter_map(|attacker| view.object(attacker.creature))
             .collect();
         let hp = life(view, seat);
@@ -486,8 +504,8 @@ impl Reader {
                 let kill = (hits(blocker) >= staying(attacker)
                     || has(blocker, KeywordSet::DEATHTOUCH))
                     && !has(attacker, KeywordSet::INDESTRUCTIBLE);
-                let safe = power(attacker) < staying(blocker)
-                    && !has(attacker, KeywordSet::DEATHTOUCH);
+                let safe =
+                    power(attacker) < staying(blocker) && !has(attacker, KeywordSet::DEATHTOUCH);
                 let pair = format!("{} on {}", creature(blocker), creature(attacker));
                 match (kill, safe) {
                     (true, true) => kills.push(pair),
@@ -573,7 +591,13 @@ impl Reader {
             (Pending::Priority { .. }, PlayerAction::CastSpell { card }) => {
                 let name = names.name(*card);
                 if !reading::worth_casting(view, *card) {
-                    self.note("cast: reads as doing nothing now", view, 1, vec![name.clone()], "");
+                    self.note(
+                        "cast: reads as doing nothing now",
+                        view,
+                        1,
+                        vec![name.clone()],
+                        "",
+                    );
                 }
                 let twin = view.battlefield_of(seat).any(|object| {
                     object.name == name && object.supertypes.contains(SupertypeSet::LEGENDARY)
@@ -590,9 +614,7 @@ impl Reader {
             ) => self.attack(view, attackers, declared),
             (
                 Pending::ChooseBlockers { blockers, .. },
-                PlayerAction::DeclareBlockers {
-                    blockers: declared,
-                },
+                PlayerAction::DeclareBlockers { blockers: declared },
             ) => self.block(view, blockers, declared),
             (Pending::Mulligan { .. }, action) => {
                 let lands = view
@@ -617,11 +639,17 @@ impl Reader {
                     .iter()
                     .filter(|card| !card.types.contains(TypeSet::LAND))
                     .collect();
-                let wanted = spells.iter().any(|card| {
-                    color.is_some_and(|color| card.colors.contains(color))
-                });
+                let wanted = spells
+                    .iter()
+                    .any(|card| color.is_some_and(|color| card.colors.contains(color)));
                 if !spells.is_empty() && !wanted {
-                    self.note("colour: none of the hand's spells wants it", view, 1, vec![], "");
+                    self.note(
+                        "colour: none of the hand's spells wants it",
+                        view,
+                        1,
+                        vec![],
+                        "",
+                    );
                 }
             }
             _ => {}

@@ -85,6 +85,7 @@ fn sample(
         temperature: 0.0,
         rng: &mut rng,
         active_source: None,
+        guard: &mut Default::default(),
     }
     .select(
         menu,

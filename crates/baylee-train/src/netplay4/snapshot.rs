@@ -52,6 +52,7 @@ impl NetPlayer4 {
             coverage,
             last_fallback,
             rule_refs_left_out,
+            choice_guard: _,
         } = self;
         PlayerSnapshot4 {
             teams: teams.clone(),

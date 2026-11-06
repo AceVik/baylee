@@ -1,5 +1,7 @@
 //! View-only tactical guards and color-aware mana selection for [`super::NetPlayer4`].
 
+pub mod guard;
+
 use baylee_cards_dsl::{
     AbilityDef, ActivationTiming, Amount, Condition, CostPart, CounterKind, Effect, Filter,
     ManaRestriction, ManaSource, PlayerRel, SearchDest, StepKind, TargetSpec, Trigger,
@@ -5092,7 +5094,12 @@ pub mod reading {
         legal
             .castable
             .iter()
-            .chain(legal.payable.iter().filter(|id| !legal.castable.contains(id)))
+            .chain(
+                legal
+                    .payable
+                    .iter()
+                    .filter(|id| !legal.castable.contains(id)),
+            )
             .copied()
             .filter(|&id| {
                 legal.castable.contains(&id)
