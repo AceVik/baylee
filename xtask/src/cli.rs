@@ -16,12 +16,16 @@ pub(crate) enum Cmd {
     Codegen {
         /// Return only named implemented cards to generator ownership after a full read.
         /// Uses cached pinned printings and accepted canonical tests; never downloads.
-        #[arg(long, conflicts_with_all = ["complete_stub", "hold_back", "hold_back_file", "hold_back_reason", "adopt_stub", "tables", "subtypes"])]
+        #[arg(long, conflicts_with_all = ["complete_stub", "promote_generated", "hold_back", "hold_back_file", "hold_back_reason", "adopt_stub", "tables", "subtypes"])]
         reclaim: Vec<String>,
         /// Complete only named existing machine-owned stubs after a full local read.
         /// Preserves pinned identities; Generated unless canonical tests are accepted.
-        #[arg(long, conflicts_with_all = ["reclaim", "hold_back", "hold_back_file", "hold_back_reason", "adopt_stub", "tables", "subtypes"])]
+        #[arg(long, conflicts_with_all = ["reclaim", "promote_generated", "hold_back", "hold_back_file", "hold_back_reason", "adopt_stub", "tables", "subtypes"])]
         complete_stub: Vec<String>,
+        /// Promote only named fully read Generated cards with accepted canonical tests.
+        /// Rewrites just those cards through the readers; never downloads or writes tables.
+        #[arg(long, conflicts_with_all = ["reclaim", "complete_stub", "hold_back", "hold_back_file", "hold_back_reason", "adopt_stub", "tables", "subtypes"])]
+        promote_generated: Vec<String>,
         /// Restore only these reviewed, hand-owned cards to canonical stubs.
         /// Repeat for multiple names; requires a concrete review reason.
         #[arg(long, conflicts_with_all = ["adopt_stub", "tables", "subtypes"], requires = "hold_back_reason")]
@@ -67,7 +71,7 @@ pub(crate) enum Cmd {
         /// Reconcile card placement, the module list and the registry without
         /// rewriting any card implementation. Uses cached printings and needs
         /// no card-script reference. Run before `--tables` for a new hand-owned card.
-        #[arg(long, conflicts_with_all = ["reclaim", "complete_stub", "hold_back", "hold_back_file", "hold_back_reason", "adopt_stub", "tables", "subtypes"])]
+        #[arg(long, conflicts_with_all = ["reclaim", "complete_stub", "promote_generated", "hold_back", "hold_back_file", "hold_back_reason", "adopt_stub", "tables", "subtypes"])]
         registry: bool,
         /// Path to the card-script reference cardsfolder.
         #[arg(long, default_value = "../mtg/card-scripts")]
