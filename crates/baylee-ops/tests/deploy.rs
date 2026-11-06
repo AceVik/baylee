@@ -12,6 +12,8 @@ use std::path::{Path, PathBuf};
 
 #[path = "support/native_command.rs"]
 mod native_command;
+#[path = "support/profile_stubs.rs"]
+mod profile_stubs;
 
 /// A stand-in command that appends its name and arguments to `calls` and
 /// then runs `body`.
@@ -205,6 +207,18 @@ fn stage_files(root: &Path) {
 /// [`stage_in`] where sudo refuses to run `refused` (a sudoers rule that
 /// does not allow it).
 fn stage_refusing(server: Server, etc: Option<&Path>, refused: &str) -> (PathBuf, String, String) {
+    let (out, root, ran) = stage_run(server, etc, refused, false);
+    assert_stage_success(&out);
+    (root, ran, String::from_utf8_lossy(&out.stdout).into_owned())
+}
+
+/// Runs `stage` and answers how it ended and what it ran.
+fn stage_run(
+    server: Server,
+    etc: Option<&Path>,
+    refused: &str,
+    profile_fails: bool,
+) -> (std::process::Output, PathBuf, String) {
     // Tests run at once, some with the same arguments: each run its own tree.
     static RUN: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
     let Server {
@@ -230,7 +244,8 @@ fn stage_refusing(server: Server, etc: Option<&Path>, refused: &str) -> (PathBuf
         "git",
         r#"[ "$1" = rev-parse ] && echo 0123456789abcdef0123; exit 0"#,
     );
-    stub(&stubs, "cargo", "echo built");
+    stub(&stubs, "cargo", profile_stubs::CARGO);
+    profile_stubs::install(&stubs, stub);
     stub(
         &stubs,
         "npm",
@@ -268,10 +283,14 @@ fn stage_refusing(server: Server, etc: Option<&Path>, refused: &str) -> (PathBuf
     .unwrap();
     command.env("BAYLEE_DEPLOY_ETC", etc.unwrap_or(&no_etc));
     command.env("SUDO_REFUSES", refused);
+    if profile_fails {
+        command.env("PROFILE_FAILS", "1");
+    }
     let out = command
         .args(["stage", "0123456789abcdef0123"])
         .env("BAYLEE_DEPLOY_ROOT", &root)
         .env("CARGO", stubs.join("cargo"))
+        .env("RUSTC", stubs.join("rustc"))
         .env("NPM", &npm_path)
         .env("TRUNK", &trunk_path)
         .env("RUSTUP", stubs.join("rustup"))
@@ -292,10 +311,9 @@ fn stage_refusing(server: Server, etc: Option<&Path>, refused: &str) -> (PathBuf
         )
         .output()
         .expect("baylee-deploy runs");
-    assert_stage_success(&out);
     let ran = std::fs::read_to_string(&calls).unwrap_or_default();
     let _ = std::fs::remove_dir_all(&scratch);
-    (root, ran, String::from_utf8_lossy(&out.stdout).into_owned())
+    (out, root, ran)
 }
 
 fn assert_stage_success(out: &std::process::Output) {
@@ -410,6 +428,58 @@ fn without_the_browser_toolchain_or_with_a_failed_build_the_backend_still_deploy
             "{server:?}:\n{ran}"
         );
     }
+}
+
+/// The engine server is built from a profile of the commit being deployed, as
+/// a step of its own after the plain build, and needs the toolchain's tool.
+#[test]
+fn stage_profiles_the_engine_server_from_this_commit() {
+    let (_, ran) = stage(false, Npm::Builds);
+    assert!(ran.contains("rustup component add llvm-tools"), "{ran}");
+    let builds: Vec<&str> = ran
+        .lines()
+        .filter(|l| l.starts_with("cargo build"))
+        .collect();
+    assert!(
+        builds.len() >= 4,
+        "plain, instrumented, profiled, proof:\n{ran}"
+    );
+    assert!(builds[0].contains("-p baylee-gateway"), "{ran}");
+    assert!(
+        builds
+            .iter()
+            .any(|b| b.contains("--bin baylee-engine-server")),
+        "{ran}"
+    );
+    assert!(ran.contains("llvm-profdata merge"), "{ran}");
+}
+
+/// A release never goes out unprofiled by accident: a profile step that fails
+/// stops the deploy before anything is staged or installed.
+#[test]
+fn a_failed_profile_stops_the_deploy_before_anything_is_staged() {
+    let server = Server {
+        feedback_installed: false,
+        npm: Npm::Builds,
+        trunk: Trunk::Absent,
+        wasm_target: false,
+        game_running: false,
+    };
+    let (out, _, ran) = stage_run(server, None, "", true);
+    assert!(!out.status.success(), "stage went on:\n{ran}");
+    assert!(
+        String::from_utf8_lossy(&out.stdout).contains("the profile-guided build stopped"),
+        "{}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+    assert!(
+        !ran.lines().any(|l| l.starts_with("sudo install")),
+        "something was installed:\n{ran}"
+    );
+    assert!(
+        !ran.contains("systemctl restart"),
+        "something was restarted:\n{ran}"
+    );
 }
 
 #[test]

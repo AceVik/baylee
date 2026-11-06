@@ -720,9 +720,71 @@ The server builds each release itself, as the deploy user, in its checkout
   agent reach it through `baylee-client-core`. CI installs the same package
   in `.github/actions/linux-deps`, beside the client's audio, udev and
   Wayland headers, which the server does not need.
+- The toolchain component `llvm-tools`, for the profile-guided engine server
+  (§"Profile-guided builds"). `baylee-deploy stage` adds it itself with `rustup
+  component add llvm-tools`, so the machine needs to reach the network for it once.
 - For the experimental browser client at `/play` (coming soon): `trunk` (0.21.14) and the
   `wasm32-unknown-unknown` target. Without them the installed client stays.
 - For the feedback service's UI: `npm`. Without it the installed UI stays.
 
 A build that fails shows its first error, and for the first two causes
 one sentence on what to do.
+
+## Profile-guided builds
+
+The owner decided on 6.11.2026 that what ships is built from a profile where that
+pays. A profile is made from the commit it is used for, in the pipeline that builds
+that commit, and no build is used unless it plays what the generic build plays.
+`baylee_pgo` holds the steps, each of which stops the build when it fails:
+instrument `engine_perf` (`crates/baylee-perf`), play the fixed games with it, merge
+the counts, build what ships beside `engine_perf` in one `cargo` run, check from the
+compiler's own report that the counts were found, build `engine_perf` plainly, and
+compare their `--verify` output byte for byte, state hashes included. There is no
+fallback to an unprofiled binary.
+
+The compiler's report is what catches a profile that took no effect. That still
+plays the same games, so `--verify` passes it, and it is an unprofiled build under
+another name. It happened: the instrumented build first selected only `baylee-perf`,
+the profiled one `baylee-engine-server` as well, and that changed unified features,
+crate hashes and so every mangled name, so the counts matched nothing. It measured
+3 to 6 % where the same steps with the same selection gain about 30 %. The check
+counts the functions rustc found no counts for (`-pgo-warn-missing-function`) against
+the profile's own total and stops above 25 %, so it depends on neither the machine
+nor its load, and a busy runner cannot stop a good release. Its failure names both
+figures. Measured: a working profile leaves 1 518 of 14 978 without counts (10 %), a
+differing selection 14 156 (95 %).
+
+Those 1 518 are all in `baylee-engine-server`'s own crate: `engine_perf` plays through
+the engine, gamehost and house AI, which is where the time goes, and does not run the
+server's transport, so that code stays as a plain build makes it.
+
+Every profiled build starts from empty target directories. The flag reaches rustc
+past cargo, so a crate no commit touched would otherwise keep the code an earlier
+commit's profile made.
+
+What it adds to a deploy, on the Ryzen 9 3900X with twelve jobs and a warm plain
+build: 6 minutes (two cold builds of the engine's crates, then the proof).
+
+| What | Built | Profile |
+| --- | --- | --- |
+| Engine server | `baylee-deploy stage`, on the server | yes |
+| Gateway | as before | none: it links no engine, so the games teach it nothing. A profile of its own would need a load that stands for live traffic, and a database to run it against, on the machine that is deploying |
+| Agent | as before | none, for the same reason, and it supervises processes rather than computing |
+| Seat bridge, seat agent, catalog, feedback, deploy tools | as before | none: not in the owner's list, and off the games' hot path |
+| Client | `client-packages.yml` | not yet: the engine's games say nothing about rendering, so its profile has to come from a real session, measured per target |
+
+The flags reach workspace crates alone, through `RUSTC_WORKSPACE_WRAPPER`: cargo
+starts `baylee-deploy` (or `cargo tools`) in rustc's place, and it adds the one flag.
+`RUSTFLAGS` would rebuild every dependency, and a client's dependencies are most of
+its build. Gates and everyday builds set neither, so they stay as they are.
+
+`engine_perf` is a bin of its own crate and not an example because it is built in
+the same `cargo` run as what ships, so that the two share their features, and an
+example would bring its crate's dev-dependencies in, among them `simulation`, which
+`cargo dev gate shipped-features` keeps out of a hosting build.
+
+A deployer picks this up one deploy late: the running `baylee-deploy` is what stages,
+so the deploy that first installs this code still builds a plain engine server.
+
+`cargo tools pgo engine-server` runs the same steps by hand on a checkout;
+`LLVM_PROFDATA` names the tool where the toolchain has no `llvm-tools`.

@@ -50,6 +50,7 @@ baylee-engine-server = { path = "crates/baylee-engine-server" }
 baylee-agent = { path = "crates/baylee-agent" }
 baylee-catalog = { path = "crates/baylee-catalog" }
 baylee-build = { path = "crates/baylee-build" }
+baylee-pgo = { path = "crates/baylee-pgo" }
 baylee-db = { path = "crates/baylee-db" }
 baylee-feedback = { path = "crates/baylee-feedback" }
 baylee-update = { path = "crates/baylee-update" }

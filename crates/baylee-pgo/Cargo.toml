@@ -1,0 +1,17 @@
+[package]
+name = "baylee-pgo"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+description = "A profile-guided build as a release makes one: train, build, and prove it plays the games the generic build plays"
+
+[lints]
+workspace = true
+
+# None, on purpose: a deploy builds this before anything else.
+[dependencies]
+
+[dev-dependencies]
+tempfile.workspace = true

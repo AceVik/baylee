@@ -15,6 +15,7 @@ workspace = true
 # operator would type (git, cargo, sudo, systemctl, curl), so its tests stand
 # those in on PATH; it reads the gateway's JSON itself.
 [dependencies]
+baylee-pgo.workspace = true
 getrandom.workspace = true
 serde_json.workspace = true
 

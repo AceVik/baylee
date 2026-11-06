@@ -4,6 +4,7 @@ mod forge;
 mod hooks;
 mod installers;
 mod package;
+mod pgo;
 mod recording;
 mod release;
 mod shell;
@@ -79,6 +80,12 @@ enum Command {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
+    /// Build from a profile of this checkout and prove it plays the same games.
+    #[command(disable_help_flag = true)]
+    Pgo {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
 }
 
 fn checkout(start: &Path) -> Option<PathBuf> {
@@ -92,6 +99,10 @@ fn checkout(start: &Path) -> Option<PathBuf> {
 }
 
 fn main() -> anyhow::Result<()> {
+    // `cargo` starts this in rustc's place during a profile-guided build.
+    if let Some(code) = baylee_pgo::wrap_rustc() {
+        std::process::exit(code);
+    }
     let cli = Cli::parse();
     let root = cli
         .root
@@ -114,6 +125,7 @@ fn main() -> anyhow::Result<()> {
         Command::Forge { args } => forge::run(root, &args),
         Command::Art { args } => art::run(root, &args),
         Command::Hooks { args } => hooks::run(root, &args),
+        Command::Pgo { args } => pgo::run(root, &args),
     };
     if let Err(error) = &result
         && let Some(cli_error) = error.downcast_ref::<clap::Error>()

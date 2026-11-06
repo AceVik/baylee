@@ -12,6 +12,9 @@
 use std::os::unix::fs::PermissionsExt as _;
 use std::path::{Path, PathBuf};
 
+#[path = "../support/profile_stubs.rs"]
+mod profile_stubs;
+
 /// The release a test deploys, and the one after it.
 pub const A: &str = "aaaaaaaaaa0123456789aaaaaaaaaa0123456789";
 pub const B: &str = "bbbbbbbbbb0123456789bbbbbbbbbb0123456789";
@@ -202,7 +205,8 @@ exit 0"#,
             ),
         );
         self.write_catalog_stubs();
-        stub(stubs, "cargo", "echo built");
+        stub(stubs, "cargo", profile_stubs::CARGO);
+        profile_stubs::install(stubs, stub);
 
         stub(
             stubs,
@@ -369,6 +373,7 @@ exec "$@""#,
             .env("BAYLEE_DEPLOY_TRUSTED_UID", rustix_free_euid().to_string())
             .env("BAYLEE_DEPLOY_INFO_TRIES", "2")
             .env("CARGO", self.stubs.join("cargo"))
+            .env("RUSTC", self.stubs.join("rustc"))
             .env("NPM", self.scratch.join("no-such-npm"))
             .env("TRUNK", self.scratch.join("no-such-trunk"))
             .env("RUSTUP", self.stubs.join("rustup"))
