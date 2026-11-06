@@ -2140,8 +2140,17 @@ and a source's projected name is what is compared, so a copy answers to the
 name it copies. A mana ability, a special action
 (`choice::is_special_action`: `TURN_FACE_UP` and the two unlock slots) and
 `PREPARED_CAST` stay.
-Nothing projected reads the name, so choosing one invalidates no projection;
-the name is cleared as its permanent leaves the battlefield (CR 400.7).
+The name is cleared as its permanent leaves the battlefield (CR 400.7).
+
+A cast prohibition by name uses the same remembered rider but a different
+lock. `EnterModifier::ChooseCardNameExcept(types)` publishes the existing
+`Pending::ChooseCardName` with `excluded_types`; the ordinary name-action
+validation accepts only a printed face without those types. Meddling Mage
+combines that with `PlayersCantCast { who: EachPlayer, filter: NamedBySource }`.
+`casting::cast_is_forbidden` checks both the offer and the direct action, so
+neither player can cast the named spell while differently named spells and
+land plays remain legal. Choosing a name invalidates projections, and the
+rider participates in object versioning and the state hash.
 
 **A Room's doors are designations on the permanent** (CR 709.5c,
 `GameObject::doors`, one byte: a Room bit and the two unlocked halves). They

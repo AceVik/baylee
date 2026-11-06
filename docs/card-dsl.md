@@ -1157,6 +1157,9 @@ cycle, the Gates — answer stored on `obj.chosen_color` and read back by
 `ManaSource::Chosen`), `ChooseCardName` (Pithing Needle — any face of any
 card of the pool, CR 201.4; answer stored on `obj.chosen_name` as the card
 and face it names, and read back by `Modifier::ChosenNameCantActivate`),
+`ChooseCardNameExcept(types)` (Meddling Mage — the same entry question and
+remembered answer, restricted to printed faces with none of the excluded
+types; `TypeSet::LAND` expresses "nonland card name"),
 `Prepared` (Emeritus of Woe),
 `TappedUnlessReveal(filter)` and
 `WithCounters { kind, amount }`.
@@ -2061,6 +2064,12 @@ as well (cycling), a loyalty ability included, and spares a mana ability
 (CR 605.1a), turning a permanent face up and a prepared cast. A name chosen
 by a *trigger* ("when this land enters, choose a land card name", Petrified
 Hamlet) has no DSL yet.
+
+Meddling Mage instead pairs `EnterModifier::ChooseCardNameExcept(TypeSet::LAND)`
+with `static_ability!(Filter::Any, Modifier::PlayersCantCast { who:
+PlayerRel::EachPlayer, filter: &Filter::NamedBySource })`. This is a cast
+prohibition, not `PlayersCantPlay`: it stops the named spell for its controller
+and every opponent, but neither a land play nor a differently named spell.
 
 `AnimateNoncreatureArtifact` implements Animate Artifact's conditional animation.
 Write it with `Filter::AttachedToBySource`. The effect checks for a noncreature

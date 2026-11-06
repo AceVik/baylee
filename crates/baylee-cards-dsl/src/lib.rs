@@ -755,6 +755,10 @@ pub enum EnterModifier {
     /// as the card and face it was read off, and
     /// [`crate::Modifier::ChosenNameCantActivate`] reads it back.
     ChooseCardName,
+    /// As this enters, choose a card name whose printed face has none of
+    /// these types (Meddling Mage's "nonland card name"). The answer is
+    /// remembered exactly as [`Self::ChooseCardName`] remembers it.
+    ChooseCardNameExcept(TypeSet),
     /// "As this enters, choose a card type" (Serra's Emissary, CR 205.2a).
     /// The answer belongs to this permanent and is read by
     /// [`crate::Filter::OfSourceChosenCardType`].

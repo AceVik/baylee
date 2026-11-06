@@ -290,6 +290,31 @@ fn a_needle_names_the_opponents_permanent_it_would_stop() {
     );
 }
 
+/// A restricted naming question must be answered within its own bounds,
+/// rather than by the unrestricted Pithing Needle heuristic.
+#[test]
+fn a_nonland_name_choice_never_names_a_land() {
+    let v = view(0, &[20, 20], vec![]);
+    let PlayerAction::ChooseCardName { card, face } = HeuristicAgent::new(AIProfile::EXPERT).act(
+        &v,
+        &Pending::ChooseCardName {
+            player: v.seat,
+            types: TypeSet::EMPTY,
+            excluded_types: TypeSet::LAND,
+        },
+    ) else {
+        panic!("a nonland name choice is answered with a card name");
+    };
+    let printed = baylee_cards::by_index(card)
+        .and_then(|def| def.faces.get(usize::from(face)))
+        .expect("the agent names a printed face of a pool card");
+    assert!(
+        !printed.types.intersects(TypeSet::LAND),
+        "{} is not a land card name",
+        printed.name
+    );
+}
+
 #[test]
 fn third_iteration_jace_bounces_a_threat_instead_of_blindly_ticking_up() {
     let jace = carded(
