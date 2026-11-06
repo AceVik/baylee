@@ -255,6 +255,7 @@ mod nalathni_dragon;
 mod nameless_race;
 mod nantuko_calmer;
 mod nantuko_disciple;
+mod nantuko_vigilante;
 mod nettletooth_djinn;
 mod nightscape_master;
 mod nightshade_seer;

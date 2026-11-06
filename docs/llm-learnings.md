@@ -6925,3 +6925,20 @@ code.
   test build, `require-card-tests` and formatting checks pass. `validate`
   accepts 12,543 cards (11,157 finished, 1,386 stubs). The full gates remain
   deferred at the owner's request.
+
+## 2026-11-06 — Nantuko Vigilante's face-up destruction trigger
+
+- Nantuko Vigilante composes the existing face-level `morph` cost,
+  `Trigger::TurnedFaceUp`, `Effect::Destroy` and
+  `Filter::ARTIFACT_OR_ENCHANTMENT`; it needs no engine, reader, desktop or
+  seat addition. `TargetReq::one` keeps the destruction mandatory and permits
+  either player's artifacts and enchantments, never an arbitrary permanent.
+- Four played tests cover the face-down 2/2 and face-up 3/2 characteristics,
+  exact morph payment, the special action versus the stacked trigger, both
+  target types, illegal creature targets, no legal target, and a target removed
+  before resolution without a substitute. A fixture with extra mana sources
+  must assert the mana delta across morph rather than an empty remaining pool.
+- All 367 house-AI tests, the full seat suite, 151 desktop interaction tests,
+  `record::seen`, affected Clippy, the desktop test build, `require-card-tests`
+  and formatting checks pass. `validate` accepts 12,543 cards (11,158 finished,
+  1,385 stubs). The full gates remain deferred at the owner's request.
