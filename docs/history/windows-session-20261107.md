@@ -20,6 +20,13 @@ Fix it, with a test where one is possible.
 and for `baylee_client` alone. Whether the profile applies from another checkout path is measured on
 the Mac; read that first. Keep `merged.profdata`, and say where it is.
 
+Before the run: `rustup component add llvm-tools`, check `/monitors` and set `BAYLEE_E2E_MONITOR`.
+The profile lands in `target/pgo-profiles/client/merged.profdata`. Untested on Windows: the whole run,
+leaving through the idle exit and writing the `.profraw`, `dist` with a profile on MSVC, the scenes.
+The friends scene clicks the search field at a fixed spot (`window.w - 170`, y 133): check it hits
+the field on this layout. The shipped build has no harness, so to compare, build `--release` with
+`dev-control` plain and once with the profile applied through `RUSTFLAGS`.
+
 Measure plain against profiled, alternating: frame time in the lobby, a duel, a full board, and an
 offline game's CPU time, with the spread.
 
