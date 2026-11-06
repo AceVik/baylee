@@ -860,8 +860,9 @@ fn note(commands: &mut Commands, fonts: &UiFonts, text: &str, look: Register) ->
     let line = commands
         .spawn((
             Node {
+                width: percent(100),
                 flex_direction: FlexDirection::Row,
-                align_items: AlignItems::Center,
+                align_items: AlignItems::FlexStart,
                 column_gap: px(GAP),
                 ..default()
             },
@@ -877,6 +878,13 @@ fn note(commands: &mut Commands, fonts: &UiFonts, text: &str, look: Register) ->
         ))
         .id();
     let words = label(commands, fonts, text, LABEL, look.soft);
+    // A sentence wraps at the panel's edge, in any language.
+    commands.entity(words).insert(Node {
+        flex_grow: 1.0,
+        flex_basis: px(0),
+        min_width: px(0),
+        ..default()
+    });
     commands.entity(line).add_children(&[mark, words]);
     line
 }
