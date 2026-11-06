@@ -6942,3 +6942,25 @@ code.
   `record::seen`, affected Clippy, the desktop test build, `require-card-tests`
   and formatting checks pass. `validate` accepts 12,543 cards (11,158 finished,
   1,385 stubs). The full gates remain deferred at the owner's request.
+
+
+## 2026-11-06 — Meddling Mage's restricted entry name
+
+- `EnterModifier::ChooseCardNameExcept(TypeSet::LAND)` reuses the existing
+  `Pending::ChooseCardName`, answer validation, remembered rider and desktop,
+  seat and LLM presentation. `PlayersCantCast { who: EachPlayer, filter:
+  NamedBySource }` supplies the second sentence without a new modifier. The
+  unrestricted Pithing Needle path remains unchanged; no reader was taught a
+  sentence it cannot safely recognize.
+- Two played tests cover nonland-only naming, invalid faces and respondents,
+  the stored choice, the offer and direct-cast prohibition for both players,
+  differently named spells, a real land play, and forgetting and rechoosing
+  after a zone change. The house's separate nonland-answer test guards its
+  existing filter. Fixtures must leave mana for each differently named control
+  spell after paying for the Mage, or a true prohibition is indistinguishable
+  from an unpayable spell.
+- Both card tests, 13 Needle-related engine tests, all 368 house-AI tests, the
+  full seat suite, 151 desktop interaction tests, `record::seen`, affected
+  Clippy, the desktop test build, `require-card-tests` and formatting checks
+  pass. `validate` accepts 12,543 cards (11,159 finished, 1,384 stubs). The
+  full gates remain deferred at the owner's request.
