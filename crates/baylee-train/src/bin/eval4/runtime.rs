@@ -39,8 +39,8 @@ trait EvaluationPlayer {
         false
     }
     /// Answers `--choice-guard` changed since this was last asked, by arm.
-    fn take_choice_guard_fired(&mut self) -> [u64; 4] {
-        [0; 4]
+    fn take_choice_guard_fired(&mut self) -> [u64; 5] {
+        [0; 5]
     }
     /// Answers with a lookahead over `table` (`--search`); `None` when this
     /// player cannot search.
@@ -88,7 +88,7 @@ impl EvaluationPlayer for NetPlayer4 {
         Self::set_choice_guard(self, guard);
         true
     }
-    fn take_choice_guard_fired(&mut self) -> [u64; 4] {
+    fn take_choice_guard_fired(&mut self) -> [u64; 5] {
         Self::take_choice_guard_fired(self)
     }
     fn policy_encoding(

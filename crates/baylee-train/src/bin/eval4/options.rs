@@ -51,7 +51,7 @@ struct Args {
     #[arg(long, default_value = "steady")]
     against: String,
     /// Dev-only ceilings (`netplay4::tactics::guard`), comma separated: `cast`,
-    /// `tap`, `spend`, `mulligan`, `tactical`. `off` is none. Takes a value so
+    /// `tap`, `spend`, `mulligan`, `react`, `tactical`. `off` is none. Takes a value so
     /// that `paired_eval4` can read the command. Never for training.
     #[arg(long, default_value = "off")]
     choice_guard: String,
@@ -346,6 +346,7 @@ fn parse_choice_guard(text: &str) -> anyhow::Result<Option<ChoiceGuard4>> {
             "tap" => guard.enable(GuardArm::Tap),
             "spend" => guard.enable(GuardArm::Spend),
             "mulligan" => guard.enable(GuardArm::Mulligan),
+            "react" => guard.enable(GuardArm::React),
             "tactical" => {
                 guard.tactical = baylee_train::netplay4::TacticalParts {
                     priority: true,

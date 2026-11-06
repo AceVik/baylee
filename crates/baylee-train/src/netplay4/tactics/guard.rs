@@ -8,11 +8,12 @@
 use baylee_core::ids::ObjectId;
 use baylee_core::types::TypeSet;
 use baylee_engine::choice::{LegalActions, Pending, PlayerAction};
-use baylee_view::{Phase, PlayerView};
+use baylee_view::{Phase, PlayerView, Step};
 
 use super::{
-    has_reachable_mana_sink, is_mana_action, is_spell_worth_casting_now_inner,
-    is_x_spell_ready_from_castable, reading, redirect_mana_source_for_colors,
+    AbilityDef, has_reachable_mana_sink, is_counterspell_effects, is_mana_action,
+    is_spell_worth_casting_now_inner, is_x_spell_ready_from_castable, lookup_card_identity,
+    reading, redirect_mana_source_for_colors,
 };
 use crate::features4::EncodedCandidates4;
 
@@ -28,9 +29,13 @@ pub enum GuardArm {
     Spend,
     /// A first seven of 0, 1, 6 or 7 lands goes back.
     Mulligan,
+    /// On the other seat's turn a usable instant stops being held: a
+    /// counterspell answers their spell, anything else goes when they attack
+    /// or at their end step.
+    React,
 }
 
-const ARMS: usize = 4;
+const ARMS: usize = 5;
 
 /// Which heads answer as `PolicyMode4::Tactical` does.
 #[derive(Clone, Copy, Debug, Default)]
@@ -72,7 +77,7 @@ impl ChoiceGuard4 {
     }
 
     /// Answers changed since this was last asked, by arm: cast, tap, spend,
-    /// mulligan.
+    /// mulligan, react.
     pub const fn take_fired(&mut self) -> [u64; ARMS] {
         let fired = self.fired;
         self.fired = [0; ARMS];
@@ -147,6 +152,64 @@ fn spend(
     })
 }
 
+/// `React`: what a pass on the other seat's turn is turned to.
+fn react(
+    cands: &EncodedCandidates4,
+    logits: &[f32],
+    view: &PlayerView,
+    legal: &LegalActions,
+) -> Option<usize> {
+    let actor = view.decision_player.unwrap_or(view.seat);
+    if view.active == actor || view.owed.is_some() {
+        return None;
+    }
+    let theirs_on_stack =
+        !view.stack.is_empty() && view.stack.iter().all(|item| item.controller != actor);
+    let their_attack = view.step == Step::DeclareAttackers && view.combat.is_active();
+    let quiet = view.stack.is_empty() && (their_attack || view.step == Step::End);
+    if !theirs_on_stack && !quiet {
+        return None;
+    }
+    let instant = |id: ObjectId| {
+        view.hand
+            .iter()
+            .any(|card| card.id == id && card.types.contains(TypeSet::INSTANT))
+    };
+    let counters = |id: ObjectId| {
+        lookup_card_identity(view, id)
+            .and_then(|identity| {
+                baylee_cards::by_index(identity.index).map(|def| {
+                    def.abilities_for_face(usize::from(identity.face))
+                        .iter()
+                        .any(|ability| {
+                            matches!(ability, AbilityDef::Spell { effects, .. }
+                                if is_counterspell_effects(effects))
+                        })
+                })
+            })
+            .unwrap_or(false)
+    };
+    let spells: Vec<ObjectId> = reading::reachable_spells(view, legal)
+        .into_iter()
+        .filter(|id| instant(*id) && is_spell_worth_casting_now_inner(view, *id))
+        .filter(|id| counters(*id) == theirs_on_stack)
+        .collect();
+    if spells.is_empty() {
+        return None;
+    }
+    let pool = view
+        .seat(actor)
+        .map_or(0, |seat| u32::try_from(seat.mana_pool.total()).unwrap_or(0));
+    let cast = best(cands, logits, |action| {
+        matches!(action, PlayerAction::CastSpell { card }
+            if spells.contains(card) && is_x_spell_ready_from_castable(view, *card, pool))
+    });
+    cast.or_else(|| {
+        best(cands, logits, |action| is_mana_action(view, action))
+            .map(|tap| redirect_mana_source_for_colors(cands, logits, view, legal, tap))
+    })
+}
+
 /// The answer the guard's arms leave of the net's `chosen`.
 pub(in crate::netplay4) fn review(
     guard: &mut ChoiceGuard4,
@@ -172,6 +235,13 @@ pub(in crate::netplay4) fn review(
                 && let Some(better) = spend(cands, logits, view, legal)
             {
                 guard.count(GuardArm::Spend);
+                return better;
+            }
+            if guard.on(GuardArm::React)
+                && matches!(action, PlayerAction::PassPriority)
+                && let Some(better) = react(cands, logits, view, legal)
+            {
+                guard.count(GuardArm::React);
                 return better;
             }
             if refused(action) {

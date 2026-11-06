@@ -238,6 +238,8 @@ struct Reader {
     seat: PlayerId,
     deal: u64,
     lost: bool,
+    /// A pass on the other turn with a usable instant has been noted.
+    offered_their_turn: bool,
     /// Mana floated and lost, or tapped with no sink, this own turn.
     wasted: bool,
     survey: Survey,
@@ -270,6 +272,23 @@ impl Reader {
 
     fn pass(&mut self, view: &PlayerView, legal: &LegalActions, names: &Names) {
         let seat = self.seat;
+        if view.active != seat && !self.offered_their_turn {
+            let worth: Vec<String> = reading::reachable_spells(view, legal)
+                .into_iter()
+                .filter(|id| reading::worth_casting(view, *id))
+                .map(|id| names.name(id))
+                .collect();
+            if !worth.is_empty() {
+                self.offered_their_turn = true;
+                self.note(
+                    "their turn: passed with a worth instant reachable",
+                    view,
+                    1,
+                    worth,
+                    "",
+                );
+            }
+        }
         let floating = pool(view, seat);
         if floating > 0 && view.stack.is_empty() {
             self.wasted = true;
@@ -590,6 +609,21 @@ impl Reader {
             }
             (Pending::Priority { .. }, PlayerAction::CastSpell { card }) => {
                 let name = names.name(*card);
+                let when = match (view.active == seat, view.phase) {
+                    (true, Phase::FirstMain | Phase::SecondMain) => "own main",
+                    (true, _) => "own other",
+                    (false, _) => "their turn",
+                };
+                let quick = view
+                    .hand
+                    .iter()
+                    .any(|hand| hand.id == *card && hand.types.contains(TypeSet::INSTANT));
+                let what = if quick { "instant" } else { "not instant" };
+                *self
+                    .survey
+                    .kinds
+                    .entry(format!("cast timing / {when} / {what}"))
+                    .or_default() += 1;
                 if !reading::worth_casting(view, *card) {
                     self.note(
                         "cast: reads as doing nothing now",
@@ -707,6 +741,7 @@ fn game(run: &Path, deal: u64) -> anyhow::Result<Survey> {
         seat,
         deal,
         lost: !won,
+        offered_their_turn: false,
         wasted: false,
         survey: Survey {
             games: 1,
@@ -719,6 +754,7 @@ fn game(run: &Path, deal: u64) -> anyhow::Result<Survey> {
             Event::Turn { views, .. } => {
                 let view = &views[usize::from(seat.get())];
                 reader.survey.turns += 1;
+                reader.offered_their_turn = false;
                 if view.active == seat {
                     reader.survey.own_turns += 1;
                     reader.wasted = false;
