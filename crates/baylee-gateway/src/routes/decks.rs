@@ -374,6 +374,7 @@ pub(crate) struct DeckCreated {
 /// @insert `SessionRefusals`
 /// @return 400: `$ErrorBody` "The deck is refused: its name, a card line, a commander or the deck's size (the error names it)"
 /// @return 403: `$ErrorBody` "A sleeve or playmat the account did not upload (`that picture is not yours`); or the account is banned (`ban`) or must accept the terms in force first (`terms_required`)"
+/// @return 409: `$ErrorBody` "The account keeps 1000 decks already"
 /// @return 415: String text/plain "The body is not sent as `application/json` (axum's rejection)"
 /// @return 422: String text/plain "The body is not a deck (axum's rejection)"
 /// @return 500: `$ErrorBody` "The account was deleted while the deck was saved"
@@ -384,6 +385,7 @@ pub(crate) async fn create_deck(
 ) -> Result<Json<DeckCreated>, (StatusCode, Json<ErrorBody>)> {
     let account_id = authed(&state, &headers).await?;
     validate_deck(&body)?;
+    super::room_for_a_deck(&state, &account_id).await?;
     check_pictures(&state, &account_id, &body).await?;
     let commanders = body.commander_names();
     let format = body
@@ -926,6 +928,7 @@ pub(crate) struct DeckReverted {
 /// @path-param id: String "The id of the deck to copy"
 /// @return 403: `$ErrorBody` "Another account's deck; or the account is banned (`ban`) or must accept the terms in force first (`terms_required`)"
 /// @return 404: `$ErrorBody` "No such deck"
+/// @return 409: `$ErrorBody` "The account keeps 1000 decks already"
 /// @return 410: `$ErrorBody` "A preconstructed deck this build no longer offers"
 /// @return 500: `$ErrorBody` "The account was deleted while the copy was made"
 pub(crate) async fn copy_deck(
@@ -935,6 +938,7 @@ pub(crate) async fn copy_deck(
 ) -> Result<Json<DeckCreated>, (StatusCode, Json<ErrorBody>)> {
     let account_id = authed(&state, &headers).await?;
     let source = readable_deck(&state, &id, &account_id).await?;
+    super::room_for_a_deck(&state, &account_id).await?;
     // A withdrawn precon stays readable, so the copies taken of it can still
     // say what they came from, but it is no longer something to start from:
     // this build does not play every card in it.

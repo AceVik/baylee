@@ -476,6 +476,21 @@ pub async fn guest_count(db: &DatabaseConnection) -> Result<u64> {
         .await?)
 }
 
+/// How many decks `account_id` keeps.
+///
+/// # Errors
+///
+/// If the database refuses.
+pub async fn deck_count(db: &DatabaseConnection, account_id: &str) -> Result<u64> {
+    let Some(account) = uuid(account_id) else {
+        return Ok(0);
+    };
+    Ok(Decks::find()
+        .filter(deck::Column::AccountId.eq(account))
+        .count(db)
+        .await?)
+}
+
 /// What deleting accounts took (#292): the accounts, spelled as the lobby
 /// and the sessions spell them, and every picture one of them claimed. A
 /// picture here may still be claimed by somebody else ([`let_go`]).

@@ -135,6 +135,39 @@ impl DeckBody {
 /// could strain memory at game start.
 pub(crate) const MAX_DECK_CARDS: u32 = 250;
 
+/// The longest format a deck may name, in bytes: a word from a short list,
+/// and a free field only so that a format this build does not know is kept.
+const MAX_DECK_FORMAT_BYTES: usize = 64;
+
+/// The longest description a deck may carry, in bytes. A deck's free text is
+/// kept on every save, so the transport's two megabytes are no bound on it.
+const MAX_DECK_DESCRIPTION_BYTES: usize = 16 * 1024;
+
+/// The longest summary a save may give a change, in bytes.
+const MAX_DECK_SUMMARY_BYTES: usize = 1024;
+
+/// How many decks one account may keep, a number a collection does not
+/// reach. Each is a row and a history of its own, so this is what keeps one
+/// account from filling the database everybody's accounts are in.
+pub(crate) const MAX_DECKS_PER_ACCOUNT: u64 = 1000;
+
+/// `409` when `account_id` keeps as many decks as it may.
+pub(crate) async fn room_for_a_deck(
+    state: &Shared,
+    account_id: &str,
+) -> Result<(), (StatusCode, Json<ErrorBody>)> {
+    let kept = store::deck_count(&state.db, account_id)
+        .await
+        .map_err(|e| db_down(&e))?;
+    if kept >= MAX_DECKS_PER_ACCOUNT {
+        return Err(err(
+            StatusCode::CONFLICT,
+            "you keep as many decks as you may",
+        ));
+    }
+    Ok(())
+}
+
 /// Parsed lines as the flat card list the engine's preset takes, one entry
 /// per copy, each carrying the printing its row named.
 pub(crate) fn expand(lines: &[ParsedLine]) -> Vec<baylee_cards::decks::DeckCard> {
@@ -266,6 +299,16 @@ pub(crate) fn parse_deck_lines(
 pub(crate) fn validate_deck(body: &DeckBody) -> Result<(), (StatusCode, Json<ErrorBody>)> {
     if body.name.is_empty() || body.name.len() > 64 {
         return Err(err(StatusCode::BAD_REQUEST, "invalid deck name"));
+    }
+    let over = |text: &Option<String>, most: usize| text.as_ref().is_some_and(|t| t.len() > most);
+    if over(&body.format, MAX_DECK_FORMAT_BYTES) {
+        return Err(err(StatusCode::BAD_REQUEST, "invalid format"));
+    }
+    if over(&body.description, MAX_DECK_DESCRIPTION_BYTES) {
+        return Err(err(StatusCode::BAD_REQUEST, "description too long"));
+    }
+    if over(&body.summary, MAX_DECK_SUMMARY_BYTES) {
+        return Err(err(StatusCode::BAD_REQUEST, "summary too long"));
     }
     if body.cards.is_empty() || body.cards.len() > 250 {
         return Err(err(StatusCode::BAD_REQUEST, "invalid card list"));
