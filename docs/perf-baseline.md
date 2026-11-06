@@ -1380,6 +1380,14 @@ included.
 | change | **−32 %** | **−27 %** | **−28 %** |
 
 So PGO holds on two CPU generations, and the two shapes it did not see gain as
-much as the one it did. No shipped or training build uses it yet: that is the
-owner's decision, and the real binaries would train on their own workload, which
+much as the one it did. The recipe for training and evaluation binaries is in
+`docs/trained-ai.md` §"A profile-guided build"; what it gains there, net included,
 was not measured here.
+
+Unlike `target-cpu`, PGO is not tied to a CPU: a profile changes how code is laid
+out, not which instructions may run, so it could apply to the live servers too. No
+release build uses it, and that is the owner's decision. A release pipeline would
+need a workload that stands for live traffic for each release commit, an
+instrumented build and a training run before the real one, an `llvm-profdata`
+matching that rustc on the build machine, and the `--verify` comparison against the
+generic build as a release check.

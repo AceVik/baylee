@@ -1818,6 +1818,47 @@ Against the engine fixes of `c42/engine-karn-targets`, 10,000 games left two
 kinds: mana abilities of two-basic-type duals, and blocks of a menace attacker by
 one creature. The second is a constraint `ChooseBlockers` does not state yet.
 
+## A profile-guided build
+
+Only for training and evaluation binaries that run on bigace. PGO took 27 to 32 % off
+the engine's own time there, and the same on two shapes the profile never saw
+(`docs/perf-baseline.md` §"What a build for one CPU gains"). Those numbers leave the
+net's time out; what a whole `eval4` run gains has to be measured on that binary.
+
+Set `RUSTFLAGS` for the one build and give it its own `CARGO_TARGET_DIR`, as below.
+Never put it in `.cargo/config.toml` or `~/.cargo/config.toml`: gates and anything
+shipped stay generic. The client and the live servers stay as they are, and the
+frozen runtime of a running job is not rebuilt.
+
+```text
+C=$(git rev-parse --short HEAD); P=~/baylee-data/pgo/$C
+RUSTFLAGS="-C profile-generate=$P/raw" CARGO_TARGET_DIR=$P/target-gen \
+    cargo build --locked --profile selfplay -p baylee-train --features onnx --bin eval4
+$P/target-gen/selfplay/eval4 <the arguments of the workload this binary will play>
+llvm-profdata merge -o $P/eval4.profdata $P/raw
+RUSTFLAGS="-C profile-use=$P/eval4.profdata" CARGO_TARGET_DIR=$P/target-use \
+    cargo build --locked --profile selfplay -p baylee-train --features onnx --bin eval4
+```
+
+- **Train on what the binary does.** The profile comes from the workload the binary
+  will play, not from another binary's. An instrumented binary is slower, so a few
+  hundred deals of the real run are enough.
+- **`llvm-profdata` matches rustc's LLVM** (`rustc -vV`). The one in the toolchain
+  component `llvm-tools` does; unpacked from
+  `static.rust-lang.org/dist/llvm-tools-<version>-x86_64-unknown-linux-gnu.tar.xz`
+  it needs no change to the toolchain. A distribution's `llvm-profdata` is usually
+  older.
+- **A profile belongs to one source commit.** Build it again when the engine changes.
+  A stale profile is not wrong, it stops paying: code it has no counts for is
+  optimised blind.
+- **Prove it before a binary is used, every time.** Build
+  `examples/engine_perf.rs` with the same `profile-use` beside a generic one, and
+  require the `--verify` files of all three shapes to be byte-equal, hashes
+  included. That holds the engine to the generic build, but it is another binary:
+  play the same few deals with the new `eval4` and the generic one as well, and
+  require every game's outcome and record to be equal, which `eval4` repeats exactly
+  with the same arguments.
+
 ## Where it stands (2026-09-30)
 
 - **Value net v2** (8.2M parameters, d002→d003: 200k games, every 32nd decision):
