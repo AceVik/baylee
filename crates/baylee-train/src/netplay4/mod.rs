@@ -307,7 +307,7 @@ impl NetPlayer4 {
     }
 
     /// Answers the guard changed since this was last asked, by arm.
-    pub const fn take_choice_guard_fired(&mut self) -> [u64; 5] {
+    pub fn take_choice_guard_fired(&mut self) -> Vec<u64> {
         self.choice_guard.take_fired()
     }
 

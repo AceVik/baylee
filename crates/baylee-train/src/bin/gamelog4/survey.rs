@@ -594,7 +594,11 @@ impl Reader {
         *self
             .survey
             .kinds
-            .entry(format!("{} / {action}", show::kind(decision.pending)))
+            .entry(format!(
+                "{} / {action} / {}",
+                show::kind(decision.pending),
+                if view.active == seat { "own" } else { "their" }
+            ))
             .or_default() += 1;
         let names = Names::of(decision.views);
         match (decision.pending, decision.action) {

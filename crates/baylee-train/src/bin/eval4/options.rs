@@ -347,6 +347,7 @@ fn parse_choice_guard(text: &str) -> anyhow::Result<Option<ChoiceGuard4>> {
             "spend" => guard.enable(GuardArm::Spend),
             "mulligan" => guard.enable(GuardArm::Mulligan),
             "react" => guard.enable(GuardArm::React),
+            "probe" => guard.probing = true,
             "tactical" => {
                 guard.tactical = baylee_train::netplay4::TacticalParts {
                     priority: true,

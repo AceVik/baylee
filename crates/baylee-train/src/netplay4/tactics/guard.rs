@@ -58,8 +58,11 @@ pub struct ChoiceGuard4 {
     /// Parts of the tactical layer, as `PolicyMode4::Tactical` plays them, while
     /// the run stays raw for comparison.
     pub tactical: TacticalParts,
+    /// Counts `P(pass)` by window; changes no answer.
+    pub probing: bool,
     arms: [bool; ARMS],
     fired: [u64; ARMS],
+    probe: [[u64; 10]; 3],
 }
 
 impl ChoiceGuard4 {
@@ -78,10 +81,15 @@ impl ChoiceGuard4 {
 
     /// Answers changed since this was last asked, by arm: cast, tap, spend,
     /// mulligan, react.
-    pub const fn take_fired(&mut self) -> [u64; ARMS] {
-        let fired = self.fired;
+    /// After them the probe's three windows, ten tenths each.
+    pub fn take_fired(&mut self) -> Vec<u64> {
+        let mut all = self.fired.to_vec();
         self.fired = [0; ARMS];
-        fired
+        for window in &mut self.probe {
+            all.extend_from_slice(window);
+            *window = [0; 10];
+        }
+        all
     }
 }
 
@@ -152,13 +160,9 @@ fn spend(
     })
 }
 
-/// `React`: what a pass on the other seat's turn is turned to.
-fn react(
-    cands: &EncodedCandidates4,
-    logits: &[f32],
-    view: &PlayerView,
-    legal: &LegalActions,
-) -> Option<usize> {
+/// The other seat's window this decision stands in (0 their spell on the
+/// stack, 1 their attack, 2 their end step) and the instants that fit it.
+fn react_window(view: &PlayerView, legal: &LegalActions) -> Option<(usize, Vec<ObjectId>)> {
     let actor = view.decision_player.unwrap_or(view.seat);
     if view.active == actor || view.owed.is_some() {
         return None;
@@ -197,6 +201,25 @@ fn react(
     if spells.is_empty() {
         return None;
     }
+    let window = if theirs_on_stack {
+        0
+    } else if their_attack {
+        1
+    } else {
+        2
+    };
+    Some((window, spells))
+}
+
+/// `React`: what a pass on the other seat's turn is turned to.
+fn react(
+    cands: &EncodedCandidates4,
+    logits: &[f32],
+    view: &PlayerView,
+    legal: &LegalActions,
+) -> Option<usize> {
+    let actor = view.decision_player.unwrap_or(view.seat);
+    let (_, spells) = react_window(view, legal)?;
     let pool = view
         .seat(actor)
         .map_or(0, |seat| u32::try_from(seat.mana_pool.total()).unwrap_or(0));
@@ -208,6 +231,36 @@ fn react(
         best(cands, logits, |action| is_mana_action(view, action))
             .map(|tap| redirect_mana_source_for_colors(cands, logits, view, legal, tap))
     })
+}
+
+/// `Probe`: counts the net's probability of passing in each window, in tenths,
+/// with no mana floating. Changes no answer.
+fn probe(
+    guard: &mut ChoiceGuard4,
+    cands: &EncodedCandidates4,
+    logits: &[f32],
+    view: &PlayerView,
+    legal: &LegalActions,
+) {
+    let actor = view.decision_player.unwrap_or(view.seat);
+    if view.seat(actor).is_none_or(|seat| seat.mana_pool.total() > 0) {
+        return;
+    }
+    let Some((window, _)) = react_window(view, legal) else {
+        return;
+    };
+    let Some(pass) = cands
+        .candidates
+        .iter()
+        .position(|cand| matches!(cand.action, Some(PlayerAction::PassPriority)))
+    else {
+        return;
+    };
+    let top = logits.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+    let total: f32 = logits.iter().map(|logit| (logit - top).exp()).sum();
+    let chance = (logits[pass] - top).exp() / total;
+    let tenth = ((chance * 10.0) as usize).min(9);
+    guard.probe[window][tenth] += 1;
 }
 
 /// The answer the guard's arms leave of the net's `chosen`.
@@ -224,6 +277,9 @@ pub(in crate::netplay4) fn review(
     };
     match pending {
         Pending::Priority { legal, .. } => {
+            if guard.probing {
+                probe(guard, cands, logits, view, legal);
+            }
             let no_sink = guard.on(GuardArm::Tap) && !has_reachable_mana_sink(view, legal);
             let refuse_cast = guard.on(GuardArm::Cast);
             let refused = |action: &PlayerAction| {
