@@ -168,10 +168,12 @@ pub(super) fn difference(told: &Told, state: &str) -> Option<String> {
             whole(section, &mut out);
             continue;
         }
-        // Every object the section still names stays, not only those in a
-        // changed line: an Equipment moved off Captain Storm loses the line
-        // that named him as its host, and he is still on his own line.
-        let still: BTreeSet<&str> = section.lines.iter().flat_map(|line| tags(line)).collect();
+        // Every object the board still names stays, in any section, not
+        // only those in a changed line: an Equipment moved off Captain Storm
+        // loses the line that named him as its host, and he is still on his
+        // own line; a spell that left the stack named its target, which is
+        // still on the battlefield (Short Circuit and Bishop's Soldier).
+        let still: BTreeSet<&str> = now.iter().flat_map(|line| tags(line)).collect();
         let left: Vec<String> = vanished
             .iter()
             .flat_map(|line| tags(line))
@@ -272,6 +274,33 @@ mod tests {
         let gone = at(51).replace("  #50 Captain Storm · tapped\n", "");
         let gone = difference(&told, &gone).expect("two lines changed");
         assert!(gone.contains("no longer here: #50"), "{gone}");
+    }
+
+    /// A spell that left the stack named its target; the target, still on
+    /// the battlefield, is not told as gone (Short Circuit resolved on
+    /// Bishop's Soldier, and a model reported the Soldier as dead).
+    #[test]
+    fn a_target_still_on_the_battlefield_is_not_told_as_gone() {
+        let at = |stack: bool| {
+            let mut out = board(0);
+            out.push_str(
+                "  #6 Bishop's Soldier · 2/2\nStack (top first; the top resolves next):\n",
+            );
+            if stack {
+                out.push_str("  #104 Short Circuit · targets Bishop's Soldier #6\n");
+            } else {
+                out.push_str("  #135 ability of Blinkmoth Nexus\n");
+            }
+            out
+        };
+        let told = Told {
+            question: 12,
+            turn: 7,
+            lines: lines(&at(true)),
+            names: Vec::new(),
+        };
+        let after = difference(&told, &at(false)).expect("two lines changed");
+        assert!(after.contains("no longer here: #104\n"), "{after}");
     }
 
     #[test]
