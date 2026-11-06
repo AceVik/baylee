@@ -31,6 +31,10 @@ struct Cli {
 enum Task {
     /// The gates; without a name, the full gate CI runs (needs `DATABASE_URL`).
     Gate {
+        /// Also run the slow tests the full gate leaves out while their crate
+        /// is untouched (`BAYLEE_GATE_ALL=1` does the same, also for `land`).
+        #[arg(long)]
+        all: bool,
         #[command(subcommand)]
         which: Option<Gate>,
     },
@@ -176,27 +180,23 @@ enum Gate {
     Wasm,
 }
 
+fn gate_task(all: bool, which: Option<Gate>) -> (&'static str, anyhow::Result<i32>) {
+    match which {
+        None => ("gate", gate::full(all)),
+        Some(Gate::Rules) => ("gate rules", Ok(gate::rules())),
+        Some(Gate::Touched { since }) => ("gate touched", gate::touched(since.as_deref())),
+        Some(Gate::Features) => ("gate features", Ok(features::run())),
+        Some(Gate::ShippedFeatures) => ("gate shipped-features", Ok(shipping::run())),
+        Some(Gate::Wasm) => ("gate wasm", Ok(gate::wasm())),
+    }
+}
+
 fn main() -> ExitCode {
     let cli = Cli::parse();
     let (name, result) = match run::enter_root() {
         Err(error) => ("dev", Err(error)),
         Ok(_) => match cli.task {
-            Task::Gate { which: None } => ("gate", gate::full()),
-            Task::Gate {
-                which: Some(Gate::Rules),
-            } => ("gate rules", Ok(gate::rules())),
-            Task::Gate {
-                which: Some(Gate::Touched { since }),
-            } => ("gate touched", gate::touched(since.as_deref())),
-            Task::Gate {
-                which: Some(Gate::Features),
-            } => ("gate features", Ok(features::run())),
-            Task::Gate {
-                which: Some(Gate::ShippedFeatures),
-            } => ("gate shipped-features", Ok(shipping::run())),
-            Task::Gate {
-                which: Some(Gate::Wasm),
-            } => ("gate wasm", Ok(gate::wasm())),
+            Task::Gate { all, which } => gate_task(all, which),
             Task::Land { check, locked } => ("land", land::run(check, locked)),
             Task::CiChanges => ("ci-changes", changes::run()),
             Task::Api { which } => (

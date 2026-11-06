@@ -15,7 +15,10 @@ const SCRYFALL_CACHE: &str = "data/scryfall-cache";
 /// documents (`api`), as CI runs them.
 /// Every phase runs even when an earlier one failed. Needs Postgres for the
 /// catalog and gateway tests (`DATABASE_URL`).
-pub fn full() -> Result<i32> {
+///
+/// `all` also runs the tests the gate leaves out when their crate is
+/// untouched ([`LOCAL_TO_THEIR_PATH`]).
+pub fn full(all: bool) -> Result<i32> {
     run::require_env(
         "DATABASE_URL",
         "the catalog and gateway tests need Postgres",
@@ -34,13 +37,35 @@ pub fn full() -> Result<i32> {
             "warnings",
         ]),
     );
+    let mut test = cargo_with([
+        "nextest",
+        "run",
+        "--workspace",
+        // Not `--all-targets`: nextest starts a bench target with `--bench`,
+        // so criterion measures every bench for ten seconds as a "test".
+        "--lib",
+        "--bins",
+        "--tests",
+        "--examples",
+        "--no-fail-fast",
+    ]);
+    test.args(test_filter(all));
+    steps.run("test", &mut test);
+    // The benches still build (clippy) and run: once each, as criterion's
+    // test mode does when libtest's runner starts them without `--bench`.
     steps.run(
-        "test",
+        "bench-smoke",
         &mut cargo_with([
-            "nextest",
-            "run",
+            "test",
             "--workspace",
-            "--all-targets",
+            "--bench",
+            "decisions",
+            "--bench",
+            "client",
+            "--bench",
+            "frames",
+            "--bench",
+            "basics",
             "--no-fail-fast",
         ]),
     );
@@ -173,6 +198,76 @@ pub fn touched(since: Option<&str>) -> Result<i32> {
     Ok(rc)
 }
 
+/// Tests that cost minutes and prove something about one place only: the full
+/// gate leaves them out unless the diff against `origin/main` touches that
+/// place (owner, 06.11.2026). Not ignored: `cargo nextest run -p <crate> <name>`
+/// runs each one, `cargo dev gate --all` (or `BAYLEE_GATE_ALL=1`, which
+/// `cargo dev land` passes through) puts them all back. Put a test here only
+/// when it is slow because of what it exercises, not because it is badly built.
+const LOCAL_TO_THEIR_PATH: &[(&str, &[&str])] = &[(
+    "crates/baylee-train/",
+    &["streamed_frames_match_collecting_conversion_with_bounded_memory"],
+)];
+
+/// The tests a diff leaves out of the gate, each with the path that owns it.
+fn left_out<'a>(
+    changed: &[String],
+    list: &'a [(&'a str, &'a [&'a str])],
+) -> Vec<(&'a str, &'a str)> {
+    list.iter()
+        .filter(|(prefix, _)| !changed.iter().any(|f| f.starts_with(prefix)))
+        .flat_map(|(prefix, tests)| tests.iter().map(move |t| (*prefix, *t)))
+        .collect()
+}
+
+/// Files that differ from the merge base with `origin/main`: commits, staged
+/// and unstaged changes, and untracked files. `None` when git cannot say,
+/// which makes the gate run everything.
+fn changed_since_main() -> Option<Vec<String>> {
+    let git = |args: &[&str]| {
+        let out = command("git", args).output().ok()?;
+        out.status
+            .success()
+            .then(|| String::from_utf8(out.stdout).ok())
+            .flatten()
+    };
+    let base = git(&["merge-base", "origin/main", "HEAD"])?;
+    let mut files: Vec<String> = git(&["diff", "--name-only", base.trim()])?
+        .lines()
+        .map(str::to_owned)
+        .collect();
+    files.extend(
+        git(&["ls-files", "--others", "--exclude-standard"])?
+            .lines()
+            .map(str::to_owned),
+    );
+    Some(files)
+}
+
+/// The nextest arguments that leave out the tests above, with one line saying so.
+fn test_filter(all: bool) -> Vec<String> {
+    if all || std::env::var_os("BAYLEE_GATE_ALL").is_some() {
+        return Vec::new();
+    }
+    let Some(changed) = changed_since_main() else {
+        println!("gate: cannot diff against origin/main - running every test");
+        return Vec::new();
+    };
+    let skipped = left_out(&changed, LOCAL_TO_THEIR_PATH);
+    if skipped.is_empty() {
+        return Vec::new();
+    }
+    let names: Vec<&str> = skipped.iter().map(|(_, t)| *t).collect();
+    let places: BTreeSet<&str> = skipped.iter().map(|(p, _)| *p).collect();
+    println!(
+        "gate: left out, nothing changed under {} (`cargo dev gate --all` runs them): {}",
+        places.into_iter().collect::<Vec<_>>().join(" "),
+        names.join(", ")
+    );
+    let tests: Vec<String> = names.iter().map(|t| format!("test({t})")).collect();
+    vec!["-E".into(), format!("not ({})", tests.join(" | "))]
+}
+
 fn xtask(task: &str) -> std::process::Command {
     cargo_with(["run", "-q", "-p", "xtask", "--", task])
 }
@@ -279,6 +374,18 @@ mod tests {
             manifest_value("edition = \"2024\"\n", "edition").as_deref(),
             Some("2024")
         );
+    }
+
+    #[test]
+    fn a_slow_test_is_left_out_only_while_its_path_is_untouched() {
+        let list: &[(&str, &[&str])] = &[("crates/a/", &["slow", "slower"])];
+        let other = vec!["crates/b/src/lib.rs".to_owned()];
+        assert_eq!(
+            left_out(&other, list),
+            vec![("crates/a/", "slow"), ("crates/a/", "slower")]
+        );
+        let own = vec!["crates/b/x.rs".to_owned(), "crates/a/src/x.rs".to_owned()];
+        assert!(left_out(&own, list).is_empty());
     }
 
     #[test]

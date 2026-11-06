@@ -66,6 +66,21 @@ fn combat(c: &mut Criterion) {
 /// up by walking every zone of the view.
 const ARMY: u32 = 1_000;
 
+/// The army a run that only checks the benches still work uses. The gate runs
+/// every bench once without `--bench` (`cargo dev gate`, bench smoke), and
+/// 1,000 tokens cost seconds per decision unoptimised; `cargo bench` passes
+/// `--bench` and measures [`ARMY`], under the same names.
+const SMOKE_ARMY: u32 = 50;
+
+/// The army this run builds.
+fn army_len() -> u32 {
+    if std::env::args().any(|a| a == "--bench") {
+        ARMY
+    } else {
+        SMOKE_ARMY
+    }
+}
+
 /// A planeswalker with `loyalty`, for the attack that must choose between it
 /// and its controller.
 fn walker(slot: u32, controller: u8, loyalty: u16) -> baylee_view::PublicObject {
@@ -82,7 +97,8 @@ fn walker(slot: u32, controller: u8, loyalty: u16) -> baylee_view::PublicObject 
 }
 
 fn token_army(c: &mut Criterion) {
-    let army = |seat: u8| (100..100 + ARMY).map(move |i| token(i, seat, "Ally", 1, 1));
+    let army_len = army_len();
+    let army = |seat: u8| (100..100 + army_len).map(move |i| token(i, seat, "Ally", 1, 1));
     let few = |seat: u8| (10..14).map(move |i| token(i, seat, "few", 3, 3));
     // The army attacks four blockers and a walker.
     let view = ViewBuilder::new(2)
@@ -93,7 +109,7 @@ fn token_army(c: &mut Criterion) {
         alone: Vec::new(),
         minimum_required: None,
         player: view.seat,
-        attackers: (100..100 + ARMY).map(|i| ObjectId::new(i, 0)).collect(),
+        attackers: (100..100 + army_len).map(|i| ObjectId::new(i, 0)).collect(),
         defenders: vec![
             Defender::Player(PlayerId::new(1)),
             Defender::Planeswalker(ObjectId::new(20, 0)),
@@ -153,11 +169,11 @@ fn token_army(c: &mut Criterion) {
     let ids = |range: std::ops::Range<u32>| range.map(|i| ObjectId::new(i, 0)).collect::<Vec<_>>();
     let (army_blocks, army_blocks_pending) = blocking(
         ids(10..14),
-        ids(100..100 + ARMY),
+        ids(100..100 + army_len),
         army(0).chain(few(1)).collect(),
     );
     let (few_block, few_block_pending) = blocking(
-        ids(100..100 + ARMY),
+        ids(100..100 + army_len),
         ids(10..14),
         few(0).chain(army(1)).collect(),
     );

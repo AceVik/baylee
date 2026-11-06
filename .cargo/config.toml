@@ -28,7 +28,7 @@ dev = "run -q --locked --profile tools -p baylee-dev --"
 # profile: optimised, but without LTO, so they link in seconds.
 tools = "run -q --locked --profile tools -p baylee-tools --"
 lint-rules = "clippy --workspace --all-targets --exclude baylee-client -- -D warnings"
-test-rules = "nextest run --workspace --all-targets --exclude baylee-client"
+test-rules = "nextest run --workspace --lib --bins --tests --examples --exclude baylee-client"
 # The client is the only thing built for every platform (owner, 29.10.2026).
 # The servers and tools run on Linux x86_64; the gateway, the agent and the
 # engine server are also linked on Linux arm64 (`build-servers`), nowhere else.

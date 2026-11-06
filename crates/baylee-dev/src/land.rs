@@ -139,7 +139,7 @@ fn gates() -> Result<bool> {
         rc == 0
     };
     let started = Instant::now();
-    let full = timed("gate", gate::full()?, started);
+    let full = timed("gate", gate::full(false)?, started);
     let started = Instant::now();
     let features = timed("gate features", features::run(), started);
     Ok(full && features)
