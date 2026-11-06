@@ -1136,6 +1136,26 @@ pub fn spell_price(
     policy::spell_price(view, id, card, legal, mode, cost)
 }
 
+/// `cost` less what the graveyard pays, where `card` has delve (CR 702.66a).
+/// Apart from [`spell_price`] because that price is `LegalActions`', and delve
+/// is read off the card and the view.
+#[must_use]
+pub fn less_delve(
+    view: &PlayerView,
+    id: ObjectId,
+    card: baylee_view::CardIdentity,
+    cost: baylee_core::mana::ManaCost,
+) -> baylee_core::mana::ManaCost {
+    let delve = baylee_cards::by_index(card.index)
+        .and_then(|def| def.faces.get(usize::from(card.face)).or(def.faces.first()))
+        .is_some_and(|face| face.delve);
+    if delve {
+        policy::less_delve(view, id, cost)
+    } else {
+        cost
+    }
+}
+
 /// Whether `id` (`card`) is worth tapping lands for right now: the engine
 /// would cast it once paid (`LegalActions::castable_once_paid`, which is
 /// where its mandatory targets are answered: Terror, Fear, Counterspell,

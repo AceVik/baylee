@@ -695,6 +695,30 @@ fn combat_begin_stop_accepts_beginning_combat_aliases() {
     assert!(filter.stops_at(RailSide::Theirs, RailRow::CombatBegin));
 }
 
+/// Treasure Cruise is {7}{U} with delve: seven cards in the graveyard and one
+/// Island reach it, six do not, and the graveyard pays only the generic part.
+#[test]
+fn delve_counts_the_graveyard_toward_a_spell_the_lands_alone_cannot_pay() {
+    let (mut view, legal) = table(&["Island"], &["Treasure Cruise"]);
+    for slot in 0..6 {
+        view.graveyards[0].push(permanent(30 + slot, "Island"));
+    }
+    assert!(
+        reachable(&view, &legal).is_empty(),
+        "six cards and an Island leave {{1}} of {{7}}{{U}} unpaid"
+    );
+    view.graveyards[0].push(permanent(36, "Island"));
+    let reach = reachable(&view, &legal);
+    assert_eq!(reach.len(), 1, "seven cards and an Island pay {{7}}{{U}}");
+    assert_eq!(reach[0].plan.steps.len(), 1, "the Island makes the {{U}}");
+
+    view.battlefield.clear();
+    assert!(
+        reachable(&view, &legal).is_empty(),
+        "delve pays no coloured mana, so {{U}} still needs a land"
+    );
+}
+
 #[test]
 fn convoke_reduces_generic_and_matching_colored_pips_without_double_counting_mana_dorks() {
     // Chord of Calling is {X}{G}{G}{G} with Convoke (CR 702.51a).

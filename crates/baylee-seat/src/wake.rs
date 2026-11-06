@@ -761,7 +761,7 @@ pub fn reachable(view: &PlayerView, legal: &LegalActions) -> Vec<Reach> {
             cost.symbols().next()?;
             // The price the engine charges, its reductions included (CR 601.2f).
             let total = baylee_ai::spell_price(view, id, Some(card), legal, mode, cost.with_x(0));
-            whole_price(id, card, total)
+            whole_price(id, card, baylee_ai::less_delve(view, id, card, total))
         };
     let mut reach: Vec<Reach> = hand
         .iter()

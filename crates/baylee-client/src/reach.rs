@@ -145,6 +145,7 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
                 baylee_engine::choice::CastModeKind::Normal,
                 least_x(cost),
             );
+            let cost = card.map_or(cost, |card| baylee_ai::less_delve(view, id, card, cost));
             // A card already in `legal.castable` is in this sweep only when
             // `phyrexian_life_only` kept it here so untapped lands can offer to
             // pay the Phyrexian mana instead of life. Settling those symbols with

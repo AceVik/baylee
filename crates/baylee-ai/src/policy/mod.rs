@@ -22,7 +22,9 @@ mod x_targets;
 
 #[cfg(test)]
 use mana_effects::spell_mana_increase;
-pub(crate) use mana_effects::{apply_triggered_mana_bonus, spell_price, taps_set_off_a_trigger};
+pub(crate) use mana_effects::{
+    apply_triggered_mana_bonus, less_delve, spell_price, taps_set_off_a_trigger,
+};
 use mana_effects::{tap_destroys_or_locks, tap_trigger_harm};
 
 fn own_main_phase(view: &PlayerView) -> bool {
@@ -2497,11 +2499,7 @@ fn spell_cost(view: &PlayerView, id: ObjectId, face: &FaceDef) -> baylee_core::m
         cost = cost.with_more_generic(casts.saturating_mul(2));
     }
     if face.delve {
-        let grave = view
-            .graveyards
-            .get(usize::from(view.seat.get()))
-            .map_or(0, Vec::len);
-        cost = cost.with_less_generic(u32::try_from(grave).unwrap_or(u32::MAX));
+        cost = less_delve(view, id, cost);
     }
     cost
 }

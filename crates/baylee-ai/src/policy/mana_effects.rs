@@ -311,6 +311,19 @@ pub(crate) fn spell_mana_increase(
     colored.with_more_generic(rest)
 }
 
+/// `cost` less what the graveyard pays for a delve spell (CR 702.66a): a card
+/// each from the caster's graveyard, the card being cast aside, off the generic
+/// part only. The subtraction `casting::can_cast` makes: a planner without it
+/// never taps for a spell the engine would cast.
+pub(crate) fn less_delve(view: &PlayerView, id: ObjectId, cost: ManaCost) -> ManaCost {
+    let you = resource_player(view);
+    let cards = view
+        .graveyards
+        .get(usize::from(you.get()))
+        .map_or(0, |grave| grave.iter().filter(|card| card.id != id).count());
+    cost.with_less_generic(u32::try_from(cards).unwrap_or(u32::MAX))
+}
+
 /// What casting `id` under `mode` costs: `cost` — the printed, flashback or
 /// alternative cost the caller read, a commander's tax included, `{X}` as the
 /// caller left it — with the engine's published increases added (coloured
