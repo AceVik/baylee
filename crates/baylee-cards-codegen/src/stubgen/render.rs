@@ -173,9 +173,9 @@ fn render_card(
             (Some(body), 0) => body.enter_modifiers.as_slice(),
             _ => &[],
         };
-        let flashback = match (&land, i) {
-            (Some(body), 0) => body.flashback.as_deref(),
-            _ => None,
+        let (flashback, flashback_parts): (Option<&str>, &[String]) = match (&land, i) {
+            (Some(body), 0) => (body.flashback.as_deref(), body.flashback_parts.as_slice()),
+            _ => (None, &[]),
         };
         let foretell = match (&land, i) {
             (Some(body), 0) => body.foretell.as_deref(),
@@ -203,6 +203,7 @@ fn render_card(
             cats,
             enters,
             flashback,
+            flashback_parts,
             foretell,
             cost_reduction,
             entwine,

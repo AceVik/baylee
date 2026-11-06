@@ -638,6 +638,7 @@ fn render_face(
     cats: &SubtypeCatalogs,
     enter_modifiers: &[String],
     flashback: Option<&str>,
+    flashback_parts: &[String],
     foretell: Option<&str>,
     cost_reduction: Option<&str>,
     entwine: Option<&str>,
@@ -691,6 +692,14 @@ fn render_face(
     }
     if let Some(fb) = flashback {
         fields.push(format!("flashback = {fb}"));
+    }
+    if !flashback_parts.is_empty() {
+        let parts = flashback_parts
+            .iter()
+            .map(|part| format!("CostPart::{part}"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        fields.push(format!("flashback_parts = &[{parts}]"));
     }
     if let Some(ft) = foretell {
         fields.push(format!("foretell = {ft}"));

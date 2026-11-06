@@ -1078,3 +1078,44 @@ fn foretell_reads_only_its_complete_mana_cost() {
         assert!(transcode(&parsed, &cats(), None).is_none(), "{script}");
     }
 }
+
+/// Flashback's mana and non-mana halves share the ordinary alternative-cost
+/// payment path. Only parts that path actually pays may be emitted.
+#[test]
+fn flashback_reads_its_complete_supported_cost() {
+    let mana = read("Name:X\nTypes:Instant\nK:Flashback:4 R\nA:SP$ Draw | NumCards$ 1");
+    assert_eq!(mana.flashback.as_deref(), Some("Some(mana!(\"{4}{R}\"))"));
+    assert!(mana.flashback_parts.is_empty());
+
+    let parts = read(
+        "Name:X\nTypes:Instant\nK:Flashback:2 PayLife<3> Sac<1/Mountain>\n\
+         A:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 1",
+    );
+    assert_eq!(parts.flashback.as_deref(), Some("Some(mana!(\"{2}\"))"));
+    assert_eq!(
+        parts.flashback_parts,
+        ["PayLife(3)".to_string(), "Sacrifice(&COST1)".to_string()]
+    );
+    assert_eq!(
+        parts.statics,
+        concat!(
+            "static COST1: Filter = Filter::And(&[",
+            "Filter::HasSubtype(subtypes::land::MOUNTAIN), ",
+            "Filter::ControlledByYou]);\n\n"
+        )
+    );
+
+    let bounce = read("Name:X\nTypes:Instant\nK:Flashback:Return<1/Mountain>");
+    assert_eq!(bounce.flashback.as_deref(), Some("Some(ManaCost::ZERO)"));
+    assert_eq!(bounce.flashback_parts, ["ReturnToHand(&COST1)"]);
+
+    for script in [
+        "Name:X\nTypes:Instant\nK:Flashback:",
+        "Name:X\nTypes:Instant\nK:Flashback:T",
+        "Name:X\nTypes:Instant\nK:Flashback:Discard<1/Card>",
+        "Name:X\nTypes:Instant\nK:Flashback:Return<1/CARDNAME>",
+        "Name:X\nTypes:Instant\nK:Flashback:1 R:Unexpected",
+    ] {
+        assert!(refused(script), "{script}");
+    }
+}
