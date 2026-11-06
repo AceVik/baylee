@@ -821,3 +821,51 @@ fn a_tap_for_each_colour_among_your_permanents_makes_one_of_each() {
     assert_eq!(baylee_ai::mana_sources(&view, &legal)[0].amount, 2);
     assert!(reach_of(&reachable(&view, &legal), "Eladamri's Call").is_some());
 }
+
+/// City of Shadows: "{T}: Add {C} for each storage counter on this land."
+/// The view shows the counters and the reader of an amount did not count
+/// them, so the land was no source: Unfriendly Fire ({4}{R}) was not offered
+/// beside it with one counter and four other lands (argon attempt 74, q182).
+#[test]
+fn a_tap_that_counts_its_own_counters_is_a_source() {
+    use baylee_core::preset::{StartingCounter, StartingCounters};
+    let storage = |amount| {
+        vec![StartingCounters {
+            seat: 0,
+            permanent: 0,
+            counters: vec![StartingCounter {
+                // `counters::STORAGE`.
+                kind: "custom:4".into(),
+                amount,
+            }],
+        }]
+    };
+    let lands = [
+        "City of Shadows",
+        "Island",
+        "Island",
+        "Mountain",
+        "Mountain",
+    ];
+
+    let (_, view, legal) = position(&lands, &["Unfriendly Fire"], &[]);
+    assert!(
+        reach_of(&reachable(&view, &legal), "Unfriendly Fire").is_none(),
+        "with no counter it makes nothing, and four lands are short"
+    );
+
+    let (_, view, legal) = position_with(&lands, &["Unfriendly Fire"], &[], storage(1));
+    let reach = reachable(&view, &legal);
+    let fire = reach_of(&reach, "Unfriendly Fire").expect("five sources pay {4}{R}");
+    assert_eq!(fire.plan.steps.len(), 5);
+
+    // Two counters are two mana from one tap, and they arrive.
+    let (mut session, view, legal) = position_with(&lands[..2], &["Wind Drake"], &[], storage(2));
+    let reach = reachable(&view, &legal);
+    let drake = reach_of(&reach, "Wind Drake").expect("{C}{C} and an Island pay {2}{U}");
+    assert_eq!(drake.plan.steps.len(), 2);
+    let card = drake.object;
+    let plan = drake.plan.clone();
+    run(&mut session, &plan, PlayerAction::CastSpell { card });
+    assert!(session.observe_view(ME).stack.iter().any(|o| o.id == card));
+}

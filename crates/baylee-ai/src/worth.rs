@@ -169,9 +169,10 @@ pub(crate) fn dies_when_targeted(o: &PublicObject) -> bool {
 }
 
 /// How much mana one activation of a mana ability pours on this board, read
-/// off its one `AddMana` (CR 106.1, 605.1a): a fixed number, or a count of
-/// the battlefield the view shows whole — Harabaz Druid's "X mana of any one
-/// color, where X is the number of Allies you control".
+/// off its one `AddMana` (CR 106.1, 605.1a): a fixed number, a count of the
+/// battlefield the view shows whole — Harabaz Druid's "X mana of any one
+/// color, where X is the number of Allies you control" — or the counters on
+/// the permanent itself: City of Shadows' "{C} for each storage counter".
 ///
 /// `None` wherever the view cannot count it, which is the answer a planner
 /// must get: an `{X}` the activation announces, a target's mana value, a
@@ -188,7 +189,19 @@ pub fn mana_poured(view: &PlayerView, source: ObjectId, effects: &[Effect]) -> O
         _ => None,
     });
     let amount = amounts.next()?;
-    if amounts.next().is_some() || !countable(amount) {
+    if amounts.next().is_some() {
+        return None;
+    }
+    if let Amount::CountersOnSource(kind) = amount {
+        let kind = counter_view(kind);
+        let on_it = view.object(source)?.counters.iter();
+        let held = on_it
+            .filter(|c| c.kind == kind)
+            .map(|c| c.count)
+            .sum::<u16>();
+        return Some(u8::try_from(held).unwrap_or(u8::MAX));
+    }
+    if !countable(amount) {
         return None;
     }
     let poured = HeuristicAgent::new(crate::AIProfile::STEADY).count(
