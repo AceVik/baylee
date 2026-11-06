@@ -76,7 +76,7 @@ pub(crate) struct Ladder {
     pub problem: Option<String>,
     pub updated_ms: Option<u64>,
     pub games: usize,
-    /// Games whose phase is not `game-complete`.
+    /// Games with a phase other than `game-complete` (a timed-out game has none).
     pub in_flight: usize,
     /// Games with a `failure` or a timeout.
     pub failures: usize,
@@ -391,7 +391,7 @@ pub(super) fn read_ladder(path: &Path) -> Ladder {
             ladder.in_flight = file
                 .games
                 .iter()
-                .filter(|g| g.phase.as_deref() != Some("game-complete"))
+                .filter(|g| g.phase.as_deref().is_some_and(|p| p != "game-complete"))
                 .count();
             ladder.failures = file
                 .games
@@ -536,13 +536,14 @@ mod tests {
             r#"{"games":[{"phase":"game-complete","failure":null,"won":true,"room":"secret-room"},
                          {"phase":"playing","failure":null},
                          {"phase":"game-complete","failure":"boom","timed_out":false},
-                         {"phase":"game-complete","timed_out":true}],
+                         {"phase":"game-complete","timed_out":true},
+                         {"phase":null,"timed_out":true}],
                 "summary":{"deepseek-low / raw":{"drawn":0,"games":20,"net_lost":17,"net_won":1,"unfinished":2},
                            "deepseek-low / tactical":{"games":11,"net_lost":9,"net_won":2}}}"#,
         );
         let ladder = read_ladder(&scratch.0.join("train/ladder-x/run1/ladder.json"));
         assert_eq!(ladder.name, "ladder-x/run1");
-        assert_eq!((ladder.games, ladder.in_flight, ladder.failures), (4, 1, 2));
+        assert_eq!((ladder.games, ladder.in_flight, ladder.failures), (5, 1, 3));
         assert_eq!(ladder.arms.len(), 2);
         assert_eq!(ladder.arms[0].name, "deepseek-low / raw");
         assert_eq!(

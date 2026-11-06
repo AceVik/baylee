@@ -282,8 +282,15 @@ file is parsed again only when its size or modification time changed. A broken
 file puts its error on that card; the other cards and the pipelines are
 unaffected. `--ladder FILE` reads one `ladder.json` (1 MiB): the `summary` per
 arm (`games`, `net_won`, `net_lost`, `drawn`, `unfinished`), the number of
-games, those not in phase `game-complete` and those with a `failure` or a
+games, those in a phase other than `game-complete` (a timed-out game has none) and those with a `failure` or a
 timeout. Rooms, decks and answers are not kept.
+
+Service flags for the whole panel (6 November 2026): `--pipeline-root
+/home/ace/baylee-data/v6/train --llm-root /home/ace/baylee-data/v6 --ladder
+/home/ace/baylee-data/v6/train/v6a-phase-a-ladder/run1/ladder.json`. Measured
+against that data (53 execution directories, 27 collector roots, 10 pipelines
+and 8 runs shown), the `training` thread used about 15 ms of CPU per
+refresh, and the panel's JSON about 25 KB.
 
 On a phone the panel is a single column: pipeline cards (phase, "Stufe n von
 m", running time, controller and unit; for a running pipeline the progress box
