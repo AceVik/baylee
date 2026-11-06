@@ -648,6 +648,12 @@ probabilities. Changing the loss version requires fresh `--init`, not resuming
 an incompatible optimizer/objective. Re-evaluate source and candidate with the
 same current validator before comparing their losses.
 
+**Which number means what** (owner, 6.11.2026): a model's playing strength is
+measured with the tactical layer, as `seat4` plays by default, and its learning
+progress with `--raw-policy`. A report names which one it gives, and two numbers
+compare only within one mode and one build. Tactical records stay out of
+training: the layer is the house AI's reasoning, and the house AI is no teacher.
+
 **Raw versus tactical provenance:** `PolicyMode4::Raw` uses unmodified neural
 outputs and the sampling-version-2 constraints (`raw_neural_sampler2_v1`).
 `Tactical`, the default, includes deterministic playtest heuristics and records
