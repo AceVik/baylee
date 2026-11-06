@@ -2205,10 +2205,17 @@ fn printed_mana_offer(
             None,
         ));
     }
+    let rider = effects.iter().any(|e| !matches!(e, Effect::AddMana { .. }));
     // The planner's door, as the client's: a tap that also does
     // something else (Adarkar Wastes' damage) is still a source,
     // and `priced` keeps it behind every clean one.
-    let (kind, amount, _) = baylee_cards_dsl::mana_with_riders(cost, effects)?;
+    let Some((kind, amount, _)) = baylee_cards_dsl::mana_with_riders(cost, effects) else {
+        // A tap that says "add" twice (a bounce land's {U}{R}) is a package:
+        // one of each, and no colour to ask.
+        let colors = baylee_cards_dsl::mana_bundle(cost, effects)?;
+        let amount = u8::try_from(colors.len()).ok()?;
+        return Some((colors, amount, true, priced(cost) || rider, None));
+    };
     let colors = match kind {
         ManaSource::Fixed(c) => vec![c],
         ManaSource::Choice(c) => c.to_vec(),
@@ -2234,7 +2241,7 @@ fn printed_mana_offer(
         colors,
         amount,
         bundle,
-        priced(cost) || effects.iter().any(|e| !matches!(e, Effect::AddMana { .. })),
+        priced(cost) || rider,
         crate::restricted::only_for(effects),
     ))
 }

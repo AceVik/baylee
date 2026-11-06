@@ -663,3 +663,34 @@ fn a_land_that_animates_itself_is_tapped_for_it_last() {
         "the Watchtower may pay for itself when it has to"
     );
 }
+
+/// A bounce land's "{T}: Add {U}{R}" says "add" twice. The client read that as
+/// a package and the house's reader did not, so for the seat and the house
+/// the land was no source at all: Wee Dragonauts ({1}{U}{R}) was not offered
+/// beside Izzet Boilerworks and an Island (codex attempt 54, q42), nor
+/// Eladamri's Call ({W}{G}) beside Selesnya Sanctuary alone (attempt 66, q77).
+/// One tap pays one pip of each, and never two of one.
+#[test]
+fn a_bounce_land_pays_one_of_each_of_its_colours() {
+    let (mut session, view, legal) =
+        position(&["Izzet Boilerworks", "Island"], &["Wee Dragonauts"], &[]);
+    assert_eq!(baylee_ai::mana_sources(&view, &legal).len(), 2);
+    let reach = reachable(&view, &legal);
+    let dragonauts = reach_of(&reach, "Wee Dragonauts").expect("two lands make three mana");
+    assert_eq!(dragonauts.plan.steps.len(), 2);
+    let card = dragonauts.object;
+    let plan = dragonauts.plan.clone();
+    run(&mut session, &plan, PlayerAction::CastSpell { card });
+    assert!(session.observe_view(ME).stack.iter().any(|o| o.id == card));
+
+    let (_, view, legal) = position(&["Selesnya Sanctuary"], &["Eladamri's Call"], &[]);
+    let reach = reachable(&view, &legal);
+    let call = reach_of(&reach, "Eladamri's Call").expect("one tap makes {G}{W}");
+    assert_eq!(call.plan.steps.len(), 1);
+
+    let (_, view, legal) = position(&["Izzet Boilerworks"], &["Counterspell"], &[]);
+    assert!(
+        reach_of(&reachable(&view, &legal), "Counterspell").is_none(),
+        "{{U}}{{R}} pays no {{U}}{{U}}"
+    );
+}
