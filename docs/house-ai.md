@@ -746,6 +746,19 @@ in `DecisionContext::cast_mode` lets Miracle's X include those sources too.
 `tests/ai_miracle.rs` earns the offer in a real game: with no floating mana,
 Temporal Mastery taps exactly two Islands, pays {1}{U}, and grants an extra turn.
 
+**Keeping one permanent of each kind is a set decision.** For
+`KeepOneOfEachAndSacrificeRest`, the house values the whole retained set rather
+than picking each category's best permanent independently: an artifact creature
+may cover the artifact choice while a second creature survives as the creature
+choice. `best_keep_one_of_each` uses deterministic dynamic programming over the
+kept identities, collapses candidates with identical category signatures, counts
+a reused multi-type permanent once and skips empty categories. It stops rather
+than guessing above 50,000 states or 64 filters. A concrete menu is optimized
+only when its legal objects identify exactly one category; ambiguous menus keep
+the ordinary deterministic fallback. The same retained-set model prices the
+sweeper before casting, so an equal sacrifice exchange is not mistaken for a
+profitable one.
+
 **A clone copies what is worth having twice, whoever controls it.** Its choice
 arrives as a target question with no effect behind it, because copying is an
 ability and not an effect, so `decision_context` used to explain it as nothing

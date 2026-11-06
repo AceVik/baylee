@@ -6895,3 +6895,33 @@ code.
   analogous Greenseeker and Knight tests, desktop interaction tests,
   `record::seen`, `validate`, affected Clippy and formatting checks pass. The
   full gates remain deferred at the owner's request.
+
+## 2026-11-06 — Cataclysm's reusable multi-type keep choices
+
+- `KeepOneOfEachAndSacrificeRest`, appended to `Effect` to preserve recorded
+  variant numbers, takes a controlled-permanent snapshot and asks in APNAP
+  order. A multi-type permanent may satisfy several categories; permanents of
+  unlisted types are not offered. Every choice finishes before all unchosen
+  permanents are sacrificed together. Empty categories need no invented answer,
+  and a departing chooser skips only their own remaining choices. The pending
+  continuation and the public `CardsKept` events participate in replay hashes.
+- The engine mutation check initially used a fixture too weak to prove reuse:
+  excluding an already chosen multi-type permanent still passed with only one
+  creature. A second creature made that deliberate defect fail, after which the
+  correct implementation was restored. Five rule tests and five played card
+  tests now cover empty filters, reuse, invalid answers, APNAP, simultaneous
+  sacrifice, departure and continuation fingerprints.
+- Independent per-category winners are the wrong AI objective. Choosing a
+  valuable artifact creature for both categories can kill a second creature
+  unnecessarily. The house now optimizes the whole retained set with bounded,
+  deterministic dynamic programming, charges each retained identity once and
+  treats an empty category as no choice rather than no solution. A forced menu
+  candidate survives same-signature deduplication; ambiguous menus retain the
+  generic fallback. The 50,000-state cap is enforced while states are built,
+  not only after a potentially unbounded expansion.
+- Desktop and seats reuse `KeepPermanents`, `CardsKept` and `DecisionContext`;
+  no protocol variant was added. All 366 house-AI tests, the full seat suite,
+  151 desktop interaction tests, `record::seen`, affected Clippy, the desktop
+  test build, `require-card-tests` and formatting checks pass. `validate`
+  accepts 12,543 cards (11,157 finished, 1,386 stubs). The full gates remain
+  deferred at the owner's request.
