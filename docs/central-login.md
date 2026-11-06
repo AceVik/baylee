@@ -95,34 +95,30 @@ says nothing about guests.
 
 ## When Central cannot answer
 
-Every session of a Central account here is still asked of Central: on each
-request, on each socket every 5 seconds, and before each seat frame. That stays
-so until `docs/proposals/central-session-tokens.md` is built; what follows is
-its stage 1.
+A session of a Central account never asks Central anything once it is open: not
+on a request, not on a socket, not before a frame (§"Sessions"). Nobody's load
+reaches Central, so nobody's load can cost another account its session.
 
-- **A revocation closes at once, and nothing else does.** Only Central's own
-  `401`, a session gone from the database or a ban read as a revocation
-  (`standing.rs`). A `429`, a `5xx`, a timeout, a status Central does not send,
-  the wrong content type, a body that does not decode and a database failure say
-  nothing about the session: a socket stays open, and closes only once they have
-  lasted 60 seconds in a row (`standing::UNKNOWN_FOR`). One good answer ends the
-  wait. No positive answer is cached.
-- **What that costs.** While Central cannot be heard, a revocation takes up to
-  60 seconds to land, and a seat's frames go to the engine unasked between the
-  5-second checks. A question holds its socket up for 2 seconds at most.
-- **A door is not a socket.** A new socket or ticket is refused while its standing
-  is unknown, with `503`, so that a client does not read a Central outage as its
-  sign-in having ended; `401` still means it has.
+- **A revocation closes at once, and nothing else does.** Only a message signed
+  by Central ends a session. A `401` to the gateway's own credential, a `429`, a
+  `5xx`, a timeout, the wrong content type and a body that does not decode say
+  nothing about any session, and no socket closes for them. Sign-ins and bearer
+  renewals go on: a gateway token is checked here, against keys it holds.
+- **What that costs.** A revocation that can be neither pushed nor fetched does
+  not land until Central can be heard again. Until then the session runs on, to
+  the end of its last gateway token at the latest, about an hour: the next one
+  has to come from Central.
+- **A gateway that has not caught up signs nobody in.** After a start it holds
+  neither keys nor numbers, so it cannot know whom Central revoked, and a sign-in
+  is answered `503` until it has both. Sessions do not survive a restart: clients
+  present a fresh token, which needs Central.
 - **The bridge blocks no thread.** The native exchange runs on the runtime
   (`central/transport.rs`) with `CentralHttp`'s settings: WebPKI roots, no proxy,
   no redirect, `https` only on the live endpoint, the same waits. A report's
   upload stays on `CentralHttp`.
-- **Nobody fills the queue alone.** 16 exchanges are on their way at once and 256
-  may wait, two seconds at most, and an account holds 16 of them. Sign-ins take no
-  session, so they have a lane of their own, 8 at once and 4 per address, which
-  leaves the rest to the sessions already signed in. Past a share the answer is
-  `429`, to that account or address alone. Behind a proxy this needs
-  `BAYLEE_TRUSTED_PROXIES`, or every sign-in counts as one address.
+- **The queue is bounded.** 16 exchanges are on their way at once and 256 may
+  wait, two seconds at most. Only the gateway's own rounds and a key it does not
+  hold use it, so nobody fills it from outside.
 
 ## Bigint advisory scope
 
