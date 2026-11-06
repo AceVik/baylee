@@ -36,7 +36,8 @@ use crate::{
 /// and drops a socket that has said nothing for 50 (a pong counts). It
 /// checks the session again every 5 seconds, and once it is signed out,
 /// lapsed or banned, or the account is deleted, it sends a close frame
-/// without a code. An open lobby socket counts its account as online
+/// without a code; a Central or database failure does the same only after
+/// lasting 60 seconds in a row. An open lobby socket counts its account as online
 /// (`GET /lobby/stats`) and keeps its waiting-room chairs. A frame over 1 KiB
 /// ends the connection. An account holding 32 sockets (lobby, social and
 /// spectator together) is refused `429` until one closes.
@@ -164,6 +165,7 @@ async fn serve_listing(
     ping.tick().await;
     let mut heard = tokio::time::Instant::now();
     let mut authorization = tokio::time::interval(std::time::Duration::from_secs(5));
+    let mut grace = crate::standing::Grace::default();
     loop {
         let payload = listing_page(state, account_id, query).await.to_string();
         if socket.send(Message::Text(payload.into())).await.is_err() {
@@ -172,8 +174,8 @@ async fn serve_listing(
         loop {
             tokio::select! {
                 _ = authorization.tick() => {
-                    if !matches!(crate::central::resolve_digest(state, session_digest.to_vec()).await,
-                        Ok(Some(session)) if session.account_id == account_id && crate::moderation::admit(&session).is_ok()) {
+                    let standing = crate::standing::of_session(state, session_digest, account_id).await;
+                    if !grace.keeps_open(standing, std::time::Instant::now()) {
                         let _ = socket.send(Message::Close(None)).await;
                         return;
                     }

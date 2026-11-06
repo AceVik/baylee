@@ -43,6 +43,7 @@ mod seathost;
 mod seatrate;
 mod sets;
 mod social;
+mod standing;
 mod store;
 mod terms;
 mod termsadmin;
@@ -1108,7 +1109,11 @@ fn address_place(
     headers: &HeaderMap,
     local: bool,
 ) -> Result<Option<auth::Held>, ()> {
-    if local || client_address(trusted, peer.ip(), headers).to_canonical().is_loopback() {
+    if local
+        || client_address(trusted, peer.ip(), headers)
+            .to_canonical()
+            .is_loopback()
+    {
         return Ok(None);
     }
     gauge

@@ -217,7 +217,12 @@ async fn a_seat_cannot_send_megabytes_a_second() {
     );
     let (status, body) = http(port, "POST", "/lobby/games", Some(&token), &create);
     assert_eq!(status, 200, "{body}");
-    let mut ws = common::dial_seat(port, json_field(&body, "game_id"), json_field(&body, "seat_token")).await;
+    let mut ws = common::dial_seat(
+        port,
+        json_field(&body, "game_id"),
+        json_field(&body, "seat_token"),
+    )
+    .await;
     // Far under the frame allowance's 512 at once, and over 12 MiB.
     let heavy = Message::Binary(vec![0_u8; 60 * 1024].into());
     for _ in 0..200 {
@@ -269,7 +274,11 @@ fn a_room_s_password_is_guessed_only_so_often() {
     assert_eq!(guess("wrong", &guesser), 429);
     assert_eq!(guess("right", &guesser), 429, "spent is spent");
     let friend = login(gw.port, "friend", "Friend");
-    assert_eq!(guess("right", &friend), 200, "another account is not held up");
+    assert_eq!(
+        guess("right", &friend),
+        200,
+        "another account is not held up"
+    );
 }
 
 /// Each spectator that opens costs its engine a whole snapshot, so one
@@ -345,7 +354,15 @@ fn a_room_and_a_deck_are_named_without_control_characters() {
 fn an_account_opens_only_so_many_waiting_rooms() {
     let gw = spawn_gateway("bounds_rooms");
     let session = login(gw.port, "roomer", "Roomer");
-    let open = |port| http(port, "POST", "/lobby/games", Some(&session), r#"{"mode":"open"}"#);
+    let open = |port| {
+        http(
+            port,
+            "POST",
+            "/lobby/games",
+            Some(&session),
+            r#"{"mode":"open"}"#,
+        )
+    };
     let mut opened = 0;
     let refused = loop {
         let (status, body) = open(gw.port);
@@ -474,10 +491,7 @@ fn a_picture_that_would_unpack_to_gigabytes_is_refused_unread() {
     let _ = std::fs::remove_dir_all(&dir);
     let gw = spawn_gateway_with(
         "bounds_bomb",
-        &[(
-            "BAYLEE_DECK_IMAGE_PATH",
-            dir.to_string_lossy().into_owned(),
-        )],
+        &[("BAYLEE_DECK_IMAGE_PATH", dir.to_string_lossy().into_owned())],
     );
     let session = login(gw.port, "bomber", "Bomber");
     let bomb = a_bomb(20_000);
@@ -512,10 +526,7 @@ fn an_account_uploads_only_so_many_pictures() {
     let _ = std::fs::remove_dir_all(&dir);
     let gw = spawn_gateway_with(
         "bounds_uploads",
-        &[(
-            "BAYLEE_DECK_IMAGE_PATH",
-            dir.to_string_lossy().into_owned(),
-        )],
+        &[("BAYLEE_DECK_IMAGE_PATH", dir.to_string_lossy().into_owned())],
     );
     let session = login(gw.port, "uploader", "Uploader");
     let picture = {
@@ -552,9 +563,8 @@ fn an_account_uploads_only_so_many_pictures() {
 fn a_deck_s_free_text_is_bounded() {
     let gw = spawn_gateway("bounds_deck_text");
     let session = login(gw.port, "writer", "Writer");
-    let deck = |extra: &str| {
-        format!(r#"{{"name":"Long","cards":["1 Forest"],{extra}"sideboard":[]}}"#)
-    };
+    let deck =
+        |extra: &str| format!(r#"{{"name":"Long","cards":["1 Forest"],{extra}"sideboard":[]}}"#);
     let long = "x".repeat(1 << 20);
     for field in ["description", "format", "summary"] {
         let body = deck(&format!(r#""{field}":"{long}","#));

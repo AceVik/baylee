@@ -51,8 +51,11 @@ pub async fn linked_account(
             [central.into()],
         ))
         .await?;
-    row.map(|row| row.try_get::<Uuid>("", "account_id").map(|id| id.to_string()))
-        .transpose()
+    row.map(|row| {
+        row.try_get::<Uuid>("", "account_id")
+            .map(|id| id.to_string())
+    })
+    .transpose()
 }
 
 /// Resolve/create a local projection exclusively by immutable Central ID.

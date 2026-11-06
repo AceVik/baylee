@@ -7572,7 +7572,8 @@ operations:
       and drops a socket that has said nothing for 50 (a pong counts). It
       checks the session again every 5 seconds, and once it is signed out,
       lapsed or banned, or the account is deleted, it sends a close frame
-      without a code. An open lobby socket counts its account as online
+      without a code; a Central or database failure does the same only after
+      lasting 60 seconds in a row. An open lobby socket counts its account as online
       (`GET /lobby/stats`) and keeps its waiting-room chairs. A frame over 1 KiB
       ends the connection. An account holding 32 sockets (lobby, social and
       spectator together) is refused `429` until one closes.
@@ -7637,7 +7638,10 @@ operations:
       checked again every 5 seconds and before each frame is forwarded, and
       the socket closes, with a close frame without a code, once it no longer
       holds (the seat token was replaced or ended, or the Central session
-      behind it lapsed or was banned), once the engine's link ends, and at the
+      behind it lapsed or was banned; a Central or database failure says none
+      of that, and closes the socket only once it has lasted 60 seconds in a
+      row, during which frames are forwarded and asked about only every 5
+      seconds), once the engine's link ends, and at the
       first frame the client sends after the engine said the seat is out of
       the game. While a chair has no socket, its frames are dropped and the
       engine holds its place for the reconnect window (`docs/protocol.md`,
@@ -7699,7 +7703,10 @@ operations:
       checked again every 5 seconds and before each frame is forwarded, and
       the socket closes, with a close frame without a code, once it no longer
       holds (the seat token was replaced or ended, or the Central session
-      behind it lapsed or was banned), once the engine's link ends, and at the
+      behind it lapsed or was banned; a Central or database failure says none
+      of that, and closes the socket only once it has lasted 60 seconds in a
+      row, during which frames are forwarded and asked about only every 5
+      seconds), once the engine's link ends, and at the
       first frame the client sends after the engine said the seat is out of
       the game. While a chair has no socket, its frames are dropped and the
       engine holds its place for the reconnect window (`docs/protocol.md`,
@@ -7743,7 +7750,8 @@ operations:
       and one over 64 KiB ends the connection; there is no rate bound. An account
       holding 32 sockets is refused `429` until one closes. The session is checked again
       every 5 seconds; once it is signed out, lapsed or banned, or the game
-      ends, the socket closes with a close frame without a code.
+      ends, the socket closes with a close frame without a code. A Central or
+      database failure does the same only after lasting 60 seconds in a row.
   socket_send:
     action: send
     channel:
@@ -7840,7 +7848,8 @@ operations:
       that; a binary frame closes it with 1003. It also closes with 1008 when
       the first frame is not a `hello`, when a frame is not one of the client's
       frames, and when the session is signed out, lapses or is banned (checked
-      every 5 seconds); with 1013 when the database cannot be read; with 4001
+      every 5 seconds; a Central or database failure counts only after lasting
+      60 seconds in a row); with 1013 when the database cannot be read; with 4001
       when another socket says `hello` for the same device; with 4002 when a
       guest's device is replaced; with 4003 when the device is removed; and
       with 1000 when the account is deleted. The gateway pings every 20
@@ -7882,7 +7891,8 @@ operations:
       that; a binary frame closes it with 1003. It also closes with 1008 when
       the first frame is not a `hello`, when a frame is not one of the client's
       frames, and when the session is signed out, lapses or is banned (checked
-      every 5 seconds); with 1013 when the database cannot be read; with 4001
+      every 5 seconds; a Central or database failure counts only after lasting
+      60 seconds in a row); with 1013 when the database cannot be read; with 4001
       when another socket says `hello` for the same device; with 4002 when a
       guest's device is replaced; with 4003 when the device is removed; and
       with 1000 when the account is deleted. The gateway pings every 20

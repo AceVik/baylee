@@ -81,7 +81,8 @@ const TRANSPORT_LIMIT: usize = 64 * 1024;
 /// that; a binary frame closes it with 1003. It also closes with 1008 when
 /// the first frame is not a `hello`, when a frame is not one of the client's
 /// frames, and when the session is signed out, lapses or is banned (checked
-/// every 5 seconds); with 1013 when the database cannot be read; with 4001
+/// every 5 seconds; a Central or database failure counts only after lasting
+/// 60 seconds in a row); with 1013 when the database cannot be read; with 4001
 /// when another socket says `hello` for the same device; with 4002 when a
 /// guest's device is replaced; with 4003 when the device is removed; and
 /// with 1000 when the account is deleted. The gateway pings every 20
@@ -287,8 +288,10 @@ async fn run(state: Shared, account: String, session_digest: Vec<u8>, mut socket
         close(&mut socket, close_code::POLICY, "hello first").await;
         return;
     };
-    if !matches!(crate::central::resolve_digest(&state, session_digest.clone()).await,
-        Ok(Some(session)) if session.account_id == account && crate::moderation::admit(&session).is_ok())
+    // The door asked a moment ago, so only a refusal counts here: doubt is
+    // `serve`'s to sit out.
+    if crate::standing::of_session(&state, &session_digest, &account).await
+        == crate::standing::Standing::Revoked
     {
         close(&mut socket, close_code::POLICY, "session expired").await;
         return;
@@ -415,11 +418,12 @@ async fn serve(
     ping.tick().await;
     let mut heard = tokio::time::Instant::now();
     let mut authorization = tokio::time::interval(Duration::from_secs(5));
+    let mut grace = crate::standing::Grace::default();
     loop {
         tokio::select! {
             _ = authorization.tick() => {
-                if !matches!(crate::central::resolve_digest(state, session_digest.to_vec()).await,
-                    Ok(Some(session)) if session.account_id == account && crate::moderation::admit(&session).is_ok()) {
+                let standing = crate::standing::of_session(state, session_digest, account).await;
+                if !grace.keeps_open(standing, Instant::now()) {
                     close(socket, close_code::POLICY, "session expired").await;
                     return;
                 }

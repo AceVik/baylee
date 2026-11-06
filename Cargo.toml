@@ -112,6 +112,12 @@ parking_lot = "0.13"
 # (`statvfs`) and the clock ticks a `/proc/<pid>/stat` counts in.
 rustix = { version = "1", features = ["fs", "param"] }
 axum = { version = "0.8", features = ["ws"] }
+# The gateway's bridge to Central (`baylee-gateway/src/central/transport.rs`):
+# what axum already builds on, and rustls on the `ring` the tree has.
+http-body-util = "0.1"
+hyper = { version = "1", default-features = false, features = ["client", "http1"] }
+hyper-rustls = { version = "0.27", default-features = false, features = ["http1", "ring", "tls12", "webpki-roots"] }
+hyper-util = { version = "0.1", default-features = false, features = ["client-legacy", "http1", "tokio"] }
 # The optional workstation monitor: no GPU context, no process commands,
 # and no parallel process scan competing with the training workers.
 sysinfo = { version = "0.40.1", default-features = false, features = ["system"] }

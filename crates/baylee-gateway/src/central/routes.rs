@@ -1,15 +1,15 @@
-use super::{Bridge, Shared};
+use super::{Asker, Bridge, Shared};
 use axum::{
     Json, Router,
-    extract::{DefaultBodyLimit, State},
-    http::StatusCode,
+    extract::{ConnectInfo, DefaultBodyLimit, State},
+    http::{HeaderMap, StatusCode},
     routing::post,
 };
 use baylee_account::{
     migration::Capability,
     wire::{Identity, Request, Response, TicketPurpose},
 };
-use std::{sync::Arc, time::Duration};
+use std::{net::SocketAddr, sync::Arc, time::Duration};
 
 fn bridge(state: &Shared) -> Result<Arc<Bridge>, StatusCode> {
     state.central.get().ok_or(StatusCode::SERVICE_UNAVAILABLE)
@@ -37,6 +37,7 @@ async fn redeem(
     state: &Shared,
     capability: Capability,
     purpose: TicketPurpose,
+    address: &str,
 ) -> Result<
     (
         Identity,
@@ -47,10 +48,13 @@ async fn redeem(
     StatusCode,
 > {
     match bridge(state)?
-        .exchange(Request::RedeemGateway {
-            ticket: capability.ticket,
-            purpose,
-        })
+        .exchange(
+            Request::RedeemGateway {
+                ticket: capability.ticket,
+                purpose,
+            },
+            Asker::SignIn(address),
+        )
         .await?
     {
         Response::GatewayIdentity {
@@ -83,10 +87,12 @@ async fn redeem(
 /// @return 403: "This gateway takes no Central account (its mode is `guests`), the account is banned or must choose a new password first, or Central refused"
 /// @return 409: "Central answered a conflict"
 /// @return 413: String text/plain "The body is over 8 KiB"
-/// @return 429: "Central is busy"
+/// @return 429: "Central is busy, or too many sign-ins are on their way"
 /// @return 503: "No Baylee Central is configured, the database or Central is unavailable, or the account is new here and this gateway's registration is not open"
 async fn login(
     State(state): State<Shared>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
     Json(capability): Json<Capability>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     // The mode in force decides, before Central is asked anything
@@ -94,7 +100,8 @@ async fn login(
     if !state.auth_mode.current().central() {
         return Err(StatusCode::FORBIDDEN);
     }
-    login_for(&state, capability, TicketPurpose::Admit).await
+    let address = crate::rate_limit_ip(&state.trusted_proxies, peer.ip(), &headers);
+    login_for(&state, capability, TicketPurpose::Admit, &address).await
 }
 
 /// `POST /auth/central/admin`: a gateway admin, by Baylee Central.
@@ -115,16 +122,19 @@ async fn login(
 /// @return 403: "This is the migration gateway, the account is banned or must choose a new password first, or Central refused"
 /// @return 409: "Central answered a conflict"
 /// @return 413: String text/plain "The body is over 8 KiB"
-/// @return 429: "Central is busy"
+/// @return 429: "Central is busy, or too many sign-ins are on their way"
 /// @return 503: "No Baylee Central is configured, or the database or Central is unavailable"
 async fn admin_login(
     State(state): State<Shared>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
     Json(capability): Json<Capability>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     if bridge(&state)?.legacy {
         return Err(StatusCode::FORBIDDEN);
     }
-    login_for(&state, capability, TicketPurpose::Admin).await
+    let address = crate::rate_limit_ip(&state.trusted_proxies, peer.ip(), &headers);
+    login_for(&state, capability, TicketPurpose::Admin, &address).await
 }
 
 /// Takes the name and tag the account has at Central onto its projection
@@ -148,10 +158,13 @@ async fn take_profile(
         display_name,
         tag,
     }) = bridge
-        .exchange(Request::GatewayProfile {
-            lease: baylee_account::Token::from_secret_bytes(lease.to_secret_bytes()),
-            purpose,
-        })
+        .exchange(
+            Request::GatewayProfile {
+                lease: baylee_account::Token::from_secret_bytes(lease.to_secret_bytes()),
+                purpose,
+            },
+            Asker::Account(&central),
+        )
         .await
     else {
         return false;
@@ -172,8 +185,9 @@ async fn login_for(
     state: &Shared,
     capability: Capability,
     purpose: TicketPurpose,
+    address: &str,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
-    let (identity, legacy, lease, expires_at) = redeem(state, capability, purpose).await?;
+    let (identity, legacy, lease, expires_at) = redeem(state, capability, purpose, address).await?;
     let (Some(lease), Some(expires_at)) = (lease, expires_at) else {
         return Err(StatusCode::SERVICE_UNAVAILABLE);
     };

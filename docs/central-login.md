@@ -93,6 +93,37 @@ says nothing about guests.
   say so with the two ways out: paste a Central token (the console's Baylee
   Central page) or allow guests.
 
+## When Central cannot answer
+
+Every session of a Central account here is still asked of Central: on each
+request, on each socket every 5 seconds, and before each seat frame. That stays
+so until `docs/proposals/central-session-tokens.md` is built; what follows is
+its stage 1.
+
+- **A revocation closes at once, and nothing else does.** Only Central's own
+  `401`, a session gone from the database or a ban read as a revocation
+  (`standing.rs`). A `429`, a `5xx`, a timeout, a status Central does not send,
+  the wrong content type, a body that does not decode and a database failure say
+  nothing about the session: a socket stays open, and closes only once they have
+  lasted 60 seconds in a row (`standing::UNKNOWN_FOR`). One good answer ends the
+  wait. No positive answer is cached.
+- **What that costs.** While Central cannot be heard, a revocation takes up to
+  60 seconds to land, and a seat's frames go to the engine unasked between the
+  5-second checks. A question holds its socket up for 2 seconds at most.
+- **A door is not a socket.** A new socket or ticket is refused while its standing
+  is unknown, with `503`, so that a client does not read a Central outage as its
+  sign-in having ended; `401` still means it has.
+- **The bridge blocks no thread.** The native exchange runs on the runtime
+  (`central/transport.rs`) with `CentralHttp`'s settings: WebPKI roots, no proxy,
+  no redirect, `https` only on the live endpoint, the same waits. A report's
+  upload stays on `CentralHttp`.
+- **Nobody fills the queue alone.** 16 exchanges are on their way at once and 256
+  may wait, two seconds at most, and an account holds 16 of them. Sign-ins take no
+  session, so they have a lane of their own, 8 at once and 4 per address, which
+  leaves the rest to the sessions already signed in. Past a share the answer is
+  `429`, to that account or address alone. Behind a proxy this needs
+  `BAYLEE_TRUSTED_PROXIES`, or every sign-in counts as one address.
+
 ## Bigint advisory scope
 
 [RUSTSEC-2026-0387](https://github.com/RustSec/advisory-db/blob/main/crates/crypto-bigint/RUSTSEC-2026-0387.md)

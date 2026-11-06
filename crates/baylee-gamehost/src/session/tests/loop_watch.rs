@@ -39,7 +39,12 @@ fn entry(card: CardIndex) -> DeckEntry {
 /// Two players on seat 0's first main phase, each holding `hand` and with
 /// `board` in play.
 fn table(hand: &[&str], board: &[&str]) -> Session {
-    let of = |names: &[&str]| names.iter().map(|name| entry(card(name))).collect::<Vec<_>>();
+    let of = |names: &[&str]| {
+        names
+            .iter()
+            .map(|name| entry(card(name)))
+            .collect::<Vec<_>>()
+    };
     let mut preset = two_humans();
     preset.house_rules.starting_player = Some(0);
     for seat in &mut preset.seats {
@@ -56,7 +61,9 @@ fn table(hand: &[&str], board: &[&str]) -> Session {
         match session.pending().clone() {
             Pending::Priority { player, .. } if main && player == ME => return session,
             Pending::Priority { player, .. } => {
-                session.act(player, PlayerAction::PassPriority).expect("passed");
+                session
+                    .act(player, PlayerAction::PassPriority)
+                    .expect("passed");
             }
             other => panic!("on the way to the main phase: {other:?}"),
         }
@@ -86,7 +93,12 @@ fn cast_at_them(session: &mut Session) {
         panic!("{:?}", session.pending());
     };
     session
-        .act(ME, PlayerAction::CastSpell { card: legal.castable[0] })
+        .act(
+            ME,
+            PlayerAction::CastSpell {
+                card: legal.castable[0],
+            },
+        )
         .expect("cast");
     session
         .act(
@@ -113,7 +125,9 @@ fn no_loop(session: &Session, by: &str) {
 fn the_spell_resolves(session: &mut Session) {
     let before = session.state().players[1].life;
     for seat in [ME, THEM] {
-        session.act(seat, PlayerAction::PassPriority).expect("passed");
+        session
+            .act(seat, PlayerAction::PassPriority)
+            .expect("passed");
     }
     assert_eq!(session.state().players[1].life, before - 3);
 }
@@ -150,10 +164,17 @@ fn a_cast_taken_back_again_and_again_is_no_loop() {
             panic!("{:?}", session.pending());
         };
         session
-            .act(ME, PlayerAction::CastSpell { card: legal.castable[0] })
+            .act(
+                ME,
+                PlayerAction::CastSpell {
+                    card: legal.castable[0],
+                },
+            )
             .expect("cast");
         // Taken back at its target: past that it is on the stack.
-        session.act(ME, PlayerAction::CancelCast).expect("taken back");
+        session
+            .act(ME, PlayerAction::CancelCast)
+            .expect("taken back");
         no_loop(&session, "a cast taken back");
     }
     the_spell_resolves(&mut session);
@@ -167,7 +188,9 @@ fn a_draw_declined_again_and_again_is_no_draw() {
     cast_at_them(&mut session);
     for _ in 0..FRAMES / 2 {
         session.act(ME, PlayerAction::OfferDraw).expect("offered");
-        session.act(THEM, PlayerAction::YesNo(false)).expect("declined");
+        session
+            .act(THEM, PlayerAction::YesNo(false))
+            .expect("declined");
         no_loop(&session, "a draw declined");
     }
     the_spell_resolves(&mut session);
@@ -181,7 +204,9 @@ fn a_setting_that_changes_nothing_sends_nobody_anything() {
     let mut session = table(&["Lightning Bolt"], &["Mountain"]);
     cast_at_them(&mut session);
     let hold = PlayerAction::SetPriorityHold(PriorityHold::Always);
-    session.act(THEM, hold.clone()).expect("the first says something");
+    session
+        .act(THEM, hold.clone())
+        .expect("the first says something");
     let seq = session.seq();
     let frames = session.act(THEM, hold).expect("taken");
     assert!(frames.is_empty(), "{} frames", frames.len());
@@ -260,13 +285,20 @@ fn a_modal_trigger_is_still_answered_after_settings_said_beside_it() {
         panic!("{:?}", session.pending());
     };
     session
-        .act(ME, PlayerAction::CastSpell { card: legal.castable[0] })
+        .act(
+            ME,
+            PlayerAction::CastSpell {
+                card: legal.castable[0],
+            },
+        )
         .expect("cast");
     for _ in 0..6 {
         let Pending::Priority { player, .. } = session.pending().clone() else {
             break;
         };
-        session.act(player, PlayerAction::PassPriority).expect("passed");
+        session
+            .act(player, PlayerAction::PassPriority)
+            .expect("passed");
     }
     assert!(
         matches!(session.pending(), Pending::ChooseCastMode { .. }),

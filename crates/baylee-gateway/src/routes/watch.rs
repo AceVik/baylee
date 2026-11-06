@@ -58,7 +58,8 @@ pub(crate) fn may_watch(game: &lobby::LobbyGame) -> Result<(), (StatusCode, Json
 /// and one over 64 KiB ends the connection; there is no rate bound. An account
 /// holding 32 sockets is refused `429` until one closes. The session is checked again
 /// every 5 seconds; once it is signed out, lapsed or banned, or the game
-/// ends, the socket closes with a close frame without a code.
+/// ends, the socket closes with a close frame without a code. A Central or
+/// database failure does the same only after lasting 60 seconds in a row.
 /// @ws-query ticket: String required "A single-use ticket bought for watching this game with `POST /ws-ticket` and the session"
 /// @ws-query protocol: u32 required "The protocol the client speaks (`PROTOCOL_VERSION`, as `GET /info` answers it); another, or none, is answered with a `HelloAck` that is not compatible"
 /// parameters:
@@ -175,11 +176,13 @@ pub(crate) async fn run_watch_socket(
     }
     tracing::info!(game_id, "spectator socket opened");
     let mut authorization = tokio::time::interval(std::time::Duration::from_secs(5));
+    let mut grace = crate::standing::Grace::default();
     loop {
         tokio::select! {
             _ = authorization.tick() => {
-                if !matches!(crate::central::resolve_digest(&state, session_digest.clone()).await,
-                    Ok(Some(session)) if watcher.as_deref() == Some(session.account_id.as_str()) && crate::moderation::admit(&session).is_ok()) {
+                let account = watcher.as_deref().unwrap_or_default();
+                let standing = crate::standing::of_session(&state, &session_digest, account).await;
+                if !grace.keeps_open(standing, std::time::Instant::now()) {
                     break;
                 }
             }

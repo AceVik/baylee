@@ -45,6 +45,12 @@ baylee-seal.workspace = true
 # constant a client refuses on.
 baylee-view.workspace = true
 bytes.workspace = true
+# The native protocol's encoding and its bound, for the bridge's own transport.
+central-api.workspace = true
+http-body-util.workspace = true
+hyper.workspace = true
+hyper-rustls.workspace = true
+hyper-util.workspace = true
 # The anonymised record export reads a stored record (one gzip member per
 # piece the engine sent) and writes one member per record.
 flate2.workspace = true

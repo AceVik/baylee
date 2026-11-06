@@ -370,15 +370,9 @@ pub(crate) async fn redeem(
     if order.is_none() && !state.chair_tickets_enabled {
         return Err(err(StatusCode::FORBIDDEN, SWITCHED_OFF));
     }
-    if !crate::routes::seat_socket::account_capability_valid(
-        &state,
-        &host,
-        central_session.as_deref(),
-    )
-    .await
-    {
-        return Err(err(StatusCode::UNAUTHORIZED, TICKET_REFUSED));
-    }
+    crate::routes::seat_socket::account_capability(&state, &host, central_session.as_deref())
+        .await
+        .at_the_door()?;
     let deck = delegated_deck(&host, body.deck);
     let guard = crate::routes::room_list::guard(&state, &id).await?;
     let seat_token = auth::new_token();

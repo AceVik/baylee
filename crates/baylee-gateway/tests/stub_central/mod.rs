@@ -157,7 +157,14 @@ fn body_of(stream: &mut std::net::TcpStream) -> Option<Vec<u8>> {
 /// What one request is answered: its status and body, and how long it takes
 /// beyond every answer's delay.
 fn answer_to(body: &[u8], shared: &Shared) -> (&'static str, Vec<u8>, Duration) {
-    let known = |key: u8| shared.identities.lock().expect("the map").get(&key).copied();
+    let known = |key: u8| {
+        shared
+            .identities
+            .lock()
+            .expect("the map")
+            .get(&key)
+            .copied()
+    };
     let expires = i64::try_from(shared.expires.load(Ordering::Relaxed)).expect("fits");
     let good = |response: &Response| {
         (

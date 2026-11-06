@@ -462,7 +462,7 @@ paths:
               schema:
                 type: string
         "429":
-          description: Central is busy
+          description: Central is busy, or too many sign-ins are on their way
         "503":
           description: >-
             No Baylee Central is configured, the database or Central is unavailable, or the
@@ -507,7 +507,7 @@ paths:
               schema:
                 type: string
         "429":
-          description: Central is busy
+          description: Central is busy, or too many sign-ins are on their way
         "503":
           description: No Baylee Central is configured, or the database or Central is unavailable
   "/lobby/games/{id}/chairs/{seat}/ticket":

@@ -192,9 +192,10 @@ pub(crate) async fn ws_ticket(
         let authorization =
             super::seat_socket::SeatAuthorization::read(&state, game_id, *seat, seat_token_hash)
                 .ok_or_else(|| err(StatusCode::UNAUTHORIZED, TICKET_REFUSED))?;
-        if !authorization.valid(&state, game_id, *seat).await {
-            return Err(err(StatusCode::UNAUTHORIZED, TICKET_REFUSED));
-        }
+        authorization
+            .standing(&state, game_id, *seat)
+            .await
+            .at_the_door()?;
     }
     let ticket = state
         .tickets

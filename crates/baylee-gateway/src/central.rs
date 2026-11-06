@@ -19,17 +19,50 @@ use zeroize::Zeroizing;
 
 mod link;
 mod routes;
+mod transport;
 pub(crate) use link::{console_routes, restore};
 pub(crate) use routes::router;
 
+/// How many exchanges may be on their way to Central at once.
+const IN_FLIGHT: usize = 16;
+
+/// How many exchanges may be waiting or on their way at once. An exchange
+/// holds a task and no thread, so this bounds a queue and nothing dearer.
+const PENDING: usize = 256;
+
+/// How many sign-ins may be waiting or on their way at once. Under
+/// [`IN_FLIGHT`], so that strangers filling this leave room for the sessions
+/// already signed in: a sign-in takes no session, and costs nothing to ask.
+const SIGN_INS: usize = 8;
+
+/// How many of [`PENDING`] one account may hold, and of [`SIGN_INS`] one
+/// address: a client's own bursts fit, and nobody fills the queue alone.
+const PER_ACCOUNT: usize = 16;
+const PER_ADDRESS: usize = 4;
+
+/// Whose exchange it is, which is whose share it comes out of.
+#[derive(Clone, Copy)]
+pub(crate) enum Asker<'a> {
+    /// The gateway's own business: a heartbeat, its terms, its link.
+    Gateway,
+    /// A session's check, by the account's Central id.
+    Account(&'a [u8; 16]),
+    /// A sign-in, by the address it comes from: nobody is known yet.
+    SignIn(&'a str),
+}
+
 pub(crate) struct Bridge {
     http: CentralHttp,
+    transport: transport::Transport,
     credential: Token,
     heartbeat: Option<Token>,
     metadata: Option<baylee_account::gateway::GatewayMetadata>,
     legacy: bool,
-    workers: Arc<tokio::sync::Semaphore>,
-    pending: Arc<tokio::sync::Semaphore>,
+    in_flight: tokio::sync::Semaphore,
+    pending: tokio::sync::Semaphore,
+    sign_ins: tokio::sync::Semaphore,
+    accounts: crate::auth::Gauge,
+    addresses: crate::auth::Gauge,
 }
 
 #[derive(Deserialize)]
@@ -125,15 +158,32 @@ impl Bridge {
             Endpoint::development(&settings.endpoint).map_err(|_| ())?
         };
         let (credential, heartbeat, metadata, legacy) = settings.validate(&endpoint)?;
-        Ok(Some(Arc::new(Self {
+        Ok(Some(Arc::new(Self::on(
+            endpoint, credential, heartbeat, metadata, legacy,
+        ))))
+    }
+
+    /// A bridge to `endpoint`, its queue empty.
+    fn on(
+        endpoint: Endpoint,
+        credential: Token,
+        heartbeat: Option<Token>,
+        metadata: Option<baylee_account::gateway::GatewayMetadata>,
+        legacy: bool,
+    ) -> Self {
+        Self {
+            transport: transport::Transport::new(&endpoint),
             http: CentralHttp::new(endpoint),
             credential,
             heartbeat,
             metadata,
             legacy,
-            workers: Arc::new(tokio::sync::Semaphore::new(4)),
-            pending: Arc::new(tokio::sync::Semaphore::new(64)),
-        })))
+            in_flight: tokio::sync::Semaphore::new(IN_FLIGHT),
+            pending: tokio::sync::Semaphore::new(PENDING),
+            sign_ins: tokio::sync::Semaphore::new(SIGN_INS),
+            accounts: crate::auth::Gauge::new(PER_ACCOUNT),
+            addresses: crate::auth::Gauge::new(PER_ADDRESS),
+        }
     }
 
     /// A pasted gateway token's bridge: one token serves both its players'
@@ -144,15 +194,13 @@ impl Bridge {
         token: &Token,
         metadata: baylee_account::gateway::GatewayMetadata,
     ) -> Arc<Self> {
-        Arc::new(Self {
-            http: CentralHttp::new(endpoint),
-            credential: Token::from_secret_bytes(token.to_secret_bytes()),
-            heartbeat: Some(Token::from_secret_bytes(token.to_secret_bytes())),
-            metadata: Some(metadata),
-            legacy: false,
-            workers: Arc::new(tokio::sync::Semaphore::new(4)),
-            pending: Arc::new(tokio::sync::Semaphore::new(64)),
-        })
+        Arc::new(Self::on(
+            endpoint,
+            Token::from_secret_bytes(token.to_secret_bytes()),
+            Some(Token::from_secret_bytes(token.to_secret_bytes())),
+            Some(metadata),
+            false,
+        ))
     }
 
     /// Whether this is the official gateway's bridge, the one credential
@@ -181,52 +229,64 @@ impl Bridge {
             .put_report_part(report, part, gzip, &self.credential)
     }
 
+    /// Asks Central `request` on `asker`'s behalf.
+    ///
+    /// Out of `asker`'s share, then out of its lane of the queue, then in
+    /// turn for a place on the way, and refused `429` at once or after two
+    /// seconds in line. A refusal here says nothing about any session
+    /// (`standing.rs`), and one account's refusals are nobody else's.
     async fn exchange(
-        self: &Arc<Self>,
+        &self,
         request: wire::Request,
+        asker: Asker<'_>,
     ) -> Result<wire::Response, StatusCode> {
-        // A small bounded queue absorbs simultaneous socket rechecks. Failing the
-        // fifth request immediately would disconnect healthy clients under bursts;
-        // neither queue capacity nor network stalls may grow blocking work without bound.
-        let pending = self
-            .pending
-            .clone()
-            .try_acquire_owned()
-            .map_err(|_| StatusCode::TOO_MANY_REQUESTS)?;
-        let permit =
-            tokio::time::timeout(Duration::from_secs(2), self.workers.clone().acquire_owned())
-                .await
-                .map_err(|_| StatusCode::TOO_MANY_REQUESTS)?
-                .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?;
-        let bridge = self.clone();
-        tokio::task::spawn_blocking(move || {
-            let _permit = permit;
-            let _pending = pending;
-            // A registered gateway beats with its heartbeat token; the official
-            // gateway's bridge beats with the bridge credential, for the
-            // official directory entry alone (baylee-central
-            // `docs/gateway-registry.md` §"Discovery, heartbeats and administrators").
-            let credential =
-                if matches!(&request, wire::Request::GatewayHeartbeat { .. }) && !bridge.legacy {
-                    bridge.heartbeat.as_ref().ok_or(StatusCode::UNAUTHORIZED)?
-                } else {
-                    &bridge.credential
-                };
-            bridge
-                .http
-                .exchange(&request, Some(credential))
-                .map_err(|error| match error {
-                    baylee_account::Error::Conflict => StatusCode::CONFLICT,
-                    baylee_account::Error::Busy => StatusCode::TOO_MANY_REQUESTS,
-                    baylee_account::Error::Rejected => StatusCode::UNAUTHORIZED,
-                    baylee_account::Error::Unavailable => StatusCode::SERVICE_UNAVAILABLE,
-                    // A gateway's own credential is no account session; Central
-                    // never answers it so, and a 403 is the honest reading.
-                    baylee_account::Error::TermsRequired => StatusCode::FORBIDDEN,
-                })
+        let busy = |_| StatusCode::TOO_MANY_REQUESTS;
+        let share = match asker {
+            Asker::Gateway => None,
+            Asker::Account(account) => {
+                let key = crate::auth::hex_lower(account);
+                Some(
+                    self.accounts
+                        .take(&key)
+                        .ok_or(StatusCode::TOO_MANY_REQUESTS)?,
+                )
+            }
+            Asker::SignIn(address) => Some(
+                self.addresses
+                    .take(address)
+                    .ok_or(StatusCode::TOO_MANY_REQUESTS)?,
+            ),
+        };
+        let lane = match asker {
+            Asker::SignIn(_) => &self.sign_ins,
+            Asker::Gateway | Asker::Account(_) => &self.pending,
+        };
+        let queued = lane.try_acquire().map_err(busy)?;
+        let turn = tokio::time::timeout(Duration::from_secs(2), self.in_flight.acquire())
+            .await
+            .map_err(|_| StatusCode::TOO_MANY_REQUESTS)?
+            .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?;
+        // A registered gateway beats with its heartbeat token; the official
+        // gateway's bridge beats with the bridge credential, for the
+        // official directory entry alone (baylee-central
+        // `docs/gateway-registry.md` §"Discovery, heartbeats and administrators").
+        let credential =
+            if matches!(&request, wire::Request::GatewayHeartbeat { .. }) && !self.legacy {
+                self.heartbeat.as_ref().ok_or(StatusCode::UNAUTHORIZED)?
+            } else {
+                &self.credential
+            };
+        let answer = self.transport.exchange(&request, Some(credential)).await;
+        drop((turn, queued, share));
+        answer.map_err(|error| match error {
+            baylee_account::Error::Conflict => StatusCode::CONFLICT,
+            baylee_account::Error::Busy => StatusCode::TOO_MANY_REQUESTS,
+            baylee_account::Error::Rejected => StatusCode::UNAUTHORIZED,
+            baylee_account::Error::Unavailable => StatusCode::SERVICE_UNAVAILABLE,
+            // A gateway's own credential is no account session; Central
+            // never answers it so, and a 403 is the honest reading.
+            baylee_account::Error::TermsRequired => StatusCode::FORBIDDEN,
         })
-        .await
-        .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?
     }
 }
 
@@ -329,7 +389,7 @@ impl Heartbeat {
                 // Network errors contain no operator-supplied diagnostics and never alter
                 // authorization: directory liveness expires centrally if heartbeats stop.
                 let _ = bridge
-                    .exchange(wire::Request::GatewayHeartbeat { metadata })
+                    .exchange(wire::Request::GatewayHeartbeat { metadata }, Asker::Gateway)
                     .await;
             }
         });
@@ -408,11 +468,14 @@ pub(crate) async fn authorize(
     expires: i64,
 ) -> Result<Option<crate::terms::Standing>, StatusCode> {
     let response = bridge
-        .exchange(wire::Request::GatewayAuthorize {
-            lease: Token::from_secret_bytes(Zeroizing::new(lease)),
-            purpose: wire::TicketPurpose::Admit,
-            terms: state.terms.confirmed(),
-        })
+        .exchange(
+            wire::Request::GatewayAuthorize {
+                lease: Token::from_secret_bytes(Zeroizing::new(lease)),
+                purpose: wire::TicketPurpose::Admit,
+                terms: state.terms.confirmed(),
+            },
+            Asker::Account(&account),
+        )
         .await?;
     Ok(match response {
         wire::Response::GatewayAuthorization {
@@ -475,7 +538,7 @@ pub(crate) async fn publish_terms(state: &Shared) -> bool {
         version: terms.version.clone(),
         texts: terms.central_texts(),
     };
-    match bridge.exchange(request).await {
+    match bridge.exchange(request, Asker::Gateway).await {
         Ok(wire::Response::TermsPublished { digest }) if digest == terms.digest => {
             state.terms.confirm(&terms.central_version());
             tracing::info!(version = %terms.version, "terms of use published to Baylee Central");
@@ -520,10 +583,13 @@ pub(crate) async fn admin_actor(
         return Ok(None);
     };
     let response = bridge
-        .exchange(wire::Request::GatewaySession {
-            lease: Token::from_secret_bytes(Zeroizing::new(binding.lease)),
-            purpose: wire::TicketPurpose::Admin,
-        })
+        .exchange(
+            wire::Request::GatewaySession {
+                lease: Token::from_secret_bytes(Zeroizing::new(binding.lease)),
+                purpose: wire::TicketPurpose::Admin,
+            },
+            Asker::Gateway,
+        )
         .await?;
     let wire::Response::GatewaySession {
         identity,
