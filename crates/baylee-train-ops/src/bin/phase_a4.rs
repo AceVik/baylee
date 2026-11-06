@@ -495,7 +495,9 @@ fn ladder_table(roots: &[PathBuf]) -> Result<Value> {
             // One declined answer is a stumble; a game the house finished is not the model's.
             let model = summary["answered"]["mind"].as_u64().unwrap_or(0);
             let house = summary["answered"]["house"].as_u64().unwrap_or(0);
-            let finished = house * 20 > model + house;
+            // A seat that left no summary died before the end: the table's result
+            // says nothing of a game the model did not finish.
+            let finished = summary.is_null() || house * 20 > model + house;
             let (played, wins) = if finished { (4, 5) } else { (2, 3) };
             tally[played] += 1;
             tally[wins] += u64::from(won);
