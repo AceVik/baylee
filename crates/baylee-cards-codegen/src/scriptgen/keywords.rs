@@ -351,16 +351,29 @@ impl Tx<'_> {
         Some(())
     }
 
-    /// `K:Flashback:<cost>` for mana-only flashback costs (CR 702.34a).
+    /// `K:Flashback:<cost>` for mana and the non-mana parts the casting
+    /// wizard already pays as an alternative cost (CR 702.34a).
     pub(super) fn flashback(&mut self, rest: &str) -> Option<()> {
         if rest.contains(':') {
             return self.deny(format!("a `Flashback` with extra fields `{rest}`"));
         }
         let (mana, parts) = self.cost_pieces(rest)?;
-        if mana.is_empty() || !parts.is_empty() {
-            return self.deny(format!("a non-mana `Flashback` cost `{rest}`"));
+        // `cost_pieces` produces these three supported alternative-cost parts;
+        // its other object, tapping and self costs need different payment rules.
+        let paid = |part: &String| {
+            part.starts_with("PayLife(")
+                || part.starts_with("Sacrifice(")
+                || part.starts_with("ReturnToHand(")
+        };
+        if (mana.is_empty() && parts.is_empty()) || !parts.iter().all(paid) {
+            return self.deny(format!("a `Flashback` cost `{rest}` the cast cannot pay"));
         }
-        self.body.flashback = Some(format!("Some(mana!(\"{mana}\"))"));
+        self.body.flashback = Some(if mana.is_empty() {
+            "Some(ManaCost::ZERO)".to_string()
+        } else {
+            format!("Some(mana!(\"{mana}\"))")
+        });
+        self.body.flashback_parts = parts;
         self.body.notes.push("flashback".to_string());
         Some(())
     }

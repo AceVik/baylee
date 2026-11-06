@@ -40,6 +40,9 @@ pub struct CardBody {
     pub enter_modifiers: Vec<String>,
     /// `flashback` expression for the front face, when present.
     pub flashback: Option<String>,
+    /// Bare `CostPart` expressions accompanying `flashback`, before the
+    /// renderer adds the variant prefix. Always empty without a flashback cost.
+    pub flashback_parts: Vec<String>,
     /// `foretell` expression for the front face, when present.
     pub foretell: Option<String>,
     /// `cost_reduction` expression for the front face, when present.
