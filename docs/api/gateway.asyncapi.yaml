@@ -7628,7 +7628,8 @@ operations:
       frame the client sends is at most 64 KiB (`MAX_SEAT_FRAME`), and a
       larger one ends the connection. A socket may send 512 frames at once
       and 240 a second after that (`seatrate`, frames of every kind counted),
-      and past that it is closed with 1008 and `too many frames`. Text frames
+      and 2 MiB of frames of a KiB or more at once and 256 KiB a second after
+      that, and past either it is closed with 1008 and `too many frames`. Text frames
       are passed over. A seat token holding 32 sockets is refused `429` until
       one closes. A socket that falls behind the engine is not dropped:
       the engine is asked to send it a fresh snapshot. A newer socket for the
@@ -7689,7 +7690,8 @@ operations:
       frame the client sends is at most 64 KiB (`MAX_SEAT_FRAME`), and a
       larger one ends the connection. A socket may send 512 frames at once
       and 240 a second after that (`seatrate`, frames of every kind counted),
-      and past that it is closed with 1008 and `too many frames`. Text frames
+      and 2 MiB of frames of a KiB or more at once and 256 KiB a second after
+      that, and past either it is closed with 1008 and `too many frames`. Text frames
       are passed over. A seat token holding 32 sockets is refused `429` until
       one closes. A socket that falls behind the engine is not dropped:
       the engine is asked to send it a fresh snapshot. A newer socket for the

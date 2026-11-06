@@ -92,6 +92,10 @@ struct AppState {
     hellos: auth::Gauge,
     /// Open sockets, per account or seat token (`presence::socket_place`).
     sockets: auth::Gauge,
+    /// Large request bodies on their way, per address (`whole_body`).
+    bodies: auth::Gauge,
+    /// Spectators' tickets, per account: thirty a minute.
+    watch_tickets: auth::RateLimiter,
     limiter: auth::RateLimiter,
     /// Tries of a closed beta's key at the guest door (#317): eight in five
     /// minutes per address, on a budget of their own beside [`Self::limiter`],
@@ -431,6 +435,8 @@ async fn main() {
         db,
         hellos: auth::Gauge::new(engine::HELLOS_PER_ADDRESS),
         sockets: auth::Gauge::new(presence::SOCKETS_PER_HOLDER),
+        bodies: auth::Gauge::new(LARGE_BODIES_PER_ADDRESS),
+        watch_tickets: auth::RateLimiter::new(std::time::Duration::from_mins(1), 30),
         limiter: auth::RateLimiter::new(std::time::Duration::from_secs(300), 10),
         sign_in_limiter: auth::RateLimiter::new(std::time::Duration::from_secs(300), 8),
         lobby: Mutex::new(Lobby::default()),
@@ -625,6 +631,11 @@ async fn main() {
             central::barrier,
         ))
         .merge(central::router())
+        // Outside the barrier: a body still on its way holds nothing.
+        .layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            whole_body,
+        ))
         // Inside the CORS layer, so a preflight is not a request served.
         .layer(axum::middleware::from_fn_with_state(
             state.clone(),
@@ -1084,6 +1095,28 @@ fn client_address(trusted: &[IpAddr], peer: IpAddr, headers: &HeaderMap) -> IpAd
     peer
 }
 
+/// A place of `gauge` for the address behind `peer`, or `Err` while that
+/// address holds all of its own.
+///
+/// `None` for this machine, on the unix socket or on loopback: with no
+/// trusted proxy naming anyone behind it that is every peer, and one budget
+/// for them all would let a stranger spend the local engines'.
+fn address_place(
+    gauge: &auth::Gauge,
+    trusted: &[IpAddr],
+    peer: SocketAddr,
+    headers: &HeaderMap,
+    local: bool,
+) -> Result<Option<auth::Held>, ()> {
+    if local || client_address(trusted, peer.ip(), headers).to_canonical().is_loopback() {
+        return Ok(None);
+    }
+    gauge
+        .take(&rate_limit_ip(trusted, peer.ip(), headers))
+        .map(Some)
+        .ok_or(())
+}
+
 /// What [`client_address`] is counted under: an IPv6 address by its /64,
 /// which one subscriber usually holds whole, so that a single line cannot
 /// pass for as many clients as it has addresses and walk past every limit;
@@ -1167,6 +1200,83 @@ fn db_down(e: &anyhow::Error) -> (StatusCode, Json<ErrorBody>) {
         StatusCode::SERVICE_UNAVAILABLE,
         "the gateway's database is unavailable",
     )
+}
+
+// --------------------------------------------------------------- whole bodies
+
+/// How long a request's body has to arrive whole: a report's or a picture's
+/// worth over a slow phone connection.
+const BODY_WITHIN: std::time::Duration = std::time::Duration::from_secs(120);
+
+/// The most any route reads. Each route's own, smaller limit still applies
+/// to what is handed on.
+const LARGEST_BODY: usize = if cosmetics::MAX_UPLOAD_BYTES > report::MAX_BODY_BYTES {
+    cosmetics::MAX_UPLOAD_BYTES
+} else {
+    report::MAX_BODY_BYTES
+};
+
+/// How many large bodies one address may have on their way at once, read
+/// before anything about the sender is known.
+const LARGE_BODIES_PER_ADDRESS: usize = 16;
+
+/// The largest body that needs no place among those: what most routes read.
+const SMALL_BODY: u64 = 64 * 1024;
+
+/// Reads a request's body before anything else happens to the request.
+///
+/// A stranger can start a request and never finish it, and nothing else
+/// bounds how long that takes. Every route reads its body whole anyway, so
+/// reading it here costs nothing and means no route, and no lock a route
+/// runs under (`central::barrier`), ever waits on one.
+///
+/// A body that may be large holds a place of its address's until it is in,
+/// so that one address cannot keep more than a known amount of memory here
+/// however many connections it opens.
+async fn whole_body(
+    State(state): State<Shared>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
+    via_unix: Option<axum::Extension<engine::ViaUnix>>,
+    request: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> axum::response::Response {
+    use axum::body::HttpBody as _;
+    use axum::response::IntoResponse as _;
+    let (parts, body) = request.into_parts();
+    let small = body.size_hint().upper().is_some_and(|n| n <= SMALL_BODY);
+    let place = if small {
+        None
+    } else {
+        let local = via_unix.is_some();
+        let trusted = &state.trusted_proxies;
+        let Ok(place) = address_place(&state.bodies, trusted, peer, &parts.headers, local) else {
+            return StatusCode::TOO_MANY_REQUESTS.into_response();
+        };
+        place
+    };
+    let read = read_body(body, LARGEST_BODY, BODY_WITHIN).await;
+    drop(place);
+    match read {
+        Ok(bytes) => {
+            next.run(axum::extract::Request::from_parts(parts, bytes.into()))
+                .await
+        }
+        Err(status) => status.into_response(),
+    }
+}
+
+/// `body` whole, or `408` when it takes longer than `within` and `413` when
+/// it runs past `limit`.
+async fn read_body(
+    body: axum::body::Body,
+    limit: usize,
+    within: std::time::Duration,
+) -> Result<bytes::Bytes, StatusCode> {
+    match tokio::time::timeout(within, axum::body::to_bytes(body, limit)).await {
+        Ok(Ok(bytes)) => Ok(bytes),
+        Ok(Err(_)) => Err(StatusCode::PAYLOAD_TOO_LARGE),
+        Err(_) => Err(StatusCode::REQUEST_TIMEOUT),
+    }
 }
 
 // ------------------------------------------------------------- cross-origin

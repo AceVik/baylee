@@ -297,7 +297,13 @@ pub(crate) fn parse_deck_lines(
 }
 
 pub(crate) fn validate_deck(body: &DeckBody) -> Result<(), (StatusCode, Json<ErrorBody>)> {
-    if body.name.is_empty() || body.name.len() > 64 {
+    if body.name.is_empty()
+        || body.name.len() > 64
+        || body
+            .name
+            .chars()
+            .any(|c| c.is_control() || crate::is_bidi_control(c))
+    {
         return Err(err(StatusCode::BAD_REQUEST, "invalid deck name"));
     }
     let over = |text: &Option<String>, most: usize| text.as_ref().is_some_and(|t| t.len() > most);

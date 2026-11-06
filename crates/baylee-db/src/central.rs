@@ -14,8 +14,8 @@ mod sessions;
 pub use legacy::{Ban, LegacyAccount, adopt, legacy_accounts};
 pub use link::{StoredLink, clear_link, link, set_link};
 pub use sessions::{
-    GatewayLease, SessionBinding, extend_session, issue_session, projection, session_binding,
-    take_profile,
+    GatewayLease, SessionBinding, extend_session, issue_session, linked_account, projection,
+    session_binding, take_profile,
 };
 
 /// Snapshot size admitted by the initial encrypted account-document format.

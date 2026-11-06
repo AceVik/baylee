@@ -3121,6 +3121,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
+        "429":
+          description: Eight wrong passwords for this room by this account in five minutes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
         "503":
           description: |-
             - The account store or Baylee Central is unavailable
@@ -4099,6 +4105,12 @@ paths:
                 $ref: "#/components/schemas/ErrorBody"
         "409":
           description: The table is not playing (`watch`)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "429":
+          description: More than 30 spectators' tickets for this account in a minute (`watch`)
           content:
             application/json:
               schema:

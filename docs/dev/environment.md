@@ -56,7 +56,7 @@ the document it names.
 - `BAYLEE_REGISTRATION` (`off`: nobody new; `invite`: a closed beta, where a new guest needs a key, a returning guest none; `docs/protocol.md` §"A closed beta: keys (#317)"; who a Central account new here may be, `docs/central-login.md`).
 - `BAYLEE_AUTH_MODE` (whom the gateway lets in: `guests`, `central` or `mixed`; set, it wins over the console's choice and locks it, unset the console's choice or the default `central` holds; any other value stops it; a mode without guests wins over a key; replaces `BAYLEE_GUESTS`, which is read no more; `docs/central-login.md` §"Who a gateway lets in").
 - `BAYLEE_GUEST_CAP` (live guests, default 1000, `0` = no cap; guests sign in with a display name only, are purged when their last session lapses, 30-day sliding, and may not upload images).
-- `BAYLEE_TRUSTED_PROXIES` (comma-separated proxy addresses whose `X-Forwarded-For` the per-address limiters believe; a proxy not on the list makes every client its one address, so on the official gateway all direct reports then share one address's 10 an hour).
+- `BAYLEE_TRUSTED_PROXIES` (comma-separated proxy addresses whose `X-Forwarded-For` the per-address limiters believe; a proxy not on the list makes every client its one address, so on the official gateway all direct reports then share one address's 10 an hour, and every client counts as this machine, which the bound on sockets that have said no hello leaves out).
 - `BAYLEE_AGENT_TOKEN` (none = no agent).
 - `BAYLEE_PUBLIC_URL` (what the gateway calls its own address in a bug report). The gateway sends no mail since the cutover; `BAYLEE_SMTP_URL` and `BAYLEE_MAIL_FROM` are not read.
 - `BAYLEE_ENGINE_URL` (set for a remote agent).

@@ -99,6 +99,32 @@ fn a_forwarded_address_is_read_only_from_a_proxy_on_the_list() {
     );
 }
 
+/// A body that never arrives is let go of when its time is up, and one past
+/// the most any route reads is refused; what fits is handed on as it came.
+#[tokio::test]
+async fn a_body_is_read_whole_in_its_time_or_not_at_all() {
+    use axum::body::Body;
+    use std::time::Duration;
+    let brief = Duration::from_millis(50);
+    let never = futures_util::stream::pending::<Result<bytes::Bytes, std::io::Error>>();
+    assert_eq!(
+        read_body(Body::from_stream(never), 64, brief).await,
+        Err(StatusCode::REQUEST_TIMEOUT)
+    );
+    assert_eq!(
+        read_body(Body::from(vec![0_u8; 65]), 64, brief).await,
+        Err(StatusCode::PAYLOAD_TOO_LARGE)
+    );
+    assert_eq!(
+        read_body(Body::from(vec![7_u8; 64]), 64, brief).await,
+        Ok(bytes::Bytes::from(vec![7_u8; 64]))
+    );
+    assert_eq!(
+        read_body(Body::empty(), 64, brief).await,
+        Ok(bytes::Bytes::new())
+    );
+}
+
 /// An IPv6 address is counted by its /64: one line holds all of it, so
 /// counting each address would let it walk past every limit keyed on the
 /// result. An IPv4 one, mapped or not, is counted as itself.

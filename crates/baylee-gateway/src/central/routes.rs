@@ -177,7 +177,18 @@ async fn login_for(
     let (Some(lease), Some(expires_at)) = (lease, expires_at) else {
         return Err(StatusCode::SERVICE_UNAVAILABLE);
     };
-    let _guard = exclusive(state).await?;
+    // The barrier drains requests while a link is fixed, so a sign-in that
+    // fixes none has nothing to wait for: taking it would let any slow
+    // request refuse it, and stall every route behind it for as long.
+    let linked = baylee_db::central::linked_account(&state.db, identity.account)
+        .await
+        .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?;
+    let settled = linked.is_some_and(|account| legacy.as_ref().is_none_or(|l| *l == account));
+    let _guard = if settled {
+        None
+    } else {
+        Some(exclusive(state).await?)
+    };
     let admin = matches!(purpose, TicketPurpose::Admin);
     let account_id = match (bridge(state)?.legacy, legacy) {
         // The official gateway: a moved account is the legacy account it

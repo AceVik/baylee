@@ -263,24 +263,13 @@ pub(crate) const HELLOS_PER_ADDRESS: usize = 16;
 
 /// A place among the sockets that have said no hello yet, or `Err` while
 /// the dialling address holds all of its own.
-///
-/// `None` for a peer on this machine, on the unix socket or on loopback
-/// (with no trusted proxy naming anyone behind it, that is every peer, and
-/// one budget for them all would let a stranger spend the local engines').
 pub(crate) fn hello_place(
     state: &crate::AppState,
     peer: SocketAddr,
     headers: &HeaderMap,
     local: bool,
 ) -> Result<Option<auth::Held>, ()> {
-    let here = crate::client_address(&state.trusted_proxies, peer.ip(), headers)
-        .to_canonical()
-        .is_loopback();
-    if local || here {
-        return Ok(None);
-    }
-    let key = crate::rate_limit_ip(&state.trusted_proxies, peer.ip(), headers);
-    state.hellos.take(&key).map(Some).ok_or(())
+    crate::address_place(&state.hellos, &state.trusted_proxies, peer, headers, local)
 }
 
 async fn run_agent_socket(

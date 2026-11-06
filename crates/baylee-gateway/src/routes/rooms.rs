@@ -221,7 +221,14 @@ pub(crate) async fn create_game(
         let mut game = LobbyGame::blank(game_id.clone(), auth::now_secs());
         game.state = LobbyState::Waiting;
         game.host = Some(account_id.clone());
-        game.name = body.name.chars().take(60).collect();
+        // Read by everybody in the lobby, so what could dress a line up as
+        // another is left out, as the room's own settings refuse it.
+        game.name = body
+            .name
+            .chars()
+            .filter(|c| !c.is_control() && !crate::is_bidi_control(*c))
+            .take(60)
+            .collect();
         game.seats = (0..chairs).map(lobby::LobbySeat::open).collect();
         let seq = game.claim_seq();
         game.seats[0].account_id = Some(account_id);
@@ -293,6 +300,7 @@ pub(crate) struct JoinGameBody {
 /// @return 403: `$ErrorBody` "The account is banned (`ban`) or must accept the terms first (`terms_required`), the password is wrong or missing (`wrong password`), or the deck is someone else's (`not your deck`)"
 /// @return 404: `$ErrorBody` "No such room (`no such game`) or deck (`no such deck`)"
 /// @return 409: `$ErrorBody` "The game has started, the caller already sits there, the chair is taken, the table is full, the deck holds a card blocked here, or the caller is still playing a running game"
+/// @return 429: `$ErrorBody` "Eight wrong passwords for this room by this account in five minutes"
 /// @return 503: `$ErrorBody` "The account store or Baylee Central is unavailable, or the gateway's database is"
 pub(crate) async fn join_game(
     State(state): State<Shared>,
@@ -330,8 +338,15 @@ pub(crate) async fn join_game(
                 .fits(invite, &account_id, &id, std::time::Instant::now())
         });
         if let Some(want) = game.password_hash.as_ref().filter(|_| !invited) {
+            // Per account and room, and asked before the password is: spent
+            // is spent, or guessing would go on and only the answer change.
+            let tries = format!("room:{account_id}:{id}");
+            if state.sign_in_limiter.spent(&tries) {
+                return Err(err(StatusCode::TOO_MANY_REQUESTS, "too many attempts"));
+            }
             let given = body.password.as_deref().unwrap_or_default();
             if &auth::token_hash(given) != want {
+                state.sign_in_limiter.allow(&tries);
                 return Err(err(StatusCode::FORBIDDEN, "wrong password"));
             }
         }

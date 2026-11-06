@@ -34,12 +34,14 @@ async fn own_seats_are_discovered_beyond_every_public_page_and_only_by_the_owner
 
     // Waiting rooms sort before playing games in the public listing. Both
     // the client's eight-row page and the gateway's 25-row default miss it.
+    // Each with a host of its own, as an account hosts only so many rooms.
     for index in 0..30 {
+        let host = login(port, &format!("discovery-host-{index}"), "host");
         let (status, body) = http(
             port,
             "POST",
             "/lobby/games",
-            Some(&stranger),
+            Some(&host),
             &format!(r#"{{"name":"Other room {index}"}}"#),
         );
         assert_eq!(status, 200, "{body}");

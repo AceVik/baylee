@@ -43,7 +43,10 @@ pub(crate) async fn configure(
         .validate(body.chairs)
         .map_err(|why| err_saying(StatusCode::BAD_REQUEST, why))?;
     if body.name.chars().count() > 60
-        || body.name.chars().any(char::is_control)
+        || body
+            .name
+            .chars()
+            .any(|c| c.is_control() || crate::is_bidi_control(c))
         || body.password.as_ref().is_some_and(|p| p.len() > 128)
     {
         return Err(err(

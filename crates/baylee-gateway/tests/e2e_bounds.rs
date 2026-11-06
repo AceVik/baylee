@@ -83,6 +83,77 @@ async fn a_wrong_secret_writes_no_stranger_s_name_to_the_log() {
     assert!(!logs.contains("xxxxxxxx"), "{logs}");
 }
 
+/// An address holds only so many sockets before their hello: what they send
+/// is read before anything about them is known. Behind a trusted proxy, so
+/// the address is the one it names and not this machine, which is exempt.
+#[tokio::test(flavor = "multi_thread")]
+async fn an_address_holds_only_so_many_sockets_before_their_hello() {
+    use tokio_tungstenite::tungstenite::client::IntoClientRequest as _;
+    let gw = spawn_gateway_with(
+        "bounds_hellos",
+        &[("BAYLEE_TRUSTED_PROXIES", "127.0.0.1".into())],
+    );
+    let dial = |forwarded: &'static str| {
+        let mut request = format!("ws://127.0.0.1:{}/engine/ws", gw.port)
+            .into_client_request()
+            .expect("a request");
+        request
+            .headers_mut()
+            .insert("x-forwarded-for", forwarded.parse().expect("a value"));
+        tokio_tungstenite::connect_async(request)
+    };
+    let mut held = Vec::new();
+    for _ in 0..16 {
+        held.push(dial("203.0.113.9").await.expect("a place").0);
+    }
+    match dial("203.0.113.9").await {
+        Err(tokio_tungstenite::tungstenite::Error::Http(answer)) => {
+            assert_eq!(answer.status().as_u16(), 429);
+        }
+        other => panic!("the seventeenth: {:?}", other.map(|_| "opened")),
+    }
+    held.push(dial("203.0.113.10").await.expect("another address").0);
+}
+
+/// An address has only so many large bodies on their way at once, however
+/// many connections it opens: each may be megabytes, read before anything
+/// about the sender is known. A small one needs no place.
+#[test]
+fn an_address_has_only_so_many_large_bodies_on_their_way() {
+    use std::io::{Read as _, Write as _};
+    let gw = spawn_gateway_with(
+        "bounds_bodies",
+        &[("BAYLEE_TRUSTED_PROXIES", "127.0.0.1".into())],
+    );
+    let start = |length: usize| {
+        let mut stream = std::net::TcpStream::connect(("127.0.0.1", gw.port)).expect("connected");
+        write!(
+            stream,
+            "POST /auth/guest HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Type: application/json\r\n\
+             X-Forwarded-For: 203.0.113.9\r\nContent-Length: {length}\r\n\r\n"
+        )
+        .expect("written");
+        stream
+    };
+    let held: Vec<_> = (0..16).map(|_| start(1 << 20)).collect();
+    std::thread::sleep(Duration::from_millis(300));
+    let mut seventeenth = start(1 << 20);
+    seventeenth
+        .set_read_timeout(Some(Duration::from_secs(10)))
+        .expect("a timeout");
+    let mut answer = [0_u8; 12];
+    seventeenth.read_exact(&mut answer).expect("an answer");
+    assert_eq!(&answer, b"HTTP/1.1 429");
+    let mut small = start(2);
+    small.write_all(b"{}").expect("written");
+    small
+        .set_read_timeout(Some(Duration::from_secs(10)))
+        .expect("a timeout");
+    small.read_exact(&mut answer).expect("an answer");
+    assert_ne!(&answer, b"HTTP/1.1 429", "a small body needs no place");
+    drop(held);
+}
+
 /// A seat agent has one hello window, not one per frame it cares to send.
 #[tokio::test(flavor = "multi_thread")]
 async fn a_stranger_cannot_keep_the_seat_agent_door_open_with_frames() {
@@ -121,6 +192,151 @@ async fn the_lobby_feed_takes_no_large_frame() {
         closes(&mut ws, Duration::from_secs(5)).await,
         "a megabyte on a socket that reads nothing"
     );
+}
+
+/// A seat's frames are counted by weight as well as by number: frames at the
+/// size limit and inside the frame allowance would otherwise be megabytes a
+/// second into the queue to its engine, in the process every table shares.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_seat_cannot_send_megabytes_a_second() {
+    let gw = spawn_gateway("bounds_seat_bytes");
+    let port = gw.port;
+    let _agent = common::attach_agent(&gw).await;
+    let token = login(port, "heavy", "Heavy");
+    let (status, body) = http(
+        port,
+        "POST",
+        "/decks",
+        Some(&token),
+        r#"{"name":"d","cards":["40 Forest","20 Swamp"]}"#,
+    );
+    assert_eq!(status, 200, "{body}");
+    let create = format!(
+        r#"{{"deck_id":"{}","mode":"ai"}}"#,
+        json_field(&body, "deck_id")
+    );
+    let (status, body) = http(port, "POST", "/lobby/games", Some(&token), &create);
+    assert_eq!(status, 200, "{body}");
+    let mut ws = common::dial_seat(port, json_field(&body, "game_id"), json_field(&body, "seat_token")).await;
+    // Far under the frame allowance's 512 at once, and over 12 MiB.
+    let heavy = Message::Binary(vec![0_u8; 60 * 1024].into());
+    for _ in 0..200 {
+        if ws.feed(heavy.clone()).await.is_err() {
+            break;
+        }
+    }
+    let _ = ws.flush().await;
+    let closed = tokio::time::timeout(common::WAIT_BUDGET, async {
+        while let Some(frame) = ws.next().await {
+            match frame {
+                Ok(Message::Close(frame)) => return frame,
+                Ok(_) => {}
+                Err(_) => break,
+            }
+        }
+        None
+    })
+    .await
+    .expect("a heavy seat was still open");
+    let closed = closed.expect("closed saying why");
+    assert_eq!(u16::from(closed.code), 1008, "{closed:?}");
+}
+
+/// A room's password is guessed only so often by one account, and once that
+/// is spent even the right one has to wait: a limit that only changed the
+/// answer to a wrong guess would not stop anybody guessing.
+#[test]
+fn a_room_s_password_is_guessed_only_so_often() {
+    let gw = spawn_gateway("bounds_password");
+    let host = login(gw.port, "locker", "Locker");
+    let (status, body) = http(
+        gw.port,
+        "POST",
+        "/lobby/games",
+        Some(&host),
+        r#"{"mode":"open","seats":3,"password":"right"}"#,
+    );
+    assert_eq!(status, 200, "{body}");
+    let path = format!("/lobby/games/{}/join", json_field(&body, "game_id"));
+    let guesser = login(gw.port, "guesser", "Guesser");
+    let guess = |password: &str, who: &str| {
+        let body = format!(r#"{{"password":"{password}"}}"#);
+        http(gw.port, "POST", &path, Some(who), &body).0
+    };
+    for _ in 0..8 {
+        assert_eq!(guess("wrong", &guesser), 403);
+    }
+    assert_eq!(guess("wrong", &guesser), 429);
+    assert_eq!(guess("right", &guesser), 429, "spent is spent");
+    let friend = login(gw.port, "friend", "Friend");
+    assert_eq!(guess("right", &friend), 200, "another account is not held up");
+}
+
+/// Each spectator that opens costs its engine a whole snapshot, so one
+/// account's tickets to watch are limited, however briefly it stays.
+#[tokio::test(flavor = "multi_thread")]
+async fn an_account_buys_only_so_many_tickets_to_watch() {
+    let gw = spawn_gateway("bounds_watch");
+    let port = gw.port;
+    let _agent = common::attach_agent(&gw).await;
+    let player = login(port, "watched", "Watched");
+    let (status, body) = http(
+        port,
+        "POST",
+        "/decks",
+        Some(&player),
+        r#"{"name":"d","cards":["40 Forest","20 Swamp"]}"#,
+    );
+    assert_eq!(status, 200, "{body}");
+    let create = format!(
+        r#"{{"deck_id":"{}","mode":"ai"}}"#,
+        json_field(&body, "deck_id")
+    );
+    let (status, body) = http(port, "POST", "/lobby/games", Some(&player), &create);
+    assert_eq!(status, 200, "{body}");
+    let ask = format!(
+        r#"{{"socket":"watch","game":"{}"}}"#,
+        json_field(&body, "game_id")
+    );
+    let watcher = login(port, "watcher", "Watcher");
+    let mut bought = 0;
+    let status = loop {
+        let (status, _) = common::ask_ticket(port, &watcher, &ask);
+        if status != 200 {
+            break status;
+        }
+        bought += 1;
+        assert!(bought <= 100, "{bought} tickets and still going");
+    };
+    assert_eq!(status, 429);
+    assert!(bought >= 5, "a spectator who reconnects is not stopped");
+}
+
+/// A name everybody in the lobby reads carries nothing that could dress a
+/// line up as another.
+#[test]
+fn a_room_and_a_deck_are_named_without_control_characters() {
+    let gw = spawn_gateway("bounds_names");
+    let session = login(gw.port, "namer", "Namer");
+    let (status, body) = http(
+        gw.port,
+        "POST",
+        "/lobby/games",
+        Some(&session),
+        &serde_json::json!({ "mode": "open", "name": "Room\n\u{202e}one" }).to_string(),
+    );
+    assert_eq!(status, 200, "{body}");
+    let (status, listing) = http(gw.port, "GET", "/lobby/games", Some(&session), "");
+    assert_eq!(status, 200, "{listing}");
+    assert!(listing.contains(r#""name":"Roomone""#), "{listing}");
+    let (status, body) = http(
+        gw.port,
+        "POST",
+        "/decks",
+        Some(&session),
+        r#"{"name":"Deck\none","cards":["1 Forest"]}"#,
+    );
+    assert_eq!(status, 400, "{body}");
 }
 
 /// One account cannot open waiting rooms without end: every one of them is

@@ -59,6 +59,18 @@ pub const BURST: u32 = 512;
 /// join's second is the burst's to cover.
 pub const RATE: u32 = 240;
 
+/// Kibibytes a second a seat socket may keep up, a frame costing one for
+/// each whole kibibyte it holds: the frames a client sends are hundreds of
+/// bytes and cost nothing here.
+///
+/// [`RATE`] counts frames, and at 64 KiB each it would admit 15 MiB a second
+/// into a queue to the engine that has no bound of its own, in the process
+/// every table shares. This is what a seat can put there.
+pub const KIB_RATE: u32 = 256;
+
+/// Kibibytes a seat socket may send at once.
+pub const KIB_BURST: u32 = 2048;
+
 /// The window the busiest second is counted in.
 pub const SECOND: Duration = Duration::from_secs(1);
 

@@ -35,6 +35,26 @@ pub(super) fn central_id(value: [u8; 16]) -> Result<Uuid, DbErr> {
     Ok(id)
 }
 
+/// The account `central` is linked to here, if it is linked yet.
+///
+/// # Errors
+/// Refuses non-v7 identities, and reports unavailable storage.
+pub async fn linked_account(
+    db: &DatabaseConnection,
+    central: [u8; 16],
+) -> Result<Option<String>, DbErr> {
+    let central = central_id(central)?;
+    let row = db
+        .query_one_raw(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            "SELECT account_id FROM central_account_link WHERE central_id = $1",
+            [central.into()],
+        ))
+        .await?;
+    row.map(|row| row.try_get::<Uuid>("", "account_id").map(|id| id.to_string()))
+        .transpose()
+}
+
 /// Resolve/create a local projection exclusively by immutable Central ID.
 /// Private login names and e-mail addresses are never used for account linking.
 ///

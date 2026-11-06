@@ -49,7 +49,8 @@ use ownership::{Connection, Ownership};
 /// frame the client sends is at most 64 KiB (`MAX_SEAT_FRAME`), and a
 /// larger one ends the connection. A socket may send 512 frames at once
 /// and 240 a second after that (`seatrate`, frames of every kind counted),
-/// and past that it is closed with 1008 and `too many frames`. Text frames
+/// and 2 MiB of frames of a KiB or more at once and 256 KiB a second after
+/// that, and past either it is closed with 1008 and `too many frames`. Text frames
 /// are passed over. A seat token holding 32 sockets is refused `429` until
 /// one closes. A socket that falls behind the engine is not dropped:
 /// the engine is asked to send it a fresh snapshot. A newer socket for the
@@ -543,6 +544,7 @@ async fn run_game_socket(
     let opened = std::time::Instant::now();
     let mut meter = seatrate::Meter::new(opened);
     let mut allowance = seatrate::Allowance::new(opened, seatrate::RATE, seatrate::BURST);
+    let mut volume = seatrate::Allowance::new(opened, seatrate::KIB_RATE, seatrate::KIB_BURST);
     let mut recheck = tokio::time::interval(std::time::Duration::from_secs(5));
     loop {
         tokio::select! {
@@ -550,10 +552,14 @@ async fn run_game_socket(
                 if !connection.active() || !authorization.valid(&state, &game_id, seat).await { break; }
             }
             frame = socket.recv() => {
-                if let Some(Ok(_)) = &frame {
+                if let Some(Ok(message)) = &frame {
                     let now = std::time::Instant::now();
                     meter.note(now);
-                    if !allowance.admit(now) {
+                    let kib = match message {
+                        Message::Binary(data) => data.len() / 1024,
+                        _ => 0,
+                    };
+                    if !allowance.admit(now) || !(0..kib).all(|_| volume.admit(now)) {
                         close_over_allowance(&mut socket, &game_id, seat, &meter).await;
                         break;
                     }
