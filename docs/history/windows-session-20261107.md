@@ -1,0 +1,33 @@
+# Windows session, 7 November 2026
+
+For a Claude session on the owner's desktop booted into Windows 11 (Ryzen 9 3900X, RTX 4070 Ti,
+two monitors, `docs/perf-client.md` §"Windows"). The window is short: the owner plays on this machine
+from about 9:00. Do these in order and stop in time. Close every client you start. Commit to
+`c42/shared` by fast-forward, never force; `cargo dev land` stays with the Linux session.
+
+## 1. The key sound
+
+In the shipped `0.1.1-beta.9b` on Windows, every key press plays a Windows system sound. Reproduce it
+in the current build and find which keys and which screens. Winit is 0.30; the first suspicion is a key
+message nobody handles, so Windows answers with its default beep. That is a suspicion, not a finding.
+Fix it, with a test where one is possible.
+
+## 2. PGO for the client
+
+`docs/releasing.md` §"The client's profile" and `crates/baylee-tools/src/pgo/`. Run
+`cargo tools pgo client` for `x86_64-pc-windows-msvc`. It needs `llvm-tools`
+(`rustup component add llvm-tools`). Note the functions without counts: the limit is 5 %, for the whole
+and for `baylee_client` alone. Whether the profile applies from another checkout path is measured on
+the Mac; read that first. Keep `merged.profdata`, and say where it is.
+
+Measure plain against profiled, alternating: frame time in the lobby, a duel, a full board, and an
+offline game's CPU time, with the spread.
+
+## 3. If time remains
+
+Deckbuilder on this machine: typing in the search, scrolling, adding cards. On the Mac it does not
+stutter, and the owner has seen it stutter somewhere. Report frame times and any spikes over 50 ms.
+
+## Report
+
+What was fixed, the numbers, what is left, and the state of the branch.
