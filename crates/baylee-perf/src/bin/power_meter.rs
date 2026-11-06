@@ -1,7 +1,7 @@
 //! Mean power and joules per run of a command, read off a sensor file.
 //!
 //! ```text
-//! rustc -O crates/baylee-train/examples/power_meter.rs -o power_meter
+//! rustc -O crates/baylee-perf/src/bin/power_meter.rs -o power_meter
 //! power_meter /sys/class/hwmon/hwmon8/power1_input 30 -- taskset -c 2 ./engine_perf house
 //! power_meter /sys/class/hwmon/hwmon8/power1_input 30
 //! ```

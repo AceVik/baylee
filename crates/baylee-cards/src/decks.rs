@@ -292,6 +292,56 @@ pub fn from_lines(
     })
 }
 
+/// A house deck from the text of its file under `data/decks/`: a `[deck:Name]`
+/// header, one `baylee_core::deckrow` row per line, then optional `[sideboard]`
+/// rows and `[commander]` lines, where a commander is a bare card name. `#`
+/// starts a comment.
+///
+/// # Errors
+/// When the text has no header, an unknown section, a card row before the
+/// header, or names a card the pool does not have.
+pub fn house_deck(text: &str) -> Result<LoadedDeck, String> {
+    let mut name = None;
+    let mut section = "";
+    let (mut main, mut side, mut commanders) = (Vec::new(), Vec::new(), Vec::new());
+    for line in text.lines() {
+        let line = line.trim_end();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        if let Some(rest) = line.strip_prefix('[') {
+            let rest = rest.trim_end_matches(']');
+            section = match rest.split_once(':') {
+                Some(("deck", deck)) => {
+                    name = Some(deck.to_owned());
+                    "deck"
+                }
+                _ => match rest {
+                    "sideboard" => "sideboard",
+                    "commander" => "commander",
+                    other => return Err(format!("unknown section [{other}]")),
+                },
+            };
+            continue;
+        }
+        match section {
+            "deck" => main.push(line.to_owned()),
+            "sideboard" => side.push(line.to_owned()),
+            "commander" => {
+                // `from_lines` drops a leader it cannot resolve, and a
+                // Commander deck without its commander is another deck.
+                if by_name(line).is_none() {
+                    return Err(format!("unknown commander: {line}"));
+                }
+                commanders.push(line.to_owned());
+            }
+            _ => return Err(format!("a card row before the [deck:Name] header: {line}")),
+        }
+    }
+    let name = name.ok_or("no [deck:Name] header")?;
+    from_lines(&name, &main, &side, &commanders)
+}
+
 /// Every deck the acceptance text names, in the order it names them.
 ///
 /// The file is the only deck data every build carries — the browser build

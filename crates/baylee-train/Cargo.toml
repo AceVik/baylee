@@ -31,10 +31,6 @@ play = [
     "dep:serde_json",
     "dep:uuid",
 ]
-# `Engine::fork_for` for `examples/engine_perf.rs`, which measures lookahead
-# without the runtime `onnx` downloads. Not `play`, for the reason given at
-# `onnx` below.
-simulation = ["play", "baylee-gamehost/simulation"]
 # The trained AI playing through ONNX Runtime (`netplay`, the `arena` bin).
 # Not default and in no gate: it downloads the runtime when it builds, and
 # only the trainer's machine needs it. It also turns on the engine's
@@ -113,10 +109,6 @@ sha2.workspace = true
 [[example]]
 name = "probe_refusal"
 required-features = ["play"]
-
-[[example]]
-name = "engine_perf"
-required-features = ["simulation"]
 
 [[example]]
 name = "priority_audit4"

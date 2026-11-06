@@ -1288,6 +1288,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "baylee-perf"
+version = "0.1.0-beta.9c"
+dependencies = [
+ "anyhow",
+ "baylee-cards",
+ "baylee-core",
+ "baylee-engine",
+ "baylee-gamehost",
+ "baylee-protocol",
+ "prost",
+ "serde_json",
+]
+
+[[package]]
 name = "baylee-protocol"
 version = "0.1.0-beta.9c"
 dependencies = [

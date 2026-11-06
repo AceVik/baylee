@@ -1851,9 +1851,9 @@ RUSTFLAGS="-C profile-use=$P/eval4.profdata" CARGO_TARGET_DIR=$P/target-use \
 - **A profile belongs to one source commit.** Build it again when the engine changes.
   A stale profile is not wrong, it stops paying: code it has no counts for is
   optimised blind.
-- **Prove it before a binary is used, every time.** Build
-  `examples/engine_perf.rs` with the same `profile-use` beside a generic one, and
-  require the `--verify` files of all three shapes to be byte-equal, hashes
+- **Prove it before a binary is used, every time.** Build `engine_perf`
+  (`crates/baylee-perf`) with the same `profile-use` beside a generic one, and
+  require the `--verify` files of its shapes to be byte-equal, hashes
   included. That holds the engine to the generic build, but it is another binary:
   play the same few deals with the new `eval4` and the generic one as well, and
   require every game's outcome and record to be equal, which `eval4` repeats exactly

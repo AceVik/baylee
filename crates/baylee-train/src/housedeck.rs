@@ -60,45 +60,7 @@ impl HouseDeck {
     /// # Errors
     /// As [`HouseDeck::load`].
     pub fn parse(key: &str, text: &str) -> anyhow::Result<Self> {
-        let mut name = None;
-        let mut section = "";
-        let (mut main, mut side, mut commanders) = (Vec::new(), Vec::new(), Vec::new());
-        for line in text.lines() {
-            let line = line.trim_end();
-            if line.is_empty() || line.starts_with('#') {
-                continue;
-            }
-            if let Some(rest) = line.strip_prefix('[') {
-                let rest = rest.trim_end_matches(']');
-                section = match rest.split_once(':') {
-                    Some(("deck", deck)) => {
-                        name = Some(deck.to_owned());
-                        "deck"
-                    }
-                    _ => match rest {
-                        "sideboard" => "sideboard",
-                        "commander" => "commander",
-                        other => bail!("unknown section [{other}]"),
-                    },
-                };
-                continue;
-            }
-            match section {
-                "deck" => main.push(line.to_owned()),
-                "sideboard" => side.push(line.to_owned()),
-                "commander" => {
-                    // `from_lines` drops a leader it cannot resolve, and a
-                    // Commander deck without its commander is another deck.
-                    if baylee_cards::decks::by_name(line).is_none() {
-                        bail!("unknown commander: {line}");
-                    }
-                    commanders.push(line.to_owned());
-                }
-                _ => bail!("a card row before the [deck:Name] header: {line}"),
-            }
-        }
-        let name = name.context("no [deck:Name] header")?;
-        let deck = from_lines(&name, &main, &side, &commanders).map_err(anyhow::Error::msg)?;
+        let deck = baylee_cards::decks::house_deck(text).map_err(anyhow::Error::msg)?;
         Ok(Self {
             key: key.to_owned(),
             deck,

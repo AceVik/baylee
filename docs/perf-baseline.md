@@ -1190,7 +1190,7 @@ Every figure is instructions, counted by `valgrind --tool=callgrind` on the
 card registry and the deck files are left out. Instruction counts do not move
 with the load the machine was under; wall time did, and none is claimed here.
 
-`crates/baylee-train/examples/engine_perf.rs` is the workload: sixteen seeded
+`crates/baylee-perf/src/bin/engine_perf.rs` is the workload: sixteen seeded
 games over every house deck, in three shapes.
 
 | Shape | What it plays | Games | Answers |
@@ -1200,10 +1200,10 @@ games over every house deck, in three shapes.
 | `search` | one chair driven, four worlds forked at every fourth of its priorities, each rolled out 24 actions | 16 | 10 458 (1 152 forks, 27 022 rollout steps) |
 
 ```text
-cargo build --profile selfplay -p baylee-train --example engine_perf --features simulation
+cargo build --profile selfplay -p baylee-perf --features simulation
 valgrind --tool=callgrind --toggle-collect='engine_perf::play_all' \
-    target/selfplay/examples/engine_perf house
-target/selfplay/examples/engine_perf house --verify
+    target/selfplay/engine_perf house
+target/selfplay/engine_perf house --verify
 ```
 
 Each step on top of the one before, in billions of instructions:
@@ -1385,9 +1385,37 @@ much as the one it did. The recipe for training and evaluation binaries is in
 was not measured here.
 
 Unlike `target-cpu`, PGO is not tied to a CPU: a profile changes how code is laid
-out, not which instructions may run, so it could apply to the live servers too. No
-release build uses it, and that is the owner's decision. A release pipeline would
-need a workload that stands for live traffic for each release commit, an
-instrumented build and a training run before the real one, an `llvm-profdata`
-matching that rustc on the build machine, and the `--verify` comparison against the
-generic build as a release check.
+out, not which instructions may run. The owner decided the same day that it goes
+into what ships: `docs/releasing.md` §"Profile-guided builds".
+
+#### Energy
+
+Does a build for one CPU at least save power? The notebook, joules per run, five
+rounds of twenty seconds each with the builds alternating, median and range.
+
+The energy counters could not be read: `power/energy-pkg` exists, but
+`perf_event_paranoid` is 4, and `intel-rapl:0/energy_uj` is readable by root alone.
+Neither was opened. These figures come from what a normal account may read, the
+APU's `PPT` sensor (`hwmon/power1_input`, microwatts), sampled ten times a second by
+`power_meter` (`crates/baylee-perf`): a firmware estimate of the package's power
+times the run's seconds, whole process included, and not a count of energy. They are
+good for comparing builds measured alike, not as absolute joules.
+
+| Build | `house` J | `decide` J | `search` J |
+|---|---:|---:|---:|
+| generic | 16.91 [16.84–17.00] | 23.11 [22.99–23.36] | 36.27 [35.87–36.36] |
+| `target-cpu=x86-64-v3` | 16.47 [16.44–16.73] | 22.29 [22.05–25.48] | 35.56 [35.36–35.59] |
+| `target-cpu=native` | 16.52 [16.41–16.68] | 22.14 [22.05–22.40] | 35.69 [35.41–35.90] |
+| PGO, trained on `house` | 11.84 [11.73–11.92] | 16.70 [16.56–16.82] | 27.59 [27.30–27.81] |
+
+| Build | Against generic |
+|---|---|
+| `x86-64-v3` | −2.6 %, −3.5 %, −2.0 % |
+| `native` | −2.3 %, −4.2 %, −1.6 % |
+| PGO | **−30.0 %, −27.7 %, −23.9 %** |
+
+**A build for one CPU saves no power of its own.** Every build draws the same, 21.5
+to 22.1 W with one core busy against 4.0 to 4.4 W at rest, wider instructions or not.
+Energy here is time, so a build saves what it saves in seconds. The one reading off
+that line, 25.48 J at 24.35 W for `decide` under `v3`, is a single round of five and
+its cause was not found; the median does not rest on it.

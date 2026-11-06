@@ -2,22 +2,31 @@
 //! change played them the same (`docs/perf-baseline.md`).
 //!
 //! ```text
-//! cargo build --profile selfplay -p baylee-train --example engine_perf --features simulation
+//! cargo build --profile selfplay -p baylee-perf --features simulation
 //! valgrind --tool=callgrind --toggle-collect='engine_perf::play_all' \
-//!     target/selfplay/examples/engine_perf house
-//! target/selfplay/examples/engine_perf house --verify > before.txt
+//!     target/selfplay/engine_perf house
+//! target/selfplay/engine_perf house --verify > before.txt
 //! ```
 //!
-//! Three shapes, each over the same tables:
+//! Four shapes, each over the same tables:
 //!
 //! - `house`: recorded games between house agents, the self-play runner's
 //!   path, which hashes the game after every answer.
+//! - `frames`: one chair answers over a socket and the house plays the other,
+//!   the way a live table runs: every answer builds and serializes that
+//!   seat's frames. A profile for a shipped binary trains on this one.
 //! - `decide`: both chairs driven from outside the way `eval4` drives a net's
 //!   chair. Every seat observes the table, the asked seat is given its
 //!   question and view, the game is hashed, and a house answer stands in for
 //!   the net's.
-//! - `search`: one chair driven, and at each of its main-phase priorities a
-//!   few worlds forked and rolled out, the shape of `netplay4::search`.
+//! - `search` (feature `simulation`): one chair driven, and at each of its
+//!   main-phase priorities a few worlds forked and rolled out, the shape of
+//!   `netplay4::search`.
+//!
+//! This crate is a bin and not an example because a release builds it beside
+//! the binaries it ships, in the same `cargo` run: an example would bring its
+//! crate's dev-dependencies in, and with them `simulation`, which must not
+//! reach a hosting build.
 //!
 //! Count instructions, not seconds, unless the machine is quiet. `--verify`
 //! prints a line of digests per game: every action with its seat, every view
@@ -27,16 +36,21 @@
 //! `hashes` alone may move, and only where a commit says it moved them.
 
 use std::hint::black_box;
+use std::path::Path;
 
 use anyhow::{Context as _, bail};
+use baylee_cards::decks::{LoadedDeck, house_deck, preset_for_all};
 use baylee_core::ids::PlayerId;
-use baylee_core::preset::{AIProfile, GamePreset};
+use baylee_core::preset::{AIProfile, GamePreset, SeatController};
 use baylee_engine::choice::{Pending, PlayerAction, timeout_answer};
+#[cfg(feature = "simulation")]
 use baylee_engine::engine::DeckKnowledge;
+#[cfg(feature = "simulation")]
+use baylee_gamehost::SimulationSession;
 use baylee_gamehost::record::Line;
-use baylee_gamehost::{PlayerView, Session, SimulationSession};
-use baylee_train::housedeck::HouseDeck;
-use baylee_train::selfplay::table_for;
+use baylee_gamehost::{PlayerView, Session};
+use baylee_protocol::v1::Envelope;
+use prost::Message as _;
 
 /// The decks at each table and the profiles playing them. Mirrors of nothing:
 /// every house deck sits down, so an artifact board, a token board, a
@@ -59,19 +73,24 @@ const SEEDS: [u64; 2] = [11, 12];
 const MAX_ANSWERS: u64 = 3000;
 
 /// Worlds forked at a searched decision.
+#[cfg(feature = "simulation")]
 const WORLDS: u64 = 4;
 
 /// Actions a world is rolled out for.
+#[cfg(feature = "simulation")]
 const HORIZON: u64 = 24;
 
 /// Which of the searching seat's main-phase priorities are searched: the
 /// first of each `SEARCH_EVERY`.
+#[cfg(feature = "simulation")]
 const SEARCH_EVERY: u64 = 4;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Shape {
     House,
+    Frames,
     Decide,
+    #[cfg(feature = "simulation")]
     Search,
 }
 
@@ -146,6 +165,18 @@ impl Digests {
             self.hashes.feed(&hash.to_le_bytes());
         } else {
             black_box(hash);
+        }
+    }
+
+    /// What a socket is sent, as it goes down the wire.
+    fn frames(&mut self, frames: &[(PlayerId, Envelope)]) {
+        if self.on {
+            for (seat, frame) in frames {
+                self.views.feed(&[seat.get()]);
+                self.views.feed(&frame.encode_to_vec());
+            }
+        } else {
+            black_box(frames);
         }
     }
 
@@ -256,8 +287,37 @@ fn answer(session: &mut Session, seat: PlayerId, pending: &Pending, digests: &mu
     let tries = [house, fallback, Some(PlayerAction::PassPriority)];
     tries.into_iter().flatten().any(|action| {
         digests.action(seat, &action);
-        session.act_slice(seat, action, 0).is_ok()
+        session.act_slice(seat, action, 0).is_ok_and(|frames| {
+            digests.frames(&frames);
+            true
+        })
     })
+}
+
+fn frames(game: &Game, verify: bool) -> Played {
+    let mut session = Session::new_recorded(&game.preset, "perf").expect("the preset builds");
+    describe(&mut session, game);
+    let seat = PlayerId::new(0);
+    session.take_over(seat);
+    let mut digests = Digests::new(verify);
+    while running(&session) {
+        digests.frames(&session.pump_at_most(1));
+        if session.needs_pump() {
+            continue;
+        }
+        let Some((pending, view)) = session.view_for(seat) else {
+            break;
+        };
+        digests.question(&pending);
+        digests.view(&view);
+        if !answer(&mut session, seat, &pending, &mut digests) {
+            break;
+        }
+    }
+    if verify {
+        digests.record(&session.take_record());
+    }
+    played(&session, digests, 0, 0)
 }
 
 fn decide(game: &Game, verify: bool) -> Played {
@@ -295,6 +355,7 @@ fn decide(game: &Game, verify: bool) -> Played {
 
 /// Rolls `fork` on for at most [`HORIZON`] actions as `netplay4::search`
 /// does; the world's steps.
+#[cfg(feature = "simulation")]
 fn rollout(fork: &mut SimulationSession, seat: PlayerId, digests: &mut Digests) -> u64 {
     for step in 0..HORIZON {
         if matches!(fork.pending(), Pending::GameOver(_)) {
@@ -321,6 +382,7 @@ fn rollout(fork: &mut SimulationSession, seat: PlayerId, digests: &mut Digests) 
     HORIZON
 }
 
+#[cfg(feature = "simulation")]
 fn search(game: &Game, verify: bool) -> Played {
     let mut session = Session::new(&game.preset).expect("the preset builds");
     describe(&mut session, game);
@@ -371,24 +433,43 @@ fn play_all(shape: Shape, games: &[Game], verify: bool) -> Vec<Played> {
         .iter()
         .map(|game| match shape {
             Shape::House => house(game, verify),
+            Shape::Frames => frames(game, verify),
             Shape::Decide => decide(game, verify),
+            #[cfg(feature = "simulation")]
             Shape::Search => search(game, verify),
         })
         .collect()
 }
 
+/// The house deck `key`, from the checkout this was built in.
+fn deck(key: &str) -> anyhow::Result<LoadedDeck> {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../data/decks")
+        .join(format!("{key}.txt"));
+    let text =
+        std::fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
+    house_deck(&text)
+        .map_err(anyhow::Error::msg)
+        .with_context(|| format!("loading {}", path.display()))
+}
+
 fn games() -> anyhow::Result<Vec<Game>> {
     let mut games = Vec::new();
     for (a, b, profile_a, profile_b) in TABLES {
-        let decks = [HouseDeck::named(a)?, HouseDeck::named(b)?];
+        let decks = [deck(a)?, deck(b)?];
         let profiles = [profile_a, profile_b]
             .map(|name| AIProfile::named(name).with_context(|| format!("profile {name}")));
         let [profile_a, profile_b] = profiles;
         let profiles = [profile_a?, profile_b?];
         for seed in SEEDS {
+            let mut preset = preset_for_all(seed, &[&decks[0], &decks[1]]);
+            for (seat, profile) in preset.seats.iter_mut().zip(profiles) {
+                seat.controller = SeatController::Ai(profile);
+                seat.team = None;
+            }
             games.push(Game {
                 id: format!("{a}-{b}-{seed}"),
-                preset: table_for(seed, &[&decks[0], &decks[1]], &profiles, &[]),
+                preset,
             });
         }
     }
@@ -400,9 +481,11 @@ fn main() -> anyhow::Result<()> {
     let verify = args.iter().any(|arg| arg == "--verify");
     let shape = match args.first().map(String::as_str) {
         Some("house") => Shape::House,
+        Some("frames") => Shape::Frames,
         Some("decide") => Shape::Decide,
+        #[cfg(feature = "simulation")]
         Some("search") => Shape::Search,
-        _ => bail!("usage: engine_perf house|decide|search [--verify]"),
+        _ => bail!("usage: engine_perf house|frames|decide|search [--verify]"),
     };
     let games = games()?;
     let played = play_all(shape, &games, verify);
