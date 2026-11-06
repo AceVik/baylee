@@ -147,6 +147,12 @@ pub fn sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
                 })
         })
         .collect();
+    for source in &mut sources {
+        source.snow = view.object(source.id).is_some_and(|o| {
+            o.supertypes
+                .contains(baylee_core::types::SupertypeSet::SNOW)
+        });
+    }
     baylee_client_core::manaplan::prioritize(
         &mut sources,
         view,
@@ -204,6 +210,7 @@ fn restricted_sources(
                 bundle,
                 priced,
                 preserve: 0,
+                snow: false,
                 dear: None,
                 converter: None,
             },
@@ -519,6 +526,7 @@ fn mana_ability(
             bundle,
             priced,
             preserve: 0,
+            snow: false,
             dear: None,
             converter: None,
         },
@@ -890,6 +898,7 @@ pub fn granted_source(
         // leave the land making red only, the Lantern's whole point undone.
         priced: false,
         preserve: 0,
+        snow: false,
         dear: None,
         converter: None,
     })

@@ -90,6 +90,7 @@ fn a_bundle_is_drawn_as_what_arrives_and_never_as_a_choice() {
         bundle: true,
         priced: false,
         preserve: 0,
+        snow: false,
         dear: None,
         converter: None,
     };

@@ -64,3 +64,42 @@ fn mouth_of_ronom_sacrifices_to_deal_damage_to_creature() {
     assert!(in_graveyard(&engine, p1, quiet_creature()).is_some());
     assert!(on_battlefield(&engine, p1, quiet_creature()).is_none());
 }
+
+/// Another Mouth of Ronom pays `{S}` (CR 107.4h: mana from a snow source is
+/// snow mana), so four Plains and a second Mouth, with a creature to hit,
+/// make the ability legal (a language-model player reported it unoffered).
+#[test]
+fn mouth_of_ronom_is_offered_when_another_mouth_pays_the_snow() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(133, forest())
+        .battlefield(
+            0,
+            &[
+                mouth_of_ronom(),
+                mouth_of_ronom(),
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+            ],
+        )
+        .battlefield(1, &[quiet_creature()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let Pending::Priority { legal, .. } = engine.pending() else {
+        panic!("priority")
+    };
+    // Nothing floats, so the engine offers the ability as a planning hint
+    // (`unpaid_abilities`) that a client pays by tapping.
+    let hinted = legal
+        .unpaid_abilities
+        .iter()
+        .filter(|(_, index, _)| *index == 1)
+        .count();
+    assert_eq!(
+        hinted, 2,
+        "both Mouths offer the sacrifice: {:?}",
+        legal.unpaid_abilities
+    );
+}

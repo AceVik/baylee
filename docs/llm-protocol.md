@@ -333,7 +333,7 @@ each (`narrator::GRAMMAR`, parsed by `narrator::Step::parse`):
 | `choose <name or #id>[, …]` | cards, piles, a legend, targets, cards to the bottom | the options; a name only when every option it names shares one card (a search shows fresh ids), and each use of a name takes the next one |
 | `yes`, `no` | a card's yes or no; never a draw offer | |
 | `color W/U/B/R/G` | a colour | |
-| `mode m<n>` | how to cast it | the modes offered |
+| `mode m<n>` | how to cast it | the modes offered; `n` is a printed mode's own number (Rith's Charm's Saprolings are `m2` even when the first mode has no target and is missing from the list), and a mode not offered stops the plan |
 | `n <number>` | a number | its range |
 | `attack none`, `attack #id@P<n> …` | attackers | every pair offered |
 | `pass` | priority | |

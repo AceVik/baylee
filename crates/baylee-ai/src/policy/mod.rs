@@ -2094,6 +2094,9 @@ fn offers(view: &PlayerView, legal: &LegalActions) -> Vec<Offer> {
             if harm > 0 || taps_set_off_a_trigger(view, object) {
                 source.priced = true;
             }
+            source.snow = object
+                .supertypes
+                .contains(baylee_core::types::SupertypeSet::SNOW);
             result.push(Offer {
                 source,
                 only_for: None,
@@ -2141,6 +2144,9 @@ fn offers(view: &PlayerView, legal: &LegalActions) -> Vec<Offer> {
                     bundle,
                     priced,
                     preserve: 0,
+                    snow: object
+                        .supertypes
+                        .contains(baylee_core::types::SupertypeSet::SNOW),
                     dear: None,
                     converter: None,
                 },

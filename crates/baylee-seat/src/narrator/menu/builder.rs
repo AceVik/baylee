@@ -1321,10 +1321,30 @@ impl Builder<'_, '_> {
                 table.named(object)
             ));
         }
+        // A printed mode keeps its printed number whatever else is on offer:
+        // a first mode with no legal target is missing from this list, and
+        // `m2` still names the second. Ways that are not a printed mode
+        // (entwine, a cost) count on from the last mode's number, so no two
+        // options share an id.
+        let after_modes = options
+            .iter()
+            .filter_map(|option| match option.kind {
+                CastModeKind::Mode(i) => Some(i + 1),
+                _ => None,
+            })
+            .max()
+            .unwrap_or(0);
+        let mut others = after_modes;
         for (at, option) in options.iter().enumerate() {
             let label = cast_mode_label(card, option);
+            let number = if let CastModeKind::Mode(i) = option.kind {
+                i + 1
+            } else {
+                others += 1;
+                others
+            };
             self.option(
-                format!("m{}", at + 1),
+                format!("m{number}"),
                 label,
                 Act::Now(PlayerAction::ChooseMode(at)),
             );

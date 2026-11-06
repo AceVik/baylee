@@ -98,6 +98,10 @@ pub struct Source {
     /// Opportunity cost of tapping this permanent. Higher stays untapped
     /// when a cheaper source can pay; this never changes affordability.
     pub preserve: u32,
+    /// Whether the permanent is a snow source: the mana it makes is snow
+    /// mana, which alone pays `{S}` (CR 107.4h). Left false it only
+    /// under-counts, as a source that cannot pay `{S}` at all.
+    pub snow: bool,
     /// The permanent's other, priced way to make one mana, when it has one
     /// that reaches colours this one does not: Adarkar Wastes' "`{T}`: Add
     /// `{W}` or `{U}`. This land deals 1 damage to you." beside its free
@@ -136,6 +140,7 @@ impl Source {
             bundle: false,
             priced: false,
             preserve: 0,
+            snow: false,
             dear: None,
             converter: None,
         }
@@ -153,6 +158,7 @@ impl Source {
             bundle: false,
             priced: false,
             preserve: 0,
+            snow: false,
             dear: None,
             converter: Some(converter),
         }
@@ -698,6 +704,9 @@ fn plan_once(cost: &ManaCost, pool: &ManaPoolView, sources: &[Source]) -> Option
 /// The mana colours that may pay `need` out of `pool`: its own, and every
 /// colour an effect lets this seat spend as one of them (CR 609.4b).
 fn permitted(need: ColorMask, pool: &ManaPoolView) -> ColorMask {
+    if need == ColorMask::SNOW {
+        return need;
+    }
     ManaColor::ALL
         .into_iter()
         .fold(ColorMask::NONE, |mask, actual| {
@@ -727,6 +736,9 @@ impl ColorMask {
     const NONE: Self = Self(0);
     /// Every colour, which is what a generic symbol accepts.
     const ANY: Self = Self(0b11_1111);
+    /// Not a colour: a unit made by a snow source carries it beside its
+    /// colour, and an `{S}` demand asks for it alone.
+    const SNOW: Self = Self(0b100_0000);
 
     fn of(color: ManaColor) -> Self {
         Self(1 << color.index())
@@ -810,10 +822,10 @@ fn push_needs(symbol: ManaSymbol, generic_twobrid: bool, out: &mut Vec<ColorMask
                 out.push(ColorMask::of(ManaColor::from_color(color)));
             }
         }
-        ManaSymbol::Snow
-        | ManaSymbol::Variable(_)
-        | ManaSymbol::HalfGeneric
-        | ManaSymbol::Infinite => return false,
+        // Mana from a snow source (CR 107.4h): only a unit that carries the
+        // snow bit fits it, whatever its colour.
+        ManaSymbol::Snow => out.push(ColorMask::SNOW),
+        ManaSymbol::Variable(_) | ManaSymbol::HalfGeneric | ManaSymbol::Infinite => return false,
     }
     true
 }
@@ -847,6 +859,12 @@ fn units(pool: &ManaPoolView, sources: &[Source], limit: usize, widen: bool) -> 
         if colors == ColorMask::NONE {
             continue;
         }
+        let snow = if source.snow {
+            ColorMask::SNOW
+        } else {
+            ColorMask::NONE
+        };
+        let colors = ColorMask(colors.0 | snow.0);
         if source.bundle {
             // One unit per colour, each holding only *its own* colour. The
             // shared mask above is what makes a choice a choice; a bundle has
@@ -854,7 +872,7 @@ fn units(pool: &ManaPoolView, sources: &[Source], limit: usize, widen: bool) -> 
             // be matched against a pip its colour cannot pay.
             for color in &source.colors {
                 units.push(Unit {
-                    colors: ColorMask::of(*color),
+                    colors: ColorMask(ColorMask::of(*color).0 | snow.0),
                     from: Some(index),
                 });
             }
@@ -1199,6 +1217,7 @@ pub fn intrinsic_source(
         bundle: false,
         priced: false,
         preserve: 0,
+        snow: false,
         dear: None,
         converter: None,
     })
@@ -1251,6 +1270,7 @@ mod tests {
             bundle: false,
             priced: false,
             preserve: 0,
+            snow: false,
             converter: None,
             dear: None,
         }
@@ -1609,13 +1629,30 @@ mod tests {
         assert!(plan(&cost("{U/P}"), &empty(), &sources).is_none());
     }
 
-    /// `{X}` is a number the player picks and `{S}` is a property of the
-    /// source rather than of the mana. Neither is this module's to guess.
+    /// `{X}` is a number the player picks: not this module's to guess.
     #[test]
     fn costs_this_side_of_the_wire_must_not_guess_at_are_refused() {
         let sources = [land(1, ManaColor::Green), land(2, ManaColor::Green)];
         assert!(plan(&cost("{X}{G}"), &empty(), &sources).is_none());
-        assert!(plan(&cost("{S}"), &empty(), &sources).is_none());
+    }
+
+    /// `{S}` is paid by mana from a snow source, whatever its colour
+    /// (CR 107.4h): a snow land pays it, a plain one beside it never does,
+    /// and the snow land is kept for it when the generic pips can go to the
+    /// plain ones.
+    #[test]
+    fn snow_is_paid_by_a_snow_source_only() {
+        let plain = [land(1, ManaColor::Green), land(2, ManaColor::Green)];
+        assert!(plan(&cost("{S}"), &empty(), &plain).is_none());
+        let mut snowy = land(3, ManaColor::Colorless);
+        snowy.snow = true;
+        let sources = [plain[0].clone(), plain[1].clone(), snowy];
+        let found = plan(&cost("{1}{S}"), &empty(), &sources).expect("the snow land pays {S}");
+        assert_eq!(found.taps(), 2);
+        assert!(found.steps.iter().any(|s| s.source == ObjectId::new(3, 0)));
+        let found = plan(&cost("{2}{S}"), &empty(), &sources).expect("all three");
+        assert_eq!(found.taps(), 3);
+        assert!(plan(&cost("{S}{S}"), &empty(), &sources).is_none());
     }
 
     /// A source that makes two of *one chosen* colour pays two pips only of
@@ -1633,6 +1670,7 @@ mod tests {
             bundle: false,
             priced: false,
             preserve: 0,
+            snow: false,
             dear: None,
             converter: None,
         }];
@@ -1649,6 +1687,7 @@ mod tests {
             bundle: false,
             priced: false,
             preserve: 0,
+            snow: false,
             dear: None,
             converter: None,
         }];
@@ -1677,6 +1716,7 @@ mod tests {
             bundle: true,
             priced: false,
             preserve: 0,
+            snow: false,
             dear: None,
             converter: None,
         }];
@@ -1707,6 +1747,7 @@ mod tests {
             bundle: false,
             priced: false,
             preserve: 0,
+            snow: false,
             dear: None,
             converter: None,
         }
@@ -1717,6 +1758,7 @@ mod tests {
         Source {
             priced: true,
             preserve: 0,
+            snow: false,
             dear: None,
             converter: None,
             ..tower(id)
@@ -1730,6 +1772,7 @@ mod tests {
             amount: 2,
             priced: true,
             preserve: 0,
+            snow: false,
             dear: None,
             converter: None,
             ..tower(id)
@@ -1857,6 +1900,7 @@ mod tests {
             bundle: false,
             priced: false,
             preserve: 0,
+            snow: false,
             dear: None,
             converter: None,
         }];
@@ -2043,6 +2087,7 @@ mod tests {
             bundle: false,
             priced: false,
             preserve: 0,
+            snow: false,
             dear: None,
             converter: None,
         }

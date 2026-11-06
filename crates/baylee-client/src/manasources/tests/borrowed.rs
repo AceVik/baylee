@@ -279,6 +279,7 @@ fn owned_mana_ability(
             bundle: true,
             priced: priced(cost, effects),
             preserve: 0,
+            snow: false,
             dear: None,
             converter: None,
         });
@@ -299,6 +300,7 @@ fn owned_mana_ability(
         bundle: false,
         priced: priced(cost, effects),
         preserve: 0,
+        snow: false,
         dear: None,
         converter: None,
     })

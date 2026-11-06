@@ -74,7 +74,7 @@ When you know what comes next, add plan: the steps that answer the questions aft
 order, one string each: play #id | cast #id [-> targets] | activate #id[:n] [-> targets] (n: the \
 ability's number, when the object has several) | choose <card name or #id>[, …] | yes | no | \
 color W/U/B/R/G | mode m<n> | n <number> | attack none | attack #id@P<n> … | pass. Each step \
-answers exactly one question. pass passes priority once: the stack resolves, or with the stack \
+answers exactly one question. mode m<n> names a mode by its printed number on the card (m2 is the second printed mode), whichever modes are offered now: one that is not offered stops the plan. pass passes priority once: the stack resolves, or with the stack \
 empty the game moves on. While only your own spells and abilities are on the stack, a step that \
 answers what they will ask waits for them; an attack step waits through your main phase. The table \
 runs the plan without asking you, and stops it and asks you at anything it does not answer \

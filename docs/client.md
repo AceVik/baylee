@@ -5611,8 +5611,8 @@ changing it:
    `LegalActions` before sending it, so a plan that has gone stale stops and
    hands the turn back rather than pushing an action that would bounce.
 2. **It never spends what a player would want to decide.** Phyrexian mana is
-   read as its colour and never as two life; `{X}` and `{S}` are refused
-   outright. Restricted mana (Cavern of Souls) is not counted in the generic
+   read as its colour and never as two life; `{X}` is refused
+   outright; `{S}` is paid only by a source marked `snow` (CR 107.4h). Restricted mana (Cavern of Souls) is not counted in the generic
    matcher. `manasources` first tries the unrestricted plan, then adds at most
    one restricted tap whose filter provably admits this spell or activation,
    always last, so the engine's own payment check remains authoritative.

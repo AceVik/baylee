@@ -322,3 +322,74 @@ fn a_plan_step_takes_the_printed_price() {
     };
     assert_eq!(steps.len(), 3, "the printed price, not the entwined one");
 }
+
+/// Rith's Charm with no nonbasic land to destroy: its first mode is not on
+/// offer, and a plan's `mode m2` still means the second printed mode, the
+/// Saprolings, as the list says. It once took the third (prevent damage),
+/// because the number counted the modes offered.
+#[test]
+fn a_plan_names_a_mode_by_its_printed_number() {
+    let (mut session, request) = table(
+        &["Mountain", "Forest", "Plains"],
+        &["Rith's Charm"],
+        &["Forest"],
+    );
+    let lines_now = offers(&request, "Rith's Charm");
+    assert_eq!(lines_now.len(), 1, "{:#?}", lines(&request));
+    press(&mut session, &request, &lines_now[0]);
+
+    let question = asked(&session);
+    let Pending::ChooseCastMode { options, .. } = &question.pending else {
+        panic!("the mode question, got {:?}", question.pending);
+    };
+    assert_eq!(options.len(), 2, "no nonbasic land to destroy: {options:?}");
+    let wake = Narrator::new(&question.context).wake(&question, &[], None);
+    let text = wake.text.clone();
+    assert!(!text.contains("  m1 "), "{text}");
+    assert!(text.contains("m2") && text.contains("m3"), "{text}");
+
+    let answer = |written: &str| {
+        let step = menu::Step::parse(written).expect("a step");
+        wake.menu
+            .plan_decision(&step, &question)
+            .and_then(|decision| wake.menu.resolve(&decision).map_err(menu::Stop::NotOffered))
+    };
+    let second = answer("mode m2").expect("the Saprolings are offered");
+    let Act::Now(PlayerAction::ChooseMode(at)) = second.act else {
+        panic!("a mode answer, got {:?}", second.act);
+    };
+    assert!(
+        matches!(options[at].kind, CastModeKind::Mode(1)),
+        "m2 is the printed second mode: {:?}",
+        options[at]
+    );
+    assert!(
+        answer("mode m1").is_err(),
+        "the first mode is not offered, so the plan stops"
+    );
+}
+
+/// Four Plains and a second Mouth of Ronom pay `{4}{S}` for the first
+/// (CR 107.4h: the other Mouth's mana is snow mana). A model reported the
+/// sacrifice unoffered: the planner refused every cost with `{S}`.
+#[test]
+fn a_mouth_of_ronom_is_offered_with_another_mouth_to_pay_the_snow() {
+    let (_, request) = table(
+        &[
+            "Plains",
+            "Plains",
+            "Plains",
+            "Plains",
+            "Mouth of Ronom",
+            "Mouth of Ronom",
+        ],
+        &[],
+        &["Forest", "Grizzly Bears"],
+    );
+    let found = offers(&request, "Mouth of Ronom");
+    assert!(
+        found.iter().any(|line| line.contains("4 damage")),
+        "{:#?}",
+        lines(&request)
+    );
+}
