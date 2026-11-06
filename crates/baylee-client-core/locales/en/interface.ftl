@@ -2665,10 +2665,10 @@ ControlDecidesForYou = { $player } decides for you
 ControlDecidesForOther = { $controller } decides for { $player }
 
 # The badge on the chip of a player this seat controls.
-ControlUnderYours = Under your control
+ControlUnderYours = Controlled
 
 # The same badge on the chip whose chair the table is shown from.
-ControlUnderYoursShown = Shown · under your control
+ControlUnderYoursShown = Shown
 
 # The badge on a controlled player's chip, for everybody.
 # Arguments: player

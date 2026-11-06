@@ -7370,13 +7370,13 @@ shown chair's (`BoardModel::show_hand`, `Duel::shown_hand`).
   every other table (`perspective::ControlLine`). It stands while the
   question in hand is one player's made by another; the controller's own
   decisions take it down.
-- **The chips**: a badge over the chip of every player this seat controls,
-  "Under your control" ("Shown · under your control" on the chair shown),
-  whose hint says a press plays from that chair; over a player somebody else
-  decides for, "Controlled by Ben", for every seat, with "Mia's turn —
-  controlled by Ben" in its hint on Mia's turn (`players::control_badge`,
-  `show_the_control_badges`). The chip clips sideways only, so the badge
-  stands over it on the table's edge, never on a print.
+- **The chips**: a badge over the chip of every player who is controlled, one
+  short word because the chip clips sideways: "Controlled", or "Shown" on
+  the chair shown. Its hint carries the sentence: for this seat's own, that a
+  press plays from that chair; for a player somebody else decides for,
+  "Controlled by Ben", with "Mia's turn — controlled by Ben" on Mia's turn
+  (`players::control_badge`, `show_the_control_badges`). The badge stands over
+  the chip on the table's edge, never on a print.
 - **The controlled hand** wears a frame of its own: a rose edge and a faint
   rose ground under the cards, and in the headroom over them the brain mark
   and "Mia's hand · under your control" (`hud::hand::control_frame`).

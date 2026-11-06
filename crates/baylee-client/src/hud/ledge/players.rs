@@ -776,7 +776,9 @@ const BADGE_H: f32 = 17.0;
 const BADGE_PT: f32 = 9.5;
 
 /// What a chip's control badge says, if anything, and its hint: decided
-/// from the view and the chair the table is shown from.
+/// from the view and the chair the table is shown from. One short word, since
+/// the chip clips what stands over it; who controls whom is the hint's, the
+/// banner's and the hand's to say.
 #[must_use]
 pub fn control_badge(
     view: &baylee_view::PlayerView,
@@ -798,13 +800,12 @@ pub fn control_badge(
     }
     let (controlled, controller) = ControlLine::of(view)?.pair(view.seat);
     (controlled == player && controller != view.seat).then(|| {
-        let words = Phrase::ControlledBy.fill(lang, &[&name(controller)]);
         let hint = if view.active == player {
             Phrase::ControlTurnOf.fill(lang, &[&name(player), &name(controller)])
         } else {
-            words.clone()
+            Phrase::ControlledBy.fill(lang, &[&name(controller)])
         };
-        (words, hint)
+        (Phrase::ControlUnderYours.text(lang).to_string(), hint)
     })
 }
 
