@@ -103,7 +103,7 @@ Fassung kommt er, wenn er in Messungen gewinnt.
 | LLM-Partien | eingefrorene Spalten, Köpfe, Messlatte | Absicht aus dem Seat-Protokoll als Label; Karten mit falschen Menü-Texten ausgenommen |
 | Partieergebnisse roh gespielt | Bewerter, Liga | Taktik-Partien bleiben draußen (Entscheidung vom 6. November) |
 | Decklisten | Synergetiker | Test-Decks bleiben draußen |
-| verdeckte Karten aus Aufzeichnungen | Trainingsziel für Gegner-Leser und Bewerter, Suchziele | **offene Entscheidung**, siehe Abschnitt 7 |
+| verdeckte Karten aus Aufzeichnungen | Lösungsblatt für Gegner-Leser und Bewerter, Suchziele | erlaubt (Eigentümer, 6. November): nur offline, nie als Eingabe, nie im ausgelieferten Pfad, ein Test im Gate hält das fest |
 
 **Gegner-Mix.** Hoch Opus, Astra, Argon; mittel Sonnet, Sol, Terra; niedrig Flash, DeepSeek,
 Haiku. Dazu frühere v6-Stände und die Haus-KI, nur als Gegner.
@@ -142,8 +142,11 @@ nicht, wird das Absichts-Menü gestrichen oder dient nur saubereren Labels.
 `v6z`). Köpfe, Export, FP16-Parität, `seat4`-Auswahl, Trennung von Rumpf und Köpfen.
 
 **Phase C, Köpfe einzeln.** Je Kopf: Rumpf eingefroren, drei Seeds, gepaart gegen B-refresh.
-Reihenfolge nach Phase A; vorläufig Spalte gegen wirkungslose Zauber, Bewerter, Synergetiker,
-Gegner-Leser. **Tor C:** Mittel von drei Seeds, unteres Limit über null, roh; mit Taktik nicht
+Reihenfolge nach Phase A; vorläufig Spalte gegen wirkungslose Zauber, Gegner-Leser, Bewerter,
+Synergetiker. Der Gegner-Leser lernt aus vorhandenen Aufzeichnungen, die Lösung steht in jeder
+Partie. Vorrang haben LLM-Partien und eigene Partien, weil er das Verhalten des Gegners mitlernt;
+Haus-Partien nur für die Menge, getrennt gemessen. Maßstab: Treffer und Kalibrierung gegen die
+Gleichverteilung über die ungesehenen Karten, je Spielphase. **Tor C:** Mittel von drei Seeds, unteres Limit über null, roh; mit Taktik nicht
 schlechter als 497 / 506. Ein Kopf, der das nicht schafft, bleibt draußen.
 
 **Phase D, Regeln gegen den Mix.** Taktik-Regelgruppen einzeln gegen die LLM-Leiter messen.
@@ -177,8 +180,6 @@ eines Builds, drei Seeds, gepaart. Die Leiter nur bei Meilensteinen.
 
 ## 7. Offene Entscheidungen
 
-1. Verdeckte Karten aus Aufzeichnungen als **Trainingsziel**, nur offline, nie als Eingabe, nie im
-   ausgelieferten Pfad. Das gilt auch für Suchziele, die mit echten Decklisten entstehen.
-2. Zielmarke für v6.
-3. Engine-Fenster: Für Phase E muss `main` für den Lauf stehen oder der Lauf auf einem festen Stand
+1. Zielmarke für v6.
+2. Engine-Fenster: Für Phase E muss `main` für den Lauf stehen oder der Lauf auf einem festen Stand
    arbeiten, während Karten weiter landen.
