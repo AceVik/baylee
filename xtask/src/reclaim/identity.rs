@@ -119,6 +119,12 @@ fn require_ownership(
                     || path_is(fields.get("coverage"), &["Coverage", "Unimplemented"])),
             "{name} must be an unfinished machine-owned stub"
         ),
+        Mode::PromoteGenerated => anyhow::ensure!(
+            source.contains(stubgen::OWNED_MARKER)
+                && !source.contains(stubgen::STUB_MARKER)
+                && path_is(fields.get("coverage"), &["Coverage", "Generated"]),
+            "{name} must be a fully read machine-owned Generated card"
+        ),
     }
     Ok(())
 }
