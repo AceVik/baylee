@@ -1,7 +1,7 @@
 use crate::{
     CentralHttp, Endpoint, Error, GatewayHttp,
     data::{AccountData, LegacyData},
-    wire::Discovery,
+    wire::{Discovery, GatewayPurpose},
 };
 use central_api::legacy::LegacySnapshot;
 use central_client::Session;
@@ -221,12 +221,32 @@ impl Account {
     /// # Errors
     /// Refuses unsupported/unregistered gateways and failed or expired admission.
     pub fn admit(&self, gateway: &str) -> Result<crate::Admission, Error> {
+        let (source, token) = self.gateway_token(gateway)?;
+        source.admit(&token)
+    }
+
+    /// Carries a gateway's session on with a later token: it lasts as long as
+    /// that token, and the terms the account accepted since reach the gateway.
+    ///
+    /// # Errors
+    /// As [`Account::admit`]; [`Error::Rejected`] also when the gateway does
+    /// not hold the session any more, and admitting again is the way back.
+    pub fn refresh_gateway(&self, gateway: &str) -> Result<crate::Admission, Error> {
+        let (source, token) = self.gateway_token(gateway)?;
+        source.refresh(&token)
+    }
+
+    /// A token for `gateway`, with the transport to present it there.
+    fn gateway_token(&self, gateway: &str) -> Result<(GatewayHttp, crate::SignedToken), Error> {
         let source = if self.http.endpoint().legacy_origin().is_some() {
             GatewayHttp::live(gateway)?
         } else {
             GatewayHttp::development(gateway)?
         };
-        source.admit(self.session.gateway_ticket(&self.http, gateway.into())?)
+        let (token, _) =
+            self.session
+                .gateway_token(&self.http, gateway.into(), GatewayPurpose::Admit)?;
+        Ok((source, token))
     }
 
     /// Baylee Central's terms in force and whether this account accepted them

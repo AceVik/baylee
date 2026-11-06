@@ -105,6 +105,7 @@ pub(super) fn status(error: Error) -> u16 {
         Error::Rejected => 403,
         Error::Conflict => 409,
         Error::Busy => 429,
+        Error::UpdateRequired => 426,
         Error::TermsRequired => 451,
         Error::Unavailable => 0,
     }

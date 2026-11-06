@@ -3802,9 +3802,9 @@ watch and social sockets refuse it when they open, as their tickets do; a
 socket already open, a seat socket above all, is ended only by its session's
 end, so a running game finishes. `POST /auth/central/login` answers
 `"terms_stale"` from the token. The client accepts at Central (`AcceptTerms {
-subject: Gateway { origin }, version, digest }`) and then presents a fresh gateway
-token (`POST /auth/central/refresh`), which carries the acceptance here. Terms
-Central puts in force of its own bind at the next token, an hour at most later.
+subject: Gateway { origin }, version, digest }`) and then signs in here again with a
+fresh gateway token, which carries the acceptance. Terms Central puts in force of
+its own bind at the next token, an hour at most later.
 
 **Local accounts** (legacy, until the migration ends, M8): sign-in answers
 `"terms_stale"` from the account's own record, and `POST /account/terms

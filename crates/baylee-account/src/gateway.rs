@@ -1,6 +1,12 @@
 //! Admission-only transport. This type deliberately has no password-bearing operation.
-use crate::{Error, Token, migration::Capability};
+use crate::{Error, SignedToken};
 use zeroize::Zeroize;
+
+/// What a sign-in or a refresh sends a gateway.
+#[derive(serde::Serialize)]
+struct Presented<'a> {
+    token: &'a SignedToken,
+}
 
 /// Gateway-local session response. Central account credentials are never represented here.
 #[derive(serde::Deserialize)]
@@ -61,16 +67,30 @@ impl GatewayHttp {
         })
     }
 
-    /// Exchange a short-lived, origin-bound capability for a gateway session.
-    /// The caller must first obtain this capability from the trusted Central session.
+    /// Trade a gateway token for a session here. The caller obtains the token
+    /// from the trusted Central session; it is good at this gateway alone.
     ///
     /// # Errors
-    /// Rejects invalid capabilities, transport failure and non-success responses.
-    pub fn admit(&self, ticket: Token) -> Result<Admission, Error> {
-        let bytes = zeroize::Zeroizing::new(central_api::encode(&Capability { ticket })?);
+    /// Rejects an invalid token, transport failure and non-success responses.
+    pub fn admit(&self, token: &SignedToken) -> Result<Admission, Error> {
+        self.present("/auth/central/login", token)
+    }
+
+    /// Carry a session this gateway holds on with a later gateway token, for
+    /// a new bearer. A gateway that does not hold it, as after its restart,
+    /// refuses, and the client signs in with [`GatewayHttp::admit`].
+    ///
+    /// # Errors
+    /// As [`GatewayHttp::admit`].
+    pub fn refresh(&self, token: &SignedToken) -> Result<Admission, Error> {
+        self.present("/auth/central/refresh", token)
+    }
+
+    fn present(&self, path: &str, token: &SignedToken) -> Result<Admission, Error> {
+        let bytes = zeroize::Zeroizing::new(central_api::encode(&Presented { token })?);
         let response = self
             .agent
-            .post(format!("{}/auth/central/login", self.origin))
+            .post(format!("{}{path}", self.origin))
             .header("Content-Type", "application/json")
             .send(bytes.as_slice())
             .map_err(|_| Error::Unavailable)?;

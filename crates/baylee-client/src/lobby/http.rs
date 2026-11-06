@@ -1260,9 +1260,9 @@ pub(super) fn read_side<T: serde::de::DeserializeOwned>(
 /// renewing well before it ends, so a dropped request costs nothing.
 const BEARER_RETRY_SECS: u64 = 5;
 
-/// `POST /auth/session/renew`, with no word to Central: the new bearer, or the
-/// session's end. A `401` is the way any session ends here, and
-/// [`Reply::Expired`] signs the player in again from the gateway token.
+/// `POST /auth/session/renew`, with no word to Central: the new bearer. A
+/// refusal need not be the session's end, since a lost answer or a restarted
+/// gateway looks the same, so [`Reply::BearerLost`] tries the gateway token.
 pub(super) fn renew_bearer(gateway: &str, token: &str, epoch: u64, mailbox: &Mailbox) {
     #[derive(serde::Deserialize)]
     struct Renewed {
@@ -1282,7 +1282,7 @@ pub(super) fn renew_bearer(gateway: &str, token: &str, epoch: u64, mailbox: &Mai
                 token: body.token,
                 renew_in: body.renew_in,
             }),
-            Side::Expired => Reply::Expired,
+            Side::Expired => Reply::BearerLost,
             Side::Nothing => Reply::Event(LobbyEvent::BearerRenewed {
                 token: held,
                 renew_in: BEARER_RETRY_SECS,

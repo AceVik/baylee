@@ -1,5 +1,5 @@
 use crate::{
-    Endpoint, Error, Token,
+    Bearer, Endpoint, Error, Token,
     reports::{self, Part, ReportIntake},
     wire::{Request, Response},
 };
@@ -71,7 +71,11 @@ impl CentralHttp {
     ///
     /// # Errors
     /// Reports generic auth/transport/conflict/capacity failures; never follows a redirect.
-    pub fn exchange(&self, request: &Request, bearer: Option<&Token>) -> Result<Response, Error> {
+    pub fn exchange(
+        &self,
+        request: &Request,
+        bearer: Option<Bearer<'_>>,
+    ) -> Result<Response, Error> {
         let bytes = Zeroizing::new(central_api::encode(request)?);
         // A legacy password crosses once (`docs/central-login.md` §"Legacy
         // migration"): a refusal before execution is answered, not retried.
@@ -86,9 +90,10 @@ impl CentralHttp {
                 let mut asked = self
                     .agent
                     .post(self.endpoint.native_url())
-                    .header("Content-Type", "application/json");
+                    .header("Content-Type", "application/json")
+                    .header(central_api::PROTOCOL_HEADER, central_api::PROTOCOL_VERSION);
                 if let Some(token) = bearer {
-                    asked = asked.header("Authorization", token.bearer().as_str());
+                    asked = asked.header("Authorization", token.header().as_str());
                 }
                 let response = asked
                     .send(bytes.as_slice())
@@ -120,6 +125,7 @@ impl CentralHttp {
                     .post(&url)
                     .header("Content-Type", "application/json")
                     .header("Authorization", bearer.bearer().as_str())
+                    .header(central_api::PROTOCOL_HEADER, central_api::PROTOCOL_VERSION)
                     .send(body.as_slice())
                     .map_err(|_| Error::Unavailable)?;
                 filed(response)
@@ -160,6 +166,7 @@ impl CentralHttp {
                     .put(&url)
                     .header("Content-Type", "application/gzip")
                     .header("Authorization", bearer.bearer().as_str())
+                    .header(central_api::PROTOCOL_HEADER, central_api::PROTOCOL_VERSION)
                     .send(gzip)
                     .map_err(|_| Error::Unavailable)?;
                 match response.status().as_u16() {
@@ -184,6 +191,7 @@ const PART_WAITS: [u64; 4] = [2_000, 8_000, 20_000, 40_000];
 const fn refusal(status: u16) -> Error {
     match status {
         409 => Error::Conflict,
+        central_api::UPDATE_REQUIRED_STATUS => Error::UpdateRequired,
         429 => Error::Busy,
         500..=599 => Error::Unavailable,
         _ => Error::Rejected,
@@ -282,6 +290,7 @@ pub(crate) fn decode_response<T: serde::de::DeserializeOwned>(
     match response.status().as_u16() {
         200 => {}
         403 => return Err(Error::TermsRequired),
+        central_api::UPDATE_REQUIRED_STATUS => return Err(Error::UpdateRequired),
         409 => return Err(Error::Conflict),
         429 => return Err(Error::Busy),
         500..=599 => return Err(Error::Unavailable),
@@ -310,7 +319,7 @@ impl central_client::Transport for CentralHttp {
     fn endpoint(&self) -> &Endpoint {
         &self.endpoint
     }
-    fn exchange(&self, request: &Request, bearer: Option<&Token>) -> Result<Response, Error> {
+    fn exchange(&self, request: &Request, bearer: Option<Bearer<'_>>) -> Result<Response, Error> {
         Self::exchange(self, request, bearer)
     }
 }

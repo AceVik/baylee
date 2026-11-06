@@ -305,6 +305,10 @@ pub(super) fn poll(
                     state.auth_config(registration, art_cache, guests, central);
                     state.lobby.set_guests_only(guests_only);
                 }
+                Reply::BearerLost => {
+                    #[cfg(not(target_arch = "wasm32"))]
+                    super::central::refresh_gateway(&state, &mailbox);
+                }
                 Reply::Expired => {
                     state.gateway_epoch = state.gateway_epoch.wrapping_add(1);
                     // A guest the gateway no longer knows is gone for good, and

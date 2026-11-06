@@ -558,11 +558,19 @@ pub(super) fn receive(
                 }
             }
         }
-        Err(_) => {
-            state
-                .lobby
-                .apply(LobbyEvent::Failed(message(state.lobby.lang()).into()));
+        Err(error) => {
+            let said = sign_in_refusal(state.lobby.lang(), &error);
+            state.lobby.apply(LobbyEvent::Failed(said.into()));
         }
+    }
+}
+
+/// Why a sign-in failed: a client too old for Central says so, in its own
+/// words, and everything else is the one sentence that names no reason.
+fn sign_in_refusal(lang: Lang, error: &Error) -> &'static str {
+    match error {
+        Error::UpdateRequired => Phrase::RefusalUpdateRequired.text(lang),
+        _ => message(lang),
     }
 }
 
@@ -656,9 +664,50 @@ fn admission_answered(
 /// from a gateway is a bare status (`docs/protocol.md`).
 fn refusal(lang: Lang, error: Error) -> &'static str {
     match error {
+        Error::UpdateRequired => Phrase::RefusalUpdateRequired.text(lang),
         Error::Unavailable | Error::Busy => Phrase::CentralAdmissionUnavailable.text(lang),
         _ => Phrase::CentralAdmissionRefused.text(lang),
     }
+}
+
+/// Seconds to the next renewal when a gateway named none: soon, and harmless.
+const RENEW_SOON: u64 = 30;
+
+/// Carries the gateway's session on with a fresh gateway token, quietly: on a
+/// timer, and when the bearer was lost. Central stays out of every request
+/// between these. A gateway that no longer holds the session, as after its
+/// restart, is signed in to again, and a failure here ends nothing: a signed
+/// `401` says when a session has really gone.
+pub(super) fn refresh_gateway(state: &LobbyState, mailbox: &Mailbox) {
+    let Some(handle) = state.central.as_ref().and_then(|s| s.handle.clone()) else {
+        return;
+    };
+    let gateway = state.gateway.clone();
+    let epoch = state.gateway_epoch;
+    let target = mailbox.clone();
+    let lang = state.lobby.lang();
+    let _ = handle.send.try_send(Box::new(move |account| {
+        match account.refresh_gateway(&gateway) {
+            Ok(mut fresh) => {
+                let stale = fresh.terms_stale;
+                let renewed = LobbyEvent::BearerRenewed {
+                    token: std::mem::take(&mut fresh.token),
+                    renew_in: fresh.renew_in.unwrap_or(RENEW_SOON),
+                };
+                if let Ok(mut messages) = target.0.lock() {
+                    messages.push(Reply::Remote(epoch, Box::new(Reply::Event(renewed))));
+                    if let Some(stale) = stale {
+                        let terms = super::front::terms::TermsReply::Stale(stale);
+                        messages.push(Reply::Remote(epoch, Box::new(Reply::Terms(terms))));
+                    }
+                }
+            }
+            Err(Error::Rejected) => {
+                admission_answered(account.admit(&gateway), lang, epoch, &target);
+            }
+            Err(_) => {}
+        }
+    }));
 }
 
 /// The chosen gateway did not admit the account: its refusal stands over the
@@ -1174,6 +1223,21 @@ mod tests {
         world.insert_resource(prefs);
         world.run_system_once(sync_gateways).unwrap();
         assert!(jobs.try_recv().is_err(), "the list is not rewritten");
+    }
+
+    /// `426`, at Central or at a gateway: too old is said as too old, at both
+    /// doors, and in the player's language. Nothing else reads that way.
+    #[test]
+    fn a_client_too_old_is_told_to_update_at_sign_in_and_at_admission() {
+        for lang in [Lang::En, Lang::De] {
+            let update = Phrase::RefusalUpdateRequired.text(lang);
+            assert_eq!(sign_in_refusal(lang, &Error::UpdateRequired), update);
+            assert_eq!(refusal(lang, Error::UpdateRequired), update);
+            for other in [Error::Rejected, Error::Unavailable, Error::Busy] {
+                assert_ne!(sign_in_refusal(lang, &other), update);
+                assert_ne!(refusal(lang, other), update);
+            }
+        }
     }
 
     /// An admission that cannot even be asked for (the account worker's

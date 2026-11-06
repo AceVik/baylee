@@ -194,7 +194,10 @@ fn failed(host: &mut SocialHost, job: Job, error: Error, now: u64) {
                 // Keep the core's request ID and the worker's exact ciphertext,
                 // while allowing directory/inbox jobs between bounded retries.
                 Error::Busy | Error::Unavailable => wire::Why::Rate,
-                Error::Rejected | Error::TermsRequired => wire::Why::NotMember,
+                // Terminal: a client too old gets no further by trying again.
+                Error::Rejected | Error::TermsRequired | Error::UpdateRequired => {
+                    wire::Why::NotMember
+                }
             };
             refused(host, req, why);
         }

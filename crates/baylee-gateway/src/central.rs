@@ -19,9 +19,11 @@ use zeroize::Zeroizing;
 
 mod link;
 mod routes;
+mod sync;
 mod trust;
 pub(crate) use link::{console_routes, restore};
 pub(crate) use routes::router;
+pub(crate) use sync::spawn as spawn_sync;
 
 /// How many exchanges may be on their way to Central at once.
 const IN_FLIGHT: usize = 16;
@@ -62,8 +64,10 @@ pub(crate) struct Bridge {
     pending: Arc<tokio::sync::Semaphore>,
     /// Central's keys and what it revoked, for this link.
     trust: trust::Trust,
-    /// Wakes the catch-up early: a gap was seen.
+    /// Wakes the catch-up early: a gap was seen, or the heartbeat says behind.
     sync: tokio::sync::Notify,
+    /// Central has taken this link's invalidate path.
+    registered: std::sync::atomic::AtomicBool,
 }
 
 #[derive(Deserialize)]
@@ -179,6 +183,7 @@ impl Bridge {
             pending: Arc::new(tokio::sync::Semaphore::new(64)),
             trust,
             sync: tokio::sync::Notify::new(),
+            registered: std::sync::atomic::AtomicBool::new(false),
         })))
     }
 
@@ -202,7 +207,18 @@ impl Bridge {
             pending: Arc::new(tokio::sync::Semaphore::new(64)),
             trust,
             sync: tokio::sync::Notify::new(),
+            registered: std::sync::atomic::AtomicBool::new(false),
         })
+    }
+
+    /// Whether Central has taken this link's invalidate path.
+    fn registered(&self) -> bool {
+        self.registered.load(std::sync::atomic::Ordering::Acquire)
+    }
+
+    fn mark_registered(&self) {
+        self.registered
+            .store(true, std::sync::atomic::Ordering::Release);
     }
 
     /// Fetches Central's keys if that may go now: on time, or ahead of time
@@ -261,52 +277,48 @@ impl Bridge {
         request: wire::Request,
         asker: Asker<'_>,
     ) -> Result<wire::Response, StatusCode> {
-        let busy = |_| StatusCode::TOO_MANY_REQUESTS;
-        let share = match asker {
-            Asker::Gateway => None,
-            Asker::Account(account) => {
-                let key = crate::auth::hex_lower(account);
-                Some(
-                    self.accounts
-                        .take(&key)
-                        .ok_or(StatusCode::TOO_MANY_REQUESTS)?,
-                )
-            }
-            Asker::SignIn(address) => Some(
-                self.addresses
-                    .take(address)
-                    .ok_or(StatusCode::TOO_MANY_REQUESTS)?,
-            ),
-        };
-        let lane = match asker {
-            Asker::SignIn(_) => &self.sign_ins,
-            Asker::Gateway | Asker::Account(_) => &self.pending,
-        };
-        let queued = lane.try_acquire().map_err(busy)?;
-        let turn = tokio::time::timeout(Duration::from_secs(2), self.in_flight.acquire())
-            .await
-            .map_err(|_| StatusCode::TOO_MANY_REQUESTS)?
-            .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?;
-        // A registered gateway beats with its heartbeat token; the official
-        // gateway's bridge beats with the bridge credential, for the
-        // official directory entry alone (baylee-central
-        // `docs/gateway-registry.md` §"Discovery, heartbeats and administrators").
-        let credential =
-            if matches!(&request, wire::Request::GatewayHeartbeat { .. }) && !self.legacy {
-                self.heartbeat.as_ref().ok_or(StatusCode::UNAUTHORIZED)?
-            } else {
-                &self.credential
-            };
-        let answer = self.transport.exchange(&request, Some(credential)).await;
-        drop((turn, queued, share));
-        answer.map_err(|error| match error {
-            baylee_account::Error::Conflict => StatusCode::CONFLICT,
-            baylee_account::Error::Busy => StatusCode::TOO_MANY_REQUESTS,
-            baylee_account::Error::Rejected => StatusCode::UNAUTHORIZED,
-            baylee_account::Error::Unavailable => StatusCode::SERVICE_UNAVAILABLE,
-            // A gateway's own credential is no account session; Central
-            // never answers it so, and a 403 is the honest reading.
-            baylee_account::Error::TermsRequired => StatusCode::FORBIDDEN,
+        // A small bounded queue absorbs simultaneous socket rechecks. Failing the
+        // fifth request immediately would disconnect healthy clients under bursts;
+        // neither queue capacity nor network stalls may grow blocking work without bound.
+        let pending = self
+            .pending
+            .clone()
+            .try_acquire_owned()
+            .map_err(|_| StatusCode::TOO_MANY_REQUESTS)?;
+        let permit =
+            tokio::time::timeout(Duration::from_secs(2), self.workers.clone().acquire_owned())
+                .await
+                .map_err(|_| StatusCode::TOO_MANY_REQUESTS)?
+                .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?;
+        let bridge = self.clone();
+        tokio::task::spawn_blocking(move || {
+            let _permit = permit;
+            let _pending = pending;
+            // A registered gateway beats with its heartbeat token; the official
+            // gateway's bridge beats with the bridge credential, for the
+            // official directory entry alone (baylee-central
+            // `docs/gateway-registry.md` §"Discovery, heartbeats and administrators").
+            let credential =
+                if matches!(&request, wire::Request::GatewayHeartbeat { .. }) && !bridge.legacy {
+                    bridge.heartbeat.as_ref().ok_or(StatusCode::UNAUTHORIZED)?
+                } else {
+                    &bridge.credential
+                };
+            bridge
+                .http
+                .exchange(&request, Some(credential.into()))
+                .map_err(|error| match error {
+                    baylee_account::Error::Conflict => StatusCode::CONFLICT,
+                    baylee_account::Error::Busy => StatusCode::TOO_MANY_REQUESTS,
+                    baylee_account::Error::Rejected => StatusCode::UNAUTHORIZED,
+                    // Central refusing this gateway's protocol is not a word about
+                    // any account: it says nothing, and sessions stand.
+                    baylee_account::Error::UpdateRequired => StatusCode::SERVICE_UNAVAILABLE,
+                    baylee_account::Error::Unavailable => StatusCode::SERVICE_UNAVAILABLE,
+                    // A gateway's own credential is no account session; Central
+                    // never answers it so, and a 403 is the honest reading.
+                    baylee_account::Error::TermsRequired => StatusCode::FORBIDDEN,
+                })
         })
     }
 }
@@ -409,9 +421,15 @@ impl Heartbeat {
                 };
                 // Network errors contain no operator-supplied diagnostics and never alter
                 // authorization: directory liveness expires centrally if heartbeats stop.
-                let _ = bridge
-                    .exchange(wire::Request::GatewayHeartbeat { metadata }, Asker::Gateway)
+                let beat = bridge
+                    .exchange(wire::Request::GatewayHeartbeat { metadata })
                     .await;
+                // The answer names the last revocation: behind it, catch up now.
+                if let Ok(wire::Response::GatewayHeartbeat { last_revocation }) = beat
+                    && last_revocation > bridge.trust.applied()
+                {
+                    bridge.sync.notify_one();
+                }
             }
         });
         Self {

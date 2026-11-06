@@ -524,6 +524,7 @@ async fn main() {
     // A pasted token's link first: whether Central's sign-in reaches this
     // gateway depends on it.
     central::restore(&state).await;
+    central::spawn_sync(state.clone());
     state
         .auth_mode
         .restore(&state.db)

@@ -1671,6 +1671,7 @@ pub(super) fn keep_the_bearer(
     time: Res<Time>,
     mut state: ResMut<LobbyState>,
     mailbox: Res<Mailbox>,
+    mut refresh_in: Local<f32>,
 ) {
     let due = state
         .bypass_change_detection()
@@ -1680,7 +1681,20 @@ pub(super) fn keep_the_bearer(
     if due && let Some(token) = state.lobby.token() {
         http::renew_bearer(&state.gateway, token, state.gateway_epoch, &mailbox);
     }
+    // A gateway token lasts about an hour: a later one well before that, so a
+    // session outlives it while the client runs.
+    *refresh_in -= time.delta_secs();
+    if *refresh_in <= 0.0 {
+        *refresh_in = REFRESH_EVERY;
+        #[cfg(not(target_arch = "wasm32"))]
+        if state.central_ready() && state.lobby.token().is_some() {
+            super::central::refresh_gateway(&state, &mailbox);
+        }
+    }
 }
+
+/// How often a Central session asks for a later gateway token, in seconds.
+const REFRESH_EVERY: f32 = 600.0;
 
 /// Rings the bell for what changed at the player's waiting table between
 /// two listings.

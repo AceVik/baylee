@@ -7,7 +7,6 @@ mod account;
 pub mod chat;
 pub mod client_record;
 pub mod data;
-pub mod migration;
 pub mod reports;
 #[cfg(feature = "client")]
 pub use account::Account;
@@ -16,7 +15,8 @@ mod admission;
 mod http;
 pub use admission::{Admission, GatewayHttp};
 pub use central_api::{
-    Endpoint, Error, Token, chat as chat_api, gateway, groups, owner, social, terms, wire,
+    Bearer, Endpoint, Error, SignedToken, Token, chat as chat_api, gateway, groups, owner, social,
+    terms, wire,
 };
 #[cfg(feature = "client")]
 pub use central_client as sdk;

@@ -1237,6 +1237,9 @@ fn chat_joins(mut asks: ResMut<ChatJoins>, mut state: ResMut<LobbyState>, mailbo
 enum Reply {
     #[cfg(not(target_arch = "wasm32"))]
     Central(Result<Box<central::Restored>, baylee_account::Error>),
+    /// The gateway refused to renew the bearer: the gateway token may still
+    /// carry the session on.
+    BearerLost,
     /// Ignore replies from a gateway selection that has since changed.
     Remote(u64, Box<Reply>),
     /// The outcome of a [`LobbyRequest`].
