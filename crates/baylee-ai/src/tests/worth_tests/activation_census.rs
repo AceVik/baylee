@@ -485,7 +485,25 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // exiling the controller's own cards is not unconditionally valuable.
     // Weathered Wayfarer adds one conditional library-search activation; the
     // existing SearchLibrary reader understands its land-to-hand effect.
-    assert_eq!((read, of), (2997, 3787), "activated/loyalty reader census");
+    // Withered Wretch adds one targeted graveyard-exile activation; the existing
+    // graveyard reader understands both owned and opposing cards.
+    assert_eq!((read, of), (2998, 3788), "activated/loyalty reader census");
+
+    // Pin the new readable row to its card rather than only to the census.
+    let wretch = baylee_cards::decks::by_name("Withered Wretch").unwrap();
+    let Some(AbilityDef::Activated { effects, .. }) = baylee_cards::by_index(wretch)
+        .unwrap()
+        .abilities_for_face(0)
+        .first()
+    else {
+        panic!("Withered Wretch's first ability is activated");
+    };
+    assert!(
+        agent()
+            .effects_worth(&v, origin, effects, Aim::Source, 0)
+            .is_some(),
+        "Withered Wretch's graveyard exile stays readable"
+    );
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,
