@@ -6,7 +6,8 @@ use baylee_cards_dsl::{
     AbilityDef, Amount, Effect, Filter, Modifier, PlayerRel, TargetReq, TargetSpec,
 };
 use baylee_core::ids::{ObjectId, PlayerId};
-use baylee_core::types::{SupertypeSet, TypeSet};
+use baylee_core::types::{SupertypeSet, TargetSide, TypeSet};
+use baylee_engine::target_side::effects_side;
 use baylee_view::{CardIdentity, PlayerView, PublicObject};
 
 use super::super::{
@@ -119,6 +120,20 @@ fn effect_is_void(
         } => amount_is_nothing(view, me, *amount, *to),
         _ => false,
     }
+}
+
+/// Whether an effect that hurts what it names must name something of the seat's:
+/// nothing of theirs answers to its target.
+fn hurts_only_me(view: &PlayerView, me: PlayerId, part: &Part) -> bool {
+    let Some(req) = part.1 else { return false };
+    let TargetSpec::Object(filter) = req.spec else {
+        return false;
+    };
+    req.min >= 1
+        && effects_side(part.0, 1) == Some(TargetSide::Harmful)
+        && !view.battlefield.iter().any(|object| {
+            object.controller != me && public_object_matches_basic_filter(me, object, filter)
+        })
 }
 
 /// Whether everything of theirs this kill could name is already named by a kill
@@ -298,6 +313,12 @@ impl TacticRules4 {
         {
             return Some(RuleGroup::Void);
         }
+        if self.on(RuleGroup::Side)
+            && !parts.is_empty()
+            && parts.iter().all(|part| hurts_only_me(view, me, part))
+        {
+            return Some(RuleGroup::Side);
+        }
         if self.on(RuleGroup::Mass)
             && !parts.is_empty()
             && parts.iter().all(|part| sweep_backfires(view, me, part))
@@ -331,6 +352,9 @@ impl TacticRules4 {
                     .all(|part| animates_for_nothing(object, part.0)))
         {
             return Some(RuleGroup::Void);
+        }
+        if self.on(RuleGroup::Side) && parts.iter().all(|part| hurts_only_me(view, me, part)) {
+            return Some(RuleGroup::Side);
         }
         if self.on(RuleGroup::Mass) && parts.iter().all(|part| sweep_backfires(view, me, part)) {
             return Some(RuleGroup::Mass);

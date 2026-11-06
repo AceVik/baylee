@@ -187,6 +187,20 @@ fn a_sweep_of_the_seats_own_board_backfires() {
 }
 
 #[test]
+fn a_bounce_with_only_the_seats_own_creature_to_name_waits() {
+    let (_session, pending, view) = table(&["Terror"], &["Grizzly Bears"], &[]);
+    let cast = PlayerAction::CastSpell {
+        card: card_in_hand(&view, "Terror"),
+    };
+    assert_eq!(groups("side", &view, &pending, &cast), ["side"]);
+    let (_session, pending, view) = table(&["Terror"], &["Grizzly Bears"], &["Grizzly Bears"]);
+    let cast = PlayerAction::CastSpell {
+        card: card_in_hand(&view, "Terror"),
+    };
+    assert!(groups("side", &view, &pending, &cast).is_empty());
+}
+
+#[test]
 fn a_lord_is_no_gift_on_a_board_of_the_seats_own() {
     let (_session, pending, view) = table(
         &["Goblin King"],
