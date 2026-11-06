@@ -117,6 +117,54 @@ fn an_activation_plan_resolves_the_pretapped_unpaid_ability() {
     ));
 }
 
+/// Astra's Young Wolf under Agatha's Soul Cauldron: every `activate #84:n`
+/// stopped with "#84 is ambiguous here", as the object stood once per ability.
+#[test]
+fn a_plan_names_one_of_several_abilities_by_the_number_the_menu_prints() {
+    use baylee_engine::choice::granted_ability;
+
+    let (mut view, _) = board();
+    view.battlefield.push(card(75, "Jayemdae Tome"));
+    let granted = granted_ability(3);
+    let mut pending = priority(&view);
+    if let Pending::Priority { legal, .. } = &mut pending {
+        legal.abilities.push((id(75), 0));
+        legal.abilities.push((id(75), granted));
+    }
+    let act_req = request(view, pending, LogTail::default());
+    let mut narrator = Narrator::new(&act_req.context);
+    let wake = narrator.wake(&act_req, &[], None);
+    assert!(wake.text.contains("(number 2)"), "{}", wake.text);
+
+    let menu = narrator.menu(&act_req);
+    let plain = Step::parse("activate #75").expect("valid step");
+    let refused = menu
+        .plan_decision(&plain, &act_req)
+        .expect_err("two abilities");
+    assert!(
+        refused.sentence().contains("more than one ability"),
+        "{refused:?}"
+    );
+
+    let second = Step::parse("activate #75:2").expect("valid step");
+    let decision = menu
+        .plan_decision(&second, &act_req)
+        .expect("the granted one");
+    let resolved = menu.resolve(&decision).expect("resolves");
+    assert!(matches!(
+        resolved.act,
+        Act::Now(PlayerAction::ActivateAbility { source, ability_index })
+            if source == id(75) && ability_index == granted
+    ));
+
+    let third = Step::parse("activate #75:3").expect("valid step");
+    let refused = menu.plan_decision(&third, &act_req).expect_err("only two");
+    assert!(
+        refused.sentence().contains("no ability numbered 3"),
+        "{refused:?}"
+    );
+}
+
 #[test]
 fn follow_plan_passes_triggered_abilities_from_land_taps_and_suppresses_false_undone_while_owed() {
     use crate::llm::seatstate::Seat;

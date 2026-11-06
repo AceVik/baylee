@@ -1,6 +1,6 @@
 //! Resolving a planned step against the current offer.
 
-use super::super::Act;
+use super::super::{Act, activation, offered_abilities};
 use super::{
     Ask, CardIndex, Decision, Menu, ObjectId, Pending, PlayerAction, Request, Step, Stop, Table,
     asked, is_id, is_player, normal, object,
@@ -128,43 +128,41 @@ impl Menu {
     }
 
     /// The option that activates `source`'s ability: its only one offered,
-    /// or the one numbered `ability`.
+    /// or the one numbered `ability`. As with a card, an ability at several
+    /// prices is taken at the first of them.
     fn ability_option(&self, source: &str, ability: Option<u32>) -> Result<String, Stop> {
-        let offered: Vec<(ObjectId, u32, &str)> = self
+        let mut sources: Vec<ObjectId> = self
             .options
             .iter()
-            .filter_map(|c| match &c.act {
-                Act::Now(PlayerAction::ActivateAbility {
-                    source,
-                    ability_index,
-                })
-                | Act::Taps {
-                    then:
-                        PlayerAction::ActivateAbility {
-                            source,
-                            ability_index,
-                        },
-                    ..
-                } => Some((*source, *ability_index, c.id.as_str())),
-                _ => None,
-            })
+            .filter_map(|c| activation(&c.act))
+            .map(|(id, _)| id)
             .collect();
-        let sources: Vec<ObjectId> = offered.iter().map(|(id, ..)| *id).collect();
+        sources.sort_unstable();
+        sources.dedup();
         let id = object(source, &sources).map_err(Stop::NotOffered)?;
-        let mine: Vec<&(ObjectId, u32, &str)> = offered
+        let abilities = offered_abilities(&self.options, id);
+        let index = match (ability, abilities.as_slice()) {
+            (None, [only]) => *only,
+            (None, _) => {
+                return Err(Stop::NotOffered(format!(
+                    "{source} offers more than one ability; name it as activate {source}:<n>"
+                )));
+            }
+            (Some(n), _) => abilities
+                .iter()
+                .zip(1..)
+                .find(|(_, number)| *number == n)
+                .map(|(index, _)| *index)
+                .ok_or_else(|| {
+                    Stop::NotOffered(format!("{source} offers no ability numbered {n}"))
+                })?,
+        };
+        Ok(self
+            .options
             .iter()
-            .filter(|(o, index, _)| *o == id && ability.is_none_or(|n| index + 1 == n))
-            .collect();
-        match mine.as_slice() {
-            [(.., option)] => Ok((*option).to_string()),
-            [] => Err(Stop::NotOffered(format!(
-                "{source} offers no ability numbered {}",
-                ability.unwrap_or(0)
-            ))),
-            _ => Err(Stop::NotOffered(format!(
-                "{source} offers more than one ability; name it as activate {source}:<n>"
-            ))),
-        }
+            .find(|c| activation(&c.act) == Some((id, index)))
+            .map(|c| c.id.clone())
+            .expect("found among them"))
     }
 
     /// Ids for `items`: an id among the offer as it is; a name for the

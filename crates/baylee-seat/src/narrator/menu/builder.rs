@@ -413,6 +413,28 @@ impl Builder<'_, '_> {
         self.options.last_mut().expect("just pushed").card = card;
     }
 
+    /// Writes the number a plan names an ability by (`activate #84:2`) beside
+    /// each ability of an object that offers several. It counts what is
+    /// offered, not the ability's index: a model sees no index, and a granted
+    /// ability's is far beyond any number it could guess.
+    fn number_abilities(&mut self) {
+        let numbers: Vec<Option<usize>> = self
+            .options
+            .iter()
+            .map(|choice| {
+                let (source, index) = activation(&choice.act)?;
+                let abilities = offered_abilities(&self.options, source);
+                let place = abilities.iter().position(|of| *of == index)?;
+                (abilities.len() > 1).then_some(place + 1)
+            })
+            .collect();
+        for (choice, number) in self.options.iter_mut().zip(numbers) {
+            if let Some(number) = number {
+                choice.label = format!("{} (number {number})", choice.label);
+            }
+        }
+    }
+
     /// The payment the seat agreed to, as options: the taps that pay it and
     /// the pass that spends them (CR 605.3a), the planner's plan first and
     /// then up to [`payment::OTHERS`] other ways (other colours, another
@@ -631,6 +653,7 @@ impl Builder<'_, '_> {
         }
         self.granted_actions(legal);
         self.plays(legal);
+        self.number_abilities();
         if owed.is_none() && legal.can_pass {
             self.tap_against_untapped_counts(legal);
         }
@@ -908,7 +931,7 @@ impl Builder<'_, '_> {
         } else {
             "its ability"
         };
-        format!("Activate {named}{place}: {what} (number {})", index + 1)
+        format!("Activate {named}{place}: {what}")
     }
 
     pub(super) fn pass_label(&self, owed: bool) -> String {

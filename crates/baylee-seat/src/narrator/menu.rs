@@ -899,6 +899,38 @@ fn not_a_card_here(name: &str) -> String {
     }
 }
 
+/// The object and ability an option activates, paid now or by taps first.
+const fn activation(act: &Act) -> Option<(ObjectId, u32)> {
+    match act {
+        Act::Now(PlayerAction::ActivateAbility {
+            source,
+            ability_index,
+        })
+        | Act::Taps {
+            then:
+                PlayerAction::ActivateAbility {
+                    source,
+                    ability_index,
+                },
+            ..
+        } => Some((*source, *ability_index)),
+        _ => None,
+    }
+}
+
+/// The abilities of `source` among `options`, each once, in the order
+/// offered: the place of one here, from 1, is the number the menu prints and
+/// a plan names it by. An ability at several prices stands on several options.
+fn offered_abilities(options: &[Choice], source: ObjectId) -> Vec<u32> {
+    let mut abilities = Vec::new();
+    for (of, index) in options.iter().filter_map(|c| activation(&c.act)) {
+        if of == source && !abilities.contains(&index) {
+            abilities.push(index);
+        }
+    }
+    abilities
+}
+
 /// One of `among` by its `#` handle.
 fn object(written: &str, among: &[ObjectId]) -> Result<ObjectId, String> {
     let bare = normal(written);
