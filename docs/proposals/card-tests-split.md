@@ -12,8 +12,9 @@ allen Tests, und es hängt an `baylee-cards`. Die Tests sind 41 von 51 MB im Que
 
 ## Der Weg
 
-Niemand baut das von Hand um. Ein deterministisches Rust-Werkzeug in `xtask` macht den Umbau und
-lässt sich auf jedem Stand wiederholen.
+Niemand baut das von Hand um. Ein deterministisches Rust-Werkzeug macht den Umbau und lässt sich
+auf jedem Stand wiederholen. Es ist Wegwerfcode (Eigentümer, 6. November): Es liegt außerhalb des
+Repositorys und wird nach dem Lauf gelöscht. Ins Repository kommt nur sein Ergebnis.
 
 1. Es erzeugt etwa 16 Test-Crates nach den Ordnern von `card_tests`. Die Testdateien bleiben liegen
    und werden über `#[path]` eingebunden.
@@ -27,11 +28,27 @@ Die Engine hängt dann im Testlauf nicht mehr an den Karten, und die Test-Crates
 Geschätzt, nicht gemessen: 56 s werden 10 bis 20 s. Eine reine Teständerung baut nur noch einen
 Crate. Eine Kartenänderung baut weiter alle Test-Crates, weil sie an `baylee-cards` hängen.
 
+## Was das Gate wirklich kostet
+
+Der Schritt `test` im Gate vom 6. November dauerte 949 s: 233 s Bauen, 702 s Laufen. Der Umbau hilft
+also vor allem dem Bauen; das Laufen entscheiden wenige langsame Tests, und das ist billiger zu
+beheben und kommt deshalb zuerst.
+
+- `streamed_frames_match_collecting_conversion_with_bounded_memory` lief allein 630 s und bestimmt
+  damit fast die ganze Laufzeit.
+- Die Bench-Ziele laufen als Tests mit: `baylee-ai` 1290 s, `baylee-engine` 464 s,
+  `baylee-client-core` 265 s Testzeit.
+- Rund zwanzig weitere Tests liegen über 100 s (`duel_flow`, `sound`, `attempt_ledger`,
+  `every_implemented_card_survives_a_game_*`).
+
+Die Zeiten stammen von einem belasteten Rechner. Ein einzelner Kartentest brauchte im Leerlauf
+0,04 s, im Gate im Mittel 0,16 s.
+
 ## Reihenfolge
 
-1. **Jetzt, ohne Eile:** Das Werkzeug entsteht auf einem eigenen Zweig und wird an einer Kopie
-   erprobt. Es ändert im Repository nichts außer sich selbst. Dabei zeigt sich die Liste aus
-   Schritt 3 und die echte Zeit.
+0. **Zuerst:** die langsamen Tests und Bench-Ziele oben, ohne Abdeckung zu verlieren.
+1. **Jetzt, ohne Eile:** Das Werkzeug entsteht außerhalb des Repositorys und wird an einer Kopie
+   erprobt. Dabei zeigt sich die Liste aus Schritt 3 und die echte Zeit.
 2. **Wenn die laufende Kartenarbeit gemergt ist:** Kurzer Stopp für neue Karten, Werkzeug auf dem
    aktuellen Stand laufen lassen, Gates, Landen. Danach schreibt `docs/card-agent-brief.md` vor, wo
    ein neuer Kartentest liegt.
