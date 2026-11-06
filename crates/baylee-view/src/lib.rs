@@ -56,7 +56,8 @@ pub use log::{
 };
 pub use objects::{
     AbilitySource, BoardMana, CardIdentity, DamageSourceView, GrantSource, GrantedMana, HandObject,
-    NamedFace, ObjectSummaryKey, PublicObject, RulesFace, StackItem, StackText, TokenAbility,
+    NamedFace, ObjectSummaryKey, OrderedTrigger, PublicObject, RulesFace, StackItem, StackText,
+    TokenAbility,
 };
 pub use player_view::{
     Ballot, LostSeat, PlayerControl, PlayerView, SeatClock, TargetingContext, WordChange,
@@ -250,7 +251,11 @@ pub use turn::{DayNight, Phase, Step};
 /// Compatible additions beside them:
 /// [`PublicObject::times_kicked`] and [`PublicObject::bought_back`], absent
 /// on anything that is no spell so announced.
-pub const VIEW_VERSION: u32 = 85;
+/// Version 86 asks the order of triggered abilities going on the stack at once
+/// (CR 603.3b): `ArrangePrompt::TriggerOrder` and `ArrangePlace::Stack`, engine
+/// variants a reader of 85 cannot parse, whose handles are explained by
+/// [`PlayerView::trigger_order`], additive and absent while empty.
+pub const VIEW_VERSION: u32 = 86;
 
 // ------------------------------------------------------------------- targets
 

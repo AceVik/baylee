@@ -328,6 +328,7 @@ fn base_view() -> super::PlayerView {
         command: vec![Vec::new(), Vec::new()],
         combat: baylee_view::CombatView::default(),
         looking_at: Vec::new(),
+        trigger_order: Vec::new(),
         library_tops: Vec::new(),
         owed: None,
         targeting: None,

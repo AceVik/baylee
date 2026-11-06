@@ -112,6 +112,7 @@ impl Table<'_> {
     /// `view` with the owner's current cast and targets.
     pub(super) fn with_choice_context(&self, seat: PlayerId, mut view: PlayerView) -> PlayerView {
         view.targeting = crate::view::targeting_context(self.engine, seat);
+        view.trigger_order = crate::view::trigger_order(self.engine, seat);
         // The cast this seat may cancel: its own, or the one it is making
         // for the player whose turn it controls (CR 723.5).
         let caster = if self.engine.decision_actor() == Some(seat) {

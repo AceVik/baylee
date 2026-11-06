@@ -108,6 +108,7 @@ fn view(seats: u8) -> PlayerView {
         command: vec![vec![]; seats as usize],
         combat: CombatView::default(),
         looking_at: Vec::new(),
+        trigger_order: Vec::new(),
         damage_sources: Vec::new(),
         target_objects: Vec::new(),
         library_tops: Vec::new(),

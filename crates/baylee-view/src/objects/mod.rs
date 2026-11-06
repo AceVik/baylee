@@ -166,6 +166,54 @@ pub struct TokenAbility {
     pub index: u32,
 }
 
+/// One triggered ability its controller is putting on the stack (CR 603.3b),
+/// for the seat being asked ([`crate::PlayerView::trigger_order`]).
+///
+/// It is no object yet: [`Self::handle`] names it to the question and to
+/// nothing else. Everything here is what the seat asked may know of an
+/// ability it controls; what its event was about is told only as far as the
+/// seat can see it, so a card that went into another player's hand is not
+/// named by a trigger about it.
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+pub struct OrderedTrigger {
+    /// The handle `Pending::Arrange` offers it as, and an answer names it by.
+    pub handle: ObjectId,
+    /// What it will be on the stack: its source, which ability it is, and
+    /// where its sentence is. Always [`StackItem::Ability`].
+    ///
+    /// Its `ability`, else its `token`, is the key a player's preference is
+    /// remembered under: stable across games and printings, where
+    /// [`Self::handle`] and `source` last one question and one game.
+    pub item: StackItem,
+    /// What its source is called, as this seat may read it.
+    pub name: String,
+    /// Triggers with the same number need no order between them: they do the
+    /// same thing about the same thing, and swapping two of them leaves a
+    /// game nobody could tell apart. A client may draw them as one row with
+    /// a count, as long as its answer lists every handle.
+    pub twin: u32,
+    /// The object its event was about, while this seat can see it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub about_object: Option<ObjectId>,
+    /// What that object is called, as this seat may read it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub about_name: Option<String>,
+    /// Who controlled that object, else the player its event was about:
+    /// "that land's controller", "that player".
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub about_player: Option<PlayerId>,
+    /// The amount its event carried, "that much": damage dealt, life gained.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub amount: Option<u32>,
+    /// Whether targets are chosen as it goes on the stack (CR 603.3d): after
+    /// this question, in the order it gives.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub asks_targets: bool,
+    /// Whether a mode is chosen as it goes on the stack (CR 603.3c).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub modal: bool,
+}
+
 /// Where an ability's printed sentence is, so a client can draw a stack
 /// entry as what the ability *does*.
 ///

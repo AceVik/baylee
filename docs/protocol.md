@@ -3,6 +3,72 @@
 Binary WebSocket protocol (protobuf, `baylee-protocol`, wasm-safe).
 Schema: `crates/baylee-protocol/proto/baylee/v1/transport.proto`.
 
+## The order of triggers (view 86)
+
+A player who controls several triggered abilities going on the stack at once
+puts them there in any order (CR 603.3b). A table asks; training and evaluation
+games do not (`HouseRules.order_triggers`, absent means off, and it is not
+written while off). The question comes per controller, in APNAP order, before
+any of that player's triggers asks a mode or a target (CR 603.3c, 603.3d).
+
+**The question** is `Pending::Arrange` with `prompt: TriggerOrder` and one pile,
+`ArrangePile { place: Stack, min: n, max: n, ordered: true }`. Its `cards` are
+**no cards**: each is an `ObjectId::queued_trigger(place)`, a handle at the far
+end of the arena's slots that names no object, is found by no lookup, and lasts
+as long as the question. They are offered top of the stack first, in the order
+the timestamps would give.
+
+**The answer** is `PlayerAction::Arrange { piles: [[every handle once]] }`, read
+like every other pile: **top to bottom. The first handle listed goes on the
+stack last, is on top, and resolves first.** The last listed goes on the stack
+first and resolves last. The offer sent back unchanged is the order a game
+without the question plays, so it is what `timeout_answer`, the house AI and a
+seat of the trained net answer; it is an answer a client can write on its
+countdown button. Refusals are `Misarranged`.
+
+**The rows** are `PlayerView.trigger_order`, one `OrderedTrigger` per handle in
+the order offered, in the view of the seat that answers and nowhere else:
+
+| Field | Says |
+| --- | --- |
+| `handle` | What the question offers and an answer names. |
+| `item` | The `StackItem::Ability` it will be on the stack: `source`, `ability`, `text`, `rules`, `token`. |
+| `name` | Its source's name, as this seat may read it. |
+| `twin` | Rows with one number need no order between them. |
+| `about_object`, `about_name` | The object its event was about, while this seat can see it. |
+| `about_player` | Who controlled that object, else the player its event was about. |
+| `amount` | The amount its event carried ("that much"). |
+| `asks_targets`, `modal` | Whether a target or a mode is chosen as it goes on the stack. |
+
+- **What to remember a player's preference under** is `item.ability` (the card
+  and its index, the handle a standing answer is filed under, the printed card's
+  for a copy), else `item.token` (registry token and index). Both hold across
+  games and printings. A keyword's trigger is `ability` with index
+  `AbilityRef::SYNTHETIC`, so two keywords of one card share a key; a rule's own
+  trigger (`source` is `NO_SOURCE`) has neither. `handle` and `source` hold for
+  one question and one game.
+- **What it does** is the sentence `item.text` and `item.rules` place
+  (`docs/client.md` §"Which ability is on the stack"), and the compiled ability
+  `item.ability` names, which a client has locally.
+- **Interchangeable rows.** A question is asked only when two rows differ. Two
+  rows share `twin` when they do the same thing about the same thing and swapping
+  them leaves a game nobody could tell apart: two of one Dingus Egg's triggers
+  about one player's lands, or the same of two Eggs alike in every way. A client
+  may draw them as one row with a count, as long as its answer lists every handle.
+- **Hidden information.** A question goes to the triggers' controller, and only
+  the asked seat has rows. What a trigger is about is told only while that seat
+  can see it: an object gone to a library or another hand is left out, and
+  `about_player` is all that remains. Two sources count as the same only where
+  every player can read them.
+- **Leaving.** The asked player leaving takes their triggers with them
+  (CR 800.4d) and the next player is asked. Another player leaving leaves the
+  question and its handles as they were.
+
+Automation does not answer it: a priority hold and a standing answer are about
+priority and yes-or-no questions. `PROTOCOL_VERSION` does not move, as it did not
+for views 84 and 85: the question rides as JSON in the envelope, and view 86 is
+the refusal.
+
 ## Composed ability origins (compatible addition)
 
 `PublicObject.ability_sources` maps runtime indices in composed ability lists

@@ -115,6 +115,7 @@ impl SpectatorView {
             combat: self.combat,
             ballots: self.ballots,
             looking_at: Vec::new(),
+            trigger_order: Vec::new(),
             library_tops: self.library_tops,
             sorcery_lock: None,
             sorceries_have_flash: false,

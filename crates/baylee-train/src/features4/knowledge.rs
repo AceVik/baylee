@@ -130,6 +130,7 @@ impl<'a> ObservableView<'a> {
             combat,
             ballots,
             looking_at,
+            trigger_order: _,
             library_tops,
             sorcery_lock,
             sorceries_have_flash,

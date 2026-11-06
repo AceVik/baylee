@@ -277,6 +277,7 @@ fn view(seat: u8, lives: &[i32], battlefield: Vec<PublicObject>) -> PlayerView {
         command: vec![vec![]; lives.len()],
         combat: CombatView::default(),
         looking_at: Vec::new(),
+        trigger_order: Vec::new(),
         library_tops: Vec::new(),
         owed: None,
         targeting: None,

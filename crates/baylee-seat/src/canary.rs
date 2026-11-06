@@ -118,6 +118,7 @@ fn empty_view(me: PlayerId) -> PlayerView {
         command: vec![Vec::new(); 2],
         combat: CombatView::default(),
         looking_at: Vec::new(),
+        trigger_order: Vec::new(),
         library_tops: Vec::new(),
         owed: None,
         targeting: None,

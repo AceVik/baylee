@@ -363,7 +363,9 @@ fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
     // without it plans as it did.
     // `TargetingContext::side`: additive and omitted when absent, so 85 still
     // names the shape.
-    const RECORDED: (u32, u64) = (85, 3_091_753_333_932_082_586);
+    // 86: the order of triggers, imported engine variants a reader of 85 cannot
+    // parse; `PlayerView::trigger_order` beside them is additive.
+    const RECORDED: (u32, u64) = (86, 16_891_306_253_261_546_401);
 
     let samples = core_samples();
     let sampled: std::collections::BTreeSet<String> =

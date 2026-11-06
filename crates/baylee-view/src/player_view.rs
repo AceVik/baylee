@@ -1,6 +1,8 @@
 use crate::combat::CombatView;
 use crate::log::PolicyAct;
-use crate::objects::{DamageSourceView, HandObject, PublicObject, StackItem, StackText};
+use crate::objects::{
+    DamageSourceView, HandObject, OrderedTrigger, PublicObject, StackItem, StackText,
+};
 use crate::seats::SeatView;
 use crate::seen::{Seen, SeenIn, from_described, from_hand, from_public};
 use crate::shown_hands::SharedHand;
@@ -328,6 +330,18 @@ pub struct PlayerView {
     /// Empty in every view where nothing is being shown, which is nearly all
     /// of them.
     pub looking_at: Vec<PublicObject>,
+    /// The triggered abilities this seat is being asked to order (CR 603.3b),
+    /// in the order the question offers them: top of the stack first.
+    ///
+    /// What `Pending::Arrange`'s handles stand for, when its prompt is
+    /// `TriggerOrder`. Like [`Self::looking_at`] it is rebuilt from the
+    /// outstanding question for the seat it asks, and goes with it; a socket
+    /// seat has it and an agent answering from its plain view does not.
+    ///
+    /// Additive: absent on the wire while empty, and read as empty when
+    /// absent.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub trigger_order: Vec<OrderedTrigger>,
     /// At most one explicitly public top card per library; no hidden cards.
     #[serde(default)]
     pub library_tops: Vec<PublicObject>,

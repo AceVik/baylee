@@ -181,6 +181,7 @@ impl Session {
             &self.house_answered,
         );
         view.targeting = crate::view::targeting_context(&self.engine, seat);
+        view.trigger_order = crate::view::trigger_order(&self.engine, seat);
         view.casting = self.engine.cancellable_cast(seat);
         view.clocks = self.running_clocks();
         view.lost = self.lost_seats();

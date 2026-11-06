@@ -1,4 +1,4 @@
-use baylee_engine::object::{GameObject, ObjectKind, PrintedFace};
+use baylee_engine::object::{AbilityList, AbilityLoc, GameObject, ObjectKind, PrintedFace};
 use baylee_view::RulesFace;
 
 /// What a stack object is, for objects that are on the stack.
@@ -13,38 +13,41 @@ pub(crate) fn stack_item(obj: &GameObject) -> Option<baylee_view::StackItem> {
     match obj.kind {
         ObjectKind::Spell => Some(StackItem::Spell),
         ObjectKind::AbilityOnStack => obj.ability.map(|loc| {
-            let provenance = obj
-                .printed_ability_list(&crate::session::RegistryLookup)
-                .origin(loc.index as usize);
-            let printed = provenance
-                .origin
-                .and_then(baylee_engine::object::AbilityOrigin::printed);
-            StackItem::Ability {
-                token: provenance
-                    .origin
-                    .and_then(baylee_engine::object::AbilityOrigin::token)
-                    .map(|id| baylee_view::TokenAbility {
-                        token: id.get() - 1,
-                        index: provenance.index,
-                    }),
-                source: loc.source,
-                ability: provenance.ability_ref().or_else(|| {
-                    (!baylee_core::ids::AbilityRef::new(
-                        baylee_core::ids::CardIndex::new(0),
-                        loc.index,
-                    )
-                    .is_listed_ability())
-                    .then(|| {
-                        loc.card
-                            .map(|card| baylee_core::ids::AbilityRef::new(card, loc.index))
-                    })
-                    .flatten()
-                }),
-                text: printed.and_then(|printed| stack_text(printed, provenance.index)),
-                rules: printed.map(rules_face),
-            }
+            ability_item(
+                &obj.printed_ability_list(&crate::session::RegistryLookup),
+                loc,
+            )
         }),
         _ => None,
+    }
+}
+
+/// The ability at `loc` of `list`, on the stack or waiting to go there.
+pub(crate) fn ability_item(list: &AbilityList, loc: AbilityLoc) -> baylee_view::StackItem {
+    let provenance = list.origin(loc.index as usize);
+    let printed = provenance
+        .origin
+        .and_then(baylee_engine::object::AbilityOrigin::printed);
+    baylee_view::StackItem::Ability {
+        token: provenance
+            .origin
+            .and_then(baylee_engine::object::AbilityOrigin::token)
+            .map(|id| baylee_view::TokenAbility {
+                token: id.get() - 1,
+                index: provenance.index,
+            }),
+        source: loc.source,
+        ability: provenance.ability_ref().or_else(|| {
+            (!baylee_core::ids::AbilityRef::new(baylee_core::ids::CardIndex::new(0), loc.index)
+                .is_listed_ability())
+            .then(|| {
+                loc.card
+                    .map(|card| baylee_core::ids::AbilityRef::new(card, loc.index))
+            })
+            .flatten()
+        }),
+        text: printed.and_then(|printed| stack_text(printed, provenance.index)),
+        rules: printed.map(rules_face),
     }
 }
 

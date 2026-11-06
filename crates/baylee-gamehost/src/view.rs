@@ -626,6 +626,7 @@ pub fn player_view(
         combat: combat_view(state),
         ballots: ballot_views(ctx.ballots),
         looking_at: looking_at(state, seat, pending, ctx),
+        trigger_order: Vec::new(),
         damage_sources: damage_sources(state, seat, pending, ctx, &mut references),
         target_objects: target_objects(state, seat, pending, ctx, &mut references),
         library_tops: state
@@ -921,6 +922,55 @@ fn target_side(
             .flatten();
     }
     effects_side(context.effects, context.x)
+}
+
+/// What a trigger is about, if `seat` can see it now: it may have left for a
+/// zone it cannot see, and then a row about it says whose it was and no more
+/// (CR 400.2).
+pub(crate) fn visible_event_object(
+    state: &GameState,
+    id: ObjectId,
+    seat: PlayerId,
+) -> Option<&GameObject> {
+    state
+        .object(id)
+        .filter(|obj| zones::shown_elsewhere(obj, seat))
+}
+
+/// The triggers `seat` is being asked to order, in the order offered
+/// ([`PlayerView::trigger_order`]). Only the seat that answers is told.
+pub(crate) fn trigger_order<L: baylee_engine::state::CardLookup>(
+    engine: &baylee_engine::engine::Engine<L>,
+    seat: PlayerId,
+) -> Vec<baylee_view::OrderedTrigger> {
+    if engine.decision_actor() != Some(seat) {
+        return Vec::new();
+    }
+    let state = engine.state();
+    let controlled = engine.controlled_players(seat);
+    let read =
+        |obj: &GameObject| public_name(state, obj, zones::entitled_viewer(obj, seat, controlled));
+    engine
+        .queued_triggers()
+        .into_iter()
+        .map(|trigger| {
+            let about = trigger
+                .event_object
+                .and_then(|id| visible_event_object(state, id, seat));
+            baylee_view::OrderedTrigger {
+                handle: trigger.handle,
+                item: stack::ability_item(&trigger.list, trigger.loc),
+                name: state.object(trigger.loc.source).map_or(trigger.name, read),
+                twin: trigger.twin,
+                about_object: about.map(|obj| obj.id),
+                about_name: about.map(read),
+                about_player: trigger.about_player,
+                amount: trigger.amount,
+                asks_targets: trigger.asks_targets,
+                modal: trigger.modal,
+            }
+        })
+        .collect()
 }
 
 /// Explains only the current chooser's decision; never another seat's hand.
