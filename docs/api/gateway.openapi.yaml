@@ -47,7 +47,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -141,7 +141,7 @@ paths:
         "502":
           description: Scryfall could not be reached
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -180,7 +180,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -244,7 +244,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -295,7 +295,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -367,7 +367,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -413,7 +413,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -698,8 +698,8 @@ paths:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
           description: |-
-            - The account store or Baylee Central is unavailable
-            - The account store or Baylee Central is unavailable, or too many chairs are being handed over
+            - The account store is unavailable
+            - The account store is unavailable, or too many chairs are being handed over
           content:
             application/json:
               schema:
@@ -1024,8 +1024,8 @@ paths:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
           description: |-
-            - The account store or Baylee Central is unavailable
-            - Uploads are off on this gateway (`BAYLEE_DECK_IMAGE_PATH=off`), or its account store or Baylee Central is unavailable
+            - The account store is unavailable
+            - Uploads are off on this gateway (`BAYLEE_DECK_IMAGE_PATH=off`), or its account store is unavailable
           content:
             application/json:
               schema:
@@ -1102,7 +1102,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -1153,7 +1153,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -1216,7 +1216,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -1266,7 +1266,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -1417,7 +1417,7 @@ paths:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
           description: |-
-            - The account store or Baylee Central is unavailable
+            - The account store is unavailable
             - Reports are not configured here (`BAYLEE_FEEDBACK_URL` unset, or with `BAYLEE_REPORTS_TO=central` no link to Central), too many reports are on their way to Central or it is past its budget for this gateway, or the account store, the database or Baylee Central is unavailable
           content:
             application/json:
@@ -1611,7 +1611,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -1682,7 +1682,7 @@ paths:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
           description: |-
-            - The account store or Baylee Central is unavailable
+            - The account store is unavailable
             - This gateway has no card catalog, or its account store is unavailable
           content:
             application/json:
@@ -1757,7 +1757,7 @@ paths:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
           description: |-
-            - The account store or Baylee Central is unavailable
+            - The account store is unavailable
             - This gateway has no card catalog, or its account store is unavailable
           content:
             application/json:
@@ -1800,7 +1800,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -1876,7 +1876,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -1915,7 +1915,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -1967,7 +1967,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -2046,7 +2046,7 @@ paths:
               schema:
                 type: string
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -2090,7 +2090,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -2131,7 +2131,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -2184,7 +2184,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -2250,7 +2250,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -2321,7 +2321,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -2392,7 +2392,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -2546,7 +2546,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -2625,8 +2625,8 @@ paths:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
           description: |-
-            - The account store or Baylee Central is unavailable
-            - The account store or Baylee Central is unavailable, the gateway's database is, or no engine could be ordered for `mode: ai` (no agent, or a deploy holds new games)
+            - The account store is unavailable
+            - The account store is unavailable, the gateway's database is, or no engine could be ordered for `mode: ai` (no agent, or a deploy holds new games)
           content:
             application/json:
               schema:
@@ -2666,7 +2666,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -2746,7 +2746,7 @@ paths:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
           description: |-
-            - The account store or Baylee Central is unavailable
+            - The account store is unavailable
             - The account store, Baylee Central or the gateway's database is unavailable, or no engine could be ordered for a room that would start
           content:
             application/json:
@@ -2816,7 +2816,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -2909,8 +2909,8 @@ paths:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
           description: |-
-            - The account store or Baylee Central is unavailable
-            - Replays are off (`BAYLEE_REPLAY_JOBS=0`), as many are being made as the gateway allows, no agent has room, admission is held, or the account store or Baylee Central is unavailable
+            - The account store is unavailable
+            - Replays are off (`BAYLEE_REPLAY_JOBS=0`), as many are being made as the gateway allows, no agent has room, admission is held, or the account store is unavailable
           content:
             application/json:
               schema:
@@ -2981,7 +2981,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -3046,7 +3046,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -3119,7 +3119,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -3170,7 +3170,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -3245,8 +3245,8 @@ paths:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
           description: |-
-            - The account store or Baylee Central is unavailable
-            - The account store or Baylee Central is unavailable, or the gateway's database is
+            - The account store is unavailable
+            - The account store is unavailable, or the gateway's database is
           content:
             application/json:
               schema:
@@ -3307,7 +3307,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -3400,8 +3400,8 @@ paths:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
           description: |-
-            - The account store or Baylee Central is unavailable
-            - The account store or Baylee Central is unavailable, or the gateway's database is
+            - The account store is unavailable
+            - The account store is unavailable, or the gateway's database is
           content:
             application/json:
               schema:
@@ -3485,8 +3485,8 @@ paths:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
           description: |-
-            - The account store or Baylee Central is unavailable
-            - The account store or Baylee Central is unavailable, the card catalog's database is, or no engine could be ordered for a rematch room that would start
+            - The account store is unavailable
+            - The account store is unavailable, the card catalog's database is, or no engine could be ordered for a rematch room that would start
           content:
             application/json:
               schema:
@@ -3563,8 +3563,8 @@ paths:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
           description: |-
-            - The account store or Baylee Central is unavailable
-            - The account store or Baylee Central is unavailable, the card catalog's database is, or no engine could be ordered (no agent, or a deploy holds new games)
+            - The account store is unavailable
+            - The account store is unavailable, the card catalog's database is, or no engine could be ordered (no agent, or a deploy holds new games)
           content:
             application/json:
               schema:
@@ -3628,7 +3628,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -3685,7 +3685,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -3725,7 +3725,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -3785,7 +3785,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -3912,7 +3912,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -3970,7 +3970,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -4009,7 +4009,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -4163,7 +4163,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -4233,8 +4233,8 @@ paths:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
           description: |-
-            - The account store or Baylee Central is unavailable
-            - The account store or Baylee Central is unavailable, or too many sockets are being opened
+            - The account store is unavailable
+            - The account store is unavailable, or too many sockets are being opened
           content:
             application/json:
               schema:
@@ -4276,8 +4276,8 @@ paths:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
           description: |-
-            - The account store or Baylee Central is unavailable
-            - The account store or Baylee Central is unavailable, or the gateway's database is
+            - The account store is unavailable
+            - The account store is unavailable, or the gateway's database is
           content:
             application/json:
               schema:
@@ -4371,7 +4371,7 @@ paths:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
           description: |-
-            - The account store or Baylee Central is unavailable
+            - The account store is unavailable
             - No seat agent is connected, the account store, Baylee Central or the gateway's database is unavailable, too many chairs are being handed over, or the seat agent went away
           content:
             application/json:
@@ -4435,7 +4435,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -4519,7 +4519,7 @@ paths:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
           description: |-
-            - The account store or Baylee Central is unavailable
+            - The account store is unavailable
             - Reports are not configured here (`BAYLEE_FEEDBACK_URL` unset), or the account store, the database or Baylee Central is unavailable
           content:
             application/json:
@@ -4588,7 +4588,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -4625,7 +4625,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -4673,7 +4673,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -4734,7 +4734,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -4792,7 +4792,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -4861,7 +4861,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -4914,7 +4914,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -4959,7 +4959,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -5004,7 +5004,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -5049,7 +5049,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -5103,7 +5103,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -5148,7 +5148,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -5188,7 +5188,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -5250,7 +5250,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -5307,7 +5307,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -5353,7 +5353,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -5419,7 +5419,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -5472,7 +5472,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -5525,7 +5525,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -5579,7 +5579,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -5632,7 +5632,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -5692,7 +5692,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
@@ -5745,7 +5745,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The account store or Baylee Central is unavailable
+          description: The account store is unavailable
           content:
             application/json:
               schema:
