@@ -45,6 +45,7 @@ const MAGIC: &[u8; 4] = b"LDB\x01";
 const ECHO: u8 = b'E';
 const BLAST: u8 = b'B';
 const DATA: u8 = b'D';
+const PROBE: u8 = b'P';
 
 fn knob(name: &str, default: usize) -> usize {
     std::env::var(name)
@@ -95,8 +96,24 @@ fn rss_kib(pid: u32) -> u64 {
     ps(pid, "rss").parse().unwrap_or(0)
 }
 
-/// User + system CPU seconds so far (`[[h:]m:]s[.cc]`).
+/// User + system CPU seconds so far: to the clock tick off `/proc` where
+/// there is one, since Linux's `ps` counts whole seconds, else `ps`
+/// (`[[h:]m:]s[.cc]`).
 fn cpu_secs(pid: u32) -> f64 {
+    /// What Linux reports `/proc/<pid>/stat` in (`USER_HZ`).
+    const TICKS_PER_SEC: f64 = 100.0;
+    if let Ok(stat) = std::fs::read_to_string(format!("/proc/{pid}/stat"))
+        && let Some((_, after_name)) = stat.rsplit_once(')')
+    {
+        // `utime` and `stime` are fields 14 and 15, the name being field 2.
+        let ticks: f64 = after_name
+            .split_whitespace()
+            .skip(11)
+            .take(2)
+            .filter_map(|field| field.parse::<f64>().ok())
+            .sum();
+        return ticks / TICKS_PER_SEC;
+    }
     ps(pid, "time").split(':').fold(0.0, |acc, part| {
         acc * 60.0 + part.parse::<f64>().unwrap_or(0.0)
     })
@@ -259,10 +276,16 @@ async fn stand_in_engine(start: v1::StartEngine) {
         let v1::envelope::Msg::SeatFrame(frame) = msg else {
             continue;
         };
-        let Some((kind, _, rest)) = read_stamp(&frame.envelope) else {
+        let Some((kind, sent, rest)) = read_stamp(&frame.envelope) else {
             continue;
         };
         match kind {
+            PROBE => {
+                let back = probe_answer(sent);
+                if ws.send(seat_frame(frame.seat, back)).await.is_err() {
+                    return;
+                }
+            }
             ECHO => {
                 let back = frame.envelope.clone();
                 if ws.send(seat_frame(frame.seat, back)).await.is_err() {
@@ -285,6 +308,88 @@ async fn stand_in_engine(start: v1::StartEngine) {
             _ => {}
         }
     }
+}
+
+// ---------------------------------------------------------- one frame's hops
+
+/// One frame in flight at a time, each way timed on this process's clock, so
+/// neither direction hides in the other. Paced under the seat allowance
+/// (`seatrate::RATE`): the gateway closes a socket that sends faster.
+const PROBE_EVERY: Duration = Duration::from_millis(5);
+
+/// What an engine, or the bare echo, answers a probe with: its own clock as
+/// the stamp and the seat's behind it.
+fn probe_answer(sent: u64) -> Vec<u8> {
+    stamped(PROBE, 64, &sent.to_le_bytes())
+}
+
+/// Sends `count` probes; the time each took to reach the far end, and the time
+/// the answer took to come back.
+async fn probe_seat(mut ws: Socket, count: usize) -> (Socket, Vec<u64>, Vec<u64>) {
+    let (mut out, mut back) = (Vec::with_capacity(count), Vec::with_capacity(count));
+    let mut tick = tokio::time::interval(PROBE_EVERY);
+    for _ in 0..count {
+        tick.tick().await;
+        let frame = stamped(PROBE, 64, &[]);
+        if ws.send(Message::Binary(frame.into())).await.is_err() {
+            break;
+        }
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(5);
+        loop {
+            let Ok(Some(Ok(frame))) = tokio::time::timeout_at(deadline, ws.next()).await else {
+                return (ws, out, back);
+            };
+            let arrived = now_ns();
+            if let Message::Binary(data) = frame
+                && let Some((PROBE, far_end, rest)) = read_stamp(&data)
+            {
+                let sent = u64::from_le_bytes(rest[..8].try_into().expect("a probe's stamp"));
+                out.push(far_end - sent);
+                back.push(arrived - far_end);
+                break;
+            }
+        }
+    }
+    (ws, out, back)
+}
+
+/// A websocket on loopback answering probes with nothing in between: what one
+/// hop costs this process, to subtract from the two the gateway makes of it.
+async fn bare_echo() -> u16 {
+    let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0))
+        .await
+        .expect("bind the bare echo");
+    let port = listener.local_addr().expect("its port").port();
+    tokio::spawn(async move {
+        while let Ok((stream, _)) = listener.accept().await {
+            stream.set_nodelay(true).expect("nodelay");
+            tokio::spawn(async move {
+                let mut ws = tokio_tungstenite::accept_async(stream)
+                    .await
+                    .expect("bare handshake");
+                while let Some(Ok(frame)) = ws.next().await {
+                    if let Message::Binary(data) = frame
+                        && let Some((PROBE, sent, _)) = read_stamp(&data)
+                        && ws
+                            .send(Message::Binary(probe_answer(sent).into()))
+                            .await
+                            .is_err()
+                    {
+                        return;
+                    }
+                }
+            });
+        }
+    });
+    port
+}
+
+/// Both directions of a run of probes, printed.
+async fn probe_line(name: &str, ws: Socket, count: usize) -> Socket {
+    let (ws, out, back) = probe_seat(ws, count).await;
+    latency_line(&format!("{name}, out"), out);
+    latency_line(&format!("{name}, back"), back);
+    ws
 }
 
 // ------------------------------------------------------------ the phases
@@ -428,6 +533,7 @@ async fn gateway_under_load() {
     let echo_hz = knob("LOAD_ECHO_HZ", 100);
     let blast = knob("LOAD_BLAST", 100);
     let bytes = knob("LOAD_BYTES", 16 * 1024);
+    let probes = knob("LOAD_PROBES", 1000);
 
     let gateway = common::spawn_gateway_with(
         "load",
@@ -538,10 +644,20 @@ async fn gateway_under_load() {
         rss_games.saturating_sub(rss_before_games) as f64 / games.max(1) as f64
     );
 
-    // ---- round trip, quiet and beside lobby churn
+    // ---- one frame's hops: a bare socket, then the gateway, alone and while
+    // every other seat echoes
     let every = Duration::from_secs_f64(1.0 / echo_hz.max(1) as f64);
-    let (seats, rtt) = round_trip(pid, seats, echoes, every, "round trip").await;
+    let bare = bare_echo().await;
+    let ws = common::dial(&format!("ws://127.0.0.1:{bare}/"))
+        .await
+        .expect("the bare echo");
+    drop(probe_line("one bare hop", ws, probes).await);
+    let probing = seats.pop().expect("a seat to probe with");
+    let probing = probe_line("through the gateway, quiet", probing, probes).await;
+    let busy = tokio::spawn(probe_line("through the gateway, busy", probing, probes));
+    let (mut seats, rtt) = round_trip(pid, seats, echoes, every, "round trip").await;
     latency_line("seat → engine → seat", rtt);
+    seats.push(busy.await.expect("the probe"));
     let churning = {
         let churner = churner.clone();
         tokio::task::spawn_blocking(move || churn_rooms(port, &churner, churn))
