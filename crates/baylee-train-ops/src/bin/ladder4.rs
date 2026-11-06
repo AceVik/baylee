@@ -65,6 +65,9 @@ struct Args {
     /// has to hold the reservations of the open games on top of this.
     #[arg(long)]
     stop_spent: Option<f64>,
+    /// Passed to `seat4`: the model is older than this build's catalog.
+    #[arg(long)]
+    catalog_drift: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -152,6 +155,9 @@ fn host(
         .arg(work.join("reports"))
         .arg("--journal")
         .arg(work.join("journal.jsonl.gz"));
+    if args.catalog_drift {
+        command.arg("--catalog-drift");
+    }
     if game.mode == "raw" {
         command.arg("--raw-policy");
     } else if let Some(groups) = game.mode.strip_prefix("tactical=") {

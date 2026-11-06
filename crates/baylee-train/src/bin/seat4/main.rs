@@ -15,7 +15,7 @@ use baylee_seat::deck::Deck;
 use baylee_seat::link::SeatLink;
 use baylee_seat::lobby::{Chair, GuestSignIn, Lobby, Session, seat_name};
 use baylee_train::live4::{LiveReport4, LiveSeat4};
-use baylee_train::netplay4::{NetPlayer4, PolicyMode4, valid_raw_temperature};
+use baylee_train::netplay4::{CatalogPolicy4, NetPlayer4, PolicyMode4, valid_raw_temperature};
 use clap::Parser;
 
 #[derive(Parser)]
@@ -67,6 +67,11 @@ struct Args {
     /// with --games 1 only. Never training data.
     #[arg(long)]
     journal: Option<PathBuf>,
+    /// For a measurement only: bind a model exported on an older catalog, which
+    /// then reads a card whose rules changed by its summary alone
+    /// (`docs/trained-ai.md` §"Card catalog compatibility").
+    #[arg(long)]
+    catalog_drift: bool,
 }
 
 #[tokio::main(flavor = "current_thread")]
@@ -393,7 +398,12 @@ fn load_brain(args: &Args, model: &std::path::Path) -> anyhow::Result<NetPlayer4
         ),
         "Encoders 8 and 9 require versioned context on the wire; use offline eval4"
     );
-    Ok(NetPlayer4::load(model)?
+    let catalog = if args.catalog_drift {
+        CatalogPolicy4::Drift
+    } else {
+        CatalogPolicy4::Exact
+    };
+    Ok(NetPlayer4::load_with(model, catalog)?
         .with_policy_mode(if args.raw_policy {
             PolicyMode4::Raw
         } else {
