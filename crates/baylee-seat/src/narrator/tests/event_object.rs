@@ -59,3 +59,22 @@ fn an_ability_about_its_event_object_does_not_say_it_targets() {
     let pinger = stack_line(ability(133, 31, "Prodigal Sorcerer", 0, 45));
     assert!(pinger.contains(" · targets "), "{pinger}");
 }
+
+/// A token's own keyword trigger (a Monk token's prowess) reaches the view
+/// with no ability handle at all, because the token has no card to name. It
+/// is still the rule's trigger about its own source (CR 702.108a), and said
+/// "targets Monk #124" where the card's own prowess said "(not a target)".
+#[test]
+fn a_tokens_keyword_trigger_about_itself_does_not_say_it_targets() {
+    let mut object = ability(134, 124, "Young Wolf", AbilityRef::SYNTHETIC, 124);
+    object.stack_item = Some(StackItem::Ability {
+        source: id(124),
+        ability: None,
+        text: None,
+        rules: None,
+        token: None,
+    });
+    let line = stack_line(object);
+    assert!(line.contains("(not a target)"), "{line}");
+    assert!(!line.contains("targets"), "{line}");
+}

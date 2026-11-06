@@ -470,8 +470,9 @@ fn names_without_targeting(object: &PublicObject) -> bool {
     use baylee_cards_dsl::{AbilityDef, TargetReq, TargetSpec};
     let Some(StackItem::Ability {
         source,
-        ability: Some(ability),
+        ability,
         rules,
+        token,
         ..
     }) = object.stack_item
     else {
@@ -482,6 +483,13 @@ fn names_without_targeting(object: &PublicObject) -> bool {
             TargetRef::Object(reference) => Some(reference.object),
             TargetRef::Player(_) => None,
         })
+    };
+    let Some(ability) = ability else {
+        // A token has no card to name: the host sends its keyword triggers
+        // (a Monk's prowess) with no handle at all, and a token's printed
+        // ability carries `token` instead. What is left is a rule's trigger
+        // about its own source.
+        return token.is_none() && rules.is_none() && objects().all(|id| id == Some(source));
     };
     if ability.index == baylee_core::ids::AbilityRef::SYNTHETIC {
         // A rule's trigger about its own source. Granted and reflexive
