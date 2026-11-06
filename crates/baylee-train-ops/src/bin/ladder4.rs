@@ -6,6 +6,8 @@
 //! chair 1 as a guest. A pair of decks is played twice with the seats swapped.
 //! Keys are read from the environment by `baylee-seat` alone; this program
 //! never touches them and starts each seat with only what it needs.
+// Counts of games, well below f64's exact 2^53 range.
+#![allow(clippy::cast_precision_loss)]
 use anyhow::{Context, Result, bail, ensure};
 use baylee_train_ops::evaluation::{atomic_json, read_json};
 use clap::Parser;
@@ -58,6 +60,11 @@ struct Args {
     /// Seconds between two games' starts, over all tables.
     #[arg(long, default_value_t = 80)]
     start_gap_secs: u64,
+    /// No game starts once the book will likely have spent this much, in the
+    /// profile's unit (dollars for a priced model, else tokens). The book's cap
+    /// has to hold the reservations of the open games on top of this.
+    #[arg(long)]
+    stop_spent: Option<f64>,
 }
 
 #[derive(Clone, Debug)]
@@ -339,35 +346,66 @@ fn play(args: &Args, game: &Game) -> Result<Value> {
     }))
 }
 
-/// What a game of `profile` would leave of the book's monthly cap: below zero,
-/// the book cannot pay for a whole game. A seat that sat down on less would run
-/// out, the house would finish its game, and such a game counts for nothing. A
-/// house seat has no book.
-fn margin(settings: &Value, book: &Value, profile: &str) -> Option<f64> {
+/// The unit a profile is booked in and the budget of one of its games. A house
+/// seat has no book.
+fn game_budget(settings: &Value, profile: &str) -> Option<(&'static str, f64)> {
     let entry = settings["profiles"].get(profile)?;
-    let (unit, budget) = entry["game_usd"].as_f64().map_or_else(
-        || ("tokens", entry["game_tokens"].as_f64()),
-        |usd| ("usd", Some(usd)),
-    );
-    let cap = settings["caps"][format!("month_{unit}")].as_f64()?;
-    let used: f64 = book["games"]
+    entry["game_usd"].as_f64().map_or_else(
+        || Some(("tokens", entry["game_tokens"].as_f64()?)),
+        |usd| Some(("usd", usd)),
+    )
+}
+
+/// The games of the book as `(open, amount in unit)`: an open game at its
+/// reservation, a settled one at what it spent.
+fn booked(book: &Value, unit: &str) -> Vec<(bool, f64)> {
+    book["games"]
         .as_array()
         .into_iter()
         .flatten()
         .map(|game| {
-            let state = if game["settled"].is_null() {
-                "reserved"
-            } else {
-                "spent"
-            };
-            game[format!("{state}_{unit}")].as_f64().unwrap_or(0.0)
+            let open = game["settled"].is_null();
+            let state = if open { "reserved" } else { "spent" };
+            let amount = game[format!("{state}_{unit}")].as_f64().unwrap_or(0.0);
+            (open, amount)
         })
-        .sum();
-    Some(cap - used - budget?)
+        .collect()
 }
 
-/// Why no further game starts, if something says so: the book, or a `STOP` file
-/// in the root, which ends a run while the games at the tables finish.
+/// What a game of `profile` would leave of the book's monthly cap: below zero,
+/// the book cannot pay for a whole game. A seat that sat down on less would run
+/// out, the house would finish its game, and such a game counts for nothing.
+fn margin(settings: &Value, book: &Value, profile: &str) -> Option<f64> {
+    let (unit, budget) = game_budget(settings, profile)?;
+    let cap = settings["caps"][format!("month_{unit}")].as_f64()?;
+    let used: f64 = booked(book, unit).iter().map(|game| game.1).sum();
+    Some(cap - used - budget)
+}
+
+/// What the book will likely have spent when the open games end: what the
+/// settled games spent, and for each open one the mean of those played. Unlike
+/// [`margin`] this does not count a reservation in full, so a run can stop at a
+/// sum of money although each game holds far more than it will spend.
+fn likely_spend(settings: &Value, book: &Value, profile: &str) -> Option<f64> {
+    let (unit, budget) = game_budget(settings, profile)?;
+    let games = booked(book, unit);
+    let played: Vec<f64> = games
+        .iter()
+        .filter(|game| !game.0 && game.1 > 0.0)
+        .map(|game| game.1)
+        .collect();
+    let spent: f64 = played.iter().sum();
+    let mean = if played.is_empty() {
+        budget
+    } else {
+        spent / played.len() as f64
+    };
+    let open = games.iter().filter(|game| game.0).count();
+    Some(mean.mul_add(open as f64, spent))
+}
+
+/// Why no further game starts, if something says so: the book, `--stop-spent`,
+/// or a `STOP` file in the root, which ends a run while the tables finish.
 fn stop_reason(args: &Args, game: &Game) -> Result<Option<&'static str>> {
     if args.root.join("STOP").exists() {
         return Ok(Some("stopped"));
@@ -377,9 +415,12 @@ fn stop_reason(args: &Args, game: &Game) -> Result<Option<&'static str>> {
     } else {
         Value::Null
     };
-    let short = margin(&read_json(&args.profiles)?, &book, &game.profile)
-        .is_some_and(|margin| margin < 0.0);
-    Ok(short.then_some("budget"))
+    let settings = read_json(&args.profiles)?;
+    let short = margin(&settings, &book, &game.profile).is_some_and(|margin| margin < 0.0);
+    let spent = args.stop_spent.is_some_and(|limit| {
+        likely_spend(&settings, &book, &game.profile).is_some_and(|spend| spend >= limit)
+    });
+    Ok((short || spent).then_some("budget"))
 }
 
 /// Plays `game` when its turn to start comes, trying again when it never got
@@ -521,5 +562,22 @@ mod tests {
         // 30 spent and 30 held leave 40 of 100, short of a game of 60.
         assert!(margin(&settings, &book, "free").unwrap() < 0.0);
         assert_eq!(margin(&settings, &book, "house:sharp"), None);
+    }
+
+    #[test]
+    fn open_games_count_as_the_mean_of_those_played() {
+        let settings = json!({"caps": {"month_usd": 9.0}, "profiles": {"paid": {"game_usd": 2.0}}});
+        let book = json!({"games": [
+            {"reserved_usd": 2.0, "spent_usd": 0.2, "settled": 5},
+            {"reserved_usd": 2.0, "spent_usd": 0.4, "settled": 6},
+            {"reserved_usd": 2.0, "spent_usd": 0.0, "settled": 7},
+            {"reserved_usd": 2.0},
+        ]});
+        let spend = likely_spend(&settings, &book, "paid").unwrap();
+        assert!((spend - 0.9).abs() < 1e-9, "{spend}");
+        // Before any game was played an open one counts in full.
+        let open = json!({"games": [{"reserved_usd": 2.0}]});
+        let spend = likely_spend(&settings, &open, "paid").unwrap();
+        assert!((spend - 2.0).abs() < 1e-9, "{spend}");
     }
 }
