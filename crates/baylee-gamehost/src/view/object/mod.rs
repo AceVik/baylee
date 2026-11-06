@@ -16,6 +16,45 @@ mod abilities;
 pub(super) type SourceReferences =
     std::collections::BTreeMap<baylee_core::ids::DamageSourceRef, Vec<ObjectId>>;
 
+/// What every object of one view reads alike, found once for the view.
+///
+/// A view walks every public object of the table, and these two answers are
+/// about the board rather than the object. Borrowing the state is what makes
+/// keeping them sound: nothing can write the board while a view is built.
+pub(super) struct ViewBoard<'a> {
+    pub(super) state: &'a GameState,
+    /// The effects that grant an activated ability
+    /// ([`baylee_engine::effects::grants`]) and how each reads, so that
+    /// asking every permanent costs `effects + permanents × grants` and not
+    /// `permanents × effects`.
+    grants: Vec<(
+        &'a baylee_engine::effects::ContinuousEffect,
+        baylee_engine::text_changes::TextChangeMap,
+    )>,
+    /// What the board's lands make, solved for the first permanent that asks.
+    lands: std::cell::OnceCell<baylee_engine::resolve::LandProduction<'a>>,
+}
+
+impl<'a> ViewBoard<'a> {
+    pub(super) fn new(state: &'a GameState) -> Self {
+        Self {
+            state,
+            grants: baylee_engine::effects::grants(state)
+                .map(|effect| (effect, state.effect_text(effect)))
+                .collect(),
+            lands: std::cell::OnceCell::new(),
+        }
+    }
+
+    /// `id`'s granted activated abilities, in slot order.
+    fn granted(
+        &self,
+        id: ObjectId,
+    ) -> impl Iterator<Item = baylee_engine::effects::GrantedAbility> {
+        baylee_engine::effects::granted_from(self.state, self.grants.iter().copied(), id)
+    }
+}
+
 pub(super) fn exact_object_view_with_access(
     state: &GameState,
     seat: PlayerId,
@@ -260,10 +299,11 @@ fn announced_buyback(obj: &GameObject) -> bool {
 }
 
 pub(super) fn public_object(
-    state: &GameState,
+    board: &ViewBoard<'_>,
     id: ObjectId,
     seat: PlayerId,
 ) -> Option<PublicObject> {
+    let state = board.state;
     let obj = state.object(id)?;
     let chars = obj.characteristics();
     let known = may_know_card(obj, seat);
@@ -396,7 +436,7 @@ pub(super) fn public_object(
             id,
         ),
         granted_mana: (obj.kind == ObjectKind::Permanent)
-            .then(|| granted_mana(state, id))
+            .then(|| granted_mana(board, id))
             .flatten(),
         // Permanents only, for the reason the two fields above are: nothing
         // else can be tapped. Not gated on `known` either, and it does not
@@ -404,14 +444,14 @@ pub(super) fn public_object(
         // *projected* list, so a permanent that has lost its abilities — the
         // shape anything face-down will have to take — offers none to read.
         board_mana: (obj.kind == ObjectKind::Permanent)
-            .then(|| board_mana(state, id))
+            .then(|| board_mana(board, id))
             .flatten(),
         flashback: graveyard_price(state, id, obj, seat, chars.mana_cost),
         // Permanents only, for `granted_mana`'s reason: the engine offers a
         // granted ability on a permanent and nowhere else, and each entry
         // here is one of those offers.
         grants: if obj.kind == ObjectKind::Permanent {
-            grants(state, id, seat)
+            grants(board, id, seat)
         } else {
             Vec::new()
         },
@@ -429,8 +469,10 @@ pub(super) fn public_object(
 /// since returned to a hand or shuffled into a library would say which card
 /// in that hidden zone it is. That entry is all `None`, the same as a grant
 /// from an emblem or a rule, which has no grantor at all.
-fn grants(state: &GameState, id: ObjectId, seat: PlayerId) -> Vec<baylee_view::GrantSource> {
-    baylee_engine::effects::granted_activated(state, id)
+fn grants(board: &ViewBoard<'_>, id: ObjectId, seat: PlayerId) -> Vec<baylee_view::GrantSource> {
+    let state = board.state;
+    board
+        .granted(id)
         .map(|granted| {
             let slot = baylee_engine::choice::granted_slot(granted.id).expect("granted identity");
             let mut out = baylee_view::GrantSource {
@@ -546,8 +588,8 @@ fn grant_home(
 /// The **first** grant that is a mana ability, which is the one a planner can
 /// use: a permanent may be granted several (Urza's Saga is granted two), and
 /// the plan taps it once either way.
-fn granted_mana(state: &GameState, id: ObjectId) -> Option<baylee_view::GrantedMana> {
-    baylee_engine::effects::granted_activated(state, id).find_map(|grant| grant_mana(&grant))
+fn granted_mana(board: &ViewBoard<'_>, id: ObjectId) -> Option<baylee_view::GrantedMana> {
+    board.granted(id).find_map(|grant| grant_mana(&grant))
 }
 
 fn grant_mana(grant: &baylee_engine::effects::GrantedAbility) -> Option<baylee_view::GrantedMana> {
@@ -593,8 +635,12 @@ fn grant_mana(grant: &baylee_engine::effects::GrantedAbility) -> Option<baylee_v
 /// so a lone Pool taps for no colour at all — and "no colours" and "no such
 /// ability" are the same answer to every caller: there is no tap here to plan
 /// with.
-fn board_mana(state: &GameState, id: ObjectId) -> Option<baylee_view::BoardMana> {
+fn board_mana(board: &ViewBoard<'_>, id: ObjectId) -> Option<baylee_view::BoardMana> {
+    let state = board.state;
     let obj = state.object(id)?;
+    let colors_of = |source| {
+        baylee_engine::resolve::colors_of_among(state, obj.controller, source, id, &board.lands)
+    };
     // `abilities` and not `by_index`: it is the one accessor that answers for
     // an emblem, a token and a copy, and — the case that matters here — for a
     // permanent whose printed list a continuous effect has replaced.
@@ -647,7 +693,7 @@ fn board_mana(state: &GameState, id: ObjectId) -> Option<baylee_view::BoardMana>
                 } else {
                     branched.otherwise
                 };
-                let colors = baylee_engine::resolve::colors_of(state, obj.controller, made, id);
+                let colors = colors_of(made);
                 return (!colors.is_empty()).then(|| baylee_view::BoardMana {
                     index: u32::try_from(index).unwrap_or(u32::MAX),
                     colors,
@@ -681,10 +727,7 @@ fn board_mana(state: &GameState, id: ObjectId) -> Option<baylee_view::BoardMana>
                     let (types, exile) = baylee_engine::resolve::noted_activation_mana(state, id)?;
                     (baylee_engine::resolve::noted_colors(types), exile)
                 } else {
-                    (
-                        baylee_engine::resolve::colors_of(state, obj.controller, source, id),
-                        None,
-                    )
+                    (colors_of(source), None)
                 };
             (!colors.is_empty()).then(|| baylee_view::BoardMana {
                 index: u32::try_from(index).unwrap_or(u32::MAX),

@@ -1,5 +1,5 @@
 use super::SeatContext;
-use super::object::public_object;
+use super::object::{ViewBoard, public_object};
 use baylee_ai::pending_player;
 use baylee_core::ids::{ObjectId, PlayerId, SeatSet};
 use baylee_engine::choice::Pending;
@@ -38,41 +38,43 @@ pub(super) fn entitled_viewer(obj: &GameObject, seat: PlayerId, controlled: Seat
 
 /// Collects a public zone into view objects.
 pub(super) fn zone(
-    state: &GameState,
+    board: &ViewBoard<'_>,
     loc: ZoneLocation,
     seat: PlayerId,
     controlled: SeatSet,
 ) -> Vec<PublicObject> {
-    state
-        .zones
-        .list(loc)
-        .iter()
-        .filter_map(|&id| {
-            let object = state.object(id)?;
-            if object
-                .riders
-                .iter()
-                .any(|r| matches!(r, baylee_engine::object::Rider::MergedInto(_)))
-            {
-                return None;
-            }
-            let viewer = entitled_viewer(object, seat, controlled);
-            public_object(state, id, viewer)
-        })
-        .collect()
+    let state = board.state;
+    let list = state.zones.list(loc);
+    // Sized first: a `filter_map` promises no length, and growing into one
+    // moves every `PublicObject` already built, each several hundred bytes.
+    let mut objects = Vec::with_capacity(list.len());
+    objects.extend(list.iter().filter_map(|&id| {
+        let object = state.object(id)?;
+        if object
+            .riders
+            .iter()
+            .any(|r| matches!(r, baylee_engine::object::Rider::MergedInto(_)))
+        {
+            return None;
+        }
+        let viewer = entitled_viewer(object, seat, controlled);
+        public_object(board, id, viewer)
+    }));
+    objects
 }
 
 /// Collects one zone per seat, indexed by seat order.
 pub(super) fn per_seat_zone(
-    state: &GameState,
+    board: &ViewBoard<'_>,
     loc: fn(PlayerId) -> ZoneLocation,
     seat: PlayerId,
     controlled: SeatSet,
 ) -> Vec<Vec<PublicObject>> {
-    state
+    board
+        .state
         .players
         .iter()
-        .map(|p| zone(state, loc(p.id), seat, controlled))
+        .map(|p| zone(board, loc(p.id), seat, controlled))
         .collect()
 }
 
@@ -153,11 +155,12 @@ pub(super) const fn shown_elsewhere(obj: &GameObject, seat: PlayerId) -> bool {
 /// choice on every view, so a card stops being visible the instant the choice
 /// is answered, and there is no place for one to linger.
 pub(super) fn looking_at(
-    state: &GameState,
+    board: &ViewBoard<'_>,
     seat: PlayerId,
     pending: Option<&Pending>,
     ctx: &SeatContext,
 ) -> Vec<PublicObject> {
+    let state = board.state;
     let Some(pending) = pending else {
         return Vec::new();
     };
@@ -187,7 +190,7 @@ pub(super) fn looking_at(
         })
         .filter_map(|id| {
             public_object(
-                state,
+                board,
                 id,
                 entitled_viewer(state.object(id)?, seat, ctx.controlled_players),
             )

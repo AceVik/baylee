@@ -13,6 +13,8 @@ use baylee_cards_dsl::effect::{ManaDistribution, ManaRestriction, ManaSource};
 
 mod production;
 
+pub use production::LandProduction;
+
 /// Executes one mana effect.
 pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pending> {
     match op {
@@ -400,6 +402,29 @@ pub fn each_color_among(
         filter,
         eval::live_context(state, from),
     ))
+}
+
+/// [`colors_of`], for a caller asking about many permanents of one unchanged
+/// board: what its lands make is solved once, into `lands`, and every asker
+/// that shares it reads the same solution.
+pub fn colors_of_among<'a>(
+    state: &'a GameState,
+    you: PlayerId,
+    source: ManaSource,
+    from: ObjectId,
+    lands: &std::cell::OnceCell<LandProduction<'a>>,
+) -> Vec<ManaColor> {
+    if let ManaSource::LandColor {
+        filter,
+        mine,
+        any_type,
+    } = source
+    {
+        return lands
+            .get_or_init(|| LandProduction::of(state))
+            .colors(state, you, from, filter, mine, any_type);
+    }
+    colors_of(state, you, source, from)
 }
 
 /// The colors this source can produce right now.

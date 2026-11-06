@@ -1042,12 +1042,39 @@ pub fn granted_activated_among<'a>(
     effects: impl Iterator<Item = &'a ContinuousEffect> + 'a,
     source: ObjectId,
 ) -> impl Iterator<Item = GrantedAbility> + 'a {
+    granted_worded(state, effects.map(|fx| (fx, None)), source)
+}
+
+/// [`granted_activated_among`] over effects whose wording
+/// ([`GameState::effect_text`](crate::state::GameState::effect_text)) the
+/// caller has read already: one that asks about every permanent reads it once
+/// an effect instead of once a permanent, and it is a walk of its own.
+pub fn granted_from<'a>(
+    state: &'a crate::state::GameState,
+    effects: impl Iterator<Item = (&'a ContinuousEffect, crate::text_changes::TextChangeMap)> + 'a,
+    source: ObjectId,
+) -> impl Iterator<Item = GrantedAbility> + 'a {
+    granted_worded(state, effects.map(|(fx, text)| (fx, Some(text))), source)
+}
+
+/// The grants of `effects` that reach `source`. An effect's wording is read
+/// only for a grant that reaches it, unless the caller has it already.
+fn granted_worded<'a>(
+    state: &'a crate::state::GameState,
+    effects: impl Iterator<
+        Item = (
+            &'a ContinuousEffect,
+            Option<crate::text_changes::TextChangeMap>,
+        ),
+    > + 'a,
+    source: ObjectId,
+) -> impl Iterator<Item = GrantedAbility> + 'a {
     let obj = state
         .effects
         .may_grant_activated()
         .then(|| state.object(source))
         .flatten();
-    effects.flat_map(move |fx| {
+    effects.flat_map(move |(fx, text)| {
         state
             .effects
             .grants
@@ -1058,7 +1085,7 @@ pub fn granted_activated_among<'a>(
                     return None;
                 }
                 if grant.provenance.is_none() {
-                    grant.text = state.effect_text(fx);
+                    grant.text = text.unwrap_or_else(|| state.effect_text(fx));
                 }
                 Some(grant)
             })

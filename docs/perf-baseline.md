@@ -1213,6 +1213,8 @@ Each step on top of the one before, in billions of instructions:
 | `c42/shared` at `03b2223e8` | 10.608 | 31.535 | 21.854 |
 | the arena hashed as a digest per chunk | 8.910 | | |
 | a mana provenance digested once; frames nobody reads not made | 8.229 | 16.190 | 19.446 |
+| a view reads the grants and the lands' production once | 8.175 | 13.367 | 19.199 |
+| a zone sized before it is built, a seat set walked by its bits, a grant's wording read once a view | 7.778 | 12.161 | 17.617 |
 
 Where the time went before: in `house`, `snapshot_hash` 28 %, the house agent's
 view 22 %, `Engine::apply` 31 %; in `decide`, the frames 41 %; in `search`,
@@ -1234,6 +1236,21 @@ view 22 %, `Engine::apply` 31 %; in `decide`, the frames 41 %; in `search`,
   whole view for every driven seat, and `eval4`, `arena`, `league` and `fuzz`
   dropped the result. `Session::discard_frames` stops that; `eval4` keeps its
   frames when a shadow's watching model reads them.
+- **A view reads the board once.** It asked the whole effect table for granted
+  abilities per permanent, twice, and solved what every land makes per land that
+  asks. `ViewBoard` holds both for one view; it borrows the state, so it cannot
+  outlive the board it read. The engine's own offer did this already.
+- **`realloc` was moving `PublicObject`s.** A `filter_map` promises no length, so
+  each zone grew by doubling and moved every object built so far, 4.6 % of
+  `decide`. A zone is sized first now.
+- **`SeatSet::iter` tested all sixteen seats**, twice per object on the table,
+  for sets that are nearly always empty. It walks the set bits, held to the plain
+  reading over all 65 536 sets.
+
+Callgrind's inclusive figures mislead around recursion and around functions
+split by inlining: `colors_of` read 2 400 instructions a call on a line
+annotation and 340 in the callee tree. Exclusive costs and the tree are what
+these steps were chosen from.
 
 The games are the same games. `--verify` digests every action with its seat,
 every view and question as JSON, and every hash; all 48 games give the same

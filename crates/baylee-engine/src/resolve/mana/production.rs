@@ -30,6 +30,17 @@ struct Production {
     dependencies: Vec<Dependency>,
 }
 
+/// What each land on the battlefield could make, solved.
+///
+/// The solution depends on the board and on nothing a land asks it, so a
+/// caller asking about many lands of one unchanged board solves it once and
+/// hands this around ([`super::colors_of_among`]). It borrows the state, which
+/// is what keeps it from outliving the board it was solved for.
+pub struct LandProduction<'a> {
+    lands: Vec<&'a GameObject>,
+    types: Vec<u8>,
+}
+
 pub(super) fn land_colors(
     state: &GameState,
     you: PlayerId,
@@ -38,14 +49,52 @@ pub(super) fn land_colors(
     mine: bool,
     any_type: bool,
 ) -> Vec<ManaColor> {
-    let lands: Vec<_> = state
-        .battlefield_seen()
-        .filter_map(|id| {
-            state
-                .object(id)
-                .filter(|object| object.characteristics().types.contains(TypeSet::LAND))
-        })
-        .collect();
+    LandProduction::of(state).colors(state, you, from, filter, mine, any_type)
+}
+
+impl<'a> LandProduction<'a> {
+    /// Solves the board's lands.
+    #[must_use]
+    pub fn of(state: &'a GameState) -> Self {
+        let lands: Vec<_> = state
+            .battlefield_seen()
+            .filter_map(|id| {
+                state
+                    .object(id)
+                    .filter(|object| object.characteristics().types.contains(TypeSet::LAND))
+            })
+            .collect();
+        let types = solve(state, &lands);
+        Self { lands, types }
+    }
+
+    /// What the lands `filter` and `mine` pick out could make, for `you` and
+    /// the ability on `from` that asks.
+    pub(super) fn colors(
+        &self,
+        state: &GameState,
+        you: PlayerId,
+        from: ObjectId,
+        filter: &Filter,
+        mine: bool,
+        any_type: bool,
+    ) -> Vec<ManaColor> {
+        let context = eval::live_context(state, from);
+        let types = self
+            .lands
+            .iter()
+            .zip(&self.types)
+            .filter(|(land, _)| {
+                (land.controller == you) == mine
+                    && eval::matches_with_context(filter, state, land, you, context)
+            })
+            .fold(0, |types, (_, produced)| types | produced);
+        colors(types & if any_type { TYPES } else { COLORS })
+    }
+}
+
+/// The fixed point of what `lands` make, one six-bit set a land.
+fn solve(state: &GameState, lands: &[&GameObject]) -> Vec<u8> {
     let mut production: Vec<_> = lands.iter().map(|land| read(state, land)).collect();
     let mut dependants = vec![Vec::new(); lands.len()];
     for (recipient, rules) in production.iter().enumerate() {
@@ -93,16 +142,7 @@ pub(super) fn land_colors(
             }
         }
     }
-    let context = eval::live_context(state, from);
-    let types = lands
-        .iter()
-        .zip(&production)
-        .filter(|(land, _)| {
-            (land.controller == you) == mine
-                && eval::matches_with_context(filter, state, land, you, context)
-        })
-        .fold(0, |types, (_, produced)| types | produced.types);
-    colors(types & if any_type { TYPES } else { COLORS })
+    production.into_iter().map(|land| land.types).collect()
 }
 
 fn read(state: &GameState, land: &GameObject) -> Production {

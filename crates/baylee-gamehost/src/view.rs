@@ -30,7 +30,7 @@ mod object;
 mod stack;
 mod zones;
 
-use object::{exact_object_view_with_access, public_object, target_objects};
+use object::{ViewBoard, exact_object_view_with_access, public_object, target_objects};
 pub(crate) use stack::rules_face;
 pub(crate) use stack::stack_item;
 use zones::{looking_at, mana_pool, per_seat_zone, zone};
@@ -567,6 +567,7 @@ pub fn player_view(
     house_answered: &[Option<HouseAnswer>],
 ) -> PlayerView {
     let mut references = None;
+    let board = ViewBoard::new(state);
     // Whose timing the view tells: the player this seat is deciding for, a
     // controlled player under Mindslaver (CR 723.5), else the seat's own.
     let decider = if ctx.awaiting == Some(seat) {
@@ -614,18 +615,23 @@ pub fn player_view(
         hand_requests: SeatSet::new(),
         hand_requested: SeatSet::new(),
         battlefield: zone(
-            state,
+            &board,
             ZoneLocation::Battlefield,
             seat,
             ctx.controlled_players,
         ),
-        stack: zone(state, ZoneLocation::Stack, seat, ctx.controlled_players),
-        graveyards: per_seat_zone(state, ZoneLocation::Graveyard, seat, ctx.controlled_players),
-        exile: per_seat_zone(state, ZoneLocation::Exile, seat, ctx.controlled_players),
-        command: per_seat_zone(state, ZoneLocation::Command, seat, ctx.controlled_players),
+        stack: zone(&board, ZoneLocation::Stack, seat, ctx.controlled_players),
+        graveyards: per_seat_zone(
+            &board,
+            ZoneLocation::Graveyard,
+            seat,
+            ctx.controlled_players,
+        ),
+        exile: per_seat_zone(&board, ZoneLocation::Exile, seat, ctx.controlled_players),
+        command: per_seat_zone(&board, ZoneLocation::Command, seat, ctx.controlled_players),
         combat: combat_view(state),
         ballots: ballot_views(ctx.ballots),
-        looking_at: looking_at(state, seat, pending, ctx),
+        looking_at: looking_at(&board, seat, pending, ctx),
         trigger_order: Vec::new(),
         damage_sources: damage_sources(state, seat, pending, ctx, &mut references),
         target_objects: target_objects(state, seat, pending, ctx, &mut references),
@@ -636,7 +642,7 @@ pub fn player_view(
                 state.library_top_revealed(p.id) && !ctx.library_reveal_blocked.contains(p.id)
             })
             .filter_map(|p| state.zones.list(ZoneLocation::Library(p.id)).last())
-            .filter_map(|id| public_object(state, *id, seat))
+            .filter_map(|id| public_object(&board, *id, seat))
             .collect(),
         // The same question `casting::timing_allows` asks before it refuses a
         // spell, asked once per view so the seat can be told before it spends
@@ -646,22 +652,7 @@ pub fn player_view(
         casting: None,
         announced_cast: None,
         announced_x: None,
-        sorcery_lock: state
-            .effects
-            .may_change_cast_timing_or_lock()
-            .then(|| {
-                state
-                    .effects
-                    .iter()
-                    .find(|fx| {
-                        matches!(
-                            fx.modifier,
-                            baylee_cards_dsl::Modifier::OpponentsCastAsSorcery
-                        ) && state.is_opponent(fx.controller, decider)
-                    })
-                    .and_then(|fx| fx.source)
-            })
-            .flatten(),
+        sorcery_lock: sorcery_lock(state, decider),
         sorceries_have_flash: sorceries_have_flash(state, decider),
         flash_types: flash_types(state, decider),
         controls: ctx.controls.to_vec(),
@@ -673,6 +664,24 @@ pub fn player_view(
             .filter(|&id| state.targets_chosen_by_another(id))
             .collect(),
     }
+}
+
+/// The permanent whose effect makes `seat` cast spells only as sorceries
+/// (`Modifier::OpponentsCastAsSorcery`), if there is one.
+fn sorcery_lock(state: &GameState, seat: PlayerId) -> Option<ObjectId> {
+    if !state.effects.may_change_cast_timing_or_lock() {
+        return None;
+    }
+    state
+        .effects
+        .iter()
+        .find(|fx| {
+            matches!(
+                fx.modifier,
+                baylee_cards_dsl::Modifier::OpponentsCastAsSorcery
+            ) && state.is_opponent(fx.controller, seat)
+        })
+        .and_then(|fx| fx.source)
 }
 
 /// The card types `seat` may cast as though they had flash by an effect it
@@ -761,6 +770,7 @@ pub fn spectator_view(
     ballots: &[baylee_engine::resolve::Ballot],
 ) -> baylee_view::SpectatorView {
     let nobody = SeatSet::new();
+    let board = ViewBoard::new(state);
     baylee_view::SpectatorView {
         seq,
         turn: state.turn.number,
@@ -772,11 +782,11 @@ pub fn spectator_view(
         monarch: state.monarch,
         day_night: state.day_night.map(day_night),
         seats: seat_views(state, house_answered),
-        battlefield: zone(state, ZoneLocation::Battlefield, SPECTATOR, nobody),
-        stack: zone(state, ZoneLocation::Stack, SPECTATOR, nobody),
-        graveyards: per_seat_zone(state, ZoneLocation::Graveyard, SPECTATOR, nobody),
-        exile: per_seat_zone(state, ZoneLocation::Exile, SPECTATOR, nobody),
-        command: per_seat_zone(state, ZoneLocation::Command, SPECTATOR, nobody),
+        battlefield: zone(&board, ZoneLocation::Battlefield, SPECTATOR, nobody),
+        stack: zone(&board, ZoneLocation::Stack, SPECTATOR, nobody),
+        graveyards: per_seat_zone(&board, ZoneLocation::Graveyard, SPECTATOR, nobody),
+        exile: per_seat_zone(&board, ZoneLocation::Exile, SPECTATOR, nobody),
+        command: per_seat_zone(&board, ZoneLocation::Command, SPECTATOR, nobody),
         combat: combat_view(state),
         revealed_hands: revealed_hands(state, None),
         ballots: ballot_views(ballots),
@@ -787,7 +797,7 @@ pub fn spectator_view(
             .iter()
             .filter(|p| state.library_top_revealed(p.id) && !library_reveal_blocked.contains(p.id))
             .filter_map(|p| state.zones.list(ZoneLocation::Library(p.id)).last())
-            .filter_map(|id| public_object(state, *id, SPECTATOR))
+            .filter_map(|id| public_object(&board, *id, SPECTATOR))
             .collect(),
     }
 }
@@ -985,7 +995,7 @@ pub(crate) fn targeting_context<L: baylee_engine::state::CardLookup>(
     }
     let context = engine.decision_context();
     let id = context.source?;
-    let mut source = public_object(engine.state(), id, seat)?;
+    let mut source = public_object(&ViewBoard::new(engine.state()), id, seat)?;
     if let Some(printed) = context.printed {
         source.rules = Some(rules_face(printed));
     }

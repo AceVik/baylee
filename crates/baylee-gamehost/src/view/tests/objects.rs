@@ -17,7 +17,12 @@ fn second_instance_player_targets_remain_distinct_in_the_public_stack_view() {
     let object = state.object_mut(source).unwrap();
     object.target_players.insert(p0);
     object.set_second_players([p0, p1].into_iter().collect());
-    let public = super::super::object::public_object(&state, source, p0).unwrap();
+    let public = super::super::object::public_object(
+        &super::super::object::ViewBoard::new(&state),
+        source,
+        p0,
+    )
+    .unwrap();
     assert_eq!(
         public.targets,
         [
@@ -488,12 +493,17 @@ fn merged_top_printing_is_visible_without_publishing_a_second_command_object() {
         Rider::MergedTop(top),
         Rider::MergedToken(false),
     ]);
-    let public = super::super::object::public_object(&state, root, p0).unwrap();
+    let public = super::super::object::public_object(
+        &super::super::object::ViewBoard::new(&state),
+        root,
+        p0,
+    )
+    .unwrap();
     assert_eq!(public.card.unwrap().print, top_print.print);
     assert_eq!(state.object(root).unwrap().card.unwrap(), physical_root);
     assert!(
         super::super::zones::zone(
-            &state,
+            &super::super::object::ViewBoard::new(&state),
             ZoneLocation::Command(p0),
             p0,
             baylee_core::ids::SeatSet::new()
@@ -509,7 +519,12 @@ fn melded_card_art_does_not_report_token_identity() {
     let root = state.zones.list(ZoneLocation::Battlefield)[0];
     state.object_mut(root).unwrap().token =
         Some(&baylee_cards::tokens::HANWEIR_THE_WRITHING_TOWNSHIP);
-    let public = super::super::object::public_object(&state, root, p0).unwrap();
+    let public = super::super::object::public_object(
+        &super::super::object::ViewBoard::new(&state),
+        root,
+        p0,
+    )
+    .unwrap();
     assert!(public.token.is_some());
     assert!(
         public
@@ -530,7 +545,12 @@ fn dungeon_and_room_ability_are_not_reported_as_creature_tokens() {
         (ObjectKind::AbilityOnStack, ZoneLocation::Stack),
     ] {
         let id = state.create_bare(seat, kind, name, zone);
-        let public = super::super::object::public_object(&state, id, seat).unwrap();
+        let public = super::super::object::public_object(
+            &super::super::object::ViewBoard::new(&state),
+            id,
+            seat,
+        )
+        .unwrap();
         assert!(!public.status.contains(baylee_view::ObjectStatus::TOKEN));
     }
 }
