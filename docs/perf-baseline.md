@@ -1215,6 +1215,7 @@ Each step on top of the one before, in billions of instructions:
 | a mana provenance digested once; frames nobody reads not made | 8.229 | 16.190 | 19.446 |
 | a view reads the grants and the lands' production once | 8.175 | 13.367 | 19.199 |
 | a zone sized before it is built, a seat set walked by its bits, a grant's wording read once a view | 7.778 | 12.161 | 17.617 |
+| a card nothing grants escape is not priced for it | 7.555 | 12.074 | 17.463 |
 
 Where the time went before: in `house`, `snapshot_hash` 28 %, the house agent's
 view 22 %, `Engine::apply` 31 %; in `decide`, the frames 41 %; in `search`,
@@ -1255,3 +1256,130 @@ these steps were chosen from.
 The games are the same games. `--verify` digests every action with its seat,
 every view and question as JSON, and every hash; all 48 games give the same
 `actions` and `views` as the baseline, and only the first step moved `hashes`.
+
+### What a build for one CPU gains (2026-11-06)
+
+Measurement only: no shipped build setting changed. One source (`610302291`), one
+change per build, set through `RUSTFLAGS` or `CARGO_PROFILE_SELFPLAY_LTO` for that
+build alone, each with its own target directory, on the `selfplay` profile.
+
+Measured on the notebook: Ryzen 7 PRO 7840U (Zen 4, AVX-512), `performance`
+governor, otherwise idle, pinned to one core. Seconds are the user CPU time of the
+whole process, startup included, median of seven rounds with the builds alternating
+inside each round, and the range of the seven in brackets. Instructions are
+callgrind's from `play_all`, as above. These seconds are this notebook's and say
+nothing exact about the training machine.
+
+| Build | `house` s | `decide` s | `search` s | `house` G | `decide` G | `search` G |
+|---|---:|---:|---:|---:|---:|---:|
+| generic (reference) | 0.76 [0.75–0.76] | 1.04 [1.03–1.05] | 1.63 [1.61–1.64] | 7.778 | 12.154 | 17.622 |
+| `target-cpu=x86-64-v3` | 0.73 [0.72–0.73] | 0.99 [0.99–1.00] | 1.61 [1.59–1.61] | 7.616 | 11.856 | 17.219 |
+| `target-cpu=znver2` | 0.73 [0.73–0.74] | 1.00 [0.99–1.01] | 1.60 [1.59–1.61] | 7.581 ¹ | 11.806 ¹ | 17.136 ¹ |
+| `target-cpu=native` (upper limit, cannot ship) | 0.73 [0.73–0.74] | 1.00 [0.99–1.01] | 1.60 [1.59–1.61] | ² | ² | ² |
+| fat LTO | 0.73 [0.72–0.73] | 1.01 [1.00–1.01] | 1.58 [1.56–1.59] | 7.852 | 12.557 | 17.756 |
+| PGO, trained on `house` | 0.52 [0.52–0.53] | 0.75 [0.75–0.75] | 1.24 [1.24–1.25] | 6.663 | 10.259 | 15.003 |
+
+¹ Counted on a build with `-C target-feature=-sse4a` as well: `znver2` emits
+`insertq` (SSE4a, AMD only), which valgrind does not implement, so the real build
+stops under it at once. It runs natively, and the seconds beside it are the real
+build's. ² `native` here means AVX-512 (41 492 `zmm` instructions), which valgrind
+does not implement either. Seconds only.
+
+Against the generic build:
+
+| Build | Seconds | Instructions |
+|---|---|---|
+| `x86-64-v3` | −4 %, −5 %, −1 % | −2.1 %, −2.5 %, −2.3 % |
+| `znver2` | −4 %, −4 %, −2 % | −2.5 %, −2.9 %, −2.8 % |
+| `native` | −4 %, −4 %, −2 % | not countable |
+| fat LTO | −4 %, −3 %, −3 % | +0.9 %, +3.3 %, +0.8 % |
+| PGO | **−32 %, −28 %, −24 %** | −14.3 %, −15.6 %, −14.9 % |
+
+- **PGO is the lever, and it carries over.** It was trained on `house` alone and
+  gains −28 % on `decide` and −24 % on `search`, which it never saw. Seconds fall
+  about twice as far as instructions, so most of the gain is not fewer instructions.
+  Code layout and branch placement are the likely reason; no hardware counter was
+  available to confirm it (`perf_event_paranoid` is 4 on both machines). A profile
+  belongs to its source, so a build that uses it has to be trained again as the
+  engine changes.
+- **A CPU target buys a few percent.** The wider target adds little over `v3`, and
+  `native` with AVX-512 nothing over `znver2`: this workload moves small structs
+  and follows pointers, it does not stream numbers.
+- **Fat LTO lowers seconds while raising instructions**, the case that makes
+  counting alone mislead. Why was not measured.
+
+Where the CPU target's gain comes from, from the disassembly:
+
+| Instruction | generic | `x86-64-v3` | `znver2` | `native` |
+|---|---:|---:|---:|---:|
+| `popcnt` | 0 | 789 | 763 | 844 |
+| `lzcnt` | 0 | 583 | 583 | 594 |
+| `bsr` | 602 | 11 | 11 | 0 |
+| `tzcnt` | 308 | 313 | 309 | 326 |
+| lines using `ymm` | 255 | 50 784 | 45 851 | 10 456 |
+| lines using `zmm` | 0 | 0 | 0 | 41 492 |
+| FMA | 0 | 0 | 0 | 0 |
+
+`count_ones` and `leading_zeros` become one instruction. `trailing_zeros` gains
+nothing: the generic build already emits `rep bsf`, which a CPU with BMI runs as
+`tzcnt`. 82 % of the `ymm` lines in the `znver2` build are plain moves (`vmovups`,
+`vmovdqu`, `vmovaps`, `vmovdqa`): wider copies, not wider arithmetic. xxh3 takes its
+AVX2 path at compile time under `target_feature`, and its digest is defined to be
+the same.
+
+**The hand-written SSE2 stays 128-bit.** In the `znver2` build the code attributed
+to `core_arch/x86/sse2.rs` and to `baylee-core/src/types/bitmap.rs` uses no `ymm`
+at all. `baylee-core/src/ids.rs` shows 53 `ymm` lines, at lines 12, 206, 240, 262,
+263, 450 and 589: `derive` expansions and small accessors, none inside the search
+at lines 353 to 385. Nothing was rewritten to AVX2.
+
+**Every build plays the same games.** `--verify`, hashes included, gives byte-equal
+files for all three shapes in all six builds and the `-sse4a` variant, and `house`
+matches the same file written on the Ryzen 9 3900X.
+
+**No float path can change.** The rules crates hold no float arithmetic outside
+tests: no `f32` or `f64` in `baylee-core`, `baylee-cards-dsl`, `baylee-view`,
+`baylee-gamehost` or `baylee-ai`, and in `baylee-engine` only in `rng.rs` under
+`#[cfg(test)]`. `baylee-train` does compute `f32` features, and `mul_add` is written
+nowhere. Rust does not contract `a * b + c` into an FMA and LLVM does not reassociate
+float additions without being told, so wider vectors cannot change a sum: `convert4`,
+`selfplay` and `fuzz` built for `znver2` hold hundreds of float multiplies and adds
+and no FMA instruction. ONNX Runtime is a prebuilt library and `RUSTFLAGS` does not
+reach it.
+
+A `znver2` binary runs only on AMD: `insertq` does not exist on Intel. That alone
+keeps it out of anything shipped.
+
+#### On the machine `znver2` is for
+
+Ryzen 9 3900X (Zen 2), at a later commit with the escape step, user CPU seconds
+of the whole process, pinned to one core, seven rounds with the builds alternating.
+The machine was not idle: load average 4 to 5 on 24 threads, one `eval4` on two
+cores. The `--verify` files of the two builds are byte-equal, hashes included.
+
+| Build | `house` s | `decide` s | `search` s |
+|---|---:|---:|---:|
+| generic | 1.21 [1.19–1.31] | 1.71 [1.68–1.71] | 2.70 [2.70–2.73] |
+| `target-cpu=znver2` | 1.20 [1.19–1.22] | 1.67 [1.63–1.69] | 2.73 [2.71–3.05] |
+| change | −1 % | −2 % | +1 % |
+
+**It does not pay on the machine it was for.** The 2.5 to 2.9 % fewer instructions
+do not become seconds there, and `search` is a little slower. So the recipe was not
+written into `docs/trained-ai.md`: a separate build and target directory to keep
+in step for a difference inside the spread is not a gain. This is the case counting
+instructions alone would have got wrong.
+
+PGO on the same machine, trained there on `house` and measured the same way, load
+average 4 to 6. The `--verify` files are byte-equal to the generic build's, hashes
+included.
+
+| Build | `house` s | `decide` s | `search` s |
+|---|---:|---:|---:|
+| generic | 1.20 [1.17–1.30] | 1.70 [1.68–1.80] | 2.75 [2.69–2.83] |
+| PGO, trained on `house` | 0.82 [0.80–0.84] | 1.24 [1.21–1.29] | 1.97 [1.95–1.98] |
+| change | **−32 %** | **−27 %** | **−28 %** |
+
+So PGO holds on two CPU generations, and the two shapes it did not see gain as
+much as the one it did. No shipped or training build uses it yet: that is the
+owner's decision, and the real binaries would train on their own workload, which
+was not measured here.
