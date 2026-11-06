@@ -90,6 +90,14 @@ pub(super) fn accept(state: &mut LobbyState) -> Option<LobbyRequest> {
     }
 }
 
+/// The handle of the guest a question is about.
+fn guest_handle(state: &LobbyState) -> &str {
+    state
+        .lobby
+        .kept_guest()
+        .map_or("", |kept| kept.handle.as_str())
+}
+
 #[allow(clippy::too_many_lines)]
 pub(super) fn draw(
     commands: &mut Commands,
@@ -134,13 +142,15 @@ pub(super) fn draw(
                 Phrase::ForgetGatewayHint,
             )
         }
-        Destructive::SignOutGuest { .. } => (
+        Destructive::SignOutGuest { to_gateways: false } => (
             Phrase::GuestSignOutQuestion,
-            state
-                .lobby
-                .kept_guest()
-                .map_or("", |kept| kept.handle.as_str()),
+            guest_handle(state),
             Phrase::GuestSignOutHint,
+        ),
+        Destructive::SignOutGuest { to_gateways: true } => (
+            Phrase::GuestSwitchGatewayQuestion,
+            "",
+            Phrase::GuestSwitchGatewayHint,
         ),
         Destructive::LeaveHosting(game) => (
             Phrase::LeaveHostingQuestion,
@@ -162,6 +172,7 @@ pub(super) fn draw(
     );
     let subtitle = match action {
         Destructive::ForgetGateway(url) if chosen != *url => Some(url.as_str()),
+        Destructive::SignOutGuest { to_gateways: true } => Some(guest_handle(state)),
         _ => None,
     };
     let head = dialog_header(
@@ -186,6 +197,7 @@ pub(super) fn draw(
     let yes_phrase = match action {
         Destructive::ForgetGateway(_) => Phrase::SeatRemove,
         Destructive::DeleteBuildDeck(_) => Phrase::Delete,
+        Destructive::SignOutGuest { to_gateways: true } => Phrase::ShellSwitchGateway,
         _ => Phrase::ConfirmOk,
     };
     let yes = split_button(

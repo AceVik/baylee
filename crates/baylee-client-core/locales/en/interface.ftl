@@ -1395,6 +1395,12 @@ GuestSignOutQuestion = Sign out { $name }?
 # Under that question: what signing out does to a guest.
 GuestSignOutHint = A guest cannot sign in again. Signing out deletes this guest and its decks now.
 
+# Asked before a guest switches gateway, which ends it as signing out does.
+GuestSwitchGatewayQuestion = Switch gateway?
+
+# Under that question: what switching gateway does to a guest.
+GuestSwitchGatewayHint = This guest exists on this gateway alone and cannot sign in again. Switching deletes it and its decks now.
+
 # The same, registering.
 NeedDisplayName = a display name, please
 

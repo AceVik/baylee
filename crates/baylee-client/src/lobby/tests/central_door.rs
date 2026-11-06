@@ -1041,6 +1041,16 @@ fn a_guest_is_asked_before_switching_gateway_ends_it() {
         );
         assert_eq!(state.lobby.token(), Some("guest-tok"), "and is still here");
     }
+    {
+        let found = labels(&mut app);
+        for said in ["Switch gateway?", "Casper#0007"] {
+            assert!(found.contains(&said.to_string()), "{found:?}");
+        }
+        assert!(
+            !found.iter().any(|label| label.starts_with("Sign out")),
+            "{found:?}"
+        );
+    }
     press(&mut app, Press::Shared(SharedPress::CancelDestructive));
     app.update();
     {
