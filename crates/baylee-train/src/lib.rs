@@ -27,6 +27,7 @@ pub mod deckgen;
 pub mod failure_terminal;
 #[cfg(feature = "play")]
 pub mod features;
+#[cfg(feature = "play")]
 pub mod features10;
 #[cfg(feature = "play")]
 pub mod features3;
