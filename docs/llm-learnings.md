@@ -7111,3 +7111,25 @@ code.
   `git diff --check` pass. `validate` accepts 12,545 cards (11,175 finished,
   71 of the machine-owned cards untested, and 1,370 stubs). The full gates
   remain deferred at the owner's request.
+
+## 2026-11-07 — Fiery Temper's ordinary and Madness casts
+
+- Fiery Temper composes the existing any-target damage effect with the shared
+  face-level madness cost; it needs no engine, DSL, protocol, desktop or seat
+  addition. Its two canonical tests pay the ordinary {1}{R}{R} twice, hit a
+  player and then a creature, and cast the exact discarded incarnation for {R}
+  during an opponent's turn. Prying Eyes supplies a real discard and leaves
+  exactly one red mana; the resolved Madness spell reaches the graveyard and
+  does not change the active player.
+- Wall of Stone is the damage fixture because it survives three damage and
+  therefore retains its damage marker. A lethal creature fixture would move
+  zones and reset that marker, making a correct damage effect look absent.
+  Removing ability zero with `BAYLEE_MUTATE=5463:0` kills the ordinary cast
+  test, and the restored card passes both tests after promotion.
+- All 373 house-AI tests, the full seat suite (494 unit tests and every
+  integration target), 152 desktop interaction tests and nine `record::seen`
+  tests (two ignored) pass. The desktop client including tests compiles.
+  `codegen --tables --check`, `require-card-tests`, formatting and
+  `git diff --check` pass. `validate` accepts 12,545 cards (11,175 finished,
+  70 of the machine-owned cards untested, and 1,370 stubs). The full gates
+  remain deferred at the owner's request.

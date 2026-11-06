@@ -41,6 +41,7 @@ mod feeding_frenzy;
 mod ferocious_charge;
 mod fevered_strength;
 mod fierce_guardianship;
+mod fiery_temper;
 mod fire_covenant;
 mod flare;
 mod flawless_maneuver;
