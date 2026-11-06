@@ -824,7 +824,7 @@ fn filter_strip(
             .saturating_sub(usize::from(lobby.staged_delete().is_some()));
         let shown = filtered_mine_indices(state, prefs).len();
         let summary_text = if shown == total {
-            format!("{total} Decks")
+            Phrase::DecksTotal.text_count(lang, total)
         } else {
             Phrase::DecksShownOfMine.fill(lang, &[&shown.to_string(), &total.to_string()])
         };

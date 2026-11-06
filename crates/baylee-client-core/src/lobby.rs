@@ -1229,6 +1229,9 @@ pub struct Lobby {
     room_list: Option<baylee_cardtext::ListBody>,
     library: library::Library,
     copied_deck: Option<String>,
+    /// A deck was asked for from its tile and has not landed: a failure takes
+    /// the player back to the list instead of leaving an empty builder.
+    opening_deck: bool,
     /// A house deck just copied by **Add and use**: once the list names it,
     /// it becomes the next game's deck.
     use_once_listed: Option<String>,
@@ -2602,6 +2605,11 @@ impl Lobby {
         }
         let deck_id = self.decks.get(index)?.id.clone();
         self.close_library_for_the_builder();
+        // The deck last edited stands in the builder until this one lands, and
+        // an answer that never comes would leave it there under this tile:
+        // what the player then edits is saved over the wrong deck.
+        self.builder.start_new();
+        self.opening_deck = true;
         self.screen = Screen::Build;
         self.busy = true;
         self.note(Phrase::OpeningDeck);

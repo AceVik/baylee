@@ -1415,6 +1415,19 @@ fn the_way_from_the_deck_list_into_a_deck_passes_through_no_library_page() {
         Press::Decks(DecksPress::Tab(super::decks::DecksTab::Mine)),
     );
     press(&mut app, Press::Decks(DecksPress::Edit(0)));
+    // It lands: this harness has no gateway, and a deck that cannot be
+    // fetched goes back to the list, which is what this test is not about.
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .apply(LobbyEvent::DeckLoaded {
+            id: "deck".into(),
+            name: "Deck".into(),
+            cards: Vec::new(),
+            sideboard: Vec::new(),
+            commanders: Vec::new(),
+            format: String::new(),
+        });
     // The old page's title, as it read before it went.
     let house = "House decks".to_string();
     for frame in 0..4 {

@@ -9737,3 +9737,10 @@ TriggerOrderResolvesFirst = Resolves first
 TriggerOrderResolvesLast = Resolves last
 TriggerOrderSplit = Sort one by one
 TriggerOrderJoin = Keep together
+# Arguments: count
+DecksTotal = { $count ->
+        [one] { $count } deck
+       *[other] { $count } decks
+    }
+# Arguments: version
+HistoryBackToVersion = Back to version { $version }

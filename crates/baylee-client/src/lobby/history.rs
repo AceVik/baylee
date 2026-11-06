@@ -140,7 +140,7 @@ pub(super) fn sheet(commands: &mut Commands, root: Entity, state: &LobbyState, k
             };
             let meta = history
                 .summary(version)
-                .map(str::to_string)
+                .map(|said| summary_words(said, lang))
                 .or_else(|| history.delta(version).map(|d| delta_line(&d, lang)))
                 .unwrap_or_default();
             let row = surfaces::list_row(
@@ -816,4 +816,13 @@ pub(super) fn keys(
         })
         .unwrap_or(0);
     state.lobby.compare_with(COMPARE[(at + by) % COMPARE.len()])
+}
+
+/// What a version says of itself, in the player's language. A gateway files a
+/// restored version under one German sentence, the only one it writes.
+fn summary_words(said: &str, lang: Lang) -> String {
+    said.strip_prefix("zurück auf Version ").map_or_else(
+        || said.to_string(),
+        |version| Phrase::HistoryBackToVersion.fill(lang, &[version]),
+    )
 }

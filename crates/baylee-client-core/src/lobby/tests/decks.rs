@@ -138,6 +138,61 @@ fn editing_a_deck_asks_for_its_rows() {
     assert_eq!(lobby.edit_deck(9), None, "no such deck");
 }
 
+/// Found in the real client with the gateway gone: the tile pressed opened the
+/// builder on the deck edited before it, under that deck's name, and the next
+/// edit would have been saved over it.
+#[test]
+fn a_deck_that_cannot_be_fetched_leaves_nothing_of_another_in_the_builder() {
+    let mut lobby = seated_lobby();
+    lobby.apply(LobbyEvent::Decks(vec![
+        DeckSummary {
+            id: "deck-1".to_string(),
+            name: "First".to_string(),
+            ..Default::default()
+        },
+        DeckSummary {
+            id: "deck-2".to_string(),
+            name: "Second".to_string(),
+            ..Default::default()
+        },
+    ]));
+    lobby.apply(LobbyEvent::Games(GameListing::default()));
+    assert!(lobby.edit_deck(0).is_some());
+    lobby.apply(LobbyEvent::DeckLoaded {
+        id: "deck-1".to_string(),
+        name: "First".to_string(),
+        cards: vec!["1 Forest".to_string()],
+        sideboard: Vec::new(),
+        commanders: Vec::new(),
+        format: String::new(),
+    });
+    assert_eq!(lobby.builder().editing(), Some("deck-1"));
+    lobby.close_builder();
+    lobby.apply(LobbyEvent::Decks(vec![
+        DeckSummary {
+            id: "deck-1".to_string(),
+            name: "First".to_string(),
+            ..Default::default()
+        },
+        DeckSummary {
+            id: "deck-2".to_string(),
+            name: "Second".to_string(),
+            ..Default::default()
+        },
+    ]));
+    lobby.apply(LobbyEvent::Games(GameListing::default()));
+
+    assert!(lobby.edit_deck(1).is_some());
+    assert_eq!(
+        lobby.builder().editing(),
+        None,
+        "First is not under its tile"
+    );
+    lobby.apply(LobbyEvent::Failed("The gateway is not answering.".into()));
+    assert_eq!(lobby.screen(), &Screen::Table, "back at the list");
+    assert_eq!(lobby.builder().editing(), None);
+}
+
 /// A deck that arrives before the pool is held by name and resolves when
 /// the pool lands — the two answers race, and neither order may lose rows.
 #[test]

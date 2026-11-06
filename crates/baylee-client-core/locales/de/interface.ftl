@@ -3368,3 +3368,8 @@ TriggerOrderResolvesFirst = Löst zuerst auf
 TriggerOrderResolvesLast = Löst zuletzt auf
 TriggerOrderSplit = Einzeln sortieren
 TriggerOrderJoin = Zusammenfassen
+DecksTotal = { $count ->
+        [one] { $count } Deck
+       *[other] { $count } Decks
+    }
+HistoryBackToVersion = Zurück auf Version { $version }

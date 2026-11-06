@@ -194,6 +194,7 @@ impl Lobby {
                 commanders,
                 format,
             } => {
+                self.opening_deck = false;
                 self.builder
                     .load(&id, &name, &cards, &sideboard, &commanders);
                 self.builder.keep_format(&format);
@@ -398,6 +399,11 @@ impl Lobby {
                     self.account_password.clear();
                 }
                 self.write(why, Tone::Refusal);
+                // A deck that could not be fetched is not being edited: the
+                // list it was opened from is where the player stands.
+                if std::mem::take(&mut self.opening_deck) {
+                    self.screen = Screen::Table;
+                }
                 // A failed fetch may have been the pool's; letting it be asked
                 // for again costs one request and un-wedges the builder.
                 self.pool_requested = self.builder.loaded();
