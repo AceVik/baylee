@@ -96,6 +96,15 @@ fn main() -> anyhow::Result<()> {
         .to_path_buf();
     match cli.cmd {
         Cmd::Codegen {
+            promote_generated,
+            check,
+            scripts,
+            cache,
+            ..
+        } if !promote_generated.is_empty() => {
+            reclaim::promote_generated(&root, &cache, &scripts, &promote_generated, check)
+        }
+        Cmd::Codegen {
             complete_stub,
             check,
             scripts,

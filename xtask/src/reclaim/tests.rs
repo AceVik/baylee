@@ -1,6 +1,7 @@
 //! Offline fixtures for selective, preflighted reader reclamation.
 
 mod complete_stub;
+mod promote_generated;
 
 use super::plan;
 use crate::{Cli, Cmd, Parser};
