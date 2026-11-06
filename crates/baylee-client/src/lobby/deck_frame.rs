@@ -149,3 +149,72 @@ pub(crate) fn animate_deck_frames(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::decks::rank_tier_ink;
+    use baylee_client_core::i18n::Lang;
+    use baylee_client_core::prefs::DeckPlayStats;
+    use bevy::prelude::*;
+
+    const SHADER: &str = include_str!("../shaders/deck_frame.wesl");
+
+    /// Games and wins that reach tiers `1..=9`, the ones named for a colour.
+    const REACHED: [(u32, u32); 9] = [
+        (1, 0),
+        (3, 1),
+        (5, 2),
+        (10, 5),
+        (18, 9),
+        (28, 15),
+        (40, 22),
+        (60, 35),
+        (85, 50),
+    ];
+
+    /// A tier's `case` in the shader: the colour its comment names, and its
+    /// bright end.
+    fn frame_of(tier: usize) -> (&'static str, [f32; 3]) {
+        let (_, case) = SHADER
+            .split_once(&format!("case {tier}u: {{"))
+            .expect("the tier has a case");
+        let (_, word) = case
+            .split_once(&format!("// Stufe {tier}: "))
+            .expect("the case names its colour");
+        let word = word.lines().next().expect("a word").trim();
+        let (_, bright) = case.split_once("col_b = vec3<f32>(").expect("a bright end");
+        let (bright, _) = bright.split_once(')').expect("closed");
+        let mut channels = bright
+            .split(',')
+            .map(|n| n.trim().parse().expect("a number"));
+        let mut channel = || channels.next().expect("three channels");
+        (word, [channel(), channel(), channel()])
+    }
+
+    /// A deck's rank shows in three places, and each once kept its own ladder:
+    /// a "Golden Master" wore a violet badge in a green frame. The title is
+    /// what a player reads, so the badge and the frame follow it.
+    #[test]
+    fn the_title_the_badge_and_the_frame_name_one_colour() {
+        for (index, (games_played, wins)) in REACHED.into_iter().enumerate() {
+            let tier = index + 1;
+            let rank = DeckPlayStats {
+                games_played,
+                wins,
+                ..DeckPlayStats::default()
+            }
+            .rank_tier();
+            assert_eq!(usize::from(rank.level()), tier);
+            let (word, frame) = frame_of(tier);
+            let title = rank.title(Lang::De);
+            assert!(title.starts_with(word), "{tier}: {title} in a {word} frame");
+            let ink = rank_tier_ink(rank.level()).to_srgba();
+            for (badge, frame) in [ink.red, ink.green, ink.blue].into_iter().zip(frame) {
+                assert!(
+                    (badge - frame).abs() < 0.2,
+                    "{tier}: {ink:?} beside {frame} in the {word} frame"
+                );
+            }
+        }
+    }
+}

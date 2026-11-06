@@ -104,19 +104,19 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
 
     switch tier {
         case 1u: {
-            // Stufe 1: Bronze
-            col_a = vec3<f32>(0.55, 0.36, 0.20);
-            col_b = vec3<f32>(0.83, 0.58, 0.36);
-        }
-        case 2u: {
-            // Stufe 2: Kupfer
+            // Stufe 1: Kupfer
             col_a = vec3<f32>(0.64, 0.32, 0.22);
             col_b = vec3<f32>(0.92, 0.55, 0.38);
         }
-        case 3u: {
-            // Stufe 3: Geschmiedetes Eisen
+        case 2u: {
+            // Stufe 2: Eisen
             col_a = vec3<f32>(0.38, 0.43, 0.50);
             col_b = vec3<f32>(0.74, 0.80, 0.88);
+        }
+        case 3u: {
+            // Stufe 3: Bronze
+            col_a = vec3<f32>(0.55, 0.36, 0.20);
+            col_b = vec3<f32>(0.83, 0.58, 0.36);
         }
         case 4u: {
             // Stufe 4: Silber
@@ -124,33 +124,33 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
             col_b = vec3<f32>(0.93, 0.96, 1.00);
         }
         case 5u: {
-            // Stufe 5: Königsgold
-            col_a = vec3<f32>(0.76, 0.56, 0.14);
-            col_b = vec3<f32>(1.00, 0.86, 0.38);
-        }
-        case 6u: {
-            // Stufe 6: Platin
-            col_a = vec3<f32>(0.52, 0.68, 0.78);
-            col_b = vec3<f32>(0.92, 0.98, 1.00);
-            col_spark = vec3<f32>(0.80, 0.96, 1.00);
-        }
-        case 7u: {
-            // Stufe 7: Smaragd
+            // Stufe 5: Smaragd
             col_a = vec3<f32>(0.10, 0.56, 0.38);
             col_b = vec3<f32>(0.38, 0.95, 0.68);
             col_spark = vec3<f32>(0.75, 1.00, 0.88);
         }
-        case 8u: {
-            // Stufe 8: Saphir
+        case 6u: {
+            // Stufe 6: Saphir
             col_a = vec3<f32>(0.14, 0.40, 0.82);
             col_b = vec3<f32>(0.45, 0.82, 1.00);
             col_spark = vec3<f32>(0.82, 0.95, 1.00);
         }
-        case 9u: {
-            // Stufe 9: Mythischer Rubin
+        case 7u: {
+            // Stufe 7: Gold
+            col_a = vec3<f32>(0.76, 0.56, 0.14);
+            col_b = vec3<f32>(1.00, 0.86, 0.38);
+        }
+        case 8u: {
+            // Stufe 8: Rubin
             col_a = vec3<f32>(0.78, 0.16, 0.24);
-            col_b = vec3<f32>(1.00, 0.62, 0.24);
-            col_spark = vec3<f32>(1.00, 0.92, 0.65);
+            col_b = vec3<f32>(1.00, 0.46, 0.50);
+            col_spark = vec3<f32>(1.00, 0.86, 0.86);
+        }
+        case 9u: {
+            // Stufe 9: Amethyst
+            col_a = vec3<f32>(0.46, 0.22, 0.78);
+            col_b = vec3<f32>(0.82, 0.58, 1.00);
+            col_spark = vec3<f32>(0.94, 0.86, 1.00);
         }
         case 10u: {
             // Stufe 10: Prismatischer Diamant

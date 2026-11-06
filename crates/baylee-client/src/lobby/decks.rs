@@ -1086,19 +1086,20 @@ fn filtered_house_indices(state: &LobbyState) -> Vec<usize> {
         .collect()
 }
 
-/// Accent ink for a deck's earned achievement rank tier (`0..=11`).
-fn rank_tier_ink(tier: u8) -> Color {
+/// Accent ink for a deck's earned achievement rank tier (`0..=11`): the colour
+/// its title names, which the frame wears too (`deck_frame.wesl`).
+pub(super) fn rank_tier_ink(tier: u8) -> Color {
     match tier {
         0 => tokens::MUTED,
-        1 => Color::srgb(0.76, 0.52, 0.34),  // Bronze
+        1 => Color::srgb(0.88, 0.53, 0.37),  // Copper
         2 => Color::srgb(0.68, 0.72, 0.78),  // Iron
-        3 => Color::srgb(0.84, 0.88, 0.95),  // Silver
-        4 => Color::srgb(0.95, 0.78, 0.30),  // Gold
+        3 => Color::srgb(0.80, 0.60, 0.36),  // Bronze
+        4 => Color::srgb(0.84, 0.88, 0.95),  // Silver
         5 => Color::srgb(0.30, 0.86, 0.56),  // Emerald
         6 => Color::srgb(0.36, 0.68, 0.98),  // Sapphire
-        7 => Color::srgb(0.74, 0.44, 0.98),  // Amethyst
+        7 => Color::srgb(0.95, 0.78, 0.30),  // Gold
         8 => Color::srgb(0.96, 0.34, 0.44),  // Ruby
-        9 => Color::srgb(0.45, 0.90, 1.00),  // Diamond
+        9 => Color::srgb(0.74, 0.44, 0.98),  // Amethyst
         10 => Color::srgb(1.00, 0.62, 0.24), // Mythic
         _ => Color::srgb(0.95, 0.75, 1.00),  // Aether-Lotus
     }
