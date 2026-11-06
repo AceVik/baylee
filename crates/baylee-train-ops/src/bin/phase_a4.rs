@@ -97,6 +97,43 @@ enum Command {
         /// The roots of the runs.
         roots: Vec<PathBuf>,
     },
+    /// A plan of rule groups, each replaying only what a shadow run says it reaches.
+    GroupPlan {
+        /// The shadow runs of dev and fresh, in that order.
+        #[arg(long, num_args = 2)]
+        shadow: Vec<PathBuf>,
+        #[arg(long)]
+        src: PathBuf,
+        #[arg(long)]
+        runtime: PathBuf,
+        #[arg(long)]
+        root: PathBuf,
+        #[arg(long)]
+        execution: String,
+        #[arg(long, default_value_t = 64)]
+        threads: usize,
+        #[arg(long, default_value_t = 96)]
+        batch: usize,
+        #[arg(long, default_value_t = 3000)]
+        timeout: u64,
+        #[arg(long)]
+        out: PathBuf,
+        /// The groups, in order.
+        groups: Vec<String>,
+    },
+    /// Each group against the shadow runs on their whole splits, and pooled.
+    GroupTable {
+        /// The shadow runs of dev and fresh, in that order.
+        #[arg(long, num_args = 2)]
+        shadow: Vec<PathBuf>,
+        #[arg(long)]
+        root: PathBuf,
+        #[arg(long, default_value_t = 20_000)]
+        resamples: usize,
+        #[arg(long)]
+        out: PathBuf,
+        groups: Vec<String>,
+    },
     /// Two arms of `ladder4` on the same deck pairs and seats, paired by slot,
     /// clean games only, with a bootstrap over deck pairs.
     LadderPairs {
@@ -217,6 +254,8 @@ fn arm_flags(left: &str) -> Result<(Vec<String>, bool)> {
             flags.extend(opponent(value)?);
         } else if let Some(groups) = part.strip_prefix("r=") {
             flags.extend(["--tactics-rules".into(), groups.replace('+', ",")]);
+        } else if part == "shadow" {
+            flags.push("--tactics-shadow".into());
         } else if part == "val" {
             flags.push("VALUE_LOG".into());
         } else if part == "base" {
@@ -476,6 +515,125 @@ fn ladder_table(roots: &[PathBuf]) -> Result<Value> {
             "house_finished_net_wins", "house_answers"]}))
 }
 
+/// The deals of a shadow run that `group` would have changed. A deal outside this
+/// list plays the same with the group on, so its difference is zero.
+fn deals_reached(shadow: &Value, group: &str) -> Result<Vec<u64>> {
+    let mut deals = Vec::new();
+    for row in shadow["deal_details"].as_array().context("no deals")? {
+        let fired = row["tactic_rules_fired"].as_array().context("no firings")?;
+        let hit = fired
+            .iter()
+            .any(|entry| entry[0] == group && entry[1].as_u64().unwrap_or(0) > 0);
+        if hit {
+            deals.push(row["deal"].as_u64().context("deal")?);
+        }
+    }
+    deals.sort_unstable();
+    Ok(deals)
+}
+
+/// What a group's arm is called on a split.
+fn group_word(group: &str, split: &str) -> String {
+    format!("plain-r={group}@{split}")
+}
+
+/// A plan that replays, for each group, only the deals a shadow run says it
+/// reaches, with those deal lists written beside it.
+fn group_plan(
+    shadows: &[PathBuf],
+    groups: &[String],
+    runtime: &Path,
+    root: &Path,
+    shape: (usize, usize, u64),
+) -> Result<Vec<Value>> {
+    let (threads, batch, timeout) = shape;
+    let mut stages = Vec::new();
+    for (split, path) in ["dev", "fresh"].iter().zip(shadows) {
+        let shadow = read_json(path)?;
+        for group in groups {
+            let deals = deals_reached(&shadow, group)?;
+            println!("{group} {split}: {} deals", deals.len());
+            if deals.is_empty() {
+                continue;
+            }
+            let list = root.join(format!("only-{group}-{split}.json"));
+            atomic_json(&list, &json!(deals))?;
+            let word = group_word(group, split);
+            let mut stage = stage(&word, runtime, root, threads, batch, timeout, false)?;
+            let command = stage["command"].as_array_mut().context("command")?;
+            command.extend([json!("--only-deals"), json!(list)]);
+            stages.push(stage);
+        }
+    }
+    Ok(stages)
+}
+
+/// A group's run on a split as the whole split: the shadow run's deals, with the
+/// ones the group reached as they were replayed.
+fn merged_arm(shadow: &Value, replayed: Option<&Value>) -> Result<Value> {
+    let mut arm = shadow.clone();
+    let Some(replayed) = replayed else {
+        return Ok(arm);
+    };
+    let games: BTreeMap<u64, &Value> = replayed["deal_details"]
+        .as_array()
+        .context("no deals")?
+        .iter()
+        .filter_map(|row| Some((row["deal"].as_u64()?, row)))
+        .collect();
+    for row in arm["deal_details"].as_array_mut().context("no deals")? {
+        if let Some(game) = row["deal"].as_u64().and_then(|deal| games.get(&deal)) {
+            *row = (*game).clone();
+        }
+    }
+    Ok(arm)
+}
+
+/// Each group against the shadow runs, on both splits and pooled.
+fn group_table(
+    root: &Path,
+    shadows: &[PathBuf],
+    groups: &[String],
+    resamples: usize,
+) -> Result<Vec<Value>> {
+    let references: Vec<Value> = shadows
+        .iter()
+        .map(|path| read_json(path))
+        .collect::<Result<_>>()?;
+    println!("| arm | reference | deals | wins | ref | paired | better/worse | Tor A |");
+    println!("| --- | --- | --- | --- | --- | --- | --- | --- |");
+    let mut reports = Vec::new();
+    for group in groups {
+        let mut parts = Vec::new();
+        for (split, reference) in ["dev", "fresh"].iter().zip(&references) {
+            let path = eval_path(root, &group_word(group, split));
+            let replayed = path.exists().then(|| read_json(&path)).transpose()?;
+            let arm = merged_arm(reference, replayed.as_ref())?;
+            let mut report = compare_arm(&[arm], reference, resamples)?;
+            report["arm"] = json!(format!("{group} {split}"));
+            report["reference"] = json!(format!("tactics {split}"));
+            report["replayed"] = json!(replayed.map(|run| run["deals"].clone()));
+            println!("{}", row(&report)?);
+            parts.push(report);
+        }
+        let mut pooled = pool_arms(&parts, resamples)?;
+        pooled["arm"] = json!(format!("{group} pooled"));
+        pooled["reference"] = json!("");
+        println!("{}", row(&pooled)?);
+        for part in &mut parts {
+            if let Some(fields) = part.as_object_mut() {
+                fields.remove("rows");
+            }
+        }
+        if let Some(fields) = pooled.as_object_mut() {
+            fields.remove("rows");
+        }
+        parts.push(pooled);
+        reports.extend(parts);
+    }
+    Ok(reports)
+}
+
 /// A clean game's result by its slot `(opponent, net's deck, model's deck)`.
 /// A slot is one seat of one deck pair; the arm's other games are left out.
 fn clean_slots(roots: &[PathBuf]) -> Result<BTreeMap<(String, String, String), f64>> {
@@ -673,6 +831,7 @@ fn table(root: &Path, resamples: usize, out: &Path, pairs: &[String]) -> Result<
     atomic_json(out, &Value::Array(kept))
 }
 
+#[allow(clippy::too_many_lines, reason = "One arm per command, nothing else")]
 fn main() -> Result<()> {
     match Args::parse().command {
         Command::Plan {
@@ -734,6 +893,36 @@ fn main() -> Result<()> {
         }
         Command::Ladder { out, roots } => {
             atomic_json(&out, &ladder_table(&roots)?)?;
+        }
+        Command::GroupPlan {
+            shadow,
+            src,
+            runtime,
+            root,
+            execution,
+            threads,
+            batch,
+            timeout,
+            out,
+            groups,
+        } => {
+            let stages = group_plan(&shadow, &groups, &runtime, &root, (threads, batch, timeout))?;
+            let total = timeout * stages.len() as u64;
+            atomic_json(
+                &out,
+                &json!({"cwd": src.join("tools/trainer"), "root": root.join(execution),
+                    "total_timeout_seconds": total, "version": 1, "stages": stages}),
+            )?;
+        }
+        Command::GroupTable {
+            shadow,
+            root,
+            resamples,
+            out,
+            groups,
+        } => {
+            let reports = group_table(&root, &shadow, &groups, resamples)?;
+            atomic_json(&out, &Value::Array(reports))?;
         }
         Command::LadderPairs {
             reference,

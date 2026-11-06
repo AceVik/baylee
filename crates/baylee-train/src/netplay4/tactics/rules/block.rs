@@ -24,8 +24,11 @@ fn hit(attacker: &PublicObject) -> i32 {
     i32::from(attacker.power.unwrap_or(0)).max(0)
 }
 
-fn lives(attacker: &PublicObject, blocker: &PublicObject) -> bool {
-    toughness_left(blocker) > hit(attacker) && !has(attacker, KeywordSet::DEATHTOUCH)
+/// Whether `blocker` outlasts `attacker`, which it should stop for that alone.
+pub(super) fn lives(attacker: &PublicObject, blocker: &PublicObject) -> bool {
+    hit(attacker) > 0
+        && toughness_left(blocker) > hit(attacker)
+        && !has(attacker, KeywordSet::DEATHTOUCH)
 }
 
 fn kills(attacker: &PublicObject, blocker: &PublicObject) -> bool {
@@ -112,19 +115,21 @@ fn add_blocks(
     let declared = taken(logits);
     let mut busy: BTreeSet<ObjectId> = declared.iter().map(|pair| pair.0).collect();
     let blocked: BTreeSet<ObjectId> = declared.iter().map(|pair| pair.1).collect();
+    let mut open: Vec<&PublicObject> = view
+        .combat
+        .attackers
+        .iter()
+        .filter(|attacker| {
+            attacker.defending == Defender::Player(me) && !blocked.contains(&attacker.creature)
+        })
+        .filter_map(|attacker| view.object(attacker.creature))
+        .filter(|attacker| !has(attacker, KeywordSet::MENACE))
+        .collect();
+    open.sort_by_key(|attacker| std::cmp::Reverse(hit(attacker)));
     let mut added = false;
-    for attacker in &view.combat.attackers {
-        if attacker.defending != Defender::Player(me) || blocked.contains(&attacker.creature) {
-            continue;
-        }
-        let Some(hitter) = view.object(attacker.creature) else {
-            continue;
-        };
-        if has(hitter, KeywordSet::MENACE) {
-            continue;
-        }
+    for hitter in open {
         let best = (0..n)
-            .filter(|&index| cands.pair_objects[index].1 == attacker.creature)
+            .filter(|&index| cands.pair_objects[index].1 == hitter.id)
             .filter_map(|index| {
                 let blocker = view.object(cands.pair_objects[index].0)?;
                 (!busy.contains(&blocker.id) && test(hitter, blocker)).then_some((index, blocker))
@@ -164,4 +169,95 @@ pub(super) fn take_trades(
     pending: &Pending,
 ) -> bool {
     add_blocks(cands, logits, view, pending, is_a_fair_trade)
+}
+
+/// Puts a blocker that lives in the way of what is left open.
+pub(super) fn stand_firm(
+    cands: &EncodedCandidates4,
+    logits: &mut [f32],
+    view: &PlayerView,
+    pending: &Pending,
+) -> bool {
+    add_blocks(cands, logits, view, pending, lives)
+}
+
+/// Whether a seat at `life` must not take `damage` this turn: it is left within
+/// one swing of the same size, or nearly dead.
+const fn too_much(life: i32, damage: i32) -> bool {
+    damage > 0 && (life - damage <= 3 || (life - damage <= damage && damage >= 6))
+}
+
+/// The chumps that bring an attack down to what the seat can take, biggest
+/// attacker first and cheapest blocker first, on top of `declared`. Empty when
+/// the seat can take what comes, or when no chump helps.
+pub(super) fn chumps(
+    view: &PlayerView,
+    pending: &Pending,
+    declared: &[(ObjectId, ObjectId)],
+) -> Vec<(ObjectId, ObjectId)> {
+    let Pending::ChooseBlockers { blockers, .. } = pending else {
+        return Vec::new();
+    };
+    let me = actor(view);
+    let my_life = super::read::life(view, me);
+    let mut busy: BTreeSet<ObjectId> = declared.iter().map(|pair| pair.0).collect();
+    let blocked: BTreeSet<ObjectId> = declared.iter().map(|pair| pair.1).collect();
+    let mut open: Vec<&PublicObject> = view
+        .combat
+        .attackers
+        .iter()
+        .filter(|attacker| {
+            attacker.defending == Defender::Player(me) && !blocked.contains(&attacker.creature)
+        })
+        .filter_map(|attacker| view.object(attacker.creature))
+        .collect();
+    open.sort_by_key(|attacker| std::cmp::Reverse(hit(attacker)));
+    let mut damage: i32 = open.iter().map(|attacker| hit(attacker)).sum();
+    let mut added = Vec::new();
+    for attacker in open {
+        if !too_much(my_life, damage) {
+            break;
+        }
+        if has(attacker, KeywordSet::MENACE) || has(attacker, KeywordSet::TRAMPLE) {
+            continue;
+        }
+        let chump = blockers
+            .iter()
+            .filter(|option| {
+                !busy.contains(&option.blocker) && option.attackers.contains(&attacker.id)
+            })
+            .filter_map(|option| view.object(option.blocker))
+            .min_by_key(|blocker| worth(blocker));
+        if let Some(chump) = chump {
+            busy.insert(chump.id);
+            added.push((chump.id, attacker.id));
+            damage -= hit(attacker);
+        }
+    }
+    added
+}
+
+/// Adds the chumps [`chumps`] asks for. Returns whether it added a block.
+pub(super) fn chump_for_life(
+    cands: &EncodedCandidates4,
+    logits: &mut [f32],
+    view: &PlayerView,
+    pending: &Pending,
+) -> bool {
+    let n = logits.len().min(cands.pair_objects.len());
+    let declared: Vec<(ObjectId, ObjectId)> = cands.pair_objects[..n]
+        .iter()
+        .zip(logits.iter())
+        .filter(|(_, logit)| **logit > 0.0)
+        .map(|(pair, _)| *pair)
+        .collect();
+    let added = chumps(view, pending, &declared);
+    for (blocker, attacker) in &added {
+        for (pair, logit) in cands.pair_objects.iter().zip(logits.iter_mut()) {
+            if pair.0 == *blocker {
+                *logit = if pair.1 == *attacker { SURE } else { NEVER };
+            }
+        }
+    }
+    !added.is_empty()
 }

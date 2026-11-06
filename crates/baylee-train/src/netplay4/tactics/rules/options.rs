@@ -6,8 +6,8 @@ use baylee_cards_dsl::{
     AbilityDef, Amount, Effect, Filter, Modifier, PlayerRel, TargetReq, TargetSpec,
 };
 use baylee_core::ids::{ObjectId, PlayerId};
-use baylee_core::types::TypeSet;
-use baylee_view::{PlayerView, PublicObject};
+use baylee_core::types::{SupertypeSet, TypeSet};
+use baylee_view::{CardIdentity, PlayerView, PublicObject};
 
 use super::super::{
     abilities_of_battlefield_object, is_hostile_object_effects, lookup_card_identity,
@@ -263,6 +263,17 @@ fn lifts_their_team(view: &PlayerView, me: PlayerId, abilities: &'static [Abilit
     theirs > mine && (gift >= 4 || (after >= life(view, me) && before < life(view, me)))
 }
 
+/// A legend the seat already controls: one of the two goes at once (CR 704.5j).
+fn is_second_legend(view: &PlayerView, me: PlayerId, identity: CardIdentity) -> bool {
+    let legendary = baylee_cards::by_index(identity.index)
+        .and_then(|card| card.faces.get(usize::from(identity.face)))
+        .is_some_and(|face| face.supertypes.contains(SupertypeSet::LEGENDARY));
+    legendary
+        && view
+            .battlefield_of(me)
+            .any(|object| object.card.is_some_and(|card| card.index == identity.index))
+}
+
 /// An ability that only makes its own land a creature until end of turn does
 /// nothing on a land already one, or one too tapped to attack or block.
 fn animates_for_nothing(object: &PublicObject, effects: &[Effect]) -> bool {
@@ -282,8 +293,8 @@ impl TacticRules4 {
         let abilities = card.abilities_for_face(usize::from(identity.face));
         let parts = spell_parts(abilities);
         if self.on(RuleGroup::Void)
-            && !parts.is_empty()
-            && parts.iter().all(|part| part_is_void(view, me, part))
+            && ((!parts.is_empty() && parts.iter().all(|part| part_is_void(view, me, part)))
+                || is_second_legend(view, me, identity))
         {
             return Some(RuleGroup::Void);
         }
@@ -323,6 +334,12 @@ impl TacticRules4 {
         }
         if self.on(RuleGroup::Mass) && parts.iter().all(|part| sweep_backfires(view, me, part)) {
             return Some(RuleGroup::Mass);
+        }
+        if self.on(RuleGroup::Ping)
+            && super::ping::shot(view, source, index)
+                .is_some_and(|damage| super::ping::shot_is_wasted(view, source, damage))
+        {
+            return Some(RuleGroup::Ping);
         }
         None
     }

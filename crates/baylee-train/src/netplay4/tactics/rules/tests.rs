@@ -277,6 +277,113 @@ fn an_even_trade_is_taken_and_a_bad_one_is_not() {
 }
 
 #[test]
+fn a_blocker_that_lives_stands_in_the_way() {
+    let none = PlayerAction::DeclareBlockers {
+        blockers: Vec::new(),
+    };
+    let (_session, pending, view) = block_question(&["Wall of Stone"], &["Grizzly Bears"]);
+    assert_eq!(groups("wall", &view, &pending, &none), ["wall"]);
+    let (_session, pending, view) = block_question(&["Llanowar Elves"], &["Grizzly Bears"]);
+    assert!(groups("wall", &view, &pending, &none).is_empty());
+}
+
+#[test]
+fn a_hand_without_lands_goes_back() {
+    let mut session = setup(
+        &["Forest", "Grizzly Bears", "Grizzly Bears", "Grizzly Bears"],
+        &[],
+        &[],
+        ME,
+    );
+    for _ in 0..8 {
+        if matches!(session.pending(), Pending::Mulligan { player, .. } if *player == ME) {
+            break;
+        }
+        step(&mut session);
+    }
+    let (pending, view) = session.view_for_with_context(ME).unwrap();
+    assert!(matches!(pending, Pending::Mulligan { .. }));
+    assert_eq!(
+        groups("keep", &view, &pending, &PlayerAction::MulliganKeep),
+        ["keep"]
+    );
+}
+
+#[test]
+fn the_drop_that_pays_this_turn_goes_first() {
+    let (_session, pending, view) =
+        table(&["Forest", "Thornwood Falls", "Llanowar Elves"], &[], &[]);
+    let tapped = PlayerAction::PlayLand {
+        card: card_in_hand(&view, "Thornwood Falls"),
+    };
+    let forest = PlayerAction::PlayLand {
+        card: card_in_hand(&view, "Forest"),
+    };
+    assert_eq!(groups("land", &view, &pending, &tapped), ["land"]);
+    assert!(groups("land", &view, &pending, &forest).is_empty());
+}
+
+#[test]
+fn with_nothing_to_cast_the_tapped_land_uses_the_turn() {
+    let (_session, pending, view) = table(&["Forest", "Thornwood Falls", "Craw Wurm"], &[], &[]);
+    let forest = PlayerAction::PlayLand {
+        card: card_in_hand(&view, "Forest"),
+    };
+    assert_eq!(groups("land", &view, &pending, &forest), ["land"]);
+}
+
+#[test]
+fn a_free_shot_waits_for_something_to_kill() {
+    let shot = |view: &PlayerView| PlayerAction::ActivateAbility {
+        source: view
+            .battlefield
+            .iter()
+            .find(|object| object.name == "Mogg Fanatic")
+            .unwrap()
+            .id,
+        ability_index: 0,
+    };
+    let (_session, pending, view) = table(&[], &["Mogg Fanatic"], &[]);
+    assert_eq!(groups("ping", &view, &pending, &shot(&view)), ["ping"]);
+    let (_session, pending, view) = table(&[], &["Mogg Fanatic"], &["Llanowar Elves"]);
+    assert!(groups("ping", &view, &pending, &shot(&view)).is_empty());
+}
+
+#[test]
+fn a_cheap_spell_does_not_strand_the_turn() {
+    let forests = ["Forest", "Forest", "Forest"];
+    let (_session, pending, view) = table(&["Grizzly Bears", "Trained Armodon"], &forests, &[]);
+    let cheap = PlayerAction::CastSpell {
+        card: card_in_hand(&view, "Grizzly Bears"),
+    };
+    let dear = PlayerAction::CastSpell {
+        card: card_in_hand(&view, "Trained Armodon"),
+    };
+    assert_eq!(groups("curve", &view, &pending, &cheap), ["curve"]);
+    assert!(groups("curve", &view, &pending, &dear).is_empty());
+}
+
+#[test]
+fn a_second_legend_does_nothing() {
+    let (_session, pending, view) = table(
+        &["Isamaru, Hound of Konda"],
+        &["Plains", "Isamaru, Hound of Konda"],
+        &[],
+    );
+    let cast = PlayerAction::CastSpell {
+        card: card_in_hand(&view, "Isamaru, Hound of Konda"),
+    };
+    assert_eq!(groups("void", &view, &pending, &cast), ["void"]);
+}
+
+#[test]
+fn most_mana_spent_is_a_subset_sum() {
+    assert_eq!(super::opening::best_spend(&[2, 3, 7], 6), 5);
+    assert_eq!(super::opening::best_spend(&[4, 4], 7), 4);
+    assert_eq!(super::opening::best_spend(&[], 3), 0);
+}
+
+#[test]
 fn no_group_on_changes_nothing() {
     let rules = TacticRules4::parse("").unwrap();
     assert!(!rules.any());

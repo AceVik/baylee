@@ -3607,7 +3607,7 @@ fn is_pure_pump_effects(effects: &[Effect]) -> bool {
         && !is_hostile_object_effects(effects)
 }
 
-fn is_hostile_object_effects(effects: &[Effect]) -> bool {
+pub(super) fn is_hostile_object_effects(effects: &[Effect]) -> bool {
     !effects.is_empty()
         && !effects.iter().any(|e| {
             matches!(
@@ -3971,7 +3971,11 @@ fn redirect_mana_source_for_colors(
     chosen_idx
 }
 
-fn land_is_bouncer_or_dup_legend(view: &PlayerView, actor: PlayerId, card: ObjectId) -> bool {
+pub(super) fn land_is_bouncer_or_dup_legend(
+    view: &PlayerView,
+    actor: PlayerId,
+    card: ObjectId,
+) -> bool {
     let Some(ci) = lookup_card_identity(view, card) else {
         return false;
     };
@@ -4492,7 +4496,7 @@ fn spell_colors_reachable_inner_opts(
 }
 
 #[allow(clippy::trivially_copy_pass_by_ref)]
-fn cost_colors_reachable(cost: &ManaCost, avail_colors: &[bool; 6]) -> bool {
+pub(super) fn cost_colors_reachable(cost: &ManaCost, avail_colors: &[bool; 6]) -> bool {
     for (sym, _) in cost.runs() {
         let ok = match sym {
             ManaSymbol::White | ManaSymbol::TwoOrColor(Color::White) => avail_colors[0],

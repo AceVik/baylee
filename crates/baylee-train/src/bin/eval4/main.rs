@@ -122,7 +122,20 @@ fn main() -> anyhow::Result<()> {
              and no search, shadow or collection, and its records are no training data"
         );
     }
-    let tactic_rules = baylee_train::netplay4::TacticRules4::parse(&args.tactics_rules)?;
+    let tactic_rules = if args.tactics_shadow {
+        anyhow::ensure!(
+            args.temperature == 0.0 && args.tactics_rules.is_empty(),
+            "--tactics-shadow reads the games of greedy play with no group on"
+        );
+        baylee_train::netplay4::TacticRules4::shadow()
+    } else {
+        baylee_train::netplay4::TacticRules4::parse(&args.tactics_rules)?
+    };
+    let only_deals: Option<Arc<std::collections::BTreeSet<u64>>> = args
+        .only_deals
+        .as_ref()
+        .map(|path| anyhow::Ok(Arc::new(serde_json::from_slice(&std::fs::read(path)?)?)))
+        .transpose()?;
     if tactic_rules.any()
         && (args.raw_policy && choice_guard.is_none()
             || args.seats != 2
@@ -412,6 +425,7 @@ fn main() -> anyhow::Result<()> {
         let teams_u8_arc = teams_u8_arc.clone();
         let teams_arc = teams_arc.clone();
         let next_deal = next_deal.clone();
+        let only_deals = only_deals.clone();
         let stats_arc = stats_arc.clone();
         let games_lines = games_lines.clone();
         let model_path = args.model.clone();
@@ -468,6 +482,9 @@ fn main() -> anyhow::Result<()> {
                 let d = next_deal.fetch_add(1, Ordering::Relaxed);
                 if d >= deals {
                     break;
+                }
+                if only_deals.as_ref().is_some_and(|only| !only.contains(&d)) {
+                    continue;
                 }
                 // A watching model that said a limit teaches no further game.
                 if shadow_spec.as_ref().is_some_and(|spec| spec.spent()) {

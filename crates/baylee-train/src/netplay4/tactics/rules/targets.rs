@@ -224,6 +224,16 @@ fn aim(
     let Some(top) = named.iter().filter_map(killable).map(worth).max() else {
         return;
     };
+    // A land is no answer while something that fights is in reach.
+    for (index, target) in named.iter().enumerate() {
+        if target.in_play(view).is_some_and(|object| {
+            object.controller != me
+                && object.types.contains(TypeSet::LAND)
+                && !object.types.contains(TypeSet::CREATURE)
+        }) {
+            struck.push((index, RuleGroup::Aim));
+        }
+    }
     for (index, target) in named.iter().enumerate() {
         if killable(target).is_some_and(|object| worth(object) + AIM_MARGIN < top) {
             struck.push((index, RuleGroup::Aim));

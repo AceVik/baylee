@@ -8,8 +8,11 @@
 //! other side's visible swing. With no group on, the layer plays as it always did.
 
 mod attack;
+mod audit;
 mod block;
+mod opening;
 mod options;
+mod ping;
 mod read;
 mod targets;
 #[cfg(test)]
@@ -29,7 +32,7 @@ use crate::features4::EncodedCandidates4;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RuleGroup {
     /// An option that changes nothing: a gate no target opens, an amount of zero,
-    /// a land animated while it can do neither.
+    /// a land animated while it can do neither, a second copy of a legend.
     Void,
     /// A target on the wrong side of the table, as the engine reads the effect.
     Side,
@@ -41,7 +44,7 @@ pub enum RuleGroup {
     Race,
     /// An attacker left unblocked that does something when it connects.
     Trip,
-    /// A kill spent on a small target with a far bigger one in reach.
+    /// A kill spent on a small target or a land with a far bigger one in reach.
     Aim,
     /// A turn ended with a proactive spell the mana in play could have paid.
     Spend,
@@ -53,9 +56,21 @@ pub enum RuleGroup {
     Press,
     /// A planeswalker the attack goes past.
     Walker,
+    /// An attack taken whole that a chump would have kept from being fatal soon.
+    Chump,
+    /// An opening hand without lands kept, or spells bottomed under spare lands.
+    Keep,
+    /// A land drop that pays for less of the hand than another would.
+    Land,
+    /// A free shot spent on a healthy face, or lost with its creature.
+    Ping,
+    /// A cheap spell that strands the mana a dearer set would have spent.
+    Curve,
+    /// An attacker let through a blocker that would have lived.
+    Wall,
 }
 
-const GROUPS: [(RuleGroup, &str); 12] = [
+const GROUPS: [(RuleGroup, &str); 18] = [
     (RuleGroup::Void, "void"),
     (RuleGroup::Side, "side"),
     (RuleGroup::Mass, "mass"),
@@ -68,9 +83,15 @@ const GROUPS: [(RuleGroup, &str); 12] = [
     (RuleGroup::Trade, "trade"),
     (RuleGroup::Press, "press"),
     (RuleGroup::Walker, "walker"),
+    (RuleGroup::Chump, "chump"),
+    (RuleGroup::Keep, "keep"),
+    (RuleGroup::Land, "land"),
+    (RuleGroup::Ping, "ping"),
+    (RuleGroup::Curve, "curve"),
+    (RuleGroup::Wall, "wall"),
 ];
 
-/// A spell (no index) or an ability taken off the menu, and by which group.
+/// A spell or land (no index) or an ability taken off the menu, and by which group.
 type Struck = (ObjectId, Option<u32>, RuleGroup);
 
 /// The groups a net plays by, and what they changed.
@@ -78,6 +99,10 @@ type Struck = (ObjectId, Option<u32>, RuleGroup);
 pub struct TacticRules4 {
     on: [bool; GROUPS.len()],
     fired: [u64; GROUPS.len()],
+    /// Changes no answer: counts what each group alone would have changed. A game
+    /// none of a group's counts touch plays the same with that group on, which
+    /// is what lets a measurement replay only the games a group reaches.
+    shadow: bool,
 }
 
 impl TacticRules4 {
@@ -99,6 +124,22 @@ impl TacticRules4 {
             rules.on[index] = true;
         }
         Ok(rules)
+    }
+
+    /// Every group in shadow: see [`Self::shadow`]. At temperature zero only.
+    #[must_use]
+    pub fn shadow() -> Self {
+        Self {
+            on: [true; GROUPS.len()],
+            shadow: true,
+            ..Self::default()
+        }
+    }
+
+    fn only(index: usize) -> Self {
+        let mut rules = Self::default();
+        rules.on[index] = true;
+        rules
     }
 
     const fn on(&self, group: RuleGroup) -> bool {
@@ -127,7 +168,7 @@ impl TacticRules4 {
     }
 
     /// What the groups take off the menu at this priority: the legal actions
-    /// without them, and each struck spell or ability with its group.
+    /// without them, and each struck spell, land or ability with its group.
     fn strike_priority(
         &self,
         view: &PlayerView,
@@ -147,13 +188,24 @@ impl TacticRules4 {
                 struck.push((source, Some(index), group));
             }
         }
+        if self.on(RuleGroup::Land) {
+            for land in opening::poor_drops(view, legal) {
+                struck.push((land, None, RuleGroup::Land));
+            }
+        }
+        if self.on(RuleGroup::Curve) {
+            for spell in opening::low_spends(view, legal) {
+                struck.push((spell, None, RuleGroup::Curve));
+            }
+        }
         if struck.is_empty() {
             return None;
         }
-        let spell = |id: &ObjectId| !struck.iter().any(|item| item.0 == *id && item.1.is_none());
+        let kept = |id: &ObjectId| !struck.iter().any(|item| item.0 == *id && item.1.is_none());
         let mut left = legal.clone();
-        left.castable.retain(spell);
-        left.payable.retain(spell);
+        left.castable.retain(kept);
+        left.payable.retain(kept);
+        left.lands.retain(kept);
         left.abilities.retain(|(source, index)| {
             !struck
                 .iter()
@@ -161,95 +213,8 @@ impl TacticRules4 {
         });
         Some((left, struck))
     }
-}
 
-impl TacticRules4 {
-    /// What the groups say of an answer a seat gave, for a reader of its
-    /// journal: each group that would have changed it, and how. An attack and a
-    /// block are read as declared, with the logits they no longer have.
-    #[must_use]
-    pub fn audit(
-        &self,
-        view: &PlayerView,
-        pending: &Pending,
-        action: &PlayerAction,
-    ) -> Vec<(&'static str, String)> {
-        let name = |group: RuleGroup| GROUPS[group as usize].1;
-        let mut found = Vec::new();
-        match (pending, action) {
-            (Pending::Priority { .. }, PlayerAction::CastSpell { card, .. }) => {
-                if let Some(group) = self.strike_spell(view, *card) {
-                    found.push((name(group), String::new()));
-                }
-            }
-            (
-                Pending::Priority { .. },
-                PlayerAction::ActivateAbility {
-                    source,
-                    ability_index,
-                },
-            ) => {
-                if let Some(group) = self.strike_ability(view, *source, *ability_index) {
-                    found.push((name(group), String::new()));
-                }
-            }
-            (
-                Pending::ChooseTargets {
-                    options,
-                    player_options,
-                    ..
-                },
-                PlayerAction::ChooseObjects { objects }
-                | PlayerAction::ChooseTargets { objects, .. },
-            ) => {
-                let named: Vec<targets::Named> = options
-                    .iter()
-                    .map(|id| targets::Named::Object(*id))
-                    .chain(player_options.iter().map(|id| targets::Named::Player(*id)))
-                    .collect();
-                for (index, group) in self.refuse_named(&named, view, pending, None) {
-                    if index < options.len() && objects.contains(&options[index]) {
-                        found.push((name(group), format!("{:?}", options[index])));
-                    }
-                }
-            }
-            (Pending::ChooseAttackers { .. }, PlayerAction::DeclareAttackers { attackers }) => {
-                let going: Vec<ObjectId> = attackers.iter().map(|pair| pair.0).collect();
-                if self.on(RuleGroup::Press) {
-                    let free = attack::free_swings(view, pending, &going);
-                    if !free.is_empty() {
-                        found.push((name(RuleGroup::Press), format!("{free:?}")));
-                    }
-                }
-                if self.on(RuleGroup::Race) {
-                    let staying = attack::decide(view, pending, going);
-                    if !staying.is_empty() {
-                        found.push((name(RuleGroup::Race), format!("{staying:?}")));
-                    }
-                }
-            }
-            (Pending::ChooseBlockers { .. }, PlayerAction::DeclareBlockers { blockers }) => {
-                if self.on(RuleGroup::Trip) {
-                    let open = block::left_open(view, pending, blockers, block::stops_a_connection);
-                    if !open.is_empty() {
-                        found.push((name(RuleGroup::Trip), format!("{open:?}")));
-                    }
-                }
-                if self.on(RuleGroup::Trade) {
-                    let open = block::left_open(view, pending, blockers, block::is_a_fair_trade);
-                    if !open.is_empty() {
-                        found.push((name(RuleGroup::Trade), format!("{open:?}")));
-                    }
-                }
-            }
-            _ => {}
-        }
-        found
-    }
-}
-
-impl TacticRules4 {
-    /// What a pass is turned to by the groups that do not let a turn go by.
+    /// What a pass is turned to by the groups that do not let a moment go by.
     fn instead_of_pass(
         &mut self,
         cands: &EncodedCandidates4,
@@ -267,6 +232,12 @@ impl TacticRules4 {
         ) {
             return None;
         }
+        if self.on(RuleGroup::Ping)
+            && let Some(better) = ping::shot_to_fire(cands, view, legal)
+        {
+            self.count(RuleGroup::Ping);
+            return Some(better);
+        }
         if self.on(RuleGroup::Spend)
             && let Some(better) = super::guard::spend(cands, logits, view, legal)
         {
@@ -281,13 +252,40 @@ impl TacticRules4 {
         }
         None
     }
+
+    /// The redraw a keep is turned to.
+    fn instead_of_keep(
+        &mut self,
+        cands: &EncodedCandidates4,
+        view: &PlayerView,
+        pending: &Pending,
+        chosen: usize,
+    ) -> Option<usize> {
+        if !self.on(RuleGroup::Keep)
+            || !matches!(
+                cands.candidates.get(chosen)?.action,
+                Some(PlayerAction::MulliganKeep)
+            )
+            || !opening::redraw(view, pending)
+        {
+            return None;
+        }
+        let take = cands
+            .candidates
+            .iter()
+            .position(|cand| matches!(cand.action, Some(PlayerAction::MulliganTake)))?;
+        self.count(RuleGroup::Keep);
+        Some(take)
+    }
 }
 
 /// `action`'s group, if it is one of the struck.
 fn struck_by(action: Option<&PlayerAction>, struck: &[Struck]) -> Option<RuleGroup> {
     struck.iter().find_map(|(id, index, group)| {
         let hit = match action? {
-            PlayerAction::CastSpell { card, .. } => card == id && index.is_none(),
+            PlayerAction::CastSpell { card, .. } | PlayerAction::PlayLand { card, .. } => {
+                card == id && index.is_none()
+            }
             PlayerAction::ActivateAbility {
                 source,
                 ability_index,
@@ -298,8 +296,8 @@ fn struck_by(action: Option<&PlayerAction>, struck: &[Struck]) -> Option<RuleGro
     })
 }
 
-/// A question as the rules leave it: its logits, and at priority what is left
-/// on the menu. The groups behind it, the first of them counted when the answer moves.
+/// A question as the rules leave it: its logits, at priority what is left on
+/// the menu, and the group counted when the answer moves.
 struct Reviewed<'a> {
     logits: Vec<f32>,
     pending: Cow<'a, Pending>,
@@ -334,15 +332,13 @@ fn review_single<'a>(
     }
     let struck = rules.strike_targets(cands, view, pending, active_source);
     let group = struck.first()?.1;
-    let mut trial = left.clone();
     for (index, _) in &struck {
-        trial[*index] = f32::NEG_INFINITY;
+        left[*index] = f32::NEG_INFINITY;
     }
     // A question must be answered: with nothing else to name, it stands.
-    if !trial.iter().any(|logit| logit.is_finite()) {
+    if !left.iter().any(|logit| logit.is_finite()) {
         return None;
     }
-    left = trial;
     Some(Reviewed {
         logits: left,
         pending: Cow::Borrowed(pending),
@@ -350,12 +346,12 @@ fn review_single<'a>(
     })
 }
 
-/// [`select_single_choice`] under the rule groups.
+/// [`select_single_choice`] under `rules`, which it counts in.
 #[allow(
     clippy::too_many_arguments,
     reason = "The tactical selection's own arguments and the rules beside them"
 )]
-pub(in crate::netplay4) fn single_choice(
+fn decide_single(
     rules: &mut TacticRules4,
     cands: &EncodedCandidates4,
     logits: &[f32],
@@ -365,10 +361,7 @@ pub(in crate::netplay4) fn single_choice(
     temperature: f32,
     rng: &mut Rng,
 ) -> (usize, f32) {
-    let reviewed = rules
-        .any()
-        .then(|| review_single(rules, cands, logits, view, pending, active_source))
-        .flatten();
+    let reviewed = review_single(rules, cands, logits, view, pending, active_source);
     let (left, asked) = reviewed.as_ref().map_or((logits, pending), |review| {
         (&review.logits[..], &*review.pending)
     });
@@ -388,19 +381,93 @@ pub(in crate::netplay4) fn single_choice(
     });
     let (mut chosen, logprob) =
         select_single_choice(cands, left, view, asked, active_source, temperature, rng);
+    // The layer's last redirects read the logits it was given, not the menu.
+    if !left[chosen].is_finite()
+        && let Some(best) = (0..left.len())
+            .filter(|index| left[*index].is_finite())
+            .max_by(|a, b| left[*a].total_cmp(&left[*b]))
+    {
+        chosen = best;
+    }
     if let Some(review) = &reviewed
         && plain.is_some_and(|plain| plain != chosen)
     {
         rules.count(review.group);
     }
-    if let Some(better) = rules.instead_of_pass(cands, left, view, asked, chosen) {
+    if let Some(better) = rules
+        .instead_of_pass(cands, left, view, asked, chosen)
+        .or_else(|| rules.instead_of_keep(cands, view, pending, chosen))
+    {
         chosen = better;
     }
     (chosen, logprob)
 }
 
-/// A subset question under the rule groups: an attack or several targets.
-pub(in crate::netplay4) fn subset(
+/// [`select_single_choice`] under the rule groups.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "The tactical selection's own arguments and the rules beside them"
+)]
+pub(in crate::netplay4) fn single_choice(
+    rules: &mut TacticRules4,
+    cands: &EncodedCandidates4,
+    logits: &[f32],
+    view: &PlayerView,
+    pending: &Pending,
+    active_source: Option<(ObjectId, Option<u32>)>,
+    temperature: f32,
+    rng: &mut Rng,
+) -> (usize, f32) {
+    if !rules.shadow {
+        return if rules.any() {
+            decide_single(
+                rules,
+                cands,
+                logits,
+                view,
+                pending,
+                active_source,
+                temperature,
+                rng,
+            )
+        } else {
+            select_single_choice(
+                cands,
+                logits,
+                view,
+                pending,
+                active_source,
+                temperature,
+                rng,
+            )
+        };
+    }
+    let plain = select_single_choice(
+        cands,
+        logits,
+        view,
+        pending,
+        active_source,
+        temperature,
+        rng,
+    );
+    for index in 0..GROUPS.len() {
+        let (answer, _) = decide_single(
+            &mut TacticRules4::only(index),
+            cands,
+            logits,
+            view,
+            pending,
+            active_source,
+            temperature,
+            rng,
+        );
+        rules.fired[index] += u64::from(answer != plain.0);
+    }
+    plain
+}
+
+fn adjust_subset(
     rules: &mut TacticRules4,
     cands: &EncodedCandidates4,
     logits: &mut [f32],
@@ -408,9 +475,6 @@ pub(in crate::netplay4) fn subset(
     pending: &Pending,
     active_source: Option<(ObjectId, Option<u32>)>,
 ) {
-    if !rules.any() {
-        return;
-    }
     if rules.on(RuleGroup::Race) {
         let staying = attack::stay_home(cands, logits, view, pending);
         if !staying.is_empty() {
@@ -429,6 +493,9 @@ pub(in crate::netplay4) fn subset(
     if rules.on(RuleGroup::Walker) && attack::at_walkers(cands, logits, view, pending) {
         rules.count(RuleGroup::Walker);
     }
+    if rules.on(RuleGroup::Keep) && opening::bottom_spare_lands(cands, logits, view, pending) {
+        rules.count(RuleGroup::Keep);
+    }
     for (index, group) in rules.strike_targets(cands, view, pending, active_source) {
         if logits[index] > -20.0 {
             logits[index] = -20.0;
@@ -437,8 +504,30 @@ pub(in crate::netplay4) fn subset(
     }
 }
 
-/// A block question under the rule groups.
-pub(in crate::netplay4) fn pairs(
+/// A subset question under the rule groups: an attack or several targets.
+pub(in crate::netplay4) fn subset(
+    rules: &mut TacticRules4,
+    cands: &EncodedCandidates4,
+    logits: &mut [f32],
+    view: &PlayerView,
+    pending: &Pending,
+    active_source: Option<(ObjectId, Option<u32>)>,
+) {
+    if !rules.shadow {
+        if rules.any() {
+            adjust_subset(rules, cands, logits, view, pending, active_source);
+        }
+        return;
+    }
+    for index in 0..GROUPS.len() {
+        let mut alone = TacticRules4::only(index);
+        let mut trial = logits.to_vec();
+        adjust_subset(&mut alone, cands, &mut trial, view, pending, active_source);
+        rules.fired[index] += alone.fired[index];
+    }
+}
+
+fn adjust_pairs(
     rules: &mut TacticRules4,
     cands: &EncodedCandidates4,
     logits: &mut [f32],
@@ -450,5 +539,31 @@ pub(in crate::netplay4) fn pairs(
     }
     if rules.on(RuleGroup::Trade) && block::take_trades(cands, logits, view, pending) {
         rules.count(RuleGroup::Trade);
+    }
+    if rules.on(RuleGroup::Wall) && block::stand_firm(cands, logits, view, pending) {
+        rules.count(RuleGroup::Wall);
+    }
+    if rules.on(RuleGroup::Chump) && block::chump_for_life(cands, logits, view, pending) {
+        rules.count(RuleGroup::Chump);
+    }
+}
+
+/// A block question under the rule groups.
+pub(in crate::netplay4) fn pairs(
+    rules: &mut TacticRules4,
+    cands: &EncodedCandidates4,
+    logits: &mut [f32],
+    view: &PlayerView,
+    pending: &Pending,
+) {
+    if !rules.shadow {
+        adjust_pairs(rules, cands, logits, view, pending);
+        return;
+    }
+    for index in 0..GROUPS.len() {
+        let mut alone = TacticRules4::only(index);
+        let mut trial = logits.to_vec();
+        adjust_pairs(&mut alone, cands, &mut trial, view, pending);
+        rules.fired[index] += alone.fired[index];
     }
 }

@@ -56,10 +56,18 @@ struct Args {
     #[arg(long, default_value = "off")]
     choice_guard: String,
     /// Rule groups over the tactical layer (`netplay4::tactics::rules`), comma
-    /// separated: `void`, `side`, `mass`, `gift`, `race`, `trip`, `aim`, or `all`.
-    /// Empty is none. Takes a value so that `paired_eval4` can read the command.
+    /// separated, or `all`. Empty is none. Takes a value so that `paired_eval4`
+    /// can read the command.
     #[arg(long, default_value = "")]
     tactics_rules: String,
+    /// Plays as the layer plays and counts, per deal, what each rule group alone
+    /// would have changed: a deal no group touches is the same game with it on.
+    #[arg(long)]
+    tactics_shadow: bool,
+    /// Plays only these deals, a JSON list: the deals a shadow run says a group
+    /// reaches. The rest of `--deals` are skipped, and the same deal is the same game.
+    #[arg(long)]
+    only_deals: Option<std::path::PathBuf>,
     /// Dev only: a raw net may sample at any temperature, below sampler 2's
     /// boundary too, and `--choice-guard` may run above zero. Never for training.
     #[arg(long)]
