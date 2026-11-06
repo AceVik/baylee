@@ -136,8 +136,9 @@ fn changing_draw_inputs_keeps_the_owned_public_object_buffers() {
     let owned = stamp.face.as_ref().unwrap();
     let name = owned.name.as_ptr();
     let counters = owned.counters.as_ptr();
-    assert_ne!(name, object.name.as_ptr(), "the cache owns its snapshot");
-    assert_ne!(counters, object.counters.as_ptr());
+    // A name is shared and cannot change (`baylee_view::SharedName`), so holding
+    // it is owning it; the counters are a buffer of the cache's own.
+    assert_ne!(counters, object.counters.as_ptr(), "the cache owns its snapshot");
 
     // Every step requires drawing work, but neither a camera move, a lane
     // repack nor late assets should allocate another identical snapshot.
