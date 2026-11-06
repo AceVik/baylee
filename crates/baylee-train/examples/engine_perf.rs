@@ -259,6 +259,7 @@ fn answer(session: &mut Session, seat: PlayerId, pending: &Pending, digests: &mu
 fn decide(game: &Game, verify: bool) -> Played {
     let mut session = Session::new(&game.preset).expect("the preset builds");
     describe(&mut session, game);
+    session.discard_frames();
     let seats = seats_of(game);
     for &seat in &seats {
         session.take_over(seat);
@@ -319,6 +320,7 @@ fn rollout(fork: &mut SimulationSession, seat: PlayerId, digests: &mut Digests) 
 fn search(game: &Game, verify: bool) -> Played {
     let mut session = Session::new(&game.preset).expect("the preset builds");
     describe(&mut session, game);
+    session.discard_frames();
     let seat = PlayerId::new(0);
     session.take_over(seat);
     let mut digests = Digests::new(verify);

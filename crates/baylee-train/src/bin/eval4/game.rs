@@ -71,6 +71,11 @@ fn play_one_table(
         (0..n_seats).map(|s| s.to_string()).collect(),
     );
     session.set_fair_scouting(fair_scouting);
+    // Only a shadow's watching model reads what the table routes; the net
+    // reads its views itself.
+    if shadow.is_none() {
+        session.discard_frames();
+    }
     if let Some(n) = net.as_deref() {
         for s in 0..n_seats {
             if n.controls_seat(s, focal_seat, teams) {

@@ -292,3 +292,42 @@ fn pump_slice_streams_incremental_views_without_premature_questions_and_matches_
         "fixture must exercise a multi-step house turn across multiple slices"
     );
 }
+
+/// A table whose frames nobody reads is the table that sends them, answer
+/// for answer: the same questions, the same views to every seat, the same
+/// hash and the same record. Only the frames stop.
+#[test]
+fn discarding_the_frames_changes_nothing_but_the_frames() {
+    let table = || {
+        let mut session = Session::new_recorded(&test_preset(), "test").expect("session builds");
+        session.take_over(PlayerId::new(1));
+        session
+    };
+    let (mut sent, mut discarded) = (table(), table());
+    discarded.discard_frames();
+    let seats: Vec<PlayerId> = (0..2).map(PlayerId::new).collect();
+    let mut frames = 0;
+    for _ in 0..300 {
+        for &seat in &seats {
+            assert_eq!(
+                format!("{:?}", sent.observe_view(seat)),
+                format!("{:?}", discarded.observe_view(seat))
+            );
+        }
+        assert_eq!(sent.snapshot_hash(), discarded.snapshot_hash());
+        let Some(seat) = seats.iter().copied().find(|&s| sent.view_for(s).is_some()) else {
+            break;
+        };
+        assert_eq!(
+            format!("{:?}", sent.view_for(seat)),
+            format!("{:?}", discarded.view_for(seat))
+        );
+        let action = sent.house_action(seat).expect("the seat is asked");
+        frames += sent.act_slice(seat, action.clone(), 0).unwrap().len();
+        assert!(discarded.act_slice(seat, action, 0).unwrap().is_empty());
+        assert!(discarded.pump_slice(1).is_empty());
+        sent.pump_slice(1);
+    }
+    assert!(frames > 0, "the other table sent frames");
+    assert_eq!(sent.take_record(), discarded.take_record());
+}

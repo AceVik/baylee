@@ -46,6 +46,9 @@ impl Session {
         loop {
             let awaited = self.engine.awaited();
             if awaited.is_empty() {
+                if !self.frames_read {
+                    return out;
+                }
                 let pending = self.engine.pending().clone();
                 if let Pending::GameOver(_) = &pending {
                     for seat in self.human_seats() {
@@ -68,6 +71,9 @@ impl Session {
                 !socket && self.engine.pending_for(*seat).is_some()
             });
             let Some(player) = house_seat else {
+                if !self.frames_read {
+                    return out;
+                }
                 for seat in self.human_seats() {
                     let envelopes = self.view_envelopes(seat);
                     out.extend(envelopes.into_iter().map(|env| (seat, env)));
@@ -128,6 +134,9 @@ impl Session {
     /// is still stepping between human decisions.
     pub fn progress_envelopes(&mut self) -> Vec<(PlayerId, Envelope)> {
         let mut out = Vec::new();
+        if !self.frames_read {
+            return out;
+        }
         for seat in self.human_seats() {
             let envelopes = self.view_envelopes(seat);
             out.extend(envelopes.into_iter().map(|env| (seat, env)));

@@ -250,6 +250,7 @@ fn play(
             return (json!("unbuildable"), Vec::new());
         };
         session.describe(format!("{run}-{i:07}"), vec!["0".into(), "1".into()]);
+        session.discard_frames();
         let seats: Vec<PlayerId> = (0..2).map(PlayerId::new).collect();
         for s in &seats {
             session.take_over(*s);

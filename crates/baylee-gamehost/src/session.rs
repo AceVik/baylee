@@ -270,6 +270,8 @@ pub struct Session {
     /// `engine.apply` call so a panic handler can record the exact triggering
     /// `(seat, source, action)` in a fault bundle.
     last_attempt: Option<(PlayerId, Source, PlayerAction)>,
+    /// Whether anybody reads this session's frames ([`Session::discard_frames`]).
+    frames_read: bool,
 }
 
 /// The most declared minds one seat's record holds: a client that changes
@@ -349,6 +351,7 @@ impl Session {
             },
             fair_scouting: false,
             last_attempt: None,
+            frames_read: true,
         })
     }
 
@@ -367,6 +370,22 @@ impl Session {
     #[must_use]
     pub const fn fair_scouting(&self) -> bool {
         self.fair_scouting
+    }
+
+    /// Makes no frames from here on: [`Session::pump_at_most`],
+    /// [`Session::act`] and their kin answer with an empty list.
+    ///
+    /// For a host that plays in-process and drops what they return, as a
+    /// training run does: it reads a seat's question and view with
+    /// [`Session::view_for`] and [`Session::observe_view`], and every driven
+    /// chair counts as a socket, so each answer otherwise builds and
+    /// serializes a whole view for every one of them to nobody. A socket
+    /// seat must never be on a table this is called for: what it is told is
+    /// what the frames carry. The game, the views and the record are the
+    /// same with it as without; only what a frame tells a seat stops moving
+    /// (which printings it has been shown, how much of the log it has read).
+    pub const fn discard_frames(&mut self) {
+        self.frames_read = false;
     }
 
     /// The table as the house and its agents read it ([`table::Table`]).

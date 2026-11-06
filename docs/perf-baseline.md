@@ -1182,3 +1182,59 @@ Die Skripte sind keine unmittelbar ausführbare Anleitung. Originale,
 versiegelte Programme, dSYMs und Dumps bleiben im privaten temporären Speicher.
 Binary-/Pool-Hashes und sämtliche Messwerte sind unverändert; die Dateiliste
 enthält die nach der Redaktion neu berechneten SHA-256-Werte.
+
+## The engine counted over three shapes (2026-11-06)
+
+Every figure is instructions, counted by `valgrind --tool=callgrind` on the
+`selfplay` profile, from the start of `engine_perf::play_all` to its end, so the
+card registry and the deck files are left out. Instruction counts do not move
+with the load the machine was under; wall time did, and none is claimed here.
+
+`crates/baylee-train/examples/engine_perf.rs` is the workload: sixteen seeded
+games over every house deck, in three shapes.
+
+| Shape | What it plays | Games | Answers |
+|---|---|---:|---:|
+| `house` | recorded house games, the self-play runner's path | 16 | 14 142 |
+| `decide` | both chairs driven the way `eval4` drives a net's chair: every seat observes, the asked seat is given its view, the game is hashed | 16 | 11 791 |
+| `search` | one chair driven, four worlds forked at every fourth of its priorities, each rolled out 24 actions | 16 | 10 458 (1 152 forks, 27 022 rollout steps) |
+
+```text
+cargo build --profile selfplay -p baylee-train --example engine_perf --features simulation
+valgrind --tool=callgrind --toggle-collect='engine_perf::play_all' \
+    target/selfplay/examples/engine_perf house
+target/selfplay/examples/engine_perf house --verify
+```
+
+Each step on top of the one before, in billions of instructions:
+
+| Step | `house` | `decide` | `search` |
+|---|---:|---:|---:|
+| `c42/shared` at `03b2223e8` | 10.608 | 31.535 | 21.854 |
+| the arena hashed as a digest per chunk | 8.910 | | |
+| a mana provenance digested once; frames nobody reads not made | 8.229 | 16.190 | 19.446 |
+
+Where the time went before: in `house`, `snapshot_hash` 28 %, the house agent's
+view 22 %, `Engine::apply` 31 %; in `decide`, the frames 41 %; in `search`,
+`player_view` 43 %, `Engine::apply` 28 %.
+
+- **The hash takes a chunk's digest, not its bytes.** The memo of 2026-10-06
+  kept each chunk's bytes and fed them through xxh3 again after every answer,
+  which that entry left as a decision for the owner because it would stop every
+  stored record replaying. Until the first release candidate that contract does
+  not bind, so the arena goes in as eight bytes a chunk: arena hashing is 0.7 %
+  of `house` now. This moves every hash; the fixture was refreshed, and the
+  refresh checks every public `seen` digest and the finish on the way.
+- **A mana provenance is digested once.** Every entry of `restriction_info` was
+  digested again through a streaming hasher on every hash, about fifty a hash
+  and 5 % of `house`. An entry is never written after `deposit`, so it keeps its
+  digest; a debug assertion in the hash recomputes it, which holds the whole
+  test suite to that. The hash does not move.
+- **A driven chair counted as a socket.** Every answer built and serialized a
+  whole view for every driven seat, and `eval4`, `arena`, `league` and `fuzz`
+  dropped the result. `Session::discard_frames` stops that; `eval4` keeps its
+  frames when a shadow's watching model reads them.
+
+The games are the same games. `--verify` digests every action with its seat,
+every view and question as JSON, and every hash; all 48 games give the same
+`actions` and `views` as the baseline, and only the first step moved `hashes`.

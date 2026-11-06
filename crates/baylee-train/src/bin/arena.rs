@@ -526,6 +526,7 @@ fn main() -> anyhow::Result<()> {
                         // One id for every game of the deal: the house's
                         // noise is seeded from it, seat by seat.
                         session.describe(format!("{run}-{deal:07}"), vec!["0".into(), "1".into()]);
+                        session.discard_frames();
                         let me = PlayerId::new(net_seat);
                         // What a v3 net reads beyond the view: the sides and
                         // its own deck list.

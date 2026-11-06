@@ -335,6 +335,7 @@ fn play_one(
         Session::new_recorded(&preset, baylee_build::short()).context("the preset builds")?,
     );
     session.describe(format!("{run}-{i:07}"), vec!["0".into(), "1".into()]);
+    session.discard_frames();
     let me = PlayerId::new(learner_seat);
     let them = PlayerId::new(other);
     session.take_over(me);
