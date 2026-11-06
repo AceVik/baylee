@@ -15,34 +15,31 @@ use std::io::Write;
 use std::time::{Duration, Instant};
 use stub_central::{Stub, gateway, linked};
 
-/// The lease a sign-in is handed.
+/// The session of whoever signs in.
 const SIGNING_IN: u8 = 7;
 
-/// The lease whose checks the stub answers slowly.
+/// The session of whoever has a slow request.
 const SLOW: u8 = 9;
 
-/// How long the stub takes over [`SLOW`]: past the barrier's five seconds.
-const SLOW_BY: Duration = Duration::from_secs(7);
+/// How long a request is held up: past the barrier's five seconds.
+const SLOW_BY_SECS: u32 = 7;
 
-/// `POST /auth/central/login` with a ticket the stub takes: its status and
-/// how long it took.
-fn sign_in(port: u16) -> (u16, Duration) {
-    let bytes = [1_u8; 32];
-    let ticket = serde_json::json!({ "ticket": bytes }).to_string();
+/// A fresh sign-in as [`SIGNING_IN`]: its status and how long it took.
+fn sign_in(stub: &Stub, port: u16) -> (u16, Duration) {
     let started = Instant::now();
-    let (status, _) = http(port, "POST", "/auth/central/login", None, &ticket);
+    let (status, _) = stub.sign_in(port, SIGNING_IN);
     (status, started.elapsed())
 }
 
 /// A stranger who starts a request and never finishes its body holds up
 /// nobody's sign-in. It takes no account and no secret, so if this held the
-/// barrier one connection would keep a gateway's players out.
+/// barrier one connection would keep a gateway's players out. The account
+/// signing in is new here, so this is the sign-in that needs the barrier.
 #[test]
 fn a_body_that_never_arrives_holds_up_no_sign_in() {
     let stub = Stub::serve(Duration::ZERO);
     let (gw, _settings) = gateway(&stub, "barrier_body");
-    linked(&gw, &stub, SIGNING_IN);
-    stub.shared_sign_in(SIGNING_IN);
+    stub.knows(SIGNING_IN);
     let mut stalled = std::net::TcpStream::connect(("127.0.0.1", gw.port)).expect("connected");
     stalled
         .write_all(
@@ -51,28 +48,46 @@ fn a_body_that_never_arrives_holds_up_no_sign_in() {
         )
         .expect("written");
     std::thread::sleep(Duration::from_millis(300));
-    let (status, took) = sign_in(gw.port);
+    let (status, took) = sign_in(&stub, gw.port);
     eprintln!("a stalled body: sign-in {status} in {took:?}");
     assert_eq!(status, 200);
     assert!(took < Duration::from_secs(3), "{took:?}");
 }
 
 /// A sign-in that fixes no link has nothing to drain requests for, so a slow
-/// request of somebody else's does not stand in its way.
+/// request of somebody else's does not stand in its way. The request here is
+/// slow on a table no sign-in reads.
 #[test]
 fn a_slow_request_holds_up_no_sign_in_of_a_linked_account() {
     let stub = Stub::serve(Duration::ZERO);
     let (gw, _settings) = gateway(&stub, "barrier_slow");
     linked(&gw, &stub, SIGNING_IN);
-    stub.shared_sign_in(SIGNING_IN);
     let bearer = linked(&gw, &stub, SLOW);
-    stub.slow_down(SLOW, SLOW_BY);
     let port = gw.port;
-    let slow = std::thread::spawn(move || http(port, "GET", "/me", Some(&bearer), ""));
-    std::thread::sleep(Duration::from_millis(300));
-    let (status, took) = sign_in(gw.port);
+    let (status, took) = std::thread::scope(|scope| {
+        let locked = format!(
+            "BEGIN; LOCK TABLE deck IN ACCESS EXCLUSIVE MODE; \
+             SELECT pg_sleep({SLOW_BY_SECS}); COMMIT;"
+        );
+        let gw = &gw;
+        scope.spawn(move || gw.sql(&locked));
+        std::thread::sleep(Duration::from_millis(300));
+        let slow = scope.spawn(move || {
+            let started = Instant::now();
+            let (status, _) = http(port, "GET", "/decks", Some(&bearer), "");
+            (status, started.elapsed())
+        });
+        std::thread::sleep(Duration::from_millis(300));
+        let signed_in = sign_in(&stub, port);
+        let (status, slow_took) = slow.join().expect("the slow request");
+        eprintln!("the slow request: {status} in {slow_took:?}");
+        assert!(
+            slow_took > Duration::from_secs(5),
+            "nothing held the barrier: the request took {slow_took:?}"
+        );
+        signed_in
+    });
     eprintln!("a slow request: sign-in {status} in {took:?}");
     assert_eq!(status, 200);
     assert!(took < Duration::from_secs(3), "{took:?}");
-    let _ = slow.join();
 }

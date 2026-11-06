@@ -1,28 +1,31 @@
 //! A stub Baylee Central on loopback, and a gateway bridged to it: for what a
-//! gateway does with Central's answers, and with having none. It answers the
-//! native protocol's few requests a gateway's sessions make; nothing here
-//! reaches a real service.
+//! gateway does with Central's answers, and with having none. It signs what
+//! Central signs and answers the few requests a gateway makes of its own
+//! accord; nothing here reaches a real service.
 
 #![allow(dead_code)] // each test binary uses its own part of this
 
 use super::common;
-use baylee_account::wire::{Identity, Request, Response};
-use baylee_account::{Endpoint, Token};
+use baylee_account::wire::{Request, Response};
+use baylee_account::{Endpoint, SignedToken, Token};
+use central_crypto::jwt::{GatewayClaims, KeySet, Purpose, RevocationClaims, SigningKey};
 use std::collections::HashMap;
 use std::io::{Read, Write};
-use std::sync::atomic::{AtomicU8, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use zeroize::Zeroizing;
 
-/// What the stub says to a lease it is asked about.
+/// How long a signed revocation lives.
+const MESSAGE_SECS: i64 = 60;
+
+/// What the stub answers every request with.
 #[derive(Clone, Copy, PartialEq, Eq)]
-#[repr(u8)]
 pub enum Says {
-    /// The session stands.
+    /// What was asked.
     Good,
-    /// `401`: Central refuses the lease, a real revocation.
-    Revoked,
+    /// `401`: Central does not take the bridge's credential.
+    Refused,
     /// `503`: Central is there and cannot answer.
     Down,
     /// `200` with a page that is no answer at all, as a proxy in the way sends.
@@ -30,25 +33,23 @@ pub enum Says {
 }
 
 /// What the stub holds; every field may change while it serves.
-#[derive(Default)]
 pub struct Shared {
-    /// The account each lease's first byte names.
-    identities: Mutex<HashMap<u8, [u8; 16]>>,
-    /// What it says to each lease, by first byte; `Good` when unset.
-    says: Mutex<HashMap<u8, Says>>,
-    /// How long each lease's check takes, by first byte, on top of `delay`.
-    slow: Mutex<HashMap<u8, Duration>>,
+    /// Central's origin, which is the issuer of all it signs.
+    origin: String,
+    /// What it signs with.
+    key: SigningKey,
+    /// What it answers.
+    says: Mutex<Says>,
+    /// The account each first byte names.
+    accounts: Mutex<HashMap<u8, uuid::Uuid>>,
+    /// The revoked sessions in the order they ended: number one is first.
+    revoked: Mutex<Vec<String>>,
+    /// The gateway its messages are for.
+    gateway: Mutex<String>,
     /// How long every answer takes, in milliseconds.
     delay: AtomicU64,
-    /// When the sessions end, in Unix seconds.
-    expires: AtomicU64,
     /// How many answers it gave.
     answered: AtomicU64,
-    /// The most requests it held at once, and how many it holds now.
-    peak: AtomicU64,
-    held: AtomicU64,
-    /// Whose identity a sign-in is answered with, by lease first byte.
-    signing_in: AtomicU8,
 }
 
 /// The stub, serving.
@@ -58,25 +59,73 @@ pub struct Stub {
     pub shared: Arc<Shared>,
 }
 
+fn now() -> i64 {
+    let since = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("after 1970");
+    i64::try_from(since.as_secs()).expect("fits")
+}
+
+/// 32 lowercase hex digits nobody used yet.
+fn fresh_id() -> String {
+    uuid::Uuid::now_v7().simple().to_string()
+}
+
+/// The session `key` stands for, in Central's form.
+fn sid_of(key: u8) -> String {
+    format!("{key:02x}").repeat(16)
+}
+
+/// Where a gateway on `port` is known to Central.
+fn origin_of(port: u16) -> String {
+    format!("http://127.0.0.1:{port}")
+}
+
+impl Shared {
+    /// The revocations `from` to `seq`, signed for the gateway.
+    fn message(&self, from: u64, seq: u64) -> Zeroizing<String> {
+        let revoked = self.revoked.lock().expect("the list");
+        let first = usize::try_from(from - 1).expect("fits");
+        let last = usize::try_from(seq).expect("fits");
+        let now = now();
+        let claims = RevocationClaims {
+            iss: self.origin.clone(),
+            aud: self.gateway.lock().expect("the name").clone(),
+            jti: fresh_id(),
+            iat: now,
+            nbf: now,
+            exp: now + MESSAGE_SECS,
+            from,
+            seq,
+            sids: revoked[first..last].to_vec(),
+        };
+        self.key.sign(&claims).expect("signed")
+    }
+
+    /// The last number given.
+    fn last(&self) -> u64 {
+        let revoked = self.revoked.lock().expect("the list");
+        u64::try_from(revoked.len()).expect("fits")
+    }
+}
+
 impl Stub {
     /// Starts it, every answer taking `delay`.
     #[must_use]
     pub fn serve(delay: Duration) -> Self {
-        let shared = Arc::new(Shared::default());
-        shared.delay.store(
-            u64::try_from(delay.as_millis()).expect("fits"),
-            Ordering::Relaxed,
-        );
-        shared.expires.store(
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .expect("after 1970")
-                .as_secs()
-                + 3600,
-            Ordering::Relaxed,
-        );
         let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("a port");
         let port = listener.local_addr().expect("an address").port();
+        let seed = SigningKey::generate_seed().expect("a seed");
+        let shared = Arc::new(Shared {
+            origin: origin_of(port),
+            key: SigningKey::from_seed(&seed),
+            says: Mutex::new(Says::Good),
+            accounts: Mutex::default(),
+            revoked: Mutex::default(),
+            gateway: Mutex::default(),
+            delay: AtomicU64::new(u64::try_from(delay.as_millis()).expect("fits")),
+            answered: AtomicU64::new(0),
+        });
         let serving = Arc::clone(&shared);
         std::thread::spawn(move || {
             for stream in listener.incoming().flatten() {
@@ -87,14 +136,9 @@ impl Stub {
         Self { port, shared }
     }
 
-    /// From now on it says `says` of lease `key`.
-    pub fn say(&self, key: u8, says: Says) {
-        self.shared.says.lock().expect("the map").insert(key, says);
-    }
-
-    /// From now on lease `key`'s check takes `by` longer.
-    pub fn slow_down(&self, key: u8, by: Duration) {
-        self.shared.slow.lock().expect("the map").insert(key, by);
+    /// From now on it says `says` to everything.
+    pub fn say(&self, says: Says) {
+        *self.shared.says.lock().expect("the answer") = says;
     }
 
     /// How many answers it has given.
@@ -103,35 +147,100 @@ impl Stub {
         self.shared.answered.load(Ordering::Relaxed)
     }
 
-    /// The most requests it has held at once.
-    #[must_use]
-    pub fn peak(&self) -> u64 {
-        self.shared.peak.load(Ordering::Relaxed)
+    /// Waits for an answer after the first `seen`.
+    pub fn answers_after(&self, seen: u64) {
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while self.answered() <= seen {
+            assert!(Instant::now() < deadline, "the gateway never asked Central");
+            std::thread::sleep(Duration::from_millis(20));
+        }
     }
 
-    /// When the sessions it stands for end.
-    #[must_use]
-    pub fn expires(&self) -> i64 {
-        i64::try_from(self.shared.expires.load(Ordering::Relaxed)).expect("fits")
-    }
-
-    /// A sign-in is answered as the account lease `key` names.
-    pub fn shared_sign_in(&self, key: u8) {
-        self.shared.signing_in.store(key, Ordering::Relaxed);
-    }
-
-    /// Lease `key` names `central`.
-    pub fn knows(&self, key: u8, central: uuid::Uuid) {
+    /// `key` names a new account.
+    pub fn knows(&self, key: u8) {
         self.shared
-            .identities
+            .accounts
             .lock()
             .expect("the map")
-            .insert(key, *central.as_bytes());
+            .insert(key, uuid::Uuid::now_v7());
+    }
+
+    /// A gateway token for session `key` at the gateway on `port`.
+    #[must_use]
+    pub fn token(&self, port: u16, key: u8) -> Zeroizing<String> {
+        let account = *self
+            .shared
+            .accounts
+            .lock()
+            .expect("the map")
+            .get(&key)
+            .expect("an account the stub knows");
+        let now = now();
+        let claims = GatewayClaims {
+            iss: self.shared.origin.clone(),
+            aud: origin_of(port),
+            sub: account.to_string(),
+            sid: sid_of(key),
+            jti: fresh_id(),
+            iat: now,
+            nbf: now,
+            exp: now + 3600,
+            purpose: Purpose::Admit,
+            name: None,
+            tag: None,
+            legacy_id: None,
+            terms: None,
+        };
+        self.shared.key.sign(&claims).expect("signed")
+    }
+
+    /// `POST /auth/central/login` with a fresh token for session `key`.
+    #[must_use]
+    pub fn sign_in(&self, port: u16, key: u8) -> (u16, String) {
+        let token = self.token(port, key);
+        let body = serde_json::json!({ "token": token.as_str() }).to_string();
+        common::http(port, "POST", "/auth/central/login", None, &body)
+    }
+
+    /// Session `key` ends at Central, and gets the next number. The gateway
+    /// hears of it when it asks, or when it is pushed.
+    pub fn revoke(&self, key: u8) {
+        self.shared
+            .revoked
+            .lock()
+            .expect("the list")
+            .push(sid_of(key));
+    }
+
+    /// Sends the last number alone to the gateway on `port`, as a push does.
+    pub fn push(&self, port: u16) {
+        let last = self.shared.last();
+        let message = self.shared.message(last, last);
+        let (status, _) = common::http_bytes(
+            port,
+            "POST",
+            "/auth/central/invalidate",
+            None,
+            "application/jwt",
+            message.as_bytes(),
+        );
+        assert_eq!(status, 204, "the gateway refused Central's message");
+    }
+
+    /// Makes the gateway on `port` ask, now rather than at its next round: it
+    /// is pushed a number with one it never saw before it, for sessions no
+    /// test holds, and a gap is what a gateway does not wait with.
+    pub fn nudge(&self, port: u16) {
+        const NOBODY: u8 = 0xff;
+        self.revoke(NOBODY);
+        self.revoke(NOBODY);
+        self.push(port);
     }
 }
 
-/// One request's body, once its headers and `Content-Length` are in.
-fn body_of(stream: &mut std::net::TcpStream) -> Option<Vec<u8>> {
+/// One request's first line and body, once its headers and `Content-Length`
+/// are in.
+fn request_of(stream: &mut std::net::TcpStream) -> Option<(String, Vec<u8>)> {
     let mut raw = Vec::new();
     let mut chunk = [0_u8; 4096];
     loop {
@@ -140,105 +249,72 @@ fn body_of(stream: &mut std::net::TcpStream) -> Option<Vec<u8>> {
         let Some(end) = raw.windows(4).position(|w| w == b"\r\n\r\n") else {
             continue;
         };
-        let head = String::from_utf8_lossy(&raw[..end]).to_lowercase();
+        let head = String::from_utf8_lossy(&raw[..end]).into_owned();
         let length: usize = head
             .lines()
-            .find_map(|line| line.strip_prefix("content-length: "))
-            .and_then(|n| n.trim().parse().ok())
+            .find_map(|line| {
+                line.to_lowercase()
+                    .strip_prefix("content-length: ")?
+                    .parse()
+                    .ok()
+            })
             .unwrap_or(0);
         while raw.len() < end + 4 + length {
             let read = stream.read(&mut chunk).ok().filter(|n| *n > 0)?;
             raw.extend_from_slice(&chunk[..read]);
         }
-        return Some(raw[end + 4..end + 4 + length].to_vec());
+        let line = head.lines().next().unwrap_or_default().to_owned();
+        return Some((line, raw[end + 4..end + 4 + length].to_vec()));
     }
 }
 
-/// What one request is answered: its status and body, and how long it takes
-/// beyond every answer's delay.
-fn answer_to(body: &[u8], shared: &Shared) -> (&'static str, Vec<u8>, Duration) {
-    let known = |key: u8| {
-        shared
-            .identities
-            .lock()
-            .expect("the map")
-            .get(&key)
-            .copied()
+/// An answer: its status, its content type and its body.
+type Answer = (&'static str, &'static str, Vec<u8>);
+
+/// What one request is answered while the stub says what was asked.
+fn good_answer(line: &str, body: &[u8], shared: &Shared) -> Answer {
+    let json = |response: &Response| {
+        let bytes = central_api::encode(response).expect("encoded");
+        ("200 OK", "application/json", bytes)
     };
-    let expires = i64::try_from(shared.expires.load(Ordering::Relaxed)).expect("fits");
-    let good = |response: &Response| {
-        (
-            "200 OK",
-            central_api::encode(response).expect("encoded"),
-            Duration::ZERO,
-        )
-    };
-    let refused = ("503 Service Unavailable", Vec::new(), Duration::ZERO);
+    if line.starts_with("GET /.well-known/jwks.json") {
+        let keys = KeySet::new(vec![shared.key.public().clone()]).expect("a key set");
+        let document = keys.to_jwks().expect("a document");
+        return ("200 OK", "application/jwk-set+json", document);
+    }
     match central_api::decode::<Request>(body) {
-        Ok(Request::GatewayAuthorize { lease, .. }) => {
-            let key = lease.to_secret_bytes()[0];
-            let says = shared
-                .says
-                .lock()
-                .expect("the map")
-                .get(&key)
-                .copied()
-                .unwrap_or(Says::Good);
-            let slow = shared
-                .slow
-                .lock()
-                .expect("the map")
-                .get(&key)
-                .copied()
-                .unwrap_or_default();
-            match (says, known(key)) {
-                (Says::Good, Some(account)) => {
-                    let (status, body, _) = good(&Response::GatewayAuthorization {
-                        identity: Identity { account, epoch: 1 },
-                        expires_at: expires,
-                        central_terms: true,
-                        gateway_terms: true,
-                    });
-                    (status, body, slow)
-                }
-                (Says::Revoked, _) => ("401 Unauthorized", Vec::new(), slow),
-                (Says::Garbage, _) => ("200 OK", b"<html>a proxy</html>".to_vec(), slow),
-                _ => (refused.0, Vec::new(), slow),
-            }
-        }
-        Ok(Request::RedeemGateway { ticket, .. }) => {
-            // A ticket of zeros is a stranger's: refused as Central refuses.
-            if ticket.to_secret_bytes().iter().all(|b| *b == 0) {
-                return ("401 Unauthorized", Vec::new(), Duration::ZERO);
-            }
-            let key = shared.signing_in.load(Ordering::Relaxed);
-            known(key).map_or(refused, |account| {
-                good(&Response::GatewayIdentity {
-                    identity: Identity { account, epoch: 1 },
-                    legacy_id: None,
-                    lease: Some(Token::from_secret_bytes(Zeroizing::new([key; 32]))),
-                    expires_at: Some(expires),
-                })
+        Ok(Request::RegisterInvalidate { .. }) => json(&Response::Done),
+        Ok(Request::GatewayRevocations { after }) => {
+            let last = shared.last();
+            let token = (after < last).then(|| {
+                SignedToken::new(shared.message(after + 1, last)).expect("a token of a fair size")
+            });
+            json(&Response::GatewayRevocations {
+                token,
+                last,
+                floor: 1,
             })
         }
-        _ => refused,
+        _ => ("503 Service Unavailable", "text/plain", Vec::new()),
+    }
+}
+
+/// What one request is answered.
+fn answer_to(line: &str, body: &[u8], shared: &Shared) -> Answer {
+    match *shared.says.lock().expect("the answer") {
+        Says::Good => good_answer(line, body, shared),
+        Says::Refused => ("401 Unauthorized", "text/plain", Vec::new()),
+        Says::Down => ("503 Service Unavailable", "text/plain", Vec::new()),
+        Says::Garbage => ("200 OK", "text/html", b"<html>a proxy</html>".to_vec()),
     }
 }
 
 /// Answers `stream` until it closes, keeping it open as Central's server does.
 fn keep_answering(mut stream: std::net::TcpStream, shared: &Shared) {
-    while let Some(body) = body_of(&mut stream) {
-        let now = shared.held.fetch_add(1, Ordering::Relaxed) + 1;
-        shared.peak.fetch_max(now, Ordering::Relaxed);
-        let (status, reply, extra) = answer_to(&body, shared);
-        std::thread::sleep(Duration::from_millis(shared.delay.load(Ordering::Relaxed)) + extra);
-        shared.held.fetch_sub(1, Ordering::Relaxed);
+    while let Some((line, body)) = request_of(&mut stream) {
+        let (status, kind, reply) = answer_to(&line, &body, shared);
+        std::thread::sleep(Duration::from_millis(shared.delay.load(Ordering::Relaxed)));
         shared.answered.fetch_add(1, Ordering::Relaxed);
-        let kind = if reply.starts_with(b"<html") {
-            "text/html"
-        } else {
-            "application/json"
-        };
         let head = format!(
             "HTTP/1.1 {status}\r\nContent-Type: {kind}\r\nContent-Length: {}\r\n\r\n",
             reply.len()
@@ -249,9 +325,10 @@ fn keep_answering(mut stream: std::net::TcpStream, shared: &Shared) {
     }
 }
 
-/// A gateway whose bridge is `stub`, and the file its settings are in.
+/// A gateway whose bridge is `stub`, and the file its settings are in, which
+/// may not have heard from Central yet.
 #[must_use]
-pub fn gateway(stub: &Stub, label: &str) -> (common::Gateway, Settings) {
+pub fn gateway_starting(stub: &Stub, label: &str) -> (common::Gateway, Settings) {
     let endpoint =
         Endpoint::development(&format!("http://127.0.0.1:{}", stub.port)).expect("an origin");
     let bridge = Token::generate().expect("a token");
@@ -269,7 +346,16 @@ pub fn gateway(stub: &Stub, label: &str) -> (common::Gateway, Settings) {
             file.to_string_lossy().into_owned(),
         )],
     );
+    *stub.shared.gateway.lock().expect("the name") = origin_of(gw.port);
     (gw, Settings(file))
+}
+
+/// [`gateway_starting`], once it has caught up with Central.
+#[must_use]
+pub fn gateway(stub: &Stub, label: &str) -> (common::Gateway, Settings) {
+    let (gw, settings) = gateway_starting(stub, label);
+    common::central_ready(gw.port);
+    (gw, settings)
 }
 
 /// The gateway's settings file, gone with the test.
@@ -281,34 +367,10 @@ impl Drop for Settings {
     }
 }
 
-/// An account linked to a new Central identity with a session on lease `key`,
-/// which the stub knows. Answers its bearer.
+/// An account of Central's signed in as session `key`. Answers its bearer.
 pub fn linked(gw: &common::Gateway, stub: &Stub, key: u8) -> String {
-    use sha2::Digest as _;
-    use std::fmt::Write as _;
-    let hex = |bytes: &[u8]| {
-        bytes.iter().fold(String::new(), |mut out, b| {
-            write!(out, "{b:02x}").expect("writing to a String");
-            out
-        })
-    };
-    let id = uuid::Uuid::now_v7();
-    let central = uuid::Uuid::now_v7();
-    let expires = stub.expires();
-    let token = hex(&[key; 32]);
-    let digest = hex(&sha2::Sha256::digest(token.as_bytes()));
-    let lease = hex(&[key; 32]);
-    gw.sql(&format!(
-        "INSERT INTO account (id, display_name, created_at, lang, guest, central_only)
-             VALUES ('{id}', 'Player{key}', clock_timestamp(), 'en', false, true);
-         INSERT INTO central_account_link (account_id, central_id, snapshot_digest, linked_at)
-             VALUES ('{id}', '{central}', decode(repeat('00', 32), 'hex'), clock_timestamp());
-         INSERT INTO session_token (token_hash, account_id, expires_at)
-             VALUES (decode('{digest}', 'hex'), '{id}', to_timestamp({expires}));
-         INSERT INTO central_gateway_session (token_hash, lease, expires_at, purpose)
-             VALUES (decode('{digest}', 'hex'), decode('{lease}', 'hex'),
-                 to_timestamp({expires}), 'admit');"
-    ));
-    stub.knows(key, central);
-    token
+    stub.knows(key);
+    let (status, answer) = stub.sign_in(gw.port, key);
+    assert_eq!(status, 200, "{answer}");
+    common::json_field(&answer, "token").to_owned()
 }
