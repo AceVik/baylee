@@ -558,6 +558,7 @@ mod tests {
                 error: Some("x".into()),
                 controller_pid: Some(42),
                 controller_alive: Some(true),
+                active: true,
                 stages: vec![Stage {
                     name: "train".into(),
                     status: Some("running".into()),
@@ -572,6 +573,7 @@ mod tests {
                     fields: vec![("x".into(), "1".into())],
                     updated_ms: Some(1),
                 }),
+                ..Pipeline::default()
             }],
             ..Training::default()
         }
@@ -709,6 +711,7 @@ mod tests {
         "/training/services/failed",
         "/training/services/total",
         "/training/pipelines/0/name",
+        "/training/pipelines/0/active",
         "/training/pipelines/0/problem",
         "/training/pipelines/0/phase",
         "/training/pipelines/0/promoted",

@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     fs::{self, File},
     io::{self, Read, Seek, SeekFrom},
-    path::Path,
+    path::{Path, PathBuf},
     time::UNIX_EPOCH,
 };
 
@@ -36,8 +36,16 @@ pub(crate) struct Pipeline {
     /// Whether the recorded controller process still runs, judged by boot id
     /// and process start time; `None` when that cannot be told.
     pub controller_alive: Option<bool>,
+    /// Not finished and its controller not known to be gone: the panel lists
+    /// these first.
+    pub active: bool,
     pub stages: Vec<Stage>,
     pub progress: Option<Progress>,
+    #[serde(skip)]
+    pub(crate) dir: PathBuf,
+    /// The plan file named by `status.json`, read only by `fill`.
+    #[serde(skip)]
+    pub(crate) manifest: Option<PathBuf>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -68,6 +76,7 @@ struct StatusFile {
     promoted: Option<bool>,
     error: Option<String>,
     controller: Option<Controller>,
+    manifest: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -88,9 +97,20 @@ struct JobFile {
 
 /// Reads one pipeline directory; `boot_id` is this boot's id, to tell a live
 /// controller from a recycled pid.
+#[cfg(test)]
 pub(crate) fn read(dir: &Path, boot_id: Option<&str>) -> Pipeline {
+    let mut pipeline = peek(dir, boot_id);
+    fill(&mut pipeline);
+    pipeline
+}
+
+/// Reads only `status.json` of one pipeline directory, which is enough to tell
+/// whether it runs and when it was last written. `boot_id` is this boot's id,
+/// to tell a live controller from a recycled pid.
+pub(crate) fn peek(dir: &Path, boot_id: Option<&str>) -> Pipeline {
     let mut pipeline = Pipeline {
         name: display_name(dir),
+        dir: dir.to_owned(),
         ..Pipeline::default()
     };
     if !fs::metadata(dir).is_ok_and(|m| m.is_dir()) {
@@ -103,6 +123,7 @@ pub(crate) fn read(dir: &Path, boot_id: Option<&str>) -> Pipeline {
             pipeline.updated_ms = status.updated_unix.and_then(unix_ms);
             pipeline.promoted = status.promoted;
             pipeline.error = status.error.map(|e| clean(&e));
+            pipeline.manifest = status.manifest.map(PathBuf::from);
             if let Some(controller) = status.controller {
                 pipeline.controller_pid = controller.pid;
                 pipeline.controller_alive = controller_alive(&controller, boot_id);
@@ -110,6 +131,19 @@ pub(crate) fn read(dir: &Path, boot_id: Option<&str>) -> Pipeline {
         }
         Err(error) => pipeline.problem = Some(format!("status.json nicht lesbar ({error})")),
     }
+    pipeline.active = pipeline.problem.is_none()
+        && !matches!(
+            pipeline.phase.as_deref(),
+            Some("complete" | "failed" | "interrupted")
+        )
+        && pipeline.controller_alive != Some(false);
+    pipeline
+}
+
+/// Adds the stages and the running stage's progress, which cost a directory
+/// listing and a few small reads: done only for the pipelines that are shown.
+pub(crate) fn fill(pipeline: &mut Pipeline) {
+    let dir = pipeline.dir.clone();
     pipeline.stages = stages(&dir.join("jobs"));
     let current = pipeline
         .stages
@@ -123,7 +157,6 @@ pub(crate) fn read(dir: &Path, boot_id: Option<&str>) -> Pipeline {
         .or_else(|| pipeline.stages.last());
     pipeline.progress =
         current.and_then(|stage| progress(&dir.join("jobs").join(&stage.name), &stage.name));
-    pipeline
 }
 
 fn display_name(dir: &Path) -> String {

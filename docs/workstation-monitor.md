@@ -34,6 +34,7 @@ exact embedded source and build manifests, even before publication.
 | `--bind` | `127.0.0.1:8787` | Explicit local/LAN socket address |
 | `--allow-host` | none | Another exact `HOST:PORT` browsers may use (repeatable) |
 | `--pipeline` | none | A `train_ops` pipeline directory for the training panel (repeatable, absolute, at most 8) |
+| `--pipeline-root` | none | A directory searched every refresh for `train_ops` execution directories (`<root>/<experiment>/<execution>`; repeatable, absolute, at most 4); new runs appear without a restart |
 | `--interval-ms` | `1000` | Sampling interval, 500–10000 ms |
 | `--history-minutes` | `60` | Per-sample RAM history, 1–120 minutes; the page's ranges above one hour use the 24-hour minute ring |
 
@@ -201,10 +202,16 @@ previous list.
 
 **Pipelines.** Each `--pipeline` directory is a `train_ops` execution
 directory (`status.json`, `jobs/<stage>/job.json`, `jobs/<stage>/stdout.log`,
-`stderr.log`). Directories are explicit configuration: Pulse reads nothing
-outside them, follows no symlink below them and does not search for new ones,
-so a new pipeline needs its own `--pipeline` and a restart. Per refresh and
-pipeline it reads:
+`stderr.log`). Pulse shows the `--pipeline` directories and every execution directory it
+finds below a `--pipeline-root`: on each refresh (the training thread, never
+the 1 Hz sampler) it looks at the root, its children and its grandchildren,
+at most 512 entries per directory, follows no symlink, and counts a directory
+with a `status.json` file and a `jobs` directory as an execution. A new run
+therefore appears, and a finished one changes, within one refresh and without
+a restart. Of all candidates only `status.json` is read first (a cheap peek);
+running pipelines (phase not `complete`, `failed` or `interrupted`, and no
+known-dead controller) come first, then the most recently written, and the
+first ten get the full read below. Per refresh and pipeline it reads:
 
 - `status.json` (at most 64 KiB): `phase`, `updated_unix`, `promoted`, `error`
   and the recorded controller. The controller counts as running when this

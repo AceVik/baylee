@@ -3,6 +3,7 @@
 //! slow bus or disk never delays the 1 Hz sampler. Read-only, like the rest.
 
 mod dbus;
+mod discovery;
 mod pipeline;
 mod safe;
 mod units;
@@ -21,8 +22,12 @@ pub(crate) use units::{Services, Unit};
 
 /// Training changes over minutes; five seconds keeps the panel current.
 const REFRESH: Duration = Duration::from_secs(5);
-/// More would not fit on a phone and could make a refresh slow.
-pub(crate) const MAX_PIPELINES: usize = 8;
+/// Pipelines shown: more would not fit on a phone and would make the view and
+/// every refresh large. Running ones come first, then the newest finished.
+pub(crate) const MAX_PIPELINES: usize = 10;
+/// `--pipeline` flags and `--pipeline-root` flags accepted.
+pub(crate) const MAX_PIPELINE_FLAGS: usize = 8;
+pub(crate) const MAX_ROOT_FLAGS: usize = 4;
 
 #[derive(Clone, Debug, Default, Serialize)]
 pub(crate) struct Training {
@@ -49,14 +54,18 @@ pub(crate) fn parse_pipeline_dir(value: &str) -> Result<PathBuf, String> {
 }
 
 /// Starts the refresh thread, which replaces `shared` after every round.
-pub(crate) fn spawn(pipelines: Vec<PathBuf>, shared: Arc<Mutex<Training>>) -> std::io::Result<()> {
+pub(crate) fn spawn(
+    pipelines: Vec<PathBuf>,
+    roots: Vec<PathBuf>,
+    shared: Arc<Mutex<Training>>,
+) -> std::io::Result<()> {
     std::thread::Builder::new()
         .name("training".into())
         .spawn(move || {
             let mut units = units::Units::default();
             loop {
                 let started = Instant::now();
-                let view = collect(&mut units, &pipelines);
+                let view = collect(&mut units, &pipelines, &roots);
                 *shared.lock().unwrap_or_else(PoisonError::into_inner) = view;
                 std::thread::sleep(REFRESH.saturating_sub(started.elapsed()));
             }
@@ -64,7 +73,36 @@ pub(crate) fn spawn(pipelines: Vec<PathBuf>, shared: Arc<Mutex<Training>>) -> st
     Ok(())
 }
 
-fn collect(units: &mut units::Units, pipelines: &[PathBuf]) -> Training {
+/// The pipelines to show: the explicit directories and everything found below
+/// the roots, running ones first, then the most recently written.
+fn select(
+    explicit: &[PathBuf],
+    roots: &[PathBuf],
+    boot_id: Option<&str>,
+    limit: usize,
+) -> Vec<Pipeline> {
+    let mut seen = std::collections::HashSet::new();
+    let mut all: Vec<Pipeline> = explicit
+        .iter()
+        .cloned()
+        .chain(discovery::find(roots))
+        .filter(|dir| seen.insert(dir.clone()))
+        .map(|dir| pipeline::peek(&dir, boot_id))
+        .collect();
+    all.sort_by(|a, b| {
+        b.active
+            .cmp(&a.active)
+            .then(b.updated_ms.cmp(&a.updated_ms))
+            .then_with(|| a.name.cmp(&b.name))
+    });
+    all.truncate(limit);
+    for pipeline in &mut all {
+        pipeline::fill(pipeline);
+    }
+    all
+}
+
+fn collect(units: &mut units::Units, explicit: &[PathBuf], roots: &[PathBuf]) -> Training {
     let now_ms = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
@@ -80,16 +118,48 @@ fn collect(units: &mut units::Units, pipelines: &[PathBuf]) -> Training {
         units: units.view(),
         services: units.services(),
         units_problem,
-        pipelines: pipelines
-            .iter()
-            .map(|dir| pipeline::read(dir, boot_id))
-            .collect(),
+        pipelines: select(explicit, roots, boot_id, MAX_PIPELINES),
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn run(scratch: &safe::Scratch, at: &str, phase: &str, updated: u64) {
+        scratch.write(
+            &format!("{at}/status.json"),
+            &format!(r#"{{"phase":"{phase}","updated_unix":{updated}}}"#),
+        );
+        std::fs::create_dir_all(scratch.0.join(at).join("jobs")).unwrap();
+    }
+
+    #[test]
+    fn running_pipelines_come_first_then_the_newest_and_new_runs_appear() {
+        let scratch = safe::Scratch::new("select");
+        run(&scratch, "a/execution", "complete", 300);
+        run(&scratch, "b/execution", "complete", 100);
+        run(&scratch, "c/execution", "train-x", 50);
+        run(&scratch, "d/execution", "interrupted", 400);
+        let roots = [scratch.0.clone()];
+        let names = |limit| -> Vec<String> {
+            select(&[], &roots, None, limit)
+                .into_iter()
+                .map(|p| p.name)
+                .collect()
+        };
+        assert_eq!(
+            names(10),
+            ["c/execution", "d/execution", "a/execution", "b/execution"]
+        );
+        assert_eq!(names(2), ["c/execution", "d/execution"]);
+        // A run that starts later shows up on the next round, first.
+        run(&scratch, "e/execution", "convert", 60);
+        assert_eq!(names(10)[0], "e/execution");
+        // An explicit directory that is also below a root is listed once.
+        let both = select(&[scratch.0.join("a/execution")], &roots, None, 10);
+        assert_eq!(both.len(), 5);
+    }
 
     #[test]
     fn pipeline_directories_are_absolute_and_plain() {

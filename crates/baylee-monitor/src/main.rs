@@ -48,6 +48,11 @@ struct Options {
     /// (repeatable, absolute, at most 8).
     #[arg(long = "pipeline", value_name = "DIR", value_parser = training::parse_pipeline_dir)]
     pipelines: Vec<PathBuf>,
+    /// A directory to search, every few seconds, for `train_ops` execution
+    /// directories (`<root>/<experiment>/<execution>`, repeatable, absolute,
+    /// at most 4). New runs appear without a restart.
+    #[arg(long = "pipeline-root", value_name = "DIR", value_parser = training::parse_pipeline_dir)]
+    pipeline_roots: Vec<PathBuf>,
 }
 
 #[tokio::main(flavor = "current_thread")]
@@ -58,9 +63,14 @@ async fn main() -> anyhow::Result<()> {
         "Use an explicit loopback or LAN address, not a wildcard"
     );
     anyhow::ensure!(
-        options.pipelines.len() <= training::MAX_PIPELINES,
+        options.pipelines.len() <= training::MAX_PIPELINE_FLAGS,
         "At most {} --pipeline directories",
-        training::MAX_PIPELINES
+        training::MAX_PIPELINE_FLAGS
+    );
+    anyhow::ensure!(
+        options.pipeline_roots.len() <= training::MAX_ROOT_FLAGS,
+        "At most {} --pipeline-root directories",
+        training::MAX_ROOT_FLAGS
     );
     let listener = listen::bind(options.bind, listen::ADDRESS_WAIT).await?;
     let interval = Duration::from_millis(options.interval_ms);
@@ -80,7 +90,11 @@ async fn main() -> anyhow::Result<()> {
     };
     let history = state.history.clone();
     let latest_training = Arc::new(Mutex::new(training::Training::default()));
-    training::spawn(options.pipelines.clone(), latest_training.clone())?;
+    training::spawn(
+        options.pipelines.clone(),
+        options.pipeline_roots.clone(),
+        latest_training.clone(),
+    )?;
     // Dedicated thread, no timer burst catch-up and no blocking work on the HTTP executor.
     std::thread::Builder::new()
         .name("telemetry".into())
@@ -108,10 +122,11 @@ async fn main() -> anyhow::Result<()> {
             }
         })?;
     eprintln!(
-        "Baylee Pulse: {} · {} ms · {} pipeline(s) · read only",
+        "Baylee Pulse: {} · {} ms · {} pipeline(s) · {} root(s) · read only",
         state.admission.urls().join(" · "),
         options.interval_ms,
-        options.pipelines.len()
+        options.pipelines.len(),
+        options.pipeline_roots.len()
     );
     axum::serve(listener, server::router(state))
         .with_graceful_shutdown(shutdown())
