@@ -46,7 +46,6 @@ mod seatrate;
 mod sessions;
 mod sets;
 mod social;
-mod standing;
 mod store;
 mod terms;
 mod termsadmin;

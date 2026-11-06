@@ -80,10 +80,11 @@ const TRANSPORT_LIMIT: usize = 64 * 1024;
 /// the socket with 1008 (over 64 KiB the transport drops the connection),
 /// and so do more than 40 frames at once or more than 10 a second after
 /// that; a binary frame closes it with 1003. It also closes with 1008 when
-/// the first frame is not a `hello`, when a frame is not one of the client's
-/// frames, and when the session is signed out, lapses or is banned (checked
-/// every 5 seconds; a Central or database failure counts only after lasting
-/// 60 seconds in a row); with 1013 when the database cannot be read; with 4001
+/// the first frame is not a `hello` and when a frame is not one of the client's
+/// frames; with a refusal (close code 4000, `docs/protocol.md` §"Refusals") the
+/// moment the session is signed out, revoked or banned, or it lapses, which
+/// Baylee Central being away never is; with 1013 when the database cannot be
+/// read; with 4001
 /// when another socket says `hello` for the same device; with 4002 when a
 /// guest's device is replaced; with 4003 when the device is removed; and
 /// with 1000 when the account is deleted. The gateway pings every 20
@@ -138,7 +139,10 @@ pub(crate) async fn social_ws(
     Ok(ws
         .max_message_size(TRANSPORT_LIMIT)
         .max_frame_size(TRANSPORT_LIMIT)
-        .on_upgrade(move |socket| run(state, account_id, live, socket)))
+        .on_upgrade(move |socket| async move {
+            let _place = place;
+            run(state, account_id, live, socket).await;
+        }))
 }
 
 /// The one frame a socket of another version is sent before it closes.

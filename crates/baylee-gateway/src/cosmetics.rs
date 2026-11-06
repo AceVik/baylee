@@ -557,7 +557,7 @@ pub type TableCosmetics = HashMap<usize, SeatCosmetics>;
 /// @return 413: String text/plain "A body over 8 mebibytes (axum's rejection), or as an `$ErrorBody` a picture of over 64 megapixels or 16384 pixels a side"
 /// @return 429: `$ErrorBody` "More than 60 uploads by this account in an hour"
 /// @return 500: `$ErrorBody` "The picture could not be stored"
-/// @return 503: `$ErrorBody` "Uploads are off on this gateway (`BAYLEE_DECK_IMAGE_PATH=off`), or its account store or Baylee Central is unavailable"
+/// @return 503: `$ErrorBody` "Uploads are off on this gateway (`BAYLEE_DECK_IMAGE_PATH=off`), or its account store is unavailable"
 pub async fn upload(
     State(state): State<Shared>,
     headers: HeaderMap,

@@ -13,7 +13,7 @@ mod link;
 mod sessions;
 pub use legacy::{Ban, LegacyAccount, adopt, legacy_accounts};
 pub use link::{StoredLink, clear_link, link, set_link};
-pub use sessions::{projection, take_profile};
+pub use sessions::{linked_account, projection, take_profile};
 
 /// Snapshot size admitted by the initial encrypted account-document format.
 pub const MAX_SNAPSHOT_BYTES: usize = 196_608;

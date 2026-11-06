@@ -160,7 +160,23 @@ async fn sign_in(state: &Shared, token: &str, purpose: Purpose) -> Result<Json<V
         return Err(StatusCode::UNAUTHORIZED);
     }
     let central = claims.account().ok_or(StatusCode::UNAUTHORIZED)?;
-    let _guard = exclusive(state).await?;
+    // The barrier drains requests while a link is fixed, so a sign-in that
+    // fixes none has nothing to wait for: taking it would let any slow
+    // request refuse it, and stall every route behind it for as long.
+    let linked = baylee_db::central::linked_account(&state.db, central)
+        .await
+        .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?;
+    let settled = linked.is_some_and(|account| {
+        claims
+            .legacy_id
+            .as_ref()
+            .is_none_or(|legacy| *legacy == account)
+    });
+    let _guard = if settled {
+        None
+    } else {
+        Some(exclusive(state).await?)
+    };
     let admin = purpose == Purpose::Admin;
     let account_id = match (bridge.legacy, claims.legacy_id.clone()) {
         // The official gateway: a moved account is the legacy account it

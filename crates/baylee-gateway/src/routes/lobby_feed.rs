@@ -31,13 +31,13 @@ use crate::{
 /// `ticket expired or used` for a ticket that is unknown, spent, expired or
 /// for another socket, or whose session has since signed out, lapsed, been
 /// banned or must accept new terms, and with `503` when the account store
-/// or Baylee Central cannot be asked. The client sends nothing: the gateway
-/// reads the socket only to notice it closing. It pings every 20 seconds
-/// and drops a socket that has said nothing for 50 (a pong counts). It
-/// checks the session again every 5 seconds, and once it is signed out,
-/// lapsed or banned, or the account is deleted, it sends a close frame
-/// without a code; a Central or database failure does the same only after
-/// lasting 60 seconds in a row. An open lobby socket counts its account as online
+/// cannot be asked. The client sends nothing: the gateway reads the socket
+/// only to notice it closing. It pings every 20 seconds and drops a socket
+/// that has said nothing for 50 (a pong counts). The socket watches its
+/// session: the moment it is signed out, revoked or banned, it lapses, or the
+/// account is deleted, the socket closes with a refusal (close code 4000,
+/// `docs/protocol.md` §"Refusals"). Baylee Central being away ends nothing.
+/// An open lobby socket counts its account as online
 /// (`GET /lobby/stats`) and keeps its waiting-room chairs. A frame over 1 KiB
 /// ends the connection. An account holding 32 sockets (lobby, social and
 /// spectator together) is refused `429` until one closes.
@@ -94,11 +94,14 @@ pub(crate) async fn lobby_ws(
             .map_err(|status| err(status, TICKET_REFUSED))?;
         (session.account_id, live)
     };
-    Ok(
-        ws.on_upgrade(move |socket| {
-            run_lobby_socket(state, account_id, live, params.query, socket)
-        }),
-    )
+    let place = crate::presence::socket_place(&state, &account_id)?;
+    Ok(ws
+        .max_message_size(MAX_LOBBY_FRAME)
+        .max_frame_size(MAX_LOBBY_FRAME)
+        .on_upgrade(move |socket| async move {
+            let _place = place;
+            run_lobby_socket(state, account_id, live, params.query, socket).await;
+        }))
 }
 
 /// The biggest frame a lobby socket takes: the client says nothing here, and

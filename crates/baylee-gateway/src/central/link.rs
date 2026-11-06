@@ -62,9 +62,7 @@ fn entry(state: &Shared, origin: &str, registered: &GatewayMetadata) -> Option<G
 
 /// What Central says about `token`, through a bridge of it.
 async fn status(bridge: &Arc<Bridge>) -> Result<wire::Response, StatusCode> {
-    bridge
-        .exchange(wire::Request::GatewayStatus, super::Asker::Gateway)
-        .await
+    bridge.exchange(wire::Request::GatewayStatus).await
 }
 
 /// Read the pasted token from the database at start, unless the operator's
@@ -399,10 +397,7 @@ async fn paste(
             && let Some(metadata) = bridge.metadata.clone()
         {
             let _ = bridge
-                .exchange(
-                    wire::Request::GatewayHeartbeat { metadata },
-                    super::Asker::Gateway,
-                )
+                .exchange(wire::Request::GatewayHeartbeat { metadata })
                 .await;
         }
         super::publish_terms(&app).await;

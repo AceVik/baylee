@@ -454,7 +454,7 @@ fn just_ended(state: &Shared, game_id: &str) -> bool {
 /// @return 413: `$ErrorBody` "The game's record is over 8 mebibytes compressed"
 /// @return 429: `$ErrorBody` "More than 6 tapes a minute, or 2 at once, for the account"
 /// @return 502: `$ErrorBody` "The tape passed 32 mebibytes compressed, or its engine failed or went away"
-/// @return 503: `$ErrorBody` "Replays are off (`BAYLEE_REPLAY_JOBS=0`), as many are being made as the gateway allows, no agent has room, admission is held, or the account store or Baylee Central is unavailable"
+/// @return 503: `$ErrorBody` "Replays are off (`BAYLEE_REPLAY_JOBS=0`), as many are being made as the gateway allows, no agent has room, admission is held, or the account store is unavailable"
 /// @return 504: `$ErrorBody` "No tape within the job's time (`BAYLEE_REPLAY_JOB_SECS`, 60 s by default)"
 pub(crate) async fn replay_tape(
     State(state): State<Shared>,

@@ -94,12 +94,12 @@
 //! @openapi-fragment `SessionRefusals`
 //! @return 401: `$ErrorBody` "No bearer token, or one that is invalid or expired"
 //! @return 403: `$ErrorBody` "The account is banned (`ban`) or must accept the terms in force first (`terms_required`)"
-//! @return 503: `$ErrorBody` "The account store or Baylee Central is unavailable"
+//! @return 503: `$ErrorBody` "The account store is unavailable"
 //!
 //! @openapi-fragment `SessionRefusalsAnyTerms`
 //! @return 401: `$ErrorBody` "No bearer token, or one that is invalid or expired"
 //! @return 403: `$ErrorBody` "The account is banned (`ban`)"
-//! @return 503: `$ErrorBody` "The account store or Baylee Central is unavailable"
+//! @return 503: `$ErrorBody` "The account store is unavailable"
 //!
 //! @asyncapi
 //! @scope public

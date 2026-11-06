@@ -122,7 +122,7 @@ pub const GUEST_REFUSED: &str =
 /// @return 404: `$ErrorBody` "No such room (`no such game`) or chair (`no such seat`)"
 /// @return 409: `$ErrorBody` "The game has started, or the chair is not an open person's chair"
 /// @return 429: `$ErrorBody` "More than 30 chair tickets asked for by this host in a minute"
-/// @return 503: `$ErrorBody` "The account store or Baylee Central is unavailable, or too many chairs are being handed over"
+/// @return 503: `$ErrorBody` "The account store is unavailable, or too many chairs are being handed over"
 pub(crate) async fn mint(
     State(state): State<Shared>,
     headers: HeaderMap,

@@ -47,7 +47,7 @@ pub(crate) fn may_watch(game: &lobby::LobbyGame) -> Result<(), (StatusCode, Json
 /// no spectators (any more) and `409` when it is not being played; with
 /// `403` and `ban` or `terms_required` when the account is banned or must
 /// accept new terms, `401` when it must choose a new password, and `503`
-/// when the account store or Baylee Central cannot be asked. A client of
+/// when the account store cannot be asked. A client of
 /// another protocol is let in, sent one `HelloAck` and closed. Otherwise
 /// the socket waits up to 30 seconds for the game's engine (and closes if
 /// none attaches), the engine is told the spectator count, and every
@@ -56,10 +56,11 @@ pub(crate) fn may_watch(game: &lobby::LobbyGame) -> Result<(), (StatusCode, Json
 /// the same. A spectator is never waited for by the curtain, never on a
 /// clock, and may leave at any time. A frame the spectator sends is dropped,
 /// and one over 64 KiB ends the connection; there is no rate bound. An account
-/// holding 32 sockets is refused `429` until one closes. The session is checked again
-/// every 5 seconds; once it is signed out, lapsed or banned, or the game
-/// ends, the socket closes with a close frame without a code. A Central or
-/// database failure does the same only after lasting 60 seconds in a row.
+/// holding 32 sockets is refused `429` until one closes. The socket watches its
+/// session: the moment it is signed out, revoked or banned, or it lapses, the
+/// socket closes with a refusal (close code 4000, `docs/protocol.md`
+/// §"Refusals"), and with a close frame without a code when the game ends.
+/// Baylee Central being away ends nothing.
 /// @ws-query ticket: String required "A single-use ticket bought for watching this game with `POST /ws-ticket` and the session"
 /// @ws-query protocol: u32 required "The protocol the client speaks (`PROTOCOL_VERSION`, as `GET /info` answers it); another, or none, is answered with a `HelloAck` that is not compatible"
 /// parameters:
@@ -118,7 +119,11 @@ pub(crate) async fn watch_ws(
     let place = crate::presence::socket_place(&state, &watcher)?;
     Ok(ws
         .max_message_size(MAX_SEAT_FRAME)
-        .on_upgrade(move |socket| run_watch_socket(state, id, Some(watcher), live, socket)))
+        .max_frame_size(MAX_SEAT_FRAME)
+        .on_upgrade(move |socket| async move {
+            let _place = place;
+            run_watch_socket(state, id, Some(watcher), live, socket).await;
+        }))
 }
 
 /// Moves the game's spectator count by `by` and tells its engine; `joined`
@@ -219,7 +224,7 @@ pub(crate) async fn run_watch_socket(
             }
         }
     }
-    let _ = socket.send(Message::Close(None)).await;
+    let _ = socket.send(Message::Close(live.close_frame())).await;
     if let Some(account) = &watcher {
         state.social.watch_end(account, &game_id);
     }

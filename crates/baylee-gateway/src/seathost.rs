@@ -708,7 +708,7 @@ async fn standing(
 /// @tag Chairs
 /// @security bearer
 /// @insert `SessionRefusals`
-/// @return 503: `$ErrorBody` "The account store or Baylee Central is unavailable, or the gateway's database is"
+/// @return 503: `$ErrorBody` "The account store is unavailable, or the gateway's database is"
 pub(crate) async fn profiles(
     State(state): State<Shared>,
     headers: HeaderMap,

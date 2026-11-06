@@ -8,8 +8,6 @@ use crate::{
 };
 use std::sync::Arc;
 
-use crate::standing::{Grace, Standing};
-
 mod ownership;
 use ownership::{Connection, Ownership};
 
@@ -57,14 +55,15 @@ use ownership::{Connection, Ownership};
 /// are passed over. A seat token holding 32 sockets is refused `429` until
 /// one closes. A socket that falls behind the engine is not dropped:
 /// the engine is asked to send it a fresh snapshot. A newer socket for the
-/// same chair replaces this one, which closes. The chair's authorization is
-/// checked again every 5 seconds and before each frame is forwarded, and
-/// the socket closes, with a close frame without a code, once it no longer
-/// holds (the seat token was replaced or ended, or the Central session
-/// behind it lapsed or was banned; a Central or database failure says none
-/// of that, and closes the socket only once it has lasted 60 seconds in a
-/// row, during which frames are forwarded and asked about only every 5
-/// seconds), once the engine's link ends, and at the
+/// same chair replaces this one, which closes. The socket watches the session
+/// behind its chair, and each frame is checked against that in memory before it
+/// is forwarded: the moment the session is signed out, revoked or banned, or
+/// it lapses, the socket closes with a refusal (close code 4000,
+/// `docs/protocol.md` §"Refusals") and nothing more reaches the engine. Baylee
+/// Central being away ends nothing. The chair's authorization is checked again
+/// every 5 seconds, and the socket closes, with a close frame without a code,
+/// once it no longer holds (the seat token was replaced or ended), once the
+/// engine's link ends, and at the
 /// first frame the client sends after the engine said the seat is out of
 /// the game. While a chair has no socket, its frames are dropped and the
 /// engine holds its place for the reconnect window (`docs/protocol.md`,
@@ -181,8 +180,9 @@ pub(crate) async fn game_ws(
         .max_message_size(MAX_SEAT_FRAME)
         .max_frame_size(MAX_SEAT_FRAME)
         .read_buffer_size(SEAT_READ_BUFFER)
-        .on_upgrade(move |socket| {
-            run_game_socket(state, id, seat, authorization, live, ownership, socket)
+        .on_upgrade(move |socket| async move {
+            let _place = place;
+            run_game_socket(state, id, seat, authorization, live, ownership, socket).await;
         }))
 }
 

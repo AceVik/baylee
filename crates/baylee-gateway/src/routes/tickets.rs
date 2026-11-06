@@ -118,7 +118,7 @@ pub(crate) struct TicketGrant {
 /// @return 404: `$ErrorBody` "No such game (`seat`, `watch`)"
 /// @return 409: `$ErrorBody` "The table is not playing (`watch`)"
 /// @return 429: `$ErrorBody` "More than 30 spectators' tickets for this account in a minute (`watch`)"
-/// @return 503: `$ErrorBody` "The account store or Baylee Central is unavailable, or too many sockets are being opened"
+/// @return 503: `$ErrorBody` "The account store is unavailable, or too many sockets are being opened"
 pub(crate) async fn ws_ticket(
     State(state): State<Shared>,
     headers: HeaderMap,
@@ -144,6 +144,11 @@ pub(crate) async fn ws_ticket(
         }
         TicketFor::Watch { game } => {
             let session = authed_session(&state, &headers).await?;
+            // Each spectator that opens asks the engine for a whole snapshot,
+            // sent to everybody watching, however briefly it stays.
+            if !state.watch_tickets.allow(&session.account_id) {
+                return Err(err(StatusCode::TOO_MANY_REQUESTS, "too many attempts"));
+            }
             {
                 let lobby = state.lobby.lock();
                 let table = lobby

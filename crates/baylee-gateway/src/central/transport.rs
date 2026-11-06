@@ -1,18 +1,17 @@
 //! The bridge's exchange with Central, on the runtime.
 //!
-//! Every session check goes through here, so an exchange holds a task and no
-//! thread: `baylee_account::CentralHttp`, which a report's upload still uses,
-//! blocks a thread for as long as Central takes. The settings are that
-//! transport's, and they are the point of it: TLS verified against the `WebPKI`
-//! roots, no proxy, no redirect followed, `https` only on the live endpoint,
-//! and every wait bounded.
+//! The gateway's own business goes through here, its catch-up on revocations
+//! above all, so an exchange holds a task and no thread:
+//! `baylee_account::CentralHttp`, which a report's upload and the key fetch
+//! still use, blocks a thread for as long as Central takes. The settings are
+//! that transport's, and they are the point of it: TLS verified against the
+//! `WebPKI` roots, no proxy, no redirect followed, `https` only on the live
+//! endpoint, and every wait bounded.
 //!
-//! **One thing is deliberately stricter.** `401` is Central refusing, and the
-//! only answer that means a session is gone; a socket closes on it at once
-//! (`standing.rs`). So nothing else may read as `Rejected` here: a status
+//! **One thing is deliberately stricter.** `401` is Central refusing this
+//! gateway's credential. So nothing else may read as `Rejected` here: a status
 //! Central does not send, the wrong content type and a body that does not
 //! decode are what something in the way sends, and read as `Unavailable`.
-//! Otherwise a proxy's error page would end every session behind it.
 
 use baylee_account::{Endpoint, Error, Token, wire};
 use bytes::Bytes;
@@ -117,6 +116,7 @@ impl Transport {
     ) -> Result<wire::Response, Error> {
         let mut request = hyper::Request::post(self.url.as_str())
             .header(CONTENT_TYPE, "application/json")
+            .header(central_api::PROTOCOL_HEADER, central_api::PROTOCOL_VERSION)
             .body(Full::new(body))
             .map_err(|_| Error::Unavailable)?;
         if let Some(bearer) = bearer {
@@ -134,6 +134,7 @@ impl Transport {
             403 => return Err(Error::TermsRequired),
             409 => return Err(Error::Conflict),
             429 => return Err(Error::Busy),
+            central_api::UPDATE_REQUIRED_STATUS => return Err(Error::UpdateRequired),
             _ => return Err(Error::Unavailable),
         }
         if parts.headers.get(CONTENT_TYPE).map(HeaderValue::as_bytes) != Some(b"application/json") {

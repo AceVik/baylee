@@ -129,7 +129,7 @@ pub(crate) struct CreateGameBody {
 /// @return 409: `$ErrorBody` "The deck holds a card blocked on this gateway, or the caller is still playing a running game"
 /// @return 429: `$ErrorBody` "The caller already hosts 8 waiting rooms"
 /// @return 500: `$ErrorBody` "The house deck is missing from this build"
-/// @return 503: `$ErrorBody` "The account store or Baylee Central is unavailable, the gateway's database is, or no engine could be ordered for `mode: ai` (no agent, or a deploy holds new games)"
+/// @return 503: `$ErrorBody` "The account store is unavailable, the gateway's database is, or no engine could be ordered for `mode: ai` (no agent, or a deploy holds new games)"
 pub(crate) async fn create_game(
     State(state): State<Shared>,
     headers: HeaderMap,
@@ -312,7 +312,7 @@ pub(crate) struct JoinGameBody {
 /// @return 404: `$ErrorBody` "No such room (`no such game`) or deck (`no such deck`)"
 /// @return 409: `$ErrorBody` "The game has started, the caller already sits there, the chair is taken, the table is full, the deck holds a card blocked here, or the caller is still playing a running game"
 /// @return 429: `$ErrorBody` "Eight wrong passwords for this room by this account in five minutes"
-/// @return 503: `$ErrorBody` "The account store or Baylee Central is unavailable, or the gateway's database is"
+/// @return 503: `$ErrorBody` "The account store is unavailable, or the gateway's database is"
 pub(crate) async fn join_game(
     State(state): State<Shared>,
     headers: HeaderMap,
@@ -575,7 +575,7 @@ pub(crate) struct SeatBody {
 /// @return 404: `$ErrorBody` "No such room (`no such game`), chair (`no such seat`) or deck (`no such deck`)"
 /// @return 409: `$ErrorBody` "The game has started, someone sits in the chair made the AI's, `ai` for a chair that is not the AI's, or a deck (the chosen one, or the house deck an AI chair gets) holds a card blocked here"
 /// @return 500: `$ErrorBody` "The house deck is missing from this build"
-/// @return 503: `$ErrorBody` "The account store or Baylee Central is unavailable, or the gateway's database is"
+/// @return 503: `$ErrorBody` "The account store is unavailable, or the gateway's database is"
 #[allow(clippy::too_many_lines)] // validate the complete edit before committing one chair
 pub(crate) async fn set_seat(
     State(state): State<Shared>,
@@ -757,7 +757,7 @@ pub(crate) const fn yes() -> bool {
 /// @return 404: `$ErrorBody` "No such room (`no such game`), or the caller has no chair there (`you are not at this table`)"
 /// @return 409: `$ErrorBody` "The game has started, the chair has no deck (`pick a deck first`), the deck holds a card blocked here, or (a rematch room starting) every chair is on one team or a player is still in another running game"
 /// @return 500: `$ErrorBody` "A rematch room that would start, but the house deck is missing from this build"
-/// @return 503: `$ErrorBody` "The account store or Baylee Central is unavailable, the card catalog's database is, or no engine could be ordered for a rematch room that would start"
+/// @return 503: `$ErrorBody` "The account store is unavailable, the card catalog's database is, or no engine could be ordered for a rematch room that would start"
 pub(crate) async fn set_ready(
     State(state): State<Shared>,
     headers: HeaderMap,
@@ -838,7 +838,7 @@ pub(crate) async fn set_ready(
 /// @return 404: `$ErrorBody` "No such room"
 /// @return 409: `$ErrorBody` "The game has started, not every chair is ready, the room changed meanwhile (`the room is no longer ready`), every chair is on one team, a deck holds a card blocked here, or a player is still in another running game"
 /// @return 500: `$ErrorBody` "The house deck is missing from this build"
-/// @return 503: `$ErrorBody` "The account store or Baylee Central is unavailable, the card catalog's database is, or no engine could be ordered (no agent, or a deploy holds new games)"
+/// @return 503: `$ErrorBody` "The account store is unavailable, the card catalog's database is, or no engine could be ordered (no agent, or a deploy holds new games)"
 pub(crate) async fn start_room(
     State(state): State<Shared>,
     headers: HeaderMap,
