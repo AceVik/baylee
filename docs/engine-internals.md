@@ -2301,6 +2301,12 @@ recovery source of truth. Budgets: legal_actions < 50 µs, engine clone
 
 ### The replay contract
 
+**Until the first release candidate this contract does not bind** (owner, 6.11.2026). Baylee is
+in beta, so a change may move the state hash or stored games; refresh the fixture with
+`refresh_fixture_hashes` and say so in the commit. It binds again from the first release
+candidate on. Recorded LLM games stay useful as training data either way: an older record
+converts on the frozen runtime of its build.
+
 A game is its preset (seed included) plus every `(seat, action)` handed to
 `Engine::apply`, in the order they were handed in. The seat is part of the
 record and is never read back out of `pending()`: before turn 1 every seat is
