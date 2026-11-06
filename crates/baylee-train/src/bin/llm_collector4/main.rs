@@ -60,6 +60,10 @@ enum Commands {
         db_pool: usize,
         #[arg(long, default_value_t = 32)]
         replay_jobs: usize,
+        /// Let guests in as well: `ladder4`'s seats sign in as guests, the
+        /// collector's teachers never do. A private loopback gateway only.
+        #[arg(long)]
+        guests: bool,
     },
     /// Run N concurrent LLM self-play tables against a single gateway + agent.
     Collect {
@@ -139,6 +143,7 @@ async fn main() -> anyhow::Result<()> {
             agent_capacity,
             db_pool,
             replay_jobs,
+            guests,
         } => {
             run_serve(
                 &root,
@@ -149,6 +154,7 @@ async fn main() -> anyhow::Result<()> {
                 agent_capacity,
                 db_pool,
                 replay_jobs,
+                guests,
             )
             .await
         }
@@ -427,6 +433,7 @@ async fn run_serve(
     agent_capacity: usize,
     db_pool: usize,
     replay_jobs: usize,
+    guests: bool,
 ) -> anyhow::Result<()> {
     let gw_dir = root.join("gateway");
     let _controller_lock = controller_lock(&gw_dir)?;
@@ -478,8 +485,8 @@ async fn run_serve(
         .env("BAYLEE_ART_PATH", "off")
         .env("BAYLEE_DECK_IMAGE_PATH", "off")
         // Nobody signs in here: the collector writes its teachers into this
-        // gateway's database (`teacher.rs`), and guests stay out.
-        .env("BAYLEE_AUTH_MODE", "central")
+        // gateway's database (`teacher.rs`), and guests stay out unless asked.
+        .env("BAYLEE_AUTH_MODE", if guests { "mixed" } else { "central" })
         .env("BAYLEE_REGISTRATION", "on")
         .env("BAYLEE_TERMS_PATH", "off")
         .env("BAYLEE_SOCIAL", "off")

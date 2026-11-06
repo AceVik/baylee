@@ -75,10 +75,13 @@ fn schedule(args: &Args) -> Result<Vec<Game>> {
         .context("manifest has no decks")?;
     ensure!(decks.len() >= 2, "A ladder needs two decks");
     let mut games = Vec::new();
-    let mut at = args.first_deck;
     for arm in &args.arm {
-        let parts: Vec<&str> = arm.split(':').collect();
-        let [profile, mode, count] = parts[..] else {
+        // Every arm plays the same decks in the same order, so that two arms
+        // differ in what they play, not in what they were dealt to play with.
+        let mut at = args.first_deck;
+        // From the right: `house:sharp` is a profile with a colon of its own.
+        let parts: Vec<&str> = arm.rsplitn(3, ':').collect();
+        let [count, mode, profile] = parts[..] else {
             bail!("an arm is PROFILE:MODE:GAMES, not {arm}");
         };
         ensure!(matches!(mode, "raw" | "tactical"), "unknown mode {mode}");
@@ -180,15 +183,23 @@ fn guest(args: &Args, game: &Game, room: &str, work: &Path) -> Result<Child> {
         .arg(&args.gateway)
         .arg("--chair")
         .arg("1")
-        .arg("--tethered")
-        .arg("--profile")
-        .arg(&game.profile)
-        .arg("--config")
-        .arg(&args.profiles)
-        .arg("--ledger")
-        .arg(&args.ledger)
-        .arg("--level")
-        .arg("sharp")
+        .arg("--tethered");
+    // `house:<level>` seats the house, which needs no key: the same path with
+    // nothing to pay, and a rung of its own.
+    if let Some(level) = game.profile.strip_prefix("house:") {
+        command.arg("--mind").arg("house").arg("--level").arg(level);
+    } else {
+        command
+            .arg("--profile")
+            .arg(&game.profile)
+            .arg("--config")
+            .arg(&args.profiles)
+            .arg("--ledger")
+            .arg(&args.ledger)
+            .arg("--level")
+            .arg("sharp");
+    }
+    command
         .arg("--deck")
         .arg(&game.llm_deck)
         .arg("--think-secs")
@@ -228,10 +239,30 @@ fn reap(child: &mut Child) {
     let _ = child.wait();
 }
 
+/// A corpus deck as the seats read one: its count lines under `Deck`.
+fn plain_deck(source: &Path, target: PathBuf) -> Result<PathBuf> {
+    let text =
+        std::fs::read_to_string(source).with_context(|| format!("reading {}", source.display()))?;
+    let mut plain = String::from("Deck\n");
+    for line in text.lines() {
+        if line.starts_with(|first: char| first.is_ascii_digit()) {
+            plain.push_str(line);
+            plain.push('\n');
+        }
+    }
+    std::fs::write(&target, plain)?;
+    Ok(target)
+}
+
 fn play(args: &Args, game: &Game) -> Result<Value> {
     let work = args.root.join(format!("game-{:04}", game.index));
     std::fs::create_dir_all(work.join("transcripts"))?;
     let started = Instant::now();
+    let game = &Game {
+        net_deck: plain_deck(&game.net_deck, work.join("net-deck.txt"))?,
+        llm_deck: plain_deck(&game.llm_deck, work.join("llm-deck.txt"))?,
+        ..game.clone()
+    };
     let (mut net, room, mut lines) = host(args, game, &work)?;
     let mut model = guest(args, game, &room, &work)?;
     let reader = std::thread::spawn(move || -> Option<Value> {
