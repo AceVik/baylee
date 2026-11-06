@@ -1278,6 +1278,7 @@ fn cast_label(
         K::Disguise => Phrase::CastDisguise.text(lang).to_string(),
         K::Prototype => Phrase::CastPrototype.text(lang).to_string(),
         K::Miracle => Phrase::CastMiracle.text(lang).to_string(),
+        K::Madness => Phrase::CastMadness.text(lang).to_string(),
         K::Flashback => Phrase::CastFlashback.text(lang).to_string(),
         K::Foretell => Phrase::CastForetell.text(lang).to_string(),
         K::BeamMeUp => Phrase::CastBeamMeUp.text(lang).to_string(),

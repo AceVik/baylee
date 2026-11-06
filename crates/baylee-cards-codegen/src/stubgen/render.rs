@@ -177,6 +177,10 @@ fn render_card(
             (Some(body), 0) => (body.flashback.as_deref(), body.flashback_parts.as_slice()),
             _ => (None, &[]),
         };
+        let madness = match (&land, i) {
+            (Some(body), 0) => body.madness.as_deref(),
+            _ => None,
+        };
         let foretell = match (&land, i) {
             (Some(body), 0) => body.foretell.as_deref(),
             _ => None,
@@ -204,6 +208,7 @@ fn render_card(
             enters,
             flashback,
             flashback_parts,
+            madness,
             foretell,
             cost_reduction,
             entwine,

@@ -21,12 +21,14 @@ mod commit;
 mod division;
 mod grants;
 mod linked;
+mod madness;
 mod north_star;
 mod options;
 mod permissions;
 mod pricing;
 mod stages;
 mod transformed;
+pub(crate) use madness::madness_options;
 use pricing::FrozenReduction;
 
 /// The most times a repeatable additional cost is announced: replicate's copies
@@ -107,6 +109,8 @@ pub(crate) struct CastWizard {
     pub player: PlayerId,
     /// Chosen cast option.
     pub option: Option<CastModeKind>,
+    /// Alternative cost paid independently of a modal choice (CR 118.9a).
+    pub alternative_cost: Option<CastModeKind>,
     /// Public cost route before separating its face and modal choices.
     pub announced: Option<CastModeKind>,
     /// An effect constrains this cast to a transforming back face.
@@ -214,6 +218,7 @@ impl CastWizard {
             card,
             player,
             option: None,
+            alternative_cost: None,
             announced: None,
             forced_face: None,
             north_star: None,
@@ -319,6 +324,16 @@ impl CastWizard {
                 .wrapping_add(crate::state::structural_fingerprint(&(
                     self.multikicked,
                     self.buyback,
+                )));
+        }
+        // A separate alternative cost changes the meaning of modal answers.
+        // Keep the legacy fingerprint byte-for-byte when no such route exists.
+        if self.alternative_cost.is_some() {
+            hash = hash
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&(
+                    self.alternative_cost,
+                    self.option,
                 )));
         }
         hash = hash
@@ -465,6 +480,7 @@ pub(crate) fn wizard_alternative_parts(
     match option {
         Some(CastModeKind::Alternative(index)) => face.alternative_costs[index].cost.parts,
         Some(CastModeKind::Flashback) => face.flashback_parts,
+        Some(CastModeKind::Madness) => face.madness.expect("madness").parts,
         _ => &[],
     }
 }
@@ -480,12 +496,14 @@ pub(crate) fn wizard_buyback_parts(
     }
 }
 
-/// Which of a face's non-mana costs a cast pays: the way it is cast, and
-/// whether it announced its buyback, the one optional cost with parts.
+/// Which of a face's non-mana costs a cast pays: the way it is cast, its
+/// alternative cost when that is separate from its modes, and buyback.
 #[derive(Clone, Copy, Debug, Default)]
 pub(crate) struct CostChoice {
     /// The chosen way of casting.
     pub option: Option<CastModeKind>,
+    /// Alternative cost paid independently of a modal choice (CR 118.9a).
+    pub alternative_cost: Option<CastModeKind>,
     /// Whether the buyback cost is paid.
     pub buyback: bool,
 }
@@ -494,6 +512,7 @@ impl From<Option<CastModeKind>> for CostChoice {
     fn from(option: Option<CastModeKind>) -> Self {
         Self {
             option,
+            alternative_cost: None,
             buyback: false,
         }
     }
@@ -506,8 +525,12 @@ pub(crate) fn wizard_cost_parts(
     face: &'static baylee_cards_dsl::FaceDef,
     choice: impl Into<CostChoice>,
 ) -> impl Iterator<Item = &'static CostPart> {
-    let CostChoice { option, buyback } = choice.into();
-    wizard_alternative_parts(face, option)
+    let CostChoice {
+        option,
+        alternative_cost,
+        buyback,
+    } = choice.into();
+    wizard_alternative_parts(face, alternative_cost.or(option))
         .iter()
         .chain(wizard_mandatory_parts(face, option))
         .chain(wizard_buyback_parts(face, buyback))
@@ -629,6 +652,34 @@ impl<L: CardLookup> Engine<L> {
         self.advance_cast_wizard()
     }
 
+    /// Begins the cast madness's trigger offered, using the ordinary casting
+    /// wizard for X, targets, additional costs and the mana opportunity. Its
+    /// alternative cost is the card's madness cost, not its mana cost.
+    pub(crate) fn start_madness_cast(
+        &mut self,
+        player: PlayerId,
+        card: ObjectId,
+        version: u32,
+    ) -> Result<(), EngineError> {
+        let options = madness::madness_options(&self.state, &self.lookup, player, card, version)
+            .ok_or(EngineError::IllegalAction("no way to cast this spell"))?;
+        let single = (options.len() == 1).then(|| options[0].kind);
+        let stage = if single.is_some() {
+            WizardStage::XValue
+        } else {
+            WizardStage::ChooseMode
+        };
+        let wizard = CastWizard {
+            option: single,
+            alternative_cost: Some(CastModeKind::Madness),
+            by_effect: Some(EffectCast::Plain),
+            window_start: Some(Box::new(self.window_start(player))),
+            ..CastWizard::new(card, player, stage, options)
+        };
+        self.cast_wizard = Some(wizard);
+        self.advance_cast_wizard()
+    }
+
     /// Whether `player` could choose every target a miracle cast of `card`
     /// requires, which is what decides whether the miracle is offered.
     ///
@@ -710,18 +761,7 @@ impl<L: CardLookup> Engine<L> {
     /// Price an alternative/front-face cost through the same increases and
     /// reductions as a normal cast. Waiving mana cost does not waive a tax.
     fn front_spell_price(&self, player: PlayerId, card: ObjectId, cost: ManaCost) -> ManaCost {
-        let Some(def) = self
-            .state
-            .object(card)
-            .and_then(|o| o.card)
-            .and_then(|c| self.lookup.card(c.index))
-        else {
-            return cost;
-        };
-        casting::face_adjustment(&self.state, player, card, def, 0, None).price(
-            cost,
-            casting::printed_reduction(&self.state, &def.faces[0], player, card),
-        )
+        madness::front_spell_price(&self.state, &self.lookup, player, card, cost)
     }
 
     fn free_normal_options(&self, player: PlayerId, card: ObjectId) -> Vec<CastModeDesc> {
@@ -746,29 +786,7 @@ impl<L: CardLookup> Engine<L> {
     }
 
     fn free_cost_affordable(&self, player: PlayerId, card: ObjectId, cost: ManaCost) -> bool {
-        let reduction = self
-            .state
-            .object(card)
-            .and_then(|o| o.card)
-            .and_then(|c| self.lookup.card(c.index))
-            .map_or(0, |def| {
-                casting::keyword_reduction(&self.state, &def.faces[0], player, card)
-            });
-        let restricted =
-            casting::planning_pool(&self.state, player, casting::SpendFor::Spell(card), 0);
-        let pool = restricted
-            .as_ref()
-            .unwrap_or(&self.state.players[player.get() as usize].mana_pool);
-        let what = casting::SpendFor::Spell(card);
-        casting::source_affordable(
-            &self.state,
-            player,
-            what,
-            pool,
-            &cost.with_less_generic(reduction),
-            &[],
-            Some(casting::live_allowance(&self.state, player, what).reduced(reduction)),
-        )
+        madness::alternative_cost_affordable(&self.state, &self.lookup, player, card, cost)
     }
 
     /// Starts a free cast (rebound at upkeep, suspend finish, a discovered
@@ -955,56 +973,28 @@ impl<L: CardLookup> Engine<L> {
         def: &baylee_cards_dsl::CardDef,
         make_mana: bool,
     ) -> Vec<CastModeDesc> {
-        let mut options = Vec::new();
-        for ability in def.abilities_for_face(0) {
-            let AbilityDef::ModalSpell { modes, choose } = ability else {
-                continue;
-            };
-            if !choose.is_one() {
-                // A set of modes, and each mode's own cost with it: those
-                // are additional costs, added to the alternative cost a free
-                // cast is (CR 118.9d), so a free Final Showdown still pays
-                // {1} for each "+ {1}" it chooses. Offered only when the pool
-                // already holds it, as every cost in the wizard is.
-                for set in casting::mode_sets(modes, *choose) {
-                    let cost = self.front_spell_price(
-                        player,
-                        card,
-                        casting::mode_set_cost(ManaCost::ZERO, modes, set),
-                    );
-                    if (make_mana || self.free_cost_affordable(player, card, cost))
-                        && casting::mode_set_has_legal_targets(
-                            &self.state,
-                            &self.lookup,
-                            player,
-                            card,
-                            set,
-                        )
-                    {
-                        options.push(CastModeDesc {
-                            index: u32::try_from(options.len()).unwrap_or(u32::MAX),
-                            kind: CastModeKind::Modes(set),
-                            cost,
-                        });
-                    }
-                }
-                continue;
-            }
-            for (i, mode) in modes.iter().enumerate() {
-                let cost = self.front_spell_price(player, card, ManaCost::ZERO);
-                if mode.cost_override.is_none()
-                    && (make_mana || self.free_cost_affordable(player, card, cost))
-                    && casting::mode_has_a_legal_target(&self.state, &self.lookup, player, card, i)
-                {
-                    options.push(CastModeDesc {
-                        index: u32::try_from(options.len()).unwrap_or(u32::MAX),
-                        kind: CastModeKind::Mode(i),
-                        cost,
-                    });
-                }
-            }
-        }
-        options
+        self.modes_with_base(player, card, def, ManaCost::ZERO, make_mana)
+    }
+
+    /// Modal choices over one alternative base cost. A mode's own alternative
+    /// cost cannot combine with that base; its additional costs still can.
+    fn modes_with_base(
+        &self,
+        player: PlayerId,
+        card: ObjectId,
+        def: &baylee_cards_dsl::CardDef,
+        base: ManaCost,
+        make_mana: bool,
+    ) -> Vec<CastModeDesc> {
+        madness::modes_with_base(
+            &self.state,
+            &self.lookup,
+            player,
+            card,
+            def,
+            base,
+            make_mana,
+        )
     }
 
     /// Whether [`Self::start_free_cast`] can put `card` on the stack for
@@ -1144,7 +1134,20 @@ impl<L: CardLookup> Engine<L> {
         // Read before the stages run: `finish_cast` nulls the wizard itself
         // on the way out, so by the error branch there is nobody left to ask.
         let caster = self.cast_wizard.as_ref().map(|w| w.player);
+        let madness = self.cast_wizard.as_ref().and_then(|wizard| {
+            (wizard.alternative_cost == Some(CastModeKind::Madness))
+                .then_some(wizard.card)
+                .and_then(|card| {
+                    self.state
+                        .object(card)
+                        .filter(|object| object.zone == crate::zone::Zone::Exile)
+                        .map(|object| (card, object.version))
+                })
+        });
         if self.advance_cast_wizard().is_err() {
+            if let Some((card, version)) = madness {
+                self.state.madness_to_graveyard(card, version);
+            }
             self.reverse_cast(caster);
         }
     }
@@ -1406,16 +1409,16 @@ impl<L: CardLookup> Engine<L> {
                 return Err(EngineError::IllegalAction("generated mana remains unspent"));
             }
             // A cast begun from priority is put back whole, its mana
-            // abilities with it (CR 733.1); any other gives back the taps.
-            if self.rewind_cast(wizard) {
-                self.state.journal.record(GameEvent::CastCancelled {
-                    player: wizard.player,
-                    card: wizard.card,
-                    reason,
-                });
-            } else {
+            // abilities with it (CR 734.1); any other gives back the taps.
+            // Both kinds were begun casts, so both record their cancellation.
+            if !self.rewind_cast(wizard) {
                 self.give_back_window(wizard.player, opened);
             }
+            self.state.journal.record(GameEvent::CastCancelled {
+                player: wizard.player,
+                card: wizard.card,
+                reason,
+            });
             if let Some(card) = self.state.object_mut(wizard.card) {
                 card.x_value = 0;
             }
@@ -1423,6 +1426,9 @@ impl<L: CardLookup> Engine<L> {
             // the player who had priority keeps it (CR 733.2).
             if !self.finish_nested_cast() && wizard.paying == casting::Paying::DuringTheCast {
                 self.after_action(wizard.player);
+            }
+            if wizard.alternative_cost == Some(CastModeKind::Madness) {
+                self.state.madness_to_graveyard(wizard.card, version);
             }
             return Ok(false);
         }

@@ -203,6 +203,29 @@ fn a_free_normal_cast_says_zero() {
     assert_eq!(rows[1].cost, None);
 }
 
+#[test]
+fn madness_is_a_named_cast_route() {
+    let object = ObjectId::new(41, 0);
+    assert_eq!(
+        cast_label(
+            CastModeKind::Madness,
+            Lang::En,
+            object,
+            FaceNames::default()
+        ),
+        "Madness"
+    );
+    assert_eq!(
+        cast_label(
+            CastModeKind::Madness,
+            Lang::De,
+            object,
+            FaceNames::default()
+        ),
+        "Wahnsinn"
+    );
+}
+
 /// Brightclimb Pathway, in the hand, as one object with two land faces.
 ///
 /// The hand and not the battlefield because that is where the question is

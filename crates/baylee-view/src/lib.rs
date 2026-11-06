@@ -269,7 +269,10 @@ pub use turn::{DayNight, Phase, Step};
 /// Version 87 sends a view as a `ViewFrame`: whole once, then as what changed
 /// (`docs/protocol.md` §"Views as patches"), and a spectator the public view as
 /// a `PlayerView` on the same stream.
-pub const VIEW_VERSION: u32 = 89;
+/// Version 90 asks whether to cast a discarded card for its madness cost and
+/// labels that alternative-cost route: `YesNoPrompt::Madness` and
+/// `CastModeKind::Madness`, engine variants a reader of 89 cannot parse.
+pub const VIEW_VERSION: u32 = 90;
 
 // ------------------------------------------------------------------- targets
 

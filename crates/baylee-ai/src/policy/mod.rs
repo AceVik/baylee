@@ -188,6 +188,16 @@ impl HeuristicAgent {
         can_pay(view, &cost.with_x(0))
     }
 
+    pub(crate) fn madness(view: &PlayerView, id: ObjectId) -> bool {
+        let Some(cost) = identity(view, id).and_then(face).and_then(|f| f.madness) else {
+            return false;
+        };
+        // The engine has already checked the non-mana parts and legal modes.
+        // Life uses the same reserve as an activation, and the usual payment
+        // planner can tap sources for the remaining cost.
+        crate::activate::life_ok(view, &cost) && can_pay(view, &cost.mana.with_x(0))
+    }
+
     /// One target's share of damage this seat divides (CR 601.2d): what
     /// finishes an opponent's creature or planeswalker — its toughness less
     /// the damage already marked on it, or its loyalty — within the
@@ -290,7 +300,9 @@ impl HeuristicAgent {
         else {
             return min;
         };
-        let sources = if context.cast_mode == Some(baylee_engine::choice::CastModeKind::Miracle) {
+        let sources = if context.cast_mode == Some(baylee_engine::choice::CastModeKind::Miracle)
+            || context.alternative_cost == Some(baylee_engine::choice::CastModeKind::Madness)
+        {
             remaining_sources(view)
         } else {
             Vec::new()

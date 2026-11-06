@@ -318,14 +318,14 @@ pub(crate) use power::PowerPayment;
 
 /// Pays one asking part with the object the player named.
 ///
-/// A sacrifice and a discard put a card in its owner's graveyard through
-/// [`GameState::move_object`] under [`Cause::Cost`], which is what the
-/// `SacrificeSelf` and `DiscardSelf` arms of `pay_cost` already do — the same
-/// door, so a sacrifice chosen by a player and a sacrifice printed on the
-/// card cannot come out as two different events. A tap goes through the
-/// `TapSelf` arm's door for the same reason, down to the
-/// [`GameEvent::ObjectTapped`] it records: an ability that triggers on a
-/// creature becoming tapped may not see one of the two and miss the other.
+/// A sacrifice uses [`GameState::sacrifice_object`] under [`Cause::Cost`],
+/// the `SacrificeSelf` arm's door. A discard uses
+/// [`GameState::discard_card`], the same door as `DiscardSelf`, an effect and
+/// the cleanup step: each discard has one event and one successor, and madness
+/// can replace its destination. A tap goes through the `TapSelf` arm's door
+/// for the same reason, down to the [`GameEvent::ObjectTapped`] it records:
+/// an ability that triggers on a creature becoming tapped may not see one of
+/// the two and miss the other.
 ///
 /// A return goes through the same door to a different zone, which is the
 /// `ReturnSelfToHand` arm of `pay_cost` one file over: a permanent bounced
@@ -389,12 +389,10 @@ pub(crate) fn pay(
         _ => ZoneLocation::Graveyard(owner),
     };
     if matches!(part, CostPart::Discard(_)) {
-        state.record_discard(chosen, player, None, true);
+        state.discard_card(chosen, player, Cause::Cost, None);
+        return Ok(());
     }
     state.move_object(chosen, to, ZonePosition::Top, Cause::Cost)?;
-    if matches!(part, CostPart::Discard(_)) {
-        state.record_discard_successor(chosen, player);
-    }
     Ok(())
 }
 
@@ -474,6 +472,26 @@ mod tests {
         let id = state.create_bare(owner, ObjectKind::Permanent, name, zone);
         state.object_mut(id).expect("just made it").base_mut().types = TypeSet::CREATURE;
         id
+    }
+
+    #[test]
+    fn an_ordinary_discard_cost_records_one_graveyard_incarnation() {
+        let mut state = state();
+        let card = creature(&mut state, me(), ZoneLocation::Hand(me()), "Discarded card");
+
+        pay(&mut state, me(), &CostPart::Discard(&Filter::Any), card).unwrap();
+
+        let successors: Vec<_> = state
+            .per_turn
+            .discarded_to_graveyard
+            .iter()
+            .filter(|(reference, player)| reference.object == card && *player == me())
+            .collect();
+        assert_eq!(successors.len(), 1, "one discard, one graveyard successor");
+        assert_eq!(
+            successors[0].0.version,
+            state.object(card).expect("the discarded card").version
+        );
     }
 
     /// Ownership is the **rule** and not the card: CR 701.21a only lets a

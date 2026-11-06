@@ -75,6 +75,8 @@ fn raw_option_cost(
 ) -> ManaCost {
     let normal = if wizard.free || wizard.masked {
         ManaCost::ZERO
+    } else if wizard.alternative_cost == Some(CastModeKind::Madness) {
+        face.madness.expect("madness").mana
     } else {
         face.mana_cost
     };
@@ -85,6 +87,7 @@ fn raw_option_cost(
         Some(CastModeKind::Prototype) => face.prototype.expect("prototype").cost,
         Some(CastModeKind::Disguise) => const { ManaCost::parse("{3}") },
         Some(CastModeKind::Miracle) => face.miracle.expect("miracle"),
+        Some(CastModeKind::Madness) => face.madness.expect("madness").mana,
         Some(CastModeKind::Foretell) => face.foretell.expect("foretell"),
         Some(CastModeKind::Flashback) => face.flashback.expect("flashback"),
         Some(CastModeKind::BeamMeUp) => face.beam_me_up.expect("beam me up"),

@@ -101,6 +101,9 @@ pub enum CastModeKind {
     /// more than one "instead" wants the same move (CR 616.1e). Not a way of
     /// casting: the spell has already resolved.
     SpellEnding(SpellEnding),
+    /// Cast the card exiled by its madness replacement for its madness cost
+    /// while that keyword's triggered ability resolves (CR 702.35a).
+    Madness,
 }
 
 /// One way a resolved instant or sorcery can leave the stack in place of the
@@ -786,6 +789,12 @@ pub enum YesNoPrompt {
         /// What it asks besides mana. The objects are asked after a yes.
         parts: BuybackParts,
     },
+    /// Cast the card exiled by madness for its madness cost? Declining puts
+    /// that card into its owner's graveyard (CR 702.35a).
+    Madness {
+        /// The exact card the madness trigger is about.
+        card: baylee_core::ids::ObjectId,
+    },
 }
 
 impl YesNoPrompt {
@@ -853,8 +862,10 @@ impl YesNoPrompt {
             | Self::Generic => true,
             // Declining discover moves the card into the hand: a card for
             // the player, but not nothing, and a free spell is not a
-            // question to answer by the clock. A guess is a guess either
-            // way: "no" is not passing it up.
+            // question to answer by the clock. Declining madness likewise
+            // moves the exiled card to its owner's graveyard (CR 702.35a),
+            // so the house decides rather than the clock. A guess is a guess
+            // either way: "no" is not passing it up.
             Self::RemoveCountersInsteadOfUntapping { .. }
             | Self::UseDamageClearingReplacement { .. }
             | Self::UseShieldCounter { .. }
@@ -864,6 +875,7 @@ impl YesNoPrompt {
             | Self::PayPact { .. }
             | Self::TopOfLibrary { .. }
             | Self::Discover { .. }
+            | Self::Madness { .. }
             | Self::GuessNamedCardInHand { .. } => false,
         }
     }

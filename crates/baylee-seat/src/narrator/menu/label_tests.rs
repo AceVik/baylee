@@ -33,3 +33,22 @@ fn a_disguise_card_is_cast_face_down_with_disguise() {
     let label = face_down("Branch of Vitu-Ghazi");
     assert!(label.contains("with disguise"), "{label}");
 }
+
+#[test]
+fn a_free_madness_cost_is_named_as_zero_mana() {
+    let index = baylee_cards::decks::by_name("Basking Rootwalla").expect("a pool card");
+    let option = CastModeDesc {
+        index: 0,
+        kind: CastModeKind::Madness,
+        cost: ManaCost::ZERO,
+    };
+    let label = cast_mode_label(
+        Some(baylee_view::CardIdentity {
+            index,
+            print: PrintRef::new(0),
+            face: 0,
+        }),
+        &option,
+    );
+    assert_eq!(label, "Cast it for its madness cost {0}");
+}

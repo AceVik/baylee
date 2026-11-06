@@ -492,6 +492,12 @@ express at all yet.
   supported `PayLife`, `Sacrifice` and `ReturnToHand` parts, and refuses every
   other spelling as an honest stub. `validate` holds the cost against the
   printing. What the cast paid is `Amount::ManaSpentToCast` (Memory Deluge).
+- `FaceDef.madness: Option<Cost>` — "Madness [cost]" (CR 702.35). Discarding
+  the card exiles it instead and puts a counterable trigger on the stack. Its
+  owner may then cast that exact exiled incarnation for this alternative cost;
+  declining or failing to complete its cast while it remains exiled puts it
+  into its owner's graveyard. The reader accepts mana, X and `PayLife` costs, including
+  {0}, and refuses any part the cast wizard cannot pay.
 - `FaceDef.foretell: Option<ManaCost>` — a printed "Foretell {…}" (CR
   702.143a), mana only. During its owner's turn, with priority, the fixed {2}
   special action exiles that hand card face down without using the stack; it
@@ -901,7 +907,7 @@ Chromatic Sphere and the five Eggs use the stack because they draw cards.
 Quoted grants and delayed triggers are separate abilities. External replacements
 do not change this classification. Scry or shuffling alone does not cross a
 library zone boundary, but can still prohibit reversing an action under
-CR 733.1; mana classification is not an undo-safety guarantee. Triggered mana
+CR 734.1; mana classification is not an undo-safety guarantee. Triggered mana
 abilities retain their separate CR 605.1b criteria.
 
 Three of them go one step further and drop a field the card never decided.
@@ -4845,7 +4851,7 @@ goes on once, from the result kept.
 
 **Triggers and conditions.** `Trigger::BecomesUntapped(&Filter)` [Mesmeric
 Orb] fires when a matching permanent becomes untapped, by any cause but the
-reversal of an undone payment (CR 733.1); the permanent is the event object,
+reversal of an undone payment (CR 734.1); the permanent is the event object,
 so `PlayerRel::ControllerOfEvent` is its controller.
 `Condition::HandSizeAtTurnStartAtMost(n)` [Mindstorm Crown] holds when the
 active player had at most `n` cards in hand as this turn began, before any

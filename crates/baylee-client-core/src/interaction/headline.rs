@@ -769,6 +769,7 @@ fn yes_no_line(lang: Lang, question: YesNoPrompt, statics: Option<&GameStatic>) 
         }
         YesNoPrompt::PayPact { cost } => Phrase::PayPact.fill(lang, &[&cost.to_string()]),
         YesNoPrompt::Miracle { .. } => Phrase::CastForMiracle.text(lang).to_string(),
+        YesNoPrompt::Madness { .. } => Phrase::CastForMadness.text(lang).to_string(),
         YesNoPrompt::CastWithoutPaying { .. } => Phrase::CastWithoutPaying.text(lang).to_string(),
         YesNoPrompt::CastPaying { .. } => Phrase::CastPaying.text(lang).to_string(),
         // The `..` here is what the whole repair was: `proposer` travels with
@@ -879,4 +880,24 @@ pub fn ballots_line(
         })
         .collect();
     Some(Phrase::VotesSoFar.fill(lang, &[&ballots.join(", ")]))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn madness_names_both_the_cast_and_the_graveyard_fallback() {
+        let question = YesNoPrompt::Madness {
+            card: ObjectId::new(41, 0),
+        };
+        assert_eq!(
+            yes_no_line(Lang::En, question, None),
+            "Cast it for its madness cost, or put it into your graveyard?"
+        );
+        assert_eq!(
+            yes_no_line(Lang::De, question, None),
+            "Für die Wahnsinn-Kosten wirken oder auf deinen Friedhof legen?"
+        );
+    }
 }

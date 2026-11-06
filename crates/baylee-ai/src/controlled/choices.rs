@@ -463,6 +463,7 @@ impl HeuristicAgent {
             // hurts them; a discovered card left uncast goes to their hand,
             // which is less than a free spell.
             YesNoPrompt::Miracle { card }
+            | YesNoPrompt::Madness { card }
             | YesNoPrompt::Discover { card }
             | YesNoPrompt::CastWithoutPaying { card }
             | YesNoPrompt::CastPaying { card } => crate::policy::identity(theirs, card)
