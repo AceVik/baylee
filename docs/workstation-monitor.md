@@ -4,6 +4,11 @@
 neither the game engine nor a CUDA context. The responsive German dashboard uses
 embedded HTML/CSS/JavaScript: no frontend build, CDN, database or external assets.
 
+One binary serves different machines. It detects at runtime what each one has, never
+by host name: NVIDIA or AMD graphics, an NPU, a battery, which sensors answer. What a
+machine lacks has no card, no thread and no error. Pulse runs on the training PC
+`bigace` and on the notebook `acenb` (last section).
+
 The page has three views. **Dashboard** is a grid of cards the viewer arranges
 freely. **Leistung** is a performance view after the Windows Task Manager: every
 resource in a list with a live mini graph, the chosen one large with its details.
@@ -26,8 +31,11 @@ It cannot kill, pause or change processes. It reads names and PIDs, never argv,
 environments or usernames. It shows no IP or MAC address: the page has no login,
 and a global IPv6 address says more about a network than a LAN page should; a
 mount below `/home` is shown from `~` so it names no user, and a swap file by its
-last path component. Serial numbers and UUIDs stay unparsed. The footer offers the
-exact embedded source and build manifests, even before publication.
+last path component. Serial numbers and UUIDs stay unparsed; of a battery only its
+kernel name is kept, and of the machine its model, never `product_serial` or
+`product_uuid`. The one address on the page is a `--peer` link, which the owner put
+there. The footer offers the exact embedded source and build manifests, even before
+publication.
 
 | CLI option | Default | Meaning |
 | --- | --- | --- |
@@ -39,6 +47,7 @@ exact embedded source and build manifests, even before publication.
 | `--ladder` | none | A `ladder.json` shown as a card (repeatable, absolute `.json` file, at most 4) |
 | `--interval-ms` | `1000` | Sampling interval, 500–10000 ms |
 | `--history-minutes` | `60` | Per-sample RAM history, 1–120 minutes; the page's ranges above one hour use the 24-hour minute ring |
+| `--peer` | none | Another machine's Pulse page, linked from the header, as `NAME=http://HOST:PORT` (repeatable, at most 4). Only a bare address is accepted: no path, no credentials |
 
 No service-specific environment variables. The optional user unit is
 `scripts/systemd/baylee-monitor.service`. Install the binary in
@@ -46,8 +55,10 @@ No service-specific environment variables. The optional user unit is
 explicit LAN address if desired, then run `systemctl --user daemon-reload` and
 `systemctl --user enable --now baylee-monitor`. Nice 10, low CPU/IO scheduling
 weight, 192 MiB memory limit, restart on failure. It requires a running user
-manager; installation does not enable lingering or change root permissions.
-After updates, reinstall the binary and restart the unit. Stop with
+manager, which on a machine nobody logs in to means lingering
+(`loginctl enable-linger`). Installing the unit does not turn that on or change
+root permissions; it is a decision per machine. After updates, reinstall the binary
+and restart the unit. Stop with
 `systemctl --user stop baylee-monitor`.
 
 ### Opening it from a phone
@@ -86,6 +97,10 @@ to a bar at the bottom, within thumb reach, and the resource list of the Leistun
 view becomes a strip that scrolls sideways. The process table scrolls inside its
 panel; the page itself never scrolls sideways.
 
+The machine's name stays on screen at every width, and is in the tab's title, so two
+Pulse tabs can be told apart. Up to 1000 px the bar gives up the wordmark, the tab
+icons and the uptime for it, then wraps rather than push a button off the edge.
+
 ## Arranging the dashboard
 
 "Anordnen" switches the grid into arranging mode, so no card moves by accident.
@@ -106,6 +121,17 @@ to a row, and the size controls go away.
 During a drag only the CSS `order` moves cards; the DOM follows at the drop.
 Moving the dragged node in the DOM ends its pointer capture and the drop would
 never arrive.
+
+A card shows only if the machine has something for it: each definition in `cards.js`
+may name an `available` test, which the page runs on every sample. The GPU, VRAM,
+swap, battery, NPU, power, sensor, temperature and pressure cards have one, and the
+training card needs a `--pipeline`, `--pipeline-root`, `--llm-root` or `--ladder`. A
+GPU card with a fault to report stays: a card whose driver is gone is not a machine
+without a card. Absent cards leave the settings list too. Rows inside a card follow
+the same rule, so an APU shows no PCIe link and no fan rather than dashes.
+
+With its two extra tiles the notebook's default layout leaves two empty columns
+beside "Datenträger". "Anordnen" closes them; the default stays what suits `bigace`.
 
 ## Settings
 
@@ -137,7 +163,9 @@ lists what is active and what happened since the page opened.
 | CPU, GPU, SSD temperature | 85, 84, 70 °C | 95, 92, 80 °C |
 | Pressure | memory full ≥ 10 %, I/O full ≥ 30 % | |
 | GPU clocks held down by temperature or a brake | always | |
-| GPU under 5 % for 5 minutes while a `baylee-*` unit runs | always | |
+| Discrete GPU under 5 % for 5 minutes while a `baylee-*` unit runs (an integrated GPU idles through any CPU job) | always | |
+| Battery, while it discharges | 20 % | 8 % |
+| Running on battery: on a notebook used as a server that is an outage, and a benchmark then measures another machine | always | |
 | Pipeline failed, or no controller | within 24 h | failed within 6 h |
 | A `baylee-*` unit failed, or the OOM killer struck since the page opened | | always |
 | Another system service failed; storage data over 30 s old | always | |
@@ -363,7 +391,50 @@ small parsers in `src/procfs/`, each taking the file's text.
   processes, without spawning `nvidia-smi`. Duplicate PIDs across the two lists
   count once per device. All GPUs appear in the Leistung view and hardware card;
   overview GPU/VRAM charts use device 0. Power sums readings across all GPUs and is
-  unknown if one does not answer. AMD GPU/NPU telemetry is not implemented yet.
+  unknown if one does not answer.
+- GPU, AMD: every `/sys/class/drm/cardN` bound to `amdgpu`, through sysfs and hwmon,
+  with no tool spawned and no device opened: `gpu_busy_percent`, `mem_busy_percent`
+  where it exists, `vcn_busy_percent` (one video engine for both directions),
+  `mem_info_vram_*`, `mem_info_gtt_*` (system RAM mapped for the GPU, what an
+  integrated one mostly lives on), the edge temperature, `freq1_input` and the
+  starred line of `pp_dpm_mclk`, and on a discrete card its power, power cap and fan.
+  The name comes from libdrm's `amdgpu.ids`, else `product_name`, else an APU's own
+  CPU brand (`… w/ Radeon 780M Graphics`), else the PCI id.
+- APU or discrete card is told by the format revision in the header of `gpu_metrics`:
+  2 and 3 are the layouts of APUs, 1 that of discrete cards. The sensor cannot tell
+  them apart, since a discrete card's board power is called `PPT` too. It matters
+  because on an APU `PPT` is the whole package. So there it becomes the package's
+  power and the GPU has no watts at all, and is not counted twice. The `gfx power` in
+  `gpu_metrics` is no way out: on the 7840U it read 15.6 W at 0 % graphics activity,
+  and it moves with CPU work, so it follows a rail the CPU shares.
+- Runtime power management: a card or NPU that is `suspended` is left alone and shows
+  "ruht", because reading a sensor can wake it, and a monitor must not be the reason
+  an idle machine is awake.
+- A machine with no GPU source has no `gpu` thread and no card. One with an NVIDIA
+  display controller on the PCI bus whose NVML does not answer keeps its card, with
+  the fault on it.
+- NPU: every `/sys/class/accel/accelN`. Sysfs gives name (`vbnv`), driver, firmware,
+  PCI and runtime power state at no cost to the device. For `amdxdna` only, Pulse
+  also opens `/dev/accel/accelN` read-only, which needs the `render` group, and
+  asks `DRM_IOCTL_AMDXDNA_GET_INFO` and `_GET_ARRAY`, never `_SET_STATE`: the array
+  size, the clocks of the level the driver chose, the most TOPS and tasks, the tasks
+  and hardware contexts now, and the sensors. Each answer stands alone, so an older
+  driver just knows less. The node is opened for each refresh, 0.11 ms, and closed
+  again: a descriptor held for good would stop the module being reloaded.
+- What the NPU cannot say: on `RyzenAI-npu1` (Phoenix) `QUERY_SENSORS` answers
+  `ENODEV`, so there is **no load and no power figure**, and the tile says so in
+  words. Pulse computes no substitute. Belegte Spalten are an allocation and Befehle/s
+  a counter, and both are labelled as not being a utilization. `npu_tops_curr` is left
+  out on purpose: it reads the maximum (10 of 10) on an idle device, so it rates the
+  clock, and beside the maximum it would read as 100 %. A chip whose driver does
+  answer the sensor query gets its figures shown instead; that path is tested on
+  fixture bytes only, for want of such a chip.
+- Battery: `/sys/class/power_supply`, every `Battery` that is present and not
+  `scope=Device` (a wireless mouse's). Level, state, energy, flow, voltage, cycles,
+  capacity against the design, the firmware's charge limit, and from these the time
+  until empty or until charging stops at that limit. A driver that counts charge
+  is converted by the voltage. Below 0.5 W no time is forecast. Mains is any `Mains`
+  or `USB` supply that is online. A desktop has no thread and no card.
 - `libnvidia-ml` itself maps `libcuda` at `nvmlInit`, opens `/dev/nvidia-uvm` and
   starts a driver thread named `cuda…`. That was so before this page too. Pulse
   creates no CUDA context: it never appears in NVML's process list and holds no
@@ -374,7 +445,14 @@ small parsers in `src/procfs/`, each taking the file's text.
 - CPU power comes from readable RAPL package energy differences, with counter
   wrap handling. Core subdomains are excluded to avoid double counting. An
   unreadable package makes the total unavailable. No permissions are changed.
-  On this 3900X, `energy_uj` exists but is not readable by the service user.
+  On the 3900X, `energy_uj` exists but is not readable by the service user.
+- Where no counter answers, an APU's `PPT` sensor stands in, which needs no
+  privileges: the same value the `power_meter` tool in `crates/baylee-perf` samples.
+  It is the firmware's estimate for CPU, GPU and SoC together, so the graph calls it
+  "Package". `power1_average` is preferred to `power1_input`: at rest over a minute
+  the instant reading swung from 1.8 to 28 W and the average from 3.4 to 10 W, around
+  the same 4.2 W mean, and a 1 Hz graph of the instant reading would be mostly
+  aliasing. A real energy counter wins when both exist.
 - Whole-PC and per-process watts are not measurable here. GPU watts are not wall
   power; there is no TDP, kWh or cost estimate. Invalid temperature readings below
   −20°C or above 150°C are discarded.
@@ -392,7 +470,11 @@ small parsers in `src/procfs/`, each taking the file's text.
 - Sensors: temperatures, fans, voltages, currents and power from
   `/sys/class/hwmon`, with the limits a driver publishes. Three drives all call
   themselves `nvme`, so a drive's chip is named after its controller. The −40 °C
-  placeholders of unplugged probes fall under the rule above.
+  placeholders of unplugged probes fall under the rule above, and a reading of
+  exactly 0 °C is dropped too, which is what a ThinkPad's unused slots report. A power
+  sensor's average is preferred to its instant value, and one with only an average
+  counts. The CPU's temperature is the die sensor (`k10temp`, `zenpower`, `coretemp`,
+  `cpu_thermal`), else a sensor labelled `CPU`, else `acpitz`.
 
 ### Disks
 
@@ -412,6 +494,11 @@ A mount on a stacked device (LUKS, LVM) counts for the partition below it, one l
 deep; a filesystem on a bare disk gets a row of its own; a bind mount does not
 replace the filesystem's root and counts as "+1 Mounts". The filesystem type of a
 mounted partition is the kernel's driver (`ntfs3`), else udev's (`ntfs`).
+
+A btrfs subvolume reports an anonymous device number (`0:35`) and not its partition's,
+so such a mount is placed by its source (`/dev/nvme0n1p2`). Before that, the system
+disk of a btrfs machine showed no usage on its row and `/` landed under "Weitere
+Dateisysteme". The subvolumes share one filesystem, so `/home` counts as "+1 Mounts".
 
 Filesystems on no listed partition still count, because they break jobs just the
 same: `/tmp`, `/dev/shm` and `/run`, ZFS pools and unusual root devices appear as
@@ -436,7 +523,9 @@ driver delays only its own value:
 | Thread | Every | Reads |
 | --- | --- | --- |
 | `telemetry` | interval | `/proc`, sysinfo, serialization |
-| `gpu` | interval | NVML; a view older than five intervals counts as no answer |
+| `gpu` | interval | NVML, `amdgpu` sysfs; a view older than five intervals counts as no answer. Only where a source exists |
+| `battery` | 5 s | `/sys/class/power_supply`, through the embedded controller. Only with a battery |
+| `npu` | 5 s | `/sys/class/accel`, the `amdxdna` queries. Only with an NPU |
 | `sensors` | 2 s | hwmon, cpufreq |
 | `processes` | 3 s | `/proc/<pid>/status` and `/fd`: threads, swap, sockets |
 | `storage` | 5 s | `/sys/block`, mountinfo, udev, `statvfs` |
@@ -459,15 +548,19 @@ files are written.
 at startup. `snapshot` holds `point`, `uptime_secs`, `load`, `cores`, `cpu`, `memory`,
 `swap`, `pressure`, `gpus`, `gpu_status`, `gpu_driver`, `gpu_cuda`,
 `cpu_power_status`, `sensors`, `storage` (`disks` with their `partitions`, `volumes`,
-`problem`, `checked_ms`), `networks`, `sockets`, `processes` and `sample_ms`.
+`problem`, `checked_ms`), `networks`, `sockets`, `power_supply` (`batteries`,
+`on_mains`, `checked_ms`), `npus`, `processes` and `sample_ms`.
 `training` holds `checked_ms`, `units` (name, `active_state`, `sub_state`, `result`,
 `main_pid`, `active_since_ms`, `inactive_since_ms`, `gone_ms`), `units_problem`,
 `services` (`active`, `failed`, `total`, `failed_names`) and `pipelines` (name,
 `problem`, `phase`, `updated_ms`, `promoted`, `error`, `controller_pid`,
 `controller_alive`, `stages`, `progress`). `GET /ws` sends
-`{"type":"hello","facts":…,"history":…,"minutes":…}`, then sample messages. In a
-point, `disks` entries are `[name, read, write, busy]`, `nets` `[name, rx, tx]`,
-`gpus` `[index, load, vram %, watts, temperature]`.
+`{"type":"hello","facts":…,"history":…,"minutes":…}`, then sample messages. `facts`
+names the machine (`hostname`, `machine`, `os`, `kernel`, `cpu`, `physical_cores`,
+`threads`), and holds `interval_ms`, the `peers` and which `panels` have a source. In
+a point, `disks` entries are `[name, read, write, busy]`, `nets` `[name, rx, tx]`,
+`gpus` `[index, load, vram %, watts, temperature]`; `battery` and `npu_commands` are
+those of the first battery and NPU, and `null` on a machine without one.
 The UI deduplicates timestamps overlapping between hello and the first sample.
 Timestamps are Unix milliseconds; rate calculations use monotonic time.
 
@@ -499,7 +592,12 @@ environment in the output, path reduction), energy-counter wrap, every `/proc` p
 on fixture text, fake sysfs trees for disks, sensors and links, mounts-to-partition
 mapping, the fill forecast, rates and counter resets, that a stuck background source
 holds no lock, and the JSON the page reads, including that no command line, user or
-address key is on the wire. Two ignored tests talk to the real system bus:
+address key is on the wire. Sample sysfs trees taken from the real machines cover an
+APU, a discrete card, a sleeping GPU and NPU, another driver's device, the battery
+states, the mouse and the empty slot, btrfs subvolumes and machines with none of
+these; the `amdxdna` calls are pinned to the header's numbers and layouts, and tested
+to fail on a foreign node without touching the buffer. Two ignored tests talk to the
+real system bus:
 `cargo test -p baylee-monitor -- --ignored`. Browser checks cover desktop/mobile
 layout, arranging by mouse, touch and keyboard, filter/sort, reconnection and missing
 sensors; close test browsers afterward.

@@ -1,8 +1,8 @@
 # Baylee Pulse
 
-A small read-only Linux workstation monitor. One shared sampler, direct NVML
-telemetry, embedded responsive UI, live WebSocket snapshots. No database,
-JavaScript build, external assets or GPU inference. See
+A small read-only Linux workstation monitor. One shared sampler, NVML and `amdgpu`
+telemetry detected at runtime, embedded responsive UI, live WebSocket snapshots. No
+database, JavaScript build, external assets or GPU inference. See
 `docs/workstation-monitor.md` in the repository for operation and metric semantics.
 
 Build: `cargo build --profile tools -p baylee-monitor -j 2`.
