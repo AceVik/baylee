@@ -401,10 +401,7 @@ impl<L: CardLookup> Engine<L> {
             };
         }
         let abilities = self.trigger_abilities(t);
-        Body::of(
-            t.ability_index,
-            abilities.get(t.ability_index as usize),
-        )
+        Body::of(t.ability_index, abilities.get(t.ability_index as usize))
     }
 
     /// Who controlled what `t`'s event was about, as
