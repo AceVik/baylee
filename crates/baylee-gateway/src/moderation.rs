@@ -237,6 +237,9 @@ async fn ban(
     if banned == store::Banned::Nobody {
         return Err(err(StatusCode::NOT_FOUND, "no such account"));
     }
+    // Its sockets close saying why, before anything else moves.
+    app.sessions
+        .end_account(&id, crate::sessions::Ended::Banned);
     // Out of every room and game, its sockets closed and its chair tickets
     // spent, as a deleted account's are.
     crate::account::forget_accounts(app, std::slice::from_ref(&id));

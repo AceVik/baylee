@@ -106,21 +106,19 @@ pub(crate) async fn watch_ws(
     }
     // Whose socket it is, for the friends list's "watching" (`social/`):
     // the session that bought the ticket, if it still stands.
-    let watcher = crate::central::resolve_digest(&state, session.clone())
+    let watcher = crate::central::resolve_digest(&state, session)
         .await
         .map_err(|status| err(status, TICKET_REFUSED))?
         .ok_or_else(|| err(StatusCode::UNAUTHORIZED, TICKET_REFUSED))?;
     crate::moderation::admit(&watcher)?;
     crate::terms_admit(&watcher)?;
+    let live = crate::central::watched(&state, &watcher)
+        .map_err(|status| err(status, TICKET_REFUSED))?;
     let watcher = watcher.account_id;
     let place = crate::presence::socket_place(&state, &watcher)?;
     Ok(ws
         .max_message_size(MAX_SEAT_FRAME)
-        .max_frame_size(MAX_SEAT_FRAME)
-        .on_upgrade(move |socket| async move {
-            let _place = place;
-            run_watch_socket(state, id, Some(watcher), session, socket).await;
-        }))
+        .on_upgrade(move |socket| run_watch_socket(state, id, Some(watcher), live, socket)))
 }
 
 /// Moves the game's spectator count by `by` and tells its engine; `joined`
@@ -153,7 +151,7 @@ pub(crate) async fn run_watch_socket(
     state: Shared,
     game_id: String,
     watcher: Option<String>,
-    session_digest: Vec<u8>,
+    live: std::sync::Arc<crate::sessions::Live>,
     mut socket: WebSocket,
 ) {
     let (mut rx, mut ready) = {
@@ -175,17 +173,10 @@ pub(crate) async fn run_watch_socket(
         state.social.watch_start(account, &game_id);
     }
     tracing::info!(game_id, "spectator socket opened");
-    let mut authorization = tokio::time::interval(std::time::Duration::from_secs(5));
-    let mut grace = crate::standing::Grace::default();
     loop {
         tokio::select! {
-            _ = authorization.tick() => {
-                let account = watcher.as_deref().unwrap_or_default();
-                let standing = crate::standing::of_session(&state, &session_digest, account).await;
-                if !grace.keeps_open(standing, std::time::Instant::now()) {
-                    break;
-                }
-            }
+            biased;
+            _ = live.ended() => break,
             frame = socket.recv() => match frame {
                 // A spectator answers nothing: whatever it sends is dropped.
                 Some(Ok(_)) => {}
@@ -194,6 +185,7 @@ pub(crate) async fn run_watch_socket(
             update = rx.recv() => {
                 let lagged = match update {
                     Ok(bytes) => {
+                        if !live.stands(crate::sessions::now()) { break; }
                         let Ok(lagged) =
                             super::seat_socket::send_broadcast_batch(&mut socket, bytes, &mut rx)
                                 .await

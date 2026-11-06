@@ -4,8 +4,9 @@
 use crate::{
     Envelope, ErrorBody, Json, LobbyGame, Message, Path, Query, RecvError, Shared, State,
     StatusCode, TICKET_REFUSED, WebSocket, WebSocketUpgrade, WsParams, auth, err, legacy_token,
-    lobby, seatrate, spend_ticket, v1, wsticket,
+    lobby, seatrate, sessions::Live, spend_ticket, v1, wsticket,
 };
+use std::sync::Arc;
 
 use crate::standing::{Grace, Standing};
 
@@ -162,10 +163,9 @@ pub(crate) async fn game_ws(
         .get_mut(&id)
         .and_then(|game| Ownership::reserve(game, seat, &hash))
         .ok_or_else(|| err(StatusCode::UNAUTHORIZED, TICKET_REFUSED))?;
-    authorization
-        .standing(&state, &id, seat)
-        .await
-        .at_the_door()?;
+    let Some(live) = authorization.session(&state, &id, seat).await else {
+        return Err(err(StatusCode::UNAUTHORIZED, TICKET_REFUSED));
+    };
     // After the seat token, as at the agent's door, and before the engine
     // hears of the socket: a table this client cannot read is not joined at
     // all. Said on the socket rather than as an HTTP status, because a
@@ -181,9 +181,8 @@ pub(crate) async fn game_ws(
         .max_message_size(MAX_SEAT_FRAME)
         .max_frame_size(MAX_SEAT_FRAME)
         .read_buffer_size(SEAT_READ_BUFFER)
-        .on_upgrade(move |socket| async move {
-            let _place = place;
-            run_game_socket(state, id, seat, authorization, ownership, socket).await;
+        .on_upgrade(move |socket| {
+            run_game_socket(state, id, seat, authorization, live, ownership, socket)
         }))
 }
 
@@ -211,41 +210,65 @@ impl SeatAuthorization {
         })
     }
 
-    pub(crate) async fn standing(&self, state: &Shared, game: &str, seat: usize) -> Standing {
-        let same = state
+    /// Whether the chair still takes this capability: a read of the lobby,
+    /// part of the check before every frame.
+    fn same_chair(&self, state: &Shared, game: &str, seat: usize) -> bool {
+        state
             .lobby
             .lock()
             .games
             .get(game)
             .and_then(|g| g.seats.get(seat))
-            .is_some_and(|chair| chair.seat_token_hash.as_deref() == Some(self.hash.as_str()));
-        if !same {
-            return Standing::Revoked;
+            .is_some_and(|chair| chair.seat_token_hash.as_deref() == Some(self.hash.as_str()))
+    }
+
+    /// At the door, the one place that may wait on anything: the session this
+    /// capability stands on, which the socket then watches. `None` refuses.
+    pub(crate) async fn session(
+        &self,
+        state: &Shared,
+        game: &str,
+        seat: usize,
+    ) -> Option<Arc<Live>> {
+        if !self.same_chair(state, game, seat) {
+            return None;
         }
-        match &self.account {
-            Some(account) => account_capability(state, account, self.session.as_deref()).await,
-            None => Standing::Revoked,
-        }
+        account_capability(state, self.account.as_deref()?, self.session.as_deref()).await
+    }
+
+    /// The check before a frame reaches the engine or a view reaches the
+    /// client: memory and the clock, with no network and no SQL.
+    fn stands(&self, state: &Shared, game: &str, seat: usize, live: &Live) -> bool {
+        live.stands(crate::sessions::now()) && self.same_chair(state, game, seat)
     }
 }
 
-/// A capability minted before migration cannot silently gain Central authorization.
+/// The session a seat capability stands on. Bound to a Central session, that
+/// session must stand and be this account's. Otherwise it is the account's own
+/// state, ended by a ban or a deletion; a capability minted before an account
+/// moved to Central gains nothing from that move, and is refused.
 pub(crate) async fn account_capability(
     state: &Shared,
     account: &str,
     session: Option<&[u8]>,
-) -> Standing {
-    if let Some(digest) = session {
-        return crate::standing::of_session(state, digest, account).await;
+) -> Option<Arc<Live>> {
+    let now = crate::sessions::now();
+    if let Some(key) = session {
+        return state
+            .sessions
+            .get(key, now)
+            .filter(|live| live.account() == account);
     }
-    crate::standing::asked(async {
-        match baylee_db::central::linked(&state.db, account).await {
-            Ok(false) => Standing::Good,
-            Ok(true) => Standing::Revoked,
-            Err(_) => Standing::Unknown,
-        }
-    })
-    .await
+    if !matches!(
+        baylee_db::central::linked(&state.db, account).await,
+        Ok(false)
+    ) {
+        return None;
+    }
+    state
+        .sessions
+        .open_local(crate::sessions::account_key(account), account, now)
+        .ok()
 }
 
 /// Apply the same frozen seat/session checks to HTTP routes using a seat bearer.
@@ -274,7 +297,10 @@ pub(crate) async fn authorize_seat_token(
     };
     let grant = SeatAuthorization::read(state, game_id, seat, &auth::token_hash(token))
         .ok_or_else(|| err(StatusCode::UNAUTHORIZED, TICKET_REFUSED))?;
-    grant.standing(state, game_id, seat).await.at_the_door()
+    if grant.session(state, game_id, seat).await.is_none() {
+        return Err(err(StatusCode::UNAUTHORIZED, TICKET_REFUSED));
+    }
+    Ok(())
 }
 
 /// The one frame a seat socket of another protocol is sent before it closes
@@ -438,7 +464,7 @@ async fn attach(
     game_id: &str,
     seat: usize,
     authorization: &SeatAuthorization,
-    grace: &mut Grace,
+    live: &Live,
     ownership: Ownership,
 ) -> Option<Attached> {
     // Subscribe BEFORE announcing the seat, so this socket cannot miss its
@@ -464,8 +490,7 @@ async fn attach(
         tracing::warn!(game_id, seat, "no engine attached; seat socket closing");
         return None;
     }
-    let standing = authorization.standing(state, game_id, seat).await;
-    if !grace.keeps_open(standing, std::time::Instant::now()) {
+    if !authorization.stands(state, game_id, seat, live) {
         return None;
     }
     let link = ownership.attach(state.lobby.lock().games.get_mut(game_id)?, seat)?;
@@ -520,35 +545,27 @@ pub(crate) async fn send_broadcast_batch(
 /// have to.
 ///
 /// Ownership checks and synchronous engine enqueues share the lobby lock, so
-/// an old socket cannot act or detach after a replacement attaches. Network I/O
-/// and Central authorization always happen outside that critical section.
-#[allow(clippy::too_many_lines)] // the socket's whole life, in the order it happens
+/// an old socket cannot act or detach after a replacement attaches.
+///
+/// The socket watches `live`, its session's state: the moment that ends the
+/// socket goes, in both directions, and the arm comes first so that a frame
+/// already waiting does not get in ahead of it. No stale action reaches an
+/// engine, because each is checked by [`SeatAuthorization::stands`] after
+/// reception, and that check waits on nothing.
 async fn run_game_socket(
     state: Shared,
     game_id: String,
     seat: usize,
     authorization: SeatAuthorization,
+    live: Arc<Live>,
     ownership: Ownership,
     mut socket: WebSocket,
 ) {
-    let mut grace = Grace::default();
-    let standing = authorization.standing(&state, &game_id, seat).await;
-    if !grace.keeps_open(standing, std::time::Instant::now()) {
-        return;
-    }
     let Some(Attached {
         mut rx,
         mut changed,
         connection,
-    }) = attach(
-        &state,
-        &game_id,
-        seat,
-        &authorization,
-        &mut grace,
-        ownership,
-    )
-    .await
+    }) = attach(&state, &game_id, seat, &authorization, &live, ownership).await
     else {
         return;
     };
@@ -565,10 +582,10 @@ async fn run_game_socket(
     let mut recheck = tokio::time::interval(std::time::Duration::from_secs(5));
     loop {
         tokio::select! {
+            biased;
+            _ = live.ended() => break,
             _ = recheck.tick() => {
-                if !connection.active() { break; }
-                let standing = authorization.standing(&state, &game_id, seat).await;
-                if !grace.keeps_open(standing, std::time::Instant::now()) { break; }
+                if !connection.active() || !authorization.stands(&state, &game_id, seat, &live) { break; }
             }
             frame = socket.recv() => {
                 if let Some(Ok(message)) = &frame {
@@ -587,14 +604,9 @@ async fn run_game_socket(
                     // At most `MAX_SEAT_FRAME`: the socket refuses a bigger
                     // message before it is read (`game_ws`).
                     Some(Ok(Message::Binary(data))) => {
-                        // Every action is authorized after reception. Periodic checks
-                        // also close idle sockets, while no stale action reaches an engine.
-                        // In doubt the question waits for the periodic one: a move
-                        // does not stand in line for a Central that is not answering.
-                        if !grace.in_doubt() {
-                            let standing = authorization.standing(&state, &game_id, seat).await;
-                            if !grace.keeps_open(standing, std::time::Instant::now()) { break; }
-                        }
+                        // Every action is authorized after reception, so no
+                        // stale action reaches an engine.
+                        if !authorization.stands(&state, &game_id, seat, &live) { break; }
                         let tagged = v1::envelope::Msg::SeatFrame(v1::SeatFrame {
                             seat: seat as u32,
                             envelope: data,
@@ -611,7 +623,8 @@ async fn run_game_socket(
             update = rx.recv() => {
                 let lagged = match update {
                     Ok(bytes) => {
-                        if !connection.active() { break; }
+                        // Nothing goes to a client whose session ended either.
+                        if !connection.active() || !live.stands(crate::sessions::now()) { break; }
                         let Ok(lagged) = send_broadcast_batch(&mut socket, bytes, &mut rx).await
                         else {
                             break;
@@ -630,10 +643,7 @@ async fn run_game_socket(
                         seat: seat as u32,
                         resync: true,
                     });
-                    let standing = authorization.standing(&state, &game_id, seat).await;
-                    if !grace.keeps_open(standing, std::time::Instant::now())
-                        || !connection.send(resync)
-                    {
+                    if !authorization.stands(&state, &game_id, seat, &live) || !connection.send(resync) {
                         break;
                     }
                 }
@@ -666,7 +676,7 @@ async fn run_game_socket(
     }
     let _ = tokio::time::timeout(
         std::time::Duration::from_secs(1),
-        socket.send(Message::Close(None)),
+        socket.send(Message::Close(live.close_frame())),
     )
     .await;
 }

@@ -216,6 +216,11 @@ pub(crate) async fn logout(
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.strip_prefix("Bearer "))
         .ok_or_else(|| err(StatusCode::UNAUTHORIZED, "missing bearer token"))?;
+    // Its sockets close before anything else can fail.
+    state.sessions.end(
+        &auth::token_digest(token),
+        crate::sessions::Ended::SignedOut,
+    );
     let owner = store::drop_token(&state.db, token)
         .await
         .map_err(|e| db_down(&e))?;

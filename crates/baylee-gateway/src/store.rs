@@ -121,6 +121,10 @@ impl Ban {
 /// Whose a live session is.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Session {
+    /// What the session is known by for as long as it lives
+    /// ([`crate::sessions::Key`]): what a socket ticket or a chair remembers,
+    /// because a Central session's bearer changes under them.
+    pub key: Vec<u8>,
     /// The account it signs in.
     pub account_id: String,
     /// Whether that account is a guest's, which is what decides how long the
@@ -701,11 +705,12 @@ pub async fn resolve_digest(
                 session_token::Column::ExpiresAt,
                 Expr::value(at(now + lifetime.ttl.as_secs())),
             )
-            .filter(session_token::Column::TokenHash.eq(hash))
+            .filter(session_token::Column::TokenHash.eq(hash.clone()))
             .exec(db)
             .await?;
     }
     Ok(Some(Session {
+        key: hash,
         account_id: id(row.account_id),
         guest,
         ban,

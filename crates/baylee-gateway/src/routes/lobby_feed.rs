@@ -53,7 +53,7 @@ pub(crate) async fn lobby_ws(
     Query(params): Query<LobbyWsParams>,
     ws: WebSocketUpgrade,
 ) -> Result<axum::response::Response, (StatusCode, Json<ErrorBody>)> {
-    let (account_id, session_digest) = if let Some(ticket) = params.ticket.as_deref() {
+    let (account_id, live) = if let Some(ticket) = params.ticket.as_deref() {
         let wsticket::Grant::Lobby {
             account_id,
             session,
@@ -63,7 +63,7 @@ pub(crate) async fn lobby_ws(
         };
         // The session that asked must still stand: signed out, lapsed, or
         // its account deleted since, the ticket opens nothing.
-        match crate::central::resolve_digest(&state, session.clone())
+        match crate::central::resolve_digest(&state, session)
             .await
             .map_err(|status| err(status, TICKET_REFUSED))?
         {
@@ -72,7 +72,9 @@ pub(crate) async fn lobby_ws(
                     && crate::moderation::admit(&resolved).is_ok()
                     && crate::terms_admit(&resolved).is_ok() =>
             {
-                (account_id, session)
+                let live = crate::central::watched(&state, &resolved)
+                    .map_err(|status| err(status, TICKET_REFUSED))?;
+                (account_id, live)
             }
             _ => {
                 tracing::debug!("a lobby ticket outlived its session");
@@ -82,22 +84,19 @@ pub(crate) async fn lobby_ws(
     } else {
         let token = legacy_token(&state, params.token.as_deref(), "/lobby/ws")?;
         let digest = auth::token_digest(token);
-        let session = crate::central::resolve_digest(&state, digest.clone())
+        let session = crate::central::resolve_digest(&state, digest)
             .await
             .map_err(|status| err(status, TICKET_REFUSED))?
             .ok_or_else(|| err(StatusCode::UNAUTHORIZED, "invalid or expired token"))?;
         crate::moderation::admit(&session)?;
         crate::terms_admit(&session)?;
-        (session.account_id, digest)
+        let live = crate::central::watched(&state, &session)
+            .map_err(|status| err(status, TICKET_REFUSED))?;
+        (session.account_id, live)
     };
-    let place = crate::presence::socket_place(&state, &account_id)?;
-    Ok(ws
-        .max_message_size(MAX_LOBBY_FRAME)
-        .max_frame_size(MAX_LOBBY_FRAME)
-        .on_upgrade(move |socket| async move {
-            let _place = place;
-            run_lobby_socket(state, account_id, session_digest, params.query, socket).await;
-        }))
+    Ok(ws.on_upgrade(move |socket| {
+        run_lobby_socket(state, account_id, live, params.query, socket)
+    }))
 }
 
 /// The biggest frame a lobby socket takes: the client says nothing here, and
@@ -115,7 +114,7 @@ const QUIET: std::time::Duration = std::time::Duration::from_secs(50);
 pub(crate) async fn run_lobby_socket(
     state: Shared,
     account_id: String,
-    session_digest: Vec<u8>,
+    live: std::sync::Arc<crate::sessions::Live>,
     query: lobby::LobbyQuery,
     mut socket: WebSocket,
 ) {
@@ -136,7 +135,7 @@ pub(crate) async fn run_lobby_socket(
     serve_listing(
         &state,
         &account_id,
-        &session_digest,
+        &live,
         &query,
         &mut socket,
         &mut changed,
@@ -151,7 +150,7 @@ pub(crate) async fn run_lobby_socket(
 async fn serve_listing(
     state: &Shared,
     account_id: &str,
-    session_digest: &[u8],
+    live: &crate::sessions::Live,
     query: &lobby::LobbyQuery,
     socket: &mut WebSocket,
     changed: &mut tokio::sync::broadcast::Receiver<()>,
@@ -164,8 +163,6 @@ async fn serve_listing(
     let mut ping = tokio::time::interval(PING_EVERY);
     ping.tick().await;
     let mut heard = tokio::time::Instant::now();
-    let mut authorization = tokio::time::interval(std::time::Duration::from_secs(5));
-    let mut grace = crate::standing::Grace::default();
     loop {
         let payload = listing_page(state, account_id, query).await.to_string();
         if socket.send(Message::Text(payload.into())).await.is_err() {
@@ -173,12 +170,10 @@ async fn serve_listing(
         }
         loop {
             tokio::select! {
-                _ = authorization.tick() => {
-                    let standing = crate::standing::of_session(state, session_digest, account_id).await;
-                    if !grace.keeps_open(standing, std::time::Instant::now()) {
-                        let _ = socket.send(Message::Close(None)).await;
-                        return;
-                    }
+                // Its session ended: signed out, banned or revoked.
+                _ = live.ended() => {
+                    let _ = socket.send(Message::Close(live.close_frame())).await;
+                    return;
                 }
                 // A reader that fell behind is sent the state of the world,
                 // not the history it missed: the payload is the whole

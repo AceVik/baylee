@@ -27,6 +27,12 @@ const MAX_SESSIONS: usize = 262_144;
 /// What identifies a session here, for as long as it lives.
 pub(crate) type Key = Vec<u8>;
 
+/// The key of an account's own state: what a seat with no session stands on.
+/// Longer than any digest, so it cannot collide with one.
+pub(crate) fn account_key(account: &str) -> Key {
+    format!("account:{account}:with-no-session").into_bytes()
+}
+
 /// The clock every check here reads, in Unix seconds.
 pub(crate) fn now() -> i64 {
     i64::try_from(crate::auth::now_secs()).unwrap_or(i64::MAX)
@@ -112,6 +118,24 @@ impl Live {
             // The sender lives in `self`, so it outlives this borrow.
             Err(_) => Ended::Expired,
         }
+    }
+
+    /// The stable reason a socket of this session closes with
+    /// (`docs/protocol.md` §"Refusals").
+    pub(crate) fn refusal_code(&self) -> &'static str {
+        match *self.end.borrow() {
+            Some(Ended::Banned) => baylee_protocol::refusal::BANNED,
+            _ => baylee_protocol::refusal::SESSION_ENDED,
+        }
+    }
+
+    /// The close frame of a socket of this session: its refusal once the
+    /// session ended, none while it stands.
+    pub(crate) fn close_frame(&self) -> Option<axum::extract::ws::CloseFrame> {
+        (!self.stands(now())).then(|| axum::extract::ws::CloseFrame {
+            code: baylee_protocol::refusal::REFUSAL_CLOSE,
+            reason: self.refusal_code().into(),
+        })
     }
 
     /// Moves the end later, never earlier: a fresh gateway token may extend a
@@ -513,6 +537,20 @@ mod tests {
         assert_eq!(*gone.end.borrow(), Some(Ended::Expired));
         assert!(kept.stands(NOW + 1));
         assert_eq!(book.len(), 1);
+    }
+
+    #[test]
+    fn a_socket_closes_with_why_its_session_ended_and_with_nothing_while_it_stands() {
+        let book = Book::default();
+        let banned = book.open(key(1), "a", i64::MAX, NOW).unwrap();
+        let revoked = book.open(key(2), "b", i64::MAX, NOW).unwrap();
+        assert!(banned.close_frame().is_none());
+        book.end(&key(1), Ended::Banned);
+        book.end(&key(2), Ended::Revoked);
+        let frame = banned.close_frame().unwrap();
+        assert_eq!(frame.code, baylee_protocol::refusal::REFUSAL_CLOSE);
+        assert_eq!(frame.reason.as_str(), "banned");
+        assert_eq!(revoked.close_frame().unwrap().reason.as_str(), "session_ended");
     }
 
     #[test]

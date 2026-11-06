@@ -14,6 +14,7 @@ use crate::{
     WebSocket, WebSocketUpgrade, err, spend_ticket, store, wsticket,
 };
 use axum::extract::ws::{CloseFrame, close_code};
+use baylee_protocol::refusal::REFUSAL_CLOSE;
 use baylee_protocol::social::{
     self as wire, Down, Friend, GroupInfo, GroupInvite, Member, Person, Snapshot, SocialSettings,
     Up, WhispersFrom, Why,
@@ -114,16 +115,20 @@ pub(crate) async fn social_ws(
     else {
         return Err(err(StatusCode::UNAUTHORIZED, TICKET_REFUSED));
     };
-    match crate::central::resolve_digest(&state, session.clone())
+    let live = match crate::central::resolve_digest(&state, session)
         .await
         .map_err(|status| err(status, TICKET_REFUSED))?
     {
         Some(session)
             if session.account_id == account_id
                 && crate::moderation::admit(&session).is_ok()
-                && crate::terms_admit(&session).is_ok() => {}
+                && crate::terms_admit(&session).is_ok() =>
+        {
+            crate::central::watched(&state, &session)
+                .map_err(|status| err(status, TICKET_REFUSED))?
+        }
         _ => return Err(err(StatusCode::UNAUTHORIZED, TICKET_REFUSED)),
-    }
+    };
     let why = baylee_protocol::version_refusal("This client", params.protocol)
         .or_else(|| wire::social_version_refusal("This client", params.social));
     if let Some(why) = why {
@@ -133,10 +138,7 @@ pub(crate) async fn social_ws(
     Ok(ws
         .max_message_size(TRANSPORT_LIMIT)
         .max_frame_size(TRANSPORT_LIMIT)
-        .on_upgrade(move |socket| async move {
-            let _place = place;
-            run(state, account_id, session, socket).await;
-        }))
+        .on_upgrade(move |socket| run(state, account_id, live, socket)))
 }
 
 /// The one frame a socket of another version is sent before it closes.
@@ -278,7 +280,12 @@ pub(crate) fn group_info(group: &baylee_db::social::Group) -> GroupInfo {
 }
 
 /// One device's socket, from `hello` until it goes.
-async fn run(state: Shared, account: String, session_digest: Vec<u8>, mut socket: WebSocket) {
+async fn run(
+    state: Shared,
+    account: String,
+    live: std::sync::Arc<crate::sessions::Live>,
+    mut socket: WebSocket,
+) {
     let mut departed = state.departed.subscribe();
     let Ok(Some(row)) = store::account(&state.db, &account).await else {
         let _ = socket.send(Message::Close(None)).await;
@@ -288,12 +295,8 @@ async fn run(state: Shared, account: String, session_digest: Vec<u8>, mut socket
         close(&mut socket, close_code::POLICY, "hello first").await;
         return;
     };
-    // The door asked a moment ago, so only a refusal counts here: doubt is
-    // `serve`'s to sit out.
-    if crate::standing::of_session(&state, &session_digest, &account).await
-        == crate::standing::Standing::Revoked
-    {
-        close(&mut socket, close_code::POLICY, "session expired").await;
+    if !live.stands(crate::sessions::now()) {
+        close(&mut socket, REFUSAL_CLOSE, live.refusal_code()).await;
         return;
     }
     let mine = match baylee_db::social::device_by_id(&state.db, &device).await {
@@ -351,7 +354,7 @@ async fn run(state: Shared, account: String, session_digest: Vec<u8>, mut socket
     serve(
         &state,
         &account,
-        &session_digest,
+        &live,
         &device,
         &me,
         guest,
@@ -372,7 +375,7 @@ async fn run(state: Shared, account: String, session_digest: Vec<u8>, mut socket
 async fn serve(
     state: &Shared,
     account: &str,
-    session_digest: &[u8],
+    live: &crate::sessions::Live,
     device: &str,
     me: &Person,
     guest: bool,
@@ -417,19 +420,21 @@ async fn serve(
     let mut ping = tokio::time::interval(PING_EVERY);
     ping.tick().await;
     let mut heard = tokio::time::Instant::now();
-    let mut authorization = tokio::time::interval(Duration::from_secs(5));
-    let mut grace = crate::standing::Grace::default();
     loop {
         tokio::select! {
-            _ = authorization.tick() => {
-                let standing = crate::standing::of_session(state, session_digest, account).await;
-                if !grace.keeps_open(standing, Instant::now()) {
-                    close(socket, close_code::POLICY, "session expired").await;
-                    return;
-                }
+            biased;
+            // First, so that a frame already waiting does not act on a
+            // session that ended.
+            _ = live.ended() => {
+                close(socket, REFUSAL_CLOSE, live.refusal_code()).await;
+                return;
             }
             frame = socket.recv() => {
                 let Some(Ok(frame)) = frame else { return };
+                if !live.stands(crate::sessions::now()) {
+                    close(socket, REFUSAL_CLOSE, live.refusal_code()).await;
+                    return;
+                }
                 heard = tokio::time::Instant::now();
                 let text = match frame {
                     Message::Text(text) => text,

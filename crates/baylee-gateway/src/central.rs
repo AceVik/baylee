@@ -409,6 +409,67 @@ impl Drop for Heartbeat {
     }
 }
 
+/// At a socket's door: the state the socket watches from here on, for a
+/// session that was just resolved. A Central session must already be in the
+/// book; a local one comes in now, since only its sockets need it there.
+pub(crate) fn watched(
+    state: &Shared,
+    session: &crate::store::Session,
+) -> Result<Arc<crate::sessions::Live>, StatusCode> {
+    let now = crate::sessions::now();
+    if session.central {
+        return state
+            .sessions
+            .get(&session.key, now)
+            .ok_or(StatusCode::UNAUTHORIZED);
+    }
+    state
+        .sessions
+        .open_local(session.key.clone(), &session.account_id, now)
+        .map_err(|crate::sessions::Full| StatusCode::SERVICE_UNAVAILABLE)
+}
+
+/// Whether a local session something still holds stands, as the database
+/// says: `None` when the database could not say, which ends nothing.
+async fn local_standing(state: &Shared, live: &crate::sessions::Live) -> Option<bool> {
+    let account = live.account();
+    if live.key() == crate::sessions::account_key(account).as_slice() {
+        let linked = baylee_db::central::linked(&state.db, account).await.ok()?;
+        return Some(!linked);
+    }
+    let session = crate::store::resolve_digest(
+        &state.db,
+        live.key().to_vec(),
+        crate::auth::now_secs(),
+    )
+    .await
+    .ok()?;
+    Some(session.is_some_and(|session| {
+        session.account_id == account && crate::moderation::admit(&session).is_ok()
+    }))
+}
+
+/// Asks the database about the local sessions sockets hold, away from any
+/// frame. This keeps a guest's sliding lifetime moving while it plays, and
+/// catches what ended without passing through this process's book. Sign-outs,
+/// bans and deletions need no help from it: they end a session at once.
+pub(crate) fn spawn_local_check(state: Shared) {
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(Duration::from_secs(30));
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        loop {
+            interval.tick().await;
+            for live in state.sessions.local_in_use() {
+                if local_standing(&state, &live).await == Some(false) {
+                    state
+                        .sessions
+                        .end(live.key(), crate::sessions::Ended::Expired);
+                }
+            }
+        }
+    });
+}
+
 /// Resolve local authorization and require a fresh Central check for its gateway lease.
 /// No Central account session or password is available to the gateway.
 pub(crate) async fn resolve_digest(

@@ -510,6 +510,7 @@ async fn main() {
     spawn_cleanup(state.clone());
     spawn_ticket_sweep(state.clone());
     spawn_session_sweep(state.clone());
+    central::spawn_local_check(state.clone());
     metrics::spawn(state.clone());
     // A pasted token's link first: whether Central's sign-in reaches this
     // gateway depends on it.

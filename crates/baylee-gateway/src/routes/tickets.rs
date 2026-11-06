@@ -127,10 +127,9 @@ pub(crate) async fn ws_ticket(
     let grant = match body {
         TicketFor::Lobby => {
             let session = authed_session(&state, &headers).await?;
-            let bearer = bearer_token(&headers).unwrap_or_default();
             wsticket::Grant::Lobby {
                 account_id: session.account_id,
-                session: auth::token_digest(bearer),
+                session: session.key,
             }
         }
         TicketFor::Social => {
@@ -138,20 +137,13 @@ pub(crate) async fn ws_ticket(
                 return Err(err(StatusCode::FORBIDDEN, "this gateway has no chat"));
             }
             let session = authed_session(&state, &headers).await?;
-            let bearer = bearer_token(&headers).unwrap_or_default();
             wsticket::Grant::Social {
                 account_id: session.account_id,
-                session: auth::token_digest(bearer),
+                session: session.key,
             }
         }
         TicketFor::Watch { game } => {
             let session = authed_session(&state, &headers).await?;
-            // Each spectator that opens asks the engine for a whole snapshot,
-            // sent to everybody watching, however briefly it stays.
-            if !state.watch_tickets.allow(&session.account_id) {
-                return Err(err(StatusCode::TOO_MANY_REQUESTS, "too many attempts"));
-            }
-            let bearer = bearer_token(&headers).unwrap_or_default();
             {
                 let lobby = state.lobby.lock();
                 let table = lobby
@@ -162,7 +154,7 @@ pub(crate) async fn ws_ticket(
             }
             wsticket::Grant::Watch {
                 game_id: game,
-                session: auth::token_digest(bearer),
+                session: session.key,
             }
         }
         TicketFor::Seat { game } => {
@@ -192,10 +184,13 @@ pub(crate) async fn ws_ticket(
         let authorization =
             super::seat_socket::SeatAuthorization::read(&state, game_id, *seat, seat_token_hash)
                 .ok_or_else(|| err(StatusCode::UNAUTHORIZED, TICKET_REFUSED))?;
-        authorization
-            .standing(&state, game_id, *seat)
+        if authorization
+            .session(&state, game_id, *seat)
             .await
-            .at_the_door()?;
+            .is_none()
+        {
+            return Err(err(StatusCode::UNAUTHORIZED, TICKET_REFUSED));
+        }
     }
     let ticket = state
         .tickets
