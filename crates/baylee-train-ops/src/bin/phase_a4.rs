@@ -4,7 +4,7 @@
 //! `g=tap+cast+react@dev`, `plain-search@dev:256`, `raw-vs=s1r@dev:256`. The
 //! flags it stands for are in [`arm_flags`]; every arm shares [`BASE`].
 use anyhow::{Context, Result, bail, ensure};
-use baylee_train_ops::evaluation::arms::compare_arm;
+use baylee_train_ops::evaluation::arms::{compare_arm, pool_arms};
 use baylee_train_ops::evaluation::value_report::{read_positions, report};
 use baylee_train_ops::evaluation::{atomic_json, read_json};
 use clap::{Parser, Subcommand};
@@ -463,16 +463,38 @@ fn main() -> Result<()> {
             out,
             pairs,
         } => {
+            // `A~B/C~D` is one arm on two sets of deals, pooled.
             let reports: Vec<Value> = pairs
                 .iter()
-                .map(|spec| pair(&root, spec, resamples))
+                .map(|spec| {
+                    if !spec.contains('/') {
+                        return pair(&root, spec, resamples);
+                    }
+                    let parts: Vec<Value> = spec
+                        .split('/')
+                        .map(|part| pair(&root, part, resamples))
+                        .collect::<Result<_>>()?;
+                    let mut pooled = pool_arms(&parts, resamples)?;
+                    pooled["arm"] = json!(format!("{spec} (pooled)"));
+                    pooled["reference"] = json!("");
+                    Ok(pooled)
+                })
                 .collect::<Result<_>>()?;
             println!("| arm | reference | deals | wins | ref | paired | better/worse | Tor A |");
             println!("| --- | --- | --- | --- | --- | --- | --- | --- |");
             for report in &reports {
                 println!("{}", row(report)?);
             }
-            atomic_json(&out, &Value::Array(reports))?;
+            let kept: Vec<Value> = reports
+                .into_iter()
+                .map(|mut report| {
+                    if let Some(fields) = report.as_object_mut() {
+                        fields.remove("rows");
+                    }
+                    report
+                })
+                .collect();
+            atomic_json(&out, &Value::Array(kept))?;
         }
         Command::Surveys {
             root,

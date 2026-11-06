@@ -111,6 +111,7 @@ pub fn compare_arm(candidates: &[Value], reference: &Value, resamples: usize) ->
         "better": better, "equal": equal, "worse": worse,
         "per_seed": per_seed,
         "paired": summarize(&json!({"deal_details": rows}), resamples)?,
+        "rows": rows,
         "execution": candidates.iter().map(|run| json!({
             "refused": run["refused"], "stalls": run["stalls"],
             "house_fallbacks": run["house_fallbacks"], "net_answer_caps": run["net_answer_caps"],
@@ -119,9 +120,54 @@ pub fn compare_arm(candidates: &[Value], reference: &Value, resamples: usize) ->
     }))
 }
 
+/// Several reports of one arm on different deals as one: dev and fresh are
+/// independent tables, so the pooled interval is one bootstrap over all of them.
+///
+/// # Errors
+/// Rejects an empty list or reports without their rows.
+pub fn pool_arms(reports: &[Value], resamples: usize) -> Result<Value> {
+    ensure!(!reports.is_empty(), "Nothing to pool");
+    let mut rows = Vec::new();
+    let total = |key: &str| -> f64 { reports.iter().filter_map(|r| r[key].as_f64()).sum() };
+    for report in reports {
+        rows.extend(
+            report["rows"]
+                .as_array()
+                .context("missing rows")?
+                .iter()
+                .cloned(),
+        );
+    }
+    Ok(json!({
+        "deals": rows.len(), "seeds": reports[0]["seeds"],
+        "arm_wins_mean": total("arm_wins_mean"), "reference_wins": total("reference_wins"),
+        "better": total("better"), "equal": total("equal"), "worse": total("worse"),
+        "paired": summarize(&json!({"deal_details": rows}), resamples)?,
+    }))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn dev_and_fresh_pool_into_one_interval() {
+        let reference = run(1, &[0.0, 1.0, 0.0, 1.0]);
+        let mut other_reference = run(1, &[0.0, 0.0, 1.0, 1.0]);
+        let mut other_arm = run(2, &[1.0, 1.0, 1.0, 1.0]);
+        for value in [&mut other_reference, &mut other_arm] {
+            value["first_seed"] = json!(9);
+            for row in value["deal_details"].as_array_mut().unwrap() {
+                row["seed"] = json!(row["seed"].as_u64().unwrap() + 100);
+            }
+        }
+        let one = compare_arm(&[run(2, &[1.0, 1.0, 0.0, 1.0])], &reference, 100).unwrap();
+        let two = compare_arm(&[other_arm], &other_reference, 100).unwrap();
+        let pooled = pool_arms(&[one, two], 100).unwrap();
+        assert_eq!(pooled["deals"], 8);
+        assert_eq!(pooled["better"], 3.0);
+        assert_eq!(pooled["paired"]["paired_utility_difference"], 0.375);
+    }
 
     fn run(seed: u64, scores: &[f64]) -> Value {
         let details: Vec<Value> = scores
