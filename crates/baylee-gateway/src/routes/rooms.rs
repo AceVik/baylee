@@ -7,6 +7,13 @@ use crate::{
     listing, lobby, own_deck, routes::LobbyListing, table_prints, try_start,
 };
 
+/// How many waiting rooms one account may host at once.
+///
+/// More than one stays allowed; what this bounds is a loop. A room is memory
+/// held for two hours, and every lobby change renders every room for every
+/// reader, so rooms without end cost everybody else the lobby.
+pub(crate) const MAX_WAITING_ROOMS: usize = 8;
+
 /// A chair handed to the caller: the game it is at, its number, and the
 /// seat token that opens it.
 ///
@@ -120,6 +127,7 @@ pub(crate) struct CreateGameBody {
 /// @return 403: `$ErrorBody` "The account is banned (`ban`) or must accept the terms first (`terms_required`), or the deck is someone else's (`not your deck`)"
 /// @return 404: `$ErrorBody` "No such deck"
 /// @return 409: `$ErrorBody` "The deck holds a card blocked on this gateway, or the caller is still playing a running game"
+/// @return 429: `$ErrorBody` "The caller already hosts 8 waiting rooms"
 /// @return 500: `$ErrorBody` "The house deck is missing from this build"
 /// @return 503: `$ErrorBody` "The account store or Baylee Central is unavailable, the gateway's database is, or no engine could be ordered for `mode: ai` (no agent, or a deploy holds new games)"
 pub(crate) async fn create_game(
@@ -204,6 +212,12 @@ pub(crate) async fn create_game(
     {
         let mut lobby = state.lobby.lock();
         super::participation::account(&lobby, &account_id, None)?;
+        if lobby.waiting().filter(|g| g.hosted_by(&account_id)).count() >= MAX_WAITING_ROOMS {
+            return Err(err(
+                StatusCode::TOO_MANY_REQUESTS,
+                "you already host as many waiting rooms as you may",
+            ));
+        }
         let mut game = LobbyGame::blank(game_id.clone(), auth::now_secs());
         game.state = LobbyState::Waiting;
         game.host = Some(account_id.clone());
