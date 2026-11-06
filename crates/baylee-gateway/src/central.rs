@@ -669,7 +669,7 @@ pub(crate) async fn admin_actor(
 /// Bind a seat capability to the session which authorized its creation: a
 /// Central session's key, or nothing for a local one, whose chair stands on
 /// the account (`routes::seat_socket::account_capability`).
-pub(crate) async fn seat_binding(
+pub(crate) fn seat_binding(
     state: &Shared,
     headers: &axum::http::HeaderMap,
 ) -> Result<Option<Vec<u8>>, (StatusCode, axum::Json<crate::ErrorBody>)> {

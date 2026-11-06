@@ -70,7 +70,7 @@ impl Lobby {
                     password: self.password.text().to_string(),
                 })
             }
-            LobbyEvent::BearerRenewed { .. } => None,
+            LobbyEvent::BearerRenewed { .. } | LobbyEvent::LoggedOut => None,
             LobbyEvent::LoggedIn { token, username } => {
                 // Whoever signed in, the shell says again whether it was
                 // through Central (`set_central_bound`), after this event.
@@ -109,7 +109,6 @@ impl Lobby {
                 self.busy = true;
                 Some(LobbyRequest::ListDecks)
             }
-            LobbyEvent::LoggedOut => None,
             LobbyEvent::HostedProfiles(profiles) => {
                 self.hosted_listed_now(profiles);
                 None

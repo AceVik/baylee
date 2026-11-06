@@ -136,7 +136,7 @@ pub(crate) async fn create_game(
     Json(body): Json<CreateGameBody>,
 ) -> Result<Json<SeatGrant>, (StatusCode, Json<ErrorBody>)> {
     let account_id = authed(&state, &headers).await?;
-    let central_session = crate::central::seat_binding(&state, &headers).await?;
+    let central_session = crate::central::seat_binding(&state, &headers)?;
     let chosen = if body.deck_id.is_empty() {
         None
     } else {
@@ -320,7 +320,7 @@ pub(crate) async fn join_game(
     Json(body): Json<JoinGameBody>,
 ) -> Result<Json<SeatGrant>, (StatusCode, Json<ErrorBody>)> {
     let account_id = authed(&state, &headers).await?;
-    let central_session = crate::central::seat_binding(&state, &headers).await?;
+    let central_session = crate::central::seat_binding(&state, &headers)?;
     let chosen = if body.deck_id.is_empty() {
         None
     } else {
@@ -462,7 +462,7 @@ pub(crate) async fn take_seat(
     Path(id): Path<String>,
 ) -> Result<Json<SeatGrant>, (StatusCode, Json<ErrorBody>)> {
     let account_id = authed(&state, &headers).await?;
-    let central_session = crate::central::seat_binding(&state, &headers).await?;
+    let central_session = crate::central::seat_binding(&state, &headers)?;
     let seat_token = auth::new_token();
     let seat = {
         let mut lobby = state.lobby.lock();

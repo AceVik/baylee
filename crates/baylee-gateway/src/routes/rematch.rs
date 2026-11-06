@@ -52,7 +52,7 @@ pub(crate) async fn rematch(
     Path(id): Path<String>,
 ) -> Result<Json<SeatGrant>, (StatusCode, Json<ErrorBody>)> {
     let account_id = authed(&state, &headers).await?;
-    let central_session = crate::central::seat_binding(&state, &headers).await?;
+    let central_session = crate::central::seat_binding(&state, &headers)?;
     let seat_token = auth::new_token();
     // Lobby, then store, then lobby again — never both at once, which is the
     // rule `seat_names` states and every path here keeps. Nothing in this

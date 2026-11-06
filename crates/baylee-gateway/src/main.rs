@@ -7,6 +7,8 @@
 //! must never be exposed on a plaintext listener in production.
 #![deny(unsafe_code)]
 
+use baylee_protocol::refusal::Refusal as WireRefusal;
+
 mod account;
 mod admin;
 mod admission;
@@ -1000,7 +1002,7 @@ struct ErrorBody {
     /// Why, for a client to say in its own words (`docs/protocol.md`
     /// §"Refusals"): only on a refusal that has a stable reason.
     #[serde(skip_serializing_if = "Option::is_none")]
-    refusal: Option<Box<baylee_protocol::refusal::Refusal>>,
+    refusal: Option<Box<WireRefusal>>,
 }
 
 fn err(status: StatusCode, message: &'static str) -> (StatusCode, Json<ErrorBody>) {

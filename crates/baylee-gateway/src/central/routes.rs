@@ -503,25 +503,28 @@ async fn invalidate(State(state): State<Shared>, headers: HeaderMap, body: Bytes
 ///           type: string
 ///       required: [token]
 ///       additionalProperties: false
-///     RefusalBody:
+///     WireRefusal:
 ///       type: object
 ///       description: 'Why, for a client to say in its own words; docs/protocol.md "Refusals".'
 ///       properties:
+///         code:
+///           type: string
+///           pattern: '^[a-z0-9_]{1,32}$'
+///         min_version:
+///           type: string
+///         until:
+///           type: integer
+///           format: int64
+///         text:
+///           type: string
+///           maxLength: 200
+///       required: [code]
+///     RefusalBody:
+///       type: object
+///       description: 'A refusal and nothing else.'
+///       properties:
 ///         refusal:
-///           type: object
-///           properties:
-///             code:
-///               type: string
-///               pattern: '^[a-z0-9_]{1,32}$'
-///             min_version:
-///               type: string
-///             until:
-///               type: integer
-///               format: int64
-///             text:
-///               type: string
-///               maxLength: 200
-///           required: [code]
+///           $ref: '#/components/schemas/WireRefusal'
 ///       required: [refusal]
 ///     CentralAdminSession:
 ///       type: object

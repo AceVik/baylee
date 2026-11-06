@@ -422,12 +422,12 @@ paths:
     post:
       summary: Sign in with Baylee Central
       description: |-
-        Trades an `admit` ticket from Baylee Central for a session
-        at this gateway, for the account Central names (a gateway that is not
-        the migration gateway makes a local projection of it the first time,
-        only while its registration is open). Answered as a sign-in is, and the
-        session's every request is checked with Central. Every refusal is a bare
-        status.
+        Trades a gateway token from Baylee Central for a session at
+        this gateway, for the account it names (a gateway that is not the migration
+        gateway makes a local projection of it the first time, only while its
+        registration is open). The token is checked here, with no word from
+        Central. Answered as a sign-in is. Every refusal is a bare status, but for
+        `426`.
       operationId: central_login
       tags:
       - Central
@@ -436,7 +436,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/CentralCapability"
+              $ref: "#/components/schemas/CentralSignIn"
         required: true
       responses:
         "200":
@@ -445,36 +445,44 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CentralSession"
+        "400":
+          description: The body is no sign-in
         "401":
           description: >-
-            The ticket is not good, the account is not linked here, it is a guest, or
-            Central no longer admits it
+            The token is not good here, its session was revoked, the account is not linked
+            here or it is a guest
         "403":
           description: >-
-            This gateway takes no Central account (its mode is `guests`), the account is
-            banned or must choose a new password first, or Central refused
-        "409":
-          description: Central answered a conflict
+            This gateway takes no Central account (its mode is `guests`), or the account is
+            banned or must choose a new password first
         "413":
           description: The body is over 8 KiB
           content:
             text/plain:
               schema:
                 type: string
+        "426":
+          description: "A client from before gateway tokens: `update_required`"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RefusalBody"
         "429":
-          description: Central is busy, or too many sign-ins are on their way
+          description: Too many sign-ins from this address
         "503":
           description: >-
-            No Baylee Central is configured, the database or Central is unavailable, or the
-            account is new here and this gateway's registration is not open
+            No Baylee Central is configured, this gateway has not caught up with Central
+            since it started, the database is unavailable, or the account is new here and this
+            gateway's registration is not open
   /auth/central/admin:
     post:
       summary: Sign in to the admin console with Baylee Central
       description: |-
-        Trades an `admin` ticket from Baylee Central for a bearer
-        that works on the admin listener only, where each request checks the
-        Central session and the account's admin membership. Not on the migration
-        gateway. Every refusal is a bare status.
+        Trades an `admin` gateway token from Baylee Central for a
+        bearer that works on the admin listener only. It lasts as long as the token
+        and is not renewed; Central revokes it when the account stops being an
+        admin here. Not on the migration gateway. Every refusal is a bare status,
+        but for `426`.
       operationId: central_admin_login
       tags:
       - Central
@@ -483,7 +491,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/CentralCapability"
+              $ref: "#/components/schemas/CentralSignIn"
         required: true
       responses:
         "200":
@@ -492,24 +500,132 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CentralAdminSession"
+        "400":
+          description: The body is no sign-in
         "401":
-          description: The ticket is not good, or the account is a guest
+          description: The token is not good here, its session was revoked, or the account is a guest
         "403":
           description: >-
-            This is the migration gateway, the account is banned or must choose a new
-            password first, or Central refused
-        "409":
-          description: Central answered a conflict
+            This is the migration gateway, or the account is banned or must choose a new
+            password first
         "413":
           description: The body is over 8 KiB
           content:
             text/plain:
               schema:
                 type: string
+        "426":
+          description: "A client from before gateway tokens: `update_required`"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RefusalBody"
         "429":
-          description: Central is busy, or too many sign-ins are on their way
+          description: Too many sign-ins from this address
         "503":
-          description: No Baylee Central is configured, or the database or Central is unavailable
+          description: >-
+            No Baylee Central is configured, this gateway has not caught up with Central
+            since it started, or the database is unavailable
+  /auth/central/refresh:
+    post:
+      summary: Carry a Central session on with a later token
+      description: |-
+        Takes a later gateway token of a session this gateway holds:
+        the session lasts as long as the token, the token's terms stand, and a new
+        bearer comes back. It is also how a client whose renewal was lost gets back
+        in. A session this gateway does not hold, as after its restart, signs in.
+      operationId: central_refresh
+      tags:
+      - Central
+      security: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CentralSignIn"
+        required: true
+      responses:
+        "200":
+          description: The new bearer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CentralRefreshed"
+        "400":
+          description: The body is no sign-in
+        "401":
+          description: >-
+            The token is not good here, its session was revoked, or this gateway holds no
+            such session
+        "413":
+          description: The body is over 8 KiB
+          content:
+            text/plain:
+              schema:
+                type: string
+        "426":
+          description: "A client from before gateway tokens: `update_required`"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RefusalBody"
+        "429":
+          description: Too many sign-ins from this address
+        "503":
+          description: >-
+            No Baylee Central is configured, or this gateway has not caught up with Central
+            since it started
+  /auth/session/renew:
+    post:
+      summary: Renew a session's bearer
+      description: |-
+        A Central session's bearer lives between 64 and 128 seconds.
+        This replaces the current one, with no word from Central; the one replaced
+        serves requests in flight for ten seconds more and renews nothing.
+      operationId: session_renew
+      tags:
+      - Central
+      security:
+      - bearer: []
+      responses:
+        "200":
+          description: The new bearer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CentralRenewed"
+        "401":
+          description: No bearer, or not the current one of a live session
+  /auth/central/invalidate:
+    post:
+      summary: Take a revocation from Baylee Central
+      description: |-
+        Anyone can reach this, so nothing is taken but a message
+        signed by Central's keys, for this gateway, unexpired and not taken before.
+        It names only `sid`s, and those sessions' sockets close at once. Nothing
+        here is needed for a revocation to arrive: the gateway also catches up on
+        its own.
+      operationId: central_invalidate
+      tags:
+      - Central
+      security: []
+      responses:
+        "204":
+          description: Taken, or taken before
+        "400":
+          description: Not `application/jwt`, or not text
+        "401":
+          description: Refused
+        "413":
+          description: The body is over 16 KiB
+          content:
+            text/plain:
+              schema:
+                type: string
+        "429":
+          description: "Too many at once: try again"
+        "503":
+          description: No Baylee Central is configured, or this gateway holds no keys yet
   "/lobby/games/{id}/chairs/{seat}/ticket":
     post:
       summary: Hand a chair to a seat bridge
@@ -6056,7 +6172,14 @@ components:
         expires_at:
           type: integer
           format: int64
-          description: "When it ends, Unix seconds: the end of its Central lease."
+          description: "When it ends, Unix seconds: the end of its gateway token."
+        renew_in:
+          type: integer
+          description: "Seconds from now to renew the bearer: relative, so that a client's clock does not come into it."
+        session_expires_at:
+          type: integer
+          format: int64
+          description: When the session ends, Unix seconds.
         username:
           type:
           - string
@@ -6068,39 +6191,65 @@ components:
       required:
       - token
       - expires_at
+      - renew_in
+      - session_expires_at
       - username
       - display_name
-    CentralBytes32:
-      type: array
-      description: 32 bytes, as a JSON array of 32 numbers from 0 to 255.
-      items:
-        type: integer
-        minimum: 0
-        maximum: 255
-      minItems: 32
-      maxItems: 32
-    CentralCapability:
+    CentralRefreshed:
       type: object
-      description: >-
-        A one-use ticket Baylee Central issued for this gateway and this route's
-        purpose, good for 30 seconds.
+      description: A new bearer for a session carried on with a later token.
       properties:
-        ticket:
-          $ref: "#/components/schemas/CentralBytes32"
+        token:
+          type: string
+        expires_at:
+          type: integer
+          format: int64
+        renew_in:
+          type: integer
+          description: "Seconds from now to renew the bearer: relative, so that a client's clock does not come into it."
+        session_expires_at:
+          type: integer
+          format: int64
+        terms_stale:
+          type: boolean
       required:
-      - ticket
-      additionalProperties: false
+      - token
+      - expires_at
+      - renew_in
+      - session_expires_at
+    CentralRenewed:
+      type: object
+      description: A new bearer for the same session.
+      properties:
+        token:
+          type: string
+        expires_at:
+          type: integer
+          format: int64
+        renew_in:
+          type: integer
+      required:
+      - token
+      - expires_at
+      - renew_in
     CentralSession:
       type: object
       description: A session at this gateway, answered as a sign-in is.
       properties:
         token:
           type: string
-          description: "The session's bearer token: 64 lowercase hex characters."
+          description: "The session's bearer: 64 lowercase hex characters. It lives 64 to 128 seconds; renew it before `expires_at`."
         expires_at:
           type: integer
           format: int64
-          description: "When it ends, Unix seconds: the end of its Central lease."
+          description: When the bearer ends, Unix seconds.
+        renew_in:
+          type: integer
+          description: "Seconds from now to renew the bearer: relative, so that a client's clock does not come into it."
+        session_expires_at:
+          type: integer
+          format: int64
+          description: When the session ends without a later token, Unix seconds.
         username:
           type:
           - string
@@ -6114,17 +6263,22 @@ components:
           description: >-
             Whether the account has yet to accept this gateway's terms in force (at
             Central); only on a gateway with terms.
-        central_terms_stale:
-          type: boolean
-          const: true
-          description: >-
-            Only there when the account has yet to accept Baylee Central's own terms, which
-            come first.
       required:
       - token
       - expires_at
+      - renew_in
+      - session_expires_at
       - username
       - display_name
+    CentralSignIn:
+      type: object
+      description: "A gateway token Baylee Central issued for this gateway: an EdDSA JWT, at most 2 KiB."
+      properties:
+        token:
+          type: string
+      required:
+      - token
+      additionalProperties: false
     ChairDeck:
       type: object
       properties:
@@ -7132,13 +7286,15 @@ components:
           description: "The ban an account is refused with (beta.8): only on a `403` from a Central sign-in or a session of a banned account (`moderation.rs`)."
         terms_required:
           type: string
-          description: "Whose terms of use the account has to accept first (`central` or `gateway`): only on the `403` of a session that has not (`terms_admit`)."
+          description: "Whose terms of use the account has to accept first (`gateway`, the only ones a gateway enforces): only on the `403` of a session that has not (`terms_admit`)."
           enum:
-          - central
           - gateway
         refused:
           $ref: "#/components/schemas/DeckRefusal"
           description: "Why a table's list turned a deck away: only on the `409` of a route that sat a deck down, and only to the player whose deck it is."
+        refusal:
+          $ref: "#/components/schemas/WireRefusal"
+          description: "Why, for a client to say in its own words (`docs/protocol.md` §\"Refusals\"): only on a refusal that has a stable reason."
       required:
       - error
       description: "A refusal: one English sentence in `error`, and the parts a client words itself where a refusal has them."
@@ -8811,6 +8967,14 @@ components:
       - display_name
       - deck
       description: The name the chair sits under, and the deck it plays.
+    RefusalBody:
+      type: object
+      description: A refusal and nothing else.
+      properties:
+        refusal:
+          $ref: "#/components/schemas/WireRefusal"
+      required:
+      - refusal
     Registration:
       type: string
       enum:
@@ -9759,6 +9923,23 @@ components:
       - friends_and_tables
       default: friends_and_tables
       description: "Who may whisper an account: `friends`, or `friends_and_tables` (also the players with a chair at a table it sits at; the default)."
+    WireRefusal:
+      type: object
+      description: Why, for a client to say in its own words; docs/protocol.md "Refusals".
+      properties:
+        code:
+          type: string
+          pattern: ^[a-z0-9_]{1,32}$
+        min_version:
+          type: string
+        until:
+          type: integer
+          format: int64
+        text:
+          type: string
+          maxLength: 200
+      required:
+      - code
 tags:
 - name: Gateway
   description: What the gateway is and whether it is well

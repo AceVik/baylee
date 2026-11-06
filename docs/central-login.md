@@ -206,11 +206,13 @@ requires the renewed source review and fingerprint. No scanner ignore or
 allowed reverse edge was broadened.
 
 Baylee's session tokens (§"Sessions") pin Central's working branch
-`c42/session-tokens` at `8e9fa836a1805bd6fd636ff4b9b3bed493f5f069`, until it is
+`c42/session-tokens` at `2f2bf720672cc6b26be3f93274fed7f0be5da4c8`, until it is
 merged and the pin moves to Central's `main`. That revision adds
 `central_crypto::jwt` behind a feature of its own, Ed25519 by the
 `ed25519-dalek` the crate already used, and pins the source fingerprint again in
-Central's guard. No OPAQUE, OPRF or key-exchange code changed.
+Central's guard, to
+`aea8b222bd01ea3e0faa2682007a2050ef89c34613e07b45b582d1462c7f4904`. No OPAQUE, OPRF
+or key-exchange code changed.
 
 `deny.toml` and the audit job exclude this advisory only under that reviewed
 scope. The required `shipped-features` job and local feature gate run
@@ -493,7 +495,10 @@ Central, gateways and clients change together; old ones are not supported (owner
    old Central does not know its request. Keep this gap short.
 2. **Central and the gateway, together.** The deploy hook builds the Central revision
    the gateway links, so one deploy does both (baylee-central `docs/operations.md`
-   §"Deploying with the gateway").
+   §"Deploying with the gateway"). **`token_keys` and `official_address` must be in
+   `central.json` first:** the hook refuses the deploy without them, before it stops
+   anything (baylee-central `docs/operations.md` §"The session tokens release"). The
+   migration ends every native session, so every client signs in again.
 3. **Clients update themselves.** The updater goes to GitHub Releases and needs no
    sign-in, and it installs on exit.
 
