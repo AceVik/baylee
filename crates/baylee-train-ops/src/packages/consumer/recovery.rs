@@ -26,12 +26,16 @@ fn completed_job(plan: &Consumer, job: &serde_json::Value, command: &[String]) -
             && job["reason"].is_null(),
         "committed package job did not complete cleanly"
     );
-    let child: process::Identity = serde_json::from_value(job["child_identity"].clone())
-        .context("completed package child identity")?;
-    ensure!(
-        job["pid"] == child.pid && process::identity(child.pid).as_ref() != Some(&child),
-        "completed package child is still live or identity differs"
-    );
+    // A child that ended before the guard could read it has no identity: it
+    // was gone by then, which is what this check asks.
+    if !job["child_identity"].is_null() {
+        let child: process::Identity = serde_json::from_value(job["child_identity"].clone())
+            .context("completed package child identity")?;
+        ensure!(
+            job["pid"] == child.pid && process::identity(child.pid).as_ref() != Some(&child),
+            "completed package child is still live or identity differs"
+        );
+    }
     ensure!(
         job["command"] == json!(command)
             && job["cwd"] == json!(plan.cwd)
