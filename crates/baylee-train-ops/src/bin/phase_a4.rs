@@ -209,6 +209,10 @@ fn arm_flags(left: &str) -> Result<(Vec<String>, bool)> {
             bail!("unknown arm part {part}");
         }
     }
+    // A bare reference logs its value heads: Arm 4 reads them, no other arm does.
+    if matches!(left, "raw" | "tac" | "plain") {
+        flags.push("VALUE_LOG".into());
+    }
     flags.extend([
         "--policy-seed".into(),
         seed.to_string(),

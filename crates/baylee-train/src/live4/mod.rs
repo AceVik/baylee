@@ -63,6 +63,10 @@ pub struct LiveReport4 {
     pub clock_probes: u64,
     /// Fail-closed reason, with no transport credentials.
     pub failure: Option<String>,
+    /// Whether this seat won, once the table says the game is over.
+    pub won: Option<bool>,
+    /// Whether the game ended in a draw, once the table says it is over.
+    pub drawn: Option<bool>,
 }
 
 struct Question {
@@ -211,7 +215,13 @@ impl<B: Brain4> LiveSeat4<B> {
                 self.observe_latest()?;
             }
             Heard::Question { seq, pending, raw } => {
-                if matches!(*pending, Pending::GameOver(_)) {
+                if let Pending::GameOver(result) = &*pending {
+                    self.report.won = Some(
+                        result
+                            .winner
+                            .is_some_and(|winner| winner.includes(self.seat, None)),
+                    );
+                    self.report.drawn = Some(result.winner.is_none());
                     self.done = true;
                     return Ok(outgoing);
                 }
