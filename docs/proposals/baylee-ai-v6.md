@@ -161,6 +161,29 @@ Der Rumpf wird hier zum ersten Mal mittrainiert, mit Anker an das Vergleichsnetz
 getrennt entscheiden. Suche im Live-Spiel gehört erst dazu, wenn sie ohne echte Decklisten und
 außerhalb des Evaluators läuft.
 
+### Stand nach Phase A (6. November)
+
+Gemessen auf B-refresh, eingefroren, gegen `sharp`; Notizen in
+`~/baylee-data/v6/train/v6a-phase-a-notes.md`.
+
+- **Greedy ist nicht die Ursache.** Temperatur bringt fehlende Züge zurück und kostet roh 4 bis
+  5 pp. Mit Taktik bleibt sie neutral.
+- **Das Menü besteht Tor A nicht.** Die vorab festgelegte Prüfung auf 2048 neuen Partien ergab
+  +1,7 pp [+0,0, +3,3] auf die Taktik. Es wird kein Kopf; es kann höchstens saubere Labels liefern.
+- **K ist flach** von 0 bis 8 und fällt als Stellschraube weg.
+- **Suche** bringt roh +4,2 pp [−0,5, +8,9] und mit Taktik −0,5 pp [−5,2, +4,2] auf 192 Partien.
+  Beides ist zu ungenau für ein Urteil.
+- **Der Bewerter** schlägt die Brett-Grundlinie nicht verlässlich und liegt deutlich zu hoch.
+- **Gegen LLMs fehlt am meisten.** Das Netz gewinnt gegen DeepSeek low 2 von 19 roh und 5 von 20
+  mit Taktik. Das Netz spielte beide Seiten jedes Deck-Paars, Glück und Paarung erklären das also
+  nicht. Die gelesenen Niederlagen zeigen einfache Fehler: 15 von 20 wären mit einem Zug Vorausschau
+  sichtbar, wenn die beste Antwort des Gegners mitzählt.
+
+**Neue Reihenfolge (Eigentümer, 6. November):** Phase D zieht vor Phase C. Taktik-Regeln gegen die
+gefundenen Fehlerklassen, gemessen an einer größeren Leiter mit DeepSeek, Haiku Max und 3.8 Flash.
+Dann Bewerter, dann Spalten für Ziel-, Farb- und Block-Wahl. Gegner-Leser und Synergetiker bleiben
+in v6 und kommen danach. Inneres K entfällt.
+
 ## 5. Was wir messen
 
 Spielstärke mit Taktik, Lernfortschritt roh. Vergleichsnetz ist B-refresh. Vergleiche nur innerhalb
