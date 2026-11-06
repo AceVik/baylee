@@ -23,6 +23,8 @@ pub(crate) use pipeline::Pipeline;
 pub(crate) use pipeline::{Progress, Stage};
 pub(crate) use runs::{Ladder, LlmRun};
 pub(crate) use units::{Services, Unit};
+#[cfg(test)]
+pub(crate) use {plan::Eval, runs::Arm};
 
 /// Training changes over minutes; five seconds keeps the panel current.
 const REFRESH: Duration = Duration::from_secs(5);

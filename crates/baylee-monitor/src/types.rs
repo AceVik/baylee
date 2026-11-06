@@ -362,7 +362,7 @@ mod tests {
         assets,
         procfs::stat::CpuShares,
         sensors::Reading,
-        training::{Pipeline, Progress, Services, Stage, Unit},
+        training::{Arm, Eval, Ladder, LlmRun, Pipeline, Progress, Services, Stage, Unit},
     };
     use serde_json::{Value, json};
     use std::collections::BTreeSet;
@@ -566,7 +566,10 @@ mod tests {
                     finished_ms: Some(1),
                     returncode: Some(0),
                     reason: Some("x".into()),
-                    eval: None,
+                    eval: Some(Eval {
+                        net_wins: Some(1),
+                        ..Eval::default()
+                    }),
                     error_line: Some("x".into()),
                 }],
                 progress: Some(Progress {
@@ -579,6 +582,14 @@ mod tests {
                     updated_ms: Some(1),
                 }),
                 ..Pipeline::default()
+            }],
+            llm_runs: vec![LlmRun {
+                models: vec!["m".into()],
+                ..LlmRun::default()
+            }],
+            ladders: vec![Ladder {
+                arms: vec![Arm::default()],
+                ..Ladder::default()
             }],
             ..Training::default()
         }
@@ -728,6 +739,17 @@ mod tests {
         "/training/pipelines/0/progress/stage",
         "/training/pipelines/0/progress/line",
         "/training/pipelines/0/progress/fields/0/1",
+        "/training/pipelines/0/progress/step",
+        "/training/pipelines/0/progress/total_steps",
+        "/training/pipelines/0/progress/remaining_s",
+        "/training/pipelines/0/stages/0/error_line",
+        "/training/pipelines/0/stages/0/eval/net_wins",
+        "/training/llm_runs/0/models/0",
+        "/training/llm_runs/0/name",
+        "/training/llm_runs/0/errors",
+        "/training/ladders/0/name",
+        "/training/ladders/0/arms/0/name",
+        "/training/ladders/0/games",
     ];
 
     #[test]

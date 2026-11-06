@@ -569,13 +569,19 @@ td small { display: block; color: var(--muted); overflow: hidden; text-overflow:
 .chips small { margin-right: 6px; color: var(--muted); }
 .progress-line { display: block; margin-top: 7px; color: var(--ink-2); white-space: pre-wrap; overflow-wrap: anywhere; }
 .stages { margin-top: 9px; }
-.stage { display: flex; justify-content: space-between; gap: 10px; padding: 5px 0; border-top: 1px solid var(--grid); font-size: 12px; }
+.stage { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 10px; padding: 5px 0; border-top: 1px solid var(--grid); font-size: 12px; }
 .stage-name { min-width: 0; overflow-wrap: anywhere; }
 .stage-name::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 8px; border-radius: 50%; background: var(--axis); vertical-align: 1px; }
 .stage.complete .stage-name::before { background: var(--ok); }
 .stage.running .stage-name::before { background: var(--accent); box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 25%, transparent); }
 .stage.bad .stage-name::before { background: var(--crit); }
 .stage-state { color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+.stage-error { flex: 1 0 100%; padding-left: 16px; color: var(--ink-2); font-size: 11px; overflow-wrap: anywhere; }
+.pipeline-column { display: grid; gap: 14px; min-width: 0; }
+.training-section h3 { margin: 0 0 8px; }
+.pipeline.live { box-shadow: inset 3px 0 0 var(--accent); }
+.run-bar { margin-top: 10px; }
+.progress-steps { margin-top: 5px; color: var(--ink-2); font-size: 12px; font-variant-numeric: tabular-nums; }
 .unit-list { display: grid; gap: 6px; }
 .unit { display: flex; justify-content: space-between; gap: 12px; padding: 8px 11px; border-radius: 12px; background: var(--surface-2); font-size: 12px; }
 .unit > div:first-child { min-width: 0; }

@@ -285,9 +285,16 @@ arm (`games`, `net_won`, `net_lost`, `drawn`, `unfinished`), the number of
 games, those not in phase `game-complete` and those with a `failure` or a
 timeout. Rooms, decks and answers are not kept.
 
-On a phone the panel is a single column: pipeline cards (phase, controller,
-progress chips, the newest five stages with "Alle N Stufen" for the rest),
-then the units with "seit", duration and PID.
+On a phone the panel is a single column: pipeline cards (phase, "Stufe n von
+m", running time, controller and unit; for a running pipeline the progress box
+with the step bar, "noch ca." and the chips, and the newest five stages with
+"Alle N Stufen" for the rest; a finished pipeline lists only its failed stages
+until opened), then the LLM run cards (admitted against planned attempts as a
+bar, finished and in-flight games, errors, models), the ladder card (one row
+per arm, won : lost and win rate), then the units with "seit", duration and
+PID. A failed stage shows its last line under it, a finished evaluation its
+`net_wins` of `deals`. The cards sit inside the existing "Training" tile, so
+its place, size and the settings in local storage are unchanged.
 
 ## Local power-button setting (24 October 2026)
 
