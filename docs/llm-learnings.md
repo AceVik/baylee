@@ -6841,3 +6841,25 @@ code.
   accepts all 12,543 cards, `require-card-tests`, affected Clippy with warnings
   denied, formatting and `git diff --check` pass. The full gates remain
   deliberately deferred at the owner's request.
+
+## 2026-11-06 — Daze and returns as an alternative spell cost
+
+- `CostPart::ReturnToHand` now participates in the casting wizard's alternative
+  costs through the existing `cost_wizard` question and payment path. A return
+  does not populate the spell's sacrificed-permanent receipt. The existing
+  augmenting-path assignment supplies the offer and successive choices, so
+  overlapping filters and repeated returns do not need a second implementation.
+- The two synthetic rule tests failed before the change: one returned nothing,
+  while one creature was incorrectly sufficient for two return parts. They now
+  cover payment before stack placement, rejection of duplicate answers, and
+  returning a controlled permanent to its owner's rather than its controller's
+  hand. A direct controller change in a test needs `refresh_offer` before the
+  cached legal-action list can demonstrate the new payment.
+- Daze has four played tests covering its alternative and ordinary costs,
+  payment and nonpayment of the counter tax, and refusal of an opponent's
+  Island. Its filter states both "Island" and "you control" for the scope
+  validator; the cost's independent controller check remains the legality
+  boundary. Existing desktop and seat `CostReturn` flows required no new
+  pending shape. The 364 house-AI tests, full seat suite, 151 interaction
+  tests, `record::seen`, affected Clippy, `validate` and formatting checks pass;
+  the full gates remain deferred at the owner's request.
