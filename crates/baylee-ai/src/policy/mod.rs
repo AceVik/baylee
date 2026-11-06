@@ -2326,6 +2326,64 @@ pub(crate) fn converters(view: &PlayerView, legal: &LegalActions) -> Vec<(Object
         .collect()
 }
 
+/// Keeps no more sources that sacrifice "a permanent matching F" than there
+/// are permanents matching F to sacrifice (CR 118.3, 701.21a).
+///
+/// Three Diamond Kaleidoscopes each read "Sacrifice a Prism token: Add one
+/// mana of any color" as a free-standing source, so one Prism token paid for
+/// three mana in a plan, and an offer to tap two of them for `{W}` each was
+/// made with a single token on the table. The planner counts a permanent
+/// once ([`manaplan::keep_one_per_permanent`]) but a sacrificed resource
+/// belongs to no permanent, so the count is made here, where the view can
+/// say how many there are. A filter the view cannot read counts as matching,
+/// the direction that offers a plan the engine may refuse and never hides one
+/// it would accept.
+fn cap_shared_sacrifices(view: &PlayerView, sources: &mut Vec<Source>) {
+    let agent = HeuristicAgent::new(crate::AIProfile::default());
+    let me = resource_player(view);
+    let mut taken: Vec<(&'static Filter, usize)> = Vec::new();
+    sources.retain(|source| {
+        let Tap::Ability(index) = source.tap else {
+            return true;
+        };
+        let Some(
+            AbilityDef::Activated { cost, .. } | AbilityDef::ActivatedConditional { cost, .. },
+        ) = crate::activate::printed(view, source.id, index)
+        else {
+            return true;
+        };
+        let Some(filter) = cost.parts.iter().find_map(|part| match part {
+            CostPart::Sacrifice(filter) => Some(*filter),
+            _ => None,
+        }) else {
+            return true;
+        };
+        let available = view
+            .battlefield
+            .iter()
+            .filter(|o| o.controller == me)
+            .filter(|o| {
+                agent.filter_matches(
+                    filter,
+                    view,
+                    o,
+                    baylee_cards_dsl::ZoneRef::Battlefield,
+                    Some(source.id),
+                ) != Some(false)
+            })
+            .count();
+        let slot = taken
+            .iter()
+            .position(|(f, _)| *f == filter)
+            .unwrap_or_else(|| {
+                taken.push((filter, 0));
+                taken.len() - 1
+            });
+        taken[slot].1 += 1;
+        taken[slot].1 <= available
+    });
+}
+
 /// One source per permanent, the mode [`sources`] explains, with its priced
 /// alternative kept beside it (`manaplan::keep_one_per_permanent`) and its
 /// paid mana ability ([`converters`]).
@@ -2347,6 +2405,7 @@ fn usable(view: &PlayerView, legal: &LegalActions, offers: Vec<Offer>) -> Vec<So
         .map(|s| (s.id, s.tap, s.preserve))
         .collect();
     manaplan::keep_one_per_permanent(&mut result);
+    cap_shared_sacrifices(view, &mut result);
     for s in &mut result {
         if let Some(dear) = &s.dear
             && let Some(&(_, _, p)) = dear_preserve

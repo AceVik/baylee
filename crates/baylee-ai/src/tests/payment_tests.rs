@@ -898,3 +898,52 @@ fn inherited_free_mana_definition_is_estimated_without_a_summary_or_positional_s
         &ManaCost::from_symbol(ManaSymbol::Green)
     ));
 }
+
+/// A resource sacrificed to a mana ability is not a permanent's own: three
+/// Diamond Kaleidoscopes ("Sacrifice a Prism token: Add one mana of any
+/// color") over one Prism token make one mana, not three (LLM report
+/// 01a1af6d-79cf, q245: a plan tapped two of them for `{W}` each).
+#[test]
+fn one_prism_token_pays_for_one_kaleidoscope_mana() {
+    use baylee_core::generated::subtypes;
+    use baylee_core::mana::ManaCost;
+    let seat = PlayerId::new(0);
+    let kaleidoscope = |slot: u32| {
+        let mut k = carded(
+            permanent(obj(slot), seat, 0),
+            "Diamond Kaleidoscope",
+            TypeSet::ARTIFACT,
+        );
+        k.power = None;
+        k.toughness = None;
+        k
+    };
+    let prism = |slot: u32| {
+        let mut p = permanent(obj(slot), seat, 0);
+        p.subtypes = baylee_core::types::SubtypeSet::from_slice(&[subtypes::creature::PRISM]);
+        p.status = baylee_view::ObjectStatus::TOKEN;
+        p
+    };
+    let legal = baylee_engine::choice::LegalActions {
+        abilities: vec![(obj(1), 1), (obj(2), 1), (obj(3), 1)],
+        ..Default::default()
+    };
+    let board = |prisms: u32| {
+        let mut all = vec![kaleidoscope(1), kaleidoscope(2), kaleidoscope(3)];
+        all.extend((0..prisms).map(|i| prism(10 + i)));
+        view(0, &[20, 20], all)
+    };
+    assert_eq!(policy::sources(&board(1), &legal).len(), 1);
+    assert_eq!(policy::sources(&board(2), &legal).len(), 2);
+    assert!(policy::sources(&board(0), &legal).is_empty());
+    let pool = baylee_view::ManaPoolView::default();
+    assert!(
+        baylee_client_core::manaplan::plan(
+            &ManaCost::parse("{W}{W}"),
+            &pool,
+            &policy::sources(&board(1), &legal)
+        )
+        .is_none(),
+        "one Prism cannot pay {{W}}{{W}}"
+    );
+}
