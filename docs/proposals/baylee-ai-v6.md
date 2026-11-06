@@ -178,8 +178,11 @@ eines Builds, drei Seeds, gepaart. Die Leiter nur bei Meilensteinen.
 | Neue Karten brechen laufende Datensammlung | Engine-Fenster, Kartenarbeit auf eigenem Branch |
 | Budget verfällt | Anthropic-Einsatz bis Ende November festlegen |
 
-## 7. Offene Entscheidungen
+## 7. Entscheidungen des Eigentümers (6. November)
 
-1. Zielmarke für v6.
-2. Engine-Fenster: Für Phase E muss `main` für den Lauf stehen oder der Lauf auf einem festen Stand
-   arbeiten, während Karten weiter landen.
+1. **Zielmarke:** v6 gewinnt mit Taktik die Hälfte der Partien gegen die mittlere LLM-Stufe
+   (Sonnet, Sol, Terra), gemessen auf der Leiter.
+2. **Engine-Fenster:** Das Lernen aus eigenen Partien läuft auf einem festen Stand, während Karten
+   weiter auf `main` landen. Ein neuer Stand kommt nur an einer Iterationsgrenze dazu.
+3. **Lösungsblatt:** verdeckte Karten aus Aufzeichnungen sind Trainingsziel, nur offline.
+4. **Messlatte:** v3 und v5 spielen nur für Zahlen, nie für das Training.
