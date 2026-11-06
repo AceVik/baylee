@@ -725,3 +725,67 @@ fn two_restricted_taps_pay_one_spell() {
         "their mana pays for no creature, and the lands alone make two"
     );
 }
+
+/// Unstable Frontier on Hidden Grotto, choosing Swamp, as played in argon
+/// attempt 34. The type is chosen as the ability resolves (CR 608.2d): the
+/// ability is on the stack when it is asked. The land then has the Swamp's
+/// {T}: Add {B} (CR 305.6) and has lost what it printed (CR 305.7), so
+/// Hidden Grotto's own abilities are rightly gone. The Frontier tapped to do
+/// this, which leaves three mana: {1}{B}{B} is reached, and the report's
+/// Kezzerdrix ({2}{B}{B}) is not.
+#[test]
+fn a_land_made_a_swamp_taps_for_black_and_nothing_it_printed() {
+    let (mut session, view, _) = position(
+        &["Unstable Frontier", "Hidden Grotto", "Swamp", "Island"],
+        &["Hypnotic Specter", "Kezzerdrix"],
+        &[],
+    );
+    let (frontier, grotto) = (
+        named(&view, "Unstable Frontier"),
+        named(&view, "Hidden Grotto"),
+    );
+    session
+        .act_slice(
+            ME,
+            PlayerAction::ActivateAbility {
+                source: frontier,
+                ability_index: 1,
+            },
+            0,
+        )
+        .expect("the Frontier's tap is its whole cost");
+    session
+        .act_slice(
+            ME,
+            PlayerAction::ChooseObjects {
+                objects: vec![grotto],
+            },
+            0,
+        )
+        .expect("its target");
+    for _ in 0..4 {
+        if matches!(session.pending(), Pending::ChooseCastMode { .. }) {
+            break;
+        }
+        pass_on(&mut session);
+    }
+    let on_the_stack = session.observe_view(ME).stack.len();
+    assert_eq!(on_the_stack, 1, "the choice comes as the ability resolves");
+    session
+        .act_slice(ME, PlayerAction::ChooseMode(2), 0)
+        .expect("Swamp, the third of the five");
+
+    let (view, legal) = resolve_the_stack(&mut session);
+    assert!(legal.mana_abilities.contains(&grotto), "CR 305.6");
+    assert!(
+        legal.abilities.iter().all(|&(source, _)| source != grotto),
+        "CR 305.7: what it printed is gone"
+    );
+    let reach = reachable(&view, &legal);
+    let specter = reach_of(&reach, "Hypnotic Specter").expect("two Swamps and an Island");
+    assert!(specter.plan.steps.iter().any(|s| s.source == grotto));
+    assert!(
+        reach_of(&reach, "Kezzerdrix").is_none(),
+        "three mana, not four"
+    );
+}

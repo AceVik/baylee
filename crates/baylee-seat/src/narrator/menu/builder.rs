@@ -1290,6 +1290,8 @@ impl Builder<'_, '_> {
                  graveyard. You choose which applies; the others then do nothing.",
                 table.named(object)
             ));
+        } else if chooses_on_the_table(table.view, object, options) {
+            self.line(format!("QUESTION: Choose one for {}:", table.named(object)));
         } else {
             self.line(format!(
                 "QUESTION: How do you cast {}?",
@@ -1678,6 +1680,23 @@ impl Builder<'_, '_> {
             &|target| self.damage_target(target),
         )
     }
+}
+
+/// Whether a question of modes is about something already on the table and
+/// not a cast: an effect's "of your choice" as it resolves (CR 608.2d), a
+/// modal trigger or a modal activation. The engine asks them all as a mode,
+/// and only a cast has `casting`.
+fn chooses_on_the_table(
+    view: &baylee_view::PlayerView,
+    object: ObjectId,
+    options: &[CastModeDesc],
+) -> bool {
+    view.casting != Some(object)
+        && options
+            .iter()
+            .all(|option| matches!(option.kind, CastModeKind::Mode(_)))
+        && (view.battlefield.iter().any(|o| o.id == object)
+            || view.stack.iter().any(|o| o.id == object))
 }
 
 /// Whether `object`'s card has a triggered ability that counts the lands a

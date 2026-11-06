@@ -1075,6 +1075,48 @@ fn multikicker_is_asked_as_a_count_and_the_stack_says_what_was_paid() {
     assert!(text.contains("buyback paid"), "{text}");
 }
 
+/// The engine asks "of your choice" as a resolving ability applies it
+/// (CR 608.2d), through the same question as a spell's mode. Unstable
+/// Frontier's choice said "How do you cast Unstable Frontier?", so a model
+/// read a choice made at the right time as a mode made at the wrong one
+/// (argon attempt 34, q70). A spell being cast still says it.
+#[test]
+fn a_choice_made_on_the_board_is_not_a_way_to_cast() {
+    use baylee_engine::choice::{CastModeDesc, CastModeKind};
+    let (mut view, _) = board();
+    let frontier = card(95, "Unstable Frontier");
+    let object = frontier.id;
+    view.battlefield.push(frontier);
+    let pending = Pending::ChooseCastMode {
+        player: ME,
+        object,
+        options: (0..2)
+            .map(|index| CastModeDesc {
+                index: u32::try_from(index).unwrap(),
+                kind: CastModeKind::Mode(index),
+                cost: baylee_core::mana::ManaCost::ZERO,
+            })
+            .collect(),
+    };
+    let ask = |view: baylee_view::PlayerView| {
+        let log = LogTail {
+            from: 0,
+            entries: Vec::new(),
+        };
+        let request = request(view, pending.clone(), log);
+        Narrator::new(&request.context)
+            .wake(&request, &[], None)
+            .text
+    };
+    let text = ask(view.clone());
+    assert!(text.contains("QUESTION: Choose one for"), "{text}");
+    assert!(!text.contains("How do you cast"), "{text}");
+
+    view.casting = Some(object);
+    let text = ask(view);
+    assert!(text.contains("How do you cast"), "{text}");
+}
+
 /// A resolved spell's ending is not a way to cast it: the question says the
 /// spell has resolved, and each answer says what it does, since the outcomes
 /// are what a model has to weigh. Answering takes a position like any mode.
