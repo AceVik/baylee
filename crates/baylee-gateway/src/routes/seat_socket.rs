@@ -594,17 +594,11 @@ async fn run_game_socket(
                 if !connection.active() || !authorization.stands(&state, &game_id, seat, &live) { break; }
             }
             frame = socket.recv() => {
-                if let Some(Ok(message)) = &frame {
-                    let now = std::time::Instant::now();
-                    meter.note(now);
-                    let kib = match message {
-                        Message::Binary(data) => data.len() / 1024,
-                        _ => 0,
-                    };
-                    if !allowance.admit(now) || !(0..kib).all(|_| volume.admit(now)) {
-                        close_over_allowance(&mut socket, &game_id, seat, &meter).await;
-                        break;
-                    }
+                if let Some(Ok(message)) = &frame
+                    && !within_allowance(&mut meter, &mut allowance, &mut volume, message)
+                {
+                    close_over_allowance(&mut socket, &game_id, seat, &meter).await;
+                    break;
                 }
                 match frame {
                     // At most `MAX_SEAT_FRAME`: the socket refuses a bigger
@@ -685,6 +679,23 @@ async fn run_game_socket(
         socket.send(Message::Close(live.close_frame())),
     )
     .await;
+}
+
+/// Counts `message`, and says whether it is within what a seat may send (#284):
+/// `allowance` in frames, `volume` in KiB.
+fn within_allowance(
+    meter: &mut seatrate::Meter,
+    allowance: &mut seatrate::Allowance,
+    volume: &mut seatrate::Allowance,
+    message: &Message,
+) -> bool {
+    let now = std::time::Instant::now();
+    meter.note(now);
+    let kib = match message {
+        Message::Binary(data) => data.len() / 1024,
+        _ => 0,
+    };
+    allowance.admit(now) && (0..kib).all(|_| volume.admit(now))
 }
 
 /// Delegated bridge sockets do not count as a player's own online presence.
