@@ -126,6 +126,11 @@ pub(crate) fn send_global(
     id: &str,
     body: String,
 ) -> Down {
+    // A guest reads the lobby's chat and does not write in it (owner,
+    // 06.11.2026); a table's chat stays open to it.
+    if from.guest {
+        return refused(req, Why::NotMember);
+    }
     if uuid_v7(id).is_none() {
         return refused(req, Why::BadSealed);
     }

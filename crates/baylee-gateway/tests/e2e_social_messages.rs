@@ -532,6 +532,64 @@ fn dm(a: &Acct, b: &Acct) -> String {
 /// then a wrong one is already on its way.
 const SILENCE: Duration = Duration::from_millis(900);
 
+/// A guest and what `/me` says of it.
+fn guest(port: u16) -> Acct {
+    let (status, body) = http(port, "POST", "/auth/guest", None, "{}");
+    assert_eq!(status, 200, "guest: {body}");
+    let session = json_field(&body, "token").to_owned();
+    let (status, body) = http(port, "GET", "/me", Some(&session), "");
+    assert_eq!(status, 200, "/me: {body}");
+    Acct {
+        port,
+        session,
+        tag: json_field(&body, "tag").to_owned(),
+        handle: json_field(&body, "handle").to_owned(),
+        id: json_field(&body, "id").to_owned(),
+    }
+}
+
+/// The lobby's chat is public and a guest does not write in it: it reads what
+/// an account writes, says so as a refusal, and nobody receives its line.
+#[tokio::test]
+async fn a_guest_reads_the_lobby_chat_and_is_refused_a_line_in_it() {
+    let gw = spawn_gateway("social-lobby-guest");
+    let alice = account(gw.port, "alice-lobby", "Alice");
+    let visitor = guest(gw.port);
+    let (a, v) = (register(&alice), register(&visitor));
+    let (mut sock_a, _) = Chat::open(&a).await;
+    let (mut sock_v, _) = Chat::open(&v).await;
+
+    let line = |req, body: &str| Up::Global {
+        req,
+        id: uuid::Uuid::now_v7().to_string(),
+        body: body.to_owned(),
+    };
+    sock_v.up(&line(1, "hello")).await;
+    let why = sock_v
+        .until(|down| match down {
+            Down::Refused {
+                req: Some(1), why, ..
+            } => Some(*why),
+            _ => None,
+        })
+        .await;
+    assert_eq!(why, Why::NotMember);
+    let (heard, _) = sock_a.quiet(Duration::from_millis(300)).await;
+    assert!(
+        !heard.iter().any(|down| matches!(down, Down::Global { .. })),
+        "{heard:?}"
+    );
+
+    sock_a.up(&line(2, "welcome")).await;
+    let said = sock_v
+        .until(|down| match down {
+            Down::Global { body, .. } => Some(body.clone()),
+            _ => None,
+        })
+        .await;
+    assert_eq!(said, "welcome", "a guest reads it");
+}
+
 #[tokio::test]
 async fn a_friends_message_reaches_the_friend_and_the_senders_other_device_only() {
     let gw = spawn_gateway("social-online");

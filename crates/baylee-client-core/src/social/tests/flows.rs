@@ -1677,3 +1677,46 @@ fn a_guest_is_remembered_as_a_guest_among_the_recent_players() {
     assert_eq!(guest("Bob#0012"), Some(true));
     assert_eq!(guest("Carol#0034"), Some(false));
 }
+
+/// A guest reads the lobby's chat and does not write in it. The box gives way
+/// to the reason, and a line typed some other way is answered here and sent
+/// nowhere, while a table's chat stays open to it.
+#[test]
+fn a_guests_line_to_the_lobby_is_kept_and_nothing_goes_up() {
+    let (mut gw, mut alice, _bob, _carol) = table_of_three();
+    let welcome = Down::Welcome {
+        tag: alice.social.me().tag.clone(),
+        handle: alice.social.me().handle.clone(),
+        device: alice.social.device_id().to_string(),
+        guest: true,
+    };
+    let effects = alice.social.on_frame(welcome, alice.now, &mut alice.rng);
+    assert!(
+        effects
+            .iter()
+            .all(|e| !matches!(e, Effect::Up(Up::Global { .. })))
+    );
+    alice.social.composer_mut().set_target(crate::social::commands::Target::Global);
+    alice.social.composer_mut().typed("hello lobby");
+    let (_, effects) =
+        alice
+            .social
+            .key(crate::social::ComposerKey::Enter, alice.now, &mut alice.rng);
+    assert!(
+        !effects
+            .iter()
+            .any(|e| matches!(e, Effect::Up(Up::Global { .. }))),
+        "nothing goes up"
+    );
+    assert_eq!(
+        alice.social.composer().text(),
+        "hello lobby",
+        "the line stays"
+    );
+    let said: Vec<ChatPhrase> = ["global", "tbl:g1"]
+        .iter()
+        .flat_map(|conv| phrases(&alice, conv))
+        .collect();
+    assert!(said.contains(&ChatPhrase::GuestNoLobbyChat), "{said:?}");
+    alice.deliver(&mut gw);
+}

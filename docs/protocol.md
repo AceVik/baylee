@@ -2691,7 +2691,9 @@ so a guest is `Guest#1a2b` to the other players.
   `PlayerLookup`, and on `SeatIdentity` in a `GameStatic` roster (the gateway
   tells the engine in `GameSetup.seat_guests`). It is shown and decides nothing:
   what refuses a guest stays the routes below. A guest has no friends list and
-  so no whispers, and it does write in the lobby's and a table's chat.
+  so no whispers. It writes in a table's chat, blocks and reports; the lobby's
+  public chat it reads and does not write in (owner, 06.11.2026): `Up::Global`
+  from a guest is `refused` with `not_member`.
 - **Bounded twice.** Per address by the gateway's limiter (ten in
   five minutes), and in all by `BAYLEE_GUEST_CAP` (1000 unless set, `0` for
   no bound, anything else not a count refuses to start the gateway): past

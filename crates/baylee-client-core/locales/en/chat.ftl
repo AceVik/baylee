@@ -711,6 +711,9 @@ GuestTag = Guest
 # Arguments: name
 GuestNamed = { $name } (guest)
 
+# In place of the lobby chat's box, for a guest: it reads there and does not write.
+GuestNoLobbyChat = Guests can read the lobby chat but not write in it
+
 # Why a guest offers neither: said in their place, and over the mark.
 GuestNoContact = Guests cannot be added or messaged
 

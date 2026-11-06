@@ -25,8 +25,7 @@ pub fn line_shape(line: &str) -> LineShape {
     let lower = lower
         .split_once(" — ")
         .filter(|(word, rest)| {
-            !word.contains([':', '{', '.'])
-                && (rest.starts_with("when") || rest.starts_with("at "))
+            !word.contains([':', '{', '.']) && (rest.starts_with("when") || rest.starts_with("at "))
         })
         .map_or(lower.as_str(), |(_, rest)| rest);
     // "As this creature enters" is a replacement rather than a trigger by

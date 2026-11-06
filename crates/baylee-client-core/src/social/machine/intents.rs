@@ -604,6 +604,11 @@ impl Social {
             self.open_conv(&conv, now_ms, out);
             return Ran::Done;
         }
+        // The composer hides itself here; a typed `/g` still lands in this line.
+        if self.me.guest && conv == Conv::Global {
+            self.answer(ChatPhrase::GuestNoLobbyChat, Vec::new(), now_ms);
+            return Ran::Kept;
+        }
         let body = self.composer.body_of(text, emote);
         if !matches!(to, Target::Sticky) && !matches!(to, Target::Whisper(_)) {
             // `/t`, `/team`, `/g`: WoW keeps the channel for the next line.

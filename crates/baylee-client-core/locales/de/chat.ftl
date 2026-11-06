@@ -229,6 +229,7 @@ AddFriendButton = Freund hinzufügen
 GuestTag = Gast
 GuestNamed = { $name } (Gast)
 GuestNoContact = Gäste kann man nicht hinzufügen oder anschreiben
+GuestNoLobbyChat = Gäste können den Lobby-Chat lesen, aber nicht darin schreiben
 IgnoreButton = Ignorieren
 ReportMessage = Nachricht melden
 RetryButton = Erneut senden

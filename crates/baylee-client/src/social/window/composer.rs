@@ -90,6 +90,25 @@ pub(super) fn composer_parts(
             ],
         ))
         .id();
+    // A guest reads the lobby's chat and does not write in it: the box gives
+    // way to the reason, and the chip still reaches a table's chat.
+    if machine.me().guest && machine.target_conv(c.target()) == Some(Conv::Global) {
+        let why = commands
+            .spawn((
+                Text::new(ChatPhrase::GuestNoLobbyChat.text(lang)),
+                tf_italic(fonts, z(inks.pt)),
+                TextColor(inks.soft),
+                Node {
+                    flex_grow: 1.0,
+                    min_width: zpx(0.0),
+                    padding: UiRect::axes(zpx(6.0), zpx(4.0)),
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        return vec![chip, why];
+    }
     let text = c.text();
     let field = commands
         .spawn((
