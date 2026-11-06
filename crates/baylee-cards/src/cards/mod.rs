@@ -16127,6 +16127,8 @@ pub mod prophetic_prism;
 pub mod prophetic_ravings;
 #[path = "sorceries/mv_1/prosperity.rs"]
 pub mod prosperity;
+#[path = "creatures/mv_2/prosperous_innkeeper.rs"]
+pub mod prosperous_innkeeper;
 #[path = "creatures/mv_5/prosperous_pirates.rs"]
 pub mod prosperous_pirates;
 #[path = "enchantments/mv_3/protective_sphere.rs"]

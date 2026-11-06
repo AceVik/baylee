@@ -242,6 +242,7 @@ mod plaguebearer;
 mod plant_elemental;
 mod priest_of_titania;
 mod priest_of_yawgmoth;
+mod prosperous_innkeeper;
 mod putrid_leech;
 mod pygmy_hippo;
 mod pygmy_pyrosaur;

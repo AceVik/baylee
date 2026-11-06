@@ -7065,3 +7065,27 @@ code.
   `require-card-tests`, `cargo dev gate touched`, formatting and
   `git diff --check` passed. The full gates remain deferred at the owner's
   request.
+
+## 2026-11-06 — Prosperous Innkeeper and newly readable Madness cards
+
+- Prosperous Innkeeper composes the existing ETB token creation and
+  `Trigger::EntersBattlefield` filter for another controlled creature. The
+  ordinary reader transcoded both printed sentences, so no engine, DSL,
+  protocol, desktop or seat addition was needed. Its canonical tests cast the
+  card, inspect the artifact Treasure, prove that its own entry gives no life,
+  and play a later creature, an artifact and a second Innkeeper. An opposing
+  creature also gives no life. Removing either ability with `BAYLEE_MUTATE`
+  kills its corresponding test.
+- The full corpus run also materialized nine other cards already supported by
+  the Madness reader: Arrogant Wurm, Circular Logic, Fiery Temper, Frantic
+  Purification, Obsessive Search, Psychotic Haze, Violent Eruption, Strength of
+  Isolation and Strength of Lunacy. They remain `Coverage::Generated` until
+  their canonical tests are accepted; this batch does not claim them as fully
+  tested. Obsessive Search legitimately joined the house's exact cantrip
+  census, whose expected list now includes it.
+- Three Innkeeper tests, all 373 house-AI tests, the full seat suite (494 unit
+  tests and every integration target), 152 desktop interaction tests and nine
+  `record::seen` tests pass. The desktop client including tests compiles.
+  `codegen --tables --check`, `require-card-tests`, formatting and
+  `git diff --check` pass. `validate` accepts 12,545 cards (11,175 finished,
+  1,370 stubs). The full gates remain deferred at the owner's request.
