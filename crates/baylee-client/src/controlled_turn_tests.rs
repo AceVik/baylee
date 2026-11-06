@@ -494,6 +494,33 @@ fn controlling_view() -> PlayerView {
     view
 }
 
+/// The seat under control presses a card: it is told who decides, not that
+/// the card is at the wrong time, and the words go when the table moves on,
+/// because no question of its own will come to clear them.
+#[test]
+fn a_seat_decided_for_is_told_so_and_the_words_go_with_the_step() {
+    use baylee_client_core::i18n::{Phrase, Refusal};
+    let mut view = controlling_view();
+    view.seat = THEM;
+    view.controlled_hands.clear();
+    let card = view.hand[0].id;
+    let mut duel = Duel::default();
+    duel.receive_view(view.clone());
+    crate::input::activate(&mut duel, card, false);
+    assert_eq!(
+        duel.last_error,
+        Some(Refusal::Said(Phrase::CardDecidedForYou))
+    );
+
+    // The same step again: the sentence stands.
+    duel.receive_view(view.clone());
+    assert!(duel.last_error.is_some());
+
+    view.step = baylee_view::Step::DeclareAttackers;
+    duel.receive_view(view);
+    assert_eq!(duel.last_error, None);
+}
+
 #[test]
 fn a_controlled_priority_counts_their_hand_and_keeps_the_armed_deed() {
     let mut duel = Duel::default();

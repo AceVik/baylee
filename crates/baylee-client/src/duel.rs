@@ -209,6 +209,17 @@ impl Duel {
     /// the last one, so it has to be read on the edge too: a frame later the
     /// previous total is gone.
     pub(crate) fn receive_view(&mut self, view: PlayerView) {
+        // A refusal goes with the next answer, and a seat with no question
+        // has none to give: the table moving on takes it away instead. Only
+        // on a new step, since the view that follows an engine's refusal
+        // stands where the refused action did.
+        let moved_on = self
+            .view
+            .as_ref()
+            .is_some_and(|last| (last.turn, last.step) != (view.turn, view.step));
+        if moved_on && self.interaction.is_none() {
+            self.last_error = None;
+        }
         self.stack_selected = self
             .stack_selected
             .filter(|id| view.stack.iter().any(|item| item.id == *id));

@@ -1399,6 +1399,7 @@ ClientOutdated = Dein Client ist veraltet: Aktualisiere ihn, um beizutreten.
 TableOlder = Dieser Tisch läuft mit einer älteren Version als dein Client.
 CardHasNoTarget = Für diese Karte gibt es kein gültiges Ziel mehr
 CardWrongTime = Diese Karte lässt sich in diesem Zeitfenster nicht spielen
+CardDecidedForYou = Deine Entscheidungen trifft gerade jemand anderes
 OnlyDearerModeLeft = Der normale Modus hat kein legales Ziel; nur der teurere Modus (etwa Überlast) ist möglich, und dein Mana reicht dafür nicht
 CardCostsUnavailable = Die Mittel zum Bezahlen dieser Karte fehlen
 DeedWithdrawn = Die Engine bietet das nicht mehr an

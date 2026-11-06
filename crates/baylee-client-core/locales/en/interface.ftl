@@ -4152,6 +4152,9 @@ CardHasNoTarget = Nothing left for this card to target
 # Timing prevents playing a card (#112).
 CardWrongTime = This card cannot be played in this window
 
+# A card pressed by a player whose decisions another player is making.
+CardDecidedForYou = Someone else is making your decisions right now
+
 # A "choose one" spell whose printed-price mode has no legal target,
 # so only its mode with a price of its own (overload) can be cast, and
 # the mana in reach does not pay that price (#00).

@@ -332,7 +332,13 @@ pub fn activate(duel: &mut Duel, object: ObjectId, whole: bool) -> Answer {
 
 /// Explain a refused hand-card gesture using facts visible to this seat.
 fn hand_refusal(duel: &Duel, object: ObjectId) -> Option<Phrase> {
+    use baylee_client_core::perspective::ControlLine;
     let view = duel.view.as_ref()?;
+    // Whoever decides for this seat is why, and not the card's timing or its
+    // cost (CR 723.5).
+    if matches!(ControlLine::of(view), Some(ControlLine::DecidedBy { .. })) {
+        return Some(Phrase::CardDecidedForYou);
+    }
     let card = baylee_client_core::decision::hand(view)
         .iter()
         .find(|card| card.id == object)?;
