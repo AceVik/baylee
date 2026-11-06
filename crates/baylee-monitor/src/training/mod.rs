@@ -4,6 +4,7 @@
 
 mod dbus;
 mod pipeline;
+mod safe;
 mod units;
 
 use serde::Serialize;

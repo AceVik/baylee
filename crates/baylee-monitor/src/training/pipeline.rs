@@ -7,9 +7,9 @@
 //! never kept), and only the last 8 KiB of a log are read. Text that reaches
 //! the browser has absolute paths reduced to their last component.
 
+use super::safe::{clean, read_json, unix_ms, valid_name};
 use serde::{Deserialize, Serialize};
 use std::{
-    borrow::Cow,
     fs::{self, File},
     io::{self, Read, Seek, SeekFrom},
     path::Path,
@@ -20,7 +20,6 @@ const MAX_JSON: u64 = 64 * 1024;
 const LOG_TAIL: u64 = 8 * 1024;
 const MAX_STAGES: usize = 48;
 const MAX_ENTRIES: usize = 256;
-const MAX_TEXT: usize = 240;
 const MAX_FIELDS: usize = 8;
 
 #[derive(Clone, Debug, Default, Serialize)]
@@ -98,7 +97,7 @@ pub(crate) fn read(dir: &Path, boot_id: Option<&str>) -> Pipeline {
         pipeline.problem = Some("Verzeichnis nicht gefunden".into());
         return pipeline;
     }
-    match read_json::<StatusFile>(&dir.join("status.json")) {
+    match read_json::<StatusFile>(&dir.join("status.json"), MAX_JSON) {
         Ok(status) => {
             pipeline.phase = status.phase.map(|p| clean(&p));
             pipeline.updated_ms = status.updated_unix.and_then(unix_ms);
@@ -139,24 +138,6 @@ fn display_name(dir: &Path) -> String {
         .collect();
     parts.reverse();
     parts.join("/")
-}
-
-/// Reads a small regular file (not a symlink) and parses the wanted fields.
-fn read_json<T: serde::de::DeserializeOwned>(path: &Path) -> io::Result<T> {
-    let meta = fs::symlink_metadata(path)?;
-    if !meta.is_file() {
-        return Err(io::Error::new(io::ErrorKind::InvalidInput, "keine Datei"));
-    }
-    if meta.len() > MAX_JSON {
-        return Err(io::Error::new(io::ErrorKind::InvalidData, "zu groß"));
-    }
-    let mut bytes = Vec::new();
-    File::open(path)?.take(MAX_JSON).read_to_end(&mut bytes)?;
-    serde_json::from_slice(&bytes).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
-}
-
-fn unix_ms(seconds: f64) -> Option<u64> {
-    (seconds.is_finite() && seconds > 0.0).then_some((seconds * 1000.0) as u64)
 }
 
 fn controller_alive(controller: &Controller, boot_id: Option<&str>) -> Option<bool> {
@@ -203,7 +184,7 @@ fn stages(jobs: &Path) -> Vec<Stage> {
                 .to_str()
                 .filter(|n| valid_name(n))?
                 .to_owned();
-            let job = read_json::<JobFile>(&entry.path().join("job.json")).ok();
+            let job = read_json::<JobFile>(&entry.path().join("job.json"), MAX_JSON).ok();
             Some(match job {
                 Some(job) => Stage {
                     name,
@@ -234,15 +215,6 @@ fn stages(jobs: &Path) -> Vec<Stage> {
     let excess = stages.len().saturating_sub(MAX_STAGES);
     stages.drain(..excess);
     stages
-}
-
-fn valid_name(name: &str) -> bool {
-    !name.is_empty()
-        && name.len() <= 64
-        && !name.starts_with('.')
-        && name
-            .bytes()
-            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.'))
 }
 
 /// The newest progress line in the stage's `stdout.log` or `stderr.log`,
@@ -315,95 +287,10 @@ fn fields(line: &str) -> Vec<(String, String)> {
         .collect()
 }
 
-/// Display text: control characters removed, absolute paths reduced to
-/// `…/name`, at most `MAX_TEXT` characters.
-fn clean(text: &str) -> String {
-    let text: String = text
-        .chars()
-        .map(|c| if c.is_control() { ' ' } else { c })
-        .collect();
-    let redacted = text
-        .split(' ')
-        .map(redact_path)
-        .collect::<Vec<_>>()
-        .join(" ");
-    let mut chars = redacted.chars();
-    let mut clipped: String = chars.by_ref().take(MAX_TEXT).collect();
-    if chars.next().is_some() {
-        clipped.pop();
-        clipped.push('…');
-    }
-    clipped
-}
-
-/// Replaces an absolute (or home-relative) path inside one token with
-/// `…/last-component`, keeping what precedes it (`--out=`, `(`) and the
-/// punctuation that follows it.
-fn redact_path(token: &str) -> Cow<'_, str> {
-    let starts_path = |at: usize| {
-        let rest = &token[at..];
-        let begins = rest.starts_with('/') || rest.starts_with("~/");
-        let after_boundary = token[..at]
-            .chars()
-            .next_back()
-            .is_none_or(|p| matches!(p, '=' | ':' | '(' | '"' | '\'' | '[' | ','));
-        begins && after_boundary
-    };
-    let Some(at) = token
-        .char_indices()
-        .map(|(i, _)| i)
-        .find(|&i| starts_path(i))
-    else {
-        return Cow::Borrowed(token);
-    };
-    let rest = &token[at..];
-    let end = rest
-        .find([')', ']', '"', '\'', ',', ';'])
-        .unwrap_or(rest.len());
-    let (path, tail) = rest.split_at(end);
-    let (path, colon) = path.strip_suffix(':').map_or((path, ""), |p| (p, ":"));
-    let name = path
-        .rsplit('/')
-        .find(|s| !s.is_empty() && *s != "~")
-        .unwrap_or("");
-    Cow::Owned(format!(
-        "{}…/{name}{colon}{}",
-        &token[..at],
-        redact_path(tail)
-    ))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Write;
-
-    struct Scratch(std::path::PathBuf);
-
-    impl Scratch {
-        fn new(name: &str) -> Self {
-            let dir = std::env::temp_dir()
-                .join(format!("baylee-pulse-test-{name}-{}", std::process::id()));
-            let _ = fs::remove_dir_all(&dir);
-            fs::create_dir_all(&dir).unwrap();
-            Self(dir)
-        }
-
-        fn write(&self, relative: &str, text: &str) {
-            let path = self.0.join(relative);
-            fs::create_dir_all(path.parent().unwrap()).unwrap();
-            fs::File::create(path)
-                .unwrap()
-                .write_all(text.as_bytes())
-                .unwrap();
-        }
-    }
-
-    impl Drop for Scratch {
-        fn drop(&mut self) {
-            let _ = fs::remove_dir_all(&self.0);
-        }
-    }
+    use crate::training::safe::Scratch;
 
     const JOB_DONE: &str = r#"{"status":"complete","started_at_unix":100.5,"finished_at_unix":160.0,
         "returncode":0,"reason":null,"command":["/secret/bin","--token","hunter2"],
@@ -522,20 +409,7 @@ mod tests {
     }
 
     #[test]
-    fn paths_are_reduced_and_text_is_bounded() {
-        assert_eq!(
-            clean("already owned: /home/ace/baylee-data/v5/gpu-work.lock: lock failed"),
-            "already owned: …/gpu-work.lock: lock failed"
-        );
-        assert_eq!(
-            clean("--out=/a/b/c.json (/x/y) 1/2"),
-            "--out=…/c.json (…/y) 1/2"
-        );
-        assert_eq!(clean("runs /a/x1,/a/x2 ~/k"), "runs …/x1,…/x2 …/k");
-        assert_eq!(clean("tab\there\x1b[0m"), "tab here [0m");
-        let long = clean(&"é".repeat(500));
-        assert_eq!(long.chars().count(), MAX_TEXT);
-        assert!(long.ends_with('…'));
+    fn progress_lines_and_process_ticks_are_recognised() {
         assert!(is_progress("[train4] step=1"));
         assert!(!is_progress("[] x") && !is_progress("[a b] x") && !is_progress("plain"));
         assert_eq!(
