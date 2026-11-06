@@ -700,3 +700,109 @@ The first screenshots caught what no check had: the 20 GiB floor raising the red
 band on a nearly empty `/boot/efi`, hence the rule above, and the tab bar on phones
 stuck behind the header, because a `backdrop-filter` makes an element the containing
 block of its fixed children.
+
+## The notebook acenb (6 November 2026)
+
+`acenb` is a ThinkPad P14s Gen 4 (Ryzen 7 PRO 7840U, Radeon 780M, XDNA NPU, 27 GB) on
+Ubuntu 26.04. It is the quiet benchmark machine and also hosts MediaVault. Pulse is at
+`http://192.168.0.12:8787`, and the pages of both machines link to each other.
+
+The binary was built on `bigace` and copied, which keeps the build off the benchmark
+machine; both run the same file. The unit is the template with:
+
+```ini
+ExecStart=%h/.local/lib/baylee-monitor/baylee-monitor --bind 192.168.0.12:8787 --interval-ms 2000 --peer bigace=http://192.168.0.103:8787
+```
+
+**Lingering is on here, unlike on `bigace`.** `acenb` boots to `multi-user.target`
+with no display manager, so without it no user manager runs until someone logs in
+and Pulse stays down after a reboot. The owner decided on `loginctl enable-linger
+ace`; `loginctl disable-linger ace` undoes it. Pulse has been seen to outlive the
+logout; a real reboot has not been tried, as nothing has needed one.
+
+Port 8787 was free. `ufw` is inactive and nftables only redirects 80 and 443 for
+MediaVault, so nothing filters the port. `acenb-netfailover` can move `.12` between
+adapters, which is harmless: the socket is bound to the address, not to an adapter.
+
+`bigace`'s unit gained `--peer acenb=http://192.168.0.12:8787`. The previous binary
+and unit are beside the new one in `~/.local/lib/baylee-monitor/`, as
+`baylee-monitor.pre-notebook` and `baylee-monitor.service.pre-notebook`.
+
+### What the old code assumed
+
+Run unchanged on the notebook, it showed no GPU and an error instead, no package
+power though `PPT` is readable, a 0 °C sensor, and a system disk with no usage on its
+row, because of btrfs. Reading it found the rest: a page that hid the host name on
+phones, and cards that drew dashes for anything NVML alone reports.
+
+### Cost
+
+Idle machine, 304 processes, share of **one** of its 16 threads:
+
+| Build and interval | CPU |
+| --- | --- |
+| Before this work, 1 s, no viewer (60 s) | 1.5 % |
+| Now, 1 s, no viewer (60 s) | 1.6 % |
+| Now, 2 s, no viewer (60 s) | 1.1 % |
+| Installed unit, 2 s, no viewer (120 s) | 1.12 % |
+| Installed unit, 2 s, one viewer (60 s) | 1.12 % |
+
+The installed figures are systemd's `CPUUsageNSec`; 1.12 % of one thread is 0.07 % of
+the machine. GPU, battery and NPU together add about 4 ticks a minute. Nearly all
+the rest is the process walk, which is why the interval is the lever that helps and
+why this machine uses 2 s: `--interval-ms` gives it back. Resident memory is 7.6 MB,
+3.9 MB by the cgroup, with 10 tasks. A sample takes about 10 ms.
+
+Most sensor files read in under 10 µs. What goes through the embedded controller does
+not: `acpitz` and the ThinkPad's fan took 0.5 ms and `AC/online` 0.35 ms, which is why
+those stay on background threads and off the sampler.
+
+### The NPU's software
+
+Nothing was installed. Ubuntu's stack already works as far as was tested:
+
+| Piece | State |
+| --- | --- |
+| Device | `0000:65:00.1`, `1022:1502`, `/dev/accel/accel0`, group `render` |
+| Driver | in-tree `amdxdna` 0.7.0 of kernel 7.0.0-42, loaded |
+| Firmware | `amdnpu/1502_00/npu_7.sbin`, 1.5.5.391, loaded |
+| XRT | 2.21.75 from Ubuntu (`libxrt2`, `libxrt-npu2`, `libxrt-utils`, `libxrt-utils-npu`) |
+| `xrt-smi examine` | sees `RyzenAI-npu1` |
+| `xrt-smi validate` | **not run**: it needs `xrt_smi_phx.a`, and the step was refused by a permission check |
+
+Ubuntu offers nothing newer: the candidates equal what is installed, and
+`linux-firmware-amd-misc` is current. To finish the test, put the archive XRT itself
+names in `~/.local/share/xrt/2.21.75/amdxdna/bins/` and run `xrt-smi validate`:
+`https://raw.githubusercontent.com/Xilinx/VTD/2.21.75/archive/phx/xrt_smi_phx.a`
+(274,220 bytes, SHA-256
+`0970f2038ee7dcf33dbc704c2ac55271b94687b5a17181cdd2c9118ff195c508`, NPU kernels and
+JSON recipes only). Removing that one file undoes it.
+
+So no workload has yet reached the NPU from this machine. BayleeAI also needs more
+than XRT: ONNX Runtime here has only its `dnnl` provider, so there is no ONNX route to
+the NPU, and no NPU compiler is installed. Pulse's context list and Befehle/s have
+for the same reason only ever been seen empty on the real device.
+
+### Verified
+
+Queried from `bigace` over the LAN and compared with the sources on the notebook:
+VRAM, GTT, battery, firmware and RAM exact, `df` used and free to the byte, GPU
+temperature, Tctl, fan and `PPT` within what moves between two reads. On `bigace`,
+`nvidia-smi` and `/proc/meminfo` agree, and its panels are all back: 10 pipelines, 8
+LLM runs, both ladders, with no battery and no NPU card.
+
+Headless Chromium against both live services at 1440, 820 (touch), 390 and 320 px: no
+sideways scroll, no JS errors, no external requests, the host name visible, no text
+under 11 px (12 px on phones), no touch target under 44 px. The peer links were
+followed both ways. Screenshots were read at 1440 and 390 px. The first run failed
+three of these, which the JSON could never have shown: the host name collapsed to
+nothing at 820 px, the settings button left the screen there, and a long disk model
+widened the page at 320 px, because an `auto` grid track sizes to the unwrapped text.
+This needed the libraries noted on 3 November, unpacked to a scratch directory. Test
+browsers and previews were closed and checked gone.
+
+Not verified: a real reboot; running on battery, so the discharge forecast and the
+on-battery alert have run on fixtures only; a sleeping GPU or NPU, since the NPU's
+`control` is `on` here and it never suspends; a discrete AMD card, and an NPU with
+sensors, on fixtures only. The fans read about 3,960 rpm at 36 °C, identically on
+`fan1` and `fan2`, and `/proc/acpi/ibm/fan` agrees; nobody has listened to it.
