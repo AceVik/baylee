@@ -9,7 +9,10 @@ use baylee_core::ids::{Defender, ObjectId, PlayerId};
 use baylee_engine::choice::Pending;
 use baylee_view::PlayerView;
 
-use super::read::{Hitter, actor, blockers_of, damage_through, has, hitters_of, is_tapped, life};
+use super::read::{
+    Hitter, actor, blockers_of, damage_through, has, hitters_of, is_creature, is_tapped, life,
+    may_block, walks_past,
+};
 use crate::features4::EncodedCandidates4;
 
 /// Turns left, the swing back counted as it stands, within which a seat stops
@@ -18,6 +21,8 @@ const DEFEND_WITHIN: i32 = 2;
 
 /// The logit that keeps an attacker at home, as the tactical layer's.
 const STAY: f32 = -20.0;
+/// The logit that sends one.
+const SEND: f32 = 3.0;
 
 /// The attackers the sampler would send on these logits: its greedy reading.
 fn sent(cands: &EncodedCandidates4, logits: &[f32], required: &[ObjectId]) -> Vec<ObjectId> {
@@ -46,7 +51,7 @@ fn swing_of(view: &PlayerView, defender: PlayerId, going: &[ObjectId]) -> i32 {
         .collect();
     let blockers: Vec<_> = view
         .battlefield_of(defender)
-        .filter(|object| super::read::is_creature(object) && !is_tapped(object))
+        .filter(|object| is_creature(object) && !is_tapped(object))
         .collect();
     damage_through(view, defender, hitters, &blockers)
 }
@@ -157,4 +162,118 @@ pub(super) fn apply(cands: &EncodedCandidates4, logits: &mut [f32], staying: &[O
             *logit = STAY;
         }
     }
+}
+
+/// The creatures left at home that nothing untapped can block, if sending them
+/// leaves the seat safe by the same reading as [`decide`]: a swing for free.
+pub(super) fn free_swings(view: &PlayerView, pending: &Pending, going: &[ObjectId]) -> Vec<ObjectId> {
+    let Pending::ChooseAttackers {
+        attackers,
+        defenders,
+        ..
+    } = pending
+    else {
+        return Vec::new();
+    };
+    let me = actor(view);
+    let Some(other) = defenders.iter().find_map(|defender| match defender {
+        Defender::Player(player) => Some(*player),
+        _ => None,
+    }) else {
+        return Vec::new();
+    };
+    let blockers: Vec<_> = view
+        .battlefield_of(other)
+        .filter(|object| is_creature(object) && !is_tapped(object))
+        .collect();
+    let my_life = life(view, me);
+    let mut sending = going.to_vec();
+    let mut free = Vec::new();
+    for id in attackers {
+        let Some(object) = view.object(*id) else {
+            continue;
+        };
+        let hitter = Hitter::of(object);
+        if going.contains(id)
+            || hitter.power <= 0
+            || blockers
+                .iter()
+                .any(|blocker| may_block(&hitter, blocker) && !walks_past(view, other, &hitter))
+        {
+            continue;
+        }
+        sending.push(*id);
+        if turns(my_life, swing_back(view, me, other, &sending)) > DEFEND_WITHIN {
+            free.push(*id);
+        } else {
+            sending.pop();
+        }
+    }
+    free
+}
+
+/// The attackers the sampler would send, for the groups that read an attack.
+pub(super) fn going(cands: &EncodedCandidates4, logits: &[f32], pending: &Pending) -> Vec<ObjectId> {
+    let Pending::ChooseAttackers { required, .. } = pending else {
+        return Vec::new();
+    };
+    sent(cands, logits, required)
+}
+
+/// Sends `free` at the player.
+pub(super) fn send(cands: &EncodedCandidates4, logits: &mut [f32], free: &[ObjectId]) {
+    for (cand, logit) in cands.candidates.iter().zip(logits.iter_mut()) {
+        if cand.object_id.is_some_and(|id| free.contains(&id))
+            && matches!(cand.defender, None | Some(Defender::Player(_)))
+        {
+            *logit = logit.max(SEND);
+        }
+    }
+}
+
+/// Turns attackers already going onto a planeswalker the other side controls,
+/// the smallest that together take its loyalty, unless the swing is lethal. A
+/// walker left alone goes on working every turn. Returns whether any turned.
+pub(super) fn at_walkers(cands: &EncodedCandidates4, logits: &mut [f32], view: &PlayerView, pending: &Pending) -> bool {
+    let Pending::ChooseAttackers { defenders, .. } = pending else {
+        return false;
+    };
+    let Some(other) = defenders.iter().find_map(|defender| match defender {
+        Defender::Player(player) => Some(*player),
+        _ => None,
+    }) else {
+        return false;
+    };
+    let mut going = going(cands, logits, pending);
+    if going.is_empty() || swing_of(view, other, &going) >= life(view, other) {
+        return false;
+    }
+    going.sort_by_key(|id| view.object(*id).map_or(0, |object| object.power.unwrap_or(0)));
+    let mut turned = false;
+    for defender in defenders {
+        let Defender::Planeswalker(walker) = defender else {
+            continue;
+        };
+        let mut loyalty = view
+            .object(*walker)
+            .map_or(0, |object| i32::from(object.loyalty.unwrap_or(0)));
+        let mut sent_at_it = Vec::new();
+        for id in &going {
+            if loyalty <= 0 {
+                break;
+            }
+            let aimed = cands
+                .candidates
+                .iter()
+                .position(|cand| cand.object_id == Some(*id) && cand.defender == Some(*defender));
+            if let (Some(index), Some(object)) = (aimed, view.object(*id)) {
+                logits[index] = SEND + 2.0;
+                loyalty -= i32::from(object.power.unwrap_or(0)).max(0);
+                sent_at_it.push(*id);
+                turned = true;
+            }
+        }
+        going.retain(|id| !sent_at_it.contains(id));
+    }
+    turned
 }

@@ -125,7 +125,7 @@ const LAND_WALKS: [(KeywordSet, SubtypeId); 5] = [
 ];
 
 /// Whether `defender` holds a land that `hitter` walks through (CR 702.14c).
-fn walks_past(view: &PlayerView, defender: PlayerId, hitter: &Hitter<'_>) -> bool {
+pub(super) fn walks_past(view: &PlayerView, defender: PlayerId, hitter: &Hitter<'_>) -> bool {
     LAND_WALKS.iter().any(|(walk, land)| {
         hitter.has(*walk)
             && view
@@ -223,8 +223,8 @@ pub(super) fn hitters_of(view: &PlayerView, attacker: PlayerId) -> Vec<Hitter<'_
         .collect()
 }
 
-/// The creatures `player` could block with on the coming turn if those in
-/// `leaving` were tapped.
+/// The creatures `player` could block with on the other side's coming turn if
+/// those in `leaving` were tapped: nothing tapped now untaps before it.
 pub(super) fn blockers_of<'a>(
     view: &'a PlayerView,
     player: PlayerId,
@@ -232,9 +232,7 @@ pub(super) fn blockers_of<'a>(
 ) -> Vec<&'a PublicObject> {
     view.battlefield_of(player)
         .filter(|object| {
-            is_creature(object)
-                && !leaving.contains(&object.id)
-                && (view.active == player || !is_tapped(object))
+            is_creature(object) && !leaving.contains(&object.id) && !is_tapped(object)
         })
         .collect()
 }

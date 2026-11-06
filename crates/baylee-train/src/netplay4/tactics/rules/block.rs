@@ -1,6 +1,6 @@
-//! A block the damage count does not see: an attacker that does something when
-//! it connects. The tactical layer blocks for life and for kills; a Goblin
-//! Lackey that gets through is worth a card however little it hits for.
+//! Blocks the damage count does not see. The tactical layer blocks for life and
+//! for kills a blocker survives; a Goblin Lackey that connects is worth a card
+//! however little it hits for, and a fair trade thins the other side's board.
 
 use std::collections::BTreeSet;
 
@@ -17,21 +17,48 @@ const SURE: f32 = 8.0;
 /// A pair it will not take.
 const NEVER: f32 = -8.0;
 
-/// Whether `blocker` is a fair price for stopping `attacker`: it lives, or it
-/// takes the attacker with it at no great loss, or it is cheap.
-fn worth_the_block(attacker: &PublicObject, blocker: &PublicObject) -> bool {
-    let hit = i32::from(attacker.power.unwrap_or(0)).max(0);
-    let lives = toughness_left(blocker) > hit && !has(attacker, KeywordSet::DEATHTOUCH);
-    let kills = i32::from(blocker.power.unwrap_or(0)) >= toughness_left(attacker)
-        || has(blocker, KeywordSet::DEATHTOUCH);
-    lives || (kills && worth(blocker) <= worth(attacker) + 2) || worth(blocker) <= worth(attacker)
+/// What a block is judged by: whether `blocker` should stand in `attacker`'s way.
+pub(super) type BlockTest = fn(&PublicObject, &PublicObject) -> bool;
+
+fn hit(attacker: &PublicObject) -> i32 {
+    i32::from(attacker.power.unwrap_or(0)).max(0)
 }
 
-/// The attackers a declaration left connecting that a free blocker could stop.
+fn lives(attacker: &PublicObject, blocker: &PublicObject) -> bool {
+    toughness_left(blocker) > hit(attacker) && !has(attacker, KeywordSet::DEATHTOUCH)
+}
+
+fn kills(attacker: &PublicObject, blocker: &PublicObject) -> bool {
+    let first = has(attacker, KeywordSet::FIRST_STRIKE)
+        && !has(blocker, KeywordSet::FIRST_STRIKE)
+        && !lives(attacker, blocker);
+    !first
+        && !has(attacker, KeywordSet::INDESTRUCTIBLE)
+        && (i32::from(blocker.power.unwrap_or(0)) >= toughness_left(attacker)
+            || has(blocker, KeywordSet::DEATHTOUCH))
+}
+
+/// Whether `blocker` is a fair price for stopping a connection: it lives, or
+/// takes the attacker with it at no great loss, or is worth no more.
+pub(super) fn stops_a_connection(attacker: &PublicObject, blocker: &PublicObject) -> bool {
+    hits_for_value(attacker)
+        && (lives(attacker, blocker)
+            || (kills(attacker, blocker) && worth(blocker) <= worth(attacker) + 2)
+            || worth(blocker) <= worth(attacker))
+}
+
+/// Whether `blocker` takes `attacker` with it at no loss of worth.
+pub(super) fn is_a_fair_trade(attacker: &PublicObject, blocker: &PublicObject) -> bool {
+    kills(attacker, blocker) && worth(blocker) <= worth(attacker)
+}
+
+/// The attackers on `me` a declaration left open that a free blocker passes
+/// `test` for.
 pub(super) fn left_open(
     view: &PlayerView,
     pending: &Pending,
     declared: &[(ObjectId, ObjectId)],
+    test: BlockTest,
 ) -> Vec<ObjectId> {
     let Pending::ChooseBlockers { blockers, .. } = pending else {
         return Vec::new();
@@ -46,47 +73,46 @@ pub(super) fn left_open(
             attacker.defending == Defender::Player(me) && !blocked.contains(&attacker.creature)
         })
         .filter_map(|attacker| view.object(attacker.creature))
-        .filter(|hitter| hits_for_value(hitter) && !has(hitter, KeywordSet::MENACE))
+        .filter(|hitter| !has(hitter, KeywordSet::MENACE))
         .filter(|hitter| {
             blockers.iter().any(|option| {
                 !busy.contains(&option.blocker)
                     && option.attackers.contains(&hitter.id)
                     && view
                         .object(option.blocker)
-                        .is_some_and(|blocker| worth_the_block(hitter, blocker))
+                        .is_some_and(|blocker| test(hitter, blocker))
             })
         })
         .map(|hitter| hitter.id)
         .collect()
 }
 
-/// Sets the pairs that stop a connecting trigger. Returns whether it changed a
-/// block the layer would have left open.
-pub(super) fn stop_connections(
+/// Sets the cheapest pair that passes `test` for each attacker the logits leave
+/// open. Returns whether any block was added.
+fn add_blocks(
     cands: &EncodedCandidates4,
     logits: &mut [f32],
     view: &PlayerView,
     pending: &Pending,
+    test: BlockTest,
 ) -> bool {
     if !matches!(pending, Pending::ChooseBlockers { .. }) {
         return false;
     }
     let me = actor(view);
     let n = logits.len().min(cands.pair_objects.len());
-    let chosen = |logit: f32| logit > 0.0;
-    let mut busy: BTreeSet<ObjectId> = cands.pair_objects[..n]
-        .iter()
-        .zip(logits.iter())
-        .filter(|(_, logit)| chosen(**logit))
-        .map(|(pair, _)| pair.0)
-        .collect();
-    let blocked: BTreeSet<ObjectId> = cands.pair_objects[..n]
-        .iter()
-        .zip(logits.iter())
-        .filter(|(_, logit)| chosen(**logit))
-        .map(|(pair, _)| pair.1)
-        .collect();
-    let mut changed = false;
+    let taken = |logits: &[f32]| -> Vec<(ObjectId, ObjectId)> {
+        cands.pair_objects[..n]
+            .iter()
+            .zip(logits)
+            .filter(|(_, logit)| **logit > 0.0)
+            .map(|(pair, _)| *pair)
+            .collect()
+    };
+    let declared = taken(logits);
+    let mut busy: BTreeSet<ObjectId> = declared.iter().map(|pair| pair.0).collect();
+    let blocked: BTreeSet<ObjectId> = declared.iter().map(|pair| pair.1).collect();
+    let mut added = false;
     for attacker in &view.combat.attackers {
         if attacker.defending != Defender::Player(me) || blocked.contains(&attacker.creature) {
             continue;
@@ -94,15 +120,14 @@ pub(super) fn stop_connections(
         let Some(hitter) = view.object(attacker.creature) else {
             continue;
         };
-        if !hits_for_value(hitter) || has(hitter, KeywordSet::MENACE) {
+        if has(hitter, KeywordSet::MENACE) {
             continue;
         }
         let best = (0..n)
             .filter(|&index| cands.pair_objects[index].1 == attacker.creature)
             .filter_map(|index| {
                 let blocker = view.object(cands.pair_objects[index].0)?;
-                (!busy.contains(&blocker.id) && worth_the_block(hitter, blocker))
-                    .then_some((index, blocker))
+                (!busy.contains(&blocker.id) && test(hitter, blocker)).then_some((index, blocker))
             })
             .min_by_key(|(_, blocker)| worth(blocker));
         let Some((index, blocker)) = best else {
@@ -116,7 +141,27 @@ pub(super) fn stop_connections(
         }
         logits[index] = SURE;
         busy.insert(blocker_id);
-        changed = true;
+        added = true;
     }
-    changed
+    added
+}
+
+/// Blocks what would connect for value. Returns whether it added a block.
+pub(super) fn stop_connections(
+    cands: &EncodedCandidates4,
+    logits: &mut [f32],
+    view: &PlayerView,
+    pending: &Pending,
+) -> bool {
+    add_blocks(cands, logits, view, pending, stops_a_connection)
+}
+
+/// Takes the fair trades left open. Returns whether it added a block.
+pub(super) fn take_trades(
+    cands: &EncodedCandidates4,
+    logits: &mut [f32],
+    view: &PlayerView,
+    pending: &Pending,
+) -> bool {
+    add_blocks(cands, logits, view, pending, is_a_fair_trade)
 }

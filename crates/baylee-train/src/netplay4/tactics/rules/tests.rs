@@ -1,6 +1,6 @@
 //! Each group on a real table: the engine sets the board, the seat's own view is
 //! what the rule reads.
-use baylee_core::ids::{ObjectId, PlayerId};
+use baylee_core::ids::{Defender, ObjectId, PlayerId};
 use baylee_core::preset::{AIProfile, FormatId};
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_view::PlayerView;
@@ -16,11 +16,99 @@ fn table(
     my_board: &[&str],
     their_board: &[&str],
 ) -> (baylee_gamehost::Session, Pending, PlayerView) {
+    let mut session = setup(my_hand, my_board, their_board, ME);
+    for _ in 0..64 {
+        if let Pending::Priority { player, .. } = session.pending()
+            && *player == ME
+        {
+            let (pending, view) = session.view_for_with_context(ME).unwrap();
+            if view.active == ME && view.phase == baylee_view::Phase::FirstMain {
+                return (session, pending, view);
+            }
+        }
+        step(&mut session);
+    }
+    panic!("first main not reached");
+}
+
+/// Answers the question up with the plainest answer.
+fn step(session: &mut baylee_gamehost::Session) {
+    let player = session.pending().asked().unwrap();
+    let action = match session.pending() {
+        Pending::Mulligan { .. } => PlayerAction::MulliganKeep,
+        Pending::Priority { .. } => PlayerAction::PassPriority,
+        Pending::ChooseAttackers { .. } => PlayerAction::DeclareAttackers {
+            attackers: Vec::new(),
+        },
+        other => panic!("unexpected setup decision {other:?}"),
+    };
+    session.act(player, action).unwrap();
+}
+
+/// The seat's own declaration of attackers.
+fn attack_question(
+    my_board: &[&str],
+    their_board: &[&str],
+) -> (baylee_gamehost::Session, Pending, PlayerView) {
+    let mut session = setup(&[], my_board, their_board, ME);
+    for _ in 0..64 {
+        if matches!(session.pending(), Pending::ChooseAttackers { player, .. } if *player == ME) {
+            let (pending, view) = session.view_for_with_context(ME).unwrap();
+            return (session, pending, view);
+        }
+        step(&mut session);
+    }
+    panic!("attack not reached");
+}
+
+/// The seat's block question, with every creature of the other side attacking.
+fn block_question(
+    my_board: &[&str],
+    their_board: &[&str],
+) -> (baylee_gamehost::Session, Pending, PlayerView) {
+    let mut session = setup(&[], my_board, their_board, OTHER);
+    for _ in 0..64 {
+        if matches!(session.pending(), Pending::ChooseBlockers { player, .. } if *player == ME) {
+            let (pending, view) = session.view_for_with_context(ME).unwrap();
+            return (session, pending, view);
+        }
+        if let Pending::ChooseAttackers {
+            player,
+            attackers,
+            ..
+        } = session.pending()
+            && *player == OTHER
+        {
+            let declared = attackers
+                .iter()
+                .map(|id| (*id, Defender::Player(ME)))
+                .collect();
+            session
+                .act(
+                    OTHER,
+                    PlayerAction::DeclareAttackers {
+                        attackers: declared,
+                    },
+                )
+                .unwrap();
+            continue;
+        }
+        step(&mut session);
+    }
+    panic!("block not reached");
+}
+
+fn setup(
+    my_hand: &[&str],
+    my_board: &[&str],
+    their_board: &[&str],
+    first: PlayerId,
+) -> baylee_gamehost::Session {
     let deck = crate::housedeck::HouseDeck::named("victory").unwrap();
     let mut preset = crate::selfplay::table_for(915, &[&deck, &deck], &[AIProfile::STEADY; 2], &[]);
     preset.format = FormatId::Freeform;
     preset.modifiers.clear();
-    preset.house_rules.starting_player = Some(0);
+    preset.house_rules.starting_player = Some(first.get());
     let card = |name: &str| {
         let mut entry = preset.seats[0].deck[0];
         entry.card = baylee_cards::decks::by_name(name).unwrap();
@@ -43,27 +131,7 @@ fn table(
     let mut session = baylee_gamehost::Session::new_recorded(&preset, "rule-group-test").unwrap();
     session.take_over(ME);
     session.take_over(OTHER);
-    for _ in 0..64 {
-        if let Pending::Priority { player, .. } = session.pending()
-            && *player == ME
-        {
-            let (pending, view) = session.view_for_with_context(ME).unwrap();
-            if view.active == ME && view.phase == baylee_view::Phase::FirstMain {
-                return (session, pending, view);
-            }
-        }
-        let player = session.pending().asked().unwrap();
-        let action = match session.pending() {
-            Pending::Mulligan { .. } => PlayerAction::MulliganKeep,
-            Pending::Priority { .. } => PlayerAction::PassPriority,
-            Pending::ChooseAttackers { .. } => PlayerAction::DeclareAttackers {
-                attackers: Vec::new(),
-            },
-            other => panic!("unexpected setup decision {other:?}"),
-        };
-        session.act(player, action).unwrap();
-    }
-    panic!("first main not reached");
+    session
 }
 
 fn card_in_hand(view: &PlayerView, name: &str) -> ObjectId {
@@ -144,6 +212,70 @@ fn a_lord_that_walks_their_goblins_through_my_mountain_is_a_gift() {
         card: card_in_hand(&view, "Goblin King"),
     };
     assert_eq!(groups("gift", &view, &pending, &cast), ["gift"]);
+}
+
+fn every_attacker(pending: &Pending) -> PlayerAction {
+    let Pending::ChooseAttackers { attackers, .. } = pending else {
+        panic!("not an attack");
+    };
+    PlayerAction::DeclareAttackers {
+        attackers: attackers
+            .iter()
+            .map(|id| (*id, Defender::Player(OTHER)))
+            .collect(),
+    }
+}
+
+#[test]
+fn an_attack_that_loses_the_race_stays_home() {
+    let wurms = ["Craw Wurm", "Craw Wurm", "Craw Wurm"];
+    let (_session, pending, view) = attack_question(&["Grizzly Bears", "Grizzly Bears"], &wurms);
+    let attack = every_attacker(&pending);
+    assert_eq!(groups("race", &view, &pending, &attack), ["race"]);
+}
+
+#[test]
+fn a_race_with_nothing_coming_back_is_left_alone() {
+    let (_session, pending, view) =
+        attack_question(&["Grizzly Bears", "Grizzly Bears"], &["Llanowar Elves"]);
+    let attack = every_attacker(&pending);
+    assert!(groups("race", &view, &pending, &attack).is_empty());
+}
+
+#[test]
+fn a_free_swing_left_at_home_is_pressed_unless_it_opens_the_seat() {
+    let none = PlayerAction::DeclareAttackers {
+        attackers: Vec::new(),
+    };
+    let (_session, pending, view) = attack_question(&["Grizzly Bears"], &[]);
+    assert_eq!(groups("press", &view, &pending, &none), ["press"]);
+    let (_session, pending, view) = attack_question(&["Grizzly Bears"], &["Air Elemental"]);
+    assert!(groups("press", &view, &pending, &none).is_empty());
+    let wurms = ["Craw Wurm", "Craw Wurm", "Craw Wurm", "Craw Wurm"];
+    let (_session, pending, view) = attack_question(&["Grizzly Bears"], &wurms);
+    assert!(groups("press", &view, &pending, &none).is_empty());
+}
+
+#[test]
+fn an_attacker_that_connects_for_value_is_blocked() {
+    let none = PlayerAction::DeclareBlockers {
+        blockers: Vec::new(),
+    };
+    let (_session, pending, view) = block_question(&["Grizzly Bears"], &["Goblin Lackey"]);
+    assert_eq!(groups("trip", &view, &pending, &none), ["trip"]);
+    let (_session, pending, view) = block_question(&["Grizzly Bears"], &["Grizzly Bears"]);
+    assert!(groups("trip", &view, &pending, &none).is_empty());
+}
+
+#[test]
+fn an_even_trade_is_taken_and_a_bad_one_is_not() {
+    let none = PlayerAction::DeclareBlockers {
+        blockers: Vec::new(),
+    };
+    let (_session, pending, view) = block_question(&["Grizzly Bears"], &["Grizzly Bears"]);
+    assert_eq!(groups("trade", &view, &pending, &none), ["trade"]);
+    let (_session, pending, view) = block_question(&["Serra Angel"], &["Llanowar Elves"]);
+    assert!(groups("trade", &view, &pending, &none).is_empty());
 }
 
 #[test]

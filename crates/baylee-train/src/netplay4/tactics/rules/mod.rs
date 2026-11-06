@@ -47,9 +47,15 @@ pub enum RuleGroup {
     Spend,
     /// A usable instant held through the other side's spell, attack or end step.
     React,
+    /// An even trade left unmade: a blocker that kills what is worth as much.
+    Trade,
+    /// A creature left at home that nothing could block, at no risk.
+    Press,
+    /// A planeswalker the attack goes past.
+    Walker,
 }
 
-const GROUPS: [(RuleGroup, &str); 9] = [
+const GROUPS: [(RuleGroup, &str); 12] = [
     (RuleGroup::Void, "void"),
     (RuleGroup::Side, "side"),
     (RuleGroup::Mass, "mass"),
@@ -59,6 +65,9 @@ const GROUPS: [(RuleGroup, &str); 9] = [
     (RuleGroup::Aim, "aim"),
     (RuleGroup::Spend, "spend"),
     (RuleGroup::React, "react"),
+    (RuleGroup::Trade, "trade"),
+    (RuleGroup::Press, "press"),
+    (RuleGroup::Walker, "walker"),
 ];
 
 /// The groups a net plays by, and what they changed.
@@ -201,21 +210,33 @@ impl TacticRules4 {
                     }
                 }
             }
-            (Pending::ChooseAttackers { .. }, PlayerAction::DeclareAttackers { attackers })
-                if self.on(RuleGroup::Race) =>
-            {
+            (Pending::ChooseAttackers { .. }, PlayerAction::DeclareAttackers { attackers }) => {
                 let going: Vec<ObjectId> = attackers.iter().map(|pair| pair.0).collect();
-                let staying = attack::decide(view, pending, going);
-                if !staying.is_empty() {
-                    found.push((name(RuleGroup::Race), format!("{staying:?}")));
+                if self.on(RuleGroup::Press) {
+                    let free = attack::free_swings(view, pending, &going);
+                    if !free.is_empty() {
+                        found.push((name(RuleGroup::Press), format!("{free:?}")));
+                    }
+                }
+                if self.on(RuleGroup::Race) {
+                    let staying = attack::decide(view, pending, going);
+                    if !staying.is_empty() {
+                        found.push((name(RuleGroup::Race), format!("{staying:?}")));
+                    }
                 }
             }
-            (Pending::ChooseBlockers { .. }, PlayerAction::DeclareBlockers { blockers })
-                if self.on(RuleGroup::Trip) =>
-            {
-                let open = block::left_open(view, pending, blockers);
-                if !open.is_empty() {
-                    found.push((name(RuleGroup::Trip), format!("{open:?}")));
+            (Pending::ChooseBlockers { .. }, PlayerAction::DeclareBlockers { blockers }) => {
+                if self.on(RuleGroup::Trip) {
+                    let open = block::left_open(view, pending, blockers, block::stops_a_connection);
+                    if !open.is_empty() {
+                        found.push((name(RuleGroup::Trip), format!("{open:?}")));
+                    }
+                }
+                if self.on(RuleGroup::Trade) {
+                    let open = block::left_open(view, pending, blockers, block::is_a_fair_trade);
+                    if !open.is_empty() {
+                        found.push((name(RuleGroup::Trade), format!("{open:?}")));
+                    }
                 }
             }
             _ => {}
@@ -388,6 +409,17 @@ pub(in crate::netplay4) fn subset(
             rules.count(RuleGroup::Race);
         }
     }
+    if rules.on(RuleGroup::Press) {
+        let going = attack::going(cands, logits, pending);
+        let free = attack::free_swings(view, pending, &going);
+        if !free.is_empty() {
+            attack::send(cands, logits, &free);
+            rules.count(RuleGroup::Press);
+        }
+    }
+    if rules.on(RuleGroup::Walker) && attack::at_walkers(cands, logits, view, pending) {
+        rules.count(RuleGroup::Walker);
+    }
     for (index, group) in rules.strike_targets(cands, view, pending, active_source) {
         if logits[index] > -20.0 {
             logits[index] = -20.0;
@@ -406,5 +438,8 @@ pub(in crate::netplay4) fn pairs(
 ) {
     if rules.on(RuleGroup::Trip) && block::stop_connections(cands, logits, view, pending) {
         rules.count(RuleGroup::Trip);
+    }
+    if rules.on(RuleGroup::Trade) && block::take_trades(cands, logits, view, pending) {
+        rules.count(RuleGroup::Trade);
     }
 }
