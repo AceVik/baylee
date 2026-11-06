@@ -38,6 +38,9 @@ enum Command {
         #[arg(long)]
         forced: bool,
     },
+    /// How often the answer differs from the net's first choice at priority, by
+    /// kind, in games won and lost.
+    Overrides { roots: Vec<PathBuf> },
     /// One line per turn of one game: life, lands, what was played and sent.
     Ledger { journal: PathBuf },
     /// Runs rule groups over the games of ladder roots: what they would have
@@ -100,6 +103,7 @@ fn main() -> Result<()> {
                 }
             }
         }
+        Command::Overrides { roots } => overrides(&roots)?,
         Command::Ledger { journal } => print!("{}", print::ledger(&rows(&journal)?)),
         Command::Audit {
             groups,
@@ -120,6 +124,54 @@ fn results(root: &Path) -> Result<BTreeMap<u64, bool>> {
         .flatten()
         .filter_map(|game| Some((game["game"].as_u64()?, game["won"].as_bool()?)))
         .collect())
+}
+
+/// What kind of answer this is.
+fn kind(action: &PlayerAction) -> &'static str {
+    match action {
+        PlayerAction::PassPriority => "pass",
+        PlayerAction::PlayLand { .. } => "land",
+        PlayerAction::CastSpell { .. } => "cast",
+        PlayerAction::ActivateManaAbility { .. } => "tap",
+        PlayerAction::ActivateAbility { .. } => "activate",
+        _ => "other",
+    }
+}
+
+/// The net's first choice of a priority menu, as a kind.
+fn net_first(row: &Row) -> Option<&'static str> {
+    let options = row.menu["options"].as_array()?;
+    let top = options.iter().max_by(|a, b| {
+        let logit = |option: &&Value| option["logit"].as_f64().unwrap_or(f64::NEG_INFINITY);
+        logit(a).total_cmp(&logit(b))
+    })?;
+    let action: PlayerAction = serde_json::from_value(top["action"].clone()).ok()?;
+    Some(kind(&action))
+}
+
+fn overrides(roots: &[PathBuf]) -> Result<()> {
+    let mut counts: BTreeMap<(&str, &str), [u64; 2]> = BTreeMap::new();
+    for root in roots {
+        for (game, won) in results(root)? {
+            let journal = root.join(format!("game-{game:04}/journal.jsonl.gz"));
+            if !journal.exists() {
+                continue;
+            }
+            for row in rows(&journal)? {
+                if matches!(row.pending, Pending::Priority { .. })
+                    && row.source != "Forced"
+                    && let Some(first) = net_first(&row)
+                {
+                    counts.entry((first, kind(&row.action))).or_default()[usize::from(won)] += 1;
+                }
+            }
+        }
+    }
+    println!("net first -> answer: in lost games, in won games");
+    for ((first, answer), tally) in counts {
+        println!("{first} -> {answer}: {} {}", tally[0], tally[1]);
+    }
+    Ok(())
 }
 
 /// Hits per group, in games won and lost, and per game.
