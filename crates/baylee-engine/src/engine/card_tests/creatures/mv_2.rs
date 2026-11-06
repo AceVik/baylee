@@ -192,6 +192,7 @@ mod malevolent_hermit;
 mod marionette_apprentice;
 mod master_decoy;
 mod mawloc;
+mod meddling_mage;
 mod merfolk_assassin;
 mod merfolk_looter;
 mod merfolk_raiders;
