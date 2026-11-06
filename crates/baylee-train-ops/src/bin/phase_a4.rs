@@ -69,6 +69,22 @@ enum Command {
         out: PathBuf,
         pairs: Vec<String>,
     },
+    /// Runs `gamelog4 survey` on arms, once each, and tables what the brief
+    /// asks of them: casts on the other seat's turn, mulligans, unused taps.
+    Surveys {
+        /// Where the evaluations and records are.
+        #[arg(long)]
+        root: PathBuf,
+        /// The `gamelog4` of this build.
+        #[arg(long)]
+        gamelog: PathBuf,
+        #[arg(long, default_value_t = 6)]
+        threads: usize,
+        #[arg(long)]
+        out: PathBuf,
+        /// The arms.
+        arms: Vec<String>,
+    },
     /// Reports the value heads of a run, baselines fitted on another run.
     Values {
         /// `--value-log` and summary of the run reported on.
@@ -359,6 +375,62 @@ fn row(report: &Value) -> Result<String> {
     ))
 }
 
+/// `survey-<arm>.txt` of an arm, made once.
+fn survey_text(root: &Path, gamelog: &Path, word: &str, threads: usize) -> Result<String> {
+    let name = file_name(word);
+    let path = root.join(format!("survey-{name}.txt"));
+    if !path.exists() {
+        let output = std::process::Command::new(gamelog)
+            .arg("survey")
+            .arg("--run")
+            .arg(root.join(format!("eval-{name}-records")))
+            .arg("--summary")
+            .arg(eval_path(root, word))
+            .arg("--threads")
+            .arg(threads.to_string())
+            .output()?;
+        ensure!(
+            output.status.success(),
+            "survey of {word}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        std::fs::write(&path, &output.stdout)?;
+    }
+    Ok(std::fs::read_to_string(path)?)
+}
+
+/// The first number of a survey's line that holds `label`, `0` without one:
+/// a class or an answer nobody gave is not printed.
+fn counted(text: &str, label: &str) -> u64 {
+    text.lines()
+        .filter(|line| line.contains(label))
+        .find_map(|line| {
+            line.replace(label, " ")
+                .split_whitespace()
+                .next()?
+                .parse()
+                .ok()
+        })
+        .unwrap_or(0)
+}
+
+/// What the survey says of an arm.
+fn survey_row(word: &str, text: &str) -> Value {
+    let taps = counted(text, "Priority / ActivateManaAbility / own")
+        + counted(text, "Priority / ActivateManaAbility / their");
+    json!({
+        "arm": word,
+        "casts_their_turn": counted(text, "Priority / CastSpell / their"),
+        "casts_own_turn": counted(text, "Priority / CastSpell / own"),
+        "passes_their_turn": counted(text, "Priority / PassPriority / their"),
+        "mulligans_taken": counted(text, "Mulligan / MulliganTake / own")
+            + counted(text, "Mulligan / MulliganTake / their"),
+        "taps": taps,
+        "taps_unused": counted(text, "tap: nothing to spend it on"),
+        "casts_doing_nothing": counted(text, "cast: reads as doing nothing now"),
+    })
+}
+
 fn main() -> Result<()> {
     match Args::parse().command {
         Command::Plan {
@@ -401,6 +473,33 @@ fn main() -> Result<()> {
                 println!("{}", row(report)?);
             }
             atomic_json(&out, &Value::Array(reports))?;
+        }
+        Command::Surveys {
+            root,
+            gamelog,
+            threads,
+            out,
+            arms,
+        } => {
+            println!(
+                "| arm | casts, their turn | casts, own | mulligans | taps | unused taps | casts doing nothing |"
+            );
+            println!("| --- | --- | --- | --- | --- | --- | --- |");
+            let mut rows = Vec::new();
+            for word in &arms {
+                let row = survey_row(word, &survey_text(&root, &gamelog, word, threads)?);
+                println!(
+                    "| {word} | {} | {} | {} | {} | {} | {} |",
+                    row["casts_their_turn"],
+                    row["casts_own_turn"],
+                    row["mulligans_taken"],
+                    row["taps"],
+                    row["taps_unused"],
+                    row["casts_doing_nothing"]
+                );
+                rows.push(row);
+            }
+            atomic_json(&out, &Value::Array(rows))?;
         }
         Command::Values {
             test,
