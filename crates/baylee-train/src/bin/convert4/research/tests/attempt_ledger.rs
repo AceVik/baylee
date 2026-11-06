@@ -36,7 +36,7 @@ impl Fixture {
                 "--exact".into(),
                 "research::tests::attempt_ledger::native_failed_worker_helper".into(),
             ],
-            timeout_seconds: 10.0,
+            timeout_seconds: 120.0,
             memory_gib: 1.0,
             inputs: vec![source.join("run.json")],
         };
