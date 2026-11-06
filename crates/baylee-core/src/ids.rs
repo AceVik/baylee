@@ -568,11 +568,18 @@ impl SeatSet {
         player.get() <= Self::MAX_SEAT && self.0 & (1 << player.get()) != 0
     }
 
-    /// The seats, in seat order.
+    /// The seats, in seat order. Walks the set bits, because nearly every set
+    /// asked is empty: a view reads two of them for every object on the table.
     pub fn iter(self) -> impl Iterator<Item = PlayerId> {
-        (0..=Self::MAX_SEAT)
-            .filter(move |seat| self.0 & (1 << seat) != 0)
-            .map(PlayerId::new)
+        let mut left = self.0;
+        core::iter::from_fn(move || {
+            if left == 0 {
+                return None;
+            }
+            let seat = left.trailing_zeros() as u8;
+            left &= left - 1;
+            Some(PlayerId::new(seat))
+        })
     }
 }
 
@@ -613,6 +620,21 @@ mod seat_set_tests {
             set.iter().collect::<Vec<_>>(),
             vec![PlayerId::new(0), PlayerId::new(3)]
         );
+    }
+
+    /// Every set there is, against the plain reading: each seat asked in
+    /// order. A seat's order decides who is asked first, so it is not a
+    /// detail of the walk.
+    #[test]
+    fn every_set_walks_its_seats_in_order() {
+        for bits in 0..=u16::MAX {
+            let set = SeatSet(bits);
+            let plain: Vec<PlayerId> = (0..=SeatSet::MAX_SEAT)
+                .map(PlayerId::new)
+                .filter(|&seat| set.contains(seat))
+                .collect();
+            assert_eq!(set.iter().collect::<Vec<_>>(), plain);
+        }
     }
 
     #[test]
