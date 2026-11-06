@@ -13,7 +13,9 @@
 //! processes and the reconnect loop.
 #![deny(unsafe_code)]
 
-use baylee_agent::{AgentConfig, Order, engine_argv, heartbeat, order, status};
+use baylee_agent::{
+    AGENT_TOKEN_VAR, AgentConfig, ENGINE_TOKEN_VAR, Order, engine_argv, heartbeat, order, status,
+};
 use baylee_protocol::v1::{self, Envelope};
 use futures_util::{SinkExt, StreamExt};
 use prost::Message as _;
@@ -361,11 +363,9 @@ fn start(
     }
 
     let child = tokio::process::Command::new(&config.engine_bin)
-        .args(engine_argv(
-            config.engine_address(gateway_url),
-            game_id,
-            engine_token,
-        ))
+        .args(engine_argv(config.engine_address(gateway_url), game_id))
+        .env(ENGINE_TOKEN_VAR, engine_token)
+        .env_remove(AGENT_TOKEN_VAR)
         // A dropped agent must not leave engines behind holding games nobody
         // is routing any more.
         .kill_on_drop(true)

@@ -115,12 +115,14 @@ fn the_other_seats_hold_does_not_wind_the_clock() {
     let before = on_clock(&runner).expect("a seat is on the clock");
     let frames_before = runner.session().expect("a game").seq();
     let idle = u32::from(before.seat.get() == 0);
-    for _ in 0..3 {
+    // A different hold each time: one said again changes nothing and is
+    // answered with nothing, so it would not show the frame reached the engine.
+    for turn in 1..=3 {
         act(
             &mut runner,
             idle,
             &PlayerAction::SetPriorityHold(baylee_engine::choice::PriorityHold::UntilEndOfTurn {
-                turn: 1,
+                turn,
             }),
         );
     }

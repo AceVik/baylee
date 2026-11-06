@@ -206,21 +206,25 @@ pub fn order(envelope: Envelope) -> Order {
 
 /// The arguments one engine process is started with.
 ///
-/// The token is an argument rather than an environment variable so that a
-/// misconfigured agent cannot leak it into every child it ever starts; it is
-/// still visible in the process list on this machine, which is the machine
-/// that issued it.
+/// Its token is not among them: an argument is in the process list for every
+/// user of the machine, so it goes in [`ENGINE_TOKEN_VAR`], set on that one
+/// child alone.
 #[must_use]
-pub fn engine_argv(gateway_url: &str, game_id: &str, engine_token: &str) -> Vec<String> {
+pub fn engine_argv(gateway_url: &str, game_id: &str) -> Vec<String> {
     vec![
         "--attach".to_string(),
         gateway_url.to_string(),
         "--game".to_string(),
         game_id.to_string(),
-        "--token".to_string(),
-        engine_token.to_string(),
     ]
 }
+
+/// Where an engine reads the token it proves itself with.
+pub const ENGINE_TOKEN_VAR: &str = "BAYLEE_ENGINE_TOKEN";
+
+/// What an engine must not inherit: this agent's own secret. An engine reads
+/// players' frames, and needs nothing but its own game's token.
+pub const AGENT_TOKEN_VAR: &str = "BAYLEE_AGENT_TOKEN";
 
 /// Where the engine binary is when nobody said.
 ///
@@ -368,14 +372,12 @@ mod tests {
     #[test]
     fn the_engine_is_told_where_to_dial_and_what_to_play() {
         assert_eq!(
-            engine_argv("ws://gw/engine/ws", "g1", "tok"),
+            engine_argv("ws://gw/engine/ws", "g1"),
             vec![
                 "--attach".to_string(),
                 "ws://gw/engine/ws".to_string(),
                 "--game".to_string(),
                 "g1".to_string(),
-                "--token".to_string(),
-                "tok".to_string(),
             ]
         );
     }

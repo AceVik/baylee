@@ -1050,11 +1050,18 @@ mod tests {
     /// A dev-dependency is the whole cost, and it points the way round a
     /// test may point: the reader depends on the writer.
     #[test]
-    fn the_three_flags_are_the_ones_the_agent_writes() {
-        let argv = baylee_agent::engine_argv("ws://gw:28766/engine/ws", "g-7", "engine-token");
+    fn what_the_agent_writes_is_what_this_process_reads() {
+        let argv = baylee_agent::engine_argv("ws://gw:28766/engine/ws", "g-7");
+        assert!(
+            !argv.iter().any(|arg| arg.contains("token")),
+            "a token in an argument is in the process list: {argv:?}"
+        );
+        let env = |name: &str| {
+            (name == baylee_agent::ENGINE_TOKEN_VAR).then(|| "engine-token".to_string())
+        };
 
         assert_eq!(
-            Attach::read(&argv, |_| None),
+            Attach::read(&argv, env),
             Some(Attach {
                 url: "ws://gw:28766/engine/ws".to_string(),
                 game_id: "g-7".to_string(),
