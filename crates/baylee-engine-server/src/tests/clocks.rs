@@ -117,11 +117,11 @@ fn the_other_seats_hold_does_not_wind_the_clock() {
     let idle = u32::from(before.seat.get() == 0);
     // A change each time: a hold said again changes nothing and is answered
     // with nothing, so it would not show the frame reached the engine.
-    use baylee_engine::choice::PriorityHold;
+    let until_it_ends = baylee_engine::choice::PriorityHold::UntilEndOfTurn { turn: 1 };
     for hold in [
-        PriorityHold::UntilEndOfTurn { turn: 1 },
-        PriorityHold::Always,
-        PriorityHold::UntilEndOfTurn { turn: 1 },
+        until_it_ends,
+        baylee_engine::choice::PriorityHold::Always,
+        until_it_ends,
     ] {
         act(&mut runner, idle, &PlayerAction::SetPriorityHold(hold));
     }
