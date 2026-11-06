@@ -40,6 +40,7 @@ fn welcoming() -> App {
                 art_cache: false,
                 guests: true,
                 central: false,
+                guests_only: false,
             }),
         ),
     );

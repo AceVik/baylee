@@ -29,6 +29,13 @@ feed of 4.11.2026 that is 23 formats: `alchemy`, `brawl`, `commander`,
 `vintage`. Nothing names them here: the list follows the feed, so a new one
 needs no release (a client shows one it has no words for by its key).
 
+**`tlr` is Tiny Leaders Reborn.** Scryfall names the key in its API and not on
+its syntax page or a card's page, so the name is shown by what the key holds
+(6.11.2026): its 73 banned and restricted cards are exactly those of
+[the format's banlist](https://official-tlr.com/banlist/), and of the cards
+with a generic cost of four or more none is legal, as its rule of a mana value
+of at most three says.
+
 A card's printings agree on 22 of the 23. **Old School admits printings**, so
 779 of 39 287 cards say `legal` or `restricted` on an old printing and
 `not_legal` on a reprint, and the row used to be whichever came last. Each
@@ -146,7 +153,9 @@ list, a deck it rejects cannot sit down at any door (join, the chair, ready, sta
 and its player reads why: the refusal is a `409` carrying every `Problem`, which the
 client words in the sheet over whatever screen the deck came from. With none,
 everything may. A room holds its own copy of the list, read again before every check
-while it waits. Anyone who can see the table sees that it has a list; its name and
+while it waits. A deck already seated stays in its chair when a list is chosen over
+it; the listing marks it `off_list` and the room says so in place of "fits", until
+its next ready refuses it or another deck takes its place. Anyone who can see the table sees that it has a list; its name and
 cards are for those at the table.
 
 **Frozen.** The start writes the version the decks passed onto the game and nothing

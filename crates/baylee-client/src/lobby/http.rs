@@ -991,6 +991,10 @@ struct AuthConfig {
     /// from before the field signs people in with its own routes.
     #[serde(default)]
     central: bool,
+    /// Who it lets in (`guests`, `central`, `mixed`). Absent from a gateway
+    /// from before the cutover, which signs people in with its own routes.
+    #[serde(default)]
+    auth_mode: Option<String>,
 }
 
 /// The clocks `GET /auth/config` lists, for the Create-table sheet. Read
@@ -1050,6 +1054,9 @@ pub(super) fn auth_config(body: &str) -> Option<Reply> {
         art_cache: body.art_cache,
         guests: body.guests_enabled,
         central: body.central,
+        // A gateway that states who it lets in has no password of its own:
+        // past the cutover an account comes through Central or not at all.
+        guests_only: body.auth_mode.is_some() && body.guests_enabled && !body.central,
     })
 }
 

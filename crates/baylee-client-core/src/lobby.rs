@@ -437,6 +437,9 @@ pub struct GameSeat {
     /// Whether a guest sits there, whom nobody can add.
     #[serde(default)]
     pub guest: bool,
+    /// Whether the room's list would turn this chair's deck away.
+    #[serde(default)]
+    pub off_list: bool,
     /// Whether that is the player reading the list.
     #[serde(default)]
     pub you: bool,
@@ -1209,6 +1212,8 @@ struct Doors {
     registration: Registration,
     /// Whether it takes guests (#269).
     guests: bool,
+    /// Whether guests are all it takes: no sign-in and no sign-up reach it.
+    guests_only: bool,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -1429,6 +1434,7 @@ impl Lobby {
             doors: Doors {
                 registration: Registration::Open,
                 guests: false,
+                guests_only: false,
             },
             gateway_selection: GatewaySelection::Selected,
             ..Self::default()
@@ -1795,10 +1801,22 @@ impl Lobby {
     /// button that could only fail is worse than none.
     pub fn set_guests_enabled(&mut self, enabled: bool) {
         self.doors.guests = enabled;
+        self.doors.guests_only &= enabled;
         if !enabled && self.guest_face {
             self.guest_face = false;
         }
         self.leave_hidden_fields();
+    }
+
+    /// Whether guests are all this gateway takes.
+    #[must_use]
+    pub fn guests_only(&self) -> bool {
+        self.doors.guests_only
+    }
+
+    /// Records that guests are all it takes, after [`Self::set_guests_enabled`].
+    pub fn set_guests_only(&mut self, only: bool) {
+        self.doors.guests_only = only && self.doors.guests;
     }
 
     /// Whether the sign-in form offers to play as a guest.
@@ -2370,7 +2388,7 @@ impl Lobby {
         let Screen::SignIn { registering } = self.screen else {
             return None;
         };
-        if self.busy {
+        if self.busy || (self.guests_only() && self.face() == Face::SignIn) {
             return None;
         }
         if self.gateway_selection == GatewaySelection::Missing {

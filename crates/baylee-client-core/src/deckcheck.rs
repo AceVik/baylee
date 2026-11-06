@@ -38,6 +38,7 @@ pub const fn format_phrase(format: &str) -> Option<Phrase> {
         b"standard" => Phrase::PlayFormatStandard,
         b"standardbrawl" => Phrase::PlayFormatStandardBrawl,
         b"timeless" => Phrase::PlayFormatTimeless,
+        b"tlr" => Phrase::PlayFormatTlr,
         b"vintage" => Phrase::PlayFormatVintage,
         b"freeform" => Phrase::CheckNoFormat,
         _ => return None,

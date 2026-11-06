@@ -780,6 +780,7 @@ impl Offline {
                 .map(|(at, chair)| GameSeat {
                     seat: at as u32,
                     guest: false,
+                    off_list: false,
                     kind: chair.kind,
                     ai: (chair.kind == SeatKind::Ai).then(|| chair.ai.clone()),
                     // `taken` means a human owns the chair. Marking AI

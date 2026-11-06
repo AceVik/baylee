@@ -699,6 +699,25 @@ fn a_guest_at_the_table_is_marked_and_the_reader_is_not() {
     assert!(drawn.iter().any(|l| l.contains("Guest")), "{drawn:?}");
 }
 
+/// A deck the table's list would turn away does not stand there as fitting.
+#[test]
+fn a_deck_off_the_list_is_not_said_to_fit() {
+    let mut app = llm_deck_room(false, true);
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        let mut games = state.lobby.games().to_vec();
+        games[0].seats[0].format = "commander".into();
+        games[0].seats[0].off_list = true;
+        state.lobby.apply(LobbyEvent::Games(GameListing::of(games)));
+    }
+    app.update();
+    app.update();
+    let drawn = labels(&mut app);
+    let said = Phrase::RoomOffList.text(Lang::En);
+    assert!(drawn.iter().any(|l| l.contains(said)), "{drawn:?}");
+    assert!(!drawn.iter().any(|l| l == "fits"), "{drawn:?}");
+}
+
 /// A room says what it holds a deck to, its host may choose where a gateway
 /// holds lists, and those at the table read the list.
 #[test]

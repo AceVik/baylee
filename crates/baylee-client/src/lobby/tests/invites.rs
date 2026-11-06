@@ -19,6 +19,49 @@ fn post(app: &mut App, reply: Reply) {
     app.update();
 }
 
+/// A gateway that lets in guests alone has neither a sign-in nor a sign-up
+/// to offer: both would only fail, so the face is its doors. A gateway from
+/// before the cutover says no `auth_mode` and keeps its form.
+#[test]
+fn a_gateway_of_guests_alone_offers_no_form() {
+    let guests = r#"{"registration_enabled":false,"registration":"open",
+        "guests_enabled":true,"central":false,"auth_mode":"guests"}"#;
+    let mut app = at(guests);
+    let found = presses(&mut app);
+    assert!(
+        found.contains(&Press::Front(FrontPress::GuestFace)),
+        "{found:?}"
+    );
+    assert!(
+        !found.contains(&Press::Front(FrontPress::ToggleRegistering)),
+        "{found:?}"
+    );
+    assert!(
+        !found.contains(&Press::Front(FrontPress::Submit)),
+        "{found:?}"
+    );
+    let lobby = &mut app.world_mut().resource_mut::<LobbyState>().lobby;
+    assert_eq!(lobby.submit(), None, "Enter sends nothing");
+
+    let older = r#"{"registration_enabled":true,"guests_enabled":true}"#;
+    let found = presses(&mut at(older));
+    assert!(
+        found.contains(&Press::Front(FrontPress::Submit)),
+        "{found:?}"
+    );
+
+    let central = r#"{"registration_enabled":false,"guests_enabled":true,
+        "central":true,"auth_mode":"mixed"}"#;
+    let read = auth_config(central);
+    assert!(matches!(
+        read,
+        Some(Reply::Registration {
+            guests_only: false,
+            ..
+        })
+    ));
+}
+
 /// The sign-in face of a gateway that answered `/auth/config` with `body`.
 fn at(body: &str) -> App {
     let mut app = headless();

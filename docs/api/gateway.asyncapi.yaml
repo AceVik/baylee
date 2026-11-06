@@ -31540,6 +31540,11 @@ components:
         host:
           type: boolean
           description: Whether the room's host sits here.
+        off_list:
+          type: boolean
+          description: >-
+            Whether the room's list would turn this chair's deck away at its next ready;
+            the reasons are its player's alone.
         hosted:
           anyOf:
           - $ref: "#/components/schemas/HostedSeat"
@@ -31584,6 +31589,7 @@ components:
       - format
       - guest
       - host
+      - off_list
       - hosted
       - kind
       - player

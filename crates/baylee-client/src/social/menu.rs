@@ -301,6 +301,14 @@ fn clicks_on_lines(
             }
             PointerButton::Primary => {
                 if let Some(name) = lineage(click.entity, &names, &parents) {
+                    // No whisper reaches a guest: its line's menu says why.
+                    if name.guest {
+                        if let Some(row) = lineage(click.entity, &rows, &parents) {
+                            ui.row_menu = Some(row.key);
+                            at.0 = click.pointer.position;
+                        }
+                        continue;
+                    }
                     host.act(Intent::Whisper { tag: name.tag });
                     ui.typing = true;
                     ui.field = Field::Composer;

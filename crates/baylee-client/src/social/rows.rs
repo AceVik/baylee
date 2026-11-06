@@ -106,6 +106,8 @@ pub(crate) struct ChatName {
     pub handle: String,
     /// Their tag.
     pub tag: String,
+    /// Whether they are a guest, whom no whisper reaches.
+    pub guest: bool,
 }
 
 /// A chat line's row: a right-press opens its menu.
@@ -356,6 +358,7 @@ pub(crate) fn spawn_row(
                     commands.entity(id).insert(ChatName {
                         handle: person.handle,
                         tag: person.tag,
+                        guest: person.guest,
                     });
                 }
             }
@@ -377,6 +380,7 @@ pub(crate) fn spawn_row(
                     commands.entity(id).insert(ChatName {
                         handle: from.handle.clone(),
                         tag: from.tag.clone(),
+                        guest: from.guest,
                     });
                 }
             }

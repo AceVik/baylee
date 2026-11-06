@@ -64,6 +64,17 @@ impl Guard {
         ))
     }
 
+    /// Says which seated decks the list would turn away. A deck that cannot
+    /// be read is left unmarked: the next door refuses it anyway.
+    fn mark_the_table(&self, game: &mut LobbyGame) {
+        for seat in &mut game.seats {
+            seat.off_list = seat.deck.as_ref().is_some_and(|deck| {
+                self.report(deck)
+                    .is_ok_and(|report| !report.problems.is_empty())
+            });
+        }
+    }
+
     /// Holds every deck at a table up to the list once more, as the game is
     /// about to start. A chair that no longer passes loses its ready, and the
     /// refusal names the chair and not its cards: the host may not read
@@ -300,6 +311,13 @@ pub(crate) async fn choose(
             for seat in &mut game.seats {
                 seat.said_ready = false;
             }
+        }
+    }
+    let held = guard(&state, &id).await?;
+    if let Some(game) = state.lobby.lock().games.get_mut(&id) {
+        match &held {
+            Some(guard) => guard.mark_the_table(game),
+            None => game.seats.iter_mut().for_each(|seat| seat.off_list = false),
         }
     }
     state.lobby_moved();

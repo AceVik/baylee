@@ -880,7 +880,16 @@ fn seat_card(
     // Fits or not: the seat's deck against the table's (S-4, heuristic 5):
     // the host's format, or every deck at a mixed table.
     let table_format = client_core::lobby::play::table_format(game);
-    if !seat.format.is_empty()
+    if seat.off_list {
+        let chip = super::parts::badge_with(
+            commands,
+            kit,
+            super::parts::WARNING,
+            Phrase::RoomOffList.text(lang),
+            tokens::GOLD,
+        );
+        commands.entity(deck_line).add_child(chip);
+    } else if !seat.format.is_empty()
         && let Some(theirs) = table_format
     {
         let chip = if client_core::lobby::play::fits(theirs, &seat.format) {

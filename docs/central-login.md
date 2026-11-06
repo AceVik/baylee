@@ -21,6 +21,11 @@ a gateway lets in"), a guest through the gateway's own guest face and terms
 sheet, never by anything the door accepted. The door is the player's own press:
 `‹` and Esc do nothing on this form.
 
+A gateway that lets in guests alone (`auth_mode` said, `guests_enabled`, no
+`central`) has no sign-in and no sign-up to offer, so its face shows neither
+(`Lobby::guests_only`): the guest door, offline and the way back are the face. A
+gateway too old to say `auth_mode` keeps its form.
+
 The same list is where a session that ends without signing out lands: Later on
 Central's terms, a failed move, or Central ending the session. Wherever it
 stands with Central off, *Sign in with an account*

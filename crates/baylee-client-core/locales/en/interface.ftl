@@ -4781,6 +4781,7 @@ PlayFormatPremodern = Premodern
 PlayFormatStandard = Standard
 PlayFormatStandardBrawl = Standard Brawl
 PlayFormatTimeless = Timeless
+PlayFormatTlr = Tiny Leaders Reborn
 PlayFormatVintage = Vintage
 
 # A colour reading: the card has these and may have others.
@@ -7495,6 +7496,9 @@ RoomDeckWord = deck
 
 # The seat's deck plays the host's format.
 RoomFits = fits
+
+# On a deck the table's list would turn away at its next ready.
+RoomOffList = refused by the list
 
 # The seat's deck plays another format. `$format` the host's.
 # Arguments: format

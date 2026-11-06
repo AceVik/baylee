@@ -22,6 +22,7 @@ fn says(app: &mut App, central: bool, guests: bool) {
                 art_cache: false,
                 guests,
                 central,
+                guests_only: false,
             }),
         ));
     app.update();
@@ -694,6 +695,7 @@ fn turned_away_by(app: &mut App, central: bool, guests: bool) {
             art_cache: false,
             guests,
             central,
+            guests_only: false,
         },
     );
     land(
@@ -805,6 +807,7 @@ fn the_guest_door_waits_for_a_refusal_and_goes_with_the_next_admission() {
             art_cache: false,
             guests: true,
             central: false,
+            guests_only: false,
         },
     );
     assert!(!presses(&mut app).contains(&door), "still being admitted");

@@ -850,40 +850,44 @@ pub(super) fn sign_in(
     if let Some(gone) = unreachable_line(commands, state, kit) {
         commands.entity(card).add_child(gone);
     }
-    let username = field(
-        commands,
-        state,
-        kit,
-        Field::Username,
-        Phrase::Username,
-        None,
-        None,
-        None,
-    );
-    let password = field(
-        commands,
-        state,
-        kit,
-        Field::Password,
-        Phrase::Password,
-        None,
-        None,
-        Some("eye"),
-    );
-    // A phone sets the two side by side, so the form ends above the
-    // keyboard (§2.7); a wider card stacks them, as every sign-in does.
-    if kit.m.frame == Frame::Phone {
-        let both = pair(commands, kit, username, Some(password));
-        commands.entity(card).add_child(both);
-    } else {
-        commands.entity(card).add_children(&[username, password]);
+    // Where guests are all it takes, no sign-in reaches it: the doors below
+    // are the whole of the face.
+    if !lobby.guests_only() {
+        let username = field(
+            commands,
+            state,
+            kit,
+            Field::Username,
+            Phrase::Username,
+            None,
+            None,
+            None,
+        );
+        let password = field(
+            commands,
+            state,
+            kit,
+            Field::Password,
+            Phrase::Password,
+            None,
+            None,
+            Some("eye"),
+        );
+        // A phone sets the two side by side, so the form ends above the
+        // keyboard (§2.7); a wider card stacks them, as every sign-in does.
+        if kit.m.frame == Frame::Phone {
+            let both = pair(commands, kit, username, Some(password));
+            commands.entity(card).add_child(both);
+        } else {
+            commands.entity(card).add_children(&[username, password]);
+        }
+        let go = submit(commands, state, kit, Phrase::SignIn.text(lang));
+        commands.entity(card).add_child(go);
     }
-    let go = submit(commands, state, kit, Phrase::SignIn.text(lang));
-    commands.entity(card).add_child(go);
     if let Some(said) = status(commands, state, kit) {
         commands.entity(card).add_child(said);
     }
-    let create = lobby.registration_enabled().then(|| {
+    let create = (lobby.registration_enabled() && !lobby.guests_only()).then(|| {
         controls::wide_button(
             commands,
             kit,

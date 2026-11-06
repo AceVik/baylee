@@ -1252,6 +1252,8 @@ enum Reply {
         /// Whether it takes Baylee Central sign-ins; a native client then
         /// signs in there through Central (`central::bound`).
         central: bool,
+        /// Whether guests are all it takes (`Lobby::guests_only`).
+        guests_only: bool,
     },
     /// The gateway no longer honours the account token we hold.
     Expired,

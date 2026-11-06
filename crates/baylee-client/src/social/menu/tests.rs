@@ -79,3 +79,41 @@ fn a_guests_line_says_why_it_offers_no_way_to_reach_them() {
         vec![ChatPhrase::WhisperButton, ChatPhrase::AddFriendButton]
     );
 }
+
+/// A press on a name whispers them. No whisper reaches a guest, so the press
+/// opens the line's menu, which says why, and starts no message.
+#[test]
+fn a_press_on_a_guests_name_opens_the_reason_and_starts_no_whisper() {
+    let mut app = testing::app();
+    let key = baylee_client_core::social::LineKey {
+        conv: baylee_client_core::social::ConvId::Table {
+            game: "test".into(),
+        },
+        id: "line".into(),
+    };
+    app.init_resource::<SocialHost>()
+        .init_resource::<ChatUi>()
+        .init_resource::<MenuAt>()
+        .add_systems(Update, clicks_on_lines);
+    let row = app.world_mut().spawn(ChatRow { key: key.clone() }).id();
+    let name = app
+        .world_mut()
+        .spawn((
+            ChatName {
+                handle: "Bob#1a2b".into(),
+                tag: "1a2b".into(),
+                guest: true,
+            },
+            ChildOf(row),
+        ))
+        .id();
+    for action in [
+        PointerAction::Press(PointerButton::Primary),
+        PointerAction::Release(PointerButton::Primary),
+    ] {
+        testing::frame(&mut app, PointerId::Mouse, Some(name), &[action]);
+    }
+    let ui = app.world().resource::<ChatUi>();
+    assert_eq!(ui.row_menu.as_ref(), Some(&key));
+    assert!(!ui.typing);
+}

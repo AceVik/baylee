@@ -403,6 +403,8 @@ async fn a_deck_a_new_list_rejects_is_told_at_ready_and_its_cards_stay_its_own()
     let row = table(gw.port, &guest, &game);
     assert_eq!(row["seats"][1]["ready"], false, "{row}");
     assert_eq!(row["seats"][1]["deck"], "Ringed", "it stays in its chair");
+    assert_eq!(row["seats"][1]["off_list"], true, "and the table says so");
+    assert_eq!(row["seats"][0]["off_list"], false, "of that deck alone");
 
     let (status, body) = http(gw.port, "POST", &ready, Some(&guest), "{}");
     assert_eq!(status, 409, "{body}");
@@ -426,6 +428,8 @@ async fn a_deck_a_new_list_rejects_is_told_at_ready_and_its_cards_stay_its_own()
         &swap,
     );
     assert_eq!(status, 200, "{body}");
+    let row = table(gw.port, &guest, &game);
+    assert_eq!(row["seats"][1]["off_list"], false, "another deck passes");
     let (status, body) = http(gw.port, "POST", &ready, Some(&guest), "{}");
     assert_eq!(status, 200, "{body}");
     let stone = oracle_of(gw.port, &host, "Mind Stone");

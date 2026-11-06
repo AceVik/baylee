@@ -300,7 +300,11 @@ pub(super) fn poll(
                     art_cache,
                     guests,
                     central,
-                } => state.auth_config(registration, art_cache, guests, central),
+                    guests_only,
+                } => {
+                    state.auth_config(registration, art_cache, guests, central);
+                    state.lobby.set_guests_only(guests_only);
+                }
                 Reply::Expired => {
                     state.gateway_epoch = state.gateway_epoch.wrapping_add(1);
                     // A guest the gateway no longer knows is gone for good, and

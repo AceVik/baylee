@@ -354,6 +354,7 @@ pub(crate) async fn join_game(
         if let Some((name, deck)) = chosen {
             chair.deck_name = name;
             chair.deck = Some(deck);
+            chair.off_list = false;
         }
         chair.joined_seq = Some(seq);
         let seat = chair.seat;
@@ -590,6 +591,7 @@ pub(crate) async fn set_seat(
                     chair.kind = lobby::SeatKind::Ai;
                     chair.ai = Some(profile.unwrap_or_else(|| "steady".to_string()));
                     chair.deck = deck;
+                    chair.off_list = false;
                     chair.deck_name = if chair.deck.is_some() {
                         deck_name
                     } else {
@@ -656,6 +658,7 @@ pub(crate) async fn set_seat(
             }
             chair.deck_name = deck_name;
             chair.deck = Some(deck);
+            chair.off_list = false;
             // A deck they have not seen yet is not a deck they said yes to.
             // Without this the host could swap an opponent into a game they
             // had already declared themselves ready for.

@@ -1027,6 +1027,7 @@ fn issue_187_no_account_request_without_an_explicit_gateway() {
                 art_cache: false,
                 guests: false,
                 central: false,
+                guests_only: false,
             }),
         ));
     app.update();

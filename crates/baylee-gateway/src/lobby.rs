@@ -73,6 +73,10 @@ pub struct LobbySeat {
     /// choice, or the deck the host gave an AI — and what the preset is built
     /// from when the game starts.
     pub deck: Option<crate::store::Deck>,
+    /// Whether the room's list, chosen over this deck, would turn it away.
+    /// It stays in its chair and is refused at its next ready; this is what
+    /// tells the table so until then.
+    pub off_list: bool,
     /// Whether the person in this chair has said they are ready.
     ///
     /// Separate from having a deck, because they answer different questions:
@@ -172,6 +176,7 @@ impl LobbySeat {
             participation_ended: false,
             deck_name: String::new(),
             deck: None,
+            off_list: false,
             said_ready: false,
             team: None,
             joined_seq: None,
@@ -1170,6 +1175,7 @@ impl Lobby {
                     // handle; `null` for every other chair.
                     delegated_by: s.delegate.as_ref().and_then(|d| names.get(&d.by)).cloned(),
                     guest: s.account_id.as_ref().is_some_and(|a| names.is_guest(a)),
+                    off_list: s.off_list,
                     // A model a seat agent runs for this chair
                     // (`seathost.rs`); `null` for every other chair.
                     hosted: crate::seathost::hosted_seat(s),
@@ -1359,6 +1365,9 @@ pub struct LobbyChair {
     guest: bool,
     /// @description Whether the room's host sits here.
     host: bool,
+    /// @description Whether the room's list would turn this chair's deck away
+    /// at its next ready; the reasons are its player's alone.
+    off_list: bool,
     /// @description The hosted model ordered for this chair; `null` for
     /// every other chair.
     hosted: Option<crate::seathost::HostedSeat>,
@@ -1437,6 +1446,7 @@ mod tests {
             participation_ended: false,
             deck_name: "Deck".into(),
             deck: Some(deck()),
+            off_list: false,
             said_ready: true,
             team: Some(1),
             joined_seq: Some(joined),
