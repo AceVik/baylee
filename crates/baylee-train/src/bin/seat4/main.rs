@@ -143,6 +143,10 @@ async fn main() -> anyhow::Result<()> {
     result
 }
 
+#[allow(
+    clippy::too_many_lines,
+    reason = "One room from opening it to its report, in the order they happen"
+)]
 async fn run(
     args: &Args,
     lobby: &Lobby,
@@ -161,22 +165,7 @@ async fn run(
         let chair = if let Some(game_id) = &args.join {
             lobby.join(session, game_id, &deck_id, None, None).await?
         } else {
-            let chair = lobby.open(session, &deck_id, 2, &args.room_name).await?;
-            if let Some(starting_life) = args.starting_life {
-                let setup = RoomSetup {
-                    starting_life,
-                    free_mulligans: args.free_mulligans,
-                    ..RoomSetup::default()
-                };
-                let update = RoomUpdate {
-                    name: args.room_name.clone(),
-                    chairs: 2,
-                    password: None,
-                    setup,
-                };
-                lobby.configure(session, &chair.game_id, &update).await?;
-            }
-            chair
+            open_room(args, lobby, session, &deck_id).await?
         };
         println!(
             "{}",
@@ -278,6 +267,31 @@ async fn run(
             return Ok(());
         }
     }
+}
+
+/// Opens the room this seat hosts, under `--starting-life` if it was given.
+async fn open_room(
+    args: &Args,
+    lobby: &Lobby,
+    session: &Session,
+    deck_id: &str,
+) -> anyhow::Result<Chair> {
+    let chair = lobby.open(session, deck_id, 2, &args.room_name).await?;
+    if let Some(starting_life) = args.starting_life {
+        let setup = RoomSetup {
+            starting_life,
+            free_mulligans: args.free_mulligans,
+            ..RoomSetup::default()
+        };
+        let update = RoomUpdate {
+            name: args.room_name.clone(),
+            chairs: 2,
+            password: None,
+            setup,
+        };
+        lobby.configure(session, &chair.game_id, &update).await?;
+    }
+    Ok(chair)
 }
 
 fn announce_model(

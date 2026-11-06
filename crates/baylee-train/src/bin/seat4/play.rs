@@ -55,7 +55,8 @@ pub async fn play(
                             audit.decision(decision, true)?;
                         }
                     }
-                    if let (Some(journal), Some(row)) = (journal.as_mut(), core.take_journal_row()) {
+                    if let (Some(journal), Some(row)) = (journal.as_mut(), core.take_journal_row())
+                    {
                         journal.write(&row)?;
                     }
                     if core.finished() {

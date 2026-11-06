@@ -70,6 +70,9 @@ const GROUPS: [(RuleGroup, &str); 12] = [
     (RuleGroup::Walker, "walker"),
 ];
 
+/// A spell (no index) or an ability taken off the menu, and by which group.
+type Struck = (ObjectId, Option<u32>, RuleGroup);
+
 /// The groups a net plays by, and what they changed.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct TacticRules4 {
@@ -129,7 +132,7 @@ impl TacticRules4 {
         &self,
         view: &PlayerView,
         legal: &LegalActions,
-    ) -> Option<(LegalActions, Vec<(ObjectId, Option<u32>, RuleGroup)>)> {
+    ) -> Option<(LegalActions, Vec<Struck>)> {
         if view.owed.is_some() {
             return None;
         }
@@ -281,10 +284,7 @@ impl TacticRules4 {
 }
 
 /// `action`'s group, if it is one of the struck.
-fn struck_by(
-    action: Option<&PlayerAction>,
-    struck: &[(ObjectId, Option<u32>, RuleGroup)],
-) -> Option<RuleGroup> {
+fn struck_by(action: Option<&PlayerAction>, struck: &[Struck]) -> Option<RuleGroup> {
     struck.iter().find_map(|(id, index, group)| {
         let hit = match action? {
             PlayerAction::CastSpell { card, .. } => card == id && index.is_none(),
@@ -369,13 +369,22 @@ pub(in crate::netplay4) fn single_choice(
         .any()
         .then(|| review_single(rules, cands, logits, view, pending, active_source))
         .flatten();
-    let (left, asked) = reviewed
-        .as_ref()
-        .map_or((logits, pending), |review| (&review.logits[..], &*review.pending));
+    let (left, asked) = reviewed.as_ref().map_or((logits, pending), |review| {
+        (&review.logits[..], &*review.pending)
+    });
     // At temperature zero the plain answer costs nothing to know, and what a
     // group changed is what its count should say.
     let plain = (reviewed.is_some() && temperature <= 1e-4).then(|| {
-        select_single_choice(cands, logits, view, pending, active_source, temperature, rng).0
+        select_single_choice(
+            cands,
+            logits,
+            view,
+            pending,
+            active_source,
+            temperature,
+            rng,
+        )
+        .0
     });
     let (mut chosen, logprob) =
         select_single_choice(cands, left, view, asked, active_source, temperature, rng);

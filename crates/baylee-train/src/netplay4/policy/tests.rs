@@ -42,8 +42,8 @@ fn select(
         temperature: 0.8,
         rng: &mut rng,
         active_source: None,
-        guard: &mut Default::default(),
-        rules: &mut Default::default(),
+        guard: &mut crate::netplay4::ChoiceGuard4::default(),
+        rules: &mut crate::netplay4::TacticRules4::default(),
     }
     .select(
         cands,
@@ -232,8 +232,8 @@ fn raw_sampler_refuses_unsupported_temperatures_and_nonfinite_outputs() {
             temperature,
             rng: &mut rng,
             active_source: None,
-            guard: &mut Default::default(),
-            rules: &mut Default::default(),
+            guard: &mut crate::netplay4::ChoiceGuard4::default(),
+            rules: &mut crate::netplay4::TacticRules4::default(),
         }
         .select(
             &cands,

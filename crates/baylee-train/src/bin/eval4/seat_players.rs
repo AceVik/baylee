@@ -110,7 +110,7 @@ impl EvaluationPlayer for SeatPlayers {
     fn uses_context(&self) -> bool {
         self.learner.uses_context()
     }
-    fn set_choice_guard(&mut self, guard: baylee_train::netplay4::ChoiceGuard4) -> bool {
+    fn set_choice_guard(&mut self, guard: &baylee_train::netplay4::ChoiceGuard4) -> bool {
         self.learner.set_choice_guard(guard)
     }
     fn take_choice_guard_fired(&mut self) -> Vec<u64> {

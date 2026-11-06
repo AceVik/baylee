@@ -2,15 +2,19 @@
 //! do nothing or help only the other side. Each check reads the effect's
 //! structure against what the view shows.
 
-use baylee_cards_dsl::{AbilityDef, Amount, Effect, Filter, Modifier, PlayerRel, TargetReq, TargetSpec};
+use baylee_cards_dsl::{
+    AbilityDef, Amount, Effect, Filter, Modifier, PlayerRel, TargetReq, TargetSpec,
+};
 use baylee_core::ids::{ObjectId, PlayerId};
 use baylee_core::types::TypeSet;
 use baylee_view::{PlayerView, PublicObject};
 
-use super::super::{abilities_of_battlefield_object, lookup_card_identity};
+use super::super::{
+    abilities_of_battlefield_object, is_hostile_object_effects, lookup_card_identity,
+};
 use super::read::{
-    Hitter, actor, blockers_of, damage_through, hitters_of, is_creature, is_tapped, life, opponents,
-    worth,
+    Hitter, actor, blockers_of, damage_through, hitters_of, is_creature, is_tapped, life,
+    opponents, worth,
 };
 use super::{RuleGroup, TacticRules4};
 use crate::features4::public_object_matches_basic_filter;
@@ -44,9 +48,10 @@ fn ability_parts(ability: &'static AbilityDef) -> Vec<Part> {
         | AbilityDef::ActivatedConditional {
             effects, targets, ..
         } => vec![(*effects, *targets)],
-        AbilityDef::ModalActivated { modes, .. } => {
-            modes.iter().map(|mode| (mode.effects, mode.targets)).collect()
-        }
+        AbilityDef::ModalActivated { modes, .. } => modes
+            .iter()
+            .map(|mode| (mode.effects, mode.targets))
+            .collect(),
         _ => Vec::new(),
     }
 }
@@ -98,7 +103,12 @@ fn amount_is_nothing(view: &PlayerView, me: PlayerId, amount: Amount, to: Player
 }
 
 /// Whether one effect would change nothing as the board stands.
-fn effect_is_void(view: &PlayerView, me: PlayerId, effect: &Effect, targets: Option<TargetReq>) -> bool {
+fn effect_is_void(
+    view: &PlayerView,
+    me: PlayerId,
+    effect: &Effect,
+    targets: Option<TargetReq>,
+) -> bool {
     match effect {
         Effect::IfTargetMatches { filter, .. } => {
             !gate_can_open(view, me, targets.map(|req| req.spec), filter)
@@ -111,8 +121,30 @@ fn effect_is_void(view: &PlayerView, me: PlayerId, effect: &Effect, targets: Opt
     }
 }
 
+/// Whether everything of theirs this kill could name is already named by a kill
+/// of the seat's on the stack.
+fn all_doomed(view: &PlayerView, me: PlayerId, part: &Part) -> bool {
+    let doomed = super::targets::doomed(view, me);
+    if doomed.is_empty() || !is_hostile_object_effects(part.0) {
+        return false;
+    }
+    let Some(TargetSpec::Object(filter)) = part.1.map(|req| req.spec) else {
+        return false;
+    };
+    !view.battlefield.iter().any(|object| {
+        object.controller != me
+            && !doomed.contains(&object.id)
+            && public_object_matches_basic_filter(me, object, filter)
+    })
+}
+
 fn part_is_void(view: &PlayerView, me: PlayerId, part: &Part) -> bool {
-    !part.0.is_empty() && part.0.iter().all(|effect| effect_is_void(view, me, effect, part.1))
+    !part.0.is_empty()
+        && (part
+            .0
+            .iter()
+            .all(|effect| effect_is_void(view, me, effect, part.1))
+            || all_doomed(view, me, part))
 }
 
 /// What a mass effect sweeps, for the ones that hit both sides alike.
@@ -161,7 +193,14 @@ fn sweep_backfires(view: &PlayerView, me: PlayerId, part: &Part) -> bool {
         return false;
     };
     let (mine, theirs) = sweep_toll(view, me, filter);
-    theirs == 0 || (mine > theirs && !facing_lethal(view, me))
+    // Lands alone are a plan the toll cannot read: Armageddon wins from ahead on
+    // the board at a cost in lands.
+    let lands_only = view
+        .battlefield
+        .iter()
+        .filter(|object| public_object_matches_basic_filter(me, object, filter))
+        .all(|object| object.types.contains(TypeSet::LAND));
+    theirs == 0 || (mine > theirs && !lands_only && !facing_lethal(view, me))
 }
 
 /// A lord printed without "you control" lifts their team too. Reads the swing
@@ -191,12 +230,18 @@ fn lifts_their_team(view: &PlayerView, me: PlayerId, abilities: &'static [Abilit
     let lifted = |object: &PublicObject| {
         is_creature(object) && public_object_matches_basic_filter(me, object, filter)
     };
-    let mine = view.battlefield_of(me).filter(|object| lifted(object)).count();
+    let mine = view
+        .battlefield_of(me)
+        .filter(|object| lifted(object))
+        .count();
     let blockers = blockers_of(view, me, &[]);
     let (mut before, mut after, mut theirs) = (0, 0, 0);
     for player in opponents(view, me) {
         let hitters = hitters_of(view, player);
-        theirs += hitters.iter().filter(|hitter| lifted(hitter.object)).count();
+        theirs += hitters
+            .iter()
+            .filter(|hitter| lifted(hitter.object))
+            .count();
         let raised: Vec<Hitter<'_>> = hitters
             .iter()
             .map(|hitter| {
@@ -270,7 +315,9 @@ impl TacticRules4 {
         }
         if self.on(RuleGroup::Void)
             && (parts.iter().all(|part| part_is_void(view, me, part))
-                || parts.iter().all(|part| animates_for_nothing(object, part.0)))
+                || parts
+                    .iter()
+                    .all(|part| animates_for_nothing(object, part.0)))
         {
             return Some(RuleGroup::Void);
         }

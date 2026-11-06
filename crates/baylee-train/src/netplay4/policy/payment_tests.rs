@@ -155,8 +155,8 @@ fn grouped_mana_preserves_announced_tap_self_activation_in_both_modes() {
             temperature: 0.8,
             rng: &mut rng,
             active_source: Some((reserved, Some(1))),
-            guard: &mut Default::default(),
-            rules: &mut Default::default(),
+            guard: &mut crate::netplay4::ChoiceGuard4::default(),
+            rules: &mut crate::netplay4::TacticRules4::default(),
         }
         .select(
             &menu,

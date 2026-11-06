@@ -89,7 +89,7 @@ pub struct LiveSeat4<B = NetPlayer4> {
     history: Sha256,
     last_decision: Option<LiveDecision4>,
     last_answered: Option<(u64, Vec<u8>)>,
-    journal: Option<Option<serde_json::Value>>,
+    journal: Option<Vec<serde_json::Value>>,
     waiting: Option<Question>,
     ready: bool,
     curtain: bool,
@@ -165,12 +165,12 @@ impl<B: Brain4> LiveSeat4<B> {
     /// view, the question and the answer, for a reader of the game.
     pub fn keep_journal(&mut self) {
         self.brain.keep_menu();
-        self.journal = Some(None);
+        self.journal = Some(Vec::new());
     }
 
     /// The row of the answer last generated, once.
     pub fn take_journal_row(&mut self) -> Option<serde_json::Value> {
-        self.journal.as_mut()?.take()
+        self.journal.as_mut()?.pop()
     }
 
     /// A live socket gap cannot silently reuse incomplete recurrent memory.
@@ -347,14 +347,15 @@ impl<B: Brain4> LiveSeat4<B> {
                 history_sha256: audit::hex(&self.history.clone().finalize()),
                 provenance: answer.provenance,
             };
-            if let Some(row) = &mut self.journal {
-                *row = Some(serde_json::json!({
+            let menu = self.brain.menu();
+            if let Some(rows) = &mut self.journal {
+                rows.push(serde_json::json!({
                     "decision": decision.decision,
                     "source": answer.provenance.source,
                     "view": view.as_ref(),
                     "pending": &*question.pending,
                     "action": &answer.action,
-                    "menu": self.brain.menu(),
+                    "menu": menu,
                 }));
             }
             audit::extend(&mut self.history, b"question", &pending_json);

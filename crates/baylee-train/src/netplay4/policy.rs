@@ -299,7 +299,8 @@ impl PolicySampler4<'_> {
                 let adj_logits = if raw && !parts.pair {
                     raw_logits.to_vec()
                 } else {
-                    let mut adjusted = choices::adjust_pair_logits(cands, raw_logits, view, pending);
+                    let mut adjusted =
+                        choices::adjust_pair_logits(cands, raw_logits, view, pending);
                     tactics::rules::pairs(self.rules, cands, &mut adjusted, view, pending);
                     adjusted
                 };

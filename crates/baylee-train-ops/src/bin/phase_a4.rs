@@ -163,10 +163,7 @@ fn file_name(word: &str) -> String {
 /// The opponent of a `vs=` word, its model and flags.
 fn opponent(word: &str) -> Result<Vec<String>> {
     let (model, extra): (&str, &[&str]) = match word {
-        "s1r" => (
-            "/mnt/xdata/baylee/opponents/v5-base/s1r",
-            &[],
-        ),
+        "s1r" => ("/mnt/xdata/baylee/opponents/v5-base/s1r", &[]),
         "live" => (
             "/mnt/xdata/baylee/opponents/v5/20261027/model-control-final1500",
             &[],
@@ -577,7 +574,10 @@ fn ladder_pairs(reference: &[PathBuf], arm: &[PathBuf], resamples: usize) -> Res
     table.insert("pooled".to_owned(), slot_table(&slots, resamples));
     table.insert("clean_reference".to_owned(), json!(before.len()));
     table.insert("clean_arm".to_owned(), json!(after.len()));
-    table.insert("slots_without_a_pair".to_owned(), json!(dropped - slots.len()));
+    table.insert(
+        "slots_without_a_pair".to_owned(),
+        json!(dropped - slots.len()),
+    );
     Ok(Value::Object(table))
 }
 

@@ -112,6 +112,7 @@ fn table() -> Vec<u8> {
                 "Human".into()
             },
             is_ai: false,
+            guest: false,
             away: false,
             team: None,
         })

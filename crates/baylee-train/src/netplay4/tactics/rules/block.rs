@@ -134,9 +134,9 @@ fn add_blocks(
             continue;
         };
         let blocker_id = blocker.id;
-        for other in 0..n {
-            if cands.pair_objects[other].0 == blocker_id {
-                logits[other] = NEVER;
+        for (pair, logit) in cands.pair_objects.iter().zip(logits.iter_mut()) {
+            if pair.0 == blocker_id {
+                *logit = NEVER;
             }
         }
         logits[index] = SURE;

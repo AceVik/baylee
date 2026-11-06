@@ -73,9 +73,7 @@ fn block_question(
             return (session, pending, view);
         }
         if let Pending::ChooseAttackers {
-            player,
-            attackers,
-            ..
+            player, attackers, ..
         } = session.pending()
             && *player == OTHER
         {

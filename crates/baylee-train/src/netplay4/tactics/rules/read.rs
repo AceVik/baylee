@@ -231,9 +231,7 @@ pub(super) fn blockers_of<'a>(
     leaving: &[ObjectId],
 ) -> Vec<&'a PublicObject> {
     view.battlefield_of(player)
-        .filter(|object| {
-            is_creature(object) && !leaving.contains(&object.id) && !is_tapped(object)
-        })
+        .filter(|object| is_creature(object) && !leaving.contains(&object.id) && !is_tapped(object))
         .collect()
 }
 

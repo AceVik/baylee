@@ -142,7 +142,9 @@ pub(super) fn decide(
             })
             .filter(|(_, then, _)| *then < back)
             .min_by_key(|(id, then, _)| {
-                let lost = view.object(*id).map_or(0, |object| i32::from(object.power.unwrap_or(0)));
+                let lost = view
+                    .object(*id)
+                    .map_or(0, |object| i32::from(object.power.unwrap_or(0)));
                 (*then, lost)
             });
         let Some((id, then, without)) = best else {
@@ -166,7 +168,11 @@ pub(super) fn apply(cands: &EncodedCandidates4, logits: &mut [f32], staying: &[O
 
 /// The creatures left at home that nothing untapped can block, if sending them
 /// leaves the seat safe by the same reading as [`decide`]: a swing for free.
-pub(super) fn free_swings(view: &PlayerView, pending: &Pending, going: &[ObjectId]) -> Vec<ObjectId> {
+pub(super) fn free_swings(
+    view: &PlayerView,
+    pending: &Pending,
+    going: &[ObjectId],
+) -> Vec<ObjectId> {
     let Pending::ChooseAttackers {
         attackers,
         defenders,
@@ -213,7 +219,11 @@ pub(super) fn free_swings(view: &PlayerView, pending: &Pending, going: &[ObjectI
 }
 
 /// The attackers the sampler would send, for the groups that read an attack.
-pub(super) fn going(cands: &EncodedCandidates4, logits: &[f32], pending: &Pending) -> Vec<ObjectId> {
+pub(super) fn going(
+    cands: &EncodedCandidates4,
+    logits: &[f32],
+    pending: &Pending,
+) -> Vec<ObjectId> {
     let Pending::ChooseAttackers { required, .. } = pending else {
         return Vec::new();
     };
@@ -234,7 +244,12 @@ pub(super) fn send(cands: &EncodedCandidates4, logits: &mut [f32], free: &[Objec
 /// Turns attackers already going onto a planeswalker the other side controls,
 /// the smallest that together take its loyalty, unless the swing is lethal. A
 /// walker left alone goes on working every turn. Returns whether any turned.
-pub(super) fn at_walkers(cands: &EncodedCandidates4, logits: &mut [f32], view: &PlayerView, pending: &Pending) -> bool {
+pub(super) fn at_walkers(
+    cands: &EncodedCandidates4,
+    logits: &mut [f32],
+    view: &PlayerView,
+    pending: &Pending,
+) -> bool {
     let Pending::ChooseAttackers { defenders, .. } = pending else {
         return false;
     };
@@ -248,7 +263,10 @@ pub(super) fn at_walkers(cands: &EncodedCandidates4, logits: &mut [f32], view: &
     if going.is_empty() || swing_of(view, other, &going) >= life(view, other) {
         return false;
     }
-    going.sort_by_key(|id| view.object(*id).map_or(0, |object| object.power.unwrap_or(0)));
+    going.sort_by_key(|id| {
+        view.object(*id)
+            .map_or(0, |object| object.power.unwrap_or(0))
+    });
     let mut turned = false;
     for defender in defenders {
         let Defender::Planeswalker(walker) = defender else {

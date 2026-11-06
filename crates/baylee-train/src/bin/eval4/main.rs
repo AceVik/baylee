@@ -447,7 +447,7 @@ fn main() -> anyhow::Result<()> {
             };
 
             if let Some(guard) = choice_guard {
-                anyhow::ensure!(net.set_choice_guard(guard), "--choice-guard needs a net");
+                anyhow::ensure!(net.set_choice_guard(&guard), "--choice-guard needs a net");
             }
             if tactic_rules.any() {
                 anyhow::ensure!(net.set_tactic_rules(tactic_rules), "--tactics-rules needs a net");

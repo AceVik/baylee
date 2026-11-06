@@ -327,9 +327,8 @@ fn row(
     if scored.is_empty() {
         return json!({"slice": label, "n": 0});
     }
-    let brier = |f: &dyn Fn(&ScoredPosition) -> f64| {
-        mean(scored.iter().map(|s| (f(s) - s.1).powi(2)))
-    };
+    let brier =
+        |f: &dyn Fn(&ScoredPosition) -> f64| mean(scored.iter().map(|s| (f(s) - s.1).powi(2)));
     let head = brier(&|s| s.0);
     let constant = brier(&|_| rate);
     let uniform = brier(&|_| 0.5);

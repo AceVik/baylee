@@ -130,13 +130,14 @@ fn ranking(view: &PlayerView, menu: &Value) -> String {
         .into_iter()
         .flatten()
         .map(|option| {
-            let text = serde_json::from_value::<PlayerAction>(option["action"].clone()).map_or_else(
-                |_| {
-                    serde_json::from_value::<ObjectId>(option["object"].clone())
-                        .map_or_else(|_| option["index"].to_string(), |id| name(view, id))
-                },
-                |answer| action(view, &answer),
-            );
+            let text = serde_json::from_value::<PlayerAction>(option["action"].clone())
+                .map_or_else(
+                    |_| {
+                        serde_json::from_value::<ObjectId>(option["object"].clone())
+                            .map_or_else(|_| option["index"].to_string(), |id| name(view, id))
+                    },
+                    |answer| action(view, &answer),
+                );
             (option["logit"].as_f64().unwrap_or(0.0), text)
         })
         .collect();

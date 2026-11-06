@@ -26,8 +26,8 @@ fn favoured(
         temperature: 0.0,
         rng: &mut rng,
         active_source: None,
-        guard: &mut Default::default(),
-        rules: &mut Default::default(),
+        guard: &mut crate::netplay4::ChoiceGuard4::default(),
+        rules: &mut crate::netplay4::TacticRules4::default(),
     }
     .select(
         candidates,

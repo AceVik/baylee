@@ -39,6 +39,10 @@ const ARMS: usize = 5;
 
 /// Which heads answer as `PolicyMode4::Tactical` does.
 #[derive(Clone, Copy, Debug, Default)]
+#[allow(
+    clippy::struct_excessive_bools,
+    reason = "One switch per head of the net, each measured alone"
+)]
 pub struct TacticalParts {
     /// Single choices at priority.
     pub priority: bool,

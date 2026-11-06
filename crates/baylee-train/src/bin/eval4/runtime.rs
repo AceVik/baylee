@@ -35,7 +35,7 @@ trait EvaluationPlayer {
         0
     }
     /// Sets `--choice-guard` on this player, which only a net can honour.
-    fn set_choice_guard(&mut self, _guard: baylee_train::netplay4::ChoiceGuard4) -> bool {
+    fn set_choice_guard(&mut self, _guard: &baylee_train::netplay4::ChoiceGuard4) -> bool {
         false
     }
     /// Answers `--choice-guard` changed since this was last asked, by arm.
@@ -104,8 +104,8 @@ impl EvaluationPlayer for NetPlayer4 {
     fn fallback_diagnostic(&self) -> Option<&baylee_train::netplay4::FallbackDiagnostic4> {
         self.last_fallback()
     }
-    fn set_choice_guard(&mut self, guard: baylee_train::netplay4::ChoiceGuard4) -> bool {
-        Self::set_choice_guard(self, guard);
+    fn set_choice_guard(&mut self, guard: &baylee_train::netplay4::ChoiceGuard4) -> bool {
+        Self::set_choice_guard(self, *guard);
         true
     }
     fn take_choice_guard_fired(&mut self) -> Vec<u64> {
