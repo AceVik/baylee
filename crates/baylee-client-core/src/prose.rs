@@ -98,6 +98,9 @@ impl<'a> Iterator for Bracketed<'a> {
 /// in a Latin script is now in its reader's.
 #[must_use]
 pub fn sort_key(text: &str) -> String {
+    if text.is_ascii() {
+        return text.to_ascii_lowercase();
+    }
     let mut out = String::with_capacity(text.len());
     for c in text.chars().flat_map(char::to_lowercase) {
         match c {
@@ -191,6 +194,12 @@ mod tests {
             let rebuilt: String = bracketed(line).map(|(run, _)| run).collect();
             assert_eq!(rebuilt, line, "runs of {line:?}");
         }
+    }
+
+    /// The plain road is the same fold, only without the walk through Unicode.
+    #[test]
+    fn a_plain_name_folds_to_its_lower_case() {
+        assert_eq!(super::sort_key("Lim-Dul's VAULT 12"), "lim-dul's vault 12");
     }
 
     /// The wart that only shows once the names are not English.

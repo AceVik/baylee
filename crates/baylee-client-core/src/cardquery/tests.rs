@@ -795,3 +795,29 @@ fn a_surface_can_tell_a_format_it_knows_from_one_it_does_not() {
     assert!(!surface.answers_term(&term("banned:frobnicate")));
     assert!(!Surface::POOL.answers_term(&term("f:modern")));
 }
+
+/// The quick road for a plain name and the fold agree, whatever is asked.
+#[test]
+fn a_plain_name_answers_as_its_fold_would() {
+    let names = ["Lightning Bolt", "Ætherling", "Lim-Dûl's Vault", "AAA", ""];
+    let needles = [
+        "",
+        "bolt",
+        "lightning bolt",
+        "aether",
+        "dul",
+        "aa",
+        "ß",
+        "zz",
+    ];
+    for name in names {
+        for needle in needles {
+            let folded = super::sort_key(needle);
+            assert_eq!(
+                super::eval::holds_folded(name, &folded),
+                super::sort_key(name).contains(&folded),
+                "{name:?} asked for {needle:?}"
+            );
+        }
+    }
+}

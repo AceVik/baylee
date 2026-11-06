@@ -553,7 +553,23 @@ fn name_matches(value: &Value, facts: &Facts<'_>) -> bool {
     if needle.is_empty() {
         return true;
     }
-    every_name(facts).any(|name| folded(name).contains(&needle))
+    every_name(facts).any(|name| holds_folded(name, &needle))
+}
+
+/// Whether `name`, folded, holds `needle`, which is folded already.
+///
+/// A search runs this for every name of every card in the pool on each key,
+/// so a plain ASCII name, nearly all of them, is compared where it lies: its
+/// fold is only its lower case, and a needle with anything else in it cannot
+/// match it either way.
+pub(super) fn holds_folded(name: &str, needle: &str) -> bool {
+    if name.is_ascii() && !needle.is_empty() {
+        name.as_bytes()
+            .windows(needle.len())
+            .any(|part| part.eq_ignore_ascii_case(needle.as_bytes()))
+    } else {
+        folded(name).contains(needle)
+    }
 }
 
 /// Every name this card answers to, in one walk.
