@@ -122,6 +122,45 @@ fn a_lone_reflecting_pool_is_nothing_to_plan_with() {
     );
 }
 
+/// A mana ability written as one "if" says which side runs now: the engine's
+/// reader of the condition, on the board as it stands. Both colours sit in the
+/// card's words, and neither is an answer without a game.
+#[test]
+fn an_if_in_a_mana_ability_is_answered_by_the_board() {
+    use baylee_core::generated::index::{GEMSTONE_CAVERNS, RIVER_OF_TEARS};
+    let (engine, view) = board(&[GEMSTONE_CAVERNS, RIVER_OF_TEARS], &[]);
+    let caverns = projection(&view, "Gemstone Caverns").expect("the `if` has an answer");
+    assert_eq!(
+        (caverns.index, &*caverns.colors),
+        (0, &[ManaColor::Colorless][..])
+    );
+    let river = projection(&view, "River of Tears").expect("the `if` has an answer");
+    assert_eq!(river.colors, vec![ManaColor::Blue], "no land played yet");
+
+    let id = view
+        .battlefield
+        .iter()
+        .find(|o| o.name == "Gemstone Caverns")
+        .expect("on the battlefield")
+        .id;
+    let mut state = engine.state().clone();
+    state
+        .object_mut(id)
+        .expect("the Caverns")
+        .counters
+        .add(baylee_cards::dsl::counters::LUCK, 1);
+    let view = player_view(
+        &state,
+        PlayerId::new(0),
+        1,
+        None,
+        &SeatContext::default(),
+        &[],
+    );
+    let caverns = projection(&view, "Gemstone Caverns").expect("the `if` has an answer");
+    assert_eq!(caverns.colors.len(), 5, "a luck counter makes any colour");
+}
+
 /// Exotic Orchard reads the *other* side of the table, which is the same
 /// rule with `mine` flipped — and the case a projection built from "the
 /// lands I can see" would get exactly backwards.

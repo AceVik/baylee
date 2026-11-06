@@ -2193,6 +2193,18 @@ fn printed_mana_offer(
     else {
         return None;
     };
+    // An ability that is one "if" (Gemstone Caverns, River of Tears): the
+    // host ran the condition and says what the tap makes now.
+    if let Some(branched) = baylee_cards_dsl::mana_branched(cost, effects) {
+        let board = object.board_mana.as_ref().filter(|m| m.index == index)?;
+        return Some((
+            board.colors.clone(),
+            branched.amount,
+            false,
+            priced(cost),
+            None,
+        ));
+    }
     // The planner's door, as the client's: a tap that also does
     // something else (Adarkar Wastes' damage) is still a source,
     // and `priced` keeps it behind every clean one.

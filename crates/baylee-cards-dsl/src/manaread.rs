@@ -55,6 +55,7 @@
 //! where no clean one fits the pip. Weighing them is a planner's judgement;
 //! this module reports a shape and never a price.
 
+use crate::Condition;
 use crate::cost::{Cost, CostPart};
 use crate::effect::{Amount, Effect, ManaSource};
 use baylee_core::mana::{ManaColor, ManaCost};
@@ -310,6 +311,58 @@ pub fn mana_with_riders(cost: &Cost, effects: &[Effect]) -> Option<(ManaSource, 
         return None;
     }
     mana_written(effects)
+}
+
+/// A mana ability written as one "if", as [`mana_branched`] reads it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct BranchedMana {
+    /// What decides between the two.
+    pub condition: Condition,
+    /// What it adds while the condition holds.
+    pub then: ManaSource,
+    /// What it adds otherwise.
+    pub otherwise: ManaSource,
+    /// How much, either way.
+    pub amount: u8,
+}
+
+/// An ability whose **whole text is one "if"** with a mana ability on each
+/// side: Gemstone Caverns' "add {C}; with a luck counter, instead one mana of
+/// any color", River of Tears' "add {U}; if you played a land this turn, add
+/// {B} instead".
+///
+/// Every reader above stops at the `IfCondition`, so these lands were no
+/// source at all: the engine offered the tap and no plan counted it. The
+/// split is [`mana_shape`]'s: the shape is the card's, and which side runs is
+/// the board's, so the host runs the condition through the engine's own
+/// reader and sends the colours (`PublicObject::board_mana`). A planner then
+/// needs only the amount, and the two sides must agree on it. Each side has
+/// to pass [`mana_shape`] and be unrestricted, for the reasons that reader
+/// gives.
+#[must_use]
+pub fn mana_branched(cost: &Cost, effects: &[Effect]) -> Option<BranchedMana> {
+    let [
+        Effect::IfCondition {
+            condition,
+            then,
+            otherwise,
+        },
+    ] = effects
+    else {
+        return None;
+    };
+    let (then, Some(amount), false) = mana_shape(cost, then)? else {
+        return None;
+    };
+    let (otherwise, other, false) = mana_shape(cost, otherwise)? else {
+        return None;
+    };
+    (other == Some(amount)).then_some(BranchedMana {
+        condition: *condition,
+        then,
+        otherwise,
+        amount,
+    })
 }
 
 /// What a tap that says "add" **more than once** produces, one colour per
@@ -584,6 +637,46 @@ mod tests {
         );
         let (_, restricted) = mana_made(&tap(), &effects).expect("the label can read it");
         assert!(!restricted);
+    }
+
+    /// An "if" is read when it is the whole ability and each side is a mana
+    /// ability of the same amount. A side that adds nothing, a side that adds
+    /// more, restricted mana and anything beside the "if" stay unread: a plan
+    /// could not count them.
+    #[test]
+    fn an_if_is_read_only_when_both_sides_are_the_same_plain_mana() {
+        static BLUE: [Effect; 1] = [Effect::mana(ManaColor::Blue, 1)];
+        static BLACK: [Effect; 1] = [Effect::mana(ManaColor::Black, 1)];
+        static TWO: [Effect; 1] = [Effect::mana(ManaColor::Black, 2)];
+        static NONE: [Effect; 0] = [];
+        static RESTRICTED: [Effect; 1] = [Effect::mana_choice(&[ManaColor::Black])
+            .restricted(&Filter::CREATURE, SpendRider::None)];
+        let condition = Condition::LandsPlayedThisTurnAtLeast(1);
+        let branched =
+            |then: &'static [Effect], otherwise: &'static [Effect]| Effect::IfCondition {
+                condition,
+                then,
+                otherwise,
+            };
+
+        assert_eq!(
+            mana_branched(&tap(), &[branched(&BLACK, &BLUE)]),
+            Some(BranchedMana {
+                condition,
+                then: ManaSource::Fixed(ManaColor::Black),
+                otherwise: ManaSource::Fixed(ManaColor::Blue),
+                amount: 1,
+            })
+        );
+        assert_eq!(mana_branched(&tap(), &[branched(&BLACK, &NONE)]), None);
+        assert_eq!(mana_branched(&tap(), &[branched(&TWO, &BLUE)]), None);
+        assert_eq!(mana_branched(&tap(), &[branched(&RESTRICTED, &BLUE)]), None);
+        assert_eq!(mana_branched(&tap(), &[branched(&BLUE, &RESTRICTED)]), None);
+        assert_eq!(
+            mana_branched(&tap(), &[branched(&BLACK, &BLUE), BLUE[0]]),
+            None
+        );
+        assert_eq!(mana_branched(&tap(), &BLUE), None, "no `if` to read");
     }
 
     /// The bar stays high for everything else: an ability that costs mana

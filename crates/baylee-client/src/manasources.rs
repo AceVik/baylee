@@ -581,6 +581,18 @@ fn read_mana_ability_with_restrictions<T>(
     // immediately discard. Riders remain accepted by both DSL readers.
     let Some((source, amount, restricted)) = baylee_cards_dsl::mana_with_riders(cost, effects)
     else {
+        // One "if" for a whole ability (Gemstone Caverns, River of Tears):
+        // the host ran it, and the `if` itself is no rider, so only the
+        // cost can price this tap.
+        if let Some(branched) = baylee_cards_dsl::mana_branched(cost, effects) {
+            let colors = branched_colors(view, id, index)?;
+            return Some(read(
+                Cow::Borrowed(colors),
+                branched.amount,
+                false,
+                priced(cost, &[]),
+            ));
+        }
         // Bundle colours are fixed in the definition, not projected from
         // the board. Keep this already-owned Vec for the planner and read
         // it directly for the table's colour tally.
@@ -624,6 +636,18 @@ fn read_mana_ability_with_restrictions<T>(
     with_produced_colors(view, id, index, source, |colors| {
         read(Cow::Borrowed(colors), amount, false, priced(cost, effects))
     })
+}
+
+/// What the host says ability `index` of `object` makes now, for an ability
+/// [`baylee_cards_dsl::mana_branched`] reads: which side of its "if" runs is
+/// the board's to say, so the colours are read and not worked out.
+fn branched_colors(
+    view: &PlayerView,
+    object: baylee_core::ids::ObjectId,
+    index: u32,
+) -> Option<&[ManaColor]> {
+    let board = view.object(object)?.board_mana.as_ref()?;
+    (board.index == index).then_some(board.colors.as_slice())
 }
 
 /// Which colours a read mana source actually makes, at this board.
@@ -755,12 +779,17 @@ pub fn offers(
                         mana_ability: true,
                         ..
                     },
-                ) => baylee_cards_dsl::mana_offer(cost, effects).and_then(|(source, amount)| {
-                    Some((
-                        produced_colors(view, object, index, source)?,
-                        amount.is_some(),
-                    ))
-                }),
+                ) => baylee_cards_dsl::mana_offer(cost, effects)
+                    .and_then(|(source, amount)| {
+                        Some((
+                            produced_colors(view, object, index, source)?,
+                            amount.is_some(),
+                        ))
+                    })
+                    .or_else(|| {
+                        baylee_cards_dsl::mana_branched(cost, effects)?;
+                        Some((branched_colors(view, object, index)?.to_vec(), true))
+                    }),
                 _ => None,
             },
         };
@@ -1569,6 +1598,27 @@ mod tests {
             ..LegalActions::default()
         };
         (view, legal)
+    }
+
+    /// Gemstone Caverns' tap is one "if", so what it makes is the host's to
+    /// say. Read, it is a free tap: the `if` is no rider. Without the host's
+    /// word there is nothing to count, and a press still asks the engine.
+    #[test]
+    fn a_tap_written_as_one_if_makes_what_the_host_says() {
+        let (mut view, legal) = offering("Gemstone Caverns", &[0]);
+        assert!(sources(&view, &legal).is_empty(), "no word from the host");
+
+        view.battlefield[0].board_mana = Some(projected(&[ManaColor::White, ManaColor::Red], 0));
+        let read = sources(&view, &legal);
+        assert_eq!(read.len(), 1);
+        assert_eq!(read[0].colors, [ManaColor::White, ManaColor::Red]);
+        assert_eq!(read[0].amount, 1);
+        assert!(!read[0].priced, "an `if` costs nothing");
+
+        let bubble = offers(&view, &legal, ObjectId::new(1, 0));
+        assert_eq!(bubble.len(), 1);
+        assert_eq!(bubble[0].colors, [ManaColor::White, ManaColor::Red]);
+        assert!(bubble[0].fixed, "one mana, whichever side runs");
     }
 
     /// #149, and the whole of what it buys. Ancient Tomb prints one mana

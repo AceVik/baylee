@@ -33,9 +33,20 @@ pub(crate) fn position(
     hand: &[&str],
     theirs: &[&str],
 ) -> (Session, PlayerView, LegalActions) {
+    position_with(mine, hand, theirs, Vec::new())
+}
+
+/// [`position`] with counters on seat 0's battlefield before the game begins.
+fn position_with(
+    mine: &[&str],
+    hand: &[&str],
+    theirs: &[&str],
+    starting_counters: Vec<baylee_core::preset::StartingCounters>,
+) -> (Session, PlayerView, LegalActions) {
     let mut preset: GamePreset =
         baylee_cards::decks::probe_preset(41, entry("Mountain").card).unwrap();
     preset.house_rules.starting_player = Some(0);
+    preset.house_rules.starting_counters = starting_counters;
     for seat in &mut preset.seats {
         seat.controller = SeatController::Human { user_id: 0 };
         seat.starting_hand = Some(Vec::new());
@@ -393,4 +404,87 @@ fn a_cavern_pays_for_a_creature_of_the_type_it_names() {
         session.observe_view(ME).stack.iter().any(|o| o.id == card),
         "the Pyromancer is on the stack"
     );
+}
+
+/// Gemstone Caverns: "{T}: Add {C}. If Gemstone Caverns has a luck counter on
+/// it, instead add one mana of any color." Written as an `if`, which no reader
+/// of a mana ability read, so the land was no source at all: Assault Griffin
+/// ({3}{W}) was never offered beside it and three other lands (codex attempt
+/// 25, q57). Which branch runs is the board's to say.
+#[test]
+fn gemstone_caverns_taps_for_what_its_counter_says() {
+    use baylee_core::mana::ManaColor;
+    use baylee_core::preset::{StartingCounter, StartingCounters};
+    let luck = || {
+        vec![StartingCounters {
+            seat: 0,
+            permanent: 0,
+            counters: vec![StartingCounter {
+                // `counters::LUCK`.
+                kind: "custom:30".into(),
+                amount: 1,
+            }],
+        }]
+    };
+
+    // The report: {C} or a colour, it pays the generic part either way.
+    for counters in [Vec::new(), luck()] {
+        let (_, view, legal) = position_with(
+            &["Gemstone Caverns", "Plains", "Swamp", "Swamp"],
+            &["Assault Griffin"],
+            &[],
+            counters,
+        );
+        let reach = reachable(&view, &legal);
+        let griffin = reach_of(&reach, "Assault Griffin").expect("four lands pay {3}{W}");
+        assert_eq!(griffin.plan.steps.len(), 4);
+    }
+
+    // With no counter it is {C} and no colour.
+    let (_, view, legal) = position(&["Gemstone Caverns"], &["Savannah Lions"], &[]);
+    assert!(reach_of(&reachable(&view, &legal), "Savannah Lions").is_none());
+
+    // With one it is any colour, asked as the tap resolves, and the house
+    // counts it as the seat does.
+    let (mut session, view, legal) =
+        position_with(&["Gemstone Caverns"], &["Savannah Lions"], &[], luck());
+    assert_eq!(baylee_ai::mana_sources(&view, &legal).len(), 1);
+    let reach = reachable(&view, &legal);
+    let lions = reach_of(&reach, "Savannah Lions").expect("a luck counter makes white");
+    assert_eq!(lions.plan.steps[0].color, Some(ManaColor::White));
+    let card = lions.object;
+    let plan = lions.plan.clone();
+    run(&mut session, &plan, PlayerAction::CastSpell { card });
+    assert!(session.observe_view(ME).stack.iter().any(|o| o.id == card));
+}
+
+/// River of Tears: "{T}: Add {U}. If you played a land this turn, add {B}
+/// instead." The same shape, and the answer moves within a turn.
+#[test]
+fn river_of_tears_taps_for_black_once_a_land_was_played() {
+    let hand = ["Dark Ritual", "Opt", "Island"];
+    let (mut session, view, legal) = position(&["River of Tears"], &hand, &[]);
+    let reach = reachable(&view, &legal);
+    assert!(reach_of(&reach, "Opt").is_some(), "{{U}} before the land");
+    assert!(reach_of(&reach, "Dark Ritual").is_none());
+
+    let card = view
+        .hand
+        .iter()
+        .find(|card| card.name == "Island")
+        .expect("the Island in hand")
+        .id;
+    session
+        .act_slice(ME, PlayerAction::PlayLand { card }, 0)
+        .expect("the land drop is free");
+    let (view, legal) = asked(&session);
+    let reach = reachable(&view, &legal);
+    let ritual = reach_of(&reach, "Dark Ritual").expect("{B} once a land was played");
+    let river = view
+        .battlefield
+        .iter()
+        .find(|o| o.name == "River of Tears")
+        .expect("the River")
+        .id;
+    assert_eq!(ritual.plan.steps[0].source, river);
 }

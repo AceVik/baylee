@@ -401,7 +401,8 @@ pub struct PublicObject {
     /// a land on *that* side of the table could produce", and Command Tower,
     /// Arcane Signet, Commander's Sphere and Path of Ancestry are "any colour
     /// in your commander's identity" — the words are printed, the answer is
-    /// the board's.
+    /// the board's. So too for an ability that is one "if" (Gemstone Caverns,
+    /// River of Tears): the colours of the side that runs now.
     ///
     /// It is the first that needs a board and no other, which is the same
     /// bargain [`GrantedMana::slot`] strikes: no card in the pool prints two,

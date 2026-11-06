@@ -617,6 +617,28 @@ fn board_mana(state: &GameState, id: ObjectId) -> Option<baylee_view::BoardMana>
             else {
                 return None;
             };
+            // An ability that is one "if" (Gemstone Caverns, River of Tears)
+            // has no colour until the engine's own reader of the condition
+            // has run, and that reader needs the game.
+            if let Some(branched) = baylee_cards_dsl::mana_branched(cost, effects) {
+                let holds = baylee_engine::eval::condition_holds(
+                    state,
+                    obj.controller,
+                    id,
+                    branched.condition,
+                );
+                let made = if holds {
+                    branched.then
+                } else {
+                    branched.otherwise
+                };
+                let colors = baylee_engine::resolve::colors_of(state, obj.controller, made, id);
+                return (!colors.is_empty()).then(|| baylee_view::BoardMana {
+                    index: u32::try_from(index).unwrap_or(u32::MAX),
+                    colors,
+                    restricted_to: None,
+                });
+            }
             let (source, _, _) = baylee_cards_dsl::mana_shape(cost, effects)?;
             // Everything the card can answer alone stays the card's: a Forest
             // and a Birds of Paradise have nothing to gain from a projection
