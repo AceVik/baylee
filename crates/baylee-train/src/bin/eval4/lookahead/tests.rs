@@ -238,6 +238,7 @@ fn play(player: &mut Fixture, search: Option<&mut GameSearch>) -> Played {
         None,
         None,
         search,
+        None,
     )
     .unwrap();
     assert!(!outcome.1, "the fixture finishes its game");
