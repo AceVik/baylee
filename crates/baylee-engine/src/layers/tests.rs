@@ -813,7 +813,7 @@ fn text_changes_type_line_before_type_effects_and_preserves_copiable_values() {
     assert_eq!(changed.subtypes, SubtypeSet::from_slice(&[land::ISLAND]));
     assert_eq!(changed.name, original_name);
     assert_eq!(
-        crate::casting::intrinsic_mana_colors(&state, id),
+        crate::casting::intrinsic_mana_colors(&state, id).to_vec(),
         vec![baylee_core::mana::ManaColor::Blue]
     );
     assert_eq!(
@@ -827,7 +827,7 @@ fn text_changes_type_line_before_type_effects_and_preserves_copiable_values() {
         SubtypeSet::from_slice(&[land::SWAMP])
     );
     assert_eq!(
-        crate::casting::intrinsic_mana_colors(&state, id),
+        crate::casting::intrinsic_mana_colors(&state, id).to_vec(),
         vec![baylee_core::mana::ManaColor::Black]
     );
 }
@@ -943,7 +943,7 @@ fn text_changes_do_not_rewrite_a_dynamically_chosen_land_type() {
         "the chosen value is not the word Forest in the ability's text"
     );
     assert_eq!(
-        crate::casting::intrinsic_mana_colors(&state, target),
+        crate::casting::intrinsic_mana_colors(&state, target).to_vec(),
         vec![baylee_core::mana::ManaColor::Green]
     );
 }

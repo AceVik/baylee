@@ -25,14 +25,14 @@ use super::*;
 /// this pool add a basic land type: Urborg, Yavimaya, Blanket of Night and
 /// Ashaya.
 #[must_use]
-pub fn intrinsic_mana_colors(state: &GameState, source: ObjectId) -> Vec<ManaColor> {
+pub fn intrinsic_mana_colors(state: &GameState, source: ObjectId) -> SmallVec<[ManaColor; 5]> {
     let Some(obj) = state.object(source) else {
-        return Vec::new();
+        return SmallVec::new();
     };
     if !obj.characteristics().types.contains(TypeSet::LAND)
         || obj.characteristics().abilities_lost.is_some()
     {
-        return Vec::new();
+        return SmallVec::new();
     }
     let s = &obj.characteristics().subtypes;
     [
@@ -67,7 +67,7 @@ pub fn intrinsic_mana_offer(
     {
         return Vec::new();
     }
-    colors
+    colors.to_vec()
 }
 
 /// The colours `player` may tap `source` for through the CR 305.6 shortcut

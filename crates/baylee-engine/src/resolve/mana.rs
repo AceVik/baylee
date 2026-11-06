@@ -442,7 +442,9 @@ pub fn colors_of(
     from: ObjectId,
 ) -> Vec<ManaColor> {
     match source {
-        ManaSource::IntrinsicBasicLandTypes => crate::casting::intrinsic_mana_colors(state, from),
+        ManaSource::IntrinsicBasicLandTypes => {
+            crate::casting::intrinsic_mana_colors(state, from).to_vec()
+        }
         ManaSource::Fixed(color) => vec![color],
         ManaSource::Choice(colors) => colors.to_vec(),
         ManaSource::CommanderIdentity => {

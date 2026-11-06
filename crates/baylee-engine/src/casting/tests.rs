@@ -688,11 +688,11 @@ fn a_land_with_two_basic_types_is_a_question_and_not_an_answer() {
     assert_eq!(intrinsic_mana(&state, bear), None, "not a land at all");
 
     assert_eq!(
-        intrinsic_mana_colors(&state, plains),
+        intrinsic_mana_colors(&state, plains).to_vec(),
         vec![ManaColor::White]
     );
     assert_eq!(
-        intrinsic_mana_colors(&state, shrine),
+        intrinsic_mana_colors(&state, shrine).to_vec(),
         vec![ManaColor::White, ManaColor::Black],
         "both abilities the dual has, in the rules' own order"
     );
