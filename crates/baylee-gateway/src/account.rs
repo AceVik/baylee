@@ -179,6 +179,10 @@ pub fn forget_accounts(state: &Shared, accounts: &[String]) {
         matches!(grant, crate::wsticket::Grant::Chair { host, .. } if accounts.contains(host))
     });
     for account in accounts {
+        // First, so that no frame of theirs is forwarded past this point.
+        state
+            .sessions
+            .end_account(account, crate::sessions::Ended::Deleted);
         let _ = state.departed.send(account.clone());
     }
     // Their social sockets close, their friends are told and their table

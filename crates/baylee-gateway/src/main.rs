@@ -41,6 +41,7 @@ mod room;
 mod routes;
 mod seathost;
 mod seatrate;
+mod sessions;
 mod sets;
 mod social;
 mod standing;
@@ -150,6 +151,9 @@ struct AppState {
     /// signed in as them to close. A lobby socket resolves its session once,
     /// when it opens, so nothing else would tell it.
     departed: tokio::sync::broadcast::Sender<String>,
+    /// Every session in memory: the state each of its sockets watches
+    /// (`sessions.rs`). The check before a frame reaches an engine reads this.
+    sessions: sessions::Book,
     /// The shared secret an agent proves itself with (`BAYLEE_AGENT_TOKEN`).
     ///
     /// Without one no agent may connect, and therefore no game can start: an
@@ -446,6 +450,7 @@ async fn main() {
         // listing rather than by replaying what it missed.
         lobby_changed: tokio::sync::broadcast::channel(16).0,
         departed: tokio::sync::broadcast::channel(16).0,
+        sessions: sessions::Book::default(),
         agents: Mutex::new(engine::Agents::default()),
         metrics: metrics::Metrics::default(),
         agent_token,
@@ -504,6 +509,7 @@ async fn main() {
     account::sweep_pictures(&state).await;
     spawn_cleanup(state.clone());
     spawn_ticket_sweep(state.clone());
+    spawn_session_sweep(state.clone());
     metrics::spawn(state.clone());
     // A pasted token's link first: whether Central's sign-in reaches this
     // gateway depends on it.
@@ -928,6 +934,21 @@ fn spawn_ticket_sweep(state: Shared) {
             if swept > 0 {
                 tracing::debug!(swept, "expired socket tickets swept");
             }
+        }
+    });
+}
+
+/// Ends the sessions that ran out, so an idle socket closes on time and the
+/// book stays the size of what is live. Once a second, because this is the
+/// only thing that wakes a socket with nothing to say; a frame needs no sweep,
+/// since [`sessions::Live::stands`] reads the clock itself.
+fn spawn_session_sweep(state: Shared) {
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(1));
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        loop {
+            interval.tick().await;
+            state.sessions.sweep(sessions::now());
         }
     });
 }
