@@ -43,6 +43,8 @@ pub struct CardBody {
     /// Bare `CostPart` expressions accompanying `flashback`, before the
     /// renderer adds the variant prefix. Always empty without a flashback cost.
     pub flashback_parts: Vec<String>,
+    /// `madness` expression for the front face, when present.
+    pub madness: Option<String>,
     /// `foretell` expression for the front face, when present.
     pub foretell: Option<String>,
     /// `cost_reduction` expression for the front face, when present.
@@ -68,6 +70,7 @@ impl CardBody {
         self.abilities.is_empty()
             && self.enter_modifiers.is_empty()
             && self.flashback.is_none()
+            && self.madness.is_none()
             && self.foretell.is_none()
             && self.cost_reduction.is_none()
             && self.entwine.is_none()

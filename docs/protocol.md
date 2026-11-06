@@ -3,6 +3,27 @@
 Binary WebSocket protocol (protobuf, `baylee-protocol`, wasm-safe).
 Schema: `crates/baylee-protocol/proto/baylee/v1/transport.proto`.
 
+## Madness (view 87)
+
+A face's `madness` cost is an alternative cost, not an ordinary cast permission
+from exile. When its card is discarded, the discard event happens once and the
+card's destination becomes exile (CR 702.35a). `GameEvent::MadnessExiled` records
+the exact object incarnation; it adds no log line beside the discard and public
+zone change.
+
+The resulting ordinary, counterable triggered ability asks
+`YesNoPrompt::Madness`. Yes starts the normal casting wizard from exile, with
+`DecisionContext::alternative_cost = Madness`. Its `cast_mode` still describes
+the spell's normal or modal route, so X, targets and additional costs retain
+their ordinary meaning. No puts that same still-exiled incarnation into its
+owner's graveyard (CR 702.35a); an older object or a card that changed zones
+again cannot satisfy the fallback. Once cast, the spell follows the ordinary
+stack and countering rules.
+
+Both choices are serialized engine variants a reader of view 86 cannot decode.
+`PROTOCOL_VERSION` stays unchanged: pending choices travel as JSON in the
+existing envelope, and view 87 is the compatibility refusal.
+
 ## The order of triggers (view 86)
 
 A player who controls several triggered abilities going on the stack at once
@@ -841,8 +862,8 @@ the cast's own questions (mode, X, targets) and then opens a payment window
 trigger that mana sets off (City of Brass, a painland beside "whenever
 you're dealt damage") waits until the spell is cast (CR 601.2i) and goes on
 the stack above it. Passing the window with the cost unpaid reverses the
-cast (CR 601.2h, 733.1) as `CancelCast` does (below), and the player keeps
-priority (CR 733.2). Whether the seat's sources can
+cast (CR 601.2h, 734.1) as `CancelCast` does (below), and the player keeps
+priority (CR 734.2). Whether the seat's sources can
 make that mana is not checked; a client plans it (`manaplan`). The reverse
 holds as well: a planner taps toward nothing outside `castable` and
 `payable` (`LegalActions::castable_once_paid`), because a card in neither has
@@ -884,7 +905,7 @@ mana ability inside the window asks its colour (answer that first) and for
 every cast an effect makes (rebound, a miracle, "you may cast it"), which only
 the effect can take back.
 
-The cast is reversed as CR 733.1 reverses an action that is not completed:
+The cast is reversed as CR 734.1 reverses an action that is not completed:
 the card stays where it was (the engine moves it to the stack only as the
 cost is paid), the costs chosen for it are not paid (a sacrifice chosen in
 the wizard was never made), and the mana abilities activated for it are
@@ -895,9 +916,9 @@ reversed mana ability did beside its mana is undone with it, since "no
 abilities trigger and no effects apply as a result of an undone action": a
 painland's damage is not dealt and City of Brass's trigger never goes on the
 stack. A cast whose mana touched a library (moved a card to or from it,
-shuffled it, revealed from it), which CR 733.1 forbids reversing, is still
+shuffled it, revealed from it), which CR 734.1 forbids reversing, is still
 taken back and its mana abilities stand. The player keeps priority
-(CR 733.2). The journal records `GameEvent::CastCancelled` with its
+(CR 734.2). The journal records `GameEvent::CastCancelled` with its
 `reason`: `Withdrawn` for `CancelCast`, `Unpaid` for a window passed short
 (CR 601.2h allows no partial payment), `Illegal` when the card moved or an
 object a cost named is gone. The game log writes no line, because the card never left its zone and naming it would

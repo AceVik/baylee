@@ -276,6 +276,12 @@ impl<L: CardLookup> Engine<L> {
                 then_no_more_spells,
                 any_mana,
             } => self.open_cast_payment(controller, card, version, then_no_more_spells, any_mana),
+            crate::state::DelayedAction::CastWithMadness { card, version } => {
+                if self.start_madness_cast(controller, card, version).is_err() {
+                    self.state.madness_to_graveyard(card, version);
+                }
+                self.awaiting_answer
+            }
             crate::state::DelayedAction::Transform {
                 card,
                 version,

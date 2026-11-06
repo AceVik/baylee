@@ -435,4 +435,13 @@ pub enum DelayedAction {
         /// Where in that list.
         ability: u32,
     },
+    /// Madness's accepted cast, begun as its trigger finishes resolving.
+    /// An unfinished or impossible cast puts this same exile incarnation into
+    /// its owner's graveyard; a later incarnation is untouched (CR 400.7).
+    CastWithMadness {
+        /// The exiled card.
+        card: ObjectId,
+        /// Its identity on entering exile through madness.
+        version: u32,
+    },
 }

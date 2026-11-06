@@ -100,6 +100,19 @@ card the plan does not walk is one it never taps for. Steady and harder levels c
 can complete with the
 remaining visible sources; an expensive, uncastable card cannot drown out the
 colour needed for an affordable play.
+
+A visible madness question is answered from the exiled card's projected
+identity, not from its name or a hidden-zone fact. `policy::madness` reads
+`FaceDef::madness` and accepts when `can_pay` covers that cost with X at zero;
+the engine has already refused illegal targets and impossible non-mana parts.
+The ordinary owed-payment planner then taps for the actual complete price. An
+X answer uses the remaining sources when
+`DecisionContext::alternative_cost = Madness`, independently of
+`DecisionContext::cast_mode`, so a modal madness cast does not lose its mana
+opportunity. `a_free_madness_cast_is_accepted_without_mana` covers the policy,
+and `gamehost/tests/ai_madness.rs` plays a discarded Basking Rootwalla through
+the real exile view onto the battlefield.
+
 Counterspells need an opposing stack entry they would take off, and never
 name one the view marks `UNCOUNTERABLE` while there is another: such a spell
 is a legal target, and the counter resolves and counters nothing (#243).

@@ -1212,6 +1212,7 @@ impl Effect {
             | Effect::Regenerate { .. }
             | Effect::PumpTarget { .. }
             | Effect::PumpEventObject { .. }
+            | Effect::Madness
             | Effect::PumpTargetSlot { .. } => (NONE, NONE),
         }
     }

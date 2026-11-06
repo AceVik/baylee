@@ -55,6 +55,18 @@ and `docs/card-identity.md` (indices and who may write what).
   Omit `--check` only after reviewing the complete preview. This mode never
   downloads, adopts cards, changes other cards, or regenerates tables/registries.
   A completed output is no longer an input to this stub-only mode.
+- When a fully read machine-owned card is already `Coverage::Generated` and
+  gains its accepted canonical test, `cargo run -p xtask -- codegen
+  --promote-generated "<name>" --scripts <upstream-cardsfolder> --check`
+  previews only its promotion to `Implemented`. Repeat the flag for an
+  explicit selection. This mode requires the same complete script read,
+  pinned printing, Oracle ID, ledger index, canonical path and unheld tests
+  as reclamation; hand-owned cards, stubs and existing `Implemented` cards
+  are refused. The whole selection is planned and every original is checked
+  again before the first write. Applying changes only the selected cards,
+  never tables, registries or other cards; run `codegen --tables` separately
+  after reviewing and applying the preview. It is deliberately not an
+  idempotent reclaim alias: a card already promoted is no longer its input.
 - A reviewed unsafe hand-owned implementation can be restored only through
   `cargo run -p xtask -- codegen --hold-back "<name>" --hold-back-reason "<finding>"`
   (repeat names or pass `--hold-back-file`). This narrow mode needs cached

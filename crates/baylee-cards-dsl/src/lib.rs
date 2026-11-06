@@ -537,6 +537,9 @@ pub struct FaceDef {
     pub mutate: Option<ManaCost>,
     /// Entwine cost to choose all modes of this modal spell (CR 702.42).
     pub entwine: Option<crate::cost::Cost>,
+    /// Madness (CR 702.35): discard this card into exile instead, then its
+    /// owner may cast it for this cost as that triggered ability resolves.
+    pub madness: Option<crate::cost::Cost>,
 }
 
 impl FaceDef {
@@ -595,6 +598,7 @@ impl FaceDef {
         morph: None,
         mutate: None,
         entwine: None,
+        madness: None,
     };
 }
 

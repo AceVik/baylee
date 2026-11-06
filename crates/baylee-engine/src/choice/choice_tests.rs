@@ -135,6 +135,7 @@ fn a_timed_out_seat_does_nothing_wherever_the_question_allows_it() {
         ),
         (yes_no(YesNoPrompt::PayLife { amount: 7 }), no.clone()),
         (yes_no(YesNoPrompt::Miracle { card: object() }), no.clone()),
+        (yes_no(YesNoPrompt::Madness { card: object() }), None),
         (
             yes_no(YesNoPrompt::CastWithoutPaying { card: object() }),
             no.clone(),
@@ -394,7 +395,7 @@ fn a_timed_out_seat_does_nothing_wherever_the_question_allows_it() {
 }
 
 /// How many kinds [`kind_of`] tells apart.
-const KINDS: usize = 52;
+const KINDS: usize = 53;
 
 /// Which kind of question this is, numbered without gaps. No wildcard
 /// arm: a new `Pending` variant or yes/no prompt does not compile here
@@ -455,6 +456,7 @@ fn kind_of(pending: &Pending) -> usize {
                 YesNoPrompt::PayManaAndLife { .. } => 31,
                 YesNoPrompt::SkipTurn { .. } => 16,
                 YesNoPrompt::GuessNamedCardInHand { .. } => 33,
+                YesNoPrompt::Madness { .. } => 35,
             }
         }
         Pending::ChoosePile { .. } => 17 + 17,
@@ -683,6 +685,7 @@ fn only_the_questions_whose_answer_cannot_go_stale_are_automatable() {
             | YesNoPrompt::PayLife { .. }
             | YesNoPrompt::PayPact { .. }
             | YesNoPrompt::Miracle { .. }
+            | YesNoPrompt::Madness { .. }
             | YesNoPrompt::CastWithoutPaying { .. }
             | YesNoPrompt::CastPaying { .. }
             | YesNoPrompt::DrawOffer { .. }
@@ -734,6 +737,7 @@ fn only_the_questions_whose_answer_cannot_go_stale_are_automatable() {
         },
         YesNoPrompt::PayLife { amount: 7 },
         YesNoPrompt::Miracle { card: object() },
+        YesNoPrompt::Madness { card: object() },
         YesNoPrompt::CastWithoutPaying { card: object() },
         YesNoPrompt::CastPaying { card: object() },
         YesNoPrompt::CommanderZone { card: object() },

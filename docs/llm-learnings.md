@@ -7017,3 +7017,51 @@ code.
   (11,164 finished, 1,380 stubs); `require-card-tests`, affected Clippy,
   formatting and `git diff --check` pass. The full gates remain deferred at
   the owner's request.
+
+## 2026-11-06 — Madness as a discard replacement and a real cast
+
+- The reader now puts a fully understood madness price in `FaceDef.madness`,
+  including mana, an explicit zero, X and life payments. Unknown costs remain
+  honest stubs rather than silently becoming free casts. Codegen carries the
+  face field through stub and generated rendering without inventing effects.
+- A discard is one shared `GameState::discard_card` transition for effects,
+  chosen activation costs, `DiscardSelf` and cleanup. Ordinary cards emit one
+  `Discarded` event and receive exactly one graveyard incarnation. Madness
+  replaces only that discard's destination with exile, remembers the card's
+  version, and puts a counterable synthetic trigger on the stack (CR 702.35a).
+  Directly casting from the discard routine would skip both the trigger and
+  an opponent's response. The two activation paths used to book a second
+  graveyard successor in addition to the real move; red tests exposed both
+  duplicate receipts before the duplicated bookkeeping was removed.
+- Declining the trigger or failing to cast uses a version-checked graveyard
+  fallback. It neither revives an old incarnation nor records a second
+  discard. Countering the trigger and countering the resulting spell remain
+  different outcomes, and a departing player's trigger and pending decisions
+  are handled by the ordinary departure machinery.
+- Madness shares the cast wizard's modal preflight with alternative costs,
+  but `cast_mode` (which rules text is used) and `alternative_cost` (which
+  price replaces the mana cost) remain separate. Legal targets and every
+  non-mana part must be available before the trigger offers the cast; X,
+  targets, additional costs and a later mana-payment window then use the
+  ordinary wizard. An accepted cast that cannot complete produces the same
+  journaled `CastCancelled` outcome as its neighbouring effect casts.
+- The public decision context carries the visible alternative-cost choice to
+  the desktop, house and LLM seats without exposing hidden cards. The house
+  plans and pays that cost, including X; the narrator prints a mana-empty
+  madness price as `{0}`, not as an omitted price. The real-game integration
+  test drives the choice through the gamehost rather than only a policy mock.
+  A timeout delegates the choice to the house rather than treating the
+  graveyard move as inaction, and a life payment uses the activation reserve.
+- `codegen --promote-generated` is the narrow transition for a selected,
+  already reviewed generated card whose canonical test is now accepted. It
+  preserves identity and placement, preflights the whole selection and writes
+  no tables or unrelated cards. Basking Rootwalla was promoted this way: its
+  own tests play the pump and once-per-turn reset, a free madness cast during
+  the opponent's turn, and decline followed by the graveyard fallback.
+- Before the final rebase, the complete engine suite passed 16,825 tests (two
+  ignored) plus two footprint tests. The three focused house-policy tests,
+  the real gamehost game and seven coverage guards passed. `validate` accepted
+  12,544 cards (11,165 finished, 1,379 stubs), `codegen --tables --check`,
+  `require-card-tests`, `cargo dev gate touched`, formatting and
+  `git diff --check` passed. The full gates remain deferred at the owner's
+  request.

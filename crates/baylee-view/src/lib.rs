@@ -257,7 +257,10 @@ pub use turn::{DayNight, Phase, Step};
 /// (CR 603.3b): `ArrangePrompt::TriggerOrder` and `ArrangePlace::Stack`, engine
 /// variants a reader of 85 cannot parse, whose handles are explained by
 /// [`PlayerView::trigger_order`], additive and absent while empty.
-pub const VIEW_VERSION: u32 = 86;
+/// Version 87 asks whether to cast a discarded card for its madness cost and
+/// labels that alternative-cost route: `YesNoPrompt::Madness` and
+/// `CastModeKind::Madness`, engine variants a reader of 86 cannot parse.
+pub const VIEW_VERSION: u32 = 87;
 
 // ------------------------------------------------------------------- targets
 

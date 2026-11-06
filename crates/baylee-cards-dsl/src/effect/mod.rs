@@ -4182,6 +4182,10 @@ pub enum Effect {
         /// The kinds to keep, in the order the choices are made.
         filters: &'static [&'static Filter],
     },
+    /// Madness's triggered ability (CR 702.35a): its owner may cast the
+    /// exact exiled incarnation for its madness cost as this ability resolves.
+    /// Internal keyword machinery, not a card-authored instruction.
+    Madness,
 }
 
 #[cfg(test)]

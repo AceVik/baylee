@@ -48,7 +48,7 @@ fn a_mechanic_the_pool_cannot_print_yet_has_no_ai_test_to_write() {
 #[test]
 #[allow(clippy::too_many_lines)] // one entry per table row, in one readable list
 fn a_mechanic_the_pool_already_prints_is_owed_now_and_not_later() {
-    let rows: [(&str, usize); 28] = [
+    let rows: [(&str, usize); 29] = [
         (
             "Commander pair rules (plain Partner)",
             count(|def| matches!(def.partner, PartnerKind::Partner)),
@@ -280,6 +280,13 @@ fn a_mechanic_the_pool_already_prints_is_owed_now_and_not_later() {
                     } if restriction.restricts
                 )
             }),
+        ),
+        // Paid 06.11.2026: `the_house_casts_a_discarded_rootwalla_for_its_\
+        // free_madness_cost` in `ai_madness.rs`. The real discard, public
+        // exile view, accepted cast and battlefield arrival are all played.
+        (
+            "Alternate resource engines (madness)",
+            count(|def| def.faces.iter().any(|face| face.madness.is_some())),
         ),
         // Taken when free, #223: `a_free_alternative_cost_is_taken_over_the_\
         // printed_one`; a pitch or an evoke keeps the printed cost.

@@ -459,6 +459,23 @@ pub(super) fn resume_cast_question(
         res.pc += 1;
         return Some(run(state, res));
     }
+    if let Some(AwaitingOp::Madness { card, version }) = res.awaiting {
+        res.awaiting = None;
+        let still_exiled = state.object(card).is_some_and(|object| {
+            object.zone == crate::zone::Zone::Exile && object.version == version
+        });
+        if answer && still_exiled {
+            state.delayed.push(crate::state::DelayedTrigger {
+                controller: res.controller,
+                when: crate::state::DelayedWhen::AsResolutionEnds,
+                action: crate::state::DelayedAction::CastWithMadness { card, version },
+            });
+        } else if still_exiled {
+            state.madness_to_graveyard(card, version);
+        }
+        res.pc += 1;
+        return Some(run(state, res));
+    }
     // Cascade: the cards not cast go to the bottom now, and a yes is a cast
     // the engine makes as this resolution ends (CR 702.85a).
     if matches!(res.awaiting, Some(AwaitingOp::CascadeCast { .. })) {

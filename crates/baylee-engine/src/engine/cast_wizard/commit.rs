@@ -109,7 +109,8 @@ impl<L: CardLookup> Engine<L> {
             )?;
         }
         // Non-mana parts of the chosen alternative or flashback cost.
-        for part in super::wizard_alternative_parts(face, wizard.option) {
+        for part in super::wizard_alternative_parts(face, wizard.alternative_cost.or(wizard.option))
+        {
             if !paid_as_an_alternative_cost(part) {
                 continue;
             }

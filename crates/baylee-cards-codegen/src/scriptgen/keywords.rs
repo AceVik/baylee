@@ -43,6 +43,9 @@ impl Tx<'_> {
         if let Some(rest) = line.strip_prefix("Flashback:") {
             return self.flashback(rest);
         }
+        if let Some(rest) = line.strip_prefix("Madness:") {
+            return self.madness(rest);
+        }
         if let Some(rest) = line.strip_prefix("Foretell:") {
             return self.foretell(rest);
         }
@@ -375,6 +378,32 @@ impl Tx<'_> {
         });
         self.body.flashback_parts = parts;
         self.body.notes.push("flashback".to_string());
+        Some(())
+    }
+
+    /// `K:Madness:<cost>` as the alternative cost of the card's exile trigger
+    /// (CR 702.35). An empty cost, extra fields or a non-mana part the wizard
+    /// cannot pay refuses the whole card rather than quietly changing its price.
+    pub(super) fn madness(&mut self, rest: &str) -> Option<()> {
+        if rest.contains(':') {
+            return self.deny(format!("a `Madness` with extra fields `{rest}`"));
+        }
+        // Keywords are read before the spell's `A:` line sets `has_x`, but
+        // Madness's X is likewise announced and paid during its cast. Keep
+        // `cost_pieces`' requirement for `SVar:X:Count$xPaid`: the scope here
+        // supplies the announcement, never a guess at what X counts.
+        let previous_has_x = std::mem::replace(&mut self.has_x, true);
+        let cost = self.cost_pieces(rest);
+        self.has_x = previous_has_x;
+        let (mana, parts) = cost?;
+        if (mana.is_empty() && parts.is_empty())
+            || !parts.iter().all(|part| part.starts_with("PayLife("))
+        {
+            return self.deny(format!("a `Madness` cost `{rest}` the cast cannot pay"));
+        }
+        let cost = crate::body::cost_literal(&mana, &parts);
+        self.body.madness = Some(format!("Some({cost})"));
+        self.body.notes.push("madness".to_string());
         Some(())
     }
 

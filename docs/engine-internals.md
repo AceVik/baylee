@@ -927,7 +927,7 @@ Temporal Mastery payment and extra turn through the projected debt.
 
 A window that closes without its cast (a miracle declined after a tap, or
 paid short; a `PaymentContinuation::Cast` likewise) gives back what was made
-in it: the play was never completed, and CR 733.1 lets its player reverse the
+in it: the play was never completed, and CR 734.1 lets its player reverse the
 mana abilities activated while making it. The window holds a `WindowStart`
 (the journal's length, the payer's pool, the generated-mana obligations and
 the trigger queue's length when it opened), and `Engine::give_back_window`
@@ -937,10 +937,45 @@ cut back, because each tap was its own `apply` and a host has read past it:
 the untaps are journalled as `ObjectUntapped { cause: Cost }`, which nothing
 triggers on. A window in which anything but a tap and its mana happened (a
 sacrificed Lotus Petal, life paid, a library touched) is left as it stands,
-which 733.1's "may" allows. A cast started from a `Cast` window carries its
+which 734.1's "may" allows. A cast started from a `Cast` window carries its
 start into the window its wizard opens for the rest
 (`CastWizard::window_start`), so both are given back together
 (`combo_tests::miracle`, `conduit_of_worlds_paid_short_gives_back_the_forest_tapped_for_it`).
+
+### Madness is a discard replacement, a trigger and an ordinary cast (CR 702.35)
+
+`FaceDef::madness` holds the complete alternative `Cost`, not merely its mana.
+`GameState::discard_card` is the shared door for an effect, a chosen, random or
+self discard paid as a cost, and the cleanup step's turn-based discard. It
+records exactly one `Discarded` event for the hand incarnation, replaces the
+graveyard destination with exile and writes `MadnessExiled` with that exact
+object version. Only a real graveyard successor enters
+`per_turn.discarded_to_graveyard`: neither the exile nor the later fallback is
+a second discard into the graveyard.
+
+`trigger::discarded` turns that event into a normal, counterable triggered
+ability carrying `Effect::Madness`; it is not a direct free cast from the
+journal. Resolving it asks `YesNoPrompt::Madness`. Accepting enters the
+ordinary cast wizard with `CastWizard::alternative_cost = Madness`, separately
+from its mode or modes. The shared `cast_wizard::madness` preflight enumerates
+legal modes and targets, checks every non-mana part and prices increases and
+reductions against the alternative mana cost. X, targets, additional costs and
+the mana-producing payment window therefore behave as they do on other casts
+(CR 601.2b, 601.2f–h, 702.35b). A cast with no legal target or an impossible
+non-mana payment is not offered. Waiving the printed mana cost does not waive
+an external tax or additional cost.
+
+Declining, or cancelling an accepted cast, invokes
+`GameState::madness_to_graveyard` only for the still-exiled object version the
+trigger named (CR 400.7, 702.35a). Countering the trigger leaves the card in
+exile; countering the resulting spell uses the ordinary spell-countering
+rules and puts it into the graveyard. A copied trigger gets its own decision,
+but only one copy can find and cast the exiled incarnation. Player departure
+cancels the pending question and payment without manufacturing a cast
+(CR 800.4). `engine/madness_tests.rs` plays these boundaries, including effect,
+cost, self-cost and cleanup discards; Basking Rootwalla's canonical test plays
+its `{0}` cost during an opponent's turn, and `gamehost/tests/ai_madness.rs`
+walks the actual public view and house answer.
 
 ### An upkeep payment is a triggered ability on the stack (CR 702.30a, CR 603.7)
 Echo and a pact's "at the beginning of your next upkeep, pay …; if you don't,
@@ -2232,7 +2267,7 @@ through `casting::additional_payment_capacity_for`, with a `CostChoice` that
 says buyback was announced, and mana either floating or still to be made.
 Mana to be made counts (CR 601.2g), so a multikicker's bound is
 `REPLICATE_CEILING` while a source is left, as an X's is, and a count the
-window cannot reach is reversed there (CR 601.2h, 733.1). `CastWizard::buyback`
+window cannot reach is reversed there (CR 601.2h, 734.1). `CastWizard::buyback`
 holds what comes off the printed mana, a number since the wizard rides in every
 `Engine` by value, and
 `wizard_total_before_reduction` adds both, so the frozen reductions of CR

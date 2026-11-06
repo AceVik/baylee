@@ -1119,3 +1119,38 @@ fn flashback_reads_its_complete_supported_cost() {
         assert!(refused(script), "{script}");
     }
 }
+
+/// Madness keeps zero, ordinary mana, announced X and its printed life payment
+/// distinct. Every other or extended cost remains an honest stub.
+#[test]
+fn madness_reads_its_complete_supported_cost() {
+    let zero = read("Name:X\nTypes:Creature\nK:Madness:0");
+    assert_eq!(zero.madness.as_deref(), Some("Some(cost!(\"{0}\"))"));
+    assert!(!zero.is_empty());
+
+    let mana = read("Name:X\nTypes:Instant\nK:Madness:1 R R\nA:SP$ Draw | NumCards$ 1");
+    assert_eq!(mana.madness.as_deref(), Some("Some(cost!(\"{1}{R}{R}\"))"));
+
+    let life = read("Name:X\nTypes:Creature\nK:Madness:2 B PayLife<8>");
+    assert_eq!(
+        life.madness.as_deref(),
+        Some("Some(cost!(\"{2}{B}\", PayLife(8)))")
+    );
+
+    let x = read(
+        "Name:X\nTypes:Instant\nK:Madness:X U U\n\
+         A:SP$ DealDamage | ValidTgts$ Any | NumDmg$ X\nSVar:X:Count$xPaid",
+    );
+    assert_eq!(x.madness.as_deref(), Some("Some(cost!(\"{X}{U}{U}\"))"));
+
+    for script in [
+        "Name:X\nTypes:Creature\nK:Madness:",
+        "Name:X\nTypes:Creature\nK:Madness:X",
+        "Name:X\nTypes:Creature\nK:Madness:T",
+        "Name:X\nTypes:Creature\nK:Madness:Sac<1/Creature>",
+        "Name:X\nTypes:Creature\nK:Madness:Discard<1/Card>",
+        "Name:X\nTypes:Creature\nK:Madness:1 G:Unexpected",
+    ] {
+        assert!(refused(script), "{script}");
+    }
+}

@@ -16,6 +16,7 @@ mod auriok_transfixer;
 mod avacyn_s_pilgrim;
 mod aven_envoy;
 mod balduvian_shaman;
+mod basking_rootwalla;
 mod benalish_hero;
 mod benalish_missionary;
 mod benevolent_bodyguard;

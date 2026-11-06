@@ -1134,6 +1134,13 @@ pub enum AwaitingOp {
         /// The revealed top card.
         card: ObjectId,
     },
+    /// Madness's owner chooses whether to cast this exact exile incarnation.
+    Madness {
+        /// The card exiled instead of discarded to the graveyard.
+        card: ObjectId,
+        /// Its identity in exile (CR 400.7).
+        version: u32,
+    },
 }
 
 /// Work to resume after a resolution-time mana payment.
