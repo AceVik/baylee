@@ -18,7 +18,7 @@
 //! One process per game is the panic boundary. A rules path that panics takes
 //! down exactly one game, and the agent reports the exit — where a gateway
 //! hosting sessions in-process had to catch unwinds to get the same effect.
-
+#![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
 use std::io::Write as _;

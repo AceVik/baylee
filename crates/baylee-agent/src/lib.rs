@@ -16,7 +16,7 @@
 //! can run on a machine the gateway does not.
 //!
 //! This module is the decisions; `main.rs` is the socket and the processes.
-
+#![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
 use baylee_protocol::v1::{self, Envelope};

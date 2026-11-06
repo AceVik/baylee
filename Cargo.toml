@@ -258,7 +258,8 @@ bevy = { version = "0.20", default-features = false, features = [
 # workspace-wide wherever they bring a meaningful performance or RAM win. Every
 # unsafe site states its invariant in a `// SAFETY:` comment and is backed by
 # particularly thorough test coverage (comparing fast paths against a portable
-# safe reference on property/fuzz inputs across targets).
+# safe reference on property/fuzz inputs across targets). Crates that read the
+# network forbid it in their roots: security beats speed (`AGENTS.md`).
 unsafe_code = "allow"
 missing_docs = "warn"
 

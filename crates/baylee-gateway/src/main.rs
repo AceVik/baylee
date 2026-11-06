@@ -5,6 +5,7 @@
 //! credential errors, constant-time comparisons. TLS terminates at the
 //! reverse proxy in front of this process (Caddy/nginx) — this service
 //! must never be exposed on a plaintext listener in production.
+#![forbid(unsafe_code)]
 
 mod account;
 mod admin;
