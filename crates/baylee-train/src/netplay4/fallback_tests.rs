@@ -2,6 +2,39 @@ use super::*;
 use baylee_core::preset::AIProfile;
 use baylee_engine::choice::{NumberPrompt, timeout_answer};
 
+/// A seat of the net at a table keeps the order the engine offers, which is
+/// the one every game it trained on played, and says it did not choose it.
+#[test]
+fn the_order_of_triggers_keeps_the_order_offered_without_sampling() {
+    use baylee_core::ids::ObjectId;
+    use baylee_engine::choice::{ArrangePile, ArrangePlace, ArrangePrompt};
+
+    let cards = vec![ObjectId::queued_trigger(1), ObjectId::queued_trigger(0)];
+    let arrange = |prompt, place| Pending::Arrange {
+        player: PlayerId::new(0),
+        cards: cards.clone(),
+        piles: vec![ArrangePile::all_of(place, 2)],
+        prompt,
+    };
+    let pending = arrange(ArrangePrompt::TriggerOrder, ArrangePlace::Stack);
+    let answer = fallback::unsupported_choice_answer(&pending, 1.0).unwrap();
+    assert_eq!(
+        answer.action,
+        PlayerAction::Arrange {
+            piles: vec![cards.clone()]
+        }
+    );
+    assert!(pending.answer_fault(&answer.action).is_none());
+    assert_eq!(answer.provenance.source, SourceKind4::House);
+    assert!(!answer.provenance.has_logprob);
+
+    let order = arrange(ArrangePrompt::Order, ArrangePlace::LibraryTop);
+    assert!(
+        fallback::unsupported_choice_answer(&order, 1.0).is_none(),
+        "a library's order stays the net's"
+    );
+}
+
 #[test]
 fn band_choice_bypasses_subset_sampling_without_claiming_a_policy_probability() {
     use baylee_core::ids::ObjectId;

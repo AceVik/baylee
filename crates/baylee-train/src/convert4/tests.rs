@@ -112,6 +112,49 @@ fn streamed_frames_match_collecting_conversion_with_bounded_memory() {
     }
 }
 
+/// Training and evaluation play by the timestamps, so that the net's numbers
+/// and records stay what they are.
+#[test]
+fn no_training_preset_asks_the_order_of_triggers() {
+    let a = HouseDeck::named("allytifact").unwrap();
+    let b = HouseDeck::named("victory").unwrap();
+    let duel = table(19, &a, &b, [AIProfile::SHARP, AIProfile::EXPERT]);
+    assert!(!duel.house_rules.order_triggers);
+    let four = crate::selfplay::table_for(19, &[&a, &b, &a, &b], &[AIProfile::SHARP; 4], &[]);
+    assert!(!four.house_rules.order_triggers);
+}
+
+/// A language model's table asks the order of triggers (the collector's rooms
+/// are real rooms), and such a record converts: the question is forced like
+/// any other decision that is not the net's, and leaves no step behind.
+#[test]
+fn a_game_that_asked_the_order_of_triggers_converts() {
+    let a = HouseDeck::named("allytifact").unwrap();
+    let handle =
+        serde_json::to_string(&baylee_core::ids::ObjectId::queued_trigger(0)).expect("a number");
+    let asked = (19..40).find_map(|seed| {
+        let mut preset = table(seed, &a, &a, [AIProfile::SHARP, AIProfile::EXPERT]);
+        preset.house_rules.order_triggers = true;
+        let played = play_with_options(
+            &preset,
+            "t-convert4-order",
+            Caps {
+                answers: 10_000,
+                wall: Duration::from_secs(60),
+            },
+            true,
+        );
+        assert!(played.outcome.finished(), "{:?}", played.outcome);
+        String::from_utf8_lossy(&played.record)
+            .contains(&handle)
+            .then_some(played)
+    });
+    let played = asked.expect("some game of allies asks");
+    let extracted = extract_game4(&played.record, 1, false).expect("extracts cleanly");
+    assert_eq!(extracted.unencoded_decisions, 0);
+    assert!(!extracted.steps.is_empty());
+}
+
 #[test]
 fn extract_game4_replays_fair_selfplay_with_zero_unencoded_decisions() {
     let a = HouseDeck::named("allytifact").unwrap();

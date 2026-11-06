@@ -17,6 +17,16 @@ const fn is_client_only_live_action(action: &PlayerAction) -> bool {
     )
 }
 
+const fn is_trigger_order(pending: &Pending) -> bool {
+    matches!(
+        pending,
+        Pending::Arrange {
+            prompt: baylee_engine::choice::ArrangePrompt::TriggerOrder,
+            ..
+        }
+    )
+}
+
 fn is_payable_cast(pending: &Pending, action: &PlayerAction) -> bool {
     matches!(
         (pending, action),
@@ -368,12 +378,17 @@ fn replay_feature_frames(
                     encode_candidates7_grouped(&state, &view, &pending)
                 };
 
-                let is_forced = match cands.head {
-                    HeadKind4::SingleChoice => cands.candidates.len() <= 1,
-                    HeadKind4::SubsetPick => cands.candidates.is_empty(),
-                    HeadKind4::PairPick => cands.pairs.is_empty(),
-                    HeadKind4::ScalarValue => cands.max_choices <= cands.min_choices,
-                };
+                // The order of triggers is no decision of the net's: a seat
+                // of it keeps the order offered (`netplay4::fallback`), and a
+                // table's answer to it is not a label for a head that is
+                // never asked.
+                let is_forced = is_trigger_order(&pending)
+                    || match cands.head {
+                        HeadKind4::SingleChoice => cands.candidates.len() <= 1,
+                        HeadKind4::SubsetPick => cands.candidates.is_empty(),
+                        HeadKind4::PairPick => cands.pairs.is_empty(),
+                        HeadKind4::ScalarValue => cands.max_choices <= cands.min_choices,
+                    };
 
                 let llm_label = if matches!(by, Source::Seat) {
                     llm.as_deref_mut()

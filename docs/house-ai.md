@@ -906,6 +906,14 @@ See [the coverage TODO ledger](ai-coverage-todo.md) for concrete tests to add as
 new rules and complete deck families become available. Unsupported cards are
 not counted as successful end-to-end coverage.
 
+## The order of its triggers
+
+At a table the house is asked what order its triggers go on the stack in, like
+any seat (CR 603.3b, `docs/protocol.md` §"The order of triggers"). It has no
+opinion and answers with the order offered, which is the timestamps' order, so it
+plays as it did before there was a question. So does a stand-in in a player's
+chair, and a clock that runs out on a player.
+
 ## What the search means
 
 This is **public tactical search**, not whole-game determinization. It builds

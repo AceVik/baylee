@@ -1,7 +1,7 @@
 //! Legal fallback choices when a loop guard or failed inference needs one.
 use baylee_ai::HeuristicAgent;
 use baylee_core::preset::AIProfile;
-use baylee_engine::choice::{ChoicePrompt, Pending, PlayerAction, timeout_answer};
+use baylee_engine::choice::{ArrangePrompt, ChoicePrompt, Pending, PlayerAction, timeout_answer};
 use baylee_view::PlayerView;
 
 use crate::features4::EncodedCandidates4;
@@ -10,24 +10,31 @@ use crate::features4::EncodedCandidates4;
 /// the generic cardinality-only subset sampler does not represent. Declining
 /// to form a band is always legal for this optional engine question. Keep this
 /// outside neural sampling: it has no behavior probability or policy target.
+///
+/// The order of triggers (CR 603.3b) is the same kind of question: a seat of
+/// the net at a table is asked it, the net was never trained on it, and the
+/// order offered is the one every training game played. So it keeps that
+/// order and plays as it did.
 pub(super) fn unsupported_choice_answer(
     pending: &Pending,
     temperature: f32,
 ) -> Option<super::Answer4> {
-    if !matches!(
-        pending,
+    let action = match pending {
         Pending::ChooseCards {
             prompt: ChoicePrompt::Band { .. },
             min: 0,
             ..
-        }
-    ) {
-        return None;
-    }
-    Some(super::Answer4 {
-        action: PlayerAction::ChooseObjects {
+        } => PlayerAction::ChooseObjects {
             objects: Vec::new(),
         },
+        Pending::Arrange {
+            prompt: ArrangePrompt::TriggerOrder,
+            ..
+        } => timeout_answer(pending)?,
+        _ => return None,
+    };
+    Some(super::Answer4 {
+        action,
         value: 0.5,
         provenance: super::StepProvenance4 {
             source: super::SourceKind4::House,

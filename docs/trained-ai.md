@@ -1685,6 +1685,26 @@ The profile input is the level knob at play time (novice … expert). Imitation
 tops out at the house's own level; any level above expert comes from RL and is
 labelled only once measured.
 
+## The order of triggers
+
+The net is not asked what order its triggers go on the stack in, and its numbers
+do not move:
+
+- **Training and evaluation play without the question.** Self-play, `eval4` and
+  every other preset built by `preset_for` or `preset_for_all` keep
+  `HouseRules::default()`, where `order_triggers` is off, so their records and
+  hashes are what they were. Only a table sets it (`HouseRules::for_a_table`).
+- **A seat of the net at a table keeps the order offered.** `netplay4` answers
+  before it encodes anything (`fallback::unsupported_choice_answer`, as for a
+  band), with `SourceKind4::House` and no policy probability. It is the order
+  every game it trained on played.
+- **Collector games have it on**, being real rooms with language models in them.
+  `convert4` reads such a record: a trigger-order step counts as forced, so it
+  leaves no training step and no unencoded decision, and the model's order shows
+  only as the stack it made. `a_game_that_asked_the_order_of_triggers_converts`
+  holds it. Rows of the question are not in `ObservableView`, so they move no
+  observation hash.
+
 ## Interfaces that stay fixed while the net grows
 
 The owner asked that size never become a problem. Size is configuration; the
