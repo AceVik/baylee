@@ -106,7 +106,11 @@ Fassung kommt er, wenn er in Messungen gewinnt.
 | verdeckte Karten aus Aufzeichnungen | Trainingsziel für Gegner-Leser und Bewerter, Suchziele | **offene Entscheidung**, siehe Abschnitt 7 |
 
 **Gegner-Mix.** Hoch Opus, Astra, Argon; mittel Sonnet, Sol, Terra; niedrig Flash, DeepSeek,
-Haiku. Dazu frühere BayleeAI-Stände und die Haus-KI, nur als Gegner. Eine Partie Claude-Mix
+Haiku. Dazu frühere v6-Stände und die Haus-KI, nur als Gegner.
+
+**v3 und v5 nur als Messlatte (Eigentümer, 6. November).** Sie zeigen, wann v6 ihre
+Break-even-Punkte durchbricht. Partien gegen sie gehen nie in Training, Liga oder
+Datensätze. Modelle liegen unter `/mnt/xdata/baylee/opponents/`. Eine Partie Claude-Mix
 kostete im Oktober rund 1,14 $ (60 Partien, 68,50 $), die 160 $ reichen also für gut 130 Partien.
 Darum dient die LLM-Leiter nur für Meilensteine, nicht für jede Iteration. Budgets:
 
