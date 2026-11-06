@@ -25,6 +25,13 @@ impl Dungeon {
         }
     }
 
+    /// Room `room`'s printed name, or `None` for one this dungeon lacks: a
+    /// question read off the wire can name any room at all.
+    #[must_use]
+    pub fn room_name(self, room: u8) -> Option<&'static str> {
+        self.rooms().get(usize::from(room)).copied()
+    }
+
     /// Printed room names in graph-index order; room zero is the entrance.
     #[must_use]
     pub const fn rooms(self) -> &'static [&'static str] {
@@ -130,5 +137,24 @@ impl Dungeon {
             }
         }
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A room is an index a question carries, so it is read as one that may
+    /// be out of range.
+    #[test]
+    fn a_room_a_dungeon_lacks_has_no_name() {
+        for dungeon in Dungeon::ALL {
+            let rooms = dungeon.rooms();
+            assert_eq!(dungeon.room_name(0), rooms.first().copied());
+            let past = u8::try_from(rooms.len()).expect("a few rooms");
+            assert_eq!(dungeon.room_name(past - 1), rooms.last().copied());
+            assert_eq!(dungeon.room_name(past), None);
+            assert_eq!(dungeon.room_name(u8::MAX), None);
+        }
     }
 }

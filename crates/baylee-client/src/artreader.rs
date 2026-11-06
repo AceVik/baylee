@@ -52,6 +52,26 @@ use std::time::Duration;
 /// The largest picture fetched. Scryfall's largest, `png`, is under 2 MB.
 const LARGEST: u64 = 16 * 1024 * 1024;
 
+/// The longest side a card picture may say it has. Scryfall's largest is
+/// 745 × 1040, and a texture past what the GPU takes ends the client.
+const LONGEST_SIDE: u32 = 2048;
+
+/// Whether `bytes` say they are a picture of a card's size, by their header
+/// alone, so nothing is decoded and the fill stays free of that (`fill_one`).
+///
+/// A gateway's mirror answers what it likes, and what is kept here is drawn
+/// at every other table too ([`key`]), so a picture is judged before it is
+/// kept and again when it is read.
+fn picture_fits(bytes: &[u8]) -> bool {
+    image::ImageReader::new(io::Cursor::new(bytes))
+        .with_guessed_format()
+        .ok()
+        .and_then(|reader| reader.into_dimensions().ok())
+        .is_some_and(|(width, height)| {
+            (1..=LONGEST_SIDE).contains(&width) && (1..=LONGEST_SIDE).contains(&height)
+        })
+}
+
 /// The base a request may go to besides the Scryfall CDNs, asked for on every
 /// request because signing in changes it.
 type Base = Arc<dyn Fn() -> Arc<str> + Send + Sync>;
@@ -326,7 +346,7 @@ fn fetch(
 /// is one warning and no picture.
 fn cached(file: &Path) -> Option<Vec<u8>> {
     match std::fs::read(file) {
-        Ok(bytes) if !bytes.is_empty() => Some(bytes),
+        Ok(bytes) if picture_fits(&bytes) => Some(bytes),
         Ok(_) => None,
         Err(err) if err.kind() == io::ErrorKind::NotFound => None,
         Err(err) => {
@@ -440,7 +460,8 @@ fn download(
             return Err(Failed::GaveWay);
         }
         match body.read(&mut chunk) {
-            Ok(0) => return Ok(bytes),
+            Ok(0) if picture_fits(&bytes) => return Ok(bytes),
+            Ok(0) => return Err(Failed::Transport("not a card's picture".into())),
             Ok(read) => bytes.extend_from_slice(&chunk[..read]),
             Err(err) if err.kind() == io::ErrorKind::Interrupted => {}
             Err(err) => return Err(Failed::Transport(err.to_string())),
@@ -534,8 +555,49 @@ mod tests {
     use std::net::TcpListener;
     use std::sync::atomic::AtomicUsize;
 
-    /// The picture every test server hands out.
-    const PICTURE: &[u8] = b"\xff\xd8 a picture \xff\xd9";
+    /// The picture every test server hands out: a real one, one pixel of PNG,
+    /// because anything else is not kept ([`picture_fits`]).
+    const PICTURE: &[u8] = b"\x89PNG\r\n\x1a\n\0\0\0\rIHDR\0\0\0\x01\0\0\0\x01\x08\x06\0\0\0\x1f\x15\xc4\x89\0\0\0\rIDATx\x9cc\0\x01\0\0\x05\0\x01\r\n-\xb4\0\0\0\0IEND\xaeB`\x82";
+
+    /// What a mirror says it is sent is judged by its header: a picture of a
+    /// card's size passes, and bytes that are none, or a picture of a size
+    /// the GPU refuses, are neither kept nor handed to the decoder.
+    #[test]
+    fn only_a_picture_of_a_card_s_size_is_kept() {
+        let png = |width, height| {
+            let mut out = io::Cursor::new(Vec::new());
+            image::DynamicImage::ImageLuma8(image::GrayImage::new(width, height))
+                .write_to(&mut out, image::ImageFormat::Png)
+                .expect("a png");
+            out.into_inner()
+        };
+        let jpeg = |width, height| {
+            let mut out = io::Cursor::new(Vec::new());
+            image::DynamicImage::ImageRgb8(image::RgbImage::new(width, height))
+                .write_to(&mut out, image::ImageFormat::Jpeg)
+                .expect("a jpeg");
+            out.into_inner()
+        };
+        assert!(picture_fits(PICTURE));
+        assert!(picture_fits(&png(488, 680)));
+        assert!(picture_fits(&jpeg(488, 680)));
+        assert!(!picture_fits(&png(65_000, 1)));
+        assert!(!picture_fits(&jpeg(4000, 1)));
+        assert!(!picture_fits(b"<html>not a picture</html>"));
+        assert!(!picture_fits(b""));
+    }
+
+    /// A cache that already holds something else is a miss, so a bad file
+    /// costs a download and never a load.
+    #[test]
+    fn a_cached_file_that_is_no_picture_is_not_read() {
+        let dir = scratch("no-picture");
+        let file = dir.join("kept.jpg");
+        store(&file, b"<html>not a picture</html>").expect("stored");
+        assert!(cached(&file).is_none());
+        store(&file, PICTURE).expect("stored");
+        assert_eq!(cached(&file).as_deref(), Some(PICTURE));
+    }
 
     /// A web server on loopback that answers every request with `head` and
     /// [`PICTURE`], counting requests. Returns its art base (`…/art`).

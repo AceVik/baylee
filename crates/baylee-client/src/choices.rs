@@ -1233,7 +1233,8 @@ fn cast_label(
             .join(" + ")
         }
         K::Dungeon(dungeon) => dungeon.name().to_string(),
-        K::DungeonRoom { dungeon, room } => dungeon.rooms()[usize::from(room)].to_string(),
+        // The room is the host's to name, so one this dungeon lacks is no crash.
+        K::DungeonRoom { dungeon, room } => dungeon.room_name(room).unwrap_or("?").to_string(),
         K::MutatePosition(top) => if top {
             Phrase::MutateOnTop
         } else {

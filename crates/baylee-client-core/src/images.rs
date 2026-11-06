@@ -478,7 +478,10 @@ pub fn art_url_at(base: &str, id: &str, face: Face, size: ArtSize) -> Option<Str
     let mut chars = id.chars();
     let a = chars.next()?;
     let b = chars.next()?;
-    if !id.contains('-') || id.len() < 32 {
+    // An id comes from a gateway, and what is built here goes on to an asset
+    // loader that panics on a path it cannot parse: a `#` and a `://` in the
+    // wrong place are enough. Only a UUID's own characters reach it.
+    if id.len() != 36 || !id.bytes().all(|c| c == b'-' || c.is_ascii_hexdigit()) {
         return None;
     }
     // The nil UUID is well-formed and always wrong: it is what a preset carries
@@ -961,6 +964,25 @@ mod tests {
         assert_eq!(foil.treatment, FinishTreatment::Foil);
         // Same size and face, different printings: different files.
         assert_ne!(foil.url, plain.url);
+    }
+
+    /// An id reaches an asset loader that panics on a path it cannot parse,
+    /// so a gateway's print table cannot put anything in one but a UUID.
+    #[test]
+    fn only_a_uuid_s_characters_become_a_url() {
+        let at = |id| art_url_at("https://gw/art", id, Face::Front, ArtSize::Small);
+        assert!(at("f333ea01-124f-4125-87ab-609be40e774c").is_some());
+        for id in [
+            "xx#://-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "f333ea01-124f-4125-87ab-609be40e774#",
+            "f333ea01-124f-4125-87ab-609be40e77/c",
+            "../../../../../../../../etc/passwd-aa",
+            "urn:uuid:f333ea01-124f-4125-87ab-609be40e774c",
+            "f333ea01-124f-4125-87ab-609be40e774",
+            "",
+        ] {
+            assert_eq!(at(id), None, "{id}");
+        }
     }
 
     #[test]
