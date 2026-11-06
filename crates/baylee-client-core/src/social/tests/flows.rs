@@ -1696,7 +1696,10 @@ fn a_guests_line_to_the_lobby_is_kept_and_nothing_goes_up() {
             .iter()
             .all(|e| !matches!(e, Effect::Up(Up::Global { .. })))
     );
-    alice.social.composer_mut().set_target(crate::social::commands::Target::Global);
+    alice
+        .social
+        .composer_mut()
+        .set_target(crate::social::commands::Target::Global);
     alice.social.composer_mut().typed("hello lobby");
     let (_, effects) =
         alice

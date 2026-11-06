@@ -443,6 +443,10 @@ fn empty_sentence(
         return ChatPhrase::EmptyFiltered.text(lang).to_string();
     }
     match tab {
+        // A guest does not write here, so it is not asked to say hello.
+        ChatTab::Global if machine.me().guest => {
+            ChatPhrase::EmptyGlobalGuest.text(lang).to_string()
+        }
         ChatTab::Global => ChatPhrase::EmptyGlobal.text(lang).to_string(),
         ChatTab::Table => {
             if machine.table().is_some_and(|t| t.playing) {

@@ -213,6 +213,7 @@ KindPresence = Freunde online/offline
 KindTimestamps = Uhrzeiten
 FilterNote = Eine Zeile erscheint in jedem Tab, in dem ihre Art angehakt ist. Der Name des Tabs und wohin du schreibst, bleiben gleich.
 EmptyGlobal = Sag allen in der Lobby hallo! Der Lobby-Chat ist öffentlich und nicht verschlüsselt.
+EmptyGlobalGuest = Noch nichts hier. Der Lobby-Chat ist öffentlich und nicht verschlüsselt.
 EmptyTable = Noch nichts gesagt. Was du hier schreibst, geht verschlüsselt an die Spieler an diesem Tisch.
 EmptyRoom = Sag hallo – wer sich hier hinsetzt, liest es.
 EmptyTeam = Noch kein Teamgespräch. Nur dein Team liest diesen Tab.
