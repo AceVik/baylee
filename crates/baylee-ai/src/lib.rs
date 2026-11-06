@@ -1175,8 +1175,10 @@ pub fn spell_can_be_cast_now(
 }
 
 /// Whether an offered activation can do nothing but make mana: a mana
-/// ability (CR 605.1a) whose price is its tap and mana at most, or a mana
-/// ability a permanent is granted, which costs its tap by construction.
+/// ability (CR 605.1a) whose price is its tap alone, or a mana ability a
+/// permanent is granted, which costs its tap by construction. A mana ability
+/// with mana in its price (Nykthos, Shrine to Nyx: `{2}, {T}`) is a choice
+/// to spend mana and is offered: no list of plain taps ever reaches it.
 ///
 /// The engine offers every mana ability at every priority (CR 605.3a), so
 /// an offer of nothing else reads as something to do and is not: mana made
@@ -1212,7 +1214,7 @@ pub fn only_makes_mana(view: &PlayerView, object: ObjectId, index: u32) -> bool 
                 mana_ability: true,
                 ..
             },
-        ) => !policy::priced(cost),
+        ) => !policy::priced(cost) && cost.mana == baylee_core::mana::ManaCost::ZERO,
         _ => false,
     }
 }

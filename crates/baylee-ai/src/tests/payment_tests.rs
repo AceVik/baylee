@@ -758,6 +758,39 @@ fn sparse_grant_id_is_used_for_both_mana_estimates_and_actual_offers() {
     );
 }
 
+/// Nykthos, Shrine to Nyx prints `{T}: Add {C}` and `{2}, {T}: Choose a
+/// color. Add mana equal to your devotion to that color.` The second is a
+/// mana ability with a price of its own. A seat that hid it from the menu as
+/// "only makes mana" left nobody a way to use it with mana floating: it is in
+/// no list of plain mana taps (it needs {2} first), so it is a decision to
+/// offer. The plain tap stays quiet.
+#[test]
+fn a_mana_ability_with_a_mana_cost_is_offered_and_the_plain_tap_is_not() {
+    let index = baylee_cards::decks::by_name("Nykthos, Shrine to Nyx").unwrap();
+    let mut nykthos = permanent(obj(20), PlayerId::new(0), 0);
+    nykthos.types = TypeSet::LAND;
+    nykthos.power = None;
+    nykthos.toughness = None;
+    nykthos.card = Some(baylee_view::CardIdentity {
+        index,
+        print: baylee_core::ids::PrintRef::new(0),
+        face: 0,
+    });
+    nykthos.rules = Some(baylee_view::RulesFace {
+        card: index,
+        face: 0,
+    });
+    let v = view(0, &[20, 20], vec![nykthos]);
+    assert!(
+        crate::only_makes_mana(&v, obj(20), 0),
+        "{{T}}: Add {{C}} has nothing to decide"
+    );
+    assert!(
+        !crate::only_makes_mana(&v, obj(20), 1),
+        "{{2}}, {{T}}: devotion mana spends mana and is a choice"
+    );
+}
+
 #[test]
 fn inherited_definition_lookup_uses_sparse_id_and_donor_ability_index() {
     use baylee_core::generated::index;
