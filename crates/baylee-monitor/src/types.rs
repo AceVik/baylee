@@ -566,11 +566,16 @@ mod tests {
                     finished_ms: Some(1),
                     returncode: Some(0),
                     reason: Some("x".into()),
+                    eval: None,
+                    error_line: Some("x".into()),
                 }],
                 progress: Some(Progress {
                     stage: "train".into(),
                     line: "[t] x=1".into(),
                     fields: vec![("x".into(), "1".into())],
+                    step: Some(1),
+                    total_steps: Some(2),
+                    remaining_s: Some(3),
                     updated_ms: Some(1),
                 }),
                 ..Pipeline::default()

@@ -219,7 +219,21 @@ first ten get the full read below. Per refresh and pipeline it reads:
   `/proc/<pid>/stat` has the recorded start time, so a recycled pid is not
   mistaken for it. A phase that is neither `complete` nor `failed` with a
   stopped controller is shown as a warning. The pipeline is linked to the
-  system unit whose `MainPID` is its controller.
+  unit its live controller runs in, read from `/proc/<pid>/cgroup` (the last
+  `*.service` component), so system units such as `baylee-v6a-p1.service` and
+  user units such as `baylee-v6a-ladder-gateway.service` are found without a
+  bus. It also names `manifest`, the plan file.
+- the plan (`manifest`, only an absolute `.json` path without `..`, at most
+  256 KiB; a plain file, never a symlink): the stage names in order, which
+  gives "Stufe 5 von 14" and lists the stages that have not started as
+  `pending`, and from a training stage's command only `--epochs`,
+  `--batch-size` and `--time-budget-seconds`. The rest of a command line is
+  parsed past and dropped.
+- `eval-<stage>.json` beside the plan, for each finished stage, looked up by
+  name (the directory is not listed): `net_wins`, `net_losses`, `net_draws`,
+  `net_win_rate` and `deals`. These files can approach a megabyte (cap
+  4 MiB), so a result is parsed once and remembered by size and modification
+  time until no pipeline on show asks for it any more.
 - every stage directory under `jobs/` (at most 256 entries read, the newest 48
   kept): `status`, `started_at_unix`, `finished_at_unix`, `returncode` and
   `reason` from `job.json` (at most 64 KiB). Its command line and environment
@@ -229,7 +243,17 @@ first ten get the full read below. Per refresh and pipeline it reads:
   last, and in it the newest line of the form `[tool] …`, such as
   `[train4] step=2150 epoch=1 loss=0.9757 batches_per_s=1.48`. Its
   `key=value` pairs (at most eight) become chips; the line is shown below them
-  with the log's age.
+  with the log's age. For a training stage the first 2 KiB of `stdout.log`
+  (`train_segments=N … B=M`) and the plan's `--epochs` give the stage's total
+  steps (`ceil(N / B) × epochs`); with the log's `step` and `batches_per_s`
+  that is a rough "noch ca." time, cut short by `--time-budget-seconds` when
+  the plan has one, and left out when the log is older than ten minutes or
+  the stage is no longer running. Eval stages print their result only at the
+  end, so they get an elapsed time and, once finished, their `net_wins` but no
+  estimate.
+- for up to four failed or quarantined stages (newest first): the last
+  non-blank line of `stderr.log`, else of `stdout.log` (last 4 KiB), shown on
+  the stage with paths reduced.
 
 Text from these files reaches the browser only after control characters are
 removed, every absolute or home-relative path is reduced to `…/last-component`

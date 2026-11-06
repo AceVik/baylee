@@ -3,8 +3,10 @@
 //! slow bus or disk never delays the 1 Hz sampler. Read-only, like the rest.
 
 mod dbus;
+mod detail;
 mod discovery;
 mod pipeline;
+mod plan;
 mod safe;
 mod units;
 
@@ -63,9 +65,10 @@ pub(crate) fn spawn(
         .name("training".into())
         .spawn(move || {
             let mut units = units::Units::default();
+            let mut evals = plan::EvalCache::default();
             loop {
                 let started = Instant::now();
-                let view = collect(&mut units, &pipelines, &roots);
+                let view = collect(&mut units, &mut evals, &pipelines, &roots);
                 *shared.lock().unwrap_or_else(PoisonError::into_inner) = view;
                 std::thread::sleep(REFRESH.saturating_sub(started.elapsed()));
             }
@@ -79,6 +82,8 @@ fn select(
     explicit: &[PathBuf],
     roots: &[PathBuf],
     boot_id: Option<&str>,
+    now_ms: u64,
+    evals: &mut plan::EvalCache,
     limit: usize,
 ) -> Vec<Pipeline> {
     let mut seen = std::collections::HashSet::new();
@@ -97,12 +102,18 @@ fn select(
     });
     all.truncate(limit);
     for pipeline in &mut all {
-        pipeline::fill(pipeline);
+        pipeline::fill(pipeline, now_ms, evals);
     }
+    evals.sweep();
     all
 }
 
-fn collect(units: &mut units::Units, explicit: &[PathBuf], roots: &[PathBuf]) -> Training {
+fn collect(
+    units: &mut units::Units,
+    evals: &mut plan::EvalCache,
+    explicit: &[PathBuf],
+    roots: &[PathBuf],
+) -> Training {
     let now_ms = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
@@ -118,7 +129,7 @@ fn collect(units: &mut units::Units, explicit: &[PathBuf], roots: &[PathBuf]) ->
         units: units.view(),
         services: units.services(),
         units_problem,
-        pipelines: select(explicit, roots, boot_id, MAX_PIPELINES),
+        pipelines: select(explicit, roots, boot_id, now_ms, evals, MAX_PIPELINES),
     }
 }
 
@@ -142,8 +153,9 @@ mod tests {
         run(&scratch, "c/execution", "train-x", 50);
         run(&scratch, "d/execution", "interrupted", 400);
         let roots = [scratch.0.clone()];
-        let names = |limit| -> Vec<String> {
-            select(&[], &roots, None, limit)
+        let mut cache = plan::EvalCache::default();
+        let mut names = |limit| -> Vec<String> {
+            select(&[], &roots, None, 0, &mut cache, limit)
                 .into_iter()
                 .map(|p| p.name)
                 .collect()
@@ -157,7 +169,14 @@ mod tests {
         run(&scratch, "e/execution", "convert", 60);
         assert_eq!(names(10)[0], "e/execution");
         // An explicit directory that is also below a root is listed once.
-        let both = select(&[scratch.0.join("a/execution")], &roots, None, 10);
+        let both = select(
+            &[scratch.0.join("a/execution")],
+            &roots,
+            None,
+            0,
+            &mut cache,
+            10,
+        );
         assert_eq!(both.len(), 5);
     }
 

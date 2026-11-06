@@ -7,7 +7,11 @@
 //! never kept), and only the last 8 KiB of a log are read. Text that reaches
 //! the browser has absolute paths reduced to their last component.
 
-use super::safe::{clean, read_json, unix_ms, valid_name};
+use super::{
+    detail,
+    plan::{self, Eval, EvalCache},
+    safe::{clean, read_json, unix_ms, valid_name},
+};
 use serde::{Deserialize, Serialize};
 use std::{
     fs::{self, File},
@@ -39,6 +43,14 @@ pub(crate) struct Pipeline {
     /// Not finished and its controller not known to be gone: the panel lists
     /// these first.
     pub active: bool,
+    /// The systemd unit the live controller runs in (system or user).
+    pub unit: Option<String>,
+    /// When the first stage started.
+    pub started_ms: Option<u64>,
+    /// Stages in the plan, and the 1-based position of the running one (else
+    /// of the first unfinished one); `None` without a readable plan.
+    pub stage_total: Option<usize>,
+    pub stage_current: Option<usize>,
     pub stages: Vec<Stage>,
     pub progress: Option<Progress>,
     #[serde(skip)]
@@ -56,9 +68,29 @@ pub(crate) struct Stage {
     pub finished_ms: Option<u64>,
     pub returncode: Option<i64>,
     pub reason: Option<String>,
+    /// The result of a finished evaluation stage.
+    pub eval: Option<Eval>,
+    /// The last line a failed stage wrote.
+    pub error_line: Option<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize)]
+impl Stage {
+    /// A stage the plan lists that has not started.
+    pub(super) fn pending(name: &str) -> Self {
+        Self {
+            name: name.to_owned(),
+            status: Some("pending".into()),
+            started_ms: None,
+            finished_ms: None,
+            returncode: None,
+            reason: None,
+            eval: None,
+            error_line: None,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize)]
 pub(crate) struct Progress {
     pub stage: String,
     /// The newest `[tool] …` line of the stage's logs, paths reduced.
@@ -67,6 +99,11 @@ pub(crate) struct Progress {
     pub fields: Vec<(String, String)>,
     /// When that log was last written.
     pub updated_ms: Option<u64>,
+    /// Training stages: the latest `step`, the steps the stage will take
+    /// (segments / batch × epochs) and a rough number of seconds left.
+    pub step: Option<u64>,
+    pub total_steps: Option<u64>,
+    pub remaining_s: Option<u64>,
 }
 
 #[derive(Deserialize)]
@@ -100,7 +137,7 @@ struct JobFile {
 #[cfg(test)]
 pub(crate) fn read(dir: &Path, boot_id: Option<&str>) -> Pipeline {
     let mut pipeline = peek(dir, boot_id);
-    fill(&mut pipeline);
+    fill(&mut pipeline, 0, &mut EvalCache::default());
     pipeline
 }
 
@@ -140,23 +177,82 @@ pub(crate) fn peek(dir: &Path, boot_id: Option<&str>) -> Pipeline {
     pipeline
 }
 
-/// Adds the stages and the running stage's progress, which cost a directory
-/// listing and a few small reads: done only for the pipelines that are shown.
-pub(crate) fn fill(pipeline: &mut Pipeline) {
-    let dir = pipeline.dir.clone();
-    pipeline.stages = stages(&dir.join("jobs"));
-    let current = pipeline
-        .stages
+/// Adds the stages, the running stage's progress and the details that need
+/// the plan, which cost a directory listing and a few small reads: done only
+/// for the pipelines that are shown.
+pub(crate) fn fill(pipeline: &mut Pipeline, now_ms: u64, evals: &mut EvalCache) {
+    let jobs = pipeline.dir.join("jobs");
+    let mut stages = stages(&jobs);
+    pipeline.started_ms = stages.iter().filter_map(|s| s.started_ms).min();
+    let plan = pipeline.manifest.as_deref().and_then(plan::read);
+    if let Some(plan) = &plan {
+        stages = detail::in_plan_order(plan, stages);
+        pipeline.stage_total = Some(plan.stages.len());
+        pipeline.stage_current = detail::current_position(&stages);
+        let excess = stages.len().saturating_sub(MAX_STAGES);
+        stages.drain(..excess);
+    }
+    if let Some(plan_dir) = pipeline.manifest.as_deref().and_then(Path::parent) {
+        for stage in stages
+            .iter_mut()
+            .filter(|s| s.status.as_deref() == Some("complete"))
+        {
+            stage.eval = evals.get(plan_dir, &stage.name);
+        }
+    }
+    let failed = |s: &&mut Stage| {
+        matches!(s.status.as_deref(), Some("failed" | "quarantined"))
+            || s.returncode.is_some_and(|code| code != 0)
+    };
+    for stage in stages
+        .iter_mut()
+        .rev()
+        .filter(failed)
+        .take(detail::MAX_ERROR_LOOKUPS)
+    {
+        stage.error_line = detail::failure_line(&jobs.join(&stage.name));
+    }
+    let current = stages
         .iter()
         .rev()
         .find(|s| s.status.as_deref() == Some("running"))
         .or_else(|| {
             let phase = pipeline.phase.as_deref()?;
-            pipeline.stages.iter().find(|s| s.name == phase)
+            stages.iter().find(|s| s.name == phase)
         })
-        .or_else(|| pipeline.stages.last());
-    pipeline.progress =
-        current.and_then(|stage| progress(&dir.join("jobs").join(&stage.name), &stage.name));
+        .or_else(|| {
+            stages
+                .iter()
+                .rev()
+                .find(|s| s.status.as_deref() != Some("pending"))
+        });
+    if let Some(stage) = current {
+        let stage_dir = jobs.join(&stage.name);
+        pipeline.progress = progress(&stage_dir, &stage.name);
+        let running = stage.status.as_deref() == Some("running");
+        if let Some(progress) = &mut pipeline.progress {
+            let planned = plan
+                .iter()
+                .flat_map(|p| &p.stages)
+                .find(|p| p.name == stage.name);
+            let header = detail::log_head(&stage_dir.join("stdout.log"));
+            let fallback = plan::PlanStage::default();
+            detail::estimate(
+                progress,
+                planned.unwrap_or(&fallback),
+                &header,
+                stage.started_ms,
+                now_ms,
+            );
+            if !running {
+                progress.remaining_s = None;
+            }
+        }
+    }
+    if pipeline.controller_alive == Some(true) {
+        pipeline.unit = pipeline.controller_pid.and_then(detail::unit_of);
+    }
+    pipeline.stages = stages;
 }
 
 fn display_name(dir: &Path) -> String {
@@ -220,20 +316,16 @@ fn stages(jobs: &Path) -> Vec<Stage> {
             let job = read_json::<JobFile>(&entry.path().join("job.json"), MAX_JSON).ok();
             Some(match job {
                 Some(job) => Stage {
-                    name,
                     status: job.status.map(|s| clean(&s)),
                     started_ms: job.started_at_unix.and_then(unix_ms),
                     finished_ms: job.finished_at_unix.and_then(unix_ms),
                     returncode: job.returncode,
                     reason: job.reason.map(|r| clean(&r)),
+                    ..Stage::pending(&name)
                 },
                 None => Stage {
-                    name,
                     status: None,
-                    started_ms: None,
-                    finished_ms: None,
-                    returncode: None,
-                    reason: None,
+                    ..Stage::pending(&name)
                 },
             })
         })
@@ -263,6 +355,7 @@ fn progress(stage_dir: &Path, stage: &str) -> Option<Progress> {
         fields: fields(&line),
         line,
         updated_ms,
+        ..Progress::default()
     })
 }
 
@@ -377,6 +470,75 @@ mod tests {
         assert_eq!(progress.fields.len(), 4);
         assert_eq!(progress.fields[2], ("loss".into(), "0.9757".into()));
         let json = serde_json::to_string(&read(&dir, None)).unwrap();
+        assert!(
+            !json.contains("hunter2") && !json.contains("/home/ace"),
+            "{json}"
+        );
+    }
+
+    #[test]
+    fn the_plan_adds_stage_count_evals_estimate_and_failure_lines() {
+        let scratch = Scratch::new("details");
+        let plan = scratch.0.join("plan-1.json");
+        scratch.write(
+            "plan-1.json",
+            r#"{"stages":[{"name":"eval-a","command":["e"]},
+                {"name":"train-b","command":["t","--epochs","1","--batch-size","8"]},
+                {"name":"export-b","command":["x"]},{"name":"eval-c","command":["e"]}]}"#,
+        );
+        scratch.write(
+            "eval-eval-a.json",
+            r#"{"net_wins":10,"net_losses":14,"net_draws":0,"net_win_rate":0.41,"deals":24}"#,
+        );
+        scratch.write(
+            "ex/status.json",
+            &format!(
+                r#"{{"phase":"train-b","manifest":"{}","controller":{{"pid":{},"start_ticks":1}}}}"#,
+                plan.display(),
+                std::process::id()
+            ),
+        );
+        scratch.write("ex/jobs/eval-a/job.json", JOB_DONE);
+        scratch.write(
+            "ex/jobs/train-b/job.json",
+            r#"{"status":"running","started_at_unix":1000.0}"#,
+        );
+        scratch.write(
+            "ex/jobs/train-b/stdout.log",
+            "[train4] device=cuda train_segments=800 B=8\n\
+             [train4] step=40 epoch=1 loss=0.5 batches_per_s=2.0\n",
+        );
+        scratch.write(
+            "ex/jobs/old-fail/job.json",
+            r#"{"status":"failed","returncode":1,"started_at_unix":1.0}"#,
+        );
+        scratch.write(
+            "ex/jobs/old-fail/stderr.log",
+            "RuntimeError: out of memory at /home/ace/x/y.py\n",
+        );
+        let mut pipeline = peek(&scratch.0.join("ex"), None);
+        assert_eq!(pipeline.manifest.as_deref(), Some(plan.as_path()));
+        let now = 1_000_000 + 25_000;
+        fill(&mut pipeline, now, &mut EvalCache::default());
+        assert_eq!(pipeline.stage_total, Some(4));
+        assert_eq!(pipeline.stage_current, Some(2));
+        assert_eq!(pipeline.started_ms, Some(1_000));
+        let names: Vec<_> = pipeline.stages.iter().map(|s| s.name.as_str()).collect();
+        assert_eq!(
+            names,
+            ["eval-a", "train-b", "export-b", "eval-c", "old-fail"]
+        );
+        assert_eq!(pipeline.stages[2].status.as_deref(), Some("pending"));
+        let eval = pipeline.stages[0].eval.as_ref().unwrap();
+        assert_eq!((eval.net_wins, eval.net_losses), (Some(10), Some(14)));
+        assert_eq!(
+            pipeline.stages[4].error_line.as_deref(),
+            Some("RuntimeError: out of memory at …/y.py")
+        );
+        let progress = pipeline.progress.unwrap();
+        assert_eq!((progress.step, progress.total_steps), (Some(40), Some(100)));
+        assert_eq!(progress.remaining_s, Some(30));
+        let json = serde_json::to_string(&pipeline.stages).unwrap();
         assert!(
             !json.contains("hunter2") && !json.contains("/home/ace"),
             "{json}"
