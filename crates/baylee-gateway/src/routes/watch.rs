@@ -55,7 +55,8 @@ pub(crate) fn may_watch(game: &lobby::LobbyGame) -> Result<(), (StatusCode, Json
 /// the whole public log, and `Curtain`); a socket that falls behind asks for
 /// the same. A spectator is never waited for by the curtain, never on a
 /// clock, and may leave at any time. A frame the spectator sends is dropped,
-/// and one over 64 KiB ends the connection; there is no rate bound. The session is checked again
+/// and one over 64 KiB ends the connection; there is no rate bound. An account
+/// holding 32 sockets is refused `429` until one closes. The session is checked again
 /// every 5 seconds; once it is signed out, lapsed or banned, or the game
 /// ends, the socket closes with a close frame without a code.
 /// @ws-query ticket: String required "A single-use ticket bought for watching this game with `POST /ws-ticket` and the session"
@@ -111,9 +112,14 @@ pub(crate) async fn watch_ws(
     crate::moderation::admit(&watcher)?;
     crate::terms_admit(&watcher)?;
     let watcher = watcher.account_id;
+    let place = crate::presence::socket_place(&state, &watcher)?;
     Ok(ws
         .max_message_size(MAX_SEAT_FRAME)
-        .on_upgrade(move |socket| run_watch_socket(state, id, Some(watcher), session, socket)))
+        .max_frame_size(MAX_SEAT_FRAME)
+        .on_upgrade(move |socket| async move {
+            let _place = place;
+            run_watch_socket(state, id, Some(watcher), session, socket).await;
+        }))
 }
 
 /// Moves the game's spectator count by `by` and tells its engine; `joined`

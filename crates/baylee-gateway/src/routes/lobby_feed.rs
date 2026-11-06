@@ -37,7 +37,9 @@ use crate::{
 /// checks the session again every 5 seconds, and once it is signed out,
 /// lapsed or banned, or the account is deleted, it sends a close frame
 /// without a code. An open lobby socket counts its account as online
-/// (`GET /lobby/stats`) and keeps its waiting-room chairs.
+/// (`GET /lobby/stats`) and keeps its waiting-room chairs. A frame over 1 KiB
+/// ends the connection. An account holding 32 sockets (lobby, social and
+/// spectator together) is refused `429` until one closes.
 /// @ws-query ticket: String required "A single-use ticket bought for the lobby feed with `POST /ws-ticket`"
 /// @ws-query token: String deprecated "Instead of a ticket, the session token itself, as clients from before tickets send it; accepted until 2026-10-31 (UTC) and then refused with `401`. A ticket wins when both are sent."
 /// @ws-query q: String "Text to find, case-insensitively and anywhere, in a table's name or its host's display name; a table's exact id also matches. Blank matches every table."
@@ -87,10 +89,19 @@ pub(crate) async fn lobby_ws(
         crate::terms_admit(&session)?;
         (session.account_id, digest)
     };
-    Ok(ws.on_upgrade(move |socket| {
-        run_lobby_socket(state, account_id, session_digest, params.query, socket)
-    }))
+    let place = crate::presence::socket_place(&state, &account_id)?;
+    Ok(ws
+        .max_message_size(MAX_LOBBY_FRAME)
+        .max_frame_size(MAX_LOBBY_FRAME)
+        .on_upgrade(move |socket| async move {
+            let _place = place;
+            run_lobby_socket(state, account_id, session_digest, params.query, socket).await;
+        }))
 }
+
+/// The biggest frame a lobby socket takes: the client says nothing here, and
+/// a pong is at most the 125 bytes a control frame may carry.
+const MAX_LOBBY_FRAME: usize = 1024;
 
 /// How often a quiet lobby socket is pinged.
 const PING_EVERY: std::time::Duration = std::time::Duration::from_secs(20);

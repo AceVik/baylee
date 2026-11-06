@@ -19,7 +19,7 @@ use crate::{ErrorBody, Shared, auth, authed_session, chair, err, err_saying, lob
 use axum::Extension;
 use axum::Json;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
-use axum::extract::{Path, State};
+use axum::extract::{ConnectInfo, Path, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use baylee_db::llm_access;
@@ -300,32 +300,43 @@ pub(crate) fn token_from_env(
 /// socket (`BAYLEE_UNIX_SOCKET`). A seat agent that sends nothing for two
 /// heartbeats (60 seconds) is dropped, and its profiles leave the offer
 /// with it. Frames are JSON text frames of at most 1 MiB, with no rate
-/// bound; a frame that does not read is passed over. Several seat agents may be connected at once,
+/// bound; a larger frame ends the connection, and one that does not read is
+/// passed over. An address may hold 16 sockets that have said no hello yet
+/// (`/agent/ws`). Several seat agents may be connected at once,
 /// each under its own name.
 /// @receive `AgentFrame`: `$Frame` application/json "What the seat agent sends: `hello` first, then `profiles`, `seat_status`, `answer` and `heartbeat`"
 /// @send `GatewayFrame`: `$Frame` application/json "What the gateway sends: `welcome` or `refused` after the `hello`, then `start_seat`, `stop_seat`, `profile_write`, `profile_delete`, `control` and `key_write`"
 pub(crate) async fn socket(
     State(state): State<Shared>,
     via_unix: Option<Extension<crate::engine::ViaUnix>>,
+    ConnectInfo(peer): ConnectInfo<std::net::SocketAddr>,
+    headers: HeaderMap,
     ws: WebSocketUpgrade,
 ) -> Response {
     let local = via_unix.is_some();
+    let Ok(place) = crate::engine::hello_place(&state, peer, &headers, local) else {
+        return StatusCode::TOO_MANY_REQUESTS.into_response();
+    };
     ws.max_message_size(MAX_FRAME_BYTES)
-        .on_upgrade(move |socket| run(state, socket, local))
+        .max_frame_size(MAX_FRAME_BYTES)
+        .on_upgrade(move |socket| run(state, socket, local, place))
 }
 
 async fn send(socket: &mut WebSocket, frame: &Frame) -> Result<(), axum::Error> {
     socket.send(Message::text(frame.to_text())).await
 }
 
-async fn run(state: Shared, mut socket: WebSocket, local: bool) {
+async fn run(state: Shared, mut socket: WebSocket, local: bool, place: Option<auth::Held>) {
+    // One window for the whole hello: frames of another kind do not move it.
+    let deadline = tokio::time::Instant::now() + HELLO_TIMEOUT;
     let hello = loop {
-        match tokio::time::timeout(HELLO_TIMEOUT, socket.recv()).await {
+        match tokio::time::timeout_at(deadline, socket.recv()).await {
             Ok(Some(Ok(Message::Text(text)))) => break Frame::parse(&text).ok(),
             Ok(Some(Ok(_))) => {}
             _ => return,
         }
     };
+    drop(place);
     let Some(Frame::Hello {
         token,
         name,

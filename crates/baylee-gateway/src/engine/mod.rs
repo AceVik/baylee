@@ -19,13 +19,15 @@
 
 use crate::{Shared, auth, lobby::LobbyState};
 use axum::Extension;
-use axum::extract::State;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
-use axum::response::Response;
+use axum::extract::{ConnectInfo, State};
+use axum::http::{HeaderMap, StatusCode};
+use axum::response::{IntoResponse as _, Response};
 use baylee_protocol::v1::{self, Envelope};
 use bytes::Bytes;
 use prost::Message as _;
 use std::collections::HashMap;
+use std::net::SocketAddr;
 use tokio::sync::{broadcast, mpsc};
 use uuid::Uuid;
 
@@ -206,8 +208,11 @@ fn stop_engine(state: &Shared, game_id: &str) {
 /// that game. A frame that does not decode, and a kind this link does not
 /// carry, is passed over. An agent on the gateway's unix socket
 /// (`BAYLEE_UNIX_SOCKET`) is local, and so is every game it runs. A
-/// player's seat token or session opens no agent link. Frames have no
-/// bound beyond the transport's default, and there is no rate bound.
+/// player's seat token or session opens no agent link. A frame is at most
+/// 64 KiB, a larger one ends the connection, and there is no rate bound. An
+/// address that is not this machine may hold 16 sockets here, on `/engine/ws`
+/// and on `/seathost/ws` that have said no hello yet; past that the upgrade
+/// is refused with `429`.
 /// An agent silent for 90 seconds loses this link. Disconnect closes only
 /// its assigned games and replay jobs; a new link cannot reclaim them.
 /// An ordered game engine must attach within 30 seconds. Exit before its
@@ -223,22 +228,79 @@ fn stop_engine(state: &Shared, game_id: &str) {
 pub async fn agent_ws(
     State(state): State<Shared>,
     via_unix: Option<Extension<ViaUnix>>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
     ws: WebSocketUpgrade,
 ) -> Response {
     let local = via_unix.is_some();
-    ws.on_upgrade(move |socket| run_agent_socket(state, socket, local))
+    let Ok(place) = hello_place(&state, peer, &headers, local) else {
+        return StatusCode::TOO_MANY_REQUESTS.into_response();
+    };
+    ws.max_message_size(MAX_AGENT_FRAME)
+        .max_frame_size(MAX_AGENT_FRAME)
+        .on_upgrade(move |socket| run_agent_socket(state, socket, local, place))
 }
 
-async fn run_agent_socket(state: Shared, mut socket: WebSocket, local: bool) {
-    let Some(v1::envelope::Msg::AgentHello(hello)) = hello_of(&mut socket).await else {
+/// The biggest frame an agent sends: a hello, a heartbeat, or an engine's
+/// status with a line of detail. A stranger's first frame is held to this
+/// before its secret is read.
+const MAX_AGENT_FRAME: usize = 64 * 1024;
+
+/// The biggest frame an engine sends, which is the transport's own bound on
+/// a frame. A view, a record piece and a tape piece are all far under it,
+/// and an engine sends none in several frames.
+const MAX_ENGINE_FRAME: usize = 16 << 20;
+
+/// How many sockets one address may hold on the control and engine planes
+/// before they said hello.
+///
+/// These doors are public and read a frame before anything about the sender
+/// is known, so this is what a stranger's frames can cost: a bound on the
+/// memory one address holds, not on a real peer, whose hello follows its
+/// dial at once. An agent starting a burst of engines has this many in
+/// flight only if every one of them is slower than the next is started.
+pub(crate) const HELLOS_PER_ADDRESS: usize = 16;
+
+/// A place among the sockets that have said no hello yet, or `Err` while
+/// the dialling address holds all of its own.
+///
+/// `None` for a peer on this machine, on the unix socket or on loopback
+/// (with no trusted proxy naming anyone behind it, that is every peer, and
+/// one budget for them all would let a stranger spend the local engines').
+pub(crate) fn hello_place(
+    state: &crate::AppState,
+    peer: SocketAddr,
+    headers: &HeaderMap,
+    local: bool,
+) -> Result<Option<auth::Held>, ()> {
+    let here = crate::client_address(&state.trusted_proxies, peer.ip(), headers)
+        .to_canonical()
+        .is_loopback();
+    if local || here {
+        return Ok(None);
+    }
+    let key = crate::rate_limit_ip(&state.trusted_proxies, peer.ip(), headers);
+    state.hellos.take(&key).map(Some).ok_or(())
+}
+
+async fn run_agent_socket(
+    state: Shared,
+    mut socket: WebSocket,
+    local: bool,
+    place: Option<auth::Held>,
+) {
+    let hello = hello_of(&mut socket).await;
+    drop(place);
+    let Some(v1::envelope::Msg::AgentHello(hello)) = hello else {
         return;
     };
     let Some(expected) = state.agent_token.as_deref() else {
         tracing::warn!("an agent connected but BAYLEE_AGENT_TOKEN is not set; refused");
         return;
     };
+    // The name is a stranger's until the secret is right, so it is not logged.
     if !auth::ct_eq(&auth::token_hash(&hello.token), &auth::token_hash(expected)) {
-        tracing::warn!(name = hello.name, "agent presented the wrong token");
+        tracing::warn!("agent presented the wrong token");
         return;
     }
     // After the secret, so a stranger learns nothing here it could not read
@@ -422,8 +484,9 @@ fn report(state: &Shared, agent_id: &str, status: &v1::EngineStatus) {
 /// replay job (an id beginning `replay-`) is sent `ProjectRecord` instead
 /// of `GameSetup`, sends `TapeChunk`s back until the last, and is closed. A
 /// frame that does not decode, and a kind this link does not carry, is
-/// passed over. Frames have no bound beyond the transport's default, and
-/// there is no rate bound.
+/// passed over. A frame is at most 16 MiB, a larger one ends the connection,
+/// and there is no rate bound; `/agent/ws` says how many sockets one address
+/// may hold here before their hello.
 /// @receive `EngineHello`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `engine_hello`, first: `game_id` and `token` as `StartEngine` named them, `protocol_version` (another, or 0, is refused), `pid` (its process id, which a gateway on the same machine reads for the admin console; 0 says none) and `build` (its build, kept beside the game's record; empty from an older engine)."
 /// @receive `SeatFrameToSeat`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `seat_frame`: `envelope`, an encoded player-facing `Envelope`, for the socket of seat `seat`, which is handed it as it is. Dropped while that seat has no socket."
 /// @receive `SpectatorFrame`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `spectator_frame`: `envelope`, an encoded player-facing `Envelope` of the public stream, handed as it is to every watch socket of the game."
@@ -441,9 +504,20 @@ fn report(state: &Shared, agent_id: &str, status: &v1::EngineStatus) {
 /// @send `CloseGame`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `close_game`: an admin ends the game. Tell every seat and spectator `GameClosed` with `reason`, send the rest of the record and then `GameEnded` with no winners."
 /// @send `ProjectRecord`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `project_record`, replay jobs only, instead of `GameSetup`: play the stored record (`record`, one gzip stream) again and send back the tape of one perspective of it (a seat, the spectators, or a seat with other hands beside it)."
 /// @send `Error`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `error`, `code` 1: the engine's protocol is not the gateway's, and `message` names both. The only frame; the socket closes after it."
-pub async fn engine_ws(State(state): State<Shared>, ws: WebSocketUpgrade) -> Response {
-    ws.read_buffer_size(ENGINE_READ_BUFFER)
-        .on_upgrade(move |socket| run_engine_socket(state, socket))
+pub async fn engine_ws(
+    State(state): State<Shared>,
+    via_unix: Option<Extension<ViaUnix>>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+    ws: WebSocketUpgrade,
+) -> Response {
+    let Ok(place) = hello_place(&state, peer, &headers, via_unix.is_some()) else {
+        return StatusCode::TOO_MANY_REQUESTS.into_response();
+    };
+    ws.max_message_size(MAX_ENGINE_FRAME)
+        .max_frame_size(MAX_ENGINE_FRAME)
+        .read_buffer_size(ENGINE_READ_BUFFER)
+        .on_upgrade(move |socket| run_engine_socket(state, socket, place))
 }
 
 /// How much an engine's socket reads from the network at once: a view is
@@ -452,8 +526,10 @@ pub async fn engine_ws(State(state): State<Shared>, ws: WebSocketUpgrade) -> Res
 const ENGINE_READ_BUFFER: usize = 32 << 10;
 
 #[allow(clippy::too_many_lines)] // the attach, in the order it happens
-async fn run_engine_socket(state: Shared, mut socket: WebSocket) {
-    let Some(v1::envelope::Msg::EngineHello(hello)) = hello_of(&mut socket).await else {
+async fn run_engine_socket(state: Shared, mut socket: WebSocket, place: Option<auth::Held>) {
+    let hello = hello_of(&mut socket).await;
+    drop(place);
+    let Some(v1::envelope::Msg::EngineHello(hello)) = hello else {
         return;
     };
     if hello.game_id.starts_with(crate::replays::JOB_PREFIX) {
@@ -466,8 +542,9 @@ async fn run_engine_socket(state: Shared, mut socket: WebSocket) {
         let names = crate::seat_names(&state, &game_id).await;
         let guests = crate::seat_guests(&state, &game_id).await;
         let mut lobby = state.lobby.lock();
+        // The id is a stranger's until it names a game, so it is not logged.
         let Some(game) = lobby.games.get_mut(&game_id) else {
-            tracing::warn!(game_id, "engine attached to a game that is not here");
+            tracing::warn!("engine attached to a game that is not here");
             return;
         };
         // The token is the whole authorization on this socket: it was issued
@@ -690,7 +767,7 @@ async fn pump_engine(
 async fn run_job_socket(state: &Shared, mut socket: WebSocket, hello: &v1::EngineHello) {
     let job_id = hello.game_id.as_str();
     let Some(order) = crate::replays::order_for(state, job_id, &hello.token) else {
-        tracing::warn!(job = job_id, "replay engine attach refused");
+        tracing::warn!("replay engine attach refused");
         return;
     };
     let mut gather = crate::replays::Gather::new(job_id);

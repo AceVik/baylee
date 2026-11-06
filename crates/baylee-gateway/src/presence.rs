@@ -8,9 +8,31 @@
 //! route reads how many distinct accounts hold one. In memory only, never
 //! stored, never logged, and never answered as anything but a count.
 
+use crate::{AppState, ErrorBody, Json, StatusCode, auth, err};
 use parking_lot::Mutex;
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
+
+/// How many sockets one account (or one chair's seat token) may hold open.
+///
+/// A client holds a lobby feed and a social socket per device and a watch or
+/// seat socket beside them, so this leaves room for several devices and for
+/// a flapping connection whose dead sockets have not timed out yet. Every
+/// socket is read and asked after its session every five seconds for as long
+/// as it stays open, which is why it has a bound at all.
+pub(crate) const SOCKETS_PER_HOLDER: usize = 32;
+
+/// A place for one more of `holder`'s sockets, held for as long as the
+/// socket is open, or `429` while it holds all of its own.
+pub(crate) fn socket_place(
+    state: &AppState,
+    holder: &str,
+) -> Result<auth::Held, (StatusCode, Json<ErrorBody>)> {
+    state
+        .sockets
+        .take(holder)
+        .ok_or_else(|| err(StatusCode::TOO_MANY_REQUESTS, "too many sockets"))
+}
 
 /// The accounts with a lobby socket open, and how many each has.
 #[derive(Default)]

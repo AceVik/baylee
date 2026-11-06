@@ -87,7 +87,8 @@ const TRANSPORT_LIMIT: usize = 64 * 1024;
 /// with 1000 when the account is deleted. The gateway pings every 20
 /// seconds and drops a socket that has said nothing for 50. An open social
 /// socket counts its account as online and keeps its waiting-room chairs,
-/// as a lobby socket does.
+/// as a lobby socket does. An account holding 32 sockets is refused `429`
+/// until one closes.
 /// @ws-query ticket: String required "A single-use ticket bought for the social socket with `POST /ws-ticket`"
 /// @ws-query protocol: u32 required "The protocol the client speaks (`PROTOCOL_VERSION`, as `GET /info` answers it); another, or none, is refused"
 /// @ws-query social: u32 required "The chat protocol the client speaks (`SOCIAL_VERSION`, as `GET /info` answers it in `social.version`); another, or none, is refused"
@@ -127,10 +128,14 @@ pub(crate) async fn social_ws(
     if let Some(why) = why {
         return Ok(ws.on_upgrade(move |socket| refuse(socket, why)));
     }
+    let place = crate::presence::socket_place(&state, &account_id)?;
     Ok(ws
         .max_message_size(TRANSPORT_LIMIT)
         .max_frame_size(TRANSPORT_LIMIT)
-        .on_upgrade(move |socket| run(state, account_id, session, socket)))
+        .on_upgrade(move |socket| async move {
+            let _place = place;
+            run(state, account_id, session, socket).await;
+        }))
 }
 
 /// The one frame a socket of another version is sent before it closes.

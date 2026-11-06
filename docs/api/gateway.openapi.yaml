@@ -887,11 +887,19 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "413":
-          description: A body over 8 mebibytes (axum's rejection)
+          description: >-
+            A body over 8 mebibytes (axum's rejection), or as an `$ErrorBody` a picture of
+            over 64 megapixels or 16384 pixels a side
           content:
             text/plain:
               schema:
                 type: string
+        "429":
+          description: More than 60 uploads by this account in an hour
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
         "500":
           description: The picture could not be stored
           content:
@@ -1727,6 +1735,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
+        "409":
+          description: The account keeps 1000 decks already
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
         "415":
           description: The body is not sent as `application/json` (axum's rejection)
           content:
@@ -2243,6 +2257,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
+        "409":
+          description: The account keeps 1000 decks already
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
         "410":
           description: A preconstructed deck this build no longer offers
           content:
@@ -2471,6 +2491,12 @@ paths:
           description: >-
             The deck holds a card blocked on this gateway, or the caller is still playing a
             running game
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "429":
+          description: The caller already hosts 8 waiting rooms
           content:
             application/json:
               schema:

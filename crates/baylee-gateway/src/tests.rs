@@ -99,6 +99,34 @@ fn a_forwarded_address_is_read_only_from_a_proxy_on_the_list() {
     );
 }
 
+/// An IPv6 address is counted by its /64: one line holds all of it, so
+/// counting each address would let it walk past every limit keyed on the
+/// result. An IPv4 one, mapped or not, is counted as itself.
+#[test]
+fn an_address_is_counted_by_what_one_subscriber_holds() {
+    let proxy: IpAddr = "10.0.0.1".parse().expect("an address");
+    let key = |forwarded: &str| {
+        let mut headers = HeaderMap::new();
+        headers.insert("x-forwarded-for", forwarded.parse().expect("a value"));
+        rate_limit_ip(&[proxy], proxy, &headers)
+    };
+    assert_eq!(
+        key("2001:db8:1:2:aaaa::1"),
+        key("2001:db8:1:2:ffff:ffff:ffff:ffff")
+    );
+    assert_eq!(key("2001:db8:1:2::9"), "2001:db8:1:2::/64");
+    assert_ne!(key("2001:db8:1:2::1"), key("2001:db8:1:3::1"));
+    assert_eq!(key("198.51.100.7"), "198.51.100.7");
+    assert_eq!(key("::ffff:198.51.100.7"), "198.51.100.7");
+    assert_ne!(key("198.51.100.7"), key("198.51.100.8"));
+    // A peer no proxy speaks for is counted the same way.
+    let peer: IpAddr = "2001:db8:1:2::9".parse().expect("an address");
+    assert_eq!(
+        rate_limit_ip(&[], peer, &HeaderMap::new()),
+        "2001:db8:1:2::/64"
+    );
+}
+
 /// **The header is read from the right, because the left half is whatever
 /// the client sent.**
 ///

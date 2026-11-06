@@ -7410,8 +7410,11 @@ operations:
       that game. A frame that does not decode, and a kind this link does not
       carry, is passed over. An agent on the gateway's unix socket
       (`BAYLEE_UNIX_SOCKET`) is local, and so is every game it runs. A
-      player's seat token or session opens no agent link. Frames have no
-      bound beyond the transport's default, and there is no rate bound.
+      player's seat token or session opens no agent link. A frame is at most
+      64 KiB, a larger one ends the connection, and there is no rate bound. An
+      address that is not this machine may hold 16 sockets here, on `/engine/ws`
+      and on `/seathost/ws` that have said no hello yet; past that the upgrade
+      is refused with `429`.
       An agent silent for 90 seconds loses this link. Disconnect closes only
       its assigned games and replay jobs; a new link cannot reclaim them.
       An ordered game engine must attach within 30 seconds. Exit before its
@@ -7442,8 +7445,11 @@ operations:
       that game. A frame that does not decode, and a kind this link does not
       carry, is passed over. An agent on the gateway's unix socket
       (`BAYLEE_UNIX_SOCKET`) is local, and so is every game it runs. A
-      player's seat token or session opens no agent link. Frames have no
-      bound beyond the transport's default, and there is no rate bound.
+      player's seat token or session opens no agent link. A frame is at most
+      64 KiB, a larger one ends the connection, and there is no rate bound. An
+      address that is not this machine may hold 16 sockets here, on `/engine/ws`
+      and on `/seathost/ws` that have said no hello yet; past that the upgrade
+      is refused with `429`.
       An agent silent for 90 seconds loses this link. Disconnect closes only
       its assigned games and replay jobs; a new link cannot reclaim them.
       An ordered game engine must attach within 30 seconds. Exit before its
@@ -7491,8 +7497,9 @@ operations:
       replay job (an id beginning `replay-`) is sent `ProjectRecord` instead
       of `GameSetup`, sends `TapeChunk`s back until the last, and is closed. A
       frame that does not decode, and a kind this link does not carry, is
-      passed over. Frames have no bound beyond the transport's default, and
-      there is no rate bound.
+      passed over. A frame is at most 16 MiB, a larger one ends the connection,
+      and there is no rate bound; `/agent/ws` says how many sockets one address
+      may hold here before their hello.
   engine_ws_receive:
     action: receive
     channel:
@@ -7534,8 +7541,9 @@ operations:
       replay job (an id beginning `replay-`) is sent `ProjectRecord` instead
       of `GameSetup`, sends `TapeChunk`s back until the last, and is closed. A
       frame that does not decode, and a kind this link does not carry, is
-      passed over. Frames have no bound beyond the transport's default, and
-      there is no rate bound.
+      passed over. A frame is at most 16 MiB, a larger one ends the connection,
+      and there is no rate bound; `/agent/ws` says how many sockets one address
+      may hold here before their hello.
   lobby_ws:
     action: send
     channel:
@@ -7565,7 +7573,9 @@ operations:
       checks the session again every 5 seconds, and once it is signed out,
       lapsed or banned, or the account is deleted, it sends a close frame
       without a code. An open lobby socket counts its account as online
-      (`GET /lobby/stats`) and keeps its waiting-room chairs.
+      (`GET /lobby/stats`) and keeps its waiting-room chairs. A frame over 1 KiB
+      ends the connection. An account holding 32 sockets (lobby, social and
+      spectator together) is refused `429` until one closes.
   game_ws_send:
     action: send
     channel:
@@ -7619,7 +7629,8 @@ operations:
       larger one ends the connection. A socket may send 512 frames at once
       and 240 a second after that (`seatrate`, frames of every kind counted),
       and past that it is closed with 1008 and `too many frames`. Text frames
-      are passed over. A socket that falls behind the engine is not dropped:
+      are passed over. A seat token holding 32 sockets is refused `429` until
+      one closes. A socket that falls behind the engine is not dropped:
       the engine is asked to send it a fresh snapshot. A newer socket for the
       same chair replaces this one, which closes. The chair's authorization is
       checked again every 5 seconds and before each frame is forwarded, and
@@ -7679,7 +7690,8 @@ operations:
       larger one ends the connection. A socket may send 512 frames at once
       and 240 a second after that (`seatrate`, frames of every kind counted),
       and past that it is closed with 1008 and `too many frames`. Text frames
-      are passed over. A socket that falls behind the engine is not dropped:
+      are passed over. A seat token holding 32 sockets is refused `429` until
+      one closes. A socket that falls behind the engine is not dropped:
       the engine is asked to send it a fresh snapshot. A newer socket for the
       same chair replaces this one, which closes. The chair's authorization is
       checked again every 5 seconds and before each frame is forwarded, and
@@ -7726,7 +7738,8 @@ operations:
       the whole public log, and `Curtain`); a socket that falls behind asks for
       the same. A spectator is never waited for by the curtain, never on a
       clock, and may leave at any time. A frame the spectator sends is dropped,
-      and one over 64 KiB ends the connection; there is no rate bound. The session is checked again
+      and one over 64 KiB ends the connection; there is no rate bound. An account
+      holding 32 sockets is refused `429` until one closes. The session is checked again
       every 5 seconds; once it is signed out, lapsed or banned, or the game
       ends, the socket closes with a close frame without a code.
   socket_send:
@@ -7756,7 +7769,9 @@ operations:
       socket (`BAYLEE_UNIX_SOCKET`). A seat agent that sends nothing for two
       heartbeats (60 seconds) is dropped, and its profiles leave the offer
       with it. Frames are JSON text frames of at most 1 MiB, with no rate
-      bound; a frame that does not read is passed over. Several seat agents may be connected at once,
+      bound; a larger frame ends the connection, and one that does not read is
+      passed over. An address may hold 16 sockets that have said no hello yet
+      (`/agent/ws`). Several seat agents may be connected at once,
       each under its own name.
   socket_receive:
     action: receive
@@ -7785,7 +7800,9 @@ operations:
       socket (`BAYLEE_UNIX_SOCKET`). A seat agent that sends nothing for two
       heartbeats (60 seconds) is dropped, and its profiles leave the offer
       with it. Frames are JSON text frames of at most 1 MiB, with no rate
-      bound; a frame that does not read is passed over. Several seat agents may be connected at once,
+      bound; a larger frame ends the connection, and one that does not read is
+      passed over. An address may hold 16 sockets that have said no hello yet
+      (`/agent/ws`). Several seat agents may be connected at once,
       each under its own name.
   social_ws_send:
     action: send
@@ -7827,7 +7844,8 @@ operations:
       with 1000 when the account is deleted. The gateway pings every 20
       seconds and drops a socket that has said nothing for 50. An open social
       socket counts its account as online and keeps its waiting-room chairs,
-      as a lobby socket does.
+      as a lobby socket does. An account holding 32 sockets is refused `429`
+      until one closes.
   social_ws_receive:
     action: receive
     channel:
@@ -7868,7 +7886,8 @@ operations:
       with 1000 when the account is deleted. The gateway pings every 20
       seconds and drops a socket that has said nothing for 50. An open social
       socket counts its account as online and keeps its waiting-room chairs,
-      as a lobby socket does.
+      as a lobby socket does. An account holding 32 sockets is refused `429`
+      until one closes.
 components:
   messages:
     AgentFrame:

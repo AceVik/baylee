@@ -86,6 +86,12 @@ struct AppState {
     /// `store.rs` is the only module that knows this is a database; every
     /// route here calls a function there and gets a plain struct back.
     db: sea_orm::DatabaseConnection,
+    /// Sockets open on `/agent/ws`, `/engine/ws` and `/seathost/ws` that
+    /// have said no hello yet, per address (`engine::hello_place`): whatever
+    /// they send is read before anything about them is known.
+    hellos: auth::Gauge,
+    /// Open sockets, per account or seat token (`presence::socket_place`).
+    sockets: auth::Gauge,
     limiter: auth::RateLimiter,
     /// Tries of a closed beta's key at the guest door (#317): eight in five
     /// minutes per address, on a budget of their own beside [`Self::limiter`],
@@ -423,6 +429,8 @@ async fn main() {
             .unwrap_or_else(|()| panic!("central bridge configuration rejected")),
         central_barrier: tokio::sync::RwLock::new(()),
         db,
+        hellos: auth::Gauge::new(engine::HELLOS_PER_ADDRESS),
+        sockets: auth::Gauge::new(presence::SOCKETS_PER_HOLDER),
         limiter: auth::RateLimiter::new(std::time::Duration::from_secs(300), 10),
         sign_in_limiter: auth::RateLimiter::new(std::time::Duration::from_secs(300), 8),
         lobby: Mutex::new(Lobby::default()),
@@ -1051,15 +1059,15 @@ fn trusted_proxies(raw: &str) -> Vec<IpAddr> {
 /// is not an address at all ends the walk at the peer rather than being
 /// stepped over, because everything left of it was written by whoever sent
 /// it.
-fn rate_limit_ip(trusted: &[IpAddr], peer: IpAddr, headers: &HeaderMap) -> String {
+fn client_address(trusted: &[IpAddr], peer: IpAddr, headers: &HeaderMap) -> IpAddr {
     if !trusted.contains(&peer) {
-        return peer.to_string();
+        return peer;
     }
     let Some(forwarded) = headers
         .get("x-forwarded-for")
         .and_then(|value| value.to_str().ok())
     else {
-        return peer.to_string();
+        return peer;
     };
     for entry in forwarded.rsplit(',') {
         let entry = entry.trim();
@@ -1067,13 +1075,27 @@ fn rate_limit_ip(trusted: &[IpAddr], peer: IpAddr, headers: &HeaderMap) -> Strin
             continue;
         }
         let Ok(address) = entry.parse::<IpAddr>() else {
-            return peer.to_string();
+            return peer;
         };
         if !trusted.contains(&address) {
-            return address.to_string();
+            return address;
         }
     }
-    peer.to_string()
+    peer
+}
+
+/// What [`client_address`] is counted under: an IPv6 address by its /64,
+/// which one subscriber usually holds whole, so that a single line cannot
+/// pass for as many clients as it has addresses and walk past every limit;
+/// an IPv4 address, or one mapped into IPv6, as itself.
+fn rate_limit_ip(trusted: &[IpAddr], peer: IpAddr, headers: &HeaderMap) -> String {
+    match client_address(trusted, peer, headers).to_canonical() {
+        IpAddr::V6(v6) => {
+            let s = v6.segments();
+            format!("{:x}:{:x}:{:x}:{:x}::/64", s[0], s[1], s[2], s[3])
+        }
+        v4 => v4.to_string(),
+    }
 }
 
 /// Resolves the bearer token to an account id.

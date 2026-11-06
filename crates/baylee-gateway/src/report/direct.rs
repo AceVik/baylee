@@ -18,8 +18,6 @@
 //! device's reports line up across the move. Neither the id nor the address
 //! is kept or logged.
 
-use std::net::IpAddr;
-
 use axum::Json;
 use axum::body::Bytes;
 use axum::extract::{ConnectInfo, State};
@@ -72,20 +70,6 @@ pub(super) fn key(value: Option<&str>) -> Result<Option<[u8; 32]>, &'static str>
             Ok(Sha256::digest(key.as_bytes()).into())
         })
         .transpose()
-}
-
-/// What an address is counted under: an IPv6 address by its /64, which one
-/// subscriber usually holds whole, so a single line cannot pass for many;
-/// an IPv4 address, or one mapped into IPv6, as itself.
-fn bucket(address: &str) -> String {
-    match address.parse::<IpAddr>().map(|a| a.to_canonical()) {
-        Ok(IpAddr::V6(v6)) => {
-            let s = v6.segments();
-            format!("{:x}:{:x}:{:x}:{:x}::/64", s[0], s[1], s[2], s[3])
-        }
-        Ok(v4) => v4.to_string(),
-        Err(_) => address.to_owned(),
-    }
 }
 
 /// The reporter a device's id is filed under: never the id itself.
@@ -251,11 +235,7 @@ pub async fn post_direct(
             "too many reports on their way; try again",
         ));
     };
-    let address = bucket(&crate::rate_limit_ip(
-        &state.trusted_proxies,
-        addr.ip(),
-        &headers,
-    ));
+    let address = crate::rate_limit_ip(&state.trusted_proxies, addr.ip(), &headers);
     if !feedback.direct_per_address.allow(&address) {
         return Err(err(StatusCode::TOO_MANY_REQUESTS, "too many reports"));
     }
@@ -338,21 +318,6 @@ mod tests {
             read(&long).err().map(|e| e.0),
             Some(StatusCode::PAYLOAD_TOO_LARGE)
         );
-    }
-
-    /// An IPv6 address is counted by its /64, so one line cannot pass for
-    /// many; an IPv4 one, mapped or not, by itself.
-    #[test]
-    fn an_address_is_counted_by_what_one_subscriber_holds() {
-        assert_eq!(
-            bucket("2001:db8:1:2:aaaa::1"),
-            bucket("2001:db8:1:2:ffff:ffff:ffff:ffff")
-        );
-        assert_eq!(bucket("2001:db8:1:2::9"), "2001:db8:1:2::/64");
-        assert_ne!(bucket("2001:db8:1:2::1"), bucket("2001:db8:1:3::1"));
-        assert_eq!(bucket("198.51.100.7"), "198.51.100.7");
-        assert_eq!(bucket("::ffff:198.51.100.7"), "198.51.100.7");
-        assert_ne!(bucket("198.51.100.7"), bucket("198.51.100.8"));
     }
 
     /// The feedback service's pseudonym (`baylee_feedback::direct::pseudonym`

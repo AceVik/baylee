@@ -14,6 +14,7 @@
 use parking_lot::Mutex;
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use subtle::ConstantTimeEq;
 use uuid::Uuid;
@@ -251,6 +252,61 @@ impl RateLimiter {
     pub fn give_back(&self, key: &str) {
         if let Some(hits) = self.hits.lock().get_mut(key) {
             hits.pop();
+        }
+    }
+}
+
+/// How many of something each key holds at this moment.
+///
+/// The other half of [`RateLimiter`], which counts what a key *did* in a
+/// window: this counts what it *holds* now, such as an open socket, and a
+/// place comes back the moment its [`Held`] is dropped, however the holder
+/// ended. An entry lives only while a place is held, so keys a stranger
+/// chooses cannot grow the map beyond what they hold.
+pub struct Gauge {
+    held: Arc<Mutex<HashMap<String, usize>>>,
+    limit: usize,
+}
+
+/// One place of a [`Gauge`]; dropping it gives the place back.
+pub struct Held {
+    held: Arc<Mutex<HashMap<String, usize>>>,
+    key: String,
+}
+
+impl Gauge {
+    /// At most `limit` places per key.
+    #[must_use]
+    pub fn new(limit: usize) -> Self {
+        Self {
+            held: Arc::new(Mutex::new(HashMap::new())),
+            limit,
+        }
+    }
+
+    /// A place for `key`, or `None` while it holds all of its own.
+    #[must_use]
+    pub fn take(&self, key: &str) -> Option<Held> {
+        let mut held = self.held.lock();
+        if held.get(key).is_some_and(|count| *count >= self.limit) {
+            return None;
+        }
+        *held.entry(key.to_owned()).or_default() += 1;
+        Some(Held {
+            held: Arc::clone(&self.held),
+            key: key.to_owned(),
+        })
+    }
+}
+
+impl Drop for Held {
+    fn drop(&mut self) {
+        let mut held = self.held.lock();
+        if let Some(count) = held.get_mut(&self.key) {
+            *count = count.saturating_sub(1);
+            if *count == 0 {
+                held.remove(&self.key);
+            }
         }
     }
 }

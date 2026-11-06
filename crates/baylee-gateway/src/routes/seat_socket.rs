@@ -50,7 +50,8 @@ use ownership::{Connection, Ownership};
 /// larger one ends the connection. A socket may send 512 frames at once
 /// and 240 a second after that (`seatrate`, frames of every kind counted),
 /// and past that it is closed with 1008 and `too many frames`. Text frames
-/// are passed over. A socket that falls behind the engine is not dropped:
+/// are passed over. A seat token holding 32 sockets is refused `429` until
+/// one closes. A socket that falls behind the engine is not dropped:
 /// the engine is asked to send it a fresh snapshot. A newer socket for the
 /// same chair replaces this one, which closes. The chair's authorization is
 /// checked again every 5 seconds and before each frame is forwarded, and
@@ -166,12 +167,16 @@ pub(crate) async fn game_ws(
         tracing::warn!(game_id = id, seat, why, "seat socket refused");
         return Ok(ws.on_upgrade(move |socket| refuse_seat(socket, why)));
     }
+    // By the token and not the account: a seat bridge's chair has none, and
+    // a socket waiting for its engine has not replaced anything yet.
+    let place = crate::presence::socket_place(&state, &hash)?;
     Ok(ws
         .max_message_size(MAX_SEAT_FRAME)
         .max_frame_size(MAX_SEAT_FRAME)
         .read_buffer_size(SEAT_READ_BUFFER)
-        .on_upgrade(move |socket| {
-            run_game_socket(state, id, seat, authorization, ownership, socket)
+        .on_upgrade(move |socket| async move {
+            let _place = place;
+            run_game_socket(state, id, seat, authorization, ownership, socket).await;
         }))
 }
 
