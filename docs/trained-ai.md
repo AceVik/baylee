@@ -1893,6 +1893,13 @@ layer plays and counts per deal what each group alone would have changed. A deal
 `phase_a4 group-plan` replays only the deals a group reaches (`eval4 --only-deals`) and `phase_a4 group-table` reads the whole paired
 comparison from the shadow run and those replays.
 
+Measured on 2026-11-06 for B-refresh against `sharp`, each group alone on 1024 dev and 1024 fresh deals against plain tactics (500 and 503 of 1024
+won; raw plays 364 and 378). `mass` gives +3.5 pp [+2.7, +4.4] and `react` +2.4 [+1.4, +3.4], pooled over both splits; no other group's interval
+lies above zero. A group with a negative estimate entered only if readers found its class deciding at least three ladder games: `keep` (-0.3 [-0.8, +0.2])
+and `burn` (-0.4 [-0.8, 0.0]) passed that and cost a little here; `gift` (-0.4 [-0.8, -0.1]) and `press` (-0.1 [-0.3, +0.1]) did not and stayed out.
+The bundle is the other 18: `race,trip,trade,wall,chump,keep,land,ping,curve,aim,void,side,mass,burn,trick,walker,spend,react`.
+It wins 571 and 579 of 1024, +7.2 pp [+5.4, +9.0], and on 1024 new deals 576 against 512, +6.2 pp [+3.9, +8.6]. Numbers are for that one runtime.
+
 ## The ladder against language models
 
 `ladder4` plays `seat4` against `baylee-seat` on a private gateway (`llm_collector4 serve --guests`). A room left alone holds the gateway's default of
@@ -1901,7 +1908,21 @@ comparison from the shadow run and those replays.
 opponent. `--stop-spent` stops starting games at a sum of money; the book's cap stays the hard limit above it and has to hold the open games'
 reservations, because a seat that sits down on less hands its game to the house, and such a game counts for nothing.
 Every game keeps `seat4 --journal`: this seat's views, questions, answers and the net's ranking, local and never training data. `journal4 read`,
-`ledger` and `audit` read them; `audit` runs the rule groups over them. `phase_a4 ladder-pairs` compares two arms paired by deck pair and seat.
+`ledger` and `audit` read them; `audit` runs the rule groups over them. `phase_a4 ladder-pairs` compares two arms paired by deck pair and seat;
+`--later-reference` and `--later-arm` add a second round on the same deck pairs. A game is clean when the house gave at most 5 % of the answers it and
+the model gave between them, and the seat closed with a summary: `agy` can die in mid-game, and the result the table then records says nothing.
+
+Measured on 2026-11-06, B-refresh with plain tactics against the 18-group bundle, 20 life, train decks, net on both sides, bootstrap over deck pairs:
+
+| Opponent | Round 1: slots, wins plain and bundle | Round 1 difference | Both rounds: slots | Both rounds difference |
+| --- | --- | --- | --- | --- |
+| `deepseek-low` | 95, 26 and 30.5 | +4.7 pp [-7.4, +17.4] | 167 | +5.1 pp [-2.7, +12.7] |
+| `flash-low` | 94, 16 and 15 | -1.1 pp [-10.0, +7.7] | 187 | -2.9 pp [-9.8, +3.9] |
+| `haiku-max` | 64, 10 and 16 | +9.4 pp [-1.6, +20.3] | 64 | +9.4 pp [-1.6, +20.3] |
+| pooled | 253, 52 and 61.5 | +3.8 pp [-2.7, +10.1] | 418 | +2.2 pp [-2.6, +6.8] |
+
+Round 1 is the comparison fixed before play. Round 2 was added after reading it, so the last two columns are extended after a look. The bundle's +7 pp
+against `sharp` does not show here: no interval excludes zero, and against Flash it leans the other way.
 
 ## Where it stands (2026-09-30)
 
