@@ -75,8 +75,11 @@ impl NetPlayer4 {
         h_in: &[f32],
     ) -> anyhow::Result<(Sampled4, Vec<f32>)> {
         let k_val = self.thinking_steps;
-        let (_, cand_logits, pair_logits, scalar_pred, value) =
+        let (_, mut cand_logits, pair_logits, scalar_pred, value) =
             self.run_onnx_step(state, cands, h_in, k_val)?;
+        if let Some(menu) = &mut self.payable_menu {
+            menu.weigh(&mut cand_logits, cands);
+        }
         let sampled = PolicySampler4 {
             mode: self.policy_mode,
             temperature: self.temperature,
@@ -129,7 +132,9 @@ impl PolicySampler4<'_> {
         outputs: PolicyOutputs4<'_>,
     ) -> anyhow::Result<(PlayerAction, f32, f32, TeacherTarget4)> {
         anyhow::ensure!(
-            self.mode != PolicyMode4::Raw || valid_raw_temperature(self.temperature),
+            self.mode != PolicyMode4::Raw
+                || self.guard.free_temperature
+                || valid_raw_temperature(self.temperature),
             "raw policy requires temperature 0 or >0.35 under sampler version 2"
         );
         let PolicyOutputs4 {

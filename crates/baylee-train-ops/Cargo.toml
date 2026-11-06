@@ -45,6 +45,10 @@ name = "summarize_eval4"
 path = "src/bin/summarize_eval4.rs"
 
 [[bin]]
+name = "phase_a4"
+path = "src/bin/phase_a4.rs"
+
+[[bin]]
 name = "paired_eval4"
 path = "src/bin/paired_eval4.rs"
 

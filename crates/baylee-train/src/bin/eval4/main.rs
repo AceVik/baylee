@@ -81,8 +81,14 @@ fn main() -> anyhow::Result<()> {
     {
         bail!("--shadow-teacher requires --raw-policy and --record-out");
     }
-    if args.raw_policy && (args.legacy_v3 || !valid_raw_temperature(args.temperature)) {
+    if args.raw_policy
+        && (args.legacy_v3
+            || !(args.dev_free_temperature || valid_raw_temperature(args.temperature)))
+    {
         bail!("--raw-policy requires v4 and temperature 0 or >0.35");
+    }
+    if args.thinking_steps == 0 && args.legacy_v3 {
+        bail!("--legacy-v3 has no thinking steps to leave out");
     }
     let policy_mode = if args.raw_policy {
         PolicyMode4::Raw
@@ -101,10 +107,10 @@ fn main() -> anyhow::Result<()> {
     if let Some(refusal) = search_refusal(&args, &collection, model_identity.as_ref()) {
         bail!(refusal);
     }
-    let choice_guard = parse_choice_guard(&args.choice_guard)?;
+    let mut choice_guard = parse_choice_guard(&args.choice_guard)?;
     if choice_guard.is_some()
         && (!args.raw_policy
-            || args.temperature != 0.0
+            || (args.temperature != 0.0 && !args.dev_free_temperature)
             || args.seats != 2
             || args.legacy_v3
             || args.search.is_some()
@@ -115,6 +121,22 @@ fn main() -> anyhow::Result<()> {
             "--choice-guard is a measurement: it needs --raw-policy at temperature 0, two seats \
              and no search, shadow or collection, and its records are no training data"
         );
+    }
+    let dev_arm = args.dev_free_temperature || args.menu_payable;
+    if dev_arm
+        && (args.legacy_v3
+            || args.search.is_some()
+            || args.shadow_teacher.is_some()
+            || args.opponent_model.is_some()
+            || collection.purpose != collector::Purpose::Evaluation)
+    {
+        bail!(
+            "--dev-free-temperature and --menu-payable are measurements: no search, shadow, \
+             neural opponent or collection, and their records are no training data"
+        );
+    }
+    if args.dev_free_temperature {
+        choice_guard.get_or_insert_default().free_temperature = true;
     }
     let search_config = search_config(&args)?;
     let search = search_metadata(&args, search_config, model_identity.as_ref());
@@ -255,6 +277,11 @@ fn main() -> anyhow::Result<()> {
             "evaluator_dirty": baylee_build::DIRTY,
             "record_version": baylee_gamehost::record::RECORD_VERSION,
             "training_data": collection.purpose == collector::Purpose::OnPolicyTraining,
+            "numbers_only": args.numbers_only,
+            "dev_arms": {"free_temperature": args.dev_free_temperature,
+                "menu_payable": args.menu_payable, "menu_payable_bias": args.menu_payable_bias},
+            "opponent_policy": args.opponent_policy,
+            "opponent_legacy_v3": args.opponent_legacy_v3,
             "collection_contract": collection.metadata(),
             "planned_deals": args.deals,"deal_offset": args.deal_offset,
             "deck_split":args.deck_split,"decks_manifest":args.decks_manifest,
@@ -346,6 +373,11 @@ fn main() -> anyhow::Result<()> {
             .map(|dir| File::create(dir.join("games.jsonl")).map(BufWriter::new))
             .transpose()?,
     ));
+    let value_log = args
+        .value_log
+        .as_ref()
+        .map(|path| File::create(path).map(|file| Arc::new(Mutex::new(BufWriter::new(file)))))
+        .transpose()?;
     let attempts = attempts::prepare(&args, &decks_arc)?;
     let shared_nets = SharedNets::open(
         args.inference_batch,
@@ -353,6 +385,7 @@ fn main() -> anyhow::Result<()> {
         collection
             .opponent_path
             .as_deref()
+            .filter(|_| !args.opponent_legacy_v3)
             .map(|path| (path, collection.opponent_identity.as_ref())),
         catalog_policy(&args),
     )?;
@@ -389,6 +422,8 @@ fn main() -> anyhow::Result<()> {
         let run_metadata_sha = run_metadata_sha.clone();
         let attempts = attempts.clone();
         let search_max = args.search_max_decisions_per_game;
+        let value_log = value_log.clone();
+        let menu_payable = args.menu_payable.then_some(args.menu_payable_bias);
 
         handles.push(std::thread::spawn(move || -> anyhow::Result<()> {
             let mut net:Box<dyn EvaluationPlayer> = if collection.uses_seat_pool() {
@@ -399,6 +434,9 @@ fn main() -> anyhow::Result<()> {
 
             if let Some(guard) = choice_guard {
                 anyhow::ensure!(net.set_choice_guard(guard), "--choice-guard needs a net");
+            }
+            if let Some(bias) = menu_payable {
+                anyhow::ensure!(net.set_payable_menu(bias), "--menu-payable needs a net");
             }
             let shard_name = format!("w{worker_id:02}-0000.jsonl.gz");
             let mut shard_file = match &rec_out {
@@ -489,6 +527,7 @@ fn main() -> anyhow::Result<()> {
                         Some(collection.learner_identity.as_ref().context("research learner")?.encoder_version)
                     } else {None},
                     game_search.as_mut(),
+                    value_log.as_deref(),
                 )?;
 
                 if let Some((f, offset)) = &mut shard_file {
@@ -565,15 +604,21 @@ fn main() -> anyhow::Result<()> {
                         None,
                         None,
                         None,
+                        None,
                     )?;
                     (bu, bc)
                 };
 
                 let guard_fired = net.take_choice_guard_fired();
+                let menu_stats = net.take_menu_stats();
                 let mut st = stats_arc.lock().expect("stats lock");
+                if let Some(deal_menu) = &menu_stats {
+                    st.menu.get_or_insert_default().add(deal_menu);
+                }
                 st.deals_completed += 1;
                 st.deal_details.push(json!({"deal": d, "table": table_idx,
                     "choice_guard_fired": guard_fired,
+                    "menu": menu_stats,
                     "seed": seed, "focal_seat": focal_seat,
                     "net_utility": if collection.purpose == collector::Purpose::FailureTerminalResearchV1 {None}else{Some(net_u)},
                     "research_episode": if collection.purpose == collector::Purpose::FailureTerminalResearchV1 {Some(&outcome_json)}else{None},
@@ -631,6 +676,9 @@ fn main() -> anyhow::Result<()> {
         }
     }
 
+    if let Some(log) = &value_log {
+        log.lock().expect("value log lock").flush()?;
+    }
     let mut st = stats_arc.lock().expect("stats lock");
     st.deal_details.sort_by_key(|deal| deal["deal"].as_u64());
     st.latencies_ms.sort_by(f64::total_cmp);
@@ -744,6 +792,13 @@ fn main() -> anyhow::Result<()> {
     summary["generated_deck_count"] = json!(generated_deck_count);
     summary["shadow_teacher"] = json!(shadow_spec.as_ref().map(|spec| spec.contract()));
     summary["coverage_matrix"] = json!(st.coverage.counts);
+    summary["numbers_only"] = json!(args.numbers_only);
+    summary["dev_arms"] = json!({"free_temperature": args.dev_free_temperature,
+        "menu_payable": args.menu_payable, "menu_payable_bias": args.menu_payable_bias,
+        "choice_guard": args.choice_guard});
+    summary["menu"] = json!(st.menu);
+    summary["opponent"] = json!({"model": args.opponent_model, "policy": args.opponent_policy,
+        "legacy_v3": args.opponent_legacy_v3});
     summary["model_family"] = json!(
         model_identity
             .as_ref()

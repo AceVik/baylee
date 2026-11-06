@@ -42,6 +42,18 @@ trait EvaluationPlayer {
     fn take_choice_guard_fired(&mut self) -> Vec<u64> {
         Vec::new()
     }
+    /// Sets `--menu-payable` on this player, which only a net can honour.
+    fn set_payable_menu(&mut self, _bias: f32) -> bool {
+        false
+    }
+    /// What `--menu-payable` counted since this was last asked.
+    fn take_menu_stats(&mut self) -> Option<baylee_train::netplay4::MenuStats4> {
+        None
+    }
+    /// The value head on the seat's latest observation (`--value-log`).
+    fn observed_value(&self, _seat: PlayerId) -> Option<f32> {
+        None
+    }
     /// Answers with a lookahead over `table` (`--search`); `None` when this
     /// player cannot search.
     fn search(
@@ -90,6 +102,16 @@ impl EvaluationPlayer for NetPlayer4 {
     }
     fn take_choice_guard_fired(&mut self) -> Vec<u64> {
         Self::take_choice_guard_fired(self)
+    }
+    fn set_payable_menu(&mut self, bias: f32) -> bool {
+        Self::set_payable_menu(self, baylee_train::netplay4::PayableMenu4::new(bias));
+        true
+    }
+    fn take_menu_stats(&mut self) -> Option<baylee_train::netplay4::MenuStats4> {
+        Self::take_menu_stats(self)
+    }
+    fn observed_value(&self, seat: PlayerId) -> Option<f32> {
+        Self::observed_value(self, seat)
     }
     fn policy_encoding(
         &self,
@@ -293,10 +315,13 @@ fn load_player(
             Some(net) => NetPlayer4::shared(net),
             None => NetPlayer4::load_with(path, catalog)?,
         };
-        let player = player
+        let mut player = player
             .with_thinking_steps(depth)
             .with_temperature(temperature)
             .with_policy_mode(policy_mode);
+        if depth == 0 {
+            player.set_no_thinking();
+        }
         anyhow::ensure!(
             expected_identity == Some(player.model_identity()),
             "worker model identity differs from evaluation/run metadata"

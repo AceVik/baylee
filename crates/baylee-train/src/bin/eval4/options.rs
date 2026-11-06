@@ -55,6 +55,34 @@ struct Args {
     /// that `paired_eval4` can read the command. Never for training.
     #[arg(long, default_value = "off")]
     choice_guard: String,
+    /// Dev only: a raw net may sample at any temperature, below sampler 2's
+    /// boundary too, and `--choice-guard` may run above zero. Never for training.
+    #[arg(long)]
+    dev_free_temperature: bool,
+    /// Dev only (`netplay4::menu`): the spells of `legal.payable` the planner
+    /// can pay join the priority menu, and the planner taps for the one chosen.
+    /// The net never saw such a candidate. Never for training.
+    #[arg(long)]
+    menu_payable: bool,
+    /// `--menu-payable`: added to each added option's logit.
+    #[arg(long, default_value_t = 0.0, requires = "menu_payable")]
+    menu_payable_bias: f32,
+    /// One JSON line per net decision of the seat under test: its value heads
+    /// and where the game stands, for `value_report4`. The outcome is in `--out`.
+    #[arg(long)]
+    value_log: Option<PathBuf>,
+    /// Plays `--opponent-model` under this policy (`raw`, `tactical`) instead
+    /// of the seat under test's. Only for evaluation.
+    #[arg(long, requires = "opponent_model")]
+    opponent_policy: Option<String>,
+    /// `--opponent-model` is an archived v3 net (`--legacy-v3`'s player), for
+    /// numbers only: it lives on its own sessions.
+    #[arg(long, requires = "opponent_model")]
+    opponent_legacy_v3: bool,
+    /// These games are for numbers only: `run.json` says so, and they may never
+    /// enter training, a league or a dataset.
+    #[arg(long)]
+    numbers_only: bool,
     /// Baseline house profile for duplicate comparison (`steady`, `sharp`, `expert`).
     #[arg(long, default_value = "steady")]
     baseline: String,
@@ -237,6 +265,7 @@ struct EvalStats {
     deal_details: Vec<Value>,
     search: lookahead::SearchTally,
     rule_refs_left_out: u64,
+    menu: Option<baylee_train::netplay4::MenuStats4>,
 }
 
 /// Why `--search` cannot run with `args`, if it cannot.

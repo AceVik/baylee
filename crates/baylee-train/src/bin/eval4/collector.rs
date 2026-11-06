@@ -1,5 +1,5 @@
 //! Explicit collection purpose and per-seat policy identities; evaluation stays separate.
-use super::{Args, ModelIdentity, inspect_model_identity, is_net_seat};
+use super::{Args, ModelIdentity, PolicyMode4, inspect_model_identity, is_net_seat};
 use anyhow::{Context as _, ensure};
 use serde_json::{Value, json};
 use std::path::PathBuf;
@@ -30,6 +30,16 @@ pub(super) struct Contract {
     pub learner_identity: Option<ModelIdentity>,
     pub depth: u8,
     pub temperature: f32,
+    /// `--opponent-policy`; the seat under test's when absent.
+    pub opponent_mode: Option<PolicyMode4>,
+    /// `--opponent-legacy-v3`: the opponent has no v4 identity.
+    pub opponent_legacy_v3: bool,
+}
+
+/// Whether a historical opponent on another encoder reads the same views as
+/// the seat under test. Encoders 8 and 9 need views of their own; 7 and 10 do not.
+const fn reads_the_same_views(a: u32, b: u32) -> bool {
+    a >= 7 && b >= 7 && a != 8 && a != 9 && b != 8 && b != 9
 }
 
 impl Contract {
@@ -38,8 +48,23 @@ impl Contract {
             (OpponentRole::SelfPlay, None) => Some(args.model.clone()),
             (_, path) => path.clone(),
         };
+        ensure!(
+            !(args.opponent_legacy_v3 || args.opponent_policy.is_some())
+                || (args.collection_purpose == Purpose::Evaluation
+                    && args.opponent_role == OpponentRole::Historical
+                    && args.numbers_only),
+            "--opponent-legacy-v3 and --opponent-policy are for --numbers-only evaluation against \
+             a historical opponent"
+        );
+        let opponent_mode = match args.opponent_policy.as_deref() {
+            None => None,
+            Some("raw") => Some(PolicyMode4::Raw),
+            Some("tactical") => Some(PolicyMode4::Tactical),
+            Some(other) => anyhow::bail!("unknown --opponent-policy {other}"),
+        };
         let opponent_identity = opponent_path
             .as_deref()
+            .filter(|_| !args.opponent_legacy_v3)
             .map(inspect_model_identity)
             .transpose()?;
         let mixed = opponent_path.is_some() || args.collection_purpose != Purpose::Evaluation;
@@ -56,7 +81,10 @@ impl Contract {
         if let Some(opponent) = &opponent_identity {
             let learner = learner.context("missing learner identity")?;
             ensure!(
-                opponent.encoder_version == learner.encoder_version,
+                opponent.encoder_version == learner.encoder_version
+                    || (args.numbers_only
+                        && args.collection_purpose == Purpose::Evaluation
+                        && reads_the_same_views(opponent.encoder_version, learner.encoder_version)),
                 "opponent encoder differs"
             );
             if args.opponent_role == OpponentRole::SelfPlay {
@@ -102,6 +130,8 @@ impl Contract {
             learner_identity: learner.cloned(),
             depth: args.thinking_steps,
             temperature: args.temperature,
+            opponent_mode,
+            opponent_legacy_v3: args.opponent_legacy_v3,
         })
     }
 

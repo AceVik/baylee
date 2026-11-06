@@ -46,7 +46,9 @@ mod identity;
 mod inference;
 use inference::StepRow;
 mod live_init;
+mod menu;
 pub use identity::{ModelIdentity, inspect_model_identity};
+pub use menu::{MenuStats4, PayableMenu4};
 mod policy;
 mod shadow;
 use policy::sample_categorical;
@@ -140,6 +142,8 @@ pub struct NetPlayer4 {
     rule_refs_left_out: u64,
     /// `eval4 --choice-guard`: a measuring instrument, off unless a run asks.
     choice_guard: ChoiceGuard4,
+    /// `eval4 --menu-payable`: the same, for what is offered rather than taken.
+    payable_menu: Option<PayableMenu4>,
 }
 
 fn ort_error(e: impl std::fmt::Display) -> anyhow::Error {
@@ -311,6 +315,23 @@ impl NetPlayer4 {
         self.choice_guard.take_fired()
     }
 
+    /// Sets `eval4 --menu-payable` ([`PayableMenu4`]) for this net.
+    pub fn set_payable_menu(&mut self, menu: PayableMenu4) {
+        self.payable_menu = Some(menu);
+    }
+
+    /// What the net did with the added options since this was last asked.
+    pub fn take_menu_stats(&mut self) -> Option<MenuStats4> {
+        self.payable_menu.as_mut().map(PayableMenu4::take_stats)
+    }
+
+    /// Decides with no thinking steps, on the graph observations run on
+    /// (`eval4 --thinking-steps 0`, a measurement). No model was trained to
+    /// answer there.
+    pub const fn set_no_thinking(&mut self) {
+        self.thinking_steps = 0;
+    }
+
     /// A player whose steps run in `net`'s batches, together with every
     /// other player built on it.
     #[must_use]
@@ -349,6 +370,7 @@ impl NetPlayer4 {
             last_fallback: None,
             rule_refs_left_out: 0,
             choice_guard: ChoiceGuard4::default(),
+            payable_menu: None,
         }
     }
 
@@ -456,6 +478,9 @@ impl NetPlayer4 {
         self.last_announced_source.clear();
         self.observed_values.clear();
         self.last_fallback = None;
+        if let Some(menu) = &mut self.payable_menu {
+            menu.reset();
+        }
     }
 
     /// Reseeds the policy sampling RNG from an independent seed (never the game

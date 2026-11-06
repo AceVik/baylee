@@ -10,6 +10,50 @@ fn is_net_seat(seat: usize, focal_seat: usize, teams: &[Option<u8>]) -> bool {
     false
 }
 
+/// One line of `--value-log`: the value heads at a decision of the seat under
+/// test and where the game stands. `settled` is the search's kind of leaf as
+/// far as a view can say: the seat's own main phase, nothing on the stack, no
+/// cast, no payment, no floating mana (`netplay4::search`).
+fn value_line(
+    deal: u64,
+    focal: usize,
+    view: &baylee_view::PlayerView,
+    pending: &Pending,
+    answer: &baylee_train::netplay4::Answer4,
+    fallback: bool,
+    observed: Option<f32>,
+) -> Value {
+    let me = view.decision_player.unwrap_or(view.seat);
+    let seat = view.seat(me);
+    let other = view.seats.iter().find(|seat| seat.player != me);
+    let own_main = view.active == me
+        && matches!(
+            view.phase,
+            baylee_view::Phase::FirstMain | baylee_view::Phase::SecondMain
+        );
+    let pool = seat.map_or(0, |seat| seat.mana_pool.total());
+    let settled = own_main
+        && matches!(pending, Pending::Priority { .. })
+        && view.stack.is_empty()
+        && view.casting.is_none()
+        && view.owed.is_none()
+        && pool == 0;
+    let own_board = view
+        .battlefield
+        .iter()
+        .filter(|object| object.controller == me)
+        .count();
+    json!({"d": deal, "focal": focal, "turn": view.turn, "active": view.active == me,
+        "phase": format!("{:?}", view.phase), "step": format!("{:?}", view.step),
+        "stack": view.stack.len(), "settled": settled,
+        "kind": baylee_train::features4::PendingKind4::of(pending),
+        "src": answer.provenance.source, "fb": fallback,
+        "v": answer.value, "ov": observed,
+        "life": seat.map(|seat| seat.life), "opp_life": other.map(|seat| seat.life),
+        "hand": view.hand.len(), "opp_hand": other.map(|seat| seat.hand_count),
+        "board": own_board, "opp_board": view.battlefield.len() - own_board})
+}
+
 type TableOutcome = (
     f32,
     bool,
@@ -46,6 +90,7 @@ fn play_one_table(
     mut shadow: Option<&mut shadow::ShadowGame>,
     research_encoder: Option<u32>,
     mut search: Option<&mut lookahead::GameSearch>,
+    value_log: Option<&Mutex<BufWriter<File>>>,
 ) -> anyhow::Result<TableOutcome> {
     let preset = table_for(seed, decks, profiles, teams_u8);
     let n_seats = decks.len();
@@ -333,6 +378,20 @@ fn play_one_table(
                     );
                 }
                 let dt_ms = t0.elapsed().as_secs_f64() * 1000.0;
+                if let Some(log) = value_log
+                    && s == focal_seat
+                {
+                    let line = value_line(
+                        deal_idx,
+                        focal_seat,
+                        &view,
+                        &pending,
+                        &ans,
+                        n.fallback_diagnostic().is_some(),
+                        n.observed_value(pid),
+                    );
+                    writeln!(log.lock().expect("value log lock"), "{line}")?;
+                }
                 if ans.provenance.source == SourceKind4::Net {
                     latencies.push(dt_ms);
                     net_answers += 1;

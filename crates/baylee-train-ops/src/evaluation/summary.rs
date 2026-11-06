@@ -84,7 +84,7 @@ pub fn summarize(value: &Value, resamples: usize) -> Result<Value> {
         "caps":"Capped utilities are unknown in [0,1]; interval includes worst/best completion, not a draw",
         "small_sample":small,"warning":if small {Some("Few tables can yield deceptively narrow bootstrap intervals; expand independent tables")} else {None}}))
 }
-fn sample(state: &mut u64, bound: usize) -> usize {
+pub(super) fn sample(state: &mut u64, bound: usize) -> usize {
     let bound = bound as u64;
     let threshold = bound.wrapping_neg() % bound;
     loop {

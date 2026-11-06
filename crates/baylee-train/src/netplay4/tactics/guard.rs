@@ -60,6 +60,10 @@ pub struct ChoiceGuard4 {
     pub tactical: TacticalParts,
     /// Counts `P(pass)` by window; changes no answer.
     pub probing: bool,
+    /// `eval4 --dev-free-temperature`: a raw net may sample at any temperature.
+    /// Below sampler 2's boundary the single choices are sampled and subset and
+    /// pair picks stay greedy with a little noise, which is why it is a dev flag.
+    pub free_temperature: bool,
     arms: [bool; ARMS],
     fired: [u64; ARMS],
     probe: [[u64; 10]; 3],
@@ -243,7 +247,10 @@ fn probe(
     legal: &LegalActions,
 ) {
     let actor = view.decision_player.unwrap_or(view.seat);
-    if view.seat(actor).is_none_or(|seat| seat.mana_pool.total() > 0) {
+    if view
+        .seat(actor)
+        .is_none_or(|seat| seat.mana_pool.total() > 0)
+    {
         return;
     }
     let Some((window, _)) = react_window(view, legal) else {

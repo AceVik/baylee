@@ -88,6 +88,31 @@ impl NetPlayer4 {
         }
         let p_kind = PendingKind4::of(pending);
 
+        // `eval4 --menu-payable`: the planner's next tap, or the spell they pay.
+        if let Some(action) = self
+            .payable_menu
+            .as_mut()
+            .and_then(|menu| menu.next(view, pending))
+        {
+            self.coverage.record(p_kind, SourceKind4::Forced);
+            return RootDecision4 {
+                answer: Answer4 {
+                    action,
+                    value: 0.5,
+                    provenance: StepProvenance4 {
+                        source: SourceKind4::Forced,
+                        temperature: self.temperature,
+                        thinking_steps: 0,
+                        behavior_logprob: 0.0,
+                        has_logprob: false,
+                    },
+                    target: TeacherTarget4::default(),
+                },
+                ranking: None,
+                notes_answer: true,
+            };
+        }
+
         if let Some(answer) = fallback::unsupported_choice_answer(pending, self.temperature) {
             self.last_fallback = Some(FallbackDiagnostic4::new(
                 FallbackReason4::UnsupportedChoice,
@@ -105,7 +130,21 @@ impl NetPlayer4 {
             .or_insert_with(|| vec![0.0; RECURRENT_SLOTS * self.d_model])
             .clone();
 
-        let (state, cands) = self.policy_encoding(view, pending, teams);
+        let (state, mut cands) = self.policy_encoding(view, pending, teams);
+        if self.payable_menu.is_some() {
+            let encoder = self.encoder_version;
+            let mut menu = self.payable_menu.take();
+            if let Some(menu) = &mut menu {
+                menu.extend(&mut cands, view, pending, |announced| {
+                    if encoder == 10 {
+                        crate::features10::encode_candidates10(&state, view, announced)
+                    } else {
+                        crate::features7::encode_candidates7_grouped(&state, view, announced)
+                    }
+                });
+            }
+            self.payable_menu = menu;
+        }
 
         // 1. Check if forced (<= 1 legal choice)
         let is_forced = match cands.head {
@@ -195,6 +234,11 @@ impl NetPlayer4 {
         let inference = self.infer_and_sample(&state, &cands, view, pending, &h_in);
         let (answer, ranking) = match inference {
             Ok(((action, value, logprob, target), logits)) => {
+                let action = self
+                    .payable_menu
+                    .as_mut()
+                    .and_then(|menu| menu.begin(view, &action))
+                    .unwrap_or(action);
                 let provenance = self.policy_mode.provenance(
                     self.temperature,
                     self.thinking_steps,

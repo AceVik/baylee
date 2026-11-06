@@ -30,6 +30,10 @@ pub fn read_verified(evaluation: &Path, job: &Path) -> Result<(Value, Value, Str
             "--raw-policy",
             "--catalog-superset",
             "--catalog-drift",
+            "--dev-free-temperature",
+            "--menu-payable",
+            "--opponent-legacy-v3",
+            "--numbers-only",
         ]
         .contains(&key)
         {

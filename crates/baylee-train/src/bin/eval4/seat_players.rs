@@ -42,10 +42,14 @@ impl SeatPlayers {
             .map(|path| {
                 load_player(
                     path,
-                    ModelFormat::Net(catalog),
+                    if contract.opponent_legacy_v3 {
+                        ModelFormat::LegacyV3
+                    } else {
+                        ModelFormat::Net(catalog)
+                    },
                     contract.depth,
                     contract.temperature,
-                    mode,
+                    contract.opponent_mode.unwrap_or(mode),
                     contract.opponent_identity.as_ref(),
                     shared.opponent.as_ref(),
                 )
@@ -105,6 +109,15 @@ impl EvaluationPlayer for SeatPlayers {
     }
     fn uses_context(&self) -> bool {
         self.learner.uses_context()
+    }
+    fn set_choice_guard(&mut self, guard: baylee_train::netplay4::ChoiceGuard4) -> bool {
+        self.learner.set_choice_guard(guard)
+    }
+    fn take_choice_guard_fired(&mut self) -> Vec<u64> {
+        self.learner.take_choice_guard_fired()
+    }
+    fn observed_value(&self, seat: baylee_core::ids::PlayerId) -> Option<f32> {
+        self.learner.observed_value(seat)
     }
     fn uses_payment_context(&self) -> bool {
         self.learner.uses_payment_context()

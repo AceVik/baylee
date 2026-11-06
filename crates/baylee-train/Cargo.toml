@@ -38,7 +38,7 @@ play = [
 # the net's lookahead (`netplay4::search`, `eval4 --search`). Not `play`:
 # that is a default, and `cargo build-servers`/`build-client` select
 # `--workspace`, so a default of this crate unifies into every shipped binary.
-onnx = ["play", "dep:ort", "dep:baylee-ai", "baylee-gamehost/simulation"]
+onnx = ["play", "dep:ort", "dep:baylee-ai", "dep:baylee-client-core", "baylee-gamehost/simulation"]
 # The same on NVIDIA GPUs (CUDA 13; the runtime finds the CUDA and cuDNN
 # libraries on LD_LIBRARY_PATH): the batch servers of `--gpu-batch` run there,
 # and `BAYLEE_EP=cpu` keeps them on the CPU. A v2/v4 player goes to the GPU only
@@ -65,6 +65,7 @@ anyhow.workspace = true
 baylee-train-ops = { path = "../baylee-train-ops", optional = true }
 baylee-ai = { workspace = true, optional = true }
 baylee-build = { workspace = true, optional = true }
+baylee-client-core = { workspace = true, optional = true }
 baylee-cards.workspace = true
 baylee-cards-dsl = { workspace = true, optional = true }
 baylee-cards-index.workspace = true
