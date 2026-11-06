@@ -563,12 +563,15 @@ pub fn wrap_rustc() -> Option<i32> {
     }
     let rustc = args.remove(0);
     let pin = env::var(PIN).ok();
+    let mut read = in_full(&args);
     if let Some(name) = &pin {
         pin_metadata(&mut args, name);
+        pin_argfiles(&args, &read, name);
+        pin_metadata(&mut read, name);
     }
     let mut compile = Command::new(rustc);
     compile.args(&args);
-    if pin.is_none() || built_for_the_target(&args) {
+    if pin.is_none() || built_for_the_target(&read) {
         compile.args(flags.split(FLAG_SEPARATOR).filter(|flag| !flag.is_empty()));
     }
     Some(
@@ -576,6 +579,50 @@ pub fn wrap_rustc() -> Option<i32> {
             .status()
             .map_or(1, |status| status.code().unwrap_or(1)),
     )
+}
+
+/// The arguments with their argument files opened. Cargo moves a command line too
+/// long for the system into a file named `@path`, one argument a line, and on
+/// Windows the client's crate, with its hundreds of `--extern`, is one of those.
+fn in_full(args: &[OsString]) -> Vec<OsString> {
+    let mut read = Vec::with_capacity(args.len());
+    for arg in args {
+        match argfile(arg).and_then(|file| fs::read_to_string(file).ok()) {
+            Some(lines) => read.extend(lines.lines().map(OsString::from)),
+            None => read.push(arg.clone()),
+        }
+    }
+    read
+}
+
+/// The file an `@path` argument names.
+fn argfile(arg: &OsStr) -> Option<PathBuf> {
+    arg.to_str()?.strip_prefix('@').map(PathBuf::from)
+}
+
+/// Pins inside the argument files, which is where the hash then is.
+fn pin_argfiles(args: &[OsString], read: &[OsString], name: &str) {
+    let mut pinned = read.to_vec();
+    pin_metadata(&mut pinned, name);
+    if pinned == read {
+        return;
+    }
+    for file in args.iter().filter_map(|arg| argfile(arg)) {
+        let Ok(text) = fs::read_to_string(&file) else {
+            continue;
+        };
+        let lines: Vec<String> = text
+            .lines()
+            .map(|line| {
+                if line.starts_with("metadata=") {
+                    format!("metadata=baylee-pgo-{name}")
+                } else {
+                    line.to_owned()
+                }
+            })
+            .collect();
+        let _ = fs::write(&file, lines.join("\n"));
+    }
 }
 
 /// Whether this is a crate that ends up in the binary. Cargo names the target
@@ -834,6 +881,26 @@ mod pin_tests {
         let mut pinned = binary.clone();
         pin_metadata(&mut pinned, "baylee_client");
         assert_eq!(pinned, binary);
+    }
+
+    /// On Windows a long command line arrives as a file: the hash is pinned there,
+    /// and what the file says counts as said.
+    #[test]
+    fn an_argument_file_is_read_and_pinned_like_a_command_line() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("rustc-args");
+        fs::write(
+            &file,
+            "--crate-name\nbaylee_client\n--target\nx86_64-pc-windows-msvc\n-C\nmetadata=aaa\n",
+        )
+        .unwrap();
+        let args = vec![OsString::from(format!("@{}", file.display()))];
+        let read = in_full(&args);
+        assert!(built_for_the_target(&read));
+        pin_argfiles(&args, &read, "baylee_client");
+        let text = fs::read_to_string(&file).unwrap();
+        assert!(text.contains("metadata=baylee-pgo-baylee_client"), "{text}");
+        assert!(!text.contains("metadata=aaa"), "{text}");
     }
 
     #[test]

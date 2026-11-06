@@ -48,14 +48,15 @@ const SCENES: [(&str, Scene); 5] = [
     ("a full board", full_board),
 ];
 
-/// Plays every scene, each in a client of its own, into `raw`.
-pub fn every_scene(client: &Path, raw: &Path, work: &Path) -> Result<()> {
-    scenes(client, raw, work, None)
-}
-
-/// Plays the scene at `only`, or every scene.
-pub fn scenes(client: &Path, raw: &Path, work: &Path, only: Option<usize>) -> Result<()> {
-    let root = std::env::current_dir().context("the checkout")?;
+/// Plays the scene at `only`, or every scene, each in a client of its own, into
+/// `raw`.
+pub fn scenes(
+    root: &Path,
+    client: &Path,
+    raw: &Path,
+    work: &Path,
+    only: Option<usize>,
+) -> Result<()> {
     for (at, (name, scene)) in SCENES.iter().enumerate() {
         if only.is_some_and(|only| only != at) {
             continue;
@@ -67,7 +68,7 @@ pub fn scenes(client: &Path, raw: &Path, work: &Path, only: Option<usize>) -> Re
         if *name == "the deck builder" {
             fs::write(
                 dir.join("config/baylee/offline-decks.json"),
-                big_list(&root)?,
+                big_list(root)?,
             )?;
         }
         let mut launch = Launch::new()
@@ -79,10 +80,10 @@ pub fn scenes(client: &Path, raw: &Path, work: &Path, only: Option<usize>) -> Re
             .env("BAYLEE_DEV_IDLE_EXIT", IDLE_EXIT_SECS)
             .env("BAYLEE_DEV_SEED", SEED);
         if *name == "a full board" {
-            launch = launch.env("BAYLEE_DEV_SEAT_BOARD", &board(&root)?);
+            launch = launch.env("BAYLEE_DEV_SEAT_BOARD", &board(root)?);
         }
         let running = Client::start(client, &launch, &dir)?;
-        scene(&running, &root).with_context(|| format!("{name}: {}", last_state(&running)))?;
+        scene(&running, root).with_context(|| format!("{name}: {}", last_state(&running)))?;
         running.finish(CLOSING)?;
     }
     Ok(())
