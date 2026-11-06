@@ -7,7 +7,6 @@ pub(crate) fn escape_grants(
     state: &GameState,
     player: PlayerId,
     card: ObjectId,
-    _face: usize,
 ) -> SmallVec<[u8; 2]> {
     let mut grants = SmallVec::new();
     if !state.effects.may_grant_graveyard_or_top_play() {
@@ -44,6 +43,12 @@ pub(crate) fn granted_escape_options(
     paying: Paying,
 ) -> Vec<CastModeDesc> {
     let mut options = Vec::new();
+    // First, because the walk below is asked of every card in a graveyard on
+    // every offer, and almost nothing grants escape.
+    let grants = escape_grants(state, player, card);
+    if grants.is_empty() {
+        return options;
+    }
     let Some(object) = state
         .object(card)
         .filter(|object| object.zone == Zone::Graveyard && object.zone_owner == Some(player))
@@ -67,10 +72,6 @@ pub(crate) fn granted_escape_options(
             continue;
         };
         let fodder = fodder.saturating_add(additional_fodder);
-        let grants = escape_grants(state, player, card, index);
-        if grants.is_empty() {
-            continue;
-        }
         let printed = printed_reduction(state, face, player, card);
         let keywords = keyword_reduction(state, face, player, card);
         for prototype in [false, true] {

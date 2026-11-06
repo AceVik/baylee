@@ -263,7 +263,7 @@ pub(crate) fn graveyard_face_open(
         return false;
     }
     !graveyard_face_permissions(state, player, card, face).is_empty()
-        || !escape_grants(state, player, card, face).is_empty()
+        || !escape_grants(state, player, card).is_empty()
         || (face == 0 && flashback_granted(state, card))
         || object
             .card
