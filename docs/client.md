@@ -4703,6 +4703,19 @@ next one may be at another gateway. Every
 filter — text, colour identity, type, mana value, sort — runs locally, so
 search answers at keystroke latency and never at the gateway's.
 
+**A deck wears the rank it earned** (owner, 06.11.2026:
+the rarer, the more splendid). `DeckPlayStats::rank_tier` gives a tier
+`0..=11`, and the tile says it three times in one colour: the title, the badge
+(`decks::rank_tier_ink`) and the frame (`deck_frame.wesl`), held together by
+`the_title_the_badge_and_the_frame_name_one_colour`. Each tier has a look of its
+own: copper, hammered iron, engraved bronze, polished silver, cut emerald, a
+standing wave in sapphire, gold guilloche, beating ruby beads, a chain of
+amethyst, a mythic flame and an aurora, with corner gems from emerald up, a
+halo past the tile from gold up, and comets from amethyst up. The frame lies
+over the tile's bands, within its padding (`room`), so art and words stay
+clear; ornament is mirrored about both axes, light moves slowly and nothing
+strobes, and `quality::ambient_still` stands it still with its ornament kept.
+
 **A card blocked on the gateway is marked, never hidden** (12.10.2026,
 `docs/protocol.md` §"Blocked cards"). Beside the pool the lobby asks `GET
 /cards/blocked` (`http::ask_aside`, never offline) into

@@ -1815,7 +1815,13 @@ fn spawn_rank_badge(commands: &mut Commands, kit: Kit, look: &TileLook) -> Optio
 
 /// Configures hover/press feel, golden favourite border, click-to-open action,
 /// and shader-animated achievement frame on a deck tile's root entity.
-fn decorate_tile_card(commands: &mut Commands, card: Entity, look: &TileLook, open: Option<Press>) {
+fn decorate_tile_card(
+    commands: &mut Commands,
+    card: Entity,
+    look: &TileLook,
+    open: Option<Press>,
+    room: f32,
+) {
     let (rest_border, hover_border) = if look.star {
         (tokens::GOLD.with_alpha(0.72), tokens::GOLD)
     } else if look.rank_tier >= 4 {
@@ -1837,7 +1843,7 @@ fn decorate_tile_card(commands: &mut Commands, card: Entity, look: &TileLook, op
     if let Some(press) = open {
         commands.entity(card).insert(press);
     }
-    super::deck_frame::attach(commands, card, card, look.rank_tier, look.star);
+    super::deck_frame::attach(commands, card, card, look.rank_tier, look.star, room);
 }
 
 /// A deck tile (§2.4 Tile), rendered in the active `DecksView` (`Gallery`,
@@ -1893,9 +1899,9 @@ fn tile_gallery(
             BackgroundColor(tokens::PANEL),
         ))
         .id();
-    decorate_tile_card(commands, card, look, open);
-
     let pad = kit.m.scaled(if phone { 8.0 } else { 12.0 });
+    decorate_tile_card(commands, card, look, open, pad - 3.0);
+
     let band = commands
         .spawn((
             Node {
@@ -2118,7 +2124,7 @@ fn tile_list(
             parts::identity_gradient(look.identity),
         ))
         .id();
-    decorate_tile_card(commands, card, look, open);
+    decorate_tile_card(commands, card, look, open, kit.m.scaled(8.0));
 
     let lead = commands
         .spawn((
@@ -2262,7 +2268,7 @@ fn tile_compact(
             parts::identity_gradient(look.identity),
         ))
         .id();
-    decorate_tile_card(commands, card, look, open);
+    decorate_tile_card(commands, card, look, open, kit.m.scaled(8.0));
 
     let head = commands
         .spawn((

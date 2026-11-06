@@ -1,16 +1,17 @@
 //! Shader-animated achievement & favourite frame for deck tiles in the Lobby.
 //!
 //! Each deck earns a rank tier (`0..=11`) from its account-bound play and win
-//! statistics (`baylee_client_core::prefs::DeckPlayStats::rank_tier`). Higher
-//! tiers render progressively more ornate metallic, crystalline, and aurora
-//! perimeter frames via `shaders/deck_frame.wesl`, while favourite decks
-//! (`★`) receive a warm golden rim.
+//! statistics (`baylee_client_core::prefs::DeckPlayStats::rank_tier`). The
+//! rarer the tier, the richer its frame (`shaders/deck_frame.wesl`): each has
+//! a look of its own, and from gold up a halo past the tile's edge. Favourite
+//! decks (`★`) receive a warm golden rim. The frame stays within the tile's
+//! padding (`room`), so the art and the words under it are never covered.
 
 use bevy::picking::hover::PickingInteraction;
 use bevy::prelude::*;
 use bevy::render::render_resource::{AsBindGroup, ShaderType};
 use bevy::shader::ShaderRef;
-use bevy::ui::Val::Percent;
+use bevy::window::PrimaryWindow;
 
 /// GPU uniform parameters for `deck_frame.wesl`.
 #[derive(ShaderType, Clone, Copy, Debug, Default, PartialEq)]
@@ -24,6 +25,12 @@ pub struct DeckFrameParams {
     pub motion: f32,
     /// Smoothed hover intensity (`0.0..=1.0`).
     pub hover: f32,
+    /// Physical pixels per logical one.
+    pub scale: f32,
+    /// How far the quad reaches past the tile, logical pixels.
+    pub halo: f32,
+    /// How deep the frame may reach into the tile, logical pixels.
+    pub room: f32,
 }
 
 /// UI material for the shader-animated deck achievement frame.
@@ -48,6 +55,18 @@ pub(crate) struct DeckFrameOverlay {
     pub(crate) tier: u8,
     pub(crate) favourite: bool,
     pub(crate) hover: f32,
+    pub(crate) room: f32,
+}
+
+/// How far a tier's halo reaches past the tile, in logical pixels: less than
+/// the shelf's gap, so that it never lies on the next tile.
+const fn halo_of(tier: u8) -> f32 {
+    match tier {
+        0..=6 => 0.0,
+        7 | 8 => 6.0,
+        9 | 10 => 8.0,
+        _ => 10.0,
+    }
 }
 
 /// Attaches a shader-animated frame overlay to `tile_face`, tracking pointer
@@ -59,23 +78,27 @@ pub(crate) fn attach(
     hit_target: Entity,
     tier: u8,
     favourite: bool,
+    room: f32,
 ) {
+    let halo = halo_of(tier);
     let overlay = commands
         .spawn((
             Node {
                 position_type: PositionType::Absolute,
-                left: Val::Px(0.0),
-                top: Val::Px(0.0),
-                width: Percent(100.0),
-                height: Percent(100.0),
-                border_radius: BorderRadius::all(Val::Px(10.0)),
+                left: Val::Px(-halo),
+                right: Val::Px(-halo),
+                top: Val::Px(-halo),
+                bottom: Val::Px(-halo),
                 ..default()
             },
+            // Over the tile's own bands, which are spawned after it.
+            ZIndex(1),
             DeckFrameOverlay {
                 target: hit_target,
                 tier,
                 favourite,
                 hover: 0.0,
+                room,
             },
             Pickable::IGNORE,
         ))
@@ -94,6 +117,9 @@ pub(crate) fn attach(
                 favourite: u32::from(favourite),
                 motion,
                 hover: 0.0,
+                scale: 1.0,
+                halo,
+                room,
             },
         });
         if let Ok(mut entity) = world.get_entity_mut(overlay) {
@@ -107,14 +133,21 @@ pub(crate) fn animate_deck_frames(
     time: Res<Time>,
     prefs: Option<Res<crate::prefs::Prefs>>,
     store: Option<ResMut<Assets<DeckFrameUiMaterial>>>,
+    quality: Option<Res<crate::quality::InUse>>,
+    window: Query<&Window, With<PrimaryWindow>>,
     interactions: Query<&PickingInteraction>,
     mut overlays: Query<(&mut DeckFrameOverlay, &MaterialNode<DeckFrameUiMaterial>)>,
 ) {
     let Some(mut store) = store else {
         return;
     };
-    let still = prefs.is_some_and(|p| p.all().reduce_motion);
+    let still = crate::quality::ambient_still(
+        prefs.is_some_and(|p| p.all().reduce_motion),
+        quality.as_deref(),
+    );
     let motion = if still { 0.0 } else { 1.0 };
+    // `UiScale` stays at one here: only an open table sets it.
+    let scale = window.single().map_or(1.0, Window::scale_factor);
     let step = if still {
         1.0
     } else {
@@ -140,6 +173,9 @@ pub(crate) fn animate_deck_frames(
             favourite: u32::from(overlay.favourite),
             motion,
             hover: next,
+            scale,
+            halo: halo_of(overlay.tier),
+            room: overlay.room,
         };
         let needs_update = store
             .get(&mat_node.0)
