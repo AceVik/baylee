@@ -182,17 +182,13 @@ pub(crate) fn terms_stale(state: &AppState, accepted: Option<&str>) -> Option<bo
         .map(|terms| accepted != Some(terms.version.as_str()))
 }
 
-/// The same for a Central-bound sign-in, from Central's own answer: whether
-/// the account accepted this gateway's terms in force (`terms_stale`) and
-/// Baylee Central's (`central_terms_stale`, only when it did not).
+/// The same for a Central-bound sign-in, from its token: whether the account
+/// accepted this gateway's terms in force (`terms_stale`).
 pub(crate) fn mark_standing(
     state: &AppState,
     standing: crate::terms::Standing,
     answer: &mut serde_json::Value,
 ) {
-    if standing == crate::terms::Standing::Central {
-        answer["central_terms_stale"] = true.into();
-    }
     if state.terms.current().is_some() {
         answer["terms_stale"] = (standing != crate::terms::Standing::Accepted).into();
     }

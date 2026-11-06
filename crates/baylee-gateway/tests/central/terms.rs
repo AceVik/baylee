@@ -130,6 +130,7 @@ pub(super) fn run(runtime: &Runtime, operator: &DatabaseConnection, endpoint: &E
             ),
         ],
     );
+    common::central_ready(gateway.port);
     let console: u16 = std::fs::read_to_string(&admin_file.0)
         .unwrap()
         .trim()
@@ -174,8 +175,18 @@ pub(super) fn run(runtime: &Runtime, operator: &DatabaseConnection, endpoint: &E
             &first,
         )
         .unwrap();
-    assert_eq!(me(gateway.port, &token), (200, None), "accepted at Central");
-    assert_eq!(admit(gateway.port, &owner, &http)["terms_stale"], false);
+    // The acceptance arrives in the next token, as the client's sign-in after
+    // its acceptance brings it, and for the session, not for one bearer.
+    assert_eq!(
+        me(gateway.port, &token),
+        (403, Some("gateway".into())),
+        "this gateway does not ask Central: it waits for a token that says so"
+    );
+    let answer = admit(gateway.port, &owner, &http);
+    assert_eq!(answer["terms_stale"], false, "{answer}");
+    let fresh = answer["token"].as_str().unwrap();
+    assert_eq!(me(gateway.port, fresh), (200, None), "accepted at Central");
+    assert_eq!(me(gateway.port, &token), (200, None), "the same session");
 
     republished(&gateway, console, &owner, &http);
     drop(gateway);
@@ -235,6 +246,8 @@ fn republished(gateway: &common::Gateway, console: u16, owner: &sdk::Session, ht
             &second,
         )
         .unwrap();
+    let answer = admit(gateway.port, owner, http);
+    assert_eq!(answer["terms_stale"], false, "{answer}");
     assert_eq!(me(gateway.port, &token), (200, None));
 }
 

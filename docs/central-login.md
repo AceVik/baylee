@@ -205,6 +205,13 @@ and dependencies to `f66568b985656eb1677c33c6f6515e107b126c93`; beta.9c
 requires the renewed source review and fingerprint. No scanner ignore or
 allowed reverse edge was broadened.
 
+Baylee's session tokens (§"Sessions") pin Central's working branch
+`c42/session-tokens` at `8e9fa836a1805bd6fd636ff4b9b3bed493f5f069`, until it is
+merged and the pin moves to Central's `main`. That revision adds
+`central_crypto::jwt` behind a feature of its own, Ed25519 by the
+`ed25519-dalek` the crate already used, and pins the source fingerprint again in
+Central's guard. No OPAQUE, OPRF or key-exchange code changed.
+
 `deny.toml` and the audit job exclude this advisory only under that reviewed
 scope. The required `shipped-features` job and local feature gate run
 `crypto-bigint-scope`: Cargo metadata resolves all features, including inactive
@@ -418,10 +425,13 @@ within seconds where it cannot.
   gateway, by its digest, and renews without Central (`POST /auth/session/renew`).
   The lifetime is drawn so that sessions begun together do not renew together. Only
   the current one renews; one replaced serves requests in flight for ten seconds.
-  A client whose renewal was lost presents its gateway token
-  (`POST /auth/central/refresh`), which also carries the session past the token's
-  hour. An `admin` session's token lasts as long as its gateway token instead,
-  because it works on the loopback admin listener alone and nothing there renews it.
+  A client whose renewal was lost presents a later gateway token
+  (`POST /auth/central/refresh`), and signs in again where the gateway no longer
+  holds the session, as after its restart; only a signed `401` after that ends the
+  session on the client. The client also refreshes every ten minutes, which carries
+  the session past the token's hour. An `admin` session's token lasts as long as its
+  gateway token instead, because it works on the loopback admin listener alone and
+  nothing there renews it.
 
 **Checking a JWT.** `central_crypto::jwt`, one implementation for Central and
 gateways: EdDSA only, compared to fixed header bytes, so nothing in a token selects
@@ -440,6 +450,12 @@ seconds. A gap still applies its sessions and holds the number back. If the gate
 missed numbers Central no longer holds, it ends every Central session it holds, and
 clients present fresh tokens, which Central gives only to live sessions. With no
 catch-up at all, a session ends when its token does: an hour at most.
+
+**Which origins a token may name.** A registered gateway's is the `origin` it was
+told; the official gateway's are its compiled origins and any `origin` its bridge file
+names. In development, where the port is known only once bound, a gateway also takes
+a token for its own loopback address (`central::Link::bound`). A live gateway never
+does.
 
 **After a start** the gateway holds nothing: no keys, no revoked `sid`, no sessions. It
 takes no Central sign-in until it has keys and one finished catch-up, and answers `503`

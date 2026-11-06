@@ -627,9 +627,10 @@ fn restored_account(
     assert_eq!(common::http(port, "GET", "/me", Some(token), "").0, 200);
     let _ = first.logout();
     second.logout().unwrap();
+    pushed(&CentralHttp::new(endpoint.clone()), bridge, port);
     assert_eq!(
         common::http(port, "GET", "/me", Some(token), "").0,
         401,
-        "central logout cannot leave a sliding gateway session authorized"
+        "central logout cannot leave a gateway session authorized"
     );
 }

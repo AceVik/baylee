@@ -18,10 +18,6 @@ pub struct Admission {
     /// Whether the gateway's terms in force still need this account's
     /// acceptance (at Central, for a Central account).
     pub terms_stale: Option<bool>,
-    /// Whether Baylee Central's own terms in force still need it; only ever
-    /// `Some(true)`, absent otherwise.
-    #[serde(default)]
-    pub central_terms_stale: Option<bool>,
     /// Seconds until this bearer wants renewing, which the gateway counts so
     /// that this machine's clock does not come into it.
     #[serde(default)]

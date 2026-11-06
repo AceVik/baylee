@@ -613,11 +613,6 @@ fn admission_answered(
     mailbox: &Mailbox,
 ) {
     let stale = admission.as_ref().ok().and_then(|value| value.terms_stale);
-    let central_stale = admission
-        .as_ref()
-        .ok()
-        .and_then(|value| value.central_terms_stale)
-        == Some(true);
     let renewal = admission
         .as_ref()
         .ok()
@@ -634,14 +629,6 @@ fn admission_answered(
             messages.push(Reply::Remote(
                 epoch,
                 Box::new(Reply::Terms(super::front::terms::TermsReply::Stale(stale))),
-            ));
-        }
-        // Central's own terms come first: their sheet, then the
-        // gateway's after a fresh admission.
-        if central_stale {
-            messages.push(Reply::Remote(
-                epoch,
-                Box::new(Reply::Terms(super::front::terms::TermsReply::CentralStale)),
             ));
         }
         let central_bound = matches!(event, LobbyEvent::LoggedIn { .. });
@@ -704,6 +691,14 @@ pub(super) fn refresh_gateway(state: &LobbyState, mailbox: &Mailbox) {
             }
             Err(Error::Rejected) => {
                 admission_answered(account.admit(&gateway), lang, epoch, &target);
+            }
+            // Central put new terms in force: it gives out no token until they
+            // are accepted, and the session must not just run out on the player.
+            Err(Error::TermsRequired) => {
+                if let Ok(mut messages) = target.0.lock() {
+                    let terms = super::front::terms::TermsReply::CentralStale;
+                    messages.push(Reply::Remote(epoch, Box::new(Reply::Terms(terms))));
+                }
             }
             Err(_) => {}
         }

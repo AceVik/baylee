@@ -59,15 +59,17 @@ struct OldSignIn {
 
 /// The gateway token in a body. A client too old to have one hears that
 /// (`docs/protocol.md` §"Refusals"); anything else is a bad request.
-fn read_token(body: &[u8]) -> Result<Zeroizing<String>, Response> {
+fn read_token(body: &[u8]) -> Result<Zeroizing<String>, Box<Response>> {
     if let Ok(sign_in) = serde_json::from_slice::<SignIn>(body) {
         return Ok(Zeroizing::new(sign_in.token));
     }
     if serde_json::from_slice::<OldSignIn>(body).is_ok() {
         let refusal = json!({ "refusal": Refusal::update_required() });
-        return Err((StatusCode::UPGRADE_REQUIRED, Json(refusal)).into_response());
+        return Err(Box::new(
+            (StatusCode::UPGRADE_REQUIRED, Json(refusal)).into_response(),
+        ));
     }
-    Err(StatusCode::BAD_REQUEST.into_response())
+    Err(Box::new(StatusCode::BAD_REQUEST.into_response()))
 }
 
 /// A gateway token checked here, with no word from Central unless it names a
@@ -277,7 +279,7 @@ async fn login(
     }
     match read_token(&body) {
         Ok(token) => answered(sign_in(&state, &token, Purpose::Admit).await),
-        Err(refused) => refused,
+        Err(refused) => *refused,
     }
 }
 
@@ -319,7 +321,7 @@ async fn admin_login(
     }
     match read_token(&body) {
         Ok(token) => answered(sign_in(&state, &token, Purpose::Admin).await),
-        Err(refused) => refused,
+        Err(refused) => *refused,
     }
 }
 
@@ -386,7 +388,7 @@ async fn refresh(
     }
     match read_token(&body) {
         Ok(token) => answered(refreshed(&state, &token).await),
-        Err(refused) => refused,
+        Err(refused) => *refused,
     }
 }
 
@@ -643,7 +645,7 @@ mod tests {
     #[tokio::test]
     async fn being_told_to_update_says_so_as_a_refusal_a_client_can_read() {
         let refused = read_token(br#"{"ticket":[1]}"#).err().unwrap();
-        let body = axum::body::to_bytes(refused.into_body(), 1024)
+        let body = axum::body::to_bytes((*refused).into_body(), 1024)
             .await
             .unwrap();
         let refusal = Refusal::read(&body).unwrap();

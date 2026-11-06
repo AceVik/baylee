@@ -988,9 +988,9 @@ struct ErrorBody {
     /// Central sign-in or a session of a banned account (`moderation.rs`).
     #[serde(skip_serializing_if = "Option::is_none")]
     ban: Option<moderation::BanBody>,
-    /// Whose terms of use the account has to accept first (`central` or
-    /// `gateway`): only on the `403` of a session that has not (`terms_admit`).
-    /// @openapi enum: [central, gateway]
+    /// Whose terms of use the account has to accept first (`gateway`, the only
+    /// ones a gateway enforces): only on the `403` of a session that has not (`terms_admit`).
+    /// @openapi enum: [gateway]
     #[serde(skip_serializing_if = "Option::is_none")]
     terms_required: Option<&'static str>,
     /// Why a table's list turned a deck away: only on the `409` of a route
@@ -1000,7 +1000,7 @@ struct ErrorBody {
     /// Why, for a client to say in its own words (`docs/protocol.md`
     /// §"Refusals"): only on a refusal that has a stable reason.
     #[serde(skip_serializing_if = "Option::is_none")]
-    refusal: Option<baylee_protocol::refusal::Refusal>,
+    refusal: Option<Box<baylee_protocol::refusal::Refusal>>,
 }
 
 fn err(status: StatusCode, message: &'static str) -> (StatusCode, Json<ErrorBody>) {
@@ -1013,7 +1013,7 @@ fn err(status: StatusCode, message: &'static str) -> (StatusCode, Json<ErrorBody
             refused: None,
             // One constant, whichever route met the hold.
             refusal: (message == admission::HELD)
-                .then(|| baylee_protocol::refusal::Refusal::new("maintenance")),
+                .then(|| Box::new(baylee_protocol::refusal::Refusal::new("maintenance"))),
         }),
     )
 }
@@ -1233,7 +1233,7 @@ pub(crate) fn terms_admit(session: &store::Session) -> Result<(), (StatusCode, J
         "accept the terms of use in force to go on",
     );
     body.terms_required = Some(document);
-    body.refusal = Some(baylee_protocol::refusal::Refusal::new("terms"));
+    body.refusal = Some(Box::new(baylee_protocol::refusal::Refusal::new("terms")));
     Err((status, Json(body)))
 }
 

@@ -324,8 +324,9 @@ impl Bridge {
                     baylee_account::Error::Rejected => StatusCode::UNAUTHORIZED,
                     // Central refusing this gateway's protocol is not a word about
                     // any account: it says nothing, and sessions stand.
-                    baylee_account::Error::UpdateRequired => StatusCode::SERVICE_UNAVAILABLE,
-                    baylee_account::Error::Unavailable => StatusCode::SERVICE_UNAVAILABLE,
+                    baylee_account::Error::UpdateRequired | baylee_account::Error::Unavailable => {
+                        StatusCode::SERVICE_UNAVAILABLE
+                    }
                     // A gateway's own credential is no account session; Central
                     // never answers it so, and a 403 is the honest reading.
                     baylee_account::Error::TermsRequired => StatusCode::FORBIDDEN,
@@ -575,7 +576,11 @@ pub(crate) fn standing(state: &Shared, live: &crate::sessions::Live) -> crate::t
         live.signed()
             .is_some_and(|signed| signed.accepted(&terms.version, &digest))
     });
-    crate::terms::Standing::of(true, accepted)
+    if accepted {
+        crate::terms::Standing::Accepted
+    } else {
+        crate::terms::Standing::Gateway
+    }
 }
 
 /// Publish the terms in force to Central until it confirms them; only then

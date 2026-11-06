@@ -460,11 +460,10 @@ fn checked_version(named: &str) -> Result<String, String> {
 /// terms, signing out and deleting its data here (`crate::terms_admit`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) enum Standing {
-    /// Both Central's terms and this gateway's, or the session is local.
+    /// This gateway's terms, or the session is local. Central's own are a
+    /// condition of its token, so a Central session has accepted those.
     #[default]
     Accepted,
-    /// Baylee Central's terms in force are not accepted.
-    Central,
     /// This gateway's terms in force are not accepted.
     Gateway,
 }
@@ -474,17 +473,7 @@ impl Standing {
     pub(crate) const fn document(self) -> Option<&'static str> {
         match self {
             Self::Accepted => None,
-            Self::Central => Some("central"),
             Self::Gateway => Some("gateway"),
-        }
-    }
-
-    /// From Central's two answers; Central's own terms come first.
-    pub(crate) const fn of(central_terms: bool, gateway_terms: bool) -> Self {
-        match (central_terms, gateway_terms) {
-            (false, _) => Self::Central,
-            (true, false) => Self::Gateway,
-            (true, true) => Self::Accepted,
         }
     }
 }

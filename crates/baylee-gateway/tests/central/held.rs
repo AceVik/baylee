@@ -97,7 +97,6 @@ fn held(served: &Served, terms: &TermsDocument, runtime: &Runtime, operator: &Da
         1,
         "the gateway account is linked at its first admission"
     );
-    assert_eq!(admitted.central_terms_stale, None);
     assert_eq!(
         common::http(port, "GET", "/me", Some(&admitted.token), "").0,
         200
