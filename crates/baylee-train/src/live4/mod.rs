@@ -67,6 +67,8 @@ pub struct LiveReport4 {
     pub won: Option<bool>,
     /// Whether the game ended in a draw, once the table says it is over.
     pub drawn: Option<bool>,
+    /// Answers each rule group of the tactical layer changed.
+    pub tactic_rules_fired: std::collections::BTreeMap<String, u64>,
 }
 
 struct Question {
@@ -359,6 +361,13 @@ impl<B: Brain4> LiveSeat4<B> {
             audit::extend(&mut self.history, b"action", &action_json);
             self.last_decision = Some(decision);
             self.report.answers += 1;
+            for (group, fired) in self.brain.take_rules_fired() {
+                *self
+                    .report
+                    .tactic_rules_fired
+                    .entry(group.to_owned())
+                    .or_default() += fired;
+            }
             if let Some(draw) = answer.draw {
                 self.report.draw_offer_answers += 1;
                 self.report.last_draw_decision = Some(draw);

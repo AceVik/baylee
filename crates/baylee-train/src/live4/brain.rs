@@ -47,6 +47,10 @@ pub trait Brain4 {
     fn menu(&self) -> Option<serde_json::Value> {
         None
     }
+    /// Answers each rule group changed since this was last asked.
+    fn take_rules_fired(&mut self) -> Vec<(&'static str, u64)> {
+        Vec::new()
+    }
     /// Consume a genuinely changed authorized observation before any action.
     ///
     /// # Errors
@@ -86,6 +90,9 @@ impl Brain4 for NetPlayer4 {
     }
     fn menu(&self) -> Option<serde_json::Value> {
         self.last_menu.clone()
+    }
+    fn take_rules_fired(&mut self) -> Vec<(&'static str, u64)> {
+        self.take_tactic_rules_fired()
     }
     fn initialize(
         &mut self,

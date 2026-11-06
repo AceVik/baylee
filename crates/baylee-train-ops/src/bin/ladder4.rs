@@ -355,6 +355,7 @@ fn play(args: &Args, game: &Game) -> Result<Value> {
         "won": inner.get("won"), "drawn": inner.get("drawn"),
         "answers": inner.get("answers"), "neural_answers": inner.get("neural_answers"),
         "fallback_answers": inner.get("fallback_answers"), "failure": inner.get("failure"),
+        "rules_fired": inner.get("tactic_rules_fired"),
     }))
 }
 
