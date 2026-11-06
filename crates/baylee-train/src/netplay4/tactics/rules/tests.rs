@@ -450,6 +450,28 @@ fn a_pump_turns_a_fight_it_can_turn() {
 }
 
 #[test]
+fn a_shadow_counts_what_a_group_would_change_and_changes_nothing() {
+    let (_session, pending, view) = block_question(&["Grizzly Bears"], &["Goblin Lackey"]);
+    let state = crate::features7::encode_state7(&view, Some(&pending), None, &[]);
+    let cands = crate::features7::encode_candidates7_grouped(&state, &view, &pending);
+    let leave_open = vec![-5.0; cands.pair_objects.len()];
+
+    let mut logits = leave_open.clone();
+    let mut shadow = TacticRules4::shadow();
+    super::pairs(&mut shadow, &cands, &mut logits, &view, &pending);
+    assert_eq!(logits, leave_open);
+    let fired = shadow.take_fired();
+    assert!(fired.contains(&("trip", 1)), "{fired:?}");
+    assert!(fired.contains(&("race", 0)), "{fired:?}");
+
+    let mut logits = leave_open.clone();
+    let mut trip = TacticRules4::parse("trip").unwrap();
+    super::pairs(&mut trip, &cands, &mut logits, &view, &pending);
+    assert_ne!(logits, leave_open);
+    assert!(trip.take_fired().contains(&("trip", 1)));
+}
+
+#[test]
 fn most_mana_spent_is_a_subset_sum() {
     assert_eq!(super::opening::best_spend(&[2, 3, 7], 6), 5);
     assert_eq!(super::opening::best_spend(&[4, 4], 7), 4);
