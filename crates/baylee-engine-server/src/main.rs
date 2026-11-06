@@ -19,7 +19,7 @@
 //! client's `dev-control` harness: a program can hold an opponent's controls
 //! over an ordinary socket, see exactly what that seat is entitled to see and
 //! answer for it, and hand the chair back to the house AI by hanging up.
-#![forbid(unsafe_code)]
+#![deny(unsafe_code)]
 
 mod pump_config;
 

@@ -11,7 +11,7 @@
 //!
 //! The decisions live in [`baylee_agent`]; this file is the socket, the child
 //! processes and the reconnect loop.
-#![forbid(unsafe_code)]
+#![deny(unsafe_code)]
 
 use baylee_agent::{AgentConfig, Order, engine_argv, heartbeat, order, status};
 use baylee_protocol::v1::{self, Envelope};

@@ -5,7 +5,7 @@
 //!
 //! Also the rules both ends of the gateway's HTTP API check alike
 //! ([`names`]), so that the client can refuse what the gateway would.
-#![forbid(unsafe_code)]
+#![deny(unsafe_code)]
 #![warn(missing_docs)]
 
 pub mod mind;

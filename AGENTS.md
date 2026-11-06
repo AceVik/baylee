@@ -38,11 +38,12 @@ unofficial, non-commercial fan project.
   the engine server face the internet: no vulnerability of medium severity or
   worse may exist there, and remote code execution least of all. In the client
   and for what only a local user can exploit it is less strict, but other
-  players must not be able to attack a client over the network. No `unsafe` or
-  assembly on a path that touches unchecked network or player data. An inner
-  safety net may give way to speed only where a named outer check already
-  stops the input from the internet; a server compromised locally is lost
-  anyway and is not what this guards.
+  players must not be able to attack a client over the network. `unsafe` and
+  assembly are allowed everywhere: the author then answers for the safety the
+  compiler no longer proves, so each site needs a `// SAFETY:` argument, good
+  tests and a logic review. An inner safety net may give way to speed only
+  where a named outer check already stops the input from the internet; a
+  server compromised locally is lost anyway and is not what this guards.
 - **Legal guardrails** bind every change to what a player sees: never copy
   the card-script corpus, no WotC assets (recordings of the game showing its
   card images are the one exception), check the rules we depend on, and

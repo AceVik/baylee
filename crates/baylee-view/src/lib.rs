@@ -28,7 +28,7 @@
 //! engine's choice taxonomy as well, but an application that only *displays*
 //! game state (a spectator overlay, an MMO world showing a duel in progress)
 //! needs nothing but this crate.
-#![forbid(unsafe_code)]
+#![deny(unsafe_code)]
 #![warn(missing_docs)]
 
 pub use baylee_core::mana::ManaPayment;
