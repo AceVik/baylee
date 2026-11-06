@@ -4,10 +4,11 @@ The PM owns releases and the workspace version (`docs/dictionary.md`, Revier).
 
 ## What a release is
 
-A push to `main` builds the desktop packages once, alongside the CI checks.
-A tag `v<version>` on that green commit makes `.github/workflows/release.yml`
-promote those exact archives, sign them and publish a GitHub Release. The tag
-never rebuilds the client. The release has one
+A push to `main` builds the desktop packages, alongside the CI checks. A tag
+`v<version>` on that green commit makes `.github/workflows/release.yml` build them
+again, the macOS arm client from the commit's profile (§"The client's profile"), sign
+them and publish a GitHub Release. A dry run promotes the CI archives instead. The
+release has one
 archive per desktop target (Linux, Windows x86_64/aarch64 and macOS aarch64),
 each with a `.sha256` and a signature (`.sig`, §"Signing") beside it. Every
 archive holds a permanent launcher (`baylee-client` / `baylee-client.exe`),
@@ -349,8 +350,8 @@ Each job runs in a throwaway Tart VM (`crates/baylee-runner`):
   together both stayed offline for twelve minutes, while the second one,
   started once the first reached github.com, had the network in two seconds
   (measured 29.10.2026).
-- **Release trust.** The macOS archives a release promotes were built on that
-  Mac. `release verify-run` checks that they come from a main push run, not
+- **Release trust.** The macOS archives a dry run promotes were built on that
+  Mac; a tag builds on GitHub's runner. `release verify-run` checks that they come from a main push run, not
   where the run built them.
 
 When the Mac is away, `gh variable delete MACOS_RUNNER`. A job already queued
