@@ -20,6 +20,7 @@ fn hidden_lantern_grant(slot: u32) -> baylee_view::GrantSource {
         slot,
         mana_ability: true,
         mana: Some(lantern_mana(slot)),
+        taps: true,
         ..baylee_view::GrantSource::default()
     }
 }
@@ -272,6 +273,7 @@ fn a_granted_ability_names_its_grantor_and_the_sentence_that_grants_it() {
         ability: None,
         mana_ability: true,
         mana: Some(lantern_mana(0)),
+        taps: true,
         source: Some(lantern),
         rules: Some(baylee_view::RulesFace {
             card: chromatic_lantern(),
@@ -344,6 +346,7 @@ fn a_grantor_this_seat_cannot_see_is_not_named() {
                 ability: None,
                 mana_ability: true,
                 mana: Some(lantern_mana(0)),
+                taps: true,
                 source: Some(in_their_hand),
                 rules: Some(baylee_view::RulesFace {
                     card: chromatic_lantern(),
@@ -411,6 +414,7 @@ fn a_grant_its_source_never_wrote_names_no_sentence() {
         ability: None,
         mana_ability: true,
         mana: Some(lantern_mana(0)),
+        taps: true,
         source: Some(opt),
         rules: None,
         text: None,

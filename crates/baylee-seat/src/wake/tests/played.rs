@@ -488,3 +488,129 @@ fn river_of_tears_taps_for_black_once_a_land_was_played() {
         .id;
     assert_eq!(ritual.plan.steps[0].source, river);
 }
+
+/// What the table asks of whoever is asked while nothing is being decided:
+/// a pass, and no attackers or blockers.
+fn pass_on(session: &mut Session) {
+    let pending = session.pending().clone();
+    let player = pending.asked().expect("the table stays playable");
+    let action = match pending {
+        Pending::Priority { .. } => PlayerAction::PassPriority,
+        Pending::ChooseAttackers { .. } => PlayerAction::DeclareAttackers {
+            attackers: Vec::new(),
+        },
+        Pending::ChooseBlockers { .. } => PlayerAction::DeclareBlockers {
+            blockers: Vec::new(),
+        },
+        other => panic!("unexpected question: {other:?}"),
+    };
+    session.act_slice(player, action, 0).unwrap();
+}
+
+/// Passes until the stack is empty and seat 0 holds priority.
+fn resolve_the_stack(session: &mut Session) -> (PlayerView, LegalActions) {
+    for _ in 0..20 {
+        if session.observe_view(ME).stack.is_empty()
+            && matches!(session.pending(), Pending::Priority { player, .. } if *player == ME)
+        {
+            return asked(session);
+        }
+        pass_on(session);
+    }
+    panic!("the stack did not empty");
+}
+
+/// Passes to seat 0's next first main phase, its Saga's chapters resolved.
+fn my_next_main(session: &mut Session) -> (PlayerView, LegalActions) {
+    let turn = session.observe_view(ME).turn;
+    for _ in 0..200 {
+        let view = session.observe_view(ME);
+        if view.turn > turn && view.active == ME && view.phase == Phase::FirstMain {
+            return resolve_the_stack(session);
+        }
+        pass_on(session);
+    }
+    panic!("seat 0's next turn was not reached");
+}
+
+/// Plays the land `name` from seat 0's hand and resolves what it set off.
+fn play(session: &mut Session, name: &str) -> (PlayerView, LegalActions) {
+    let (view, _) = asked(session);
+    let card = view
+        .hand
+        .iter()
+        .find(|card| card.name == name)
+        .unwrap_or_else(|| panic!("{name} in hand"))
+        .id;
+    session
+        .act_slice(ME, PlayerAction::PlayLand { card }, 0)
+        .expect("the land drop is free");
+    resolve_the_stack(session)
+}
+
+/// The permanent of that name on the battlefield.
+fn named(view: &PlayerView, name: &str) -> baylee_core::ids::ObjectId {
+    view.battlefield
+        .iter()
+        .find(|o| o.name == name)
+        .unwrap_or_else(|| panic!("{name} is on the battlefield"))
+        .id
+}
+
+/// Urza's Saga gains "{2}, {T}: Create a Construct": the `{T}` is the Saga's,
+/// so its own mana pays none of the `{2}` (CR 601.2g, 601.2h). A printed cost
+/// was read for that and a granted one was not, so with two Sagas the seat
+/// offered the Construct tapping both, and the Saga then had no tap to pay
+/// with (codex attempt 27, q42).
+#[test]
+fn a_saga_cannot_tap_itself_for_its_own_construct() {
+    let (mut session, _, _) = position(&[], &["Urza's Saga", "Urza's Saga"], &[]);
+    play(&mut session, "Urza's Saga");
+    my_next_main(&mut session);
+    let (view, legal) = play(&mut session, "Urza's Saga");
+    assert!(
+        legal
+            .unpaid_abilities
+            .iter()
+            .any(|&(_, index, _)| { baylee_engine::choice::granted_slot(index).is_some() }),
+        "chapter II gave one Saga the ability, and only mana is missing"
+    );
+    assert_eq!(
+        super::super::reachable_abilities(&view, &legal),
+        Vec::new(),
+        "one Saga's {{C}} does not pay {{2}}"
+    );
+}
+
+/// The payment the report asked for, which leaves the Saga its tap (codex
+/// attempt 27, q89): a Swamp and Bronze Walrus pay, and the Construct comes.
+#[test]
+fn a_saga_makes_its_construct_with_other_mana() {
+    let (mut session, _, _) = position(&["Swamp", "Bronze Walrus"], &["Urza's Saga"], &[]);
+    play(&mut session, "Urza's Saga");
+    let (view, legal) = my_next_main(&mut session);
+    let saga = named(&view, "Urza's Saga");
+    let reach = super::super::reachable_abilities(&view, &legal);
+    let construct = reach
+        .iter()
+        .find(|r| r.source == saga)
+        .expect("the Swamp and the Walrus pay {2}");
+    let tapped: Vec<_> = construct.plan.steps.iter().map(|s| s.source).collect();
+    assert_eq!(tapped.len(), 2);
+    assert!(!tapped.contains(&saga), "the Saga keeps its tap");
+    let ability_index = construct.ability_index;
+    let plan = construct.plan.clone();
+    run(
+        &mut session,
+        &plan,
+        PlayerAction::ActivateAbility {
+            source: saga,
+            ability_index,
+        },
+    );
+    let (view, _) = resolve_the_stack(&mut session);
+    assert!(
+        view.battlefield.iter().any(|o| o.name == "Construct"),
+        "the token is made"
+    );
+}

@@ -437,6 +437,10 @@ fn grants(state: &GameState, id: ObjectId, seat: PlayerId) -> Vec<baylee_view::G
                 slot,
                 mana_ability: granted.mana_ability,
                 mana: grant_mana(&granted),
+                taps: granted
+                    .cost
+                    .parts
+                    .contains(&baylee_cards_dsl::CostPart::TapSelf),
                 ..baylee_view::GrantSource::default()
             };
             let Some(grantor) = granted

@@ -492,6 +492,14 @@ pub struct GrantSource {
     /// card prints no line for the ability that did. A client then draws
     /// its own label, as it did before this field existed.
     pub text: Option<StackText>,
+    /// Whether the ability's cost includes `{T}`.
+    ///
+    /// A planner keeps this permanent out of the mana that pays for it: mana
+    /// abilities come before costs are paid (CR 601.2g), and a permanent
+    /// tapped for mana has no tap left to pay with. A printed cost is on the
+    /// card; this one is on no card, so the host says.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub taps: bool,
 }
 
 /// Mana a granted ability makes, as much of it as a planner can use.

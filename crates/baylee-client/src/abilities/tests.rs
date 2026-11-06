@@ -310,6 +310,7 @@ fn a_granted_ability_is_labelled_without_asking_the_card_it_is_not_on() {
         source: None,
         rules: None,
         text: None,
+        taps: true,
     }];
     let view = ViewBuilder::new(2).with_battlefield(0, [ally]).build();
 
@@ -422,6 +423,7 @@ fn a_granted_ability_is_the_sentence_of_the_card_that_granted_it() {
             line: 0,
             of: 2,
         }),
+        taps: false,
     }];
     let view = ViewBuilder::new(2).with_battlefield(0, [land]).build();
 
@@ -508,6 +510,7 @@ fn a_grant_the_view_cannot_place_draws_no_sentence() {
         source: Some(ObjectId::new(2, 0)),
         rules: Some(baylee_view::RulesFace { card: opt, face: 0 }),
         text: None,
+        taps: false,
     }];
     let view = ViewBuilder::new(2)
         .with_battlefield(0, [land.clone()])
@@ -754,6 +757,7 @@ fn a_basics_own_mana_says_nothing_about_a_grant_that_cannot_be_read() {
         source: None,
         rules: None,
         text: None,
+        taps: false,
     }];
 
     // The land really does have two things to do — its own `{R}` and the

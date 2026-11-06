@@ -352,7 +352,9 @@ fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
     // `BoardMana::restricted_to` is likewise additive, optional and omitted at
     // `None`: old payloads acquire the default and old readers ignore the field,
     // so this addition also leaves VIEW_VERSION at 85.
-    const RECORDED: (u32, u64) = (85, 14_640_216_930_391_420_296);
+    // `GrantSource::taps`: additive and omitted while false, likewise; a reader
+    // without it plans as it did.
+    const RECORDED: (u32, u64) = (85, 13_062_118_185_787_167_670);
 
     let samples = core_samples();
     let sampled: std::collections::BTreeSet<String> =

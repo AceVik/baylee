@@ -725,7 +725,7 @@ A granted ability is printed on no card the permanent has, so a client drew a
 label of its own on its row ("granted ability") where every printed ability
 drew its card's sentence. The grantor prints it, in a sentence saying the
 permanent "has" it (CR 113.10). `PublicObject::grants` says which grantor and which sentence
-(#212): one `GrantSource { source, rules, text }` per granted activated
+(#212): one `GrantSource { source, rules, text, taps }` per granted activated
 ability, **in slot order**, from the same `effects::granted_activated` walk and
 the same `GRANTED_SLOTS` cap as the offer. Entry `n` is `granted_ability(n)`,
 and neither can be renumbered without the other.
@@ -742,6 +742,10 @@ and neither can be renumbered without the other.
   grantor's own abilities first, then every face of the card it physically is.
   A source that wrote nothing equal to the grant (an Opt named as the source
   of one) gets `rules` and `text` both `None`. There is never a nearest match.
+- `taps` says the ability's cost includes `{T}`, so a planner keeps the
+  permanent out of the mana that pays for it (Urza's Saga's Construct). Omitted
+  when false. It is about the ability and not the grantor, so a hidden grantor
+  leaves it set.
 
 **Hidden information.** A nontoken card keeps its handle across zones (#240),
 so a grantor's id or sentence would say which card in a hidden zone it is. A

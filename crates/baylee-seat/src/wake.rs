@@ -965,8 +965,16 @@ fn printed_ability(
         .get(usize::try_from(index).ok()?)
 }
 
+/// Whether the ability's cost taps `source`, whose mana then pays none of it.
+/// A granted ability's cost is on no card it has, so the view says.
 fn ability_taps_self(view: &PlayerView, source: ObjectId, index: u32) -> bool {
     use baylee_cards_dsl::AbilityDef;
+    if let Some(slot) = baylee_engine::choice::granted_slot(index) {
+        return view
+            .object(source)
+            .and_then(|object| object.grant(slot))
+            .is_some_and(|grant| grant.taps);
+    }
     match printed_ability(view, source, index) {
         Some(
             AbilityDef::Activated { cost, .. } | AbilityDef::ActivatedConditional { cost, .. },
