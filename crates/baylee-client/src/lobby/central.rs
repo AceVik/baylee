@@ -559,7 +559,7 @@ pub(super) fn receive(
             }
         }
         Err(error) => {
-            let said = sign_in_refusal(state.lobby.lang(), &error);
+            let said = sign_in_refusal(state.lobby.lang(), error);
             state.lobby.apply(LobbyEvent::Failed(said.into()));
         }
     }
@@ -567,7 +567,7 @@ pub(super) fn receive(
 
 /// Why a sign-in failed: a client too old for Central says so, in its own
 /// words, and everything else is the one sentence that names no reason.
-fn sign_in_refusal(lang: Lang, error: &Error) -> &'static str {
+fn sign_in_refusal(lang: Lang, error: Error) -> &'static str {
     match error {
         Error::UpdateRequired => Phrase::RefusalUpdateRequired.text(lang),
         _ => message(lang),
@@ -1226,10 +1226,10 @@ mod tests {
     fn a_client_too_old_is_told_to_update_at_sign_in_and_at_admission() {
         for lang in [Lang::En, Lang::De] {
             let update = Phrase::RefusalUpdateRequired.text(lang);
-            assert_eq!(sign_in_refusal(lang, &Error::UpdateRequired), update);
+            assert_eq!(sign_in_refusal(lang, Error::UpdateRequired), update);
             assert_eq!(refusal(lang, Error::UpdateRequired), update);
             for other in [Error::Rejected, Error::Unavailable, Error::Busy] {
-                assert_ne!(sign_in_refusal(lang, &other), update);
+                assert_ne!(sign_in_refusal(lang, other), update);
                 assert_ne!(refusal(lang, other), update);
             }
         }

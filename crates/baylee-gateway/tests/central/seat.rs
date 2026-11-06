@@ -93,13 +93,25 @@ impl LiveSeat {
         assert!(self.probe.seat_frames.load(Ordering::SeqCst) > received);
     }
 
-    /// The socket closes for a refusal, saying so, and what the player sends
-    /// after that never reaches the engine. Nothing is sent before the close
-    /// is seen, so the only frames that could arrive are ones that got past it.
+    /// A stale client acts straight after the revocation, its socket still
+    /// open on its side: the action never reaches the engine, and the socket
+    /// closes saying why.
     pub(super) fn assert_closed_for_a_refusal(&mut self, runtime: &Runtime) {
+        use prost::Message as _;
         use tokio_tungstenite::tungstenite::Message;
         let received = self.probe.seat_frames.load(Ordering::SeqCst);
         let frame = runtime.block_on(async {
+            let concede = v1::envelope::Msg::PlayerAction(v1::PlayerActionMsg {
+                game_id: String::new(),
+                seat_token: String::new(),
+                action_json: serde_json::to_vec(&PlayerAction::Concede).unwrap(),
+            });
+            let envelope = Envelope { msg: Some(concede) };
+            let _ = futures_util::SinkExt::send(
+                &mut self.socket,
+                Message::Binary(envelope.encode_to_vec().into()),
+            )
+            .await;
             tokio::time::timeout(std::time::Duration::from_secs(5), async {
                 loop {
                     match self.socket.next().await {
@@ -118,21 +130,6 @@ impl LiveSeat {
             baylee_protocol::refusal::REFUSAL_CLOSE
         );
         assert_eq!(frame.reason.as_str(), baylee_protocol::refusal::SESSION_ENDED);
-        runtime.block_on(async {
-            let concede = v1::envelope::Msg::PlayerAction(v1::PlayerActionMsg {
-                game_id: String::new(),
-                seat_token: String::new(),
-                action_json: serde_json::to_vec(&PlayerAction::Concede).unwrap(),
-            });
-            let envelope = Envelope { msg: Some(concede) };
-            use prost::Message as _;
-            let _ = futures_util::SinkExt::send(
-                &mut self.socket,
-                Message::Binary(envelope.encode_to_vec().into()),
-            )
-            .await;
-            tokio::time::sleep(std::time::Duration::from_millis(300)).await;
-        });
         assert_eq!(
             self.probe.seat_frames.load(Ordering::SeqCst),
             received,

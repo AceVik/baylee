@@ -495,9 +495,12 @@ Central, gateways and clients change together; old ones are not supported (owner
    old Central does not know its request. Keep this gap short.
 2. **Central and the gateway, together.** The deploy hook builds the Central revision
    the gateway links, so one deploy does both (baylee-central `docs/operations.md`
-   §"Deploying with the gateway"). **`token_keys` and `official_address` must be in
-   `central.json` first:** the hook refuses the deploy without them, before it stops
-   anything (baylee-central `docs/operations.md` §"The session tokens release"). The
+   §"Deploying with the gateway"). **`token_keys` must be in `central.json` first:** the
+   hook refuses the deploy without it, before it stops anything (baylee-central
+   `docs/operations.md` §"The session tokens release"). Set `official_address` there as
+   well: nothing enforces it, but without it Central reaches the official gateway by its
+   public name, or not at all where that does not lead back to the machine, and
+   revocations then arrive by catch-up, within seconds rather than at once. The
    migration ends every native session, so every client signs in again.
 3. **Clients update themselves.** The updater goes to GitHub Releases and needs no
    sign-in, and it installs on exit.

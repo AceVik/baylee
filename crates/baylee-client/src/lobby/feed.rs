@@ -169,14 +169,7 @@ pub(super) fn feed(
             return;
         };
         for event in crate::transport::drain_socket(&link.receiver) {
-            // Closed for a reason: said at once, in this client's words. What
-            // follows is the same as for any other socket that went.
-            if let ewebsock::WsEvent::Error(text) = &event
-                && let Some(refusal) = client_core::refusal::of_socket_error(text)
-            {
-                let said = client_core::refusal::say(&refusal, state.lobby.lang());
-                post(&mailbox, LobbyEvent::Failed(said));
-            }
+            say_why_it_closed(&event, &state, &mailbox);
             match event {
                 ewebsock::WsEvent::Message(ewebsock::WsMessage::Text(text)) => {
                     // A frame we cannot read is not worth a red line across
@@ -213,6 +206,17 @@ pub(super) fn feed(
         perform(feed, &state, &mailbox, step);
     } else if lost {
         give_up(feed, &state, &mailbox);
+    }
+}
+
+/// A socket closed for a reason says it at once, in this client's words. What
+/// follows is the same as for any other socket that went.
+fn say_why_it_closed(event: &ewebsock::WsEvent, state: &LobbyState, mailbox: &Mailbox) {
+    if let ewebsock::WsEvent::Error(text) = event
+        && let Some(refusal) = client_core::refusal::of_socket_error(text)
+    {
+        let said = client_core::refusal::say(&refusal, state.lobby.lang());
+        post(mailbox, LobbyEvent::Failed(said));
     }
 }
 

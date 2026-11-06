@@ -152,12 +152,29 @@ pub(super) fn run(runtime: &Runtime, operator: &DatabaseConnection, endpoint: &E
         &serde_json::json!({"version": first.version}).to_string(),
     );
     assert_eq!(status, 409, "a Central account accepts at Central: {body}");
+    accepted(gateway.port, &owner, &http, &first, &token);
+
+    republished(&gateway, console, &owner, &http);
+    drop(gateway);
+    drop(admin_file);
+    drop(config);
+}
+
+/// The account accepts at Central, and the acceptance arrives with its next
+/// token: this gateway does not ask.
+fn accepted(
+    port: u16,
+    owner: &sdk::Session,
+    http: &CentralHttp,
+    first: &TermsVersion,
+    token: &str,
+) {
     let mut forged = first.clone();
     forged.digest[0] ^= 1;
     assert!(
         owner
             .accept_terms(
-                &http,
+                http,
                 TermsSubject::Gateway {
                     origin: ORIGIN.into()
                 },
@@ -168,30 +185,25 @@ pub(super) fn run(runtime: &Runtime, operator: &DatabaseConnection, endpoint: &E
     );
     owner
         .accept_terms(
-            &http,
+            http,
             TermsSubject::Gateway {
                 origin: ORIGIN.into(),
             },
-            &first,
+            first,
         )
         .unwrap();
     // The acceptance arrives in the next token, as the client's sign-in after
     // its acceptance brings it, and for the session, not for one bearer.
     assert_eq!(
-        me(gateway.port, &token),
+        me(port, token),
         (403, Some("gateway".into())),
         "this gateway does not ask Central: it waits for a token that says so"
     );
-    let answer = admit(gateway.port, &owner, &http);
+    let answer = admit(port, owner, http);
     assert_eq!(answer["terms_stale"], false, "{answer}");
     let fresh = answer["token"].as_str().unwrap();
-    assert_eq!(me(gateway.port, fresh), (200, None), "accepted at Central");
-    assert_eq!(me(gateway.port, &token), (200, None), "the same session");
-
-    republished(&gateway, console, &owner, &http);
-    drop(gateway);
-    drop(admin_file);
-    drop(config);
+    assert_eq!(me(port, fresh), (200, None), "accepted at Central");
+    assert_eq!(me(port, token), (200, None), "the same session");
 }
 
 /// An admin publishes a new version: Central holds it at once, and every

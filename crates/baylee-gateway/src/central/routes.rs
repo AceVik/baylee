@@ -659,7 +659,7 @@ mod tests {
     fn anything_else_is_a_bad_request_and_never_taken_for_an_old_client() {
         for body in [
             &b"not json"[..],
-            br#"{}"#,
+            b"{}",
             br#"{"token":1}"#,
             br#"{"token":"a.b.c","more":1}"#,
         ] {

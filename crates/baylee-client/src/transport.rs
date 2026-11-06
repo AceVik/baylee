@@ -262,6 +262,17 @@ mod native {
         )
     }
 
+    /// What a close frame comes to. A gateway says why in it
+    /// (`docs/protocol.md` §"Refusals"), and the events have no room for one.
+    fn closed_event(frame: Option<tungstenite::protocol::CloseFrame>) -> WsEvent {
+        let refusal = frame.and_then(|frame| {
+            baylee_client_core::refusal::of_close(frame.code.into(), frame.reason.as_str())
+        });
+        refusal.map_or(WsEvent::Closed, |refusal| {
+            WsEvent::Error(baylee_client_core::refusal::socket_error(&refusal))
+        })
+    }
+
     fn run_socket_with_budget(
         url: &str,
         options: &ewebsock::Options,
@@ -347,14 +358,7 @@ mod native {
                     on_event(WsEvent::Message(WsMessage::Pong(data.to_vec())))
                 }
                 Ok(tungstenite::Message::Close(frame)) => {
-                    // A gateway says why in its close frame (`docs/protocol.md`
-                    // §"Refusals"), and the events have no room for one.
-                    let refusal = frame.and_then(|frame| {
-                        baylee_client_core::refusal::of_close(frame.code.into(), frame.reason.as_str())
-                    });
-                    let _ = on_event(refusal.map_or(WsEvent::Closed, |refusal| {
-                        WsEvent::Error(baylee_client_core::refusal::socket_error(&refusal))
-                    }));
+                    let _ = on_event(closed_event(frame));
                     ControlFlow::Break(())
                 }
                 Err(tungstenite::Error::ConnectionClosed | tungstenite::Error::AlreadyClosed) => {

@@ -98,31 +98,7 @@ pub(super) fn run(runtime: &Runtime, operator: &DatabaseConnection, endpoint: &E
         "baylee-central-admin-{}.port",
         uuid::Uuid::now_v7()
     )));
-    let gateway = common::spawn_gateway_with(
-        "registered",
-        &[
-            (
-                "BAYLEE_CENTRAL_CONFIG_FILE",
-                config.0.to_string_lossy().into_owned(),
-            ),
-            ("BAYLEE_REGISTRATION", "open".into()),
-            (
-                "BAYLEE_ADMIN_TOKEN",
-                "synthetic-bootstrap-0123456789abcdef0123456789".into(),
-            ),
-            ("BAYLEE_ADMIN_BIND", "127.0.0.1:0".into()),
-            (
-                "BAYLEE_ADMIN_PORT_FILE",
-                admin_file.0.to_string_lossy().into_owned(),
-            ),
-        ],
-    );
-    common::central_ready(gateway.port);
-    let admin_port: u16 = std::fs::read_to_string(&admin_file.0)
-        .unwrap()
-        .trim()
-        .parse()
-        .unwrap();
+    let (gateway, admin_port) = started(&config, &admin_file);
     let player = check_access(
         &gateway,
         admin_port,
@@ -143,6 +119,36 @@ pub(super) fn run(runtime: &Runtime, operator: &DatabaseConnection, endpoint: &E
     drop(gateway);
     drop(admin_file);
     drop(config);
+}
+
+/// A gateway on `config`, caught up with Central, and its console's port.
+fn started(config: &super::BridgeFile, admin_file: &super::BridgeFile) -> (common::Gateway, u16) {
+    let gateway = common::spawn_gateway_with(
+        "registered",
+        &[
+            (
+                "BAYLEE_CENTRAL_CONFIG_FILE",
+                config.0.to_string_lossy().into_owned(),
+            ),
+            ("BAYLEE_REGISTRATION", "open".into()),
+            (
+                "BAYLEE_ADMIN_TOKEN",
+                "synthetic-bootstrap-0123456789abcdef0123456789".into(),
+            ),
+            ("BAYLEE_ADMIN_BIND", "127.0.0.1:0".into()),
+            (
+                "BAYLEE_ADMIN_PORT_FILE",
+                admin_file.0.to_string_lossy().into_owned(),
+            ),
+        ],
+    );
+    common::central_ready(gateway.port);
+    let admin_port = std::fs::read_to_string(&admin_file.0)
+        .unwrap()
+        .trim()
+        .parse()
+        .unwrap();
+    (gateway, admin_port)
 }
 
 fn check_access(
