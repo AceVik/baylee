@@ -24,11 +24,11 @@ pub(super) fn find(roots: &[PathBuf]) -> Vec<PathBuf> {
         if is_execution(root) {
             found.push(root.clone());
         }
-        for child in subdirectories(root) {
+        for child in subdirectories(root, MAX_CHILDREN) {
             if is_execution(&child) {
                 found.push(child.clone());
             }
-            for grandchild in subdirectories(&child) {
+            for grandchild in subdirectories(&child, MAX_CHILDREN) {
                 if is_execution(&grandchild) {
                     found.push(grandchild);
                 }
@@ -43,12 +43,12 @@ pub(super) fn find(roots: &[PathBuf]) -> Vec<PathBuf> {
 }
 
 /// The real directories (not symlinks) directly below `dir`.
-fn subdirectories(dir: &Path) -> Vec<PathBuf> {
+pub(super) fn subdirectories(dir: &Path, limit: usize) -> Vec<PathBuf> {
     let Ok(entries) = fs::read_dir(dir) else {
         return Vec::new();
     };
     entries
-        .take(MAX_CHILDREN)
+        .take(limit)
         .flatten()
         // `file_type` does not follow symlinks.
         .filter(|entry| entry.file_type().is_ok_and(|t| t.is_dir()))

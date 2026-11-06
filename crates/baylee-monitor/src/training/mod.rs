@@ -7,6 +7,7 @@ mod detail;
 mod discovery;
 mod pipeline;
 mod plan;
+mod runs;
 mod safe;
 mod units;
 
@@ -20,6 +21,7 @@ use std::{
 pub(crate) use pipeline::Pipeline;
 #[cfg(test)]
 pub(crate) use pipeline::{Progress, Stage};
+pub(crate) use runs::{Ladder, LlmRun};
 pub(crate) use units::{Services, Unit};
 
 /// Training changes over minutes; five seconds keeps the panel current.
@@ -41,34 +43,61 @@ pub(crate) struct Training {
     /// The machine's other services, for a failed one to stand out.
     pub services: Option<Services>,
     pub pipelines: Vec<Pipeline>,
+    /// LLM game collectors, running ones first.
+    pub llm_runs: Vec<LlmRun>,
+    pub ladders: Vec<Ladder>,
+}
+
+/// Where the training thread looks, from the command line.
+#[derive(Clone, Debug, Default)]
+pub(crate) struct Sources {
+    /// Execution directories named one by one.
+    pub pipelines: Vec<PathBuf>,
+    /// Directories searched for execution directories.
+    pub pipeline_roots: Vec<PathBuf>,
+    /// Directories holding `llm-*` collector roots.
+    pub llm_roots: Vec<PathBuf>,
+    /// `ladder.json` files.
+    pub ladders: Vec<PathBuf>,
 }
 
 /// Parses one `--pipeline` value: an absolute directory without `..`.
 pub(crate) fn parse_pipeline_dir(value: &str) -> Result<PathBuf, String> {
     let path = PathBuf::from(value);
     if !path.is_absolute() {
-        return Err("a pipeline directory must be an absolute path".into());
+        return Err("a directory must be an absolute path".into());
     }
     if path.components().any(|c| c == Component::ParentDir) {
-        return Err("a pipeline directory must not contain '..'".into());
+        return Err("a directory must not contain '..'".into());
     }
     Ok(path)
 }
 
+/// Parses one `--ladder` value: an absolute path to a `.json` file.
+pub(crate) fn parse_json_file(value: &str) -> Result<PathBuf, String> {
+    let path = parse_pipeline_dir(value)?;
+    if path.extension().is_none_or(|e| e != "json") {
+        return Err("a ladder file must be a .json file".into());
+    }
+    Ok(path)
+}
+
+#[derive(Default)]
+struct Caches {
+    evals: plan::EvalCache,
+    runs: runs::RunCache,
+}
+
 /// Starts the refresh thread, which replaces `shared` after every round.
-pub(crate) fn spawn(
-    pipelines: Vec<PathBuf>,
-    roots: Vec<PathBuf>,
-    shared: Arc<Mutex<Training>>,
-) -> std::io::Result<()> {
+pub(crate) fn spawn(sources: Sources, shared: Arc<Mutex<Training>>) -> std::io::Result<()> {
     std::thread::Builder::new()
         .name("training".into())
         .spawn(move || {
             let mut units = units::Units::default();
-            let mut evals = plan::EvalCache::default();
+            let mut caches = Caches::default();
             loop {
                 let started = Instant::now();
-                let view = collect(&mut units, &mut evals, &pipelines, &roots);
+                let view = collect(&mut units, &mut caches, &sources);
                 *shared.lock().unwrap_or_else(PoisonError::into_inner) = view;
                 std::thread::sleep(REFRESH.saturating_sub(started.elapsed()));
             }
@@ -108,12 +137,7 @@ fn select(
     all
 }
 
-fn collect(
-    units: &mut units::Units,
-    evals: &mut plan::EvalCache,
-    explicit: &[PathBuf],
-    roots: &[PathBuf],
-) -> Training {
+fn collect(units: &mut units::Units, caches: &mut Caches, sources: &Sources) -> Training {
     let now_ms = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
@@ -129,7 +153,20 @@ fn collect(
         units: units.view(),
         services: units.services(),
         units_problem,
-        pipelines: select(explicit, roots, boot_id, now_ms, evals, MAX_PIPELINES),
+        pipelines: select(
+            &sources.pipelines,
+            &sources.pipeline_roots,
+            boot_id,
+            now_ms,
+            &mut caches.evals,
+            MAX_PIPELINES,
+        ),
+        llm_runs: runs::read_runs(&sources.llm_roots, &mut caches.runs),
+        ladders: sources
+            .ladders
+            .iter()
+            .map(|p| runs::read_ladder(p))
+            .collect(),
     }
 }
 

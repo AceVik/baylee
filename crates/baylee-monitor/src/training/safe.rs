@@ -67,7 +67,7 @@ pub(super) fn clean(text: &str) -> String {
 fn redact_path(token: &str) -> Cow<'_, str> {
     let starts_path = |at: usize| {
         let rest = &token[at..];
-        let begins = rest.starts_with('/') || rest.starts_with("~/");
+        let begins = (rest.starts_with('/') && rest.len() > 1) || rest.starts_with("~/");
         let after_boundary = token[..at]
             .chars()
             .next_back()
@@ -145,6 +145,7 @@ mod tests {
             "--out=…/c.json (…/y) 1/2"
         );
         assert_eq!(clean("runs /a/x1,/a/x2 ~/k"), "runs …/x1,…/x2 …/k");
+        assert_eq!(clean("raw / tactical"), "raw / tactical");
         assert_eq!(clean("tab\there\x1b[0m"), "tab here [0m");
         let long = clean(&"é".repeat(500));
         assert_eq!(long.chars().count(), MAX_TEXT);

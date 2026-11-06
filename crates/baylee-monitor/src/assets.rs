@@ -70,6 +70,7 @@ const CRATE: &[(&str, &str)] = embedded![
     "src/training/mod.rs",
     "src/training/pipeline.rs",
     "src/training/plan.rs",
+    "src/training/runs.rs",
     "src/training/safe.rs",
     "src/training/units.rs",
     "src/types.rs",

@@ -53,6 +53,13 @@ struct Options {
     /// at most 4). New runs appear without a restart.
     #[arg(long = "pipeline-root", value_name = "DIR", value_parser = training::parse_pipeline_dir)]
     pipeline_roots: Vec<PathBuf>,
+    /// A directory whose `llm-*` children (and their subdirectories) are LLM
+    /// game collector roots, shown as cards (repeatable, absolute, at most 4).
+    #[arg(long = "llm-root", value_name = "DIR", value_parser = training::parse_pipeline_dir)]
+    llm_roots: Vec<PathBuf>,
+    /// A `ladder.json` to show as a card (repeatable, absolute, at most 4).
+    #[arg(long = "ladder", value_name = "FILE", value_parser = training::parse_json_file)]
+    ladders: Vec<PathBuf>,
 }
 
 #[tokio::main(flavor = "current_thread")]
@@ -68,8 +75,10 @@ async fn main() -> anyhow::Result<()> {
         training::MAX_PIPELINE_FLAGS
     );
     anyhow::ensure!(
-        options.pipeline_roots.len() <= training::MAX_ROOT_FLAGS,
-        "At most {} --pipeline-root directories",
+        options.pipeline_roots.len() <= training::MAX_ROOT_FLAGS
+            && options.llm_roots.len() <= training::MAX_ROOT_FLAGS
+            && options.ladders.len() <= training::MAX_ROOT_FLAGS,
+        "At most {} each of --pipeline-root, --llm-root and --ladder",
         training::MAX_ROOT_FLAGS
     );
     let listener = listen::bind(options.bind, listen::ADDRESS_WAIT).await?;
@@ -91,8 +100,12 @@ async fn main() -> anyhow::Result<()> {
     let history = state.history.clone();
     let latest_training = Arc::new(Mutex::new(training::Training::default()));
     training::spawn(
-        options.pipelines.clone(),
-        options.pipeline_roots.clone(),
+        training::Sources {
+            pipelines: options.pipelines.clone(),
+            pipeline_roots: options.pipeline_roots.clone(),
+            llm_roots: options.llm_roots.clone(),
+            ladders: options.ladders.clone(),
+        },
         latest_training.clone(),
     )?;
     // Dedicated thread, no timer burst catch-up and no blocking work on the HTTP executor.

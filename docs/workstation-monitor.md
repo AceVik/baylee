@@ -35,6 +35,8 @@ exact embedded source and build manifests, even before publication.
 | `--allow-host` | none | Another exact `HOST:PORT` browsers may use (repeatable) |
 | `--pipeline` | none | A `train_ops` pipeline directory for the training panel (repeatable, absolute, at most 8) |
 | `--pipeline-root` | none | A directory searched every refresh for `train_ops` execution directories (`<root>/<experiment>/<execution>`; repeatable, absolute, at most 4); new runs appear without a restart |
+| `--llm-root` | none | A directory whose `llm-*` children (and their subdirectories) are LLM game collector roots, shown as cards (repeatable, absolute, at most 4) |
+| `--ladder` | none | A `ladder.json` shown as a card (repeatable, absolute `.json` file, at most 4) |
 | `--interval-ms` | `1000` | Sampling interval, 500–10000 ms |
 | `--history-minutes` | `60` | Per-sample RAM history, 1–120 minutes; the page's ranges above one hour use the 24-hour minute ring |
 
@@ -259,6 +261,29 @@ Text from these files reaches the browser only after control characters are
 removed, every absolute or home-relative path is reduced to `…/last-component`
 and the result is cut at 240 characters. A missing directory or an unreadable
 `status.json` is reported on the pipeline's card instead of failing the panel.
+
+**LLM game runs and the ladder.** With `--llm-root ~/baylee-data/v6` Pulse
+looks at the `llm-*` children and their subdirectories (at most 256 and 32
+entries) for a `controller.json` beside a `status.json`, orders them (live
+collector first, then the newest `status.json`) and shows the first eight as
+cards. From `controller.json` (16 KiB): `pid`, `status` (`running`, `exited`,
+`failed`), `started_unix`, `ended_unix`. A run counts as live when it says
+`running` and `/proc/<pid>/stat` has a command name starting with
+`llm_collector`; only that name is read, never a command line or an
+environment. From `status.json` (2 MiB): `phase`, `updated_unix`,
+`assigned_attempts` against `max_attempts`, `concurrency`, `worker_failures`
+(the count), `summary.completed_games` and `in_flight_games`, and from the
+strata the sums of `errors`, `incomplete`, `llm_answers` and
+`fallback_answers` and up to four distinct `model` / `opponent_model` names.
+`DRAIN` and `STOP` are only tested for existence. Never opened: `attempts/`,
+`ledgers/`, `gateway/`, `stats.json` (a larger copy of the same numbers),
+`profiles.json` (command paths and spend caps), logs, key files. A large status
+file is parsed again only when its size or modification time changed. A broken
+file puts its error on that card; the other cards and the pipelines are
+unaffected. `--ladder FILE` reads one `ladder.json` (1 MiB): the `summary` per
+arm (`games`, `net_won`, `net_lost`, `drawn`, `unfinished`), the number of
+games, those not in phase `game-complete` and those with a `failure` or a
+timeout. Rooms, decks and answers are not kept.
 
 On a phone the panel is a single column: pipeline cards (phase, controller,
 progress chips, the newest five stages with "Alle N Stufen" for the rest),
