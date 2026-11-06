@@ -22,6 +22,15 @@ pub(crate) fn seated(game: &LobbyGame, team: Option<u8>) -> BTreeSet<String> {
         .collect()
 }
 
+/// The accounts in a chair of `game`, borrowed: [`seated`] for a caller that
+/// only reads them. An account in two chairs comes twice.
+pub(crate) fn seated_accounts(game: &LobbyGame) -> impl Iterator<Item = &str> {
+    game.seats
+        .iter()
+        .filter(|seat| seat.kind == SeatKind::Human)
+        .filter_map(|seat| seat.account_id.as_deref())
+}
+
 /// Whether `x` and `y` both have a chair at one table now.
 pub(crate) fn share_a_table(lobby: &Lobby, x: &str, y: &str) -> bool {
     lobby.games.values().any(|game| {

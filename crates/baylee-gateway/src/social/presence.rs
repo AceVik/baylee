@@ -7,8 +7,11 @@
 //! team conversations, pushing `Members` to the accounts in them. Memory
 //! only, never logged.
 
-use super::{Social, members::seated};
-use crate::lobby::{Lobby, LobbyState};
+use super::{
+    Social,
+    members::{seated, seated_accounts},
+};
+use crate::lobby::{Lobby, LobbyGame, LobbyState};
 use crate::{Shared, auth};
 use baylee_protocol::social::{
     Activity, Conv, Down, Person, Place, Presence, Shown, Status, TableConv,
@@ -45,8 +48,54 @@ impl Published {
     }
 }
 
+/// The tables that say where one account is: the first game of the walk it
+/// plays at, which is the answer if there is one, and the last room it waits in.
+#[derive(Clone, Copy, Default)]
+struct Seating<'a> {
+    playing: Option<&'a LobbyGame>,
+    room: Option<&'a LobbyGame>,
+}
+
+impl<'a> Seating<'a> {
+    fn note(&mut self, game: &'a LobbyGame) {
+        match game.state {
+            LobbyState::Playing => {
+                self.playing.get_or_insert(game);
+            }
+            LobbyState::Waiting => self.room = Some(game),
+            LobbyState::Over => {}
+        }
+    }
+
+    /// `account`'s, for a caller asking about one.
+    fn of(lobby: &'a Lobby, account: &str) -> Self {
+        let mut seating = Self::default();
+        for game in lobby.games.values() {
+            if seated_accounts(game).any(|seated| seated == account) {
+                seating.note(game);
+            }
+        }
+        seating
+    }
+
+    /// Everyone's, in one walk of the lobby: a pass over the online accounts
+    /// holds the lobby lock, and walking every game per account made that
+    /// `online × games`, once a second and on every change, with every seat
+    /// frame of every table queueing behind it.
+    fn of_everyone(lobby: &'a Lobby) -> HashMap<&'a str, Self> {
+        let mut seatings: HashMap<&str, Self> = HashMap::new();
+        for game in lobby.games.values() {
+            for account in seated_accounts(game) {
+                seatings.entry(account).or_default().note(game);
+            }
+        }
+        seatings
+    }
+}
+
 /// Where `account` is, from lobby memory and what it said it does.
 fn place(
+    seating: Seating<'_>,
     lobby: &Lobby,
     watching: &BTreeMap<String, BTreeMap<String, usize>>,
     account: &str,
@@ -54,40 +103,28 @@ fn place(
     share_table: bool,
     now: u64,
 ) -> Place {
-    let mut room = None;
-    for game in lobby.games.values() {
-        if !seated(game, None).contains(account) {
-            continue;
-        }
-        let locked = game.password_hash.is_some();
-        let shared = (share_table && !locked).then(|| game.id.clone());
-        let seats = u8::try_from(game.seats.len()).unwrap_or(u8::MAX);
-        match game.state {
-            LobbyState::Playing => {
-                return Place::Playing {
-                    game: shared,
-                    name: game.name.clone(),
-                    seats,
-                    running_secs: game.started_at.map_or(0, |t| {
-                        u32::try_from(now.saturating_sub(t)).unwrap_or(u32::MAX)
-                    }),
-                };
-            }
-            LobbyState::Waiting => {
-                room = Some(Place::Room {
-                    game: shared,
-                    name: game.name.clone(),
-                    seats,
-                    taken: u8::try_from(game.seats.iter().filter(|s| s.occupied()).count())
-                        .unwrap_or(u8::MAX),
-                    locked,
-                });
-            }
-            LobbyState::Over => {}
-        }
+    let shared =
+        |game: &LobbyGame| (share_table && game.password_hash.is_none()).then(|| game.id.clone());
+    let seats = |game: &LobbyGame| u8::try_from(game.seats.len()).unwrap_or(u8::MAX);
+    if let Some(game) = seating.playing {
+        return Place::Playing {
+            game: shared(game),
+            name: game.name.clone(),
+            seats: seats(game),
+            running_secs: game.started_at.map_or(0, |t| {
+                u32::try_from(now.saturating_sub(t)).unwrap_or(u32::MAX)
+            }),
+        };
     }
-    if let Some(room) = room {
-        return room;
+    if let Some(game) = seating.room {
+        return Place::Room {
+            game: shared(game),
+            name: game.name.clone(),
+            seats: seats(game),
+            taken: u8::try_from(game.seats.iter().filter(|s| s.occupied()).count())
+                .unwrap_or(u8::MAX),
+            locked: game.password_hash.is_some(),
+        };
     }
     if let Some(game) = watching
         .get(account)
@@ -145,6 +182,7 @@ pub(crate) fn presence_now(state: &Shared, account: &str) -> Presence {
     shown(
         view.status,
         place(
+            Seating::of(&lobby, account),
             &lobby,
             &watching,
             account,
@@ -235,6 +273,35 @@ pub(crate) async fn tables_of(state: &Shared, account: &str) -> Vec<TableConv> {
         .collect()
 }
 
+/// What every online account is shown as now.
+fn presences(
+    lobby: &Lobby,
+    online: Vec<OnlineView>,
+    watching: &BTreeMap<String, BTreeMap<String, usize>>,
+    now: u64,
+) -> Vec<(OnlineView, Presence)> {
+    let seatings = Seating::of_everyone(lobby);
+    online
+        .into_iter()
+        .map(|view| {
+            let place = place(
+                seatings
+                    .get(view.account.as_str())
+                    .copied()
+                    .unwrap_or_default(),
+                lobby,
+                watching,
+                &view.account,
+                view.activity,
+                view.share_table,
+                now,
+            );
+            let presence = shown(view.status, place);
+            (view, presence)
+        })
+        .collect()
+}
+
 /// Publishes what changed since the last time.
 pub(crate) async fn publish(state: &Shared) {
     let online = state.social.online_accounts();
@@ -242,22 +309,10 @@ pub(crate) async fn publish(state: &Shared) {
     let now = auth::now_secs();
     let (presences, convs) = {
         let lobby = state.lobby.lock();
-        let presences: Vec<(OnlineView, Presence)> = online
-            .into_iter()
-            .map(|view| {
-                let place = place(
-                    &lobby,
-                    &watching,
-                    &view.account,
-                    view.activity,
-                    view.share_table,
-                    now,
-                );
-                let presence = shown(view.status, place);
-                (view, presence)
-            })
-            .collect();
-        (presences, conversations(&lobby))
+        (
+            presences(&lobby, online, &watching, now),
+            conversations(&lobby),
+        )
     };
     push_presences(&state.social, presences);
     push_members(state, convs).await;
@@ -371,3 +426,6 @@ pub(crate) fn went_offline(social: &Social, me: &Person, friends: &[String], acc
         social.push(friend, &frame);
     }
 }
+
+#[cfg(test)]
+mod tests;
