@@ -16,11 +16,8 @@
 //! rule exists to prevent one level up, where an unread clause refuses the
 //! card instead of shipping a wrong one.
 //!
-//! Six variants are principled refusals rather than gaps to fill in later:
+//! These variants are principled refusals rather than gaps to fill in later:
 //!
-//! - [`Filter::MatchesChosenTypeOfSource`] reads `chosen_subtype` off the
-//!   source object. The view carries no such field for any object, so there
-//!   is nothing to read rather than something awkward to reach.
 //! - [`Filter::AttachedToBySource`] needs what the source is attached to
 //!   *and* `GameState::ltb_attachments`, the record of what a permanent was
 //!   wearing as it left the battlefield (CR 603.10a). The second half exists
@@ -144,6 +141,23 @@ fn named_by_source(
     Some(object.name == face.name)
 }
 
+/// The type the source chose, read as `eval::matches` reads it: a source
+/// that chose none matches nothing, and only a source the view does not show
+/// is unknown. The chosen type is public, so a seat reads what a Cavern of
+/// Souls' mana may pay for (CR 106.6).
+fn of_chosen_type(
+    view: &PlayerView,
+    object: &PublicObject,
+    this: Option<ObjectId>,
+) -> Option<bool> {
+    let source = view.object(this?)?;
+    Some(
+        source
+            .chosen_subtype
+            .is_some_and(|chosen| object.subtypes.contains(chosen)),
+    )
+}
+
 fn banded_with_source(view: &PlayerView, object: ObjectId, source: ObjectId) -> bool {
     object != source
         && view
@@ -197,6 +211,7 @@ impl HeuristicAgent {
                 Some(expansion.contains_name(&object.name))
             }
             Filter::NamedBySource => named_by_source(view, object, this),
+            Filter::MatchesChosenTypeOfSource => of_chosen_type(view, object, this),
             // Three cases, two of which the view cannot tell apart; the
             // header has the reason. `card` is asked second because a
             // registry token never carries one.
@@ -276,7 +291,6 @@ impl HeuristicAgent {
             | Filter::Kicked
             | Filter::CastFromHand
             | Filter::HasManaAbility
-            | Filter::MatchesChosenTypeOfSource
             | Filter::AttachedToBySource
             | Filter::AttachedToSource
             | Filter::CmcAtMostX

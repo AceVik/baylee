@@ -9,7 +9,7 @@
 //!
 //! - for a payment its restriction admits, as far as the view can tell: the
 //!   kind of payment first (`ManaUse`: a spell, an ability, either), then the
-//!   filter. An unreadable filter (a chosen type, a commander's types) is a
+//!   filter. An unreadable filter (a commander's types) is a
 //!   no, because mana the payment then refuses is a tap thrown away;
 //! - once per spell;
 //! - as the last tap of the plan. After it the engine's own merge
@@ -24,7 +24,7 @@
 
 use std::borrow::Cow;
 
-use baylee_cards_dsl::{Effect, ManaRestriction, ManaUse, ZoneRef};
+use baylee_cards_dsl::{Effect, KeywordSet, ManaRestriction, ManaUse, ZoneRef};
 use baylee_core::ids::ObjectId;
 use baylee_core::types::SubtypeSet;
 use baylee_view::{ObjectStatus, PlayerView, PublicObject};
@@ -133,9 +133,14 @@ fn spell_object(view: &PlayerView, id: ObjectId) -> Option<Cow<'_, PublicObject>
     }
     let held = baylee_client_core::decision::known_cards(view).find(|c| c.id == id)?;
     let face = crate::policy::face(held.card)?;
-    let mut subtypes = SubtypeSet::EMPTY;
-    for &subtype in face.subtypes {
-        subtypes.insert(subtype);
+    let keywords = baylee_cards::by_index(held.card.index).map_or(KeywordSet::EMPTY, |def| {
+        def.keywords_for_face(usize::from(held.card.face))
+    });
+    let mut subtypes = SubtypeSet::from_slice(face.subtypes);
+    // A changeling is every creature type in a hand too (CR 702.73a,
+    // `Characteristics::from_face`), so a Cavern's mana pays for it.
+    if keywords.contains(KeywordSet::CHANGELING) {
+        subtypes = subtypes.union(SubtypeSet::ALL_CREATURE);
     }
     Some(Cow::Owned(PublicObject {
         battle_protector: None,
@@ -159,9 +164,7 @@ fn spell_object(view: &PlayerView, id: ObjectId) -> Option<Cow<'_, PublicObject>
         token: None,
         colors: held.colors,
         mana_value: held.mana_value,
-        keywords: baylee_cards::by_index(held.card.index).map_or(0, |def| {
-            def.keywords_for_face(usize::from(held.card.face)).bits()
-        }),
+        keywords: keywords.bits(),
         power: face.power,
         toughness: face.toughness,
         base_power: face.power,

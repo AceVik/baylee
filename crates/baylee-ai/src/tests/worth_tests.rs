@@ -1929,7 +1929,7 @@ fn chosen_snow_landwalk_values_matching_basic_and_nonbasic_lands() {
     assert_eq!(worth(&v, &effect), Some(60), "snow Desertwalk is offered");
 
     let unread = Effect::ChooseLandwalk {
-        lands: &Filter::MatchesChosenTypeOfSource,
+        lands: &Filter::HasWatermark,
         target: TargetSpec::EventObject,
         basic_only: false,
         duration: baylee_cards_dsl::Duration::UntilEndOfTurn,

@@ -21,7 +21,6 @@ fn a_filter_the_view_cannot_answer_is_not_answered_no() {
     let read = |f: &Filter, this| a.filter_matches(f, &v, &mine, ZoneRef::Battlefield, this);
 
     for filter in [
-        Filter::MatchesChosenTypeOfSource,
         Filter::AttachedToBySource,
         Filter::SharesSubtypeWithCommander,
         Filter::HasWatermark,
@@ -65,6 +64,33 @@ fn a_filter_the_view_cannot_answer_is_not_answered_no() {
     assert_eq!(read(&Filter::This, Some(obj(1))), Some(true));
     assert_eq!(read(&Filter::Another, Some(obj(1))), Some(false));
     assert_eq!(read(&Filter::CREATURE, None), Some(true));
+}
+
+/// The chosen type is on the source, in the view, and public: a source that
+/// chose none matches nothing, as `eval::matches` says, and only a missing
+/// source leaves the question open.
+#[test]
+fn a_chosen_type_is_read_off_the_source() {
+    use baylee_cards_dsl::{Filter, ZoneRef};
+    use baylee_core::generated::subtypes::creature;
+    let me = PlayerId::new(0);
+    let a = agent();
+    let mut human = permanent(obj(2), me, 2);
+    human.subtypes.insert(creature::HUMAN);
+    let mut cavern = permanent(obj(1), me, 0);
+    let filter = Filter::MatchesChosenTypeOfSource;
+    let read = |cavern: &PublicObject, this| {
+        let v = view(0, &[20, 20], vec![cavern.clone(), human.clone()]);
+        a.filter_matches(&filter, &v, &human, ZoneRef::Stack, this)
+    };
+
+    assert_eq!(read(&cavern, Some(obj(1))), Some(false), "nothing chosen");
+    cavern.chosen_subtype = Some(creature::GOBLIN);
+    assert_eq!(read(&cavern, Some(obj(1))), Some(false));
+    cavern.chosen_subtype = Some(creature::HUMAN);
+    assert_eq!(read(&cavern, Some(obj(1))), Some(true));
+    assert_eq!(read(&cavern, None), None, "no source to read");
+    assert_eq!(read(&cavern, Some(obj(9))), None, "a source out of view");
 }
 
 /// An unknown part does not settle a question the rest of it settles.

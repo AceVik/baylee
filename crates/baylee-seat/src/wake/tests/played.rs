@@ -301,3 +301,96 @@ fn a_filter_land_alone_reaches_no_coloured_spell() {
     let (_, view, legal) = position(&["Shimmering Grotto"], &["Llanowar Elves"], &[]);
     assert!(reach_of(&reachable(&view, &legal), "Llanowar Elves").is_none());
 }
+
+/// Seat 0's question now, read as the bridge reads it.
+fn asked(session: &Session) -> (PlayerView, LegalActions) {
+    let (pending, view) = session.view_for(ME).expect("seat 0 is asked");
+    let Pending::Priority { legal, .. } = pending else {
+        panic!("seat 0 holds priority, not {pending:?}");
+    };
+    (view, *legal)
+}
+
+/// Sends a plan's taps as the bridge does, each with its colour, and `then`.
+fn run(session: &mut Session, plan: &baylee_client_core::manaplan::Plan, then: PlayerAction) {
+    for step in &plan.steps {
+        session
+            .act_slice(ME, crate::narrator::tap(step), 0)
+            .expect("each step is offered as it comes");
+        if let Some(color) = step.color {
+            session
+                .act_slice(ME, PlayerAction::ChooseColor(color), 0)
+                .expect("the colour it asks");
+        }
+    }
+    session.act_slice(ME, then, 0).expect("the mana pays it");
+}
+
+/// Plays Cavern of Souls from seat 0's hand, naming `subtype` as it enters.
+fn cavern_naming(
+    session: &mut Session,
+    view: &PlayerView,
+    subtype: baylee_core::ids::SubtypeId,
+) -> (PlayerView, LegalActions) {
+    let card = view
+        .hand
+        .iter()
+        .find(|card| card.name == "Cavern of Souls")
+        .expect("the Cavern in hand")
+        .id;
+    session
+        .act_slice(ME, PlayerAction::PlayLand { card }, 0)
+        .expect("the land drop is free");
+    session
+        .act_slice(ME, PlayerAction::ChooseSubtype(subtype), 0)
+        .expect("the type it names");
+    asked(session)
+}
+
+/// Cavern of Souls: "Spend this mana only to cast a creature spell of the
+/// chosen type". The view carries the chosen type, and the reader of a
+/// restriction called it unreadable, so the coloured mana counted for no
+/// spell: Dismissive Pyromancer ({1}{R}, a Human Wizard) was never offered
+/// beside a Forest and a Cavern naming Human (codex attempt 32, q49). Naming
+/// another type leaves it uncastable, as the engine would.
+#[test]
+fn a_cavern_pays_for_a_creature_of_the_type_it_names() {
+    use baylee_core::generated::subtypes::creature;
+    use baylee_core::mana::ManaColor;
+    let hand = [
+        "Cavern of Souls",
+        "Dismissive Pyromancer",
+        "Fire-Belly Changeling",
+    ];
+
+    let (mut session, view, _) = position(&["Forest"], &hand, &[]);
+    let (view, legal) = cavern_naming(&mut session, &view, creature::GOBLIN);
+    let reach = reachable(&view, &legal);
+    assert!(
+        reach_of(&reach, "Dismissive Pyromancer").is_none(),
+        "a Cavern naming Goblin makes no red for a Human"
+    );
+    assert!(
+        reach_of(&reach, "Fire-Belly Changeling").is_some(),
+        "a changeling is a Goblin in hand too (CR 702.73a)"
+    );
+
+    let (mut session, view, _) = position(&["Forest"], &hand, &[]);
+    let (view, legal) = cavern_naming(&mut session, &view, creature::HUMAN);
+    let reach = reachable(&view, &legal);
+    let pyromancer = reach_of(&reach, "Dismissive Pyromancer")
+        .expect("a Forest and a Cavern naming Human pay {1}{R}");
+    let last = pyromancer.plan.steps.last().expect("two taps");
+    assert_eq!(
+        last.color,
+        Some(ManaColor::Red),
+        "the restricted tap is last"
+    );
+    let card = pyromancer.object;
+    let plan = pyromancer.plan.clone();
+    run(&mut session, &plan, PlayerAction::CastSpell { card });
+    assert!(
+        session.observe_view(ME).stack.iter().any(|o| o.id == card),
+        "the Pyromancer is on the stack"
+    );
+}

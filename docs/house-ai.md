@@ -252,7 +252,8 @@ on some spells (CR 106.6), such as Ancient Ziggurat's creature mana, is read off
 the ability before the tap, because the view says how much restricted mana
 floats and never what it may pay for. `restricted.rs` taps such a source for a
 spell only when `filter_matches` reads its filter as a match. An unreadable
-filter (a chosen type, the commander's types) is a no. It taps at most one
+filter (the commander's types) is a no; a chosen type is read off the source
+(Cavern of Souls, `Filter::MatchesChosenTypeOfSource`). It taps at most one
 restricted source per spell, and that tap comes last: once the mana floats, no
 plan counts it, and only the engine's merge makes the spell castable. Its mana
 is spent first, so it never counts as held up. Its colour is named for a spell
