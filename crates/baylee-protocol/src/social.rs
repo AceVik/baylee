@@ -793,6 +793,10 @@ pub struct Person {
     /// @internal
     /// The handle (`Alice#af03`).
     pub handle: String,
+    /// @description Whether it is a guest, who has no friends list and whom
+    /// nobody can add; absent for an account.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub guest: bool,
 }
 
 /// Who sent a delivered message, as the gateway attests it.
@@ -807,6 +811,10 @@ pub struct Sender {
     pub handle: String,
     /// @description The sending device; the header's `dev` must equal it.
     pub device: String,
+    /// @description Whether the sender is a guest, as [`Person`] says; absent
+    /// for an account.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub guest: bool,
 }
 
 /// A friend's presence, as shown to friends only.
@@ -1414,6 +1422,10 @@ pub struct PlayerLookup {
     pub outgoing: bool,
     /// @description Whether the caller blocked them.
     pub blocked: bool,
+    /// @description Whether they are a guest, whom nobody can add; absent for
+    /// an account.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub guest: bool,
 }
 
 /// `POST /social/friends/requests`.

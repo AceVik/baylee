@@ -86,6 +86,7 @@ impl Gateway {
         Person {
             tag: tag.to_string(),
             handle: self.handles.get(tag).cloned().unwrap_or_default(),
+            guest: false,
         }
     }
 
@@ -355,6 +356,7 @@ impl Gateway {
                             tag: tag.to_string(),
                             handle: self.handles[tag].clone(),
                             device: dev.to_string(),
+                            guest: false,
                         },
                         sealed: Delivered {
                             hdr: sealed.hdr.clone(),
@@ -392,6 +394,7 @@ impl Gateway {
                             tag: tag.to_string(),
                             handle: self.handles[tag].clone(),
                             device: dev.to_string(),
+                            guest: false,
                         },
                         body,
                     },

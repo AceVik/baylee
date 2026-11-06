@@ -837,6 +837,7 @@ impl<'a> Table<'a> {
                         .get(usize::from(seat.player.get()))
                         .copied()
                         .flatten(),
+                    guest: false,
                 })
                 .collect(),
             prints: Vec::new(),

@@ -970,7 +970,7 @@ impl Lobby {
     pub fn page(
         &self,
         me: &str,
-        names: &HashMap<String, String>,
+        names: &crate::namebook::Names,
         query: &LobbyQuery,
     ) -> (Vec<LobbyTable>, usize) {
         let mut matched: Vec<&LobbyGame> = self
@@ -1011,7 +1011,7 @@ impl Lobby {
     pub fn page_for(
         &self,
         me: &str,
-        names: &HashMap<String, String>,
+        names: &crate::namebook::Names,
         query: &LobbyQuery,
     ) -> (Vec<serde_json::Value>, usize) {
         let (rows, total) = self.page(me, names, query);
@@ -1064,7 +1064,7 @@ impl Lobby {
 
     /// Every visible game, for a caller that wants no paging at all.
     #[must_use]
-    pub fn tables(&self, me: &str, names: &HashMap<String, String>) -> Vec<LobbyTable> {
+    pub fn tables(&self, me: &str, names: &crate::namebook::Names) -> Vec<LobbyTable> {
         self.games
             .values()
             .filter(|g| g.state != LobbyState::Over)
@@ -1076,7 +1076,7 @@ impl Lobby {
     /// tests read.
     #[cfg(test)]
     #[must_use]
-    pub fn list_for(&self, me: &str, names: &HashMap<String, String>) -> Vec<serde_json::Value> {
+    pub fn list_for(&self, me: &str, names: &crate::namebook::Names) -> Vec<serde_json::Value> {
         as_json(self.tables(me, names))
     }
 
@@ -1087,7 +1087,7 @@ impl Lobby {
                   render it, rather than a free function reachable from \
                   anywhere in the crate"
     )]
-    fn row(&self, g: &LobbyGame, me: &str, names: &HashMap<String, String>) -> LobbyTable {
+    fn row(&self, g: &LobbyGame, me: &str, names: &crate::namebook::Names) -> LobbyTable {
         let now = crate::auth::now_secs();
         LobbyTable {
             id: g.id.clone(),
@@ -1095,6 +1095,7 @@ impl Lobby {
             setup: g.setup.clone(),
             rules: TableRules::of(g, me),
             host: g.host.as_ref().and_then(|h| names.get(h)).cloned(),
+            host_guest: g.host.as_ref().is_some_and(|h| names.is_guest(h)),
             yours: g.host.as_deref() == Some(me),
             // Whether, never what: a client needs to know to ask for
             // a password, and nothing else about it belongs on a
@@ -1168,6 +1169,7 @@ impl Lobby {
                     // Whose seat bridge sits here (`chair.rs`), by
                     // handle; `null` for every other chair.
                     delegated_by: s.delegate.as_ref().and_then(|d| names.get(&d.by)).cloned(),
+                    guest: s.account_id.as_ref().is_some_and(|a| names.is_guest(a)),
                     // A model a seat agent runs for this chair
                     // (`seathost.rs`); `null` for every other chair.
                     hosted: crate::seathost::hosted_seat(s),
@@ -1216,6 +1218,8 @@ pub struct LobbyTable {
     /// @description The host's handle (`Alice#af03`), `null` for a table
     /// with no host.
     host: Option<String>,
+    /// @description Whether the host is a guest, whom nobody can add.
+    host_guest: bool,
     /// @description The game's id, which every `/lobby/games/{id}/…` route
     /// takes.
     id: String,
@@ -1351,6 +1355,8 @@ pub struct LobbyChair {
     /// @description The format of that deck; `commander` while it has
     /// none.
     format: String,
+    /// @description Whether a guest sits here, whom nobody can add.
+    guest: bool,
     /// @description Whether the room's host sits here.
     host: bool,
     /// @description The hosted model ordered for this chair; `null` for
@@ -1538,7 +1544,7 @@ mod tests {
             .collect()
     }
 
-    fn lobby() -> (Lobby, HashMap<String, String>) {
+    fn lobby() -> (Lobby, crate::namebook::Names) {
         let mut lobby = Lobby::default();
         // Two waiting and two playing, with a tie on `created_at` so the id
         // has something to break.
@@ -1554,7 +1560,24 @@ mod tests {
             10,
             LobbyState::Playing,
         );
-        (lobby, names_of(&[("amy", "Amy"), ("bob", "Bob")]))
+        (lobby, names_of(&[("amy", "Amy"), ("bob", "Bob")]).into())
+    }
+
+    /// A handle does not say who is a guest, so the listing does, by the host
+    /// and by the chair, and of an account it says nothing of the kind.
+    #[test]
+    fn the_listing_tells_a_guest_from_an_account() {
+        let (lobby, _) = lobby();
+        let names = crate::namebook::Names::with_guests(
+            names_of(&[("amy", "Amy"), ("bob", "Bob")]),
+            &["bob"],
+        );
+        let rows = lobby.list_for("amy", &names);
+        let row = |id: &str| rows.iter().find(|r| r["id"] == id).expect("listed");
+        assert_eq!(row("a")["host_guest"], true, "bob hosts a");
+        assert_eq!(row("a")["seats"][0]["guest"], true, "and sits there");
+        assert_eq!(row("b")["host_guest"], false, "amy hosts b");
+        assert_eq!(row("b")["seats"][0]["guest"], false);
     }
 
     /// **The order is total and paging is a partition of it.** Games live in

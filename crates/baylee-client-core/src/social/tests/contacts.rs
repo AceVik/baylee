@@ -11,6 +11,7 @@ fn person(tag: &str, handle: &str) -> Person {
     Person {
         tag: tag.to_string(),
         handle: handle.to_string(),
+        guest: false,
     }
 }
 

@@ -461,6 +461,7 @@ async fn player(
         incoming: relation.incoming,
         outgoing: relation.outgoing,
         blocked: relation.blocked,
+        guest: p.guest,
     }))
 }
 

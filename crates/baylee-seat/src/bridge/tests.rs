@@ -27,6 +27,7 @@ fn seated() -> SeatCore {
             is_ai: false,
             away: false,
             team: None,
+            guest: false,
         })
         .collect();
     let mut core = SeatCore::new(

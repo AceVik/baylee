@@ -799,6 +799,7 @@ fn context_of(
                         seat: u8::try_from(s.seat).ok()?,
                         handle: s.player.clone()?,
                         team: s.team,
+                        guest: s.guest,
                     })
                 })
                 .collect()
@@ -814,6 +815,7 @@ fn context_of(
                 seat: s.player.get(),
                 handle: s.display_name.clone(),
                 team: s.team,
+                guest: s.guest,
             })
             .collect();
     }

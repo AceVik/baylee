@@ -125,10 +125,12 @@ fn gateway_snapshots_cannot_create_personal_contacts_or_groups() {
     bridge.personal.blocked.push(wire::Person {
         tag: "0009".into(),
         handle: "Bob#0009".into(),
+        guest: false,
     });
     bridge.game.incoming.push(wire::Person {
         tag: "0011".into(),
         handle: "Injected#0011".into(),
+        guest: false,
     });
     let snapshot = bridge.snapshot();
     assert!(snapshot.incoming.is_empty());

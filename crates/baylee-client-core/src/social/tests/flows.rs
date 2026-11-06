@@ -693,6 +693,7 @@ fn signed_by_alice(
             tag: ALICE.into(),
             handle: "Alice#af03".into(),
             device: secrets.device_id().into(),
+            guest: false,
         },
         sealed: Delivered {
             hdr: url::encode(&hdr),
@@ -802,6 +803,7 @@ fn seat(seat: u8, handle: &str) -> RosterSeat {
         seat,
         handle: handle.into(),
         team: None,
+        guest: false,
     }
 }
 
@@ -1655,4 +1657,23 @@ fn a_wrong_receipt_cannot_remove_the_pending_send_before_a_valid_receipt() {
     assert_eq!(last_state(&alice, DM_AB), LineState::Pending);
     let _ = alice.social.on_frame(frame(id), alice.now, &mut alice.rng);
     assert_eq!(last_state(&alice, DM_AB), LineState::Final);
+}
+
+/// A player who sat as a guest is remembered as one, so the list of recent
+/// players does not offer what the gateway would refuse.
+#[test]
+fn a_guest_is_remembered_as_a_guest_among_the_recent_players() {
+    let (_gw, mut alice, _bob, _carol) = table_of_three();
+    let mut bob = seat(1, "Bob#0012");
+    bob.guest = true;
+    alice.social.on_table(Some(waiting_room(vec![
+        seat(0, "Alice#af03"),
+        bob,
+        seat(2, "Carol#0034"),
+    ])));
+    alice.social.on_table(None);
+    let recent = alice.social.recent_players();
+    let guest = |handle: &str| recent.iter().find(|r| r.handle == handle).map(|r| r.guest);
+    assert_eq!(guest("Bob#0012"), Some(true));
+    assert_eq!(guest("Carol#0034"), Some(false));
 }

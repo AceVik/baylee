@@ -959,6 +959,7 @@ mod tests {
             is_ai: true,
             away: false,
             team: None,
+            guest: false,
         });
         let players = table_players(&table, PlayerId::new(0));
         assert_eq!(

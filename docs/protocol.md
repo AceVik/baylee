@@ -2684,6 +2684,14 @@ so a guest is `Guest#1a2b` to the other players.
   upload a sleeve or a mat** (`403` `guests cannot upload images`): a
   picture from an account anybody gets by asking is one only the gateway
   would answer for. `GET /me` says `"guest": true`.
+- **A guest is told apart from an account** (owner, 06.11.2026): a guest with
+  a name of its own reads `Bob#1a2b` as an account does, and other players
+  should see that it cannot be added. `guest` stands on a chair and
+  `host_guest` on a table in the lobby listing, on `Person`, `Sender` and
+  `PlayerLookup`, and on `SeatIdentity` in a `GameStatic` roster (the gateway
+  tells the engine in `GameSetup.seat_guests`). It is shown and decides nothing:
+  what refuses a guest stays the routes below. A guest has no friends list and
+  so no whispers, and it does write in the lobby's and a table's chat.
 - **Bounded twice.** Per address by the gateway's limiter (ten in
   five minutes), and in all by `BAYLEE_GUEST_CAP` (1000 unless set, `0` for
   no bound, anything else not a count refuses to start the gateway): past
@@ -3610,7 +3618,7 @@ its one device, fetch keys, block, set its settings and report.
 | `GET /social/devices` | — | `{devices:[{id,label,added_at,seen_at}]}` | |
 | `DELETE /social/devices/{id}` | — | `204`; its socket closes | `404` |
 | `GET /social/keys?tag=a&tag=b` (or `tag=a,b`; up to 60) | — | `{keys:[{tag,handle,devices:[{id,ik,dk,dsig,label,added_at}]}]}` | only tags the caller may write to (itself, friends, group co-members, players at its tables); any other is left out. `429` past 20 at once then 1 a second |
-| `GET /social/players/{handle}` | — | `{tag,handle,friend,incoming,outgoing,blocked}`, never an id | `400` without `#`, `404` |
+| `GET /social/players/{handle}` | — | `{tag,handle,friend,incoming,outgoing,blocked,guest}`, `guest` only when true, never an id | `400` without `#`, `404` |
 | `POST /social/friends/requests` | `{handle}` | `201 {state:"pending"\|"friends"}` | `403` a guest either side, or requests off; `404`; `409` already friends, or 300 friends / 50 open requests; `429` past 20 an hour. A request to someone who blocks you looks sent and never arrives |
 | `POST /social/friends/requests/{tag}/accept` · `…/decline` | — | `204` | `404` |
 | `DELETE /social/friends/requests/{tag}` | — | `204` (cancels your own) | `404` |
@@ -4540,7 +4548,7 @@ One game in that page reads:
 { "id": "…", "name": "Kitchen table", "host": "viktor", "yours": false,
   "state": "waiting", "locked": false, "startable": true, "rematch": false,
   "seats": [ { "seat": 0, "kind": "human", "ai": null, "taken": true,
-               "player": "viktor", "you": false, "host": true,
+               "player": "viktor", "guest": false, "you": false, "host": true,
                "deck": "Mono-Green", "ready": true },
              { "seat": 1, "kind": "ai", "ai": "sharp", "taken": false,
                "player": null, "you": false, "host": false,

@@ -33,6 +33,7 @@ fn a_seat_row_says_the_name_the_table_shows() {
             is_ai: true,
             away: false,
             team: None,
+            guest: false,
         }],
         prints: vec![],
     };
@@ -70,6 +71,7 @@ fn player_choices_use_the_same_localized_house_name_as_the_table() {
             is_ai: true,
             away: false,
             team: None,
+            guest: false,
         }],
         prints: vec![],
     };

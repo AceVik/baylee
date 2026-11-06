@@ -79,6 +79,7 @@ fn cell(role: SeatRole, lang: Lang, called: &str) -> App {
         is_ai: role == SeatRole::House,
         away: role == SeatRole::Away,
         team: None,
+        guest: false,
     }];
     let mut app = App::new();
     app.insert_resource(Asked {
@@ -116,6 +117,7 @@ fn table() -> App {
                 is_ai: false,
                 away: false,
                 team: None,
+                guest: false,
             })
             .collect();
     }

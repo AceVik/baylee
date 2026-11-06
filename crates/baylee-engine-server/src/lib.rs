@@ -637,6 +637,7 @@ impl EngineRunner {
             return vec![ended(&setup.game_id, "the preset does not make a game")];
         };
         session.describe(setup.game_id.clone(), setup.seat_names.clone());
+        session.mark_guests(setup.seat_guests.clone());
         session.tell_time(self.now);
         self.game_id.clone_from(&setup.game_id);
         // The header is waiting from here.

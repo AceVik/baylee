@@ -237,6 +237,7 @@ fn legacy_group_delivery_uses_gateway_pins_and_is_archived_before_ack_without_gr
                 person: Person {
                     tag: "0007".into(),
                     handle: "A#0007".into(),
+                    guest: false,
                 },
                 owner: true,
             },
@@ -244,6 +245,7 @@ fn legacy_group_delivery_uses_gateway_pins_and_is_archived_before_ack_without_gr
                 person: Person {
                     tag: "0009".into(),
                     handle: "B#0009".into(),
+                    guest: false,
                 },
                 owner: false,
             },
@@ -272,6 +274,7 @@ fn legacy_group_delivery_uses_gateway_pins_and_is_archived_before_ack_without_gr
             tag: "0009".into(),
             handle: "B#0009".into(),
             device: gateway.device_id().into(),
+            guest: false,
         },
         sealed: Delivered {
             hdr: url::encode(&hdr),
@@ -343,6 +346,7 @@ fn former_central_group_history_uses_personal_pins_without_granting_membership()
                 tag: "0009".into(),
                 handle: "B#0009".into(),
                 device: peer.device_id().into(),
+                guest: false,
             },
             sealed: Delivered {
                 hdr: url::encode(&hdr),

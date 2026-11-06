@@ -321,6 +321,7 @@ fn bob() -> Person {
     Person {
         tag: BOB.into(),
         handle: "Bob#0012".into(),
+        guest: false,
     }
 }
 
@@ -343,11 +344,13 @@ fn machine(guest: bool) -> Social {
                 seat: 0,
                 handle: "Alice#af03".into(),
                 team: Some(1),
+                guest: false,
             },
             RosterSeat {
                 seat: 1,
                 handle: "Bob#0012".into(),
                 team: Some(1),
+                guest: false,
             },
         ],
         me_seat: Some(0),
@@ -375,6 +378,7 @@ fn said(text: &str, mine: bool) -> LineKind {
             Person {
                 tag: ME.into(),
                 handle: "Alice#af03".into(),
+                guest: false,
             }
         } else {
             bob()
@@ -1406,6 +1410,7 @@ mod pane {
                         person: Person {
                             tag: t.clone(),
                             handle: handle.clone(),
+                            guest: false,
                         },
                         since: 0,
                         presence: Presence {
@@ -1445,6 +1450,7 @@ mod pane {
                                     tag: tag.to_string(),
                                     handle: self.handles[tag].clone(),
                                     device: device.to_string(),
+                                    guest: false,
                                 },
                                 sealed: Delivered {
                                     hdr: sealed.hdr.clone(),

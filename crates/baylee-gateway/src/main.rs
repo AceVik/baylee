@@ -64,9 +64,9 @@ use routes::{
     get_settings, hand_over, health, house_deck, impressum_url, info, is_bidi_control, join_game,
     leave_game, legacy_token, list_games, list_replays, list_seats, listing, listing_page,
     lobby_stats, lobby_ws, own_deck, parse_deck_lines, put_settings, rematch, replay_tape,
-    seat_names, seat_of_token, set_ready, set_seat, share_replay, source, source_url, spend_ticket,
-    start_room, table_prints, take_seat, try_start, validate_deck, validate_the_dev_board,
-    watch_ws, ws_ticket,
+    seat_guests, seat_names, seat_of_token, set_ready, set_seat, share_replay, source, source_url,
+    spend_ticket, start_room, table_prints, take_seat, try_start, validate_deck,
+    validate_the_dev_board, watch_ws, ws_ticket,
 };
 use serde::{Deserialize, Serialize};
 use std::net::{IpAddr, SocketAddr};

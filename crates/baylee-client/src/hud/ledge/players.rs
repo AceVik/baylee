@@ -769,6 +769,13 @@ pub struct ControlBadge {
 #[derive(Component)]
 pub struct ControlBadgeText;
 
+/// The mark over a guest's chip: another player's, shown for good.
+#[derive(Component, Clone, Copy, PartialEq, Eq, Debug)]
+pub struct GuestBadge {
+    /// The seat the chip is.
+    pub player: PlayerId,
+}
+
 /// The badge's height at step L.
 const BADGE_H: f32 = 17.0;
 
@@ -837,11 +844,28 @@ pub fn show_the_control_badges(
     settings: Res<crate::settings::ClientSettings>,
     mut badges: Query<BadgeParts>,
     mut texts: Query<&mut Text, With<ControlBadgeText>>,
+    mut guests: Query<(&GuestBadge, &mut Visibility), Without<ControlBadge>>,
 ) {
     let Some(view) = duel.view.as_ref() else {
         return;
     };
     let lang = Lang::of(&settings.lang);
+    for (badge, mut seen) in &mut guests {
+        let guest = badge.player != view.seat
+            && duel
+                .statics
+                .as_ref()
+                .and_then(|statics| statics.seats.iter().find(|s| s.player == badge.player))
+                .is_some_and(|seat| seat.guest);
+        let want = if guest {
+            Visibility::Inherited
+        } else {
+            Visibility::Hidden
+        };
+        if *seen != want {
+            *seen = want;
+        }
+    }
     for (entity, badge, mut seen, mut hint, children, link) in &mut badges {
         // The pointer on it opens the card that gave the control, in its own
         // printing and finish.
@@ -936,6 +960,38 @@ fn control_badge_bundle(fonts: &UiFonts, player: PlayerId, step: f32) -> impl Bu
     )
 }
 
+/// A chip's guest mark, hidden until [`show_the_control_badges`] reads the
+/// roster. At the chip's other end, so that a control badge stands beside it.
+fn guest_badge_bundle(fonts: &UiFonts, player: PlayerId, step: f32, lang: Lang) -> impl Bundle {
+    use baylee_client_core::social::ChatPhrase;
+    let tall = BADGE_H * step;
+    (
+        GuestBadge { player },
+        Node {
+            position_type: PositionType::Absolute,
+            bottom: px(CHIP_H * step + 2.0),
+            right: px(0),
+            height: px(tall),
+            padding: UiRect::horizontal(px(6)),
+            align_items: AlignItems::Center,
+            border: UiRect::all(px(1)),
+            border_radius: BorderRadius::all(px(tall * 0.5)),
+            ..default()
+        },
+        BackgroundColor(palette::PANEL),
+        BorderColor::all(RIM),
+        Visibility::Hidden,
+        Hint(ChatPhrase::GuestNoContact.text(lang).to_string()),
+        children![(
+            Text::new(ChatPhrase::GuestTag.text(lang)),
+            TextLayout::no_wrap(),
+            tf_bold(fonts, BADGE_PT * step),
+            TextColor(palette::INK),
+            Pickable::IGNORE,
+        )],
+    )
+}
+
 /// A seat's chip, with its edges' lights and nothing written on it yet.
 fn spawn_button(
     commands: &mut Commands,
@@ -948,6 +1004,9 @@ fn spawn_button(
     let ground = ground_of(facts);
     let badge = commands
         .spawn(control_badge_bundle(fonts, facts.player, step))
+        .id();
+    let guest = commands
+        .spawn(guest_badge_bundle(fonts, facts.player, step, lang))
         .id();
     let chip = commands
         .spawn((
@@ -1020,7 +1079,7 @@ fn spawn_button(
             ],
         ))
         .id();
-    commands.entity(chip).add_child(badge);
+    commands.entity(chip).add_children(&[badge, guest]);
     chip
 }
 

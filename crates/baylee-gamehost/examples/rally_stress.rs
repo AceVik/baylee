@@ -116,6 +116,7 @@ fn statics() -> baylee_gamehost::GameStatic {
                 is_ai: false,
                 away: false,
                 team: None,
+                guest: false,
             })
             .collect(),
         &preset.prints,

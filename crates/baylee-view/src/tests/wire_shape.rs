@@ -365,7 +365,9 @@ fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
     // names the shape.
     // 86: the order of triggers, imported engine variants a reader of 85 cannot
     // parse; `PlayerView::trigger_order` beside them is additive.
-    const RECORDED: (u32, u64) = (86, 16_891_306_253_261_546_401);
+    // `SeatIdentity::guest` is additive and omitted while false, so 86 still
+    // names the shape.
+    const RECORDED: (u32, u64) = (86, 16_342_588_063_708_076_519);
 
     let samples = core_samples();
     let sampled: std::collections::BTreeSet<String> =

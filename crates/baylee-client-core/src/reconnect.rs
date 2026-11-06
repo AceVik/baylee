@@ -435,6 +435,7 @@ mod tests {
                 is_ai,
                 away,
                 team: None,
+                guest: false,
             });
         }
         statics

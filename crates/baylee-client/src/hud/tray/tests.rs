@@ -18,6 +18,7 @@ fn statics() -> GameStatic {
             is_ai: true,
             away: false,
             team: None,
+            guest: false,
         }],
         prints: vec![],
     }

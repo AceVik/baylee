@@ -53,6 +53,7 @@ fn roster() -> GameStatic {
             is_ai: false,
             away: false,
             team: None,
+            guest: false,
         })
         .collect();
     roster

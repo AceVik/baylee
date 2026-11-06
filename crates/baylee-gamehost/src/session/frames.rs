@@ -44,6 +44,11 @@ impl Session {
         self.names = names;
     }
 
+    /// Which seats are guests', in seat order, for the roster to say.
+    pub fn mark_guests(&mut self, guests: Vec<bool>) {
+        self.guests = guests;
+    }
+
     /// The once-per-game payload for a seat: the seat roster, the print table
     /// as far as this seat has earned it, and the view schema version.
     #[must_use]
@@ -62,6 +67,7 @@ impl Session {
                 is_ai: kind.is_ai_chair(),
                 away: kind.is_away(),
                 team: self.teams.get(i).copied().flatten(),
+                guest: self.guests.get(i).copied().unwrap_or(false),
             })
             .collect();
         let shown = self

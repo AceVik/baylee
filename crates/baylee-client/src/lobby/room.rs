@@ -9,6 +9,7 @@ use crate::shellkit::surfaces::MenuItem;
 use crate::shellkit::{Frame as ShellFrame, Role, px_fixed, tokens};
 use crate::tour::TourAnchor;
 use baylee_client_core::lobby::room::Adjustment;
+use baylee_client_core::social::ChatPhrase;
 use baylee_client_core::tour::Anchor;
 mod cards;
 mod llm;
@@ -728,8 +729,13 @@ fn seat_card(
         (Phrase::RoomEmptySeat.text(lang).to_string(), None)
     } else {
         let player = seat.player.clone().unwrap_or_default();
+        let guest = (seat.guest && !seat.you).then(|| ChatPhrase::GuestTag.text(lang));
         let under = if seat.host {
-            Some((Phrase::RoomHost.text(lang).to_string(), tokens::GOLD))
+            let host = Phrase::RoomHost.text(lang);
+            let said = guest.map_or_else(|| host.to_string(), |tag| format!("{host} · {tag}"));
+            Some((said, tokens::GOLD))
+        } else if let Some(tag) = guest {
+            Some((tag.to_string(), tokens::MUTED))
         } else {
             seat.delegated_by
                 .as_ref()
@@ -749,6 +755,12 @@ fn seat_card(
     commands.entity(who).add_child(title);
     if let Some((said, ink)) = under {
         let l = super::parts::line(commands, kit, &said, kit.m.small, ink);
+        if seat.guest && !seat.you {
+            commands.entity(l).insert((
+                Pickable::default(),
+                super::hint::HoverHint(ChatPhrase::GuestNoContact.text(lang).to_string()),
+            ));
+        }
         commands.entity(who).add_child(l);
     }
     commands.entity(line).add_child(who);

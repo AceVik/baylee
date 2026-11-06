@@ -678,6 +678,27 @@ fn seated_in_a_room() -> App {
     app
 }
 
+/// Another player's chair says "Guest", because a handle does not; the
+/// reader's own chair says nothing of the kind.
+#[test]
+fn a_guest_at_the_table_is_marked_and_the_reader_is_not() {
+    let listed = |app: &mut App, you: bool| {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        let mut games = state.lobby.games().to_vec();
+        games[0].seats[0].guest = true;
+        games[0].seats[0].you = you;
+        state.lobby.apply(LobbyEvent::Games(GameListing::of(games)));
+        app.update();
+        app.update();
+        labels(app)
+    };
+    let mut app = llm_deck_room(false, true);
+    let drawn = listed(&mut app, true);
+    assert!(!drawn.iter().any(|l| l.contains("Guest")), "{drawn:?}");
+    let drawn = listed(&mut app, false);
+    assert!(drawn.iter().any(|l| l.contains("Guest")), "{drawn:?}");
+}
+
 /// A room says what it holds a deck to, its host may choose where a gateway
 /// holds lists, and those at the table read the list.
 #[test]

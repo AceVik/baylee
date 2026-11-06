@@ -360,6 +360,11 @@ pub(crate) fn spawn_row(
                 }
             }
             let name = machine.shown_name(from);
+            let name = if from.guest && !*mine {
+                ChatPhrase::GuestNamed.fill(lang, &[&name])
+            } else {
+                name
+            };
             // A whisper's label names the partner already: `From Bob: text`.
             if !private {
                 let label = if body.emote {

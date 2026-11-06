@@ -353,6 +353,7 @@ pub fn statics(count: u16) -> GameStatic {
             is_ai: false,
             away: false,
             team: None,
+            guest: false,
         }],
         prints: (0..count)
             .map(|i| {

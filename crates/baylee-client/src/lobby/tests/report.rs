@@ -1603,6 +1603,7 @@ fn at_a_table_the_hash_offers_the_view_and_never_the_pool() {
             is_ai: true,
             away: false,
             team: None,
+            guest: false,
         });
         duel.statics = Some(table);
     }

@@ -174,6 +174,7 @@ fn static_frame() -> Message {
             is_ai: false,
             away: false,
             team: None,
+            guest: false,
         })
         .collect();
     frame(v1::envelope::Msg::GameStatic(v1::GameStaticMsg {

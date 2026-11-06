@@ -39,6 +39,7 @@ impl Social {
         let from = Person {
             tag: from.tag,
             handle: super::super::text::clean_name(&from.handle),
+            guest: from.guest,
         };
         let mentions_me = !mine && body.mentions_tag(&self.me.tag);
         let ignored = self.state.ignored.contains(&from.tag);
@@ -295,6 +296,7 @@ impl Social {
         let from = Person {
             tag: msg.from.tag.clone(),
             handle: super::super::text::clean_name(&msg.from.handle),
+            guest: msg.from.guest,
         };
         let mentions_me = !mine && body.mentions_tag(&self.me.tag);
         let ignored = self.state.ignored.contains(&from.tag);

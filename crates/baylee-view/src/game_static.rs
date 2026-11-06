@@ -58,6 +58,10 @@ pub struct SeatIdentity {
     pub away: bool,
     /// Team, for multiplayer formats where seats are allied.
     pub team: Option<u8>,
+    /// Whether the seat is a guest's: nobody can add or message them. Shown,
+    /// and nothing more; not written for an account.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub guest: bool,
 }
 
 /// The part of a game that never changes, sent once when a client attaches.

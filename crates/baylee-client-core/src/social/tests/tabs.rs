@@ -53,6 +53,7 @@ fn message() -> ChatLine {
         from: Person {
             tag: ALICE.into(),
             handle: "Alice#af03".into(),
+            guest: false,
         },
         mine: false,
         body: Body {
@@ -435,6 +436,7 @@ fn evening() -> (Gateway, Client, Client) {
         seat,
         handle: handle.into(),
         team: None,
+        guest: false,
     };
     alice.social.on_table(Some(TableContext {
         game: "g1".into(),
@@ -519,6 +521,7 @@ fn server_notices_show_on_a_tab_only_when_it_admits_notices_and_the_conversation
                     person: Person {
                         tag: CAROL.into(),
                         handle: "Carol#0c11".into(),
+                        guest: false,
                     },
                 },
             },
@@ -684,7 +687,8 @@ fn the_last_whisper_partner_is_the_last_one_who_whispered_me_and_a_tag_resolves_
         bob.social.person(ALICE),
         Person {
             tag: ALICE.into(),
-            handle: "Alice#af03".into()
+            handle: "Alice#af03".into(),
+            guest: false,
         }
     );
     assert_eq!(

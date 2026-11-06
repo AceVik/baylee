@@ -65,6 +65,7 @@ fn losing_group_membership_releases_its_retry_slot_but_keeps_uncertain_sends() {
             person: wire::Person {
                 tag: "0007".into(),
                 handle: "Alice#0007".into(),
+                guest: false,
             },
             owner: true,
         }],

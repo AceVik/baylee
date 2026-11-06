@@ -13,6 +13,8 @@ pub struct RosterSeat {
     pub handle: String,
     /// The team, at a table with teams.
     pub team: Option<u8>,
+    /// Whether a guest sits here, whom nobody can add.
+    pub guest: bool,
 }
 
 impl RosterSeat {

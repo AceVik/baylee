@@ -218,6 +218,7 @@ mod tests {
                 is_ai: seat == 2,
                 away: false,
                 team: None,
+                guest: false,
             })
             .collect();
         roster

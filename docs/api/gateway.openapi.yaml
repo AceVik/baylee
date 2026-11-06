@@ -7748,6 +7748,9 @@ components:
         format:
           type: string
           description: The format of that deck; `commander` while it has none.
+        guest:
+          type: boolean
+          description: Whether a guest sits here, whom nobody can add.
         host:
           type: boolean
           description: Whether the room's host sits here.
@@ -7793,6 +7796,7 @@ components:
       - deck
       - delegated_by
       - format
+      - guest
       - host
       - hosted
       - kind
@@ -7880,6 +7884,9 @@ components:
           - string
           - "null"
           description: The host's handle (`Alice#af03`), `null` for a table with no host.
+        host_guest:
+          type: boolean
+          description: Whether the host is a guest, whom nobody can add.
         id:
           type: string
           description: The game's id, which every `/lobby/games/{id}/…` route takes.
@@ -7941,6 +7948,7 @@ components:
       required:
       - clock
       - host
+      - host_guest
       - id
       - locked
       - name
@@ -8045,6 +8053,9 @@ components:
         blocked:
           type: boolean
           description: Whether the caller blocked them.
+        guest:
+          type: boolean
+          description: Whether they are a guest, whom nobody can add; absent for an account.
       required:
       - tag
       - handle

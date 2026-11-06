@@ -1955,8 +1955,8 @@ pub(crate) use ledge::players::STRIPS_H;
 pub use controlbanner::{show_control_banner, spawn_control_banner};
 pub(crate) use ledge::players::PlayersStrip;
 pub use ledge::players::{
-    ChipCrown, ChipTag, ControlBadge, HintSeat, PlayersRevision, TagKind, control_badge,
-    glow_the_players, show_the_control_badges, show_the_tags, sync_players,
+    ChipCrown, ChipTag, ControlBadge, GuestBadge, HintSeat, PlayersRevision, TagKind,
+    control_badge, glow_the_players, show_the_control_badges, show_the_tags, sync_players,
 };
 pub use ledge::pool::{PoolRevision, grow_the_pool, sync_pool};
 pub(crate) use ledge::replay_bar;

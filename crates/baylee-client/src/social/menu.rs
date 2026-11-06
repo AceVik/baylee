@@ -32,6 +32,8 @@ pub(crate) enum RowPress {
     Block(String),
     Retry,
     Remove,
+    /// A line that only says why: it closes the menu and does nothing else.
+    Said,
 }
 
 /// Where the menu stands, in logical window pixels.
@@ -334,9 +336,32 @@ fn presses(mut clicks: Clicks<RowPress>, mut host: ResMut<SocialHost>, mut ui: R
             RowPress::Block(tag) => host.act(Intent::Block { tag }),
             RowPress::Retry => host.act(Intent::Retry { line: key.clone() }),
             RowPress::Remove => host.act(Intent::Forget { line: key.clone() }),
+            RowPress::Said => {}
         }
         ui.row_menu = None;
     }
+}
+
+/// What a line's author offers: a guest nothing, and the reason in its place.
+fn ways_to_reach(
+    from: &baylee_protocol::social::Person,
+    friend: bool,
+    i_am_a_guest: bool,
+) -> Vec<(ChatPhrase, RowPress)> {
+    if from.guest {
+        return vec![(ChatPhrase::GuestNoContact, RowPress::Said)];
+    }
+    let mut ways = vec![(
+        ChatPhrase::WhisperButton,
+        RowPress::Whisper(from.tag.clone()),
+    )];
+    if !friend && !i_am_a_guest {
+        ways.push((
+            ChatPhrase::AddFriendButton,
+            RowPress::AddFriend(from.handle.clone()),
+        ));
+    }
+    ways
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -390,16 +415,8 @@ fn sync(
                 items.push((ChatPhrase::RemoveButton, RowPress::Remove));
             }
         } else {
-            items.push((
-                ChatPhrase::WhisperButton,
-                RowPress::Whisper(from.tag.clone()),
-            ));
-            if !machine.contacts().is_friend(&from.tag) && !machine.me().guest {
-                items.push((
-                    ChatPhrase::AddFriendButton,
-                    RowPress::AddFriend(from.handle.clone()),
-                ));
-            }
+            let friend = machine.contacts().is_friend(&from.tag);
+            items.extend(ways_to_reach(from, friend, machine.me().guest));
             items.push((ChatPhrase::IgnoreButton, RowPress::Ignore(from.tag.clone())));
             items.push((ChatPhrase::BlockButton, RowPress::Block(from.tag.clone())));
         }

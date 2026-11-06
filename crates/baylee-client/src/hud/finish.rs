@@ -828,6 +828,7 @@ mod tests {
                 is_ai: false,
                 away: false,
                 team,
+                guest: false,
             }],
             prints: vec![],
         }

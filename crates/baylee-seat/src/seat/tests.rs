@@ -30,6 +30,7 @@ fn table(name: &str, secs: Option<u32>) -> Vec<u8> {
             is_ai: false,
             away: false,
             team: None,
+            guest: false,
         },
         SeatIdentity {
             player: PlayerId::new(1),
@@ -37,6 +38,7 @@ fn table(name: &str, secs: Option<u32>) -> Vec<u8> {
             is_ai: false,
             away: false,
             team: None,
+            guest: false,
         },
     ];
     frame(v1::envelope::Msg::GameStatic(v1::GameStaticMsg {
@@ -809,6 +811,7 @@ fn named_table() -> (v1::GameStaticMsg, baylee_view::GameStatic) {
             is_ai: false,
             away: false,
             team: (seat != 1).then_some(1),
+            guest: false,
         })
         .collect();
     let msg = v1::GameStaticMsg {

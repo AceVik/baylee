@@ -211,6 +211,7 @@ fn duel_seat_0_lost() -> crate::Duel {
                 is_ai: false,
                 away: false,
                 team: None,
+                guest: false,
             }],
             prints: vec![],
         }),

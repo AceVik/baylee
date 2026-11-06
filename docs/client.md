@@ -4703,6 +4703,14 @@ next one may be at another gateway. Every
 filter — text, colour identity, type, mana value, sort — runs locally, so
 search answers at keystroke latency and never at the gateway's.
 
+**A guest is marked wherever another player stands** (owner, 06.11.2026),
+because `Bob#1a2b` does not say so: under a room's chair, beside the host in the
+table list, over a chip (`players::GuestBadge`) and after a name in the chat
+(`GuestTag`, `GuestNamed`). Adding and whispering are not offered, and
+`GuestNoContact` stands in their place, in a line's menu and among the recent
+players. Never on the reader's own seat. The fact comes from the gateway
+(`docs/protocol.md` §"Playing as a guest").
+
 **A deck wears the rank it earned** (owner, 06.11.2026:
 the rarer, the more splendid). `DeckPlayStats::rank_tier` gives a tier
 `0..=11`, and the tile says it three times in one colour: the title, the badge

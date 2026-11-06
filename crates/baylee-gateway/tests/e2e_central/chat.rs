@@ -53,6 +53,7 @@ pub(super) fn first_device(account: &mut Account, gateway: &str) -> Fixture {
             from: Person {
                 tag: "0012".into(),
                 handle: "Bob#0012".into(),
+                guest: false,
             },
             mine: false,
             body: Body {

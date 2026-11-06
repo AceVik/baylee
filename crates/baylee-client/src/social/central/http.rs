@@ -89,7 +89,8 @@ pub(super) fn run(
                     friend: relation == Some(api::Relation::Friend),
                     incoming: relation == Some(api::Relation::Incoming),
                     outgoing: relation == Some(api::Relation::Outgoing),
-                    blocked: relation == Some(api::Relation::Blocked)
+                    blocked: relation == Some(api::Relation::Blocked),
+                    guest: false,
                 }),
             ))
         }

@@ -284,6 +284,7 @@ fn seated_duel(arrangement: Arrangement) -> Duel {
             is_ai: i != 0,
             away: false,
             team: None,
+            guest: false,
         })
         .collect();
     duel.statics = Some(table);

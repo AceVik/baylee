@@ -434,6 +434,9 @@ pub struct GameSeat {
     /// who is at a table does not require knowing their account.
     #[serde(default)]
     pub player: Option<String>,
+    /// Whether a guest sits there, whom nobody can add.
+    #[serde(default)]
+    pub guest: bool,
     /// Whether that is the player reading the list.
     #[serde(default)]
     pub you: bool,
@@ -488,6 +491,9 @@ pub struct GameSummary {
     /// Who arranges it, by display name.
     #[serde(default)]
     pub host: Option<String>,
+    /// Whether that is a guest, whom nobody can add.
+    #[serde(default)]
+    pub host_guest: bool,
     /// Whether the player reading the list is that host.
     #[serde(default)]
     pub yours: bool,

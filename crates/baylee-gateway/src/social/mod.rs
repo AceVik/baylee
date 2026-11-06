@@ -499,6 +499,7 @@ pub(crate) fn person(who: &Who) -> Person {
     Person {
         tag: crate::handle::tag_text(who.tag),
         handle: crate::handle::handle(&who.name, who.tag),
+        guest: who.guest,
     }
 }
 

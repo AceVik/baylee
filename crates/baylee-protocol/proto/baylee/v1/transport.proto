@@ -330,6 +330,9 @@ message GameSetup {
   // Seat names in seat order. The rules kernel has never heard of an account,
   // so the roster is assembled by the gateway.
   repeated string seat_names = 3;
+  // Whether each seat is a guest's, in seat order: shown, and nothing more.
+  // Empty from a gateway older than this.
+  repeated bool seat_guests = 4;
 }
 
 // Gateway → engine: a seat's socket opened.

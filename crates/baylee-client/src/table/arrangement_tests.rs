@@ -424,6 +424,7 @@ fn the_table_tears_into_pieces_and_is_one_slab_again_when_docked() {
             is_ai: i != 0,
             away: false,
             team: None,
+            guest: false,
         })
         .collect();
     duel.statics = Some(table);
@@ -569,6 +570,7 @@ fn every_mat_lands_on_its_place_when_the_table_docks() {
             is_ai: i != 0,
             away: false,
             team: None,
+            guest: false,
         })
         .collect();
     duel.statics = Some(table);

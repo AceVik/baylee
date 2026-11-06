@@ -692,6 +692,7 @@ impl Social {
                 return Some(Person {
                     tag: tag.to_string(),
                     handle: who.to_string(),
+                    guest: false,
                 });
             }
         }

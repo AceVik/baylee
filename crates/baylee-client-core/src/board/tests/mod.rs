@@ -50,6 +50,7 @@ fn identity(player: u8, is_ai: bool, away: bool) -> baylee_view::SeatIdentity {
         is_ai,
         away,
         team: None,
+        guest: false,
     }
 }
 

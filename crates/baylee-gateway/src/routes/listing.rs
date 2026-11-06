@@ -101,9 +101,7 @@ pub(crate) async fn listing_page(
 ///
 /// Read through the name book (`namebook.rs`): one query for the accounts that
 /// sat down since the last render, and none at all when nobody did.
-pub(crate) async fn seated_names(
-    state: &Shared,
-) -> std::sync::Arc<std::collections::HashMap<String, String>> {
+pub(crate) async fn seated_names(state: &Shared) -> std::sync::Arc<crate::namebook::Names> {
     let wanted = state.lobby.lock().seated_accounts();
     state.names.names(&state.db, wanted).await
 }

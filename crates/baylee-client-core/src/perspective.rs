@@ -497,6 +497,7 @@ mod tests {
                 is_ai: false,
                 away: false,
                 team: None,
+                guest: false,
             });
         }
         let s = Some(&statics);

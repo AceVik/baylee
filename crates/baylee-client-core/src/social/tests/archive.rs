@@ -15,6 +15,7 @@ fn record(index: u32) -> history::Record {
         from: Person {
             tag: "0012".into(),
             handle: "Bob#0012".into(),
+            guest: false,
         },
         mine: false,
         body: Body {

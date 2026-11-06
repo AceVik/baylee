@@ -97,6 +97,47 @@ fn a_badge_opens_the_source_in_its_print_and_names_it() {
     assert!(hint.0.contains(name), "{}", hint.0);
 }
 
+/// Whether the guest mark over `player`'s chip shows.
+fn guest_mark(app: &mut App, player: PlayerId) -> bool {
+    let mut marks = app
+        .world_mut()
+        .query::<(&crate::hud::GuestBadge, &Visibility)>();
+    marks
+        .iter(app.world())
+        .find(|(mark, _)| mark.player == player)
+        .is_some_and(|(_, seen)| *seen != Visibility::Hidden)
+}
+
+/// The roster says who is a guest, and the mark stands over another player's
+/// chip: a name alone (`Bob#1a2b`) does not say so. Never over this seat's own.
+#[test]
+fn a_guest_wears_the_mark_on_the_others_chips_only() {
+    let mut duel = controlling_duel();
+    let statics = duel.statics.as_mut().expect("a roster");
+    statics.seats = (0..2)
+        .map(|seat| baylee_view::SeatIdentity {
+            player: PlayerId::new(seat),
+            display_name: format!("Seat {seat}"),
+            is_ai: false,
+            away: false,
+            team: None,
+            guest: true,
+        })
+        .collect();
+    let mut app = with_badges(duel);
+    app.update();
+    assert!(guest_mark(&mut app, PlayerId::new(1)), "another's chip");
+    assert!(!guest_mark(&mut app, PlayerId::new(0)), "my own chip");
+}
+
+/// An account wears no mark.
+#[test]
+fn an_account_wears_no_guest_mark() {
+    let mut app = with_badges(controlling_duel());
+    app.update();
+    assert!(!guest_mark(&mut app, PlayerId::new(1)));
+}
+
 /// With no object to show, the badge opens nothing: no printing is guessed.
 #[test]
 fn a_badge_with_no_object_to_show_opens_nothing() {

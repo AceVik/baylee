@@ -144,6 +144,7 @@ mod tests {
             is_ai: false,
             away: false,
             team: None,
+            guest: false,
         });
         let mut duel = Duel {
             statics: Some(statics),

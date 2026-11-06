@@ -8,6 +8,7 @@ pub(super) fn person(person: api::Person) -> wire::Person {
     wire::Person {
         handle: format!("{}#{tag}", person.display_name),
         tag,
+        guest: false,
     }
 }
 pub(super) fn snapshot(account: &Account) -> Result<wire::Snapshot, Error> {
@@ -90,6 +91,7 @@ pub(super) fn delivery(delivery: chat::Delivery, device: &str) -> Result<Retaine
             tag: sender.tag,
             handle: sender.handle,
             device: delivery.device.id,
+            guest: false,
         },
         sealed: wire::Delivered {
             hdr: sealed.hdr,

@@ -57,3 +57,25 @@ fn row_actions_ignore_right_click_and_wait_for_primary_release() {
     assert_eq!(ui.field, Field::Composer);
     assert!(app.world().get::<bevy::ui::Pressed>(target).is_none());
 }
+
+/// A guest's line offers neither a whisper nor a friend request, and says why
+/// in their place; an account's offers both.
+#[test]
+fn a_guests_line_says_why_it_offers_no_way_to_reach_them() {
+    let person = |guest| baylee_protocol::social::Person {
+        tag: "1a2b".into(),
+        handle: "Bob#1a2b".into(),
+        guest,
+    };
+    let phrases = |ways: Vec<(ChatPhrase, RowPress)>| -> Vec<ChatPhrase> {
+        ways.into_iter().map(|(phrase, _)| phrase).collect()
+    };
+    assert_eq!(
+        phrases(ways_to_reach(&person(true), false, false)),
+        vec![ChatPhrase::GuestNoContact]
+    );
+    assert_eq!(
+        phrases(ways_to_reach(&person(false), false, false)),
+        vec![ChatPhrase::WhisperButton, ChatPhrase::AddFriendButton]
+    );
+}

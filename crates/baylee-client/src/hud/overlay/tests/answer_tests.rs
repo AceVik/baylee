@@ -316,6 +316,7 @@ fn a_seat_that_has_kept_is_told_who_is_still_deciding() {
             is_ai: false,
             away: false,
             team: None,
+            guest: false,
         });
         let mut duel = Duel {
             view: Some(view),

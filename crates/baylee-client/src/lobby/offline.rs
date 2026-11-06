@@ -758,6 +758,7 @@ impl Offline {
             id: ROOM.to_string(),
             name: room.name.clone(),
             host: Some(Phrase::You.text(lang).to_string()),
+            host_guest: false,
             yours: true,
             state: if room.playing { "playing" } else { "waiting" }.to_string(),
             locked: false,
@@ -778,6 +779,7 @@ impl Offline {
                 .enumerate()
                 .map(|(at, chair)| GameSeat {
                     seat: at as u32,
+                    guest: false,
                     kind: chair.kind,
                     ai: (chair.kind == SeatKind::Ai).then(|| chair.ai.clone()),
                     // `taken` means a human owns the chair. Marking AI

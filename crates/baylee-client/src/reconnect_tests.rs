@@ -115,6 +115,7 @@ fn opponent(is_ai: bool) -> baylee_view::SeatIdentity {
         is_ai,
         away: false,
         team: None,
+        guest: false,
     }
 }
 

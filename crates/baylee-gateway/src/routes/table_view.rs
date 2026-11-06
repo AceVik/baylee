@@ -102,6 +102,29 @@ pub(crate) async fn game_cosmetics(
 /// after the other rather than nested: the lobby says which account sits
 /// where, the store says what that account is called, and nothing in between
 /// needs both at once.
+/// Which of a game's seats are guests', in seat order, told to the engine
+/// beside [`seat_names`] for the table to show.
+pub(crate) async fn seat_guests(state: &Shared, game_id: &str) -> Vec<bool> {
+    let accounts: Vec<Option<String>> = {
+        let lobby = state.lobby.lock();
+        lobby.games.get(game_id).map_or_else(Vec::new, |game| {
+            game.seats.iter().map(|s| s.account_id.clone()).collect()
+        })
+    };
+    let guests = match store::names_and_guests(&state.db, accounts.iter().flatten().cloned()).await
+    {
+        Ok((_, guests)) => guests,
+        Err(e) => {
+            tracing::error!("{e:#}");
+            std::collections::HashSet::new()
+        }
+    };
+    accounts
+        .iter()
+        .map(|id| id.as_ref().is_some_and(|id| guests.contains(id)))
+        .collect()
+}
+
 pub(crate) async fn seat_names(state: &Shared, game_id: &str) -> Vec<String> {
     let (accounts, delegates): (Vec<Option<String>>, Vec<Option<String>>) = {
         let lobby = state.lobby.lock();

@@ -37,7 +37,7 @@ use sea_orm::{
     QueryOrder, Statement, TransactionTrait,
     sea_query::{Expr, OnConflict},
 };
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use time::OffsetDateTime;
 use uuid::Uuid;
 
@@ -353,14 +353,28 @@ pub async fn display_names(
     db: &DatabaseConnection,
     wanted: impl IntoIterator<Item = String>,
 ) -> Result<HashMap<String, String>> {
+    Ok(names_and_guests(db, wanted).await?.0)
+}
+
+/// As [`display_names`], and which of them are guests.
+///
+/// # Errors
+///
+/// If the database refuses.
+pub async fn names_and_guests(
+    db: &DatabaseConnection,
+    wanted: impl IntoIterator<Item = String>,
+) -> Result<(HashMap<String, String>, HashSet<String>)> {
     let ids: Vec<Uuid> = wanted.into_iter().filter_map(|w| uuid(&w)).collect();
     if ids.is_empty() {
-        return Ok(HashMap::new());
+        return Ok((HashMap::new(), HashSet::new()));
     }
-    Ok(Accounts::find()
+    let rows = Accounts::find()
         .filter(account::Column::Id.is_in(ids))
         .all(db)
-        .await?
+        .await?;
+    let guests = rows.iter().filter(|r| r.guest).map(|r| id(r.id)).collect();
+    let names = rows
         .into_iter()
         .map(|row| {
             (
@@ -368,7 +382,8 @@ pub async fn display_names(
                 crate::handle::handle(&row.display_name, row.tag),
             )
         })
-        .collect())
+        .collect();
+    Ok((names, guests))
 }
 
 /// The account a tag names, for a player looking somebody up.

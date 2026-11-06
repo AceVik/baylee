@@ -47,6 +47,7 @@ fn setup(runner: &mut EngineRunner, preset: &GamePreset) -> Vec<Envelope> {
                 game_id: "g1".to_string(),
                 preset_json: serde_json::to_vec(preset).expect("preset serializes"),
                 seat_names: vec!["You".to_string(), "House".to_string()],
+                seat_guests: Vec::new(),
             })),
         },
         &[],

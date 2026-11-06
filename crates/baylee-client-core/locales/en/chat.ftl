@@ -704,6 +704,16 @@ ReplyButton = Reply
 # Add someone as a friend.
 AddFriendButton = Add friend
 
+# The small mark beside a guest, wherever another player is named.
+GuestTag = Guest
+
+# A guest's name with that mark, in a line of words.
+# Arguments: name
+GuestNamed = { $name } (guest)
+
+# Why a guest offers neither: said in their place, and over the mark.
+GuestNoContact = Guests cannot be added or messaged
+
 # Hide someone's lines.
 IgnoreButton = Ignore
 

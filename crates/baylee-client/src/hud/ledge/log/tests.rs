@@ -656,6 +656,7 @@ fn two_teams() -> GameStatic {
                 is_ai: false,
                 away: false,
                 team: Some(seat),
+                guest: false,
             })
             .collect(),
         prints: vec![],

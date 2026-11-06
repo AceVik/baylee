@@ -335,6 +335,7 @@ fn the_two_lines_about_another_seat_say_whose_seat_it_is() {
         is_ai: false,
         away: false,
         team: None,
+        guest: false,
     });
 
     let waiting = interaction(Pending::ChooseTargets {
@@ -399,6 +400,7 @@ fn a_seat_that_has_kept_is_told_who_is_still_deciding() {
         is_ai: false,
         away: false,
         team: None,
+        guest: false,
     });
     let at = |deciding: &[u8]| {
         let mut view = crate::test_support::ViewBuilder::new(4).build();
@@ -453,6 +455,7 @@ fn a_held_chair_says_the_house_is_answering_for_it() {
         is_ai: false,
         away: true,
         team: None,
+        guest: false,
     });
     let waiting = interaction(Pending::ChooseTargets {
         player: PlayerId::new(1),
@@ -1852,6 +1855,7 @@ fn a_vote_is_headed_as_one_and_its_ballots_are_told() {
         is_ai: false,
         away: false,
         team: None,
+        guest: false,
     });
     let mut view = crate::test_support::ViewBuilder::new(2).build();
     view.seat = me();

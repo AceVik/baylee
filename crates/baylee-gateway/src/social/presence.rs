@@ -204,6 +204,7 @@ async fn people(state: &Shared, accounts: &BTreeSet<String>) -> BTreeMap<String,
                 Person {
                     tag: tag.to_owned(),
                     handle: handle.clone(),
+                    guest: names.is_guest(id),
                 },
             ))
         })

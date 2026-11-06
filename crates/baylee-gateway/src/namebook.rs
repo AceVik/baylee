@@ -14,8 +14,52 @@
 //! account leaves every table (`Lobby::forget_account`) before the lobby
 //! says it moved, so it is gone from the book at the next render.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
+
+/// What the lobby says of the accounts seated in it: each one's handle, and
+/// which are guests. A guest stays one for good, as a handle stays a handle.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Names {
+    handles: HashMap<String, String>,
+    guests: HashSet<String>,
+}
+
+impl std::ops::Deref for Names {
+    type Target = HashMap<String, String>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.handles
+    }
+}
+
+impl Names {
+    /// Whether account `id` is a guest.
+    #[must_use]
+    pub fn is_guest(&self, id: &str) -> bool {
+        self.guests.contains(id)
+    }
+}
+
+#[cfg(test)]
+impl Names {
+    /// These names, with `guests` among them.
+    pub(crate) fn with_guests(handles: HashMap<String, String>, guests: &[&str]) -> Self {
+        Self {
+            handles,
+            guests: guests.iter().map(|id| (*id).to_string()).collect(),
+        }
+    }
+}
+
+impl From<HashMap<String, String>> for Names {
+    fn from(handles: HashMap<String, String>) -> Self {
+        Self {
+            handles,
+            guests: HashSet::new(),
+        }
+    }
+}
 
 /// Display handles by account id, for the accounts seated in the lobby.
 #[derive(Default)]
@@ -26,7 +70,7 @@ pub struct NameBook {
     /// A `tokio` mutex, held across the query on purpose: when a change
     /// wakes every feed at once, the first one asks and the rest wait for
     /// its answer instead of asking the same question beside it.
-    known: tokio::sync::Mutex<Arc<HashMap<String, String>>>,
+    known: tokio::sync::Mutex<Arc<Names>>,
     /// How many times the database was asked, for the tests that say when.
     queries: std::sync::atomic::AtomicU64,
 }
@@ -35,30 +79,36 @@ impl NameBook {
     /// The handles of `wanted` (account ids), from the book where it has
     /// them and from the database for the rest. An account the database
     /// does not know is left out, as the query alone left it out.
-    pub async fn names(
-        &self,
-        db: &sea_orm::DatabaseConnection,
-        wanted: Vec<String>,
-    ) -> Arc<HashMap<String, String>> {
+    pub async fn names(&self, db: &sea_orm::DatabaseConnection, wanted: Vec<String>) -> Arc<Names> {
         let mut known = self.known.lock().await;
         let missing: Vec<String> = wanted
             .iter()
-            .filter(|id| !known.contains_key(*id))
+            .filter(|id| !known.handles.contains_key(*id))
             .cloned()
             .collect();
-        let surplus = known.len() + missing.len() > wanted.len();
+        let surplus = known.handles.len() + missing.len() > wanted.len();
         if missing.is_empty() && !surplus {
             return Arc::clone(&known);
         }
-        let mut next: HashMap<String, String> = wanted
-            .iter()
-            .filter_map(|id| known.get(id).map(|name| (id.clone(), name.clone())))
-            .collect();
+        let mut next = Names {
+            handles: wanted
+                .iter()
+                .filter_map(|id| known.get(id).map(|name| (id.clone(), name.clone())))
+                .collect(),
+            guests: wanted
+                .iter()
+                .filter(|id| known.is_guest(id))
+                .cloned()
+                .collect(),
+        };
         if !missing.is_empty() {
             self.queries
                 .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-            match crate::store::display_names(db, missing).await {
-                Ok(found) => next.extend(found),
+            match crate::store::names_and_guests(db, missing).await {
+                Ok((found, guests)) => {
+                    next.handles.extend(found);
+                    next.guests.extend(guests);
+                }
                 // Not remembered: the next render asks again, as every
                 // render used to.
                 Err(e) => tracing::error!("{e:#}"),
@@ -128,6 +178,7 @@ mod tests {
         let book = NameBook::default();
         let names = book.names(&db, vec![ada.clone()]).await;
         assert!(names[&ada].starts_with("Ada"), "{names:?}");
+        assert!(names.is_guest(&ada), "the book says who is a guest");
         assert_eq!(queries(&book), 1);
 
         let again = book.names(&db, vec![ada.clone()]).await;
@@ -139,6 +190,7 @@ mod tests {
 
         let both = book.names(&db, vec![ada.clone(), bo.clone()]).await;
         assert_eq!(both.len(), 2);
+        assert!(both.is_guest(&ada), "what it read before it still says");
         assert!(both[&bo].starts_with("Bo"), "{both:?}");
         assert_eq!(queries(&book), 2, "one query, for the one who sat down");
 

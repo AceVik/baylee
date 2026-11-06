@@ -146,6 +146,7 @@ pub(crate) fn send_global(
             tag: from.tag.to_owned(),
             handle: from.handle.to_owned(),
             device: from.device.to_owned(),
+            guest: from.guest,
         },
         body,
     };
@@ -307,6 +308,7 @@ async fn try_send(
                     tag: from.tag.to_owned(),
                     handle: from.handle.to_owned(),
                     device: from.device.to_owned(),
+                    guest: from.guest,
                 },
                 sealed: Delivered {
                     hdr: sealed.hdr.clone(),
@@ -338,6 +340,7 @@ pub(crate) fn delivery(pending: &baylee_db::social::Pending) -> Option<Down> {
             tag: sender.tag,
             handle: sender.handle,
             device: pending.sender_dev.clone(),
+            guest: sender.guest,
         },
         sealed: Delivered {
             hdr: kept.hdr,

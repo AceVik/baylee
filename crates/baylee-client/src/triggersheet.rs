@@ -183,6 +183,7 @@ mod tests {
                         is_ai: false,
                         away: false,
                         team: None,
+                        guest: false,
                     })
                     .to_vec(),
                 prints: vec![],

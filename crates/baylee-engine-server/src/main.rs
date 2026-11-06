@@ -57,7 +57,7 @@ async fn main() {
     tracing_subscriber_init();
     if let Some(attach) = Attach::discover() {
         let game_id = attach.game_id.clone();
-        match attached::run(attach).await {
+        match Box::pin(attached::run(attach)).await {
             Ok(()) => tracing::info!(game_id, "game finished"),
             Err(err) => {
                 tracing::error!(game_id, %err, "engine link failed");

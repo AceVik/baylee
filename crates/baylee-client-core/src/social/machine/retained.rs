@@ -94,6 +94,7 @@ mod tests {
                 tag: "0009".into(),
                 handle: "Bob#0009".into(),
                 device: "a".repeat(16),
+                guest: false,
             },
             sealed: Delivered {
                 hdr: "invalid".into(),

@@ -325,6 +325,7 @@ fn the_stack_says_which_seat_the_table_is_waiting_for() {
             is_ai: true,
             away: false,
             team: None,
+            guest: false,
         });
         duel.statics = Some(statics);
         crate::rebuild_board(&mut duel);

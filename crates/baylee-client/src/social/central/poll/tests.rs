@@ -14,6 +14,7 @@ fn answer(generation: u64) -> Reply {
     snapshot.blocked.push(wire::Person {
         tag: "0009".into(),
         handle: "Stale#0009".into(),
+        guest: false,
     });
     Reply::Poll {
         generation,

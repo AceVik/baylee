@@ -222,6 +222,8 @@ pub struct Session {
     game_id: String,
     /// What clients call each seat (see [`Session::describe`]).
     names: Vec<String>,
+    /// Which seats are guests' ([`Self::mark_guests`]).
+    guests: Vec<bool>,
     /// The game log, kept once for the whole table and told to each seat as
     /// it may know it (#262).
     log: GameLog,
@@ -336,6 +338,7 @@ impl Session {
             roster_dirty: vec![false; preset.seats.len()],
             game_id: String::new(),
             names: Vec::new(),
+            guests: Vec::new(),
             log,
             told: vec![0; preset.seats.len()],
             showing: vec![SeatSet::new(); preset.seats.len()],

@@ -101,6 +101,9 @@ pub struct RecentPlayer {
     pub handle: String,
     /// When, Unix milliseconds.
     pub at: u64,
+    /// Whether they sat there as a guest, whom nobody can add.
+    #[serde(default)]
+    pub guest: bool,
 }
 
 /// A send not yet answered.
@@ -700,6 +703,7 @@ impl Social {
                 let person = Person {
                     tag: from.tag,
                     handle: from.handle,
+                    guest: from.guest,
                 };
                 self.receive_global(&id, at, person, &body, now_ms, rng, &mut out);
             }
@@ -930,11 +934,11 @@ impl Social {
             && table.as_ref().is_none_or(|t| t.game != old.game)
         {
             let me = self.me.tag.clone();
-            let people: Vec<(String, String)> = old
+            let people: Vec<(String, String, bool)> = old
                 .people(&me)
-                .filter_map(|s| s.tag().map(|t| (t.to_string(), s.handle.clone())))
+                .filter_map(|s| s.tag().map(|t| (t.to_string(), s.handle.clone(), s.guest)))
                 .collect();
-            for (tag, handle) in people {
+            for (tag, handle, guest) in people {
                 self.state.recent.retain(|r| r.tag != tag);
                 self.state.recent.insert(
                     0,
@@ -942,6 +946,7 @@ impl Social {
                         tag,
                         handle,
                         at: self.last_now,
+                        guest,
                     },
                 );
             }
@@ -1597,11 +1602,13 @@ impl Social {
                 self.state.keys.get(tag).map(|k| Person {
                     tag: tag.to_string(),
                     handle: k.handle.clone(),
+                    guest: false,
                 })
             })
             .unwrap_or_else(|| Person {
                 tag: tag.to_string(),
                 handle: format!("#{tag}"),
+                guest: false,
             })
     }
 
@@ -1626,6 +1633,7 @@ impl Social {
                     add(Person {
                         tag: tag.to_string(),
                         handle: seat.handle.clone(),
+                        guest: seat.guest,
                     });
                 }
             }
@@ -1641,6 +1649,7 @@ impl Social {
             add(Person {
                 tag: r.tag.clone(),
                 handle: r.handle.clone(),
+                guest: r.guest,
             });
         }
         people
@@ -1679,6 +1688,7 @@ impl Social {
             .map(|p| Person {
                 tag: p.tag.clone(),
                 handle: super::text::clean_name(&p.handle),
+                guest: p.guest,
             })
             .collect();
         let conv = self.conv_entry(id, now_ms);

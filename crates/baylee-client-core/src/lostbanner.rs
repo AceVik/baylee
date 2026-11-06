@@ -127,6 +127,7 @@ mod tests {
             is_ai: false,
             away: false,
             team: None,
+            guest: false,
         });
         statics
     }

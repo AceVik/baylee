@@ -1709,12 +1709,22 @@ fn sync_drawer(
                 tokens::INK,
                 true,
             );
-            let add = small_button(
-                &mut commands,
-                &fonts,
-                ChatPhrase::AddFriendButton.text(lang),
-                DrawerPress::AddRecent(player.handle.clone()),
-            );
+            let add = if player.guest {
+                label(
+                    &mut commands,
+                    &fonts,
+                    ChatPhrase::GuestNoContact.text(lang).to_string(),
+                    tokens::MUTED,
+                    false,
+                )
+            } else {
+                small_button(
+                    &mut commands,
+                    &fonts,
+                    ChatPhrase::AddFriendButton.text(lang),
+                    DrawerPress::AddRecent(player.handle.clone()),
+                )
+            };
             commands.entity(line).add_children(&[avatar, name, add]);
             kids.push(line);
         }

@@ -2,6 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the Play screen's own vocabulary
 use super::*;
+use baylee_client_core::social::ChatPhrase;
 
 /// The tables panel: head, chips, rows, pager. Answers the Sort button.
 #[allow(clippy::too_many_lines)] // one panel, read top to bottom
@@ -481,7 +482,11 @@ fn table_row(
         .id();
     let mut meta = Vec::new();
     if let Some(host) = &game.host {
-        meta.push(host.clone());
+        meta.push(if game.host_guest && !game.yours {
+            ChatPhrase::GuestNamed.fill(lang, &[host])
+        } else {
+            host.clone()
+        });
     }
     if let Some(format) = model::table_format(game) {
         meta.push(shelf::format_label(lang, format));

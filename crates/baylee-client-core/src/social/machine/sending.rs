@@ -107,6 +107,7 @@ impl Social {
         let me = Person {
             tag: self.me.tag.clone(),
             handle: self.me.handle.clone(),
+            guest: self.me.guest,
         };
         let entry = self.conv_entry(conv, now_ms);
         entry.open = true;
@@ -280,6 +281,7 @@ impl Social {
             from: Person {
                 tag: self.me.tag.clone(),
                 handle: self.me.handle.clone(),
+                guest: self.me.guest,
             },
             mine: true,
             body: p.body,

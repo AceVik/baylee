@@ -130,6 +130,7 @@ fn a_seat_with_no_identity_is_named_by_a_fallback_never_by_another_seat() {
             is_ai: false,
             away: false,
             team: None,
+            guest: false,
         }],
         prints: vec![],
         decision_secs: None,

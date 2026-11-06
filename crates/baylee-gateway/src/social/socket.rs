@@ -312,6 +312,7 @@ async fn run(state: Shared, account: String, session_digest: Vec<u8>, mut socket
     let me = Person {
         tag: crate::handle::tag_text(row.tag),
         handle: crate::handle::handle(&row.display_name, row.tag),
+        guest: row.guest,
     };
     let guest = row.guest;
     let Some(id) = uid(&account) else {

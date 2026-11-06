@@ -45,6 +45,7 @@ pub(crate) fn told(entries: Vec<LogEntry>) -> TableMemory {
             is_ai: false,
             away: false,
             team: None,
+            guest: false,
         })
         .collect();
     let mut view = ViewBuilder::new(2).build();
