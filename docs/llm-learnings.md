@@ -6964,3 +6964,27 @@ code.
   Clippy, the desktop test build, `require-card-tests` and formatting checks
   pass. `validate` accepts 12,543 cards (11,159 finished, 1,384 stubs). The
   full gates remain deferred at the owner's request.
+
+## 2026-11-06 — Lava Dart's non-mana flashback cost
+
+- The reader now carries supported `PayLife`, `Sacrifice` and `ReturnToHand`
+  parts from `K:Flashback` into `CardBody.flashback_parts`, rendering them
+  beside the mana cost. A non-mana-only cost is `ManaCost::ZERO`; an empty or
+  unsupported cost remains an honest stub. The pool-wide cost-list test now
+  covers these parts as well as ordinary alternative costs, and the DSL
+  contract documents the shared payment path.
+- Codegen completed only the explicitly selected Lava Dart stub. Its four
+  played tests were red against the old stub and now cover the exact red mana
+  cost, damage to both a player and a creature, a controlled Mountain sacrificed
+  after targeting, no mana paid for flashback, exile afterwards, refusal of a
+  Forest or an opposing Mountain, and no replacement when the target leaves.
+  After a dev-state move changes the zone a spell is cast from, a priority
+  fixture must call `refresh_offer()` before inspecting its cached legality.
+- All 442 reader tests, 22 flashback tests, the pool cost-list test, all 370
+  house-AI tests and all 587 seat tests pass. The existing target and
+  `CostSacrifice` questions serve desktop and LLM seats without a new pending
+  shape: 151 desktop interaction tests and 9 `record::seen` tests pass, and
+  the desktop client including tests compiles. `validate` accepts 12,543 cards
+  (11,160 finished, 1,383 stubs); `require-card-tests`, affected Clippy,
+  formatting and `git diff --check` pass. The full gates remain deferred at
+  the owner's request.
