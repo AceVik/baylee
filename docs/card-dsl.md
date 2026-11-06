@@ -481,12 +481,17 @@ express at all yet.
   spell is not castable while nothing can pay it, and the sacrificed
   permanent's mana value is written on the spell for
   `Amount::SacrificedManaValue`.
-- `FaceDef.flashback: Option<ManaCost>` — a printed "Flashback {…}" (CR
-  702.34a), mana only. From the owner's graveyard the cast is offered as
-  `CastModeKind::Flashback` at that price (beside a grant's `Normal` at the
-  mana cost, when there is one), and the spell is exiled afterwards.
-  `validate` holds it against the printing. What the cast paid is
-  `Amount::ManaSpentToCast` (Memory Deluge).
+- `FaceDef.flashback: Option<ManaCost>` and
+  `FaceDef.flashback_parts: &[CostPart]` — a printed "Flashback {…}" (CR
+  702.34a), with its mana and non-mana halves kept separately. A non-mana-only
+  cost uses `ManaCost::ZERO`, not an omitted flashback cost. From the owner's
+  graveyard the cast is offered as `CastModeKind::Flashback` at that combined
+  price (beside a grant's `Normal` at the mana cost, when there is one), and
+  the spell is exiled afterwards. The parts share alternative-cost payment
+  through `cast_wizard::paid_as_an_alternative_cost`; the reader admits only
+  supported `PayLife`, `Sacrifice` and `ReturnToHand` parts, and refuses every
+  other spelling as an honest stub. `validate` holds the cost against the
+  printing. What the cast paid is `Amount::ManaSpentToCast` (Memory Deluge).
 - `FaceDef.foretell: Option<ManaCost>` — a printed "Foretell {…}" (CR
   702.143a), mana only. During its owner's turn, with priority, the fixed {2}
   special action exiles that hand card face down without using the stack; it
