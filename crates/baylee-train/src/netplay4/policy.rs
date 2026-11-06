@@ -89,6 +89,7 @@ impl NetPlayer4 {
             rng: &mut self.rng,
             active_source: self.last_announced_source.get(&view.seat.get()).copied(),
             guard: &mut self.choice_guard,
+            rules: &mut self.tactic_rules,
         }
         .select(
             cands,
@@ -146,6 +147,8 @@ struct PolicySampler4<'a> {
     active_source: Option<(ObjectId, Option<u32>)>,
     /// `eval4 --choice-guard`: the rules a run holds this answer to.
     guard: &'a mut super::ChoiceGuard4,
+    /// The rule groups over the tactical layer.
+    rules: &'a mut super::TacticRules4,
 }
 
 impl PolicySampler4<'_> {
@@ -207,7 +210,8 @@ impl PolicySampler4<'_> {
                         self.rng,
                     )
                 } else {
-                    tactics::select_single_choice(
+                    tactics::rules::single_choice(
+                        self.rules,
                         cands,
                         cand_logits,
                         view,
@@ -235,7 +239,22 @@ impl PolicySampler4<'_> {
                 let adj_logits = if raw && !parts.subset {
                     raw_logits.to_vec()
                 } else {
-                    choices::adjust_subset_logits(cands, raw_logits, view, pending, active_source)
+                    let mut adjusted = choices::adjust_subset_logits(
+                        cands,
+                        raw_logits,
+                        view,
+                        pending,
+                        active_source,
+                    );
+                    tactics::rules::subset(
+                        self.rules,
+                        cands,
+                        &mut adjusted,
+                        view,
+                        pending,
+                        active_source,
+                    );
+                    adjusted
                 };
                 let (mask, free_mask, seq, _) = sample_subset_constrained(
                     &adj_logits,
@@ -280,7 +299,9 @@ impl PolicySampler4<'_> {
                 let adj_logits = if raw && !parts.pair {
                     raw_logits.to_vec()
                 } else {
-                    choices::adjust_pair_logits(cands, raw_logits, view, pending)
+                    let mut adjusted = choices::adjust_pair_logits(cands, raw_logits, view, pending);
+                    tactics::rules::pairs(self.rules, cands, &mut adjusted, view, pending);
+                    adjusted
                 };
                 let (mask, free_mask, seq, _) =
                     sample_pairs_constrained(&adj_logits, cands, self.temperature, self.rng);

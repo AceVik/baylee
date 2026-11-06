@@ -3,12 +3,14 @@
 //! language model's transcript cannot see. For numbers and reading only.
 mod print;
 
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs::File;
 use std::io::{BufRead as _, BufReader};
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context as _, Result};
 use baylee_engine::choice::{Pending, PlayerAction};
+use baylee_train::netplay4::TacticRules4;
 use baylee_view::PlayerView;
 use clap::{Parser, Subcommand};
 use flate2::read::MultiGzDecoder;
@@ -35,6 +37,19 @@ enum Command {
         /// Forced answers too.
         #[arg(long)]
         forced: bool,
+    },
+    /// One line per turn of one game: life, lands, what was played and sent.
+    Ledger { journal: PathBuf },
+    /// Runs rule groups over the games of ladder roots: what they would have
+    /// changed, by group, and in games won and lost.
+    Audit {
+        /// Comma list of groups; `all` is every one.
+        #[arg(long, default_value = "all")]
+        groups: String,
+        /// Every hit with its decision, not only the counts.
+        #[arg(long)]
+        hits: bool,
+        roots: Vec<PathBuf>,
     },
 }
 
@@ -85,6 +100,63 @@ fn main() -> Result<()> {
                 }
             }
         }
+        Command::Ledger { journal } => print!("{}", print::ledger(&rows(&journal)?)),
+        Command::Audit {
+            groups,
+            hits,
+            roots,
+        } => audit(&TacticRules4::parse(&groups)?, hits, &roots)?,
+    }
+    Ok(())
+}
+
+/// Whether the seat won each game of a root, by game number.
+fn results(root: &Path) -> Result<BTreeMap<u64, bool>> {
+    let text = std::fs::read_to_string(root.join("ladder.json"))?;
+    let report: Value = serde_json::from_str(&text)?;
+    Ok(report["games"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|game| Some((game["game"].as_u64()?, game["won"].as_bool()?)))
+        .collect())
+}
+
+/// Hits per group, in games won and lost, and per game.
+fn audit(rules: &TacticRules4, hits: bool, roots: &[PathBuf]) -> Result<()> {
+    let mut counts: BTreeMap<&str, [u64; 4]> = BTreeMap::new();
+    let mut games = [0_u64; 2];
+    for root in roots {
+        let won = results(root)?;
+        for (game, won) in &won {
+            let journal = root.join(format!("game-{game:04}/journal.jsonl.gz"));
+            if !journal.exists() {
+                continue;
+            }
+            games[usize::from(*won)] += 1;
+            let mut seen = BTreeSet::new();
+            for row in rows(&journal)? {
+                for (group, note) in rules.audit(&row.view, &row.pending, &row.action) {
+                    let tally = counts.entry(group).or_default();
+                    tally[usize::from(*won)] += 1;
+                    if seen.insert(group) {
+                        tally[2 + usize::from(*won)] += 1;
+                    }
+                    if hits {
+                        println!("{} game {game} {group} {note}", root.display());
+                        print!("{}", print::decision(&row));
+                    }
+                }
+            }
+        }
+    }
+    println!("games lost {} won {}", games[0], games[1]);
+    println!("group: hits in lost, in won; games lost, won");
+    for (group, tally) in counts {
+        println!(
+            "{group}: {} {}; {} {}",
+            tally[0], tally[1], tally[2], tally[3]
+        );
     }
     Ok(())
 }

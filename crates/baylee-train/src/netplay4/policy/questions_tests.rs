@@ -27,6 +27,7 @@ fn favoured(
         rng: &mut rng,
         active_source: None,
         guard: &mut Default::default(),
+        rules: &mut Default::default(),
     }
     .select(
         candidates,

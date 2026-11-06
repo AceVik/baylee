@@ -98,6 +98,8 @@ mod tests {
             rule_refs_left_out: 0,
             choice_guard: crate::netplay4::ChoiceGuard4::default(),
             payable_menu: None,
+            tactic_rules: crate::netplay4::TacticRules4::default(),
+            last_menu: None,
         };
         let answer = net.act_detailed(&view, &pending, &[]);
         assert_eq!(answer.provenance.source, SourceKind4::House);

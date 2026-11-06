@@ -116,6 +116,12 @@ impl EvaluationPlayer for SeatPlayers {
     fn take_choice_guard_fired(&mut self) -> Vec<u64> {
         self.learner.take_choice_guard_fired()
     }
+    fn set_tactic_rules(&mut self, rules: baylee_train::netplay4::TacticRules4) -> bool {
+        self.learner.set_tactic_rules(rules)
+    }
+    fn take_tactic_rules_fired(&mut self) -> Vec<(&'static str, u64)> {
+        self.learner.take_tactic_rules_fired()
+    }
     fn observed_value(&self, seat: baylee_core::ids::PlayerId) -> Option<f32> {
         self.learner.observed_value(seat)
     }

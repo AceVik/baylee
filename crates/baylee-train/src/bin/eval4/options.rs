@@ -55,6 +55,11 @@ struct Args {
     /// that `paired_eval4` can read the command. Never for training.
     #[arg(long, default_value = "off")]
     choice_guard: String,
+    /// Rule groups over the tactical layer (`netplay4::tactics::rules`), comma
+    /// separated: `void`, `side`, `mass`, `gift`, `race`, `trip`, `aim`, or `all`.
+    /// Empty is none. Takes a value so that `paired_eval4` can read the command.
+    #[arg(long, default_value = "")]
+    tactics_rules: String,
     /// Dev only: a raw net may sample at any temperature, below sampler 2's
     /// boundary too, and `--choice-guard` may run above zero. Never for training.
     #[arg(long)]

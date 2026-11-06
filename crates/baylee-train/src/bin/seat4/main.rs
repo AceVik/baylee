@@ -16,7 +16,9 @@ use baylee_seat::deck::Deck;
 use baylee_seat::link::SeatLink;
 use baylee_seat::lobby::{Chair, GuestSignIn, Lobby, Session, seat_name};
 use baylee_train::live4::{LiveReport4, LiveSeat4};
-use baylee_train::netplay4::{CatalogPolicy4, NetPlayer4, PolicyMode4, valid_raw_temperature};
+use baylee_train::netplay4::{
+    CatalogPolicy4, NetPlayer4, PolicyMode4, TacticRules4, valid_raw_temperature,
+};
 use clap::Parser;
 
 #[derive(Parser)]
@@ -73,6 +75,9 @@ struct Args {
     /// (`docs/trained-ai.md` §"Card catalog compatibility").
     #[arg(long)]
     catalog_drift: bool,
+    /// Rule groups over the tactical layer, comma separated; none by default.
+    #[arg(long, default_value = "")]
+    tactics_rules: String,
     /// Host only: the life each seat starts with. Absent, a room holds the
     /// gateway's default of 40.
     #[arg(long)]
@@ -426,14 +431,16 @@ fn load_brain(args: &Args, model: &std::path::Path) -> anyhow::Result<NetPlayer4
     } else {
         CatalogPolicy4::Exact
     };
-    Ok(NetPlayer4::load_with(model, catalog)?
+    let mut brain = NetPlayer4::load_with(model, catalog)?
         .with_policy_mode(if args.raw_policy {
             PolicyMode4::Raw
         } else {
             PolicyMode4::Tactical
         })
         .with_temperature(args.temperature)
-        .with_thinking_steps(args.thinking_steps))
+        .with_thinking_steps(args.thinking_steps);
+    brain.set_tactic_rules(TacticRules4::parse(&args.tactics_rules)?);
+    Ok(brain)
 }
 
 fn validate_sampling(args: &Args) -> anyhow::Result<()> {

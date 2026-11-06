@@ -129,7 +129,7 @@ required-features = ["play"]
 [[bin]]
 name = "journal4"
 path = "src/bin/journal4/main.rs"
-required-features = ["play"]
+required-features = ["onnx"]
 
 [[bin]]
 name = "gamelog4"

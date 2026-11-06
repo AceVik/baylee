@@ -65,6 +65,7 @@ pub use crate::features4::{sample_pairs_constrained, sample_subset_constrained};
 use fallback::fallback_action;
 pub use tactics::guard::{ChoiceGuard4, GuardArm, TacticalParts};
 pub use tactics::reading;
+pub use tactics::rules::{RuleGroup, TacticRules4};
 
 /// Number of recurrent memory tokens per seat (`1` Global + `8` Relative Seats).
 pub const RECURRENT_SLOTS: usize = 9;
@@ -144,6 +145,8 @@ pub struct NetPlayer4 {
     choice_guard: ChoiceGuard4,
     /// `eval4 --menu-payable`: the same, for what is offered rather than taken.
     payable_menu: Option<PayableMenu4>,
+    /// The rule groups over the tactical layer ([`TacticRules4`]).
+    tactic_rules: TacticRules4,
     /// A journal's copy of the last menu with its logits; `None` keeps none.
     pub(crate) last_menu: Option<serde_json::Value>,
 }
@@ -317,6 +320,16 @@ impl NetPlayer4 {
         self.choice_guard.take_fired()
     }
 
+    /// Sets the rule groups the tactical layer plays by.
+    pub const fn set_tactic_rules(&mut self, rules: TacticRules4) {
+        self.tactic_rules = rules;
+    }
+
+    /// Answers each group changed since this was last asked.
+    pub fn take_tactic_rules_fired(&mut self) -> Vec<(&'static str, u64)> {
+        self.tactic_rules.take_fired()
+    }
+
     /// Sets `eval4 --menu-payable` ([`PayableMenu4`]) for this net.
     pub fn set_payable_menu(&mut self, menu: PayableMenu4) {
         self.payable_menu = Some(menu);
@@ -373,6 +386,7 @@ impl NetPlayer4 {
             rule_refs_left_out: 0,
             choice_guard: ChoiceGuard4::default(),
             payable_menu: None,
+            tactic_rules: TacticRules4::default(),
             last_menu: None,
         }
     }

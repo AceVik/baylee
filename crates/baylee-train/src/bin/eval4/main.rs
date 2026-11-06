@@ -122,6 +122,19 @@ fn main() -> anyhow::Result<()> {
              and no search, shadow or collection, and its records are no training data"
         );
     }
+    let tactic_rules = baylee_train::netplay4::TacticRules4::parse(&args.tactics_rules)?;
+    if tactic_rules.any()
+        && (args.raw_policy && choice_guard.is_none()
+            || args.seats != 2
+            || args.legacy_v3
+            || args.shadow_teacher.is_some()
+            || collection.purpose != collector::Purpose::Evaluation)
+    {
+        bail!(
+            "--tactics-rules plays through the tactical layer, in a measurement of two seats: \
+             no shadow or collection, and its records are no training data"
+        );
+    }
     let dev_arm = args.dev_free_temperature || args.menu_payable;
     if dev_arm
         && (args.legacy_v3
@@ -270,6 +283,7 @@ fn main() -> anyhow::Result<()> {
             "policy_mode": policy_mode,
             "policy_contract": policy_mode.contract(),
             "choice_guard": args.choice_guard,
+            "tactics_rules": args.tactics_rules,
             "model_family": model_identity.as_ref().map(|identity|identity.model_family),
             "model_identity": model_identity,
             "evaluator_build": baylee_build::short(),
@@ -434,6 +448,9 @@ fn main() -> anyhow::Result<()> {
 
             if let Some(guard) = choice_guard {
                 anyhow::ensure!(net.set_choice_guard(guard), "--choice-guard needs a net");
+            }
+            if tactic_rules.any() {
+                anyhow::ensure!(net.set_tactic_rules(tactic_rules), "--tactics-rules needs a net");
             }
             if let Some(bias) = menu_payable {
                 anyhow::ensure!(net.set_payable_menu(bias), "--menu-payable needs a net");
@@ -610,6 +627,7 @@ fn main() -> anyhow::Result<()> {
                 };
 
                 let guard_fired = net.take_choice_guard_fired();
+                let rules_fired = net.take_tactic_rules_fired();
                 let menu_stats = net.take_menu_stats();
                 let mut st = stats_arc.lock().expect("stats lock");
                 if let Some(deal_menu) = &menu_stats {
@@ -618,6 +636,7 @@ fn main() -> anyhow::Result<()> {
                 st.deals_completed += 1;
                 st.deal_details.push(json!({"deal": d, "table": table_idx,
                     "choice_guard_fired": guard_fired,
+                    "tactic_rules_fired": rules_fired,
                     "menu": menu_stats,
                     "seed": seed, "focal_seat": focal_seat,
                     "net_utility": if collection.purpose == collector::Purpose::FailureTerminalResearchV1 {None}else{Some(net_u)},
@@ -795,7 +814,7 @@ fn main() -> anyhow::Result<()> {
     summary["numbers_only"] = json!(args.numbers_only);
     summary["dev_arms"] = json!({"free_temperature": args.dev_free_temperature,
         "menu_payable": args.menu_payable, "menu_payable_bias": args.menu_payable_bias,
-        "choice_guard": args.choice_guard});
+        "choice_guard": args.choice_guard, "tactics_rules": args.tactics_rules});
     summary["menu"] = json!(st.menu);
     summary["opponent"] = json!({"model": args.opponent_model, "policy": args.opponent_policy,
         "legacy_v3": args.opponent_legacy_v3});

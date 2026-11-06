@@ -156,6 +156,7 @@ fn grouped_mana_preserves_announced_tap_self_activation_in_both_modes() {
             rng: &mut rng,
             active_source: Some((reserved, Some(1))),
             guard: &mut Default::default(),
+            rules: &mut Default::default(),
         }
         .select(
             &menu,

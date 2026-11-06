@@ -42,6 +42,14 @@ trait EvaluationPlayer {
     fn take_choice_guard_fired(&mut self) -> Vec<u64> {
         Vec::new()
     }
+    /// Sets `--tactics-rules` on this player, which only a net can honour.
+    fn set_tactic_rules(&mut self, _rules: baylee_train::netplay4::TacticRules4) -> bool {
+        false
+    }
+    /// Answers each rule group changed since this was last asked.
+    fn take_tactic_rules_fired(&mut self) -> Vec<(&'static str, u64)> {
+        Vec::new()
+    }
     /// Sets `--menu-payable` on this player, which only a net can honour.
     fn set_payable_menu(&mut self, _bias: f32) -> bool {
         false
@@ -102,6 +110,13 @@ impl EvaluationPlayer for NetPlayer4 {
     }
     fn take_choice_guard_fired(&mut self) -> Vec<u64> {
         Self::take_choice_guard_fired(self)
+    }
+    fn set_tactic_rules(&mut self, rules: baylee_train::netplay4::TacticRules4) -> bool {
+        Self::set_tactic_rules(self, rules);
+        true
+    }
+    fn take_tactic_rules_fired(&mut self) -> Vec<(&'static str, u64)> {
+        Self::take_tactic_rules_fired(self)
     }
     fn set_payable_menu(&mut self, bias: f32) -> bool {
         Self::set_payable_menu(self, baylee_train::netplay4::PayableMenu4::new(bias));

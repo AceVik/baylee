@@ -191,3 +191,72 @@ pub(crate) fn decision(row: &Row) -> String {
     }
     text
 }
+
+/// Creatures and power on one side.
+fn force(view: &PlayerView, player: PlayerId) -> (usize, i32) {
+    use baylee_core::types::TypeSet;
+    view.battlefield_of(player)
+        .filter(|object| object.types.contains(TypeSet::CREATURE))
+        .fold((0, 0), |(count, power), object| {
+            (
+                count + 1,
+                power + i32::from(object.power.unwrap_or(0)).max(0),
+            )
+        })
+}
+
+/// One line per turn: the state as the turn ended, and what the seat did in it.
+pub(crate) fn ledger(rows: &[Row]) -> String {
+    use baylee_core::types::TypeSet;
+    let mut text = String::new();
+    let mut index = 0;
+    while index < rows.len() {
+        let turn = rows[index].view.turn;
+        let end = rows[index..]
+            .iter()
+            .position(|row| row.view.turn != turn)
+            .map_or(rows.len(), |offset| index + offset);
+        let last = &rows[end - 1].view;
+        let me = last.seat;
+        let other = last
+            .seats
+            .iter()
+            .map(|seat| seat.player)
+            .find(|player| *player != me)
+            .unwrap_or(me);
+        let life = |player| last.seat(player).map_or(0, |seat| seat.life);
+        let lands = |player| {
+            last.battlefield_of(player)
+                .filter(|object| object.types.contains(TypeSet::LAND))
+                .count()
+        };
+        let (mine, my_power) = force(last, me);
+        let (theirs, their_power) = force(last, other);
+        let done: Vec<String> = rows[index..end]
+            .iter()
+            .filter(|row| {
+                matches!(
+                    row.action,
+                    PlayerAction::CastSpell { .. }
+                        | PlayerAction::ActivateAbility { .. }
+                        | PlayerAction::DeclareBlockers { .. }
+                ) || matches!(&row.action, PlayerAction::DeclareAttackers { attackers }
+                        if !attackers.is_empty())
+            })
+            .map(|row| action(&row.view, &row.action))
+            .collect();
+        let _ = writeln!(
+            text,
+            "T{turn} {} {}:{} hand {} lands {}/{} crea {mine}/{my_power} v {theirs}/{their_power} | {}",
+            if last.active == me { "me " } else { "opp" },
+            life(me),
+            life(other),
+            last.hand.len(),
+            lands(me),
+            lands(other),
+            done.join("; ")
+        );
+        index = end;
+    }
+    text
+}

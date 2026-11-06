@@ -54,6 +54,7 @@ impl NetPlayer4 {
             rule_refs_left_out,
             choice_guard: _,
             payable_menu: _,
+            tactic_rules: _,
             last_menu: _,
         } = self;
         PlayerSnapshot4 {

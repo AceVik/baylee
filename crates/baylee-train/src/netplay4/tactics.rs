@@ -1,6 +1,7 @@
 //! View-only tactical guards and color-aware mana selection for [`super::NetPlayer4`].
 
 pub mod guard;
+pub mod rules;
 
 use baylee_cards_dsl::{
     AbilityDef, ActivationTiming, Amount, Condition, CostPart, CounterKind, Effect, Filter,
