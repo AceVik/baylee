@@ -1082,9 +1082,11 @@ pub fn apply_triggered_mana_bonus(
     policy::apply_triggered_mana_bonus(view, object, source);
 }
 
-/// Plans mana taps for casting `spell` at `cost`, including a restricted mana
-/// source (CR 106.6) whose filter admits `spell` when unrestricted sources
-/// alone are short.
+/// Plans mana taps for casting `spell` at `cost`, including restricted mana
+/// sources (CR 106.6) whose filters admit `spell` when unrestricted sources
+/// alone are short: one if one is enough, and as many as it takes otherwise.
+/// A plan with several is for a caller that sends every tap and then casts,
+/// without planning again in between.
 #[must_use]
 pub fn plan_for_spell(
     cost: &baylee_core::mana::ManaCost,

@@ -694,3 +694,34 @@ fn a_bounce_land_pays_one_of_each_of_its_colours() {
         "{{U}}{{R}} pays no {{U}}{{U}}"
     );
 }
+
+/// Pelargir Survivor: "{T}: Add one mana of any color. Spend this mana only
+/// to cast an instant or sorcery spell." The filter was read, and the plan
+/// stopped at one restricted tap, so two Survivors beside an Island and a
+/// Swamp never paid Tamiyo's Epiphany ({3}{U}) (codex attempt 38, q231). The
+/// seat sends its taps whole, so it may spend every source that admits the
+/// spell.
+#[test]
+fn two_restricted_taps_pay_one_spell() {
+    let survivors = ["Pelargir Survivor", "Pelargir Survivor", "Island", "Swamp"];
+    let (mut session, view, legal) = position(&survivors, &["Tamiyo's Epiphany"], &[]);
+    let reach = reachable(&view, &legal);
+    let epiphany = reach_of(&reach, "Tamiyo's Epiphany").expect("four sources pay {3}{U}");
+    assert_eq!(epiphany.plan.steps.len(), 4);
+    let card = epiphany.object;
+    let plan = epiphany.plan.clone();
+    run(&mut session, &plan, PlayerAction::CastSpell { card });
+    assert!(session.observe_view(ME).stack.iter().any(|o| o.id == card));
+
+    let (_, view, legal) = position(&survivors[1..], &["Tamiyo's Epiphany"], &[]);
+    assert!(
+        reach_of(&reachable(&view, &legal), "Tamiyo's Epiphany").is_none(),
+        "three sources do not"
+    );
+
+    let (_, view, legal) = position(&survivors, &["Wind Drake"], &[]);
+    assert!(
+        reach_of(&reachable(&view, &legal), "Wind Drake").is_none(),
+        "their mana pays for no creature, and the lands alone make two"
+    );
+}

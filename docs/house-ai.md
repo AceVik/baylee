@@ -257,7 +257,8 @@ floats and never what it may pay for. `restricted.rs` taps such a source for a
 spell only when `filter_matches` reads its filter as a match. An unreadable
 filter (the commander's types) is a no; a chosen type is read off the source
 (Cavern of Souls, `Filter::MatchesChosenTypeOfSource`). It taps at most one
-restricted source per spell, and that tap comes last: once the mana floats, no
+restricted source per spell (the seat, which sends its taps whole, as many as
+it takes), and that tap comes last: once the mana floats, no
 plan counts it, and only the engine's merge makes the spell castable. Its mana
 is spent first, so it never counts as held up. Its colour is named for a spell
 it may pay for. A price floated before the cast (an X, a kicker) is paid from

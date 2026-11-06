@@ -833,6 +833,35 @@ impl HeuristicAgent {
         Some((sources, best.source.clone()))
     }
 
+    /// [`Self::paying_for`] with every restricted tap the spell admits, one
+    /// per permanent, for a plan sent whole. The agent plans tap by tap, and
+    /// the next plan cannot see a restricted mana floating; a plan sent whole
+    /// is not asked again (the seat's `Act::Taps`). They still come last.
+    fn paying_with_all(
+        &self,
+        view: &PlayerView,
+        restricted: &[Offer],
+        plain: &[Source],
+        spell: ObjectId,
+    ) -> Vec<Source> {
+        let mut admitted: Vec<Source> = Vec::new();
+        for offer in restricted {
+            if offer.only_for.as_ref().is_some_and(|restriction| {
+                self.admits(view, restriction, Some(offer.source.id), spell)
+            }) && admitted.iter().all(|s| s.id != offer.source.id)
+            {
+                admitted.push(offer.source.clone());
+            }
+        }
+        let mut sources: Vec<Source> = plain
+            .iter()
+            .filter(|s| admitted.iter().all(|a| a.id != s.id))
+            .cloned()
+            .collect();
+        sources.append(&mut admitted);
+        sources
+    }
+
     /// Every candidate is paid for before a tap is committed. A five-mana
     /// card beside two lands used to make the agent tap both, then pass.
     pub(crate) fn spell_or_mana(
@@ -2343,8 +2372,11 @@ pub(crate) fn plan_for_spell(
         return None;
     }
     let agent = HeuristicAgent::new(crate::AIProfile::default());
-    let (all, _) = agent.paying_for(view, &restricted, &plain, spell)?;
-    manaplan::plan(cost, pool, &all)
+    let (one, _) = agent.paying_for(view, &restricted, &plain, spell)?;
+    manaplan::plan(cost, pool, &one).or_else(|| {
+        let all = agent.paying_with_all(view, &restricted, &plain, spell);
+        manaplan::plan(cost, pool, &all)
+    })
 }
 
 pub(crate) fn plan_for_activation(

@@ -11,7 +11,8 @@
 //!   kind of payment first (`ManaUse`: a spell, an ability, either), then the
 //!   filter. An unreadable filter (a commander's types) is a
 //!   no, because mana the payment then refuses is a tap thrown away;
-//! - once per spell;
+//! - once per spell for the house, which plans again after each tap, and for
+//!   the client; the seat sends its taps whole, so it may spend several;
 //! - as the last tap of the plan. After it the engine's own merge
 //!   (`casting::spendable_pool`) makes the spell castable, so the planner
 //!   never has to see the restricted half of the pool. A restricted tap sent
