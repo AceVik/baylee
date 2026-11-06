@@ -200,6 +200,7 @@ mod viridian_acolyte;
 mod wall_of_hope;
 mod wall_of_wood;
 mod water_wurm;
+mod weathered_wayfarer;
 mod whippoorwill;
 mod wild_dogs;
 mod will_o_the_wisp;
