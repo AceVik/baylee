@@ -156,6 +156,44 @@ fn a_list_is_picked_read_and_edited_over_the_builder() {
     );
 }
 
+/// The editor is reached from the check sheet and stands over it. The sheet
+/// holds the keys back from the builder under it, and not from the editor:
+/// its name and its search are typed into (seen live, 06.11.2026).
+#[test]
+fn the_list_editors_boxes_take_the_keys_over_the_check_sheet() {
+    let mut app = builder();
+    press(&mut app, Press::Build(BuildPress::OpenCheck));
+    press(&mut app, Press::Build(BuildPress::ListNew));
+    for field in [BuildField::ListName, BuildField::ListSearch] {
+        press(&mut app, Press::Build(BuildPress::FocusBuild(field)));
+        let before = app
+            .world()
+            .resource::<LobbyState>()
+            .lobby
+            .builder()
+            .buffer(field)
+            .text()
+            .to_owned();
+        app.world_mut()
+            .resource_mut::<Messages<KeyboardInput>>()
+            .write(typed('b'));
+        app.update();
+        let said = app
+            .world()
+            .resource::<LobbyState>()
+            .lobby
+            .builder()
+            .buffer(field)
+            .text()
+            .to_owned();
+        assert_eq!(
+            said.chars().count(),
+            before.chars().count() + 1,
+            "{field:?}"
+        );
+    }
+}
+
 /// A card typed into the search goes on the list with a press, and the list
 /// reads the query language the builder reads.
 #[test]

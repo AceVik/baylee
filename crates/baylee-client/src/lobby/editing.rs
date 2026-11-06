@@ -144,7 +144,10 @@ pub(super) fn builder_keys(
             crate::buildui::move_nav(state, Nav::Field);
             continue;
         }
-        if state.build.covered() || state.confirm_leave {
+        // The list editor stands over the sheet that opened it, and its boxes
+        // are the ones with the caret.
+        let in_a_list = state.lobby.builder().list_editor().is_some();
+        if (state.build.covered() && !in_a_list) || state.confirm_leave {
             continue;
         }
         match state.build.nav {
