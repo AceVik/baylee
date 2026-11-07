@@ -44,6 +44,7 @@ pub use ed25519_dalek::VerifyingKey;
 
 pub mod apply;
 pub mod archive;
+pub mod bootstrap;
 pub mod check;
 pub mod launch;
 pub mod link;

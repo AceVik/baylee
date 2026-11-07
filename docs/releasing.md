@@ -639,13 +639,53 @@ is atomically replaced to select it. The launcher starts the selected
 generation unless its own package is at least as new (its compiled version
 against `current.json`'s, `launch::chosen`): a newer package installed by hand
 over the original then starts, and the session names the runtime it started.
-The permanent launcher resumes pending
+The launcher resumes pending
 activation before starting a client. If recovery cannot finish, it retains
 its intent and payload and starts the previously selected client. The
 original launch path is never part of the transaction. These guarantees
 cover process termination; hardware/power-loss durability also depends on
 the filesystem (directory flushes are best effort, unavailable via this
 implementation on Windows).
+
+**Two stages** (`baylee_update::bootstrap`; owner, 07.11.2026). The launcher in a
+package is never replaced, so it does as little as it can: it reads
+`current.json`, and when the generation selected there is newer than the
+package (the rule of `launch::chosen`, which so comes first) it starts that
+generation's copy of the same program and waits for it. That copy does the rest,
+from recovery and locks to the session and the link door, so a fix to any of it
+reaches a player with the update. The two stages are one binary, and
+`BAYLEE_LAUNCH_PACKAGE` says which one runs: it carries the package's `Install`
+and version, because the second stage runs from `versions/<id>` and would
+otherwise key a state of its own and take its own version for the package's. It
+stops there, and no runtime sees it. Arguments and stdin pass through untouched;
+the handoff of "Restart to update" crosses on stdin and nowhere else.
+
+The first stage holds no lock and leaves `activation.json` alone: `current.json`
+is replaced atomically and only after the whole tree stands in `versions/<id>`,
+so an activation cut short leaves it on the generation before, whose launcher
+finishes the job. It starts nothing but `versions/<id>/` of its own state: the id
+is a UUID by type, the launcher is resolved, and a link leading out of that folder
+is refused. Every doubt (no pointer, an unreadable one, a version that does not
+parse, a tree without a launcher, a failed start) falls to the package's own
+logic at once.
+
+A launcher that starts and then dies leaves nobody to say so, so each attempt is
+written to `launch-attempts.json` first. A client joining a session that came
+through the second stage clears it, and so does the second stage when it reaches
+the lifetime lock and finds a client running. After two attempts that nothing
+cleared, the package's own logic starts the client, for as long as that generation
+stands; the next one gets two of its own. That is the way out "the original launch
+path is never part of the transaction" keeps. A client the package's own logic
+started clears nothing, or a failing launcher would get its attempts back.
+
+Frozen for as long as such a package is installed, so frozen for good: the
+variable and its record, the attempts file, and where a generation keeps its
+launcher. A package from before the first stage goes on using its own logic, and
+a player gets this by installing a new package by hand once.
+
+The release lines are fixed at compile time: a v2 package and every generation it
+installs are v2 builds, launcher included, and a v3 package and its generations
+are v3. Nothing reads the CPU (§"The fallback build").
 
 Permanent OS file locks serialize mutations. An admission lock and shared
 lifetime leases in both launcher and client prevent simultaneous launches,
@@ -660,8 +700,8 @@ write that folder, but whoever can is the one to manage it. The session names
 the folder and the error (`launch::Blocked`), and a macOS client offers to
 move itself to `~/Applications`. A translocated macOS app is not read-only
 in this sense (it is the player's own download) and installs updates. The
-session's fields after `writable` are `#[serde(default)]`: the launcher is
-permanent in every package, so a runtime must read a session from every
+session's fields after `writable` are `#[serde(default)]`: the launcher in a
+package is permanent, so a runtime must read a session from every
 older launcher. A directly started runtime also cannot auto-install; use the
 normal packaged launch path.
 
@@ -695,10 +735,11 @@ has a persisted direction and progress; failed reverse renames retain the
 journal and required files, and neither staging nor a new legacy transaction
 may erase an outstanding recovery. It is no longer the native installation
 path. Packages predating the launcher must be replaced manually once; a
-launcher protocol change likewise requires a new manual package for now.
+change to the first stage likewise requires a new manual package; the second stage
+comes with each update.
 
 Focused regressions: `cargo test -p baylee-update --all-targets` includes
-actual launcher/runtime subprocesses, killed activation processes,
+actual launcher/runtime subprocesses, both stages, killed activation processes,
 concurrent activation and startup, an orphaned runtime, read-only Unix
 installations, bounded cleanup, signed version/architecture replay, and
 retryable legacy rollback. Run this on each desktop OS. Before release,

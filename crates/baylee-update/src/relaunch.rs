@@ -23,7 +23,8 @@
 //! a gateway), and so it travels only through pipes: never in an argument,
 //! the environment, a file or a log. A launcher hands its stdin to the
 //! runtime it starts (`launch::run` leaves it inherited), every launcher
-//! ever shipped included. What it is and how it is read is the client's
+//! ever shipped included, and the first stage hands it to the second
+//! (`crate::bootstrap`). What it is and how it is read is the client's
 //! business; this module carries bytes.
 
 use crate::apply::Install;
@@ -233,7 +234,7 @@ fn wait_free(lifetime: &Path, wait: Duration) -> io::Result<()> {
 
 /// No console window for a helper or a launcher started from a window
 /// (`launch::run` says why); nothing elsewhere.
-fn no_window(command: &mut Command) {
+pub(crate) fn no_window(command: &mut Command) {
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;

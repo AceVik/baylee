@@ -232,10 +232,20 @@ pub fn chosen(install: &Install, original: &semver::Version) -> io::Result<PathB
     }
 }
 
+/// The selected generation, if it is newer than the package at `original`. A version
+/// that does not parse selects nothing here: [`chosen`] still does as it always did.
+pub(crate) fn newer_generation(
+    install: &Install,
+    original: &semver::Version,
+) -> Option<uuid::Uuid> {
+    let current = read::<Current>(&install.stage().join(CURRENT)).ok()??;
+    let to = semver::Version::parse(&current.to).ok()?;
+    (to > *original).then_some(current.generation)
+}
+
 /// The version this launcher was built as: its package's, for the executable in
 /// the package.
-#[must_use]
-pub fn package_version() -> semver::Version {
+pub(crate) fn package_version() -> semver::Version {
     semver::Version::parse(env!("CARGO_PKG_VERSION")).expect("the workspace version is semver")
 }
 
@@ -386,6 +396,10 @@ struct Session {
     /// which is what such a launcher started.
     #[serde(default)]
     runtime: Option<PathBuf>,
+    /// Whether a package's first stage handed this start on
+    /// ([`crate::bootstrap`]): only then does the client joining say it went well.
+    #[serde(default)]
+    handed_on: bool,
 }
 
 /// A runtime's shared lifetime lease. Also survives an orphaned launcher.
@@ -544,6 +558,9 @@ pub fn join() -> io::Result<Option<(Install, ClientLease)>> {
     }
     let file = lifetime(&session.install)?;
     file.try_lock_shared().map_err(io::Error::from)?;
+    if session.handed_on {
+        crate::bootstrap::went_well(&session.install);
+    }
     Ok(Some((
         session.install,
         ClientLease {
@@ -573,12 +590,15 @@ pub(crate) fn placed(install: &Install) -> io::Result<(Install, Placement)> {
 
 /// Run one client of the package at `install`, which is of `version`. A second
 /// launch is refused while either the launcher or its child still holds a lease.
+/// `handed_on` says a package's first stage started this launcher
+/// ([`crate::bootstrap`]).
 ///
 /// # Errors
 /// Installation, process-spawn, lock and pointer failures.
 pub fn run(
     install: &Install,
     version: &semver::Version,
+    handed_on: bool,
     args: impl IntoIterator<Item = std::ffi::OsString>,
 ) -> io::Result<ExitStatus> {
     let args: Vec<std::ffi::OsString> = args.into_iter().collect();
@@ -586,12 +606,12 @@ pub fn run(
     let install = &install;
     let entry = match Claim::named(&install.stage(), "entry.lock") {
         Ok(entry) => entry,
-        Err(refused) => return hand_over(install, &args, refused),
+        Err(refused) => return hand_over(install, handed_on, &args, refused),
     };
     let live = lifetime(install)?;
     if let Err(refused) = live.try_lock() {
         drop(entry);
-        return hand_over(install, &args, refused.into());
+        return hand_over(install, handed_on, &args, refused.into());
     }
     {
         let _mutation = Claim::take(&install.stage())?;
@@ -609,6 +629,7 @@ pub fn run(
         original: place.original,
         translocated: place.translocated,
         runtime: Some(chosen(install, version)?),
+        handed_on,
     };
     let started = session
         .runtime
@@ -620,10 +641,15 @@ pub fn run(
     live.unlock()?;
     live.try_lock_shared().map_err(io::Error::from)?;
     let mut command = Command::new(started);
-    command.args(&args).env(
-        ENV,
-        serde_json::to_string(&session).map_err(io::Error::other)?,
-    );
+    command
+        .args(&args)
+        .env(
+            ENV,
+            serde_json::to_string(&session).map_err(io::Error::other)?,
+        )
+        // Said to this launcher only. The relaunch helper inherits what the runtime
+        // has, and the first stage it starts must not take itself for a second.
+        .env_remove(crate::bootstrap::ENV);
     // A release runtime is a windows-subsystem program that opens a console
     // only on `--console` (`baylee_client::console`); a debug one is a
     // console program, and this launcher is not: started from here, Windows
@@ -651,9 +677,14 @@ const HAND_OVER_WAIT: std::time::Duration = std::time::Duration::from_secs(8);
 /// window of its own; without one, the refusal stands.
 fn hand_over(
     install: &Install,
+    handed_on: bool,
     args: &[std::ffi::OsString],
     refused: io::Error,
 ) -> io::Result<ExitStatus> {
+    // It got this far, so this start says nothing against its launcher.
+    if handed_on {
+        crate::bootstrap::went_well(install);
+    }
     if crate::link::among(args).is_none() {
         return Err(refused);
     }

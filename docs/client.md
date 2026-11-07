@@ -10130,6 +10130,9 @@ and leaves the previous client launchable. State and payloads are per-user,
 isolated by the original package's canonical path (`docs/releasing.md`
 §"Desktop launcher and recovery"). A read-only package still starts, with
 automatic installation disabled.
+The launcher in the package is only the first stage: it starts the selected
+generation's own launcher, which does all this, so the launcher updates with
+the client (`baylee_update::bootstrap`, the same section).
 
 OS locks serialize staging and activation. Launcher and runtime both retain
 a lifetime lease, including if the launcher dies first. A second launch is
