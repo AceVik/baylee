@@ -73,7 +73,7 @@ use baylee_gamehost::replay::{Perspective, Verify, project};
 use baylee_gamehost::{PlayerView, Session};
 use baylee_protocol::v1::Envelope;
 use baylee_protocol::v1::envelope::Msg;
-use baylee_view::ViewReader;
+use baylee_view::{StaticReader, ViewReader};
 use prost::Message as _;
 
 use rebuild::Rebuild;
@@ -200,6 +200,8 @@ struct Digests {
     hashes: Fnv,
     /// What each seat's socket has been left with by its frames.
     readers: BTreeMap<PlayerId, ViewReader>,
+    /// What each seat's socket holds of the opening payload.
+    statics: BTreeMap<PlayerId, StaticReader>,
     /// `StateDelta`s read.
     frames_read: u64,
     /// Seats' views as a host was handed them, rebuilt from patches.
@@ -207,6 +209,17 @@ struct Digests {
 }
 
 impl Digests {
+    /// The payload a seat opens on, which the digests have always left out and
+    /// a reader needs in order to place what follows it.
+    fn opening(&mut self, seat: PlayerId, frame: &Envelope) {
+        if let (true, Some(Msg::GameStatic(statics))) = (self.on, &frame.msg) {
+            let reader = self.statics.entry(seat).or_default();
+            reader
+                .read(&statics.statics, &statics.more)
+                .expect("an opening payload reads");
+        }
+    }
+
     fn new(checks: Checks) -> Self {
         Self {
             on: checks.verify,
@@ -214,6 +227,7 @@ impl Digests {
             views: Fnv::new(),
             hashes: Fnv::new(),
             readers: BTreeMap::new(),
+            statics: BTreeMap::new(),
             frames_read: 0,
             rebuilt: checks.patches.then(Rebuild::default),
         }
@@ -274,10 +288,16 @@ impl Digests {
             match &frame.msg {
                 Some(Msg::GameStatic(statics)) => {
                     // Not its version: that moves when the wire does.
-                    let mut statics: baylee_view::GameStatic =
-                        baylee_core::wire::decode(&statics.statics).expect("a payload reads");
-                    statics.view_version = 0;
-                    self.views.feed(&canonical(&statics));
+                    let mut whole = self
+                        .statics
+                        .entry(*seat)
+                        .or_default()
+                        .read(&statics.statics, &statics.more)
+                        .expect("a payload reads")
+                        .expect("a seat holds a payload")
+                        .clone();
+                    whole.view_version = 0;
+                    self.views.feed(&canonical(&whole));
                 }
                 Some(Msg::StateDelta(delta)) => {
                     let view = self
@@ -602,7 +622,9 @@ fn live(game: &Game, sockets: &[PlayerId], checks: Checks) -> Played {
     let mut wire = Wire::default();
     let mut now = 0;
     for &seat in sockets {
-        wire.frame(seat, &session.game_static_envelope(seat));
+        let opening = session.game_static_envelope(seat);
+        wire.frame(seat, &opening);
+        digests.opening(seat, &opening);
     }
     let opening = session.pump_slice(LIVE_SLICE);
     told(&mut wire, &mut digests, &opening);

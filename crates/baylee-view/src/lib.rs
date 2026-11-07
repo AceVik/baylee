@@ -45,6 +45,7 @@ mod seen;
 mod shared_name;
 mod shown_hands;
 mod spectator;
+mod statics_stream;
 mod status;
 mod turn;
 
@@ -72,6 +73,7 @@ pub use seen::{Seen, SeenIn};
 pub use shared_name::SharedName;
 pub use shown_hands::{SeatSetting, SharedHand};
 pub use spectator::SpectatorView;
+pub use statics_stream::{MorePrints, StaticFrame, StaticLost, StaticReader, StaticSender};
 pub use status::ObjectStatus;
 pub use turn::{DayNight, Phase, Step};
 

@@ -106,6 +106,7 @@ fn moments() -> Vec<TapeMoment> {
                         game_id: String::new(),
                         view_version: VIEW,
                         statics: baylee_core::wire::encode(&statics(2)),
+                        more: Vec::new(),
                     })),
                 },
                 delta(0, &steps[0], Some(tail(0, 2))),
@@ -230,6 +231,7 @@ fn from_moments_refuses_a_static_of_another_view_version() {
                 game_id: String::new(),
                 view_version: VIEW + 1,
                 statics: baylee_core::wire::encode(&statics(1)),
+                more: Vec::new(),
             })),
         }],
     };

@@ -15,7 +15,8 @@ use baylee_engine::engine::Engine;
 use baylee_engine::state::CardLookup;
 use baylee_protocol::v1::{self, Envelope};
 use baylee_view::{
-    ClockAnswer, HouseAnswer, LOG_TAIL_CAP, LogTail, PlayerView, PolicyAct, ViewSender,
+    ClockAnswer, HouseAnswer, LOG_TAIL_CAP, LogTail, PlayerView, PolicyAct, StaticSender,
+    ViewSender,
 };
 
 use crate::log::GameLog;
@@ -242,6 +243,9 @@ pub struct Session {
     /// Never shared: what a view shows depends on the seat. Not game state, for
     /// the reason `told` is not.
     sent: Vec<ViewSender>,
+    /// Per seat, the payload it was last told, which its next printings are added to.
+    /// Never shared, for the reason `sent` is not.
+    statics_sent: Vec<StaticSender>,
     /// Per seat, the teammates it shows its hand to (#265).
     ///
     /// Not game state: showing a hand moves nothing in the game, so it never
@@ -352,6 +356,7 @@ impl Session {
             log,
             told: vec![0; preset.seats.len()],
             sent: vec![ViewSender::default(); preset.seats.len()],
+            statics_sent: vec![StaticSender::default(); preset.seats.len()],
             showing: vec![SeatSet::new(); preset.seats.len()],
             asking: vec![SeatSet::new(); preset.seats.len()],
             declined: BTreeMap::new(),

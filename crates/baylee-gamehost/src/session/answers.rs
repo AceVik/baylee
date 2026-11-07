@@ -158,12 +158,19 @@ impl Session {
     ///
     /// Returning nothing matters — a client that reconnects without having
     /// missed anything should not be made to re-render the whole table. A
-    /// client that lost its view says it has seen nothing, and is sent it.
+    /// client that lost its view says it has seen nothing, and is sent it, and
+    /// the payload whole with it: printings it could not place are the same
+    /// question, and this is where a reader of either finds its way back.
     pub fn resume(&mut self, seat: PlayerId, last_seq: u64) -> Vec<Envelope> {
         if last_seq >= self.seq {
             return Vec::new();
         }
-        self.snapshot(seat)
+        let mut out = Vec::new();
+        if last_seq == 0 {
+            out.push(self.game_static_envelope(seat));
+        }
+        out.extend(self.snapshot(seat));
+        out
     }
 
     /// Applies a human action, then pumps the AI until a human is needed.

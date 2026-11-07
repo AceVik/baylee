@@ -4,7 +4,7 @@ use baylee_core::ids::PlayerId;
 use baylee_engine::choice::Pending;
 use baylee_protocol::v1;
 use baylee_protocol::v1::Envelope;
-use baylee_view::{GameStatic, LogTail, PlayerView, SeatIdentity, ViewFrame};
+use baylee_view::{GameStatic, LogTail, PlayerView, SeatIdentity, StaticFrame, ViewFrame};
 
 impl Session {
     /// The seats that won: one for a solo winner, every seat on the team for
@@ -97,6 +97,13 @@ impl Session {
     /// look reads `game_static`.
     #[must_use]
     pub fn game_static_envelope(&mut self, seat: PlayerId) -> Envelope {
+        self.statics_envelope(seat, true)
+    }
+
+    /// The payload as the seat next hears it: whole where `whole`, and otherwise
+    /// the printings it lacks. Going whole is what a new socket and a snapshot
+    /// need, and it is what mends a reader that lost its place.
+    fn statics_envelope(&mut self, seat: PlayerId, whole: bool) -> Envelope {
         if let Some(dirty) = self.roster_dirty.get_mut(seat.get() as usize) {
             *dirty = false;
         }
@@ -117,11 +124,20 @@ impl Session {
             self.reveal(seat, prints);
         }
         let statics = self.game_static(seat);
+        let frame = match self.statics_sent.get_mut(seat.get() as usize) {
+            Some(sent) if whole => sent.snapshot(&statics),
+            Some(sent) => sent.next(&statics),
+            None => StaticFrame {
+                statics: baylee_core::wire::encode(&statics),
+                more: Vec::new(),
+            },
+        };
         Envelope {
             msg: Some(v1::envelope::Msg::GameStatic(v1::GameStaticMsg {
                 game_id: self.game_id.clone(),
                 view_version: baylee_view::VIEW_VERSION,
-                statics: baylee_core::wire::encode(&statics),
+                statics: frame.statics,
+                more: frame.more,
             })),
         }
     }
@@ -209,7 +225,7 @@ impl Session {
             .copied()
             .unwrap_or(false);
         if revealed || roster_moved {
-            out.push(self.game_static_envelope(seat));
+            out.push(self.statics_envelope(seat, false));
         }
         let frame = self
             .sent
@@ -318,6 +334,9 @@ impl Session {
     ///
     /// [`ViewSender::next`]: baylee_view::ViewSender::next
     pub fn tell_views_whole(&mut self) {
+        for sent in &mut self.statics_sent {
+            sent.tell_whole();
+        }
         for sent in &mut self.sent {
             sent.tell_whole();
         }

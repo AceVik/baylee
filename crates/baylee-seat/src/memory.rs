@@ -15,7 +15,7 @@
 use baylee_client_core::gamelog::LogBook;
 use baylee_engine::choice::Pending;
 use baylee_protocol::v1::{self, Envelope};
-use baylee_view::{GameStatic, LogEntry, LogTail, PlayerView, ViewReader};
+use baylee_view::{GameStatic, LogEntry, LogTail, PlayerView, StaticReader, ViewReader};
 use prost::Message as _;
 
 /// What one frame from the table turned out to be.
@@ -62,7 +62,7 @@ pub enum Heard {
 /// The seat's memory of the table.
 #[derive(Debug, Default)]
 pub struct TableMemory {
-    statics: Option<GameStatic>,
+    statics: StaticReader,
     stream: ViewReader,
     log: LogBook,
     handed: usize,
@@ -90,11 +90,10 @@ impl TableMemory {
                         msg.view_version
                     ));
                 }
-                match baylee_core::wire::decode::<GameStatic>(&msg.statics) {
-                    Ok(statics) => {
-                        self.statics = Some(statics);
-                        Heard::Statics
-                    }
+                match self.statics.read(&msg.statics, &msg.more) {
+                    Ok(_) => Heard::Statics,
+                    // Printings it cannot place come again with a whole view.
+                    Err(why) if !msg.more.is_empty() => Heard::Lost(why.to_string()),
                     Err(e) => Heard::Unreadable(format!("unreadable game setup: {e}")),
                 }
             }
@@ -172,7 +171,7 @@ impl TableMemory {
     /// The roster and print table, once told.
     #[must_use]
     pub const fn statics(&self) -> Option<&GameStatic> {
-        self.statics.as_ref()
+        self.statics.statics()
     }
 
     /// The newest view.

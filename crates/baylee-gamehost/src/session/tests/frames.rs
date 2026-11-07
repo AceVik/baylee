@@ -336,19 +336,31 @@ fn discarding_the_frames_changes_nothing_but_the_frames() {
 /// as a stream of patches rather than the whole views a unit test is sent.
 struct Sockets {
     readers: [baylee_view::ViewReader; 4],
+    statics: [baylee_view::StaticReader; 4],
     patches: u32,
+    /// Frames that held printings and not the whole payload.
+    printings: u32,
 }
 
 impl Sockets {
     fn listening_to(session: &mut Session) -> Self {
         session.sent = vec![baylee_view::ViewSender::default(); 4];
+        session.statics_sent = vec![baylee_view::StaticSender::default(); 4];
         Self {
             readers: Default::default(),
+            statics: Default::default(),
             patches: 0,
+            printings: 0,
         }
     }
 
     fn hear(&mut self, seat: PlayerId, frame: &Envelope) {
+        if let Some(v1::envelope::Msg::GameStatic(msg)) = &frame.msg {
+            self.printings += u32::from(!msg.more.is_empty());
+            self.statics[seat.get() as usize]
+                .read(&msg.statics, &msg.more)
+                .expect("a payload places");
+        }
         if let Some(v1::envelope::Msg::StateDelta(delta)) = &frame.msg {
             self.patches += u32::from(matches!(
                 baylee_view::ViewFrame::decode(&delta.view_frame),
@@ -403,6 +415,63 @@ fn every_seats_stream_stays_its_view_as_the_table_moves() {
     }
     assert!(moved >= 20, "the table stopped after {moved} moves");
     assert!(sockets.patches > 60, "patches: {}", sockets.patches);
+}
+
+/// What a seat earns reaches it alone, and it ends on the payload the host holds
+/// for it: at a real table, for every seat, each its own.
+#[test]
+fn every_seats_payload_stays_its_own_as_the_table_moves() {
+    let mut session = a_kept_table([None; 4], [false; 4]);
+    let mut sockets = Sockets::listening_to(&mut session);
+    for seat in (0..4).map(PlayerId::new) {
+        let opening = session.game_static_envelope(seat);
+        sockets.hear(seat, &opening);
+        for frame in session.view_envelopes(seat) {
+            sockets.hear(seat, &frame);
+        }
+    }
+    for _ in 0..200 {
+        let Some(asked) = session.awaiting_seat() else {
+            break;
+        };
+        let Ok(frames) = session.act(asked, any_answer(&session)) else {
+            break;
+        };
+        for (seat, frame) in &frames {
+            sockets.hear(*seat, frame);
+        }
+    }
+    for seat in (0..4).map(PlayerId::new) {
+        assert_eq!(
+            sockets.statics[seat.get() as usize].statics(),
+            Some(&session.game_static(seat)),
+            "seat {seat:?}"
+        );
+    }
+}
+
+/// A reader that lost its place asks with a `last_seq` of 0, and has to be
+/// handed the payload as well as the view: nothing else mends a print table.
+#[test]
+fn a_whole_view_asked_for_brings_the_whole_payload() {
+    let mut session = a_kept_table([None; 4], [false; 4]);
+    let seat = session.awaiting_seat().expect("a seat is asked");
+    session
+        .act(seat, any_answer(&session))
+        .expect("the answer stands");
+    let frames = session.resume(seat, 0);
+    let Some(v1::envelope::Msg::GameStatic(first)) = frames.first().and_then(|f| f.msg.as_ref())
+    else {
+        panic!("the payload goes first: {frames:?}");
+    };
+    assert!(first.more.is_empty() && !first.statics.is_empty());
+    let behind = session.resume(seat, 1);
+    assert!(
+        behind
+            .iter()
+            .all(|f| !matches!(f.msg, Some(v1::envelope::Msg::GameStatic(_)))),
+        "a socket that only fell behind holds its payload"
+    );
 }
 
 /// A snapshot in the middle of a stream is where the stream goes on from, or

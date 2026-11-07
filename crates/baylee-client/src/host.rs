@@ -13,7 +13,7 @@ use baylee_core::preset::GamePreset;
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_gamehost::Session;
 use baylee_protocol::v1::{self, Envelope};
-use baylee_view::{GameStatic, LogTail, PlayerView, ViewReader};
+use baylee_view::{GameStatic, LogTail, PlayerView, StaticReader, ViewReader};
 
 #[cfg(not(target_arch = "wasm32"))]
 mod background;
@@ -245,6 +245,7 @@ fn one_line(text: &str) -> String {
 #[derive(Debug, Default)]
 pub(crate) struct SeatViews {
     reader: ViewReader,
+    statics: StaticReader,
     /// A frame could not be placed: the view held stands, and the table has
     /// to be asked for a whole one.
     lost: bool,
@@ -267,8 +268,15 @@ pub(crate) fn host_message(envelope: Envelope, views: &mut SeatViews) -> Option<
     Some(match envelope.msg? {
         v1::envelope::Msg::GameStatic(msg) => {
             if msg.view_version == baylee_view::VIEW_VERSION {
-                match baylee_core::wire::decode::<GameStatic>(&msg.statics) {
-                    Ok(statics) => HostMessage::Static(Box::new(statics)),
+                match views.statics.read(&msg.statics, &msg.more) {
+                    Ok(Some(statics)) => HostMessage::Static(Box::new(statics.clone())),
+                    // A whole payload is on its way with a whole view.
+                    Ok(None) => return None,
+                    Err(why) if !msg.more.is_empty() => {
+                        bevy::log::warn!("asking the table for a whole view: {why}");
+                        views.lost = true;
+                        return None;
+                    }
                     Err(e) => HostMessage::Failed(format!("unreadable game setup: {e}")),
                 }
             } else {
@@ -509,7 +517,7 @@ impl LocalHost {
         // Nothing is lost between a session and this host, so a view that did
         // not place is a bug here; a seat in a game is still owed its table.
         if self.views.take_lost() {
-            for envelope in self.session.snapshot(self.seat) {
+            for envelope in self.session.resume(self.seat, 0) {
                 push_host_message(&mut self.pending_out, envelope, &mut self.views);
             }
         }
@@ -1078,6 +1086,26 @@ pub(crate) mod tests {
         assert!(!views.take_lost());
     }
 
+    /// Printings that cannot be placed cost a question too, and no failure in
+    /// the player's face.
+    #[test]
+    fn printings_that_will_not_place_ask_for_a_whole_view() {
+        let frame = Envelope {
+            msg: Some(v1::envelope::Msg::GameStatic(v1::GameStaticMsg {
+                game_id: "g".to_string(),
+                view_version: baylee_view::VIEW_VERSION,
+                statics: Vec::new(),
+                more: baylee_core::wire::encode(&baylee_view::MorePrints {
+                    held: 9,
+                    prints: Vec::new(),
+                }),
+            })),
+        };
+        let mut views = SeatViews::default();
+        assert!(host_message(frame, &mut views).is_none());
+        assert!(views.take_lost(), "the table has to be asked");
+    }
+
     /// A lost frame costs a question and nothing else: no failure in the
     /// player's face, the table standing as it was, and one ask for however
     /// many frames come before the whole view.
@@ -1169,6 +1197,7 @@ pub(crate) mod tests {
                 game_id: "g".to_string(),
                 view_version: baylee_view::VIEW_VERSION + 1,
                 statics: b"{}".to_vec(),
+                more: Vec::new(),
             })),
         };
         let Some(HostMessage::Failed(reason)) = host_message(envelope, &mut SeatViews::default())

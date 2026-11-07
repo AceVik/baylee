@@ -55,6 +55,7 @@ pub(crate) fn told(entries: Vec<LogEntry>) -> TableMemory {
         game_id: game.game_id.clone(),
         view_version: game.view_version,
         statics: baylee_core::wire::encode(&game),
+        more: Vec::new(),
     })));
     memory.hear(&frame(v1::envelope::Msg::StateDelta(v1::StateDelta {
         game_id: game.game_id.clone(),

@@ -229,8 +229,12 @@ message GameStaticMsg {
   // that cannot render this version must be able to say so without first
   // decoding a structure whose shape is exactly what changed.
   uint32 view_version = 2;
-  // baylee_core::wire-encoded baylee_view::GameStatic.
+  // baylee_core::wire-encoded baylee_view::GameStatic, or empty when `more`
+  // says what joined it.
   bytes statics = 3;
+  // baylee_core::wire-encoded baylee_view::MorePrints: the printings to add to
+  // the payload the reader holds.
+  bytes more = 4;
 }
 
 // Server → client: a state view after actions (journal seq for resync).

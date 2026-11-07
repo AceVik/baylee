@@ -45,6 +45,7 @@ fn table(name: &str, secs: Option<u32>) -> Vec<u8> {
         game_id: game.game_id.clone(),
         view_version: game.view_version,
         statics: baylee_core::wire::encode(&game),
+        more: Vec::new(),
     }))
 }
 
@@ -818,6 +819,7 @@ fn named_table() -> (v1::GameStaticMsg, baylee_view::GameStatic) {
         game_id: game.game_id.clone(),
         view_version: game.view_version,
         statics: baylee_core::wire::encode(&game),
+        more: Vec::new(),
     };
     (msg, game)
 }

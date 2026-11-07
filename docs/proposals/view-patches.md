@@ -1,6 +1,7 @@
 # Ansichten als Änderungen statt als ganzes Brett
 
-Stand 7. November 2026: Schritt 1 bis 5 sind gebaut, Zahlen in `docs/perf-baseline.md`. Der Eigentümer hat entschieden, ans
+Stand 7. November 2026: Schritt 1 bis 5 sind gebaut, aus 6 fehlt die Sichtprüfung im Client. Zahlen in
+`docs/perf-baseline.md`. Der Eigentümer hat entschieden, ans
 Protokoll zu gehen; Kompatibilität wird nicht gebraucht, solange niemand baylee.app nutzt.
 
 ## Heute
@@ -94,7 +95,13 @@ Die Zahlen stehen in `docs/perf-baseline.md`.
 - **Das Log bleibt, wie es ist.** Es wird nur angehängt und schon je `from` geschickt, also gibt es
   nichts zu diffen. Es war 0,2 bis 1,3 % der Bytes und ist mit Patches 8 bis 12 %. Was sich ändert:
   Ein Rahmen, der nur Log trägt, wiederholt die Ansicht nicht mehr.
-- **Der Gewinn ist gemessen.** 14- bis 57-mal weniger Bytes je Ansicht als JSON, 27-mal auf gehosteten
-  Partien und 154-mal auf der größten. Ganze Rahmen fallen 8- bis 35-mal, weil anderes bleibt.
-- **Neu dazugekommen:** `GameStatic` geht bei jeder neuen Druckversion ganz und ist danach ein Viertel
-  dessen, was bleibt. Das gehört in dieselbe Reihe.
+- **Der Gewinn ist gemessen.** Je Sitz und Partie 47- bis 223-mal weniger Bytes als das ganze JSON:
+  `wire` 4 531 auf 96 KB, `table --four` 65 720 auf 295 KB. Die CPU des Servers bewegt sich nicht.
+- **Neu dazugekommen:** `GameStatic` ging bei jeder neuen Druckversion ganz und war nach dem Binären 38 bis
+  47 % dessen, was blieb. Jetzt geht es einmal ganz und danach nur, was neu ist (Protokoll 42).
+- **`postcard`, nicht `bitcode`.** Ein Patch ist gleich groß (119 und 118 Byte) und liest sich fünfmal schneller.
+- **`skip_serializing_if` bleibt,** anders als besprochen, und zeigt auf `wire::left_out`: Es zu entfernen hätte
+  das JSON jeder Ansicht geändert und damit jeden gespeicherten Hash. So hat sich kein gespeicherter Digest bewegt.
+- **Aus „Darüber hinaus“ gemessen:** Punkt 4 ist für Zuschauer gebaut. Punkt 1, 2 und 5 sind nicht gebaut.
+  `LegalActions` zu diffen lohnt nicht: Fragen sind 7 bis 13 % der Bytes, und Punkt 3 trifft nur Tische
+  von Spielern (1,99 und 3,95 Rahmen zwischen zwei Fragen).

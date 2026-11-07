@@ -3,7 +3,7 @@
 Binary WebSocket protocol (protobuf, `baylee-protocol`, wasm-safe).
 Schema: `crates/baylee-protocol/proto/baylee/v1/transport.proto`.
 
-## Views as patches (view 89, protocol 41)
+## Views as patches (view 89, protocol 42)
 
 A seat is told its view whole once and then only what changed. Both ends work
 from `baylee_view` (`crates/baylee-view/src/patch/`): a host keeps a
@@ -78,6 +78,16 @@ byte, for everything that is not a frame: tapes, records, tools, and the hashes
 kept beside stored research data (`view_hash_fnv1a64`, `pending_sha256`, which are
 of JSON). The wire types leave a default field out through `wire::left_out`, which
 holds only while no frame is being written.
+
+**The payload goes the same way (protocol 42).** `GameStaticMsg.statics` is the whole
+`GameStatic`, on arrival, in a snapshot and when more than the print table moved. A
+printing earned goes alone in `GameStaticMsg.more`, a `MorePrints` with `statics` empty:
+the entries and how many printings the reader should hold before them. A `StaticSender`
+per seat writes it from that seat's finished payload, as a `ViewSender` writes a patch, and
+a `StaticReader` adds it: a count that does not match, an entry past the table or over one
+it holds changes nothing and the reader asks for a whole view, once, which brings the whole
+payload with it. Spectators are sent the whole payload each time, since they are one stream
+and it was never what they cost. A replay's moments stay whole (`tell_views_whole`).
 
 **The foreign bytes.** A guest's frames reach an engine unread and a host's reach
 every client, so `wire::decode` and `apply` hold both to the same rules:
@@ -413,8 +423,8 @@ per entry, which is everything the client needs to key the Scryfall CDN. It is
 sent **per seat**, and an entry the seat has not earned is `None` — the table
 is shared by the whole game and deduplicated per card, so a seat handed all of
 it would be handed every decklist at the table. A seat knows its own deck's
-printings from the start and earns the rest by seeing the cards; the host
-re-sends the payload, ahead of the view that needs it, when one is earned. The
+printings from the start and earns the rest by seeing the cards; the host tells
+it the printings earned, ahead of the view that needs them (§"Views as patches"). The
 hole keeps the index, because the index *is* the `PrintRef`. The path end to
 end is
 
@@ -5014,7 +5024,7 @@ from memory at the moment of asking.
 
 ## The opening payload, and a client that is not the server
 
-`GameStaticMsg{game_id, view_version, statics}` is the one message a
+`GameStaticMsg{game_id, view_version, statics, more}` is the one message a
 networked client cannot do without and could not previously receive. The seat
 roster and the print table are built from the `GamePreset`, which a client
 never sees — so `LocalHost` built them out of the preset it happened to be

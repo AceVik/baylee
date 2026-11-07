@@ -19,7 +19,8 @@ use baylee_gamehost::PlayerView;
 use baylee_protocol::v1::Envelope;
 use baylee_protocol::v1::envelope::Msg;
 use baylee_view::{
-    GameStatic, LogTail, SeatSetting, ViewFrame, ViewPatch, ViewReader, apply, digest,
+    GameStatic, LogTail, MorePrints, SeatSetting, StaticReader, ViewFrame, ViewPatch, ViewReader,
+    apply, digest,
 };
 use prost::Message as _;
 
@@ -51,6 +52,7 @@ pub struct Corpus {
     questions: Vec<Vec<u8>>,
     logs: Vec<Vec<u8>>,
     statics: Vec<Vec<u8>>,
+    more: Vec<Vec<u8>>,
     actions: Vec<Vec<u8>>,
     envelopes: Vec<Vec<u8>>,
 }
@@ -81,7 +83,10 @@ impl Corpus {
                 keep(&mut self.logs, &delta.log);
             }
             Some(Msg::ChoiceRequest(choice)) => keep(&mut self.questions, &choice.pending),
-            Some(Msg::GameStatic(statics)) => keep(&mut self.statics, &statics.statics),
+            Some(Msg::GameStatic(statics)) => {
+                keep(&mut self.statics, &statics.statics);
+                keep(&mut self.more, &statics.more);
+            }
             _ => {}
         }
     }
@@ -98,17 +103,19 @@ impl Corpus {
         self.questions.extend(other.questions);
         self.logs.extend(other.logs);
         self.statics.extend(other.statics);
+        self.more.extend(other.more);
         self.actions.extend(other.actions);
         self.envelopes.extend(other.envelopes);
     }
 
-    fn kinds(&self) -> [&[Vec<u8>]; 7] {
+    fn kinds(&self) -> [&[Vec<u8>]; 8] {
         [
             &self.snapshots,
             &self.patches,
             &self.questions,
             &self.logs,
             &self.statics,
+            &self.more,
             &self.actions,
             &self.envelopes,
         ]
@@ -173,6 +180,13 @@ fn damaged(stream: &mut Stream, frame: &[u8], other: &[u8]) -> Vec<u8> {
     bytes
 }
 
+/// What a seat's reader holds between frames.
+#[derive(Default)]
+struct Readers {
+    views: ViewReader,
+    statics: StaticReader,
+}
+
 /// What each decoder read, of the rounds put to it.
 #[derive(Default)]
 struct Reads {
@@ -183,12 +197,13 @@ struct Reads {
     questions: u64,
     logs: u64,
     statics: u64,
+    more: u64,
     settings: u64,
     envelopes: u64,
 }
 
 /// Everything a client or an engine would do with `bytes`.
-fn read(bytes: &[u8], reader: &mut ViewReader, base: &PlayerView, reads: &mut Reads) {
+fn read(bytes: &[u8], readers: &mut Readers, base: &PlayerView, reads: &mut Reads) {
     if let Ok(frame) = ViewFrame::decode(bytes) {
         reads.views += 1;
         let _ = frame.seat();
@@ -208,7 +223,9 @@ fn read(bytes: &[u8], reader: &mut ViewReader, base: &PlayerView, reads: &mut Re
         aimed.digest = digest(base);
         reads.applied += u64::from(apply(base, &aimed).is_ok());
     }
-    let _ = reader.read(bytes);
+    let _ = readers.views.read(bytes);
+    let _ = readers.statics.read(&[], bytes);
+    let _ = readers.statics.read(bytes, &[]);
     reads.actions += u64::from(decode::<PlayerAction>(bytes).is_ok());
     if let Ok(pending) = decode::<Pending>(bytes) {
         reads.questions += 1;
@@ -216,6 +233,7 @@ fn read(bytes: &[u8], reader: &mut ViewReader, base: &PlayerView, reads: &mut Re
     }
     reads.logs += u64::from(decode::<LogTail>(bytes).is_ok());
     reads.statics += u64::from(decode::<GameStatic>(bytes).is_ok());
+    reads.more += u64::from(decode::<MorePrints>(bytes).is_ok());
     reads.settings += u64::from(decode::<SeatSetting>(bytes).is_ok());
     reads.envelopes += u64::from(Envelope::decode(bytes).is_ok());
 }
@@ -240,6 +258,7 @@ pub fn run(corpus: &Corpus, rounds: u64, seed: u64) {
         "questions",
         "logs",
         "statics",
+        "more",
         "actions",
         "envelopes",
     ]
@@ -248,7 +267,7 @@ pub fn run(corpus: &Corpus, rounds: u64, seed: u64) {
     {
         println!("corpus {name}: {} frames", kind.len());
     }
-    let mut reader = ViewReader::default();
+    let mut readers = Readers::default();
     let mut reads = Reads::default();
     let started = std::time::Instant::now();
     for round in 0..rounds {
@@ -261,15 +280,18 @@ pub fn run(corpus: &Corpus, rounds: u64, seed: u64) {
         };
         let bytes = damaged(&mut stream, frame, other);
         if round % 1024 == 0 {
-            let _ = reader.read(whole);
+            let _ = readers.views.read(whole);
+            if let Some(statics) = corpus.statics.first() {
+                let _ = readers.statics.read(statics, &[]);
+            }
         }
-        read(&bytes, &mut reader, &base, &mut reads);
+        read(&bytes, &mut readers, &base, &mut reads);
         if round % (1 << 22) == 0 {
             eprintln!("fuzz seed={seed} round={round}");
         }
     }
     println!(
-        "fuzz seed={seed}: {rounds} rounds in {:.0} s, no panic; read as a frame {}, a patch {} ({} applied), an action {}, a question {}, a log {}, a payload {}, a setting {}, an envelope {}",
+        "fuzz seed={seed}: {rounds} rounds in {:.0} s, no panic; read as a frame {}, a patch {} ({} applied), an action {}, a question {}, a log {}, a payload {}, printings {}, a setting {}, an envelope {}",
         started.elapsed().as_secs_f64(),
         reads.views,
         reads.patches,
@@ -278,6 +300,7 @@ pub fn run(corpus: &Corpus, rounds: u64, seed: u64) {
         reads.questions,
         reads.logs,
         reads.statics,
+        reads.more,
         reads.settings,
         reads.envelopes,
     );

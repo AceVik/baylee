@@ -42,7 +42,8 @@ pub mod tape;
 /// Version 40 writes that frame and `PlayerActionMsg::action` in binary
 /// (`baylee_core::wire`), and a `PayWindow` holds `PaymentStep`s.
 /// Version 41 writes every other frame of a game the same way.
-pub const PROTOCOL_VERSION: u32 = 41;
+/// Version 42 tells a printing shown in `GameStaticMsg::more`, not the whole payload.
+pub const PROTOCOL_VERSION: u32 = 42;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;
@@ -273,7 +274,7 @@ mod tests {
     /// disagree on it do not talk. It is written down here so that raising
     /// it is a deliberate line in a diff rather than a number that drifted.
     #[test]
-    fn the_wire_version_is_forty_one() {
+    fn the_wire_version_is_forty_two() {
         // 2: `SeatReady` and `Curtain` (#256).
         // 3: `SeatSettingMsg` (#265). An engine built before it drops the
         // frame without a word, so a client that sent one would wait for a
@@ -334,7 +335,9 @@ mod tests {
         // a reader from before it cannot read at all.
         // 40: that frame and an action go in binary, which a reader of 39 cannot read.
         // 41: no JSON is left in a game's frames.
-        assert_eq!(PROTOCOL_VERSION, 41);
+        // 42: a printing shown goes alone, which a reader of 41 would take for an
+        // empty payload.
+        assert_eq!(PROTOCOL_VERSION, 42);
     }
 
     #[test]

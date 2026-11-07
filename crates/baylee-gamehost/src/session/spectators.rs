@@ -86,6 +86,7 @@ impl Session {
                 game_id: self.game_id.clone(),
                 view_version: baylee_view::VIEW_VERSION,
                 statics: baylee_core::wire::encode(&statics),
+                more: Vec::new(),
             })),
         }
     }

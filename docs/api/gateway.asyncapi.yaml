@@ -266,8 +266,12 @@ channels:
               // that cannot render this version must be able to say so without first
               // decoding a structure whose shape is exactly what changed.
               uint32 view_version = 2;
-              // baylee_core::wire-encoded baylee_view::GameStatic.
+              // baylee_core::wire-encoded baylee_view::GameStatic, or empty when `more`
+              // says what joined it.
               bytes statics = 3;
+              // baylee_core::wire-encoded baylee_view::MorePrints: the printings to add to
+              // the payload the reader holds.
+              bytes more = 4;
             }
 
             // Server → client: a state view after actions (journal seq for resync).
@@ -967,8 +971,12 @@ channels:
               // that cannot render this version must be able to say so without first
               // decoding a structure whose shape is exactly what changed.
               uint32 view_version = 2;
-              // baylee_core::wire-encoded baylee_view::GameStatic.
+              // baylee_core::wire-encoded baylee_view::GameStatic, or empty when `more`
+              // says what joined it.
               bytes statics = 3;
+              // baylee_core::wire-encoded baylee_view::MorePrints: the printings to add to
+              // the payload the reader holds.
+              bytes more = 4;
             }
 
             // Server → client: a state view after actions (journal seq for resync).
@@ -1687,8 +1695,12 @@ channels:
               // that cannot render this version must be able to say so without first
               // decoding a structure whose shape is exactly what changed.
               uint32 view_version = 2;
-              // baylee_core::wire-encoded baylee_view::GameStatic.
+              // baylee_core::wire-encoded baylee_view::GameStatic, or empty when `more`
+              // says what joined it.
               bytes statics = 3;
+              // baylee_core::wire-encoded baylee_view::MorePrints: the printings to add to
+              // the payload the reader holds.
+              bytes more = 4;
             }
 
             // Server → client: a state view after actions (journal seq for resync).
@@ -2110,7 +2122,7 @@ channels:
               // The house's level (`steady`, …), for `KIND_HOUSE`.
               string level = 5;
             }
-        description: "Envelope case `game_static`: the opening payload, always first on the socket, and sent again before a view that shows a printing the seat had not been shown. `view_version` is the view schema's version, outside the payload so a client that cannot render it can say so; `statics` is a `GameStatic` (the roster and the seat's print table) as `baylee_core::wire` writes it, see `docs/protocol.md`."
+        description: "Envelope case `game_static`: the opening payload, always first on the socket, and sent again before a view that shows a printing the seat had not been shown. `view_version` is the view schema's version, outside the payload so a client that cannot render it can say so; `statics` is a `GameStatic` (the roster and the seat's print table) as `baylee_core::wire` writes it, and empty when `more` holds only the printings to add to the one the seat holds, see `docs/protocol.md`."
         x-protobuf-message: baylee.v1.Envelope
       StateDelta:
         name: StateDelta
@@ -2349,8 +2361,12 @@ channels:
               // that cannot render this version must be able to say so without first
               // decoding a structure whose shape is exactly what changed.
               uint32 view_version = 2;
-              // baylee_core::wire-encoded baylee_view::GameStatic.
+              // baylee_core::wire-encoded baylee_view::GameStatic, or empty when `more`
+              // says what joined it.
               bytes statics = 3;
+              // baylee_core::wire-encoded baylee_view::MorePrints: the printings to add to
+              // the payload the reader holds.
+              bytes more = 4;
             }
 
             // Server → client: a state view after actions (journal seq for resync).
@@ -3011,8 +3027,12 @@ channels:
               // that cannot render this version must be able to say so without first
               // decoding a structure whose shape is exactly what changed.
               uint32 view_version = 2;
-              // baylee_core::wire-encoded baylee_view::GameStatic.
+              // baylee_core::wire-encoded baylee_view::GameStatic, or empty when `more`
+              // says what joined it.
               bytes statics = 3;
+              // baylee_core::wire-encoded baylee_view::MorePrints: the printings to add to
+              // the payload the reader holds.
+              bytes more = 4;
             }
 
             // Server → client: a state view after actions (journal seq for resync).
@@ -3675,8 +3695,12 @@ channels:
               // that cannot render this version must be able to say so without first
               // decoding a structure whose shape is exactly what changed.
               uint32 view_version = 2;
-              // baylee_core::wire-encoded baylee_view::GameStatic.
+              // baylee_core::wire-encoded baylee_view::GameStatic, or empty when `more`
+              // says what joined it.
               bytes statics = 3;
+              // baylee_core::wire-encoded baylee_view::MorePrints: the printings to add to
+              // the payload the reader holds.
+              bytes more = 4;
             }
 
             // Server → client: a state view after actions (journal seq for resync).
@@ -4341,8 +4365,12 @@ channels:
               // that cannot render this version must be able to say so without first
               // decoding a structure whose shape is exactly what changed.
               uint32 view_version = 2;
-              // baylee_core::wire-encoded baylee_view::GameStatic.
+              // baylee_core::wire-encoded baylee_view::GameStatic, or empty when `more`
+              // says what joined it.
               bytes statics = 3;
+              // baylee_core::wire-encoded baylee_view::MorePrints: the printings to add to
+              // the payload the reader holds.
+              bytes more = 4;
             }
 
             // Server → client: a state view after actions (journal seq for resync).
@@ -5059,8 +5087,12 @@ channels:
               // that cannot render this version must be able to say so without first
               // decoding a structure whose shape is exactly what changed.
               uint32 view_version = 2;
-              // baylee_core::wire-encoded baylee_view::GameStatic.
+              // baylee_core::wire-encoded baylee_view::GameStatic, or empty when `more`
+              // says what joined it.
               bytes statics = 3;
+              // baylee_core::wire-encoded baylee_view::MorePrints: the printings to add to
+              // the payload the reader holds.
+              bytes more = 4;
             }
 
             // Server → client: a state view after actions (journal seq for resync).
@@ -5721,8 +5753,12 @@ channels:
               // that cannot render this version must be able to say so without first
               // decoding a structure whose shape is exactly what changed.
               uint32 view_version = 2;
-              // baylee_core::wire-encoded baylee_view::GameStatic.
+              // baylee_core::wire-encoded baylee_view::GameStatic, or empty when `more`
+              // says what joined it.
               bytes statics = 3;
+              // baylee_core::wire-encoded baylee_view::MorePrints: the printings to add to
+              // the payload the reader holds.
+              bytes more = 4;
             }
 
             // Server → client: a state view after actions (journal seq for resync).
@@ -6383,8 +6419,12 @@ channels:
               // that cannot render this version must be able to say so without first
               // decoding a structure whose shape is exactly what changed.
               uint32 view_version = 2;
-              // baylee_core::wire-encoded baylee_view::GameStatic.
+              // baylee_core::wire-encoded baylee_view::GameStatic, or empty when `more`
+              // says what joined it.
               bytes statics = 3;
+              // baylee_core::wire-encoded baylee_view::MorePrints: the printings to add to
+              // the payload the reader holds.
+              bytes more = 4;
             }
 
             // Server → client: a state view after actions (journal seq for resync).
@@ -7045,8 +7085,12 @@ channels:
               // that cannot render this version must be able to say so without first
               // decoding a structure whose shape is exactly what changed.
               uint32 view_version = 2;
-              // baylee_core::wire-encoded baylee_view::GameStatic.
+              // baylee_core::wire-encoded baylee_view::GameStatic, or empty when `more`
+              // says what joined it.
               bytes statics = 3;
+              // baylee_core::wire-encoded baylee_view::MorePrints: the printings to add to
+              // the payload the reader holds.
+              bytes more = 4;
             }
 
             // Server → client: a state view after actions (journal seq for resync).
@@ -8304,8 +8348,12 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // baylee_core::wire-encoded baylee_view::GameStatic.
+            // baylee_core::wire-encoded baylee_view::GameStatic, or empty when `more`
+            // says what joined it.
             bytes statics = 3;
+            // baylee_core::wire-encoded baylee_view::MorePrints: the printings to add to
+            // the payload the reader holds.
+            bytes more = 4;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
@@ -8966,8 +9014,12 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // baylee_core::wire-encoded baylee_view::GameStatic.
+            // baylee_core::wire-encoded baylee_view::GameStatic, or empty when `more`
+            // says what joined it.
             bytes statics = 3;
+            // baylee_core::wire-encoded baylee_view::MorePrints: the printings to add to
+            // the payload the reader holds.
+            bytes more = 4;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
@@ -9628,8 +9680,12 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // baylee_core::wire-encoded baylee_view::GameStatic.
+            // baylee_core::wire-encoded baylee_view::GameStatic, or empty when `more`
+            // says what joined it.
             bytes statics = 3;
+            // baylee_core::wire-encoded baylee_view::MorePrints: the printings to add to
+            // the payload the reader holds.
+            bytes more = 4;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
@@ -10290,8 +10346,12 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // baylee_core::wire-encoded baylee_view::GameStatic.
+            // baylee_core::wire-encoded baylee_view::GameStatic, or empty when `more`
+            // says what joined it.
             bytes statics = 3;
+            // baylee_core::wire-encoded baylee_view::MorePrints: the printings to add to
+            // the payload the reader holds.
+            bytes more = 4;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
@@ -10952,8 +11012,12 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // baylee_core::wire-encoded baylee_view::GameStatic.
+            // baylee_core::wire-encoded baylee_view::GameStatic, or empty when `more`
+            // says what joined it.
             bytes statics = 3;
+            // baylee_core::wire-encoded baylee_view::MorePrints: the printings to add to
+            // the payload the reader holds.
+            bytes more = 4;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
@@ -11614,8 +11678,12 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // baylee_core::wire-encoded baylee_view::GameStatic.
+            // baylee_core::wire-encoded baylee_view::GameStatic, or empty when `more`
+            // says what joined it.
             bytes statics = 3;
+            // baylee_core::wire-encoded baylee_view::MorePrints: the printings to add to
+            // the payload the reader holds.
+            bytes more = 4;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
@@ -12276,8 +12344,12 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // baylee_core::wire-encoded baylee_view::GameStatic.
+            // baylee_core::wire-encoded baylee_view::GameStatic, or empty when `more`
+            // says what joined it.
             bytes statics = 3;
+            // baylee_core::wire-encoded baylee_view::MorePrints: the printings to add to
+            // the payload the reader holds.
+            bytes more = 4;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
@@ -12944,8 +13016,12 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // baylee_core::wire-encoded baylee_view::GameStatic.
+            // baylee_core::wire-encoded baylee_view::GameStatic, or empty when `more`
+            // says what joined it.
             bytes statics = 3;
+            // baylee_core::wire-encoded baylee_view::MorePrints: the printings to add to
+            // the payload the reader holds.
+            bytes more = 4;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
@@ -13606,8 +13682,12 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // baylee_core::wire-encoded baylee_view::GameStatic.
+            // baylee_core::wire-encoded baylee_view::GameStatic, or empty when `more`
+            // says what joined it.
             bytes statics = 3;
+            // baylee_core::wire-encoded baylee_view::MorePrints: the printings to add to
+            // the payload the reader holds.
+            bytes more = 4;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
@@ -14268,8 +14348,12 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // baylee_core::wire-encoded baylee_view::GameStatic.
+            // baylee_core::wire-encoded baylee_view::GameStatic, or empty when `more`
+            // says what joined it.
             bytes statics = 3;
+            // baylee_core::wire-encoded baylee_view::MorePrints: the printings to add to
+            // the payload the reader holds.
+            bytes more = 4;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
@@ -14930,8 +15014,12 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // baylee_core::wire-encoded baylee_view::GameStatic.
+            // baylee_core::wire-encoded baylee_view::GameStatic, or empty when `more`
+            // says what joined it.
             bytes statics = 3;
+            // baylee_core::wire-encoded baylee_view::MorePrints: the printings to add to
+            // the payload the reader holds.
+            bytes more = 4;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
@@ -15592,8 +15680,12 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // baylee_core::wire-encoded baylee_view::GameStatic.
+            // baylee_core::wire-encoded baylee_view::GameStatic, or empty when `more`
+            // says what joined it.
             bytes statics = 3;
+            // baylee_core::wire-encoded baylee_view::MorePrints: the printings to add to
+            // the payload the reader holds.
+            bytes more = 4;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
@@ -16254,8 +16346,12 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // baylee_core::wire-encoded baylee_view::GameStatic.
+            // baylee_core::wire-encoded baylee_view::GameStatic, or empty when `more`
+            // says what joined it.
             bytes statics = 3;
+            // baylee_core::wire-encoded baylee_view::MorePrints: the printings to add to
+            // the payload the reader holds.
+            bytes more = 4;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
@@ -16916,8 +17012,12 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // baylee_core::wire-encoded baylee_view::GameStatic.
+            // baylee_core::wire-encoded baylee_view::GameStatic, or empty when `more`
+            // says what joined it.
             bytes statics = 3;
+            // baylee_core::wire-encoded baylee_view::MorePrints: the printings to add to
+            // the payload the reader holds.
+            bytes more = 4;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
@@ -17584,8 +17684,12 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // baylee_core::wire-encoded baylee_view::GameStatic.
+            // baylee_core::wire-encoded baylee_view::GameStatic, or empty when `more`
+            // says what joined it.
             bytes statics = 3;
+            // baylee_core::wire-encoded baylee_view::MorePrints: the printings to add to
+            // the payload the reader holds.
+            bytes more = 4;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
@@ -18246,8 +18350,12 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // baylee_core::wire-encoded baylee_view::GameStatic.
+            // baylee_core::wire-encoded baylee_view::GameStatic, or empty when `more`
+            // says what joined it.
             bytes statics = 3;
+            // baylee_core::wire-encoded baylee_view::MorePrints: the printings to add to
+            // the payload the reader holds.
+            bytes more = 4;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
@@ -18914,8 +19022,12 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // baylee_core::wire-encoded baylee_view::GameStatic.
+            // baylee_core::wire-encoded baylee_view::GameStatic, or empty when `more`
+            // says what joined it.
             bytes statics = 3;
+            // baylee_core::wire-encoded baylee_view::MorePrints: the printings to add to
+            // the payload the reader holds.
+            bytes more = 4;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
@@ -19576,8 +19688,12 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // baylee_core::wire-encoded baylee_view::GameStatic.
+            // baylee_core::wire-encoded baylee_view::GameStatic, or empty when `more`
+            // says what joined it.
             bytes statics = 3;
+            // baylee_core::wire-encoded baylee_view::MorePrints: the printings to add to
+            // the payload the reader holds.
+            bytes more = 4;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
@@ -20238,8 +20354,12 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // baylee_core::wire-encoded baylee_view::GameStatic.
+            // baylee_core::wire-encoded baylee_view::GameStatic, or empty when `more`
+            // says what joined it.
             bytes statics = 3;
+            // baylee_core::wire-encoded baylee_view::MorePrints: the printings to add to
+            // the payload the reader holds.
+            bytes more = 4;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
@@ -20900,8 +21020,12 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // baylee_core::wire-encoded baylee_view::GameStatic.
+            // baylee_core::wire-encoded baylee_view::GameStatic, or empty when `more`
+            // says what joined it.
             bytes statics = 3;
+            // baylee_core::wire-encoded baylee_view::MorePrints: the printings to add to
+            // the payload the reader holds.
+            bytes more = 4;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
@@ -21562,8 +21686,12 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // baylee_core::wire-encoded baylee_view::GameStatic.
+            // baylee_core::wire-encoded baylee_view::GameStatic, or empty when `more`
+            // says what joined it.
             bytes statics = 3;
+            // baylee_core::wire-encoded baylee_view::MorePrints: the printings to add to
+            // the payload the reader holds.
+            bytes more = 4;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
@@ -22224,8 +22352,12 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // baylee_core::wire-encoded baylee_view::GameStatic.
+            // baylee_core::wire-encoded baylee_view::GameStatic, or empty when `more`
+            // says what joined it.
             bytes statics = 3;
+            // baylee_core::wire-encoded baylee_view::MorePrints: the printings to add to
+            // the payload the reader holds.
+            bytes more = 4;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
@@ -22886,8 +23018,12 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // baylee_core::wire-encoded baylee_view::GameStatic.
+            // baylee_core::wire-encoded baylee_view::GameStatic, or empty when `more`
+            // says what joined it.
             bytes statics = 3;
+            // baylee_core::wire-encoded baylee_view::MorePrints: the printings to add to
+            // the payload the reader holds.
+            bytes more = 4;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
@@ -23548,8 +23684,12 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // baylee_core::wire-encoded baylee_view::GameStatic.
+            // baylee_core::wire-encoded baylee_view::GameStatic, or empty when `more`
+            // says what joined it.
             bytes statics = 3;
+            // baylee_core::wire-encoded baylee_view::MorePrints: the printings to add to
+            // the payload the reader holds.
+            bytes more = 4;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
@@ -24210,8 +24350,12 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // baylee_core::wire-encoded baylee_view::GameStatic.
+            // baylee_core::wire-encoded baylee_view::GameStatic, or empty when `more`
+            // says what joined it.
             bytes statics = 3;
+            // baylee_core::wire-encoded baylee_view::MorePrints: the printings to add to
+            // the payload the reader holds.
+            bytes more = 4;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
@@ -24872,8 +25016,12 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // baylee_core::wire-encoded baylee_view::GameStatic.
+            // baylee_core::wire-encoded baylee_view::GameStatic, or empty when `more`
+            // says what joined it.
             bytes statics = 3;
+            // baylee_core::wire-encoded baylee_view::MorePrints: the printings to add to
+            // the payload the reader holds.
+            bytes more = 4;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
@@ -25534,8 +25682,12 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // baylee_core::wire-encoded baylee_view::GameStatic.
+            // baylee_core::wire-encoded baylee_view::GameStatic, or empty when `more`
+            // says what joined it.
             bytes statics = 3;
+            // baylee_core::wire-encoded baylee_view::MorePrints: the printings to add to
+            // the payload the reader holds.
+            bytes more = 4;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
@@ -26196,8 +26348,12 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // baylee_core::wire-encoded baylee_view::GameStatic.
+            // baylee_core::wire-encoded baylee_view::GameStatic, or empty when `more`
+            // says what joined it.
             bytes statics = 3;
+            // baylee_core::wire-encoded baylee_view::MorePrints: the printings to add to
+            // the payload the reader holds.
+            bytes more = 4;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
@@ -26858,8 +27014,12 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // baylee_core::wire-encoded baylee_view::GameStatic.
+            // baylee_core::wire-encoded baylee_view::GameStatic, or empty when `more`
+            // says what joined it.
             bytes statics = 3;
+            // baylee_core::wire-encoded baylee_view::MorePrints: the printings to add to
+            // the payload the reader holds.
+            bytes more = 4;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
@@ -27520,8 +27680,12 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // baylee_core::wire-encoded baylee_view::GameStatic.
+            // baylee_core::wire-encoded baylee_view::GameStatic, or empty when `more`
+            // says what joined it.
             bytes statics = 3;
+            // baylee_core::wire-encoded baylee_view::MorePrints: the printings to add to
+            // the payload the reader holds.
+            bytes more = 4;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
@@ -28182,8 +28346,12 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // baylee_core::wire-encoded baylee_view::GameStatic.
+            // baylee_core::wire-encoded baylee_view::GameStatic, or empty when `more`
+            // says what joined it.
             bytes statics = 3;
+            // baylee_core::wire-encoded baylee_view::MorePrints: the printings to add to
+            // the payload the reader holds.
+            bytes more = 4;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
@@ -28844,8 +29012,12 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // baylee_core::wire-encoded baylee_view::GameStatic.
+            // baylee_core::wire-encoded baylee_view::GameStatic, or empty when `more`
+            // says what joined it.
             bytes statics = 3;
+            // baylee_core::wire-encoded baylee_view::MorePrints: the printings to add to
+            // the payload the reader holds.
+            bytes more = 4;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
@@ -29506,8 +29678,12 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // baylee_core::wire-encoded baylee_view::GameStatic.
+            // baylee_core::wire-encoded baylee_view::GameStatic, or empty when `more`
+            // says what joined it.
             bytes statics = 3;
+            // baylee_core::wire-encoded baylee_view::MorePrints: the printings to add to
+            // the payload the reader holds.
+            bytes more = 4;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
@@ -30168,8 +30344,12 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // baylee_core::wire-encoded baylee_view::GameStatic.
+            // baylee_core::wire-encoded baylee_view::GameStatic, or empty when `more`
+            // says what joined it.
             bytes statics = 3;
+            // baylee_core::wire-encoded baylee_view::MorePrints: the printings to add to
+            // the payload the reader holds.
+            bytes more = 4;
           }
 
           // Server → client: a state view after actions (journal seq for resync).
@@ -30830,8 +31010,12 @@ components:
             // that cannot render this version must be able to say so without first
             // decoding a structure whose shape is exactly what changed.
             uint32 view_version = 2;
-            // baylee_core::wire-encoded baylee_view::GameStatic.
+            // baylee_core::wire-encoded baylee_view::GameStatic, or empty when `more`
+            // says what joined it.
             bytes statics = 3;
+            // baylee_core::wire-encoded baylee_view::MorePrints: the printings to add to
+            // the payload the reader holds.
+            bytes more = 4;
           }
 
           // Server → client: a state view after actions (journal seq for resync).

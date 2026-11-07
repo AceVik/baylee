@@ -181,6 +181,7 @@ fn static_frame() -> Message {
         game_id: game.game_id.clone(),
         view_version: game.view_version,
         statics: baylee_core::wire::encode(&game),
+        more: Vec::new(),
     }))
 }
 

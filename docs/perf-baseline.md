@@ -2084,4 +2084,34 @@ A guest's bytes reach the engine unread, so the decoders were tried, not read:
   all at 205 000 a second per core, on the `tools` profile: no panic. Of those, 4.4 million read as a frame, 2.4 million
   as a patch (41 000 of which then applied to a real view), 2.2 million as an action, 1.8 million as a question,
   3.0 million as a log, 2.6 million as a payload, 0.8 million as a setting and 14.9 million as an envelope, so the
-  damage reached past the first tag.
+  damage reached past the first tag. With `MorePrints` and `StaticReader` added, two more seeds of 60 million: no panic,
+  1.1 million reading as printings.
+
+### A printing goes alone
+
+After binary, `GameStatic` was 38 to 47 % of what was left, each new printing repeating the whole print table. It
+goes whole once now, and after that only what is new (`GameStaticMsg.more`, protocol 42). The frame counts did not move.
+
+| Per seat and game | Whole JSON | All in binary | Printings alone | Fewer than whole JSON |
+|---|---:|---:|---:|---:|
+| `wire` | 4 531 KB | 165 KB | 96 KB | 47× |
+| `wire --four` | 16 506 KB | 344 KB | 189 KB | 87× |
+| `table` | 12 809 KB | 217 KB | 139 KB | 92× |
+| `table --four` | 65 720 KB | 466 KB | 295 KB | 223× |
+
+The payload is 2.5 to 6.2 % of the bytes now, questions 7 to 13 %, and view frames 69 to 73 %.
+
+### What an outside read found
+
+A review that had not seen the fuzz results read the decoders while they ran. It found what 300 million rounds did
+not, because a hole in a sum of lengths needs a frame built for it:
+
+- **A list could be doubled.** `ListEdit::applied` held `dropped + kept` and `tail` to the length apart and never
+  together, so `kept = len, tail = len` left twice the list. A field of a dozen bytes said thirty-odd times asked for
+  tens of gigabytes before any digest was read: about 430 bytes to abort a client, from a hostile server. They are
+  held together now, and a list grows only by what a patch pays for. No guest can send a patch.
+- **Saying a zone or a list again** cost a few bytes and a walk of all of it, which made `apply` quadratic in a frame.
+  `diff` never does, so `apply` refuses it (`PatchError::Repeated`).
+
+A second finding came from the payload itself: `ResumeGame { last_seq: 0 }` sent the whole view and not the payload, so
+a reader that had lost printings could never have got them back. It sends both now.
