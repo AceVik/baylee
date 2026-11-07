@@ -107,5 +107,17 @@ class IntegrationTests(unittest.TestCase):
      self.assertEqual(transferred['supervised_loss_config']['categorical_weighting'],'symmetric_v1')
    for name,value in results[0]['state_dict'].items():
     torch.testing.assert_close(value,results[1]['state_dict'][name],atol=2e-5,rtol=2e-4)
+   # --train-rules-only through the real driver: an update reaches nothing
+   # outside the rule encoder, and both flags are part of the identity.
+   source=Path(temporary)/'1'/'net.pt'
+   rules_output=Path(temporary)/'rules-only'
+   rules_argv=['train5','--data','fake','--out',str(rules_output),'--d-model','32','--layers','1','--heads','4','--d-ff','64','--batch-size','4','--unroll','4','--board-chunk','2','--max-steps','1','--epochs','1','--loss-version','5','--loss-normalization','unroll_per_head','--outcome-weighting-off','--init',str(Path(temporary)/'1'),'--train-rules-only','--anchor-l2','0.5']
+   with patch('sys.argv',rules_argv),patch.object(driver.D4,'TrajectoryDataset4',Dataset),patch.object(driver.D4,'StatefulBatchSampler4',Sampler),patch.object(driver,'DataLoader',return_value=[]),patch.object(driver,'prefetch_batches',return_value=[(copy.deepcopy(batch),None)]),patch.object(driver,'evaluate_device',return_value=metrics),patch.object(driver.torch,'set_num_threads'),contextlib.redirect_stdout(io.StringIO()):
+    driver.main('v5')
+   before=torch.load(source,map_location='cpu',weights_only=False)['state_dict']
+   after=torch.load(rules_output/'last.pt',map_location='cpu',weights_only=False)
+   self.assertEqual((after['train_parts'],after['anchor_l2']),('rules',.5))
+   for name,value in before.items():
+    if not name.startswith('rules.'):torch.testing.assert_close(after['state_dict'][name],value,rtol=0,atol=0)
 
 if __name__=='__main__':unittest.main()
