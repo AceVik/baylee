@@ -11,7 +11,7 @@ card!(
     oracle_id = "b071bbaf-79fa-413b-807b-2cc86c8a8125",
     scryfall_id = "4b19fdac-da3e-4ebd-ae7b-6f31a97b2a0f",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Circular Logic",
         mana_cost = mana!("{2}{U}"),

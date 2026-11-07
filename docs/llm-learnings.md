@@ -7133,3 +7133,25 @@ code.
   `git diff --check` pass. `validate` accepts 12,545 cards (11,175 finished,
   70 of the machine-owned cards untested, and 1,370 stubs). The full gates
   remain deferred at the owner's request.
+
+## 2026-11-07 — Circular Logic's dynamic tax and Madness counter
+
+- Circular Logic composes the shared `PlayerMayPayOr` resolution with a count
+  of its controller's graveyard and the face-level madness cost; it needs no
+  engine, DSL, protocol, desktop or seat addition. Three canonical tests prove
+  that the count comes from Circular Logic's controller rather than the target
+  spell's controller, that paying the exact tax lets the target resolve, and
+  that declining counters it. The ordinary cast spends exactly {2}{U}.
+- The Madness test leaves an opposing Grizzly Bears on the stack while Prying
+  Eyes supplies a real discard. The discarded incarnation is cast for exactly
+  {U}, targets that spell, and asks for a tax of two after Prying Eyes and the
+  other discarded card reach the graveyard. Declining counters the Bears; the
+  resolved Circular Logic itself reaches the graveyard without changing turns.
+- Removing ability zero with `BAYLEE_MUTATE=5447:0` kills the paid-tax test.
+  All 373 house-AI tests, the full seat suite (497 unit tests and every
+  integration target), 152 desktop interaction tests and nine `record::seen`
+  tests (two ignored) pass. The desktop client including tests compiles.
+  `codegen --tables --check`, `require-card-tests`, formatting and
+  `git diff --check` pass. `validate` accepts 12,545 cards (11,175 finished,
+  69 of the machine-owned cards untested, and 1,370 stubs). The full gates
+  remain deferred at the owner's request.
