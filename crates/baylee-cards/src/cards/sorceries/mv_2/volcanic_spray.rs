@@ -16,7 +16,7 @@ card!(
     oracle_id = "dcf3cd72-3c3d-4847-83be-105966b0cd6a",
     scryfall_id = "97daab4b-d934-4a3f-a043-f7c9c1dd32bf",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Volcanic Spray",
         mana_cost = mana!("{1}{R}"),

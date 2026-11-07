@@ -481,12 +481,23 @@ express at all yet.
   spell is not castable while nothing can pay it, and the sacrificed
   permanent's mana value is written on the spell for
   `Amount::SacrificedManaValue`.
-- `FaceDef.flashback: Option<ManaCost>` — a printed "Flashback {…}" (CR
-  702.34a), mana only. From the owner's graveyard the cast is offered as
-  `CastModeKind::Flashback` at that price (beside a grant's `Normal` at the
-  mana cost, when there is one), and the spell is exiled afterwards.
-  `validate` holds it against the printing. What the cast paid is
-  `Amount::ManaSpentToCast` (Memory Deluge).
+- `FaceDef.flashback: Option<ManaCost>` and
+  `FaceDef.flashback_parts: &[CostPart]` — a printed "Flashback {…}" (CR
+  702.34a), with its mana and non-mana halves kept separately. A non-mana-only
+  cost uses `ManaCost::ZERO`, not an omitted flashback cost. From the owner's
+  graveyard the cast is offered as `CastModeKind::Flashback` at that combined
+  price (beside a grant's `Normal` at the mana cost, when there is one), and
+  the spell is exiled afterwards. The parts share alternative-cost payment
+  through `cast_wizard::paid_as_an_alternative_cost`; the reader admits only
+  supported `PayLife`, `Sacrifice` and `ReturnToHand` parts, and refuses every
+  other spelling as an honest stub. `validate` holds the cost against the
+  printing. What the cast paid is `Amount::ManaSpentToCast` (Memory Deluge).
+- `FaceDef.madness: Option<Cost>` — "Madness [cost]" (CR 702.35). Discarding
+  the card exiles it instead and puts a counterable trigger on the stack. Its
+  owner may then cast that exact exiled incarnation for this alternative cost;
+  declining or failing to complete its cast while it remains exiled puts it
+  into its owner's graveyard. The reader accepts mana, X and `PayLife` costs, including
+  {0}, and refuses any part the cast wizard cannot pay.
 - `FaceDef.foretell: Option<ManaCost>` — a printed "Foretell {…}" (CR
   702.143a), mana only. During its owner's turn, with priority, the fixed {2}
   special action exiles that hand card face down without using the stack; it
@@ -896,7 +907,7 @@ Chromatic Sphere and the five Eggs use the stack because they draw cards.
 Quoted grants and delayed triggers are separate abilities. External replacements
 do not change this classification. Scry or shuffling alone does not cross a
 library zone boundary, but can still prohibit reversing an action under
-CR 733.1; mana classification is not an undo-safety guarantee. Triggered mana
+CR 734.1; mana classification is not an undo-safety guarantee. Triggered mana
 abilities retain their separate CR 605.1b criteria.
 
 Three of them go one step further and drop a field the card never decided.
@@ -1157,6 +1168,9 @@ cycle, the Gates — answer stored on `obj.chosen_color` and read back by
 `ManaSource::Chosen`), `ChooseCardName` (Pithing Needle — any face of any
 card of the pool, CR 201.4; answer stored on `obj.chosen_name` as the card
 and face it names, and read back by `Modifier::ChosenNameCantActivate`),
+`ChooseCardNameExcept(types)` (Meddling Mage — the same entry question and
+remembered answer, restricted to printed faces with none of the excluded
+types; `TypeSet::LAND` expresses "nonland card name"),
 `Prepared` (Emeritus of Woe),
 `TappedUnlessReveal(filter)` and
 `WithCounters { kind, amount }`.
@@ -2062,6 +2076,12 @@ as well (cycling), a loyalty ability included, and spares a mana ability
 by a *trigger* ("when this land enters, choose a land card name", Petrified
 Hamlet) has no DSL yet.
 
+Meddling Mage instead pairs `EnterModifier::ChooseCardNameExcept(TypeSet::LAND)`
+with `static_ability!(Filter::Any, Modifier::PlayersCantCast { who:
+PlayerRel::EachPlayer, filter: &Filter::NamedBySource })`. This is a cast
+prohibition, not `PlayersCantPlay`: it stops the named spell for its controller
+and every opponent, but neither a land play nor a differently named spell.
+
 `AnimateNoncreatureArtifact` implements Animate Artifact's conditional animation.
 Write it with `Filter::AttachedToBySource`. The effect checks for a noncreature
 in layer 4 and adds artifact and creature while retaining the other types,
@@ -2851,6 +2871,13 @@ Filters, conditions, modifiers and durations:
   unless defending player controls [filter]" (CR 508.1c): Sea Serpent's and
   Pirate Ship's Island. The filter is asked of the permanents of the player
   the creature would attack, so an Island of your own does nothing.
+- **`Modifier::CantAttackUnlessYouControlMoreCreaturesThanDefender`** and
+  **`Modifier::CantBlockUnlessYouControlMoreCreaturesThanAttacker`** are
+  Goblin Goon's and Mogg Toady's two comparative restrictions (CR 508.1c,
+  509.1b). The effect's controller must control strictly more creatures than
+  the chosen defending player or the particular attacker's current controller;
+  a tie is illegal. Every controlled creature counts, including one not being
+  declared, and a planeswalker's controller is its defending player.
 - **`Trigger::State(&condition)`** is a state trigger (CR 603.8): "When you
   control no Islands, sacrifice this creature" is
   `triggered!(Trigger::State(&NO_ISLANDS), &[Effect::SacrificeSelf])` with
@@ -3314,6 +3341,27 @@ counts later. Trigger placement and state-based actions wait until resolution
 finishes. The suspended choices participate in the engine snapshot fingerprint.
 See Wizards' 2016-06-08 rulings in the
 [Scryfall ruling record](https://api.scryfall.com/cards/ce648aa3-098b-4af0-a433-fd290bc85904/rulings).
+
+### Keeping one permanent of each kind (Cataclysm)
+
+`KeepOneOfEachAndSacrificeRest { filters }` takes a snapshot of every living
+player's controlled, unphased permanents. In active-player order, each player
+chooses at most one still-eligible permanent for each filter in list order. A
+multi-type permanent remains eligible after satisfying an earlier filter, so
+one artifact creature can cover both choices. A permanent matching no filter
+cannot be kept. Empty categories and forced one-card choices need no menu.
+
+Every choice finishes before any unchosen permanent is sacrificed; all such
+permanents still controlled by their original player are then sacrificed
+together. Kept identities are public through `CardsKept`, while no trigger,
+state-based action or priority intervenes. Empty and invalid resume answers
+never invent a choice: a departed player's group is skipped, and a category
+whose options disappeared through a departure advances without a selection.
+The complete continuation participates in the engine snapshot fingerprint.
+
+See Wizards' rulings on multi-type choices, APNAP order and simultaneous
+sacrifices in the
+[Scryfall ruling record](https://api.scryfall.com/cards/713160be-bcfd-4ef5-9457-c02b926ba06e/rulings).
 
 ### Generic cost increases (Gloom)
 
@@ -4803,7 +4851,7 @@ goes on once, from the result kept.
 
 **Triggers and conditions.** `Trigger::BecomesUntapped(&Filter)` [Mesmeric
 Orb] fires when a matching permanent becomes untapped, by any cause but the
-reversal of an undone payment (CR 733.1); the permanent is the event object,
+reversal of an undone payment (CR 734.1); the permanent is the event object,
 so `PlayerRel::ControllerOfEvent` is its controller.
 `Condition::HandSizeAtTurnStartAtMost(n)` [Mindstorm Crown] holds when the
 active player had at most `n` cards in hand as this turn began, before any

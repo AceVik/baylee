@@ -7944,6 +7944,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::ray_of_erasure::CARD,
     ),
     (
+        "29e13ec1-a239-4217-a2bd-24ff90745ec0",
+        &crate::cards::withered_wretch::CARD,
+    ),
+    (
         "29e8d973-0233-446e-b587-1c7508352642",
         &crate::cards::selesnya_sentry::CARD,
     ),
@@ -42644,6 +42648,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::rivalry::CARD,
     ),
     (
+        "da785227-cf8a-4d44-9e7c-fc909ea868f2",
+        &crate::cards::prosperous_innkeeper::CARD,
+    ),
+    (
         "da790c72-63e7-4955-9435-d073767f9bb5",
         &crate::cards::oversoul_of_dusk::CARD,
     ),
@@ -56279,7 +56287,7 @@ pub static BY_INDEX: &[Option<&CardDef>] = &[
     None,
     None,
     None,
-    None,
+    Some(&crate::cards::withered_wretch::CARD),
     None,
     Some(&crate::cards::akroma_s_devoted::CARD),
     Some(&crate::cards::akroma_angel_of_wrath::CARD),
@@ -72098,7 +72106,7 @@ pub static BY_INDEX: &[Option<&CardDef>] = &[
     None,
     None,
     None,
-    None,
+    Some(&crate::cards::prosperous_innkeeper::CARD),
     None,
     None,
     None,
@@ -83881,7 +83889,7 @@ pub static BY_INDEX: &[Option<&CardDef>] = &[
 ];
 
 /// FNV-1a hash over the registry content.
-pub const POOL_HASH: u64 = 0x248132ce0ccec2f5;
+pub const POOL_HASH: u64 = 0x30c5d1cda98b4f5f;
 
 pub fn by_oracle_id(oracle_id: &str) -> Option<&'static CardDef> {
     ALL.binary_search_by(|(id, _)| (*id).cmp(oracle_id))

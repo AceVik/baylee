@@ -990,6 +990,7 @@ impl Effect {
             | Effect::ExchangeControl
             | Effect::DestroyChosenForPlayers { .. }
             | Effect::EqualizePermanents { .. }
+            | Effect::KeepOneOfEachAndSacrificeRest { .. }
             | Effect::EqualizeHands
             | Effect::DiscardForPlayers { .. }
             | Effect::DiscardAmountForPlayers { .. }
@@ -1211,6 +1212,7 @@ impl Effect {
             | Effect::Regenerate { .. }
             | Effect::PumpTarget { .. }
             | Effect::PumpEventObject { .. }
+            | Effect::Madness
             | Effect::PumpTargetSlot { .. } => (NONE, NONE),
         }
     }

@@ -1527,10 +1527,15 @@ fn a_ward_outlasts_its_own_color(ward: CardIndex, lace: CardIndex, land: CardInd
 
 /// Protection from a color also means "can't be enchanted by Auras of that
 /// color": with the Ward on the creature, an Aura of that color is offered
-/// the bystander and not the creature, while a white Aura (the control) is
-/// still offered both.
+/// the bystander and not the creature, while `other_aura` is still offered both.
+/// The Plains support white Wards and Auras; the Swamps support black ones.
 #[track_caller]
-fn a_ward_keeps_auras_of_its_color_off(ward: CardIndex, aura: CardIndex, land: CardIndex) {
+fn a_ward_keeps_auras_of_its_color_off(
+    ward: CardIndex,
+    aura: CardIndex,
+    land: CardIndex,
+    other_aura: CardIndex,
+) {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, plains())
         .battlefield(
@@ -1538,12 +1543,15 @@ fn a_ward_keeps_auras_of_its_color_off(ward: CardIndex, aura: CardIndex, land: C
             &[
                 plains(),
                 plains(),
+                plains(),
                 land,
+                swamp(),
+                swamp(),
                 quiet_creature(),
                 festering_goblin(),
             ],
         )
-        .hand(0, &[ward, holy_armor(), aura])
+        .hand(0, &[ward, other_aura, aura])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
@@ -1552,11 +1560,11 @@ fn a_ward_keeps_auras_of_its_color_off(ward: CardIndex, aura: CardIndex, land: C
     tap_mana_where(&mut engine, p0, |id| id != creature && id != bystander);
 
     cast_on(&mut engine, ward, creature);
-    cast_with_floating(&mut engine, p0, holy_armor());
+    cast_with_floating(&mut engine, p0, other_aura);
     let menu = target_menu(&engine);
     assert!(
         menu.contains(&creature) && menu.contains(&bystander),
-        "a white Aura may enchant either: {menu:?}"
+        "an Aura of another color may enchant either: {menu:?}"
     );
     aim_at(&mut engine, p0, creature);
     pass_until(&mut engine, stack_is_empty);
@@ -1591,12 +1599,13 @@ fn a_ward_keeps_auras_of_its_color_off(ward: CardIndex, aura: CardIndex, land: C
 
 /// Protection from a color also prevents the damage a source of that color
 /// would deal to the creature. The same block, without the Ward, kills the
-/// 1/1 Elf; with it, the Elf walks away.
+/// 1/1 Elf; with it, the Elf survives with no damage marked. Checking the
+/// damage itself also covers Wards whose toughness bonus alone would save it.
 #[track_caller]
 fn a_ward_prevents_damage_from_its_color(ward: CardIndex, attacker: CardIndex, warded: bool) {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, plains())
-        .battlefield(0, &[plains(), quiet_creature()])
+        .battlefield(0, &[plains(), plains(), swamp(), swamp(), quiet_creature()])
         .hand(0, &[ward])
         .battlefield(1, &[attacker])
         .start();
@@ -1632,6 +1641,11 @@ fn a_ward_prevents_damage_from_its_color(ward: CardIndex, attacker: CardIndex, w
             on_battlefield(&engine, p0, quiet_creature()).is_some(),
             "the damage was prevented: the Elf lives"
         );
+        assert_eq!(
+            engine.state().object(elf).unwrap().damage,
+            0,
+            "protection, not merely the Aura's toughness bonus, prevented the damage"
+        );
     } else {
         assert!(
             in_graveyard(&engine, p0, quiet_creature()).is_some(),
@@ -1647,7 +1661,7 @@ fn a_ward_prevents_damage_from_its_color(ward: CardIndex, attacker: CardIndex, w
 fn a_warded_creature_slips_past_its_color(ward: CardIndex, blocker: CardIndex, warded: bool) {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, plains())
-        .battlefield(0, &[plains(), quiet_creature()])
+        .battlefield(0, &[plains(), plains(), swamp(), swamp(), quiet_creature()])
         .hand(0, &[ward])
         .battlefield(1, &[blocker, quiet_creature()])
         .start();

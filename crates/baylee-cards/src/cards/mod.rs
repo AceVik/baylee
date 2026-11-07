@@ -16127,6 +16127,8 @@ pub mod prophetic_prism;
 pub mod prophetic_ravings;
 #[path = "sorceries/mv_1/prosperity.rs"]
 pub mod prosperity;
+#[path = "creatures/mv_2/prosperous_innkeeper.rs"]
+pub mod prosperous_innkeeper;
 #[path = "creatures/mv_5/prosperous_pirates.rs"]
 pub mod prosperous_pirates;
 #[path = "enchantments/mv_3/protective_sphere.rs"]
@@ -24649,6 +24651,8 @@ pub mod witching_well;
 pub mod withdraw;
 #[path = "lands/scry/witherbloom_campus.rs"]
 pub mod witherbloom_campus;
+#[path = "creatures/mv_2/withered_wretch.rs"]
+pub mod withered_wretch;
 #[path = "instants/mv_2/withering_boon.rs"]
 pub mod withering_boon;
 #[path = "enchantments/auras/mv_1/withering_hex.rs"]

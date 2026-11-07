@@ -12,7 +12,7 @@ card!(
     oracle_id = "b8b9e6fd-b3ed-4fbc-8753-74018fa33caa",
     scryfall_id = "51a0c80e-4ace-4a2a-8b96-4472d1be6872",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Roar of the Wurm",
         mana_cost = mana!("{6}{G}"),

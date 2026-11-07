@@ -24,6 +24,8 @@ const EAGER: u32 = 1130;
 const SEAFARER: u32 = 1131;
 /// A vanilla 2/2.
 const BEAR: u32 = 1132;
+/// A 3/3 with both "unless you control more creatures" combat restrictions.
+const OUTNUMBERING: u32 = 1133;
 
 static ISLAND: Filter = Filter::HasSubtype(land::ISLAND);
 static EAGER_ABILITIES: &[AbilityDef] =
@@ -32,6 +34,16 @@ static SEAFARER_ABILITIES: &[AbilityDef] = &[static_ability!(
     Filter::This,
     Modifier::CantAttackUnlessDefenderControls(&ISLAND)
 )];
+static OUTNUMBERING_ABILITIES: &[AbilityDef] = &[
+    static_ability!(
+        Filter::This,
+        Modifier::CantAttackUnlessYouControlMoreCreaturesThanDefender
+    ),
+    static_ability!(
+        Filter::This,
+        Modifier::CantBlockUnlessYouControlMoreCreaturesThanAttacker
+    ),
+];
 
 fn fighter(
     index: u32,
@@ -62,6 +74,7 @@ fn lookup() -> SyntheticLookup {
         fighter(EAGER, "Eager", 5, 3, EAGER_ABILITIES),
         fighter(SEAFARER, "Seafarer", 5, 5, SEAFARER_ABILITIES),
         fighter(BEAR, "Bear", 2, 2, &[]),
+        fighter(OUTNUMBERING, "Outnumbering", 3, 3, OUTNUMBERING_ABILITIES),
     ])
 }
 
@@ -252,4 +265,85 @@ fn an_island_of_ones_own_does_not_let_it_attack() {
         unreachable!()
     };
     assert!(!attackers.contains(&seafarer));
+}
+
+/// "Unless you control more creatures than defending player" is strict, and
+/// the creature with the restriction and every other creature both count.
+/// The offer and a direct declaration must answer each boundary alike.
+#[test]
+fn creature_advantage_gates_both_the_attack_offer_and_its_declaration() {
+    let cases: &[(&[u32], &[u32], bool)] = &[
+        (&[OUTNUMBERING], &[], true),
+        (&[OUTNUMBERING], &[BEAR], false),
+        (&[OUTNUMBERING, BEAR], &[BEAR], true),
+        (&[OUTNUMBERING, BEAR], &[BEAR, BEAR], false),
+    ];
+    for &(mine, theirs, legal) in cases {
+        let mut engine = combat(mine, theirs);
+        let creature = one(&engine, OUTNUMBERING);
+        let Pending::ChooseAttackers { attackers, .. } = engine.pending().clone() else {
+            unreachable!()
+        };
+        assert_eq!(
+            attackers.contains(&creature),
+            legal,
+            "{mine:?} against {theirs:?}: wrong attack offer"
+        );
+        let result = declare(&mut engine, &[creature]);
+        assert_eq!(
+            result.is_ok(),
+            legal,
+            "{mine:?} against {theirs:?}: offer and declaration disagree"
+        );
+        assert_eq!(engine.state().combat.is_attacking(creature), legal);
+    }
+}
+
+/// The same printed comparison on a block is evaluated against the attacker,
+/// not merely against the creatures that were declared alongside it.
+#[test]
+fn creature_advantage_gates_both_the_block_offer_and_its_declaration() {
+    let cases: &[(&[u32], &[u32], bool)] = &[
+        (&[BEAR], &[OUTNUMBERING], false),
+        (&[BEAR], &[OUTNUMBERING, BEAR], true),
+        (&[BEAR, BEAR], &[OUTNUMBERING, BEAR], false),
+        (&[BEAR, BEAR], &[OUTNUMBERING, BEAR, BEAR], true),
+    ];
+    for &(mine, theirs, legal) in cases {
+        let mut engine = combat(mine, theirs);
+        let attacker = one(&engine, BEAR);
+        let blocker = one(&engine, OUTNUMBERING);
+        declare(&mut engine, &[attacker]).expect("the vanilla creature attacks");
+        let (player, offered) = loop {
+            match engine.pending().clone() {
+                Pending::ChooseBlockers {
+                    player, blockers, ..
+                } => break (player, blockers),
+                Pending::Priority { player, .. } => {
+                    engine.apply(player, PlayerAction::PassPriority).unwrap();
+                }
+                other => panic!("unexpected question before blocks: {other:?}"),
+            }
+        };
+        let pair_offered = offered
+            .iter()
+            .find(|option| option.blocker == blocker)
+            .is_some_and(|option| option.attackers.contains(&attacker));
+        assert_eq!(
+            pair_offered, legal,
+            "{mine:?} attacking into {theirs:?}: wrong block offer"
+        );
+        let result = engine.apply(
+            player,
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(blocker, attacker)],
+            },
+        );
+        assert_eq!(
+            result.is_ok(),
+            legal,
+            "{mine:?} attacking into {theirs:?}: block offer and declaration disagree"
+        );
+        assert_eq!(engine.state().combat.is_blocking(blocker, attacker), legal);
+    }
 }

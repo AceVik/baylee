@@ -1127,6 +1127,10 @@ pub(crate) fn delayed_references(action: &DelayedAction, out: &mut BTreeSet<Dama
             version,
             ..
         }
+        | DelayedAction::CastWithMadness {
+            card: object,
+            version,
+        }
         | DelayedAction::Transform {
             card: object,
             version,

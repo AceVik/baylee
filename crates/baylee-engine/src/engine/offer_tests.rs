@@ -894,20 +894,20 @@ fn every_counter_x_cost_in_the_pool_is_on_a_mana_ability() {
 
 /// The same class once more, on the side of the line where the parts above
 /// *are* paid — because "the casting wizard pays it" turned out to be a claim
-/// that has to name **which** of a spell's three cost lists.
+/// that has to name **which spell cost list** it means.
 ///
-/// They are paid in three different places and none of them by the same code:
+/// Those lists do not share one payment path:
 ///
-/// - `alternative_costs[i].cost.parts` pays `PayLife` and `ExileFromHand` —
-///   Force of Will's pitch. It is the only one with a gate: `cast_options`
-///   runs `can_afford` over it, so a `Sacrifice(_)` written here is *refused*.
-///   That is not safety. It is a refusal at the mode, and it took a second
-///   fix for it to be a refusal at all: `casting::can_cast` probed the
-///   alternative's *mana* and nothing else, so a pitch with nothing to pitch
-///   was listed as castable and the wizard then had no option to offer — a
-///   dead offer, the shape the `CommanderControlled` bug had. Both askers now
-///   read `casting::pitchable`, and a part neither of them understands is
-///   still one this list must never carry.
+/// - `alternative_costs[i].cost.parts` and `flashback_parts` pay the parts
+///   `paid_as_an_alternative_cost` names. `cast_options` runs `can_afford`
+///   over the former, so a `Sacrifice(_)` written there is *refused*. That is
+///   not safety. It is a refusal at the mode, and it took a second fix for it
+///   to be a refusal at all: `casting::can_cast` probed the alternative's
+///   *mana* and nothing else, so a pitch with nothing to pitch was listed as
+///   castable and the wizard then had no option to offer — a dead offer, the
+///   shape the `CommanderControlled` bug had. Both askers now read
+///   `casting::pitchable`, and a part neither of them understands is still one
+///   these lists must never carry. Flashback uses the same payment predicate.
 /// - `mandatory_additional_costs` pays `PayLifeX` and `PayLife` — Toxic
 ///   Deluge's X. Nothing gates it at all, so anything else there is not
 ///   refused but skipped, and the spell is cast without paying it.
@@ -923,7 +923,7 @@ fn every_counter_x_cost_in_the_pool_is_on_a_mana_ability() {
 /// Every card, not the implemented ones only, for `93ed903`'s reason: a
 /// partial card is dealt into decks and played, and a spell cast for free is
 /// not something `Coverage::Partial` should be able to hide. No token half —
-/// `TokenDef` carries none of these three lists, having no cost to cast — so
+/// `TokenDef` carries none of these lists, having no cost to cast — so
 /// the door beside the pool is checked here and found not to exist.
 ///
 /// [`cast_wizard::paid_as_an_alternative_cost`]: super::cast_wizard
@@ -933,14 +933,17 @@ fn no_spell_cost_list_carries_a_part_its_payment_walks_past() {
     let mut offenders = Vec::new();
     for def in baylee_cards::all() {
         for face in def.faces {
-            for alt in face.alternative_costs {
-                for part in alt.cost.parts {
-                    if !crate::engine::cast_wizard::paid_as_an_alternative_cost(part) {
-                        offenders.push(format!(
-                            "{} — alternative cost {part:?}, which `finish_cast` does not pay",
-                            face.name,
-                        ));
-                    }
+            for part in face
+                .alternative_costs
+                .iter()
+                .flat_map(|alt| alt.cost.parts)
+                .chain(face.flashback_parts)
+            {
+                if !crate::engine::cast_wizard::paid_as_an_alternative_cost(part) {
+                    offenders.push(format!(
+                        "{} — alternative cost {part:?}, which `finish_cast` does not pay",
+                        face.name,
+                    ));
                 }
             }
             for part in face.mandatory_additional_costs {

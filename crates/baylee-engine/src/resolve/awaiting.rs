@@ -784,6 +784,8 @@ pub enum AwaitingOp {
     },
     /// Collect all keep choices before sacrificing or discarding together.
     Equalize(Box<equalize::Selection>),
+    /// Choose one permanent per listed kind before sacrificing the rest together.
+    KeepOneOfEach(Box<keep_one_of_each::Selection>),
     /// After `DiscardForPlayers`: discard the chosen cards, then ask the
     /// next remaining player.
     DiscardChain {
@@ -1132,6 +1134,13 @@ pub enum AwaitingOp {
         /// The revealed top card.
         card: ObjectId,
     },
+    /// Madness's owner chooses whether to cast this exact exile incarnation.
+    Madness {
+        /// The card exiled instead of discarded to the graveyard.
+        card: ObjectId,
+        /// Its identity in exile (CR 400.7).
+        version: u32,
+    },
 }
 
 /// Work to resume after a resolution-time mana payment.
@@ -1274,6 +1283,9 @@ impl AwaitingOp {
             }
             Self::DirectedSearch(selection) => {
                 crate::state::structural_fingerprint(&(71u8, selection.fingerprint()))
+            }
+            Self::KeepOneOfEach(selection) => {
+                crate::state::structural_fingerprint(&(83u8, selection))
             }
             Self::RepeatedGraveyardChoice(selection) => {
                 crate::state::structural_fingerprint(&(72u8, selection))

@@ -2192,6 +2192,8 @@ mod loyalty_flow_tests;
 #[cfg(test)]
 mod m2_tests;
 #[cfg(test)]
+mod madness_tests;
+#[cfg(test)]
 mod mana_criteria_tests;
 #[cfg(test)]
 mod mana_flow_tests;

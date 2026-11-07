@@ -35,11 +35,12 @@
 //! Four things in that table have no probe here, and the reasons are
 //! three different ones.
 //!
-//! **Proliferate, madness and meld are words the DSL cannot say at all.**
-//! There is no `Effect` for proliferate and no handle anywhere for the other
-//! two, so the thing that would have to change first is the vocabulary
-//! rather than a card. A probe would assert zero against a population that
-//! can never be anything else, which is a green test measuring nothing.
+//! **Proliferate and meld are words the DSL cannot say at all.** There is no
+//! `Effect` for proliferate and no handle anywhere for meld, so the thing that
+//! would have to change first is the vocabulary rather than a card. A probe
+//! would assert zero against a population that can never be anything else,
+//! which is a green test measuring nothing. Madness has its own face cost and
+//! a real-engine AI test now, and is counted in `mechanic_debt.rs`.
 //!
 //! **Infect and wither can be said and are not printed**, so they *are*
 //! probed — in the tripwire test above, where a zero is the finding.

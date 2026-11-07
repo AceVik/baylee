@@ -23,6 +23,7 @@ mod ardent_militia;
 mod argothian_treefolk;
 mod armored_guardian;
 mod arrogant_vampire;
+mod arrogant_wurm;
 mod ashaya_soul_of_the_wild;
 mod avarax;
 mod aven_flock;

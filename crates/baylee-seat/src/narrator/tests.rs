@@ -1316,6 +1316,50 @@ fn a_kicker_question_names_the_cost_and_what_an_unpaid_one_does() {
 }
 
 #[test]
+fn madness_names_the_visible_cost_and_the_graveyard_fallback() {
+    let (mut view, log) = board();
+    view.exile[0].push(card(70, "Basking Rootwalla"));
+    let request = request(
+        view,
+        Pending::YesNo {
+            player: ME,
+            prompt: baylee_engine::choice::YesNoPrompt::Madness { card: id(70) },
+            source: None,
+        },
+        log,
+    );
+    let wake = Narrator::new(&request.context).wake(&request, &[], None);
+    assert!(
+        wake.text.contains(
+            "Cast Basking Rootwalla #70 for its madness cost {0}? If you don't, it goes into your graveyard."
+        ),
+        "{text}",
+        text = wake.text
+    );
+    assert!(
+        wake.text.contains("cast it for its madness cost {0}"),
+        "{text}",
+        text = wake.text
+    );
+    assert!(
+        wake.text.contains("put it into your graveyard"),
+        "{text}",
+        text = wake.text
+    );
+    for answer in [true, false] {
+        let decision = Decision {
+            ask: Some(format!("q{}", wake.menu.question)),
+            pick: vec![if answer { "y" } else { "n" }.into()],
+            ..Decision::default()
+        };
+        assert_eq!(
+            wake.menu.resolve(&decision).expect("a legal answer").act,
+            Act::Now(PlayerAction::YesNo(answer))
+        );
+    }
+}
+
+#[test]
 fn a_turn_trade_names_the_permanent_and_both_consequences() {
     use baylee_engine::choice::YesNoPrompt;
     let (mut view, log) = board();

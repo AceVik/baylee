@@ -1078,3 +1078,79 @@ fn foretell_reads_only_its_complete_mana_cost() {
         assert!(transcode(&parsed, &cats(), None).is_none(), "{script}");
     }
 }
+
+/// Flashback's mana and non-mana halves share the ordinary alternative-cost
+/// payment path. Only parts that path actually pays may be emitted.
+#[test]
+fn flashback_reads_its_complete_supported_cost() {
+    let mana = read("Name:X\nTypes:Instant\nK:Flashback:4 R\nA:SP$ Draw | NumCards$ 1");
+    assert_eq!(mana.flashback.as_deref(), Some("Some(mana!(\"{4}{R}\"))"));
+    assert!(mana.flashback_parts.is_empty());
+
+    let parts = read(
+        "Name:X\nTypes:Instant\nK:Flashback:2 PayLife<3> Sac<1/Mountain>\n\
+         A:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 1",
+    );
+    assert_eq!(parts.flashback.as_deref(), Some("Some(mana!(\"{2}\"))"));
+    assert_eq!(
+        parts.flashback_parts,
+        ["PayLife(3)".to_string(), "Sacrifice(&COST1)".to_string()]
+    );
+    assert_eq!(
+        parts.statics,
+        concat!(
+            "static COST1: Filter = Filter::And(&[",
+            "Filter::HasSubtype(subtypes::land::MOUNTAIN), ",
+            "Filter::ControlledByYou]);\n\n"
+        )
+    );
+
+    let bounce = read("Name:X\nTypes:Instant\nK:Flashback:Return<1/Mountain>");
+    assert_eq!(bounce.flashback.as_deref(), Some("Some(ManaCost::ZERO)"));
+    assert_eq!(bounce.flashback_parts, ["ReturnToHand(&COST1)"]);
+
+    for script in [
+        "Name:X\nTypes:Instant\nK:Flashback:",
+        "Name:X\nTypes:Instant\nK:Flashback:T",
+        "Name:X\nTypes:Instant\nK:Flashback:Discard<1/Card>",
+        "Name:X\nTypes:Instant\nK:Flashback:Return<1/CARDNAME>",
+        "Name:X\nTypes:Instant\nK:Flashback:1 R:Unexpected",
+    ] {
+        assert!(refused(script), "{script}");
+    }
+}
+
+/// Madness keeps zero, ordinary mana, announced X and its printed life payment
+/// distinct. Every other or extended cost remains an honest stub.
+#[test]
+fn madness_reads_its_complete_supported_cost() {
+    let zero = read("Name:X\nTypes:Creature\nK:Madness:0");
+    assert_eq!(zero.madness.as_deref(), Some("Some(cost!(\"{0}\"))"));
+    assert!(!zero.is_empty());
+
+    let mana = read("Name:X\nTypes:Instant\nK:Madness:1 R R\nA:SP$ Draw | NumCards$ 1");
+    assert_eq!(mana.madness.as_deref(), Some("Some(cost!(\"{1}{R}{R}\"))"));
+
+    let life = read("Name:X\nTypes:Creature\nK:Madness:2 B PayLife<8>");
+    assert_eq!(
+        life.madness.as_deref(),
+        Some("Some(cost!(\"{2}{B}\", PayLife(8)))")
+    );
+
+    let x = read(
+        "Name:X\nTypes:Instant\nK:Madness:X U U\n\
+         A:SP$ DealDamage | ValidTgts$ Any | NumDmg$ X\nSVar:X:Count$xPaid",
+    );
+    assert_eq!(x.madness.as_deref(), Some("Some(cost!(\"{X}{U}{U}\"))"));
+
+    for script in [
+        "Name:X\nTypes:Creature\nK:Madness:",
+        "Name:X\nTypes:Creature\nK:Madness:X",
+        "Name:X\nTypes:Creature\nK:Madness:T",
+        "Name:X\nTypes:Creature\nK:Madness:Sac<1/Creature>",
+        "Name:X\nTypes:Creature\nK:Madness:Discard<1/Card>",
+        "Name:X\nTypes:Creature\nK:Madness:1 G:Unexpected",
+    ] {
+        assert!(refused(script), "{script}");
+    }
+}

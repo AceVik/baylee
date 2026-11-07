@@ -6698,7 +6698,6 @@ got wrong was in the tests, not in the cards:
   house AI uses the same offered-card values. Their focused private-inspection,
   long-list narration and valuation regressions pass without a card-specific
   presentation or policy.
-||||||| parent of f4e3e6fb7 (docs(learnings): close the review of PR 415)
 ## 2026-11-05 — Review of PR 415 (Ice Age to Icy Prison, author Kimi)
 
 Read by Claude Opus 5.5, with a second reader's ten findings checked by test.
@@ -6810,3 +6809,770 @@ code.
   read. A private `LookAtTopFind` with no match no longer asks an empty
   `ChooseCards` (it did before, with `max` 0); nothing the player could see
   changed and the replay record is byte-identical.
+
+## 2026-11-06 — Goblin Goon and Mogg Toady's comparative combat counts
+
+- Add two small text-layer modifiers for "can't attack/block unless you control
+  more creatures than defending/attacking player" (CR 508.1c, 509.1b). One
+  `CreatureCounts` helper counts each player's projected battlefield creatures
+  once per declaration. The comparison is strict and includes creatures outside
+  the declaration; blocks read the particular attacker's current controller, not
+  the active player. Both are rules-only modifiers and lock no characteristic
+  set. Block offers and direct declarations share the non-mana predicate, while
+  the existing payment window remains independent.
+- The reader accepts only the two confirmed script spellings, including the
+  block form's exact counted SVars and comparison. Altered filters, counts,
+  conditions, comparisons and unknown parameters remain honest stubs. Codegen
+  completed both Goblin Goon and the text-identical Mogg Toady with no skipped
+  clause; the scope validator recognizes these modifiers as counting the effect
+  controller's creatures instead of demanding a redundant filter.
+- Four played card tests were red against the old stubs and now pass. They cover
+  each defender in a three-player attack, ties, and both directions of a block
+  after the attacker's control changes. The control change must happen before
+  the engine builds `Pending::ChooseBlockers`: `refresh_offer` rebuilds only a
+  priority question. Eight direct requirement tests cover both offers and direct
+  declarations at the 1:0, 1:1, 2:1 and 2:2 boundaries. The final focused runs
+  also pass 465 combat tests, 13 effect tests, both reader regressions and the
+  three DSL static-ability tests; all 90 DSL unit tests passed as well.
+- Desktop and LLM seats consume the existing per-defender attack limits and
+  blocker/attacker pairings, with no new pending shape or card-specific policy.
+  All 363 house-AI tests, 101 seat-narrator tests and 151 desktop interaction
+  tests pass, and the desktop client including its tests compiles. `validate`
+  accepts all 12,543 cards, `require-card-tests`, affected Clippy with warnings
+  denied, formatting and `git diff --check` pass. The full gates remain
+  deliberately deferred at the owner's request.
+
+## 2026-11-06 — Daze and returns as an alternative spell cost
+
+- `CostPart::ReturnToHand` now participates in the casting wizard's alternative
+  costs through the existing `cost_wizard` question and payment path. A return
+  does not populate the spell's sacrificed-permanent receipt. The existing
+  augmenting-path assignment supplies the offer and successive choices, so
+  overlapping filters and repeated returns do not need a second implementation.
+- The two synthetic rule tests failed before the change: one returned nothing,
+  while one creature was incorrectly sufficient for two return parts. They now
+  cover payment before stack placement, rejection of duplicate answers, and
+  returning a controlled permanent to its owner's rather than its controller's
+  hand. A direct controller change in a test needs `refresh_offer` before the
+  cached legal-action list can demonstrate the new payment.
+- Daze has four played tests covering its alternative and ordinary costs,
+  payment and nonpayment of the counter tax, and refusal of an opponent's
+  Island. Its filter states both "Island" and "you control" for the scope
+  validator; the cost's independent controller check remains the legality
+  boundary. Existing desktop and seat `CostReturn` flows required no new
+  pending shape. The 364 house-AI tests, full seat suite, 151 interaction
+  tests, `record::seen`, affected Clippy, `validate` and formatting checks pass;
+  the full gates remain deferred at the owner's request.
+
+## 2026-11-06 — Gush reuses the alternative return payment
+
+- Gush needs no new engine, reader, desktop or seat code: two
+  `CostPart::ReturnToHand` parts use Daze's alternative-cost path and the
+  existing distinct-object matching. Its three played tests cover the ordinary
+  mana cost, two distinct controlled Islands returned before the spell resolves,
+  exactly two cards drawn, and rejection of a Forest or an opponent's Island.
+- A no-legal-cast assertion must account for `LegalActions::payable`: it means
+  every non-mana rule passes and the seat still has a mana source, not that the
+  complete cost is already payable. Tap the available sources before requiring
+  both `castable` and `payable` to omit the card. The shared cost tests, Daze,
+  house AI, full seat suite, desktop interaction tests, `record::seen`,
+  `validate`, affected Clippy and formatting checks pass.
+
+## 2026-11-06 — Weathered Wayfarer's conditional land search
+
+- Weathered Wayfarer combines the existing `OpponentControlsMore(Filter::LAND)`
+  activation condition, `{W}` plus `TapSelf` costs and `SearchLibrary` into no
+  new engine, reader, desktop or seat path. Three played tests cover a nonbasic
+  land, exclusion of nonlands, reveal and shuffle, strict inequality at one land
+  each, the white pip and the tapped-source restriction.
+- A mandatory search for a stated quality still permits failing to find, so its
+  `ChooseCards` has `min = 0` even with `optional: false`; `optional` only
+  controls choosing fewer in an unrestricted search. An activated ability must
+  resolve before its search question appears: pass priority to reach it rather
+  than expecting the search immediately after `ActivateAbility`.
+- The house already reads the land-to-hand activation; its exact census rises
+  by one activation and one readable row. The full house-AI and seat suites,
+  analogous Greenseeker and Knight tests, desktop interaction tests,
+  `record::seen`, `validate`, affected Clippy and formatting checks pass. The
+  full gates remain deferred at the owner's request.
+
+## 2026-11-06 — Cataclysm's reusable multi-type keep choices
+
+- `KeepOneOfEachAndSacrificeRest`, appended to `Effect` to preserve recorded
+  variant numbers, takes a controlled-permanent snapshot and asks in APNAP
+  order. A multi-type permanent may satisfy several categories; permanents of
+  unlisted types are not offered. Every choice finishes before all unchosen
+  permanents are sacrificed together. Empty categories need no invented answer,
+  and a departing chooser skips only their own remaining choices. The pending
+  continuation and the public `CardsKept` events participate in replay hashes.
+- The engine mutation check initially used a fixture too weak to prove reuse:
+  excluding an already chosen multi-type permanent still passed with only one
+  creature. A second creature made that deliberate defect fail, after which the
+  correct implementation was restored. Five rule tests and five played card
+  tests now cover empty filters, reuse, invalid answers, APNAP, simultaneous
+  sacrifice, departure and continuation fingerprints.
+- Independent per-category winners are the wrong AI objective. Choosing a
+  valuable artifact creature for both categories can kill a second creature
+  unnecessarily. The house now optimizes the whole retained set with bounded,
+  deterministic dynamic programming, charges each retained identity once and
+  treats an empty category as no choice rather than no solution. A forced menu
+  candidate survives same-signature deduplication; ambiguous menus retain the
+  generic fallback. The 50,000-state cap is enforced while states are built,
+  not only after a potentially unbounded expansion.
+- Desktop and seats reuse `KeepPermanents`, `CardsKept` and `DecisionContext`;
+  no protocol variant was added. All 366 house-AI tests, the full seat suite,
+  151 desktop interaction tests, `record::seen`, affected Clippy, the desktop
+  test build, `require-card-tests` and formatting checks pass. `validate`
+  accepts 12,543 cards (11,157 finished, 1,386 stubs). The full gates remain
+  deferred at the owner's request.
+
+## 2026-11-06 — Nantuko Vigilante's face-up destruction trigger
+
+- Nantuko Vigilante composes the existing face-level `morph` cost,
+  `Trigger::TurnedFaceUp`, `Effect::Destroy` and
+  `Filter::ARTIFACT_OR_ENCHANTMENT`; it needs no engine, reader, desktop or
+  seat addition. `TargetReq::one` keeps the destruction mandatory and permits
+  either player's artifacts and enchantments, never an arbitrary permanent.
+- Four played tests cover the face-down 2/2 and face-up 3/2 characteristics,
+  exact morph payment, the special action versus the stacked trigger, both
+  target types, illegal creature targets, no legal target, and a target removed
+  before resolution without a substitute. A fixture with extra mana sources
+  must assert the mana delta across morph rather than an empty remaining pool.
+- All 367 house-AI tests, the full seat suite, 151 desktop interaction tests,
+  `record::seen`, affected Clippy, the desktop test build, `require-card-tests`
+  and formatting checks pass. `validate` accepts 12,543 cards (11,158 finished,
+  1,385 stubs). The full gates remain deferred at the owner's request.
+
+
+## 2026-11-06 — Meddling Mage's restricted entry name
+
+- `EnterModifier::ChooseCardNameExcept(TypeSet::LAND)` reuses the existing
+  `Pending::ChooseCardName`, answer validation, remembered rider and desktop,
+  seat and LLM presentation. `PlayersCantCast { who: EachPlayer, filter:
+  NamedBySource }` supplies the second sentence without a new modifier. The
+  unrestricted Pithing Needle path remains unchanged; no reader was taught a
+  sentence it cannot safely recognize.
+- Two played tests cover nonland-only naming, invalid faces and respondents,
+  the stored choice, the offer and direct-cast prohibition for both players,
+  differently named spells, a real land play, and forgetting and rechoosing
+  after a zone change. The house's separate nonland-answer test guards its
+  existing filter. Fixtures must leave mana for each differently named control
+  spell after paying for the Mage, or a true prohibition is indistinguishable
+  from an unpayable spell.
+- Both card tests, 13 Needle-related engine tests, all 368 house-AI tests, the
+  full seat suite, 151 desktop interaction tests, `record::seen`, affected
+  Clippy, the desktop test build, `require-card-tests` and formatting checks
+  pass. `validate` accepts 12,543 cards (11,159 finished, 1,384 stubs). The
+  full gates remain deferred at the owner's request.
+
+## 2026-11-06 — Lava Dart's non-mana flashback cost
+
+- The reader now carries supported `PayLife`, `Sacrifice` and `ReturnToHand`
+  parts from `K:Flashback` into `CardBody.flashback_parts`, rendering them
+  beside the mana cost. A non-mana-only cost is `ManaCost::ZERO`; an empty or
+  unsupported cost remains an honest stub. The pool-wide cost-list test now
+  covers these parts as well as ordinary alternative costs, and the DSL
+  contract documents the shared payment path.
+- Codegen completed only the explicitly selected Lava Dart stub. Its four
+  played tests were red against the old stub and now cover the exact red mana
+  cost, damage to both a player and a creature, a controlled Mountain sacrificed
+  after targeting, no mana paid for flashback, exile afterwards, refusal of a
+  Forest or an opposing Mountain, and no replacement when the target leaves.
+  After a dev-state move changes the zone a spell is cast from, a priority
+  fixture must call `refresh_offer()` before inspecting its cached legality.
+- All 442 reader tests, 22 flashback tests, the pool cost-list test, all 370
+  house-AI tests and all 587 seat tests pass. The existing target and
+  `CostSacrifice` questions serve desktop and LLM seats without a new pending
+  shape: 151 desktop interaction tests and 9 `record::seen` tests pass, and
+  the desktop client including tests compiles. `validate` accepts 12,543 cards
+  (11,160 finished, 1,383 stubs); `require-card-tests`, affected Clippy,
+  formatting and `git diff --check` pass. The full gates remain deferred at
+  the owner's request.
+
+## 2026-11-06 — Withered Wretch and mixed-cost flashback validation
+
+- Withered Wretch already had its append-only index (6095), cached printing and
+  corpus identity, so only the pool addition was needed: no index or
+  `corpus-keep` change. The existing activated target and exile effects read
+  the whole card. The full codegen run also made the earlier non-mana flashback
+  reader extension visible on Acorn Harvest, Crippling Fatigue and Deep
+  Analysis. Their token creation, pump, chosen-player draw, mixed alternative
+  costs and flashback exile all reuse existing engine and DSL pieces.
+- Eight played card tests cover both graveyards, exact generic mana payment,
+  no tap cost, no legal target and no replacement target, Squirrel identity and
+  count, -2/-2 until end of turn, either player drawing exactly two cards, the
+  exact 3-life payment, insufficient life and exile after flashback. The
+  focused 24-test flashback run also passes. No new pending shape or
+  card-specific desktop, seat or house policy was needed.
+- `validate` initially rejected the three mixed costs because its printing
+  reader recognized only `Flashback {…}`, not `Flashback—{…}`, and tried to
+  parse `, Pay 3 life` as mana. It now accepts either printed spelling and
+  compares the mana prefix before the first non-mana part. Two xtask regression
+  tests cover both spellings, non-mana-only flashback, and rejection of wrong,
+  missing or additional mana rather than weakening the comparison.
+- All 370 house-AI tests pass, including the per-card Withered Wretch reader
+  assertion and the reviewed 2,998-of-3,788 activation census. All 587 seat
+  tests, 151 desktop interaction tests and 9 `record::seen` tests pass; the
+  desktop client including tests compiles. `validate` accepts 12,544 cards
+  (11,164 finished, 1,380 stubs); `require-card-tests`, affected Clippy,
+  formatting and `git diff --check` pass. The full gates remain deferred at
+  the owner's request.
+
+## 2026-11-06 — Madness as a discard replacement and a real cast
+
+- The reader now puts a fully understood madness price in `FaceDef.madness`,
+  including mana, an explicit zero, X and life payments. Unknown costs remain
+  honest stubs rather than silently becoming free casts. Codegen carries the
+  face field through stub and generated rendering without inventing effects.
+- A discard is one shared `GameState::discard_card` transition for effects,
+  chosen activation costs, `DiscardSelf` and cleanup. Ordinary cards emit one
+  `Discarded` event and receive exactly one graveyard incarnation. Madness
+  replaces only that discard's destination with exile, remembers the card's
+  version, and puts a counterable synthetic trigger on the stack (CR 702.35a).
+  Directly casting from the discard routine would skip both the trigger and
+  an opponent's response. The two activation paths used to book a second
+  graveyard successor in addition to the real move; red tests exposed both
+  duplicate receipts before the duplicated bookkeeping was removed.
+- Declining the trigger or failing to cast uses a version-checked graveyard
+  fallback. It neither revives an old incarnation nor records a second
+  discard. Countering the trigger and countering the resulting spell remain
+  different outcomes, and a departing player's trigger and pending decisions
+  are handled by the ordinary departure machinery.
+- Madness shares the cast wizard's modal preflight with alternative costs,
+  but `cast_mode` (which rules text is used) and `alternative_cost` (which
+  price replaces the mana cost) remain separate. Legal targets and every
+  non-mana part must be available before the trigger offers the cast; X,
+  targets, additional costs and a later mana-payment window then use the
+  ordinary wizard. An accepted cast that cannot complete produces the same
+  journaled `CastCancelled` outcome as its neighbouring effect casts.
+- The public decision context carries the visible alternative-cost choice to
+  the desktop, house and LLM seats without exposing hidden cards. The house
+  plans and pays that cost, including X; the narrator prints a mana-empty
+  madness price as `{0}`, not as an omitted price. The real-game integration
+  test drives the choice through the gamehost rather than only a policy mock.
+  A timeout delegates the choice to the house rather than treating the
+  graveyard move as inaction, and a life payment uses the activation reserve.
+- `codegen --promote-generated` is the narrow transition for a selected,
+  already reviewed generated card whose canonical test is now accepted. It
+  preserves identity and placement, preflights the whole selection and writes
+  no tables or unrelated cards. Basking Rootwalla was promoted this way: its
+  own tests play the pump and once-per-turn reset, a free madness cast during
+  the opponent's turn, and decline followed by the graveyard fallback.
+- Before the final rebase, the complete engine suite passed 16,825 tests (two
+  ignored) plus two footprint tests. The three focused house-policy tests,
+  the real gamehost game and seven coverage guards passed. `validate` accepted
+  12,544 cards (11,165 finished, 1,379 stubs), `codegen --tables --check`,
+  `require-card-tests`, `cargo dev gate touched`, formatting and
+  `git diff --check` passed. The full gates remain deferred at the owner's
+  request.
+
+## 2026-11-06 — Prosperous Innkeeper and newly readable Madness cards
+
+- Prosperous Innkeeper composes the existing ETB token creation and
+  `Trigger::EntersBattlefield` filter for another controlled creature. The
+  ordinary reader transcoded both printed sentences, so no engine, DSL,
+  protocol, desktop or seat addition was needed. Its canonical tests cast the
+  card, inspect the artifact Treasure, prove that its own entry gives no life,
+  and play a later creature, an artifact and a second Innkeeper. An opposing
+  creature also gives no life. Removing either ability with `BAYLEE_MUTATE`
+  kills its corresponding test.
+- The full corpus run also materialized nine other cards already supported by
+  the Madness reader: Arrogant Wurm, Circular Logic, Fiery Temper, Frantic
+  Purification, Obsessive Search, Psychotic Haze, Violent Eruption, Strength of
+  Isolation and Strength of Lunacy. They remain `Coverage::Generated` until
+  their canonical tests are accepted; this batch does not claim them as fully
+  tested. Obsessive Search legitimately joined the house's exact cantrip
+  census, whose expected list now includes it.
+- Three Innkeeper tests, all 373 house-AI tests, the full seat suite (494 unit
+  tests and every integration target), 152 desktop interaction tests and nine
+  `record::seen` tests pass. The desktop client including tests compiles.
+  `codegen --tables --check`, `require-card-tests`, formatting and
+  `git diff --check` pass. `validate` accepts 12,545 cards (11,175 finished,
+  1,370 stubs). The full gates remain deferred at the owner's request.
+
+## 2026-11-07 — Violent Eruption's played damage division
+
+- Violent Eruption already composes the shared divided-damage spell shape with
+  the face-level madness cost; it needs no engine, DSL, protocol, desktop or
+  seat addition. Its three canonical tests pay the ordinary {1}{R}{R}{R},
+  distribute all four damage across two creatures and a player, reject a zero
+  share, remove one target with a real Lightning Bolt without redistributing
+  its share, and cast the discarded incarnation for exactly {1}{R}{R}. Prying
+  Eyes supplies the real discard rather than moving the card directly to exile.
+- `Duel::battlefield` replaces that seat's previous starting battlefield; it
+  does not append. Combining every land and creature for a seat in one call is
+  necessary when a test asserts an exact mana total. Removing ability zero with
+  `BAYLEE_MUTATE=5554:0` kills the ordinary distribution test, and the restored
+  card passes all three tests plus the eight shared divided-spell tests.
+- All 373 house-AI tests, the full seat suite (494 unit tests and every
+  integration target), 152 desktop interaction tests and nine `record::seen`
+  tests (two ignored) pass. The desktop client including tests compiles.
+  `codegen --tables --check`, `require-card-tests`, formatting and
+  `git diff --check` pass. `validate` accepts 12,545 cards (11,175 finished,
+  71 of the machine-owned cards untested, and 1,370 stubs). The full gates
+  remain deferred at the owner's request.
+
+## 2026-11-07 — Fiery Temper's ordinary and Madness casts
+
+- Fiery Temper composes the existing any-target damage effect with the shared
+  face-level madness cost; it needs no engine, DSL, protocol, desktop or seat
+  addition. Its two canonical tests pay the ordinary {1}{R}{R} twice, hit a
+  player and then a creature, and cast the exact discarded incarnation for {R}
+  during an opponent's turn. Prying Eyes supplies a real discard and leaves
+  exactly one red mana; the resolved Madness spell reaches the graveyard and
+  does not change the active player.
+- Wall of Stone is the damage fixture because it survives three damage and
+  therefore retains its damage marker. A lethal creature fixture would move
+  zones and reset that marker, making a correct damage effect look absent.
+  Removing ability zero with `BAYLEE_MUTATE=5463:0` kills the ordinary cast
+  test, and the restored card passes both tests after promotion.
+- All 373 house-AI tests, the full seat suite (494 unit tests and every
+  integration target), 152 desktop interaction tests and nine `record::seen`
+  tests (two ignored) pass. The desktop client including tests compiles.
+  `codegen --tables --check`, `require-card-tests`, formatting and
+  `git diff --check` pass. `validate` accepts 12,545 cards (11,175 finished,
+  70 of the machine-owned cards untested, and 1,370 stubs). The full gates
+  remain deferred at the owner's request.
+
+## 2026-11-07 — Circular Logic's dynamic tax and Madness counter
+
+- Circular Logic composes the shared `PlayerMayPayOr` resolution with a count
+  of its controller's graveyard and the face-level madness cost; it needs no
+  engine, DSL, protocol, desktop or seat addition. Three canonical tests prove
+  that the count comes from Circular Logic's controller rather than the target
+  spell's controller, that paying the exact tax lets the target resolve, and
+  that declining counters it. The ordinary cast spends exactly {2}{U}.
+- The Madness test leaves an opposing Grizzly Bears on the stack while Prying
+  Eyes supplies a real discard. The discarded incarnation is cast for exactly
+  {U}, targets that spell, and asks for a tax of two after Prying Eyes and the
+  other discarded card reach the graveyard. Declining counters the Bears; the
+  resolved Circular Logic itself reaches the graveyard without changing turns.
+- Removing ability zero with `BAYLEE_MUTATE=5447:0` kills the paid-tax test.
+  All 373 house-AI tests, the full seat suite (497 unit tests and every
+  integration target), 152 desktop interaction tests and nine `record::seen`
+  tests (two ignored) pass. The desktop client including tests compiles.
+  `codegen --tables --check`, `require-card-tests`, formatting and
+  `git diff --check` pass. `validate` accepts 12,545 cards (11,175 finished,
+  69 of the machine-owned cards untested, and 1,370 stubs). The full gates
+  remain deferred at the owner's request.
+
+## 2026-11-07 — Obsessive Search's ordinary and Madness draw
+
+- Obsessive Search composes the existing one-card draw with the face-level
+  madness cost; it needs no engine, DSL, protocol, desktop or seat addition.
+  Its two canonical tests pay the ordinary {U}, draw exactly the former top
+  card, and cast the exact discarded incarnation for {U} during an opponent's
+  turn. Prying Eyes supplies the real discard and leaves exactly one blue mana.
+- The Madness test records the library and hand after the discard, then proves
+  that exactly one further card left the library, the hand grew by one and the
+  former top card is there. The resolved Madness spell reaches the graveyard
+  and does not change the active player. Removing ability zero with
+  `BAYLEE_MUTATE=5505:0` kills the ordinary draw test.
+- The card was already in the exercised card pool for the preceding integration
+  run: all 373 house-AI tests, the full seat suite (497 unit tests and every
+  integration target), 152 desktop interaction tests and nine `record::seen`
+  tests (two ignored) pass. The desktop client including tests compiles.
+  `codegen --tables --check`, `require-card-tests`, formatting and
+  `git diff --check` pass. `validate` accepts 12,545 cards (11,175 finished,
+  68 of the machine-owned cards untested, and 1,370 stubs). The full gates
+  remain deferred at the owner's request.
+
+## 2026-11-07 — Arrogant Wurm's cast, Madness and actual trample damage
+
+- Arrogant Wurm composes the printed 4/4 trample body with the face-level
+  madness cost; it needs no engine, DSL, protocol, desktop or seat addition.
+  Its three canonical tests pay the ordinary {3}{G}{G}, cast the exact
+  discarded incarnation for {2}{G} during an opponent's turn, and attack into
+  Grizzly Bears. The blocker dies, exactly two damage tramples through and the
+  Wurm survives with two damage marked.
+- Prying Eyes spends the fixture's six Islands and leaves all three Forest
+  mana for the Madness cast; assuming that it leaves only one green mana was a
+  fixture error, not an engine fault. There is no ability-zero mutation target
+  because trample is keyword data and Madness is face data. The played combat
+  assertion and both cast paths cover the card without inventing an AbilityDef.
+- The card was already in the exercised card pool for the preceding integration
+  run: all 373 house-AI tests, the full seat suite (497 unit tests and every
+  integration target), 152 desktop interaction tests and nine `record::seen`
+  tests (two ignored) pass. The desktop client including tests compiles.
+  `codegen --tables --check`, `require-card-tests`, formatting and
+  `git diff --check` pass. `validate` accepts 12,545 cards (11,175 finished,
+  67 of the machine-owned cards untested, and 1,370 stubs). The full gates
+  remain deferred at the owner's request.
+
+## 2026-11-07 — Frantic Purification's targeted destruction and Madness
+
+- Frantic Purification composes the existing enchantment target and destroy
+  effect with the face-level madness cost; it needs no engine, DSL, protocol,
+  desktop or seat addition. Its two canonical tests spend the ordinary {2}{W},
+  offer the enchantment but not a neighbouring creature as a target, and destroy
+  only that enchantment. A real Prying Eyes discard exiles the exact incarnation,
+  which is then cast for {W} during the opponent's turn and resolves to its
+  owner's graveyard.
+- Prying Eyes costs {4}{U}{U}; its automatic payment uses white mana for the
+  generic portion before spending the two blue symbols. Five Plains and two
+  Islands therefore leave exactly one white mana, and the Madness payment empties
+  the pool. This was a fixture correction, not an engine change. Removing ability
+  zero with `BAYLEE_MUTATE=5467:0` kills the ordinary targeted-destruction test.
+- The card was already in the exercised card pool for the preceding integration
+  run: all 373 house-AI tests, the full seat suite (497 unit tests and every
+  integration target), 152 desktop interaction tests and nine `record::seen`
+  tests (two ignored) pass. The desktop client including tests compiles.
+  `codegen --tables --check`, `require-card-tests`, `cargo dev gate touched
+  origin/main`, formatting and `git diff --check` pass. `validate` accepts 12,545
+  cards (11,175 finished, 66 of the machine-owned cards untested, and 1,370
+  stubs). The full gates remain deferred at the owner's request.
+
+## 2026-11-07 — Psychotic Haze's symmetrical damage and Madness
+
+- Psychotic Haze composes the existing untargeted creature-and-player damage
+  pair with the face-level madness cost; it needs no engine, DSL, protocol,
+  desktop or seat addition. Its two canonical tests spend the ordinary {2}{B}{B},
+  hit both players and 1/1 Elves on both sides, and leave a larger Wall with one
+  damage marked. A real Prying Eyes discard exiles the exact incarnation, which
+  is then cast for {1}{B} during the opponent's turn and deals the same damage.
+- The damage fixture initially used 2/2 Bears: one damage is correctly nonlethal
+  to them, so the lethal assertion belonged on 1/1 Elves instead. The Elves also
+  produce mana; `tap_mana_except` keeps the creature under test out of the
+  ordinary four-land payment. Six Swamps and two Islands leave exactly two black
+  mana after Prying Eyes, which the Madness cast then spends completely. These
+  were fixture corrections, not engine changes.
+- Removing ability zero with `BAYLEE_MUTATE=5521:0` kills the ordinary damage
+  test. The card was already in the exercised card pool for the preceding
+  integration run: all 373 house-AI tests, the full seat suite (497 unit tests
+  and every integration target), 152 desktop interaction tests and nine
+  `record::seen` tests (two ignored) pass. The desktop client including tests
+  compiles. `codegen --tables --check`, `require-card-tests`, `cargo dev gate
+  touched origin/main`, formatting and `git diff --check` pass. `validate`
+  accepts 12,545 cards (11,175 finished, 65 of the machine-owned cards untested,
+  and 1,370 stubs). The full gates remain deferred at the owner's request.
+
+## 2026-11-07 — Strength of Isolation's Aura attachment, protection and Madness
+
+- Strength of Isolation composes the existing creature-targeted Aura attachment,
+  attached-only +1/+2 and protection-from-black modifiers with its face-level
+  madness cost. It needs no engine, DSL, protocol, desktop or seat addition. Six
+  canonical tests spend the ordinary {1}{W}, offer creatures on both sides, attach
+  to exactly the chosen Bears and change only that 2/2 into a 3/4. Hero's Downfall
+  and Unholy Strength cannot target the protected creature, black combat damage
+  is prevented and black creatures cannot block it; unprotected controls retain
+  the opposite behaviour.
+- The shared protection helpers now provide enough white mana for a two-mana
+  Ward and its white control Aura. Their damage assertion checks zero marked
+  damage rather than survival alone, so a toughness bonus cannot masquerade as
+  prevention. All five existing Black Ward tests still pass. A real Prying Eyes
+  discard exiles Strength of Isolation, which is cast for exactly {W} during the
+  opponent's turn and resolves attached to the opposing Bears.
+- Removing ability one with `BAYLEE_MUTATE=5540:1` kills both pump assertions;
+  removing ability two with `BAYLEE_MUTATE=5540:2` kills the targeting, Aura,
+  blocking and zero-damage protection assertions. The card was already in the
+  exercised card pool for the preceding integration run: all 373 house-AI tests,
+  the full seat suite (497 unit tests and every integration target), 152 desktop
+  interaction tests and nine `record::seen` tests (two ignored) pass. The desktop
+  client including tests compiles. `codegen --tables --check`,
+  `require-card-tests`, `cargo dev gate touched origin/main`, formatting and
+  `git diff --check` pass. `validate` accepts 12,545 cards (11,175 finished, 64
+  of the machine-owned cards untested, and 1,370 stubs). The full gates remain
+  deferred at the owner's request.
+
+## 2026-11-07 — Strength of Lunacy's white protection and black Madness
+
+- Strength of Lunacy composes the existing creature-targeted Aura attachment,
+  attached-only +2/+1 and protection-from-white modifiers with its face-level
+  madness cost. It needs no engine, DSL, protocol, desktop or seat addition. Six
+  canonical tests spend the ordinary {1}{B}, offer creatures on both sides, attach
+  to exactly the chosen Bears and change only that 2/2 into a 4/3. Swords to
+  Plowshares and Holy Armor cannot target the protected creature, damage from
+  Savannah Lions is prevented and white creatures cannot block it; unprotected
+  controls retain the opposite behaviour.
+- The shared Aura-protection helper now takes its differently coloured control
+  Aura explicitly instead of assuming Holy Armor. That matters for protection
+  from white: Unholy Strength is the legal control while Holy Armor is the Aura
+  that must be refused. White and black mana in the shared fixtures support both
+  Strength Auras without duplicating their combat and targeting scenarios. All
+  five Black Ward, five Blue Ward, five Red Ward and six Strength of Isolation
+  regression tests pass. A real Prying Eyes discard casts Strength of Lunacy for
+  exactly {B} during the opponent's turn and attaches it to the opposing Bears.
+- Removing ability one with `BAYLEE_MUTATE=5541:1` kills both pump assertions;
+  removing ability two with `BAYLEE_MUTATE=5541:2` kills the white spell, Aura,
+  blocking and damage assertions. The card was already in the exercised card pool
+  for the preceding integration run: all 373 house-AI tests, the full seat suite
+  (497 unit tests and every integration target), 152 desktop interaction tests and
+  nine `record::seen` tests (two ignored) pass. The desktop client including tests
+  compiles. `codegen --tables --check`, `require-card-tests`, `cargo dev gate
+  touched origin/main`, formatting and `git diff --check` pass. `validate` accepts
+  12,545 cards (11,175 finished, 63 of the machine-owned cards untested, and 1,370
+  stubs). The full gates remain deferred at the owner's request.
+
+## 2026-11-07 — Smokestack's optional soot and each-upkeep sacrifice
+
+- Smokestack composes the existing optional source-counter effect with the
+  simultaneous per-player sacrifice effect; it needs no engine, DSL, protocol,
+  desktop or seat addition. Four canonical tests pay the ordinary {4}, decline
+  the counter and preserve every permanent at zero, accept a counter before the
+  sacrifice trigger and sacrifice exactly one permanent in each player's upkeep,
+  and sacrifice exactly two permanents with two counters. Lands and creatures
+  are both legal choices, and only the active player's permanents are offered.
+- The trigger-order scenario checks the actual stack from top to bottom. Its
+  house rule must be enabled before `keep_mulligans`: the opening upkeep queues
+  both abilities as soon as the game starts, and enabling the rule afterwards
+  lets the walking helper accept the default optional trigger before the intended
+  arrangement question. This was a fixture correction, not an engine change.
+- Removing the sacrifice ability with `BAYLEE_MUTATE=3363:0` and removing the
+  optional counter with `BAYLEE_MUTATE=3363:1` each kill the three upkeep tests;
+  the ordinary cast remains a useful control. The card was already in the
+  exercised card pool for the preceding integration run: all 373 house-AI tests,
+  the full seat suite (497 unit tests and every integration target), 152 desktop
+  interaction tests and nine `record::seen` tests (two ignored) pass. The desktop
+  client including tests compiles. `codegen --tables --check`,
+  `require-card-tests`, `cargo dev gate touched origin/main`, formatting and
+  `git diff --check` pass. `validate` accepts 12,545 cards (11,175 finished, 62
+  of the machine-owned cards untested, and 1,370 stubs). The full gates remain
+  deferred at the owner's request.
+
+## 2026-11-07 — Firebolt's ordinary damage and exact Flashback cost
+
+- Firebolt composes the existing two-damage any-target spell with its face-level
+  flashback cost; it needs no engine, DSL, protocol, desktop or seat addition.
+  Three canonical tests pay {R} for ordinary spells aimed separately at a player
+  and a creature, verify exactly two damage and the graveyard destination, then
+  cast the graveyard incarnation for {4}{R} and verify the repeated damage and
+  exile. Four red mana make the graveyard card neither castable nor payable.
+- Removing ability zero with `BAYLEE_MUTATE=5211:0` kills both damage tests;
+  the insufficient-mana test remains a green control. Flashback is face data and
+  therefore has no separate ability mutation target.
+- The card was already in the exercised card pool for the preceding integration
+  run: all 373 house-AI tests, the full seat suite (497 unit tests and every
+  integration target), 152 desktop interaction tests and nine `record::seen`
+  tests (two ignored) pass. The desktop client including tests compiles.
+  `codegen --tables --check`, `require-card-tests`, `cargo dev gate touched
+  origin/main`, formatting and `git diff --check` pass. `validate` accepts
+  12,545 cards (11,175 finished, 61 of the machine-owned cards untested, and
+  1,370 stubs). The full gates remain deferred at the owner's request.
+
+## 2026-11-07 — Reckless Charge's immediate attack and Flashback
+
+- Reckless Charge composes the existing targeted +3/+0 and haste modification
+  with its face-level flashback cost; it needs no engine, DSL, protocol, desktop
+  or seat addition. Three canonical tests offer creatures on either side but no
+  player, pay {R}, turn a newly cast 2/2 into a 5/2 with haste, and actually
+  attack for five on its entry turn. The opposing creature is unchanged, and
+  both modifications expire in cleanup.
+- A second play casts the exact graveyard incarnation for {2}{R}, repeats the
+  pump and haste assertions and verifies exile. Two red mana offer neither a
+  castable nor a payable graveyard spell. Removing ability zero with
+  `BAYLEE_MUTATE=5319:0` kills both effect tests; the insufficient-mana test
+  remains a green control.
+- The card was already in the exercised card pool for the preceding integration
+  run: all 373 house-AI tests, the full seat suite (497 unit tests and every
+  integration target), 152 desktop interaction tests and nine `record::seen`
+  tests (two ignored) pass. The desktop client including tests compiles.
+  `codegen --tables --check`, `require-card-tests`, `cargo dev gate touched
+  origin/main`, formatting and `git diff --check` pass. `validate` accepts
+  12,545 cards (11,175 finished, 60 of the machine-owned cards untested, and
+  1,370 stubs). The full gates remain deferred at the owner's request.
+
+## 2026-11-07 — Volcanic Spray's ground-only damage and repeated Flashback
+
+- Volcanic Spray composes the existing untargeted ground-creature and each-player
+  damage effects with its face-level flashback cost; it needs no engine, DSL,
+  protocol, desktop or seat addition. The canonical play spends {1}{R}, hits
+  both players and 3/3 ground creatures on either side for exactly one, and
+  leaves both Storm Crows at zero damage. The ordinary spell goes to the
+  graveyard without a target choice.
+- The same incarnation then flashes back for another {1}{R}. Both players fall
+  from 19 to 18 life, both ground creatures reach two marked damage, both fliers
+  remain untouched, and the spell exiles. One red mana offers neither a castable
+  nor a payable graveyard spell. Removing ability zero with
+  `BAYLEE_MUTATE=5401:0` kills the damage play; the insufficient-mana test stays
+  green as a control.
+- The card was already in the exercised card pool for the preceding integration
+  run: all 373 house-AI tests, the full seat suite (497 unit tests and every
+  integration target), 152 desktop interaction tests and nine `record::seen`
+  tests (two ignored) pass. The desktop client including tests compiles.
+  `codegen --tables --check`, `require-card-tests`, `cargo dev gate touched
+  origin/main`, formatting and `git diff --check` pass. `validate` accepts
+  12,545 cards (11,175 finished, 59 of the machine-owned cards untested, and
+  1,370 stubs). The full gates remain deferred at the owner's request.
+
+## 2026-11-07 — Chainer's Edict's chosen-player sacrifice and Flashback
+
+- Chainer's Edict composes the existing chosen-player creature sacrifice with
+  its face-level flashback cost; it needs no engine, DSL, protocol, desktop or
+  seat addition. The canonical play offers either player, targets the opponent
+  for {1}{B}, and asks that opponent to choose exactly one of their two
+  creatures. The caster's creature is absent from the sacrifice offer and stays
+  on the battlefield.
+- The exact graveyard incarnation then flashes back for {5}{B}{B}, asks the
+  opponent to sacrifice their remaining creature and exiles. Six black mana
+  offer neither a castable nor a payable spell. A targeted player spell asks
+  `Pending::ChoosePlayer`, not the general `Pending::ChooseTargets`; correcting
+  that fixture assumption was not an engine change. `Duel::battlefield` also
+  replaces rather than appends a seat's fixture, so the nine Swamps and control
+  creature are built as one board list.
+- Removing ability zero with `BAYLEE_MUTATE=5444:0` kills the sacrifice play;
+  the insufficient-mana test remains green. The card was already in the
+  exercised card pool for the preceding integration run: all 373 house-AI tests,
+  the full seat suite (497 unit tests and every integration target), 152 desktop
+  interaction tests and nine `record::seen` tests (two ignored) pass. The desktop
+  client including tests compiles. `codegen --tables --check`,
+  `require-card-tests`, `cargo dev gate touched origin/main`, formatting and
+  `git diff --check` pass. `validate` accepts 12,545 cards (11,175 finished, 58
+  of the machine-owned cards untested, and 1,370 stubs). The full gates remain
+  deferred at the owner's request.
+
+## 2026-11-07 — Moment's Peace's played Fog and Flashback
+
+- Moment's Peace composes the existing all-combat-damage prevention effect with
+  its face-level flashback cost; it needs no engine, DSL, protocol, desktop or
+  seat addition. The ordinary {1}{G} play blocks a 3/3 with a 2/2 and leaves
+  both creatures at zero marked damage and the defending player at 20 life.
+  Lightning Bolt still deals three noncombat damage, while an unblocked attack
+  next turn deals its normal three.
+- The flashback play rejects two mana, pays all of {2}{G}, repeats the zero-
+  damage block and exiles the exact graveyard incarnation. The first version of
+  this play survived `BAYLEE_MUTATE=5265:0` despite its combat assertions. An
+  additional assertion that flashback resolves one all-combat shield, rather
+  than merely exiling the card, closes that observed test gap. Both plays now
+  die under the mutation; the ordinary play fails with two damage marked on
+  the attacker.
+- The card was already in the exercised card pool for the preceding integration
+  run: all 373 house-AI tests, the full seat suite (497 unit tests and every
+  integration target), 152 desktop interaction tests and nine `record::seen`
+  tests (two ignored) pass. The desktop client including tests compiles.
+  `codegen --tables --check`, `require-card-tests`, `cargo dev gate touched
+  origin/main`, formatting and `git diff --check` pass. `validate` accepts
+  12,545 cards (11,175 finished, 57 of the machine-owned cards untested, and
+  1,370 stubs). The full gates remain deferred at the owner's request.
+
+## 2026-11-07 — Roar of the Wurm's two distinct tokens and Flashback
+
+- Roar of the Wurm composes the shared green 6/6 Wurm token with its face-level
+  flashback cost; it needs no engine, DSL, protocol, desktop or seat addition.
+  The canonical play spends {6}{G}, creates exactly one token under the caster's
+  control, verifies its power, toughness, colour and Wurm subtype, and retains
+  four of eleven green mana. The normal spell goes to the graveyard.
+- The exact graveyard incarnation then flashes back for {3}{G}, consumes all
+  four remaining mana, leaves the first token in play and creates a distinct
+  second green 6/6 Wurm. It finishes in exile with no copy left in the
+  graveyard. Three green mana make the graveyard card neither castable nor
+  payable; direct casting fails without spending mana or creating a token.
+- Removing the token ability with `BAYLEE_MUTATE=5328:0` kills the token play;
+  the insufficient-mana test remains a green control. The card was already in
+  the exercised card pool for the preceding integration run: all 373 house-AI
+  tests, the full seat suite (497 unit tests and every integration target), 152
+  desktop interaction tests and nine `record::seen` tests (two ignored) pass.
+  The desktop client including tests compiles. `codegen --tables --check`,
+  `require-card-tests`, `cargo dev gate touched origin/main`, formatting and
+  `git diff --check` pass. `validate` accepts 12,545 cards (11,175 finished, 56
+  of the machine-owned cards untested, and 1,370 stubs). The full gates remain
+  deferred at the owner's request.
+
+## 2026-11-07 — Chatter of the Squirrel's two casts and exact costs
+
+- Chatter of the Squirrel composes the shared green 1/1 Squirrel token with its
+  face-level flashback cost; it needs no engine, DSL, protocol, desktop or seat
+  addition. The ordinary play pays {G}, verifies one Squirrel's controller,
+  power, toughness, colour and subtype and leaves two of three green mana.
+  Flashback then pays exactly {1}{G}, preserves the first token and creates a
+  distinct second Squirrel before exiling the graveyard incarnation.
+- One green mana makes the graveyard card neither castable nor payable. Direct
+  casting is rejected without spending that mana or creating a token. Removing
+  the token ability with `BAYLEE_MUTATE=5156:0` kills the token play; the
+  insufficient-mana test remains a green control.
+- The card was already in the exercised card pool for the preceding integration
+  run: all 373 house-AI tests, the full seat suite (497 unit tests and every
+  integration target), 152 desktop interaction tests and nine `record::seen`
+  tests (two ignored) pass. The desktop client including tests compiles.
+  `codegen --tables --check`, `require-card-tests`, `cargo dev gate touched
+  origin/main`, formatting and `git diff --check` pass. `validate` accepts
+  12,545 cards (11,175 finished, 55 of the machine-owned cards untested, and
+  1,370 stubs). The full gates remain deferred at the owner's request.
+
+## 2026-11-07 — Sylvan Might's played trample and Flashback
+
+- Sylvan Might composes the existing targeted +2/+2 and trample modification
+  with its face-level flashback cost; it needs no engine, DSL, protocol, desktop
+  or seat addition. The ordinary {1}{G} play offers either player's creature
+  and no player, then pumps only its chosen target. A 4/4 attacker blocked by
+  a 2/2 assigns lethal to the blocker and tramples exactly two damage over to
+  the defending player (CR 702.19b); the attacker takes two in return.
+- Both modifications and combat damage clear in cleanup. The exact graveyard
+  incarnation then flashes back for {2}{G}{G}, repeats the pump and trample
+  assertions and exiles. Three green mana offer neither a castable nor a
+  payable spell, and a rejected direct cast leaves the card and pool untouched.
+- Removing the pump ability with `BAYLEE_MUTATE=5373:0` kills both effect
+  plays; the insufficient-mana test remains green. The card was already in the
+  exercised card pool for the preceding integration run: all 373 house-AI tests,
+  the full seat suite (497 unit tests and every integration target), 152 desktop
+  interaction tests and nine `record::seen` tests (two ignored) pass. The desktop
+  client including tests compiles. `codegen --tables --check`,
+  `require-card-tests`, `cargo dev gate touched origin/main`, formatting and
+  `git diff --check` pass. `validate` accepts 12,545 cards (11,175 finished, 54
+  of the machine-owned cards untested, and 1,370 stubs). The full gates remain
+  deferred at the owner's request.
+
+## 2026-11-07 — Morgue Theft's own-graveyard target and Flashback
+
+- Morgue Theft composes the existing targeted own-graveyard creature-to-hand
+  effect with its face-level flashback cost; it needs no engine, DSL, protocol,
+  desktop or seat addition. The ordinary {1}{B} play offers only our creature
+  card, not an opposing creature or our instant, and returns that exact object
+  to hand rather than the battlefield. Both excluded cards stay in graveyard.
+- The graveyard incarnation flashes back for {4}{B}, returns the chosen
+  creature again and finishes in exile with no copy left in graveyard. Four
+  black mana offer neither a castable nor a payable spell despite the legal
+  creature target; a rejected cast changes neither zone nor the mana pool.
+- Removing the return ability with `BAYLEE_MUTATE=5267:0` kills both effect
+  plays; the insufficient-mana test remains green. The card was already in the
+  exercised card pool for the preceding integration run: all 373 house-AI tests,
+  the full seat suite (497 unit tests and every integration target), 152 desktop
+  interaction tests and nine `record::seen` tests (two ignored) pass. The desktop
+  client including tests compiles. `codegen --tables --check`,
+  `require-card-tests`, `cargo dev gate touched origin/main`, formatting and
+  `git diff --check` pass. `validate` accepts 12,545 cards (11,175 finished, 53
+  of the machine-owned cards untested, and 1,370 stubs). The full gates remain
+  deferred at the owner's request.
+
+## 2026-11-07 — Syncopate's announced X, payment and counter-to-exile
+
+- Syncopate composes the existing target-controller payment choice with the
+  counter-to-exile effect; it needs no engine, DSL, protocol, desktop or seat
+  addition. The casting helper answers the X announcement and stack target in
+  their actual order and checks that the requested X was offered. With X = 2,
+  {2}{U} leaves one of four Islands, the creature's controller is taxed two,
+  and declining counters that exact spell into exile rather than graveyard.
+- With X = 1, {1}{U} leaves one of three Islands. The targeted creature's
+  controller pays the separate one-mana tax out of their remaining pool, the
+  creature resolves onto the battlefield and is neither exiled nor in
+  graveyard. Syncopate itself goes to its owner's graveyard in both plays.
+- Removing the payment-or-counter ability with `BAYLEE_MUTATE=5374:0` kills
+  both response plays. The card was already in the exercised card pool for the
+  preceding integration run: all 373 house-AI tests, the full seat suite (497
+  unit tests and every integration target), 152 desktop interaction tests and
+  nine `record::seen` tests (two ignored) pass. The desktop client including
+  tests compiles. `codegen --tables --check`, `require-card-tests`, `cargo dev
+  gate touched origin/main`, formatting and `git diff --check` pass. `validate`
+  accepts 12,545 cards (11,175 finished, 52 of the machine-owned cards
+  untested, and 1,370 stubs). The full gates remain deferred at the owner's
+  request.
+
+## 2026-11-07 — Engulfing Flames' regeneration prohibition and Flashback
+
+- Engulfing Flames composes the existing targeted one-damage and
+  cannot-be-regenerated-this-turn effects with its face-level flashback cost;
+  it needs no engine, DSL, protocol, desktop or seat addition. Its ordinary
+  {R} play offers either player's creature and no player. A Drudge Skeletons
+  regeneration shield activated before resolution does not save the targeted
+  1/1 creature, while the other creature and both players stay unharmed and
+  one red mana remains unspent.
+- The graveyard incarnation flashes back for exactly {3}{R}, deals one damage
+  to the same chosen creature and finishes in exile with no copy left in
+  graveyard. Three red mana offer neither a castable nor a payable spell; a
+  rejected cast preserves the graveyard object, mana pool and target.
+- Removing the spell ability with `BAYLEE_MUTATE=5201:0` kills both positive
+  plays while the mana-boundary test still passes. All three played tests pass
+  before and after promotion. `codegen --tables --check`,
+  `require-card-tests`, `cargo dev gate touched origin/main`, formatting and
+  `git diff --check` pass. `validate` accepts 12,545 cards (11,175 finished,
+  51 of the machine-owned cards untested, and 1,370 stubs). The full gates
+  remain deferred at the owner's request.

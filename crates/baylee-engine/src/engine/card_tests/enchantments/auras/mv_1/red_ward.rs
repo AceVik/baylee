@@ -55,7 +55,7 @@ fn red_ward_stays_on_when_it_is_itself_red() {
 /// Armor still is.
 #[test]
 fn red_ward_keeps_red_auras_off_the_creature() {
-    a_ward_keeps_auras_of_its_color_off(red_ward(), firebreathing(), mountain());
+    a_ward_keeps_auras_of_its_color_off(red_ward(), firebreathing(), mountain(), holy_armor());
 }
 
 /// Red Ward: protection from red includes damage from red sources, read off

@@ -392,7 +392,7 @@ fn miracle_counts_untapped_sources_and_requires_the_right_color() {
 }
 
 #[test]
-fn miracle_x_counts_the_sources_its_payment_window_will_offer() {
+fn miracle_and_madness_x_count_the_sources_their_payment_window_will_offer() {
     let mut land = carded(
         permanent(obj(2), PlayerId::new(0), 0),
         "Island",
@@ -423,6 +423,40 @@ fn miracle_x_counts_the_sources_its_payment_window_will_offer() {
         agent.act_with_context(&v, &pending, &context),
         PlayerAction::ChooseNumber(1)
     );
+    context.alternative_cost = Some(baylee_engine::choice::CastModeKind::Madness);
+    assert_eq!(
+        agent.act_with_context(&v, &pending, &context),
+        PlayerAction::ChooseNumber(2),
+        "madness is independent of the ordinary mode and opens the same payment opportunity"
+    );
+}
+
+#[test]
+fn a_free_madness_cast_is_accepted_without_mana() {
+    let mut v = view(0, &[20, 20], vec![]);
+    v.hand = vec![hand_card(1, "Basking Rootwalla")];
+    let pending = Pending::YesNo {
+        player: v.seat,
+        prompt: YesNoPrompt::Madness { card: obj(1) },
+        source: None,
+    };
+    assert_eq!(
+        HeuristicAgent::new(AIProfile::EXPERT).act(&v, &pending),
+        PlayerAction::YesNo(true)
+    );
+}
+
+#[test]
+fn the_madness_life_check_preserves_the_activation_reserve() {
+    let cost = baylee_cards_dsl::cost!(PayLife(1));
+    for (life, affordable) in [(1, false), (6, false), (7, true), (20, true)] {
+        let view = view(0, &[life, 20], vec![]);
+        assert_eq!(
+            crate::activate::life_ok(&view, &cost),
+            affordable,
+            "one life paid from {life}"
+        );
+    }
 }
 
 #[test]

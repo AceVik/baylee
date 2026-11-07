@@ -3478,6 +3478,9 @@ CastLandFace = Play as a land
 # Miracle
 CastMiracle = Miracle
 
+# Madness
+CastMadness = Madness
+
 # Flashback
 CastFlashback = Flashback
 
@@ -3595,6 +3598,9 @@ PayPact = Pact: pay { $cost }. Make mana now? If you decline or finish without e
 
 # Cast it for its miracle cost?
 CastForMiracle = Cast it for its miracle cost?
+
+# Cast it for its madness cost, or put it into your graveyard?
+CastForMadness = Cast it for its madness cost, or put it into your graveyard?
 
 # Cast it without paying its mana cost? (cascade)
 CastWithoutPaying = Cast it without paying its mana cost?

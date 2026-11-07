@@ -483,7 +483,34 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // depends on the affected land and stays contextual rather than guessed.
     // Orcish Librarian's seeded exile and private order add one activation;
     // exiling the controller's own cards is not unconditionally valuable.
-    assert_eq!((read, of), (2996, 3786), "activated/loyalty reader census");
+    // Weathered Wayfarer adds one conditional library-search activation; the
+    // existing SearchLibrary reader understands its land-to-hand effect.
+    // Withered Wretch adds one targeted graveyard-exile activation; the existing
+    // graveyard reader understands both owned and opposing cards.
+    // Basking Rootwalla adds one self-pump activation; the existing pump
+    // reader understands its +2/+2 and its once-per-turn limit is not a value.
+    assert_eq!((read, of), (2999, 3789), "activated/loyalty reader census");
+
+    // Pin the new readable rows to their cards rather than only to the census.
+    for (name, label) in [
+        ("Withered Wretch", "graveyard exile"),
+        ("Basking Rootwalla", "self-pump"),
+    ] {
+        let card = baylee_cards::decks::by_name(name).unwrap();
+        let Some(AbilityDef::Activated { effects, .. }) = baylee_cards::by_index(card)
+            .unwrap()
+            .abilities_for_face(0)
+            .first()
+        else {
+            panic!("{name}'s first ability is activated");
+        };
+        assert!(
+            agent()
+                .effects_worth(&v, origin, effects, Aim::Source, 0)
+                .is_some(),
+            "{name}'s {label} stays readable"
+        );
+    }
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

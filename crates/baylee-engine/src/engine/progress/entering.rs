@@ -366,6 +366,7 @@ impl<L: CardLookup> Engine<L> {
                     | EnterModifier::ChooseBasicLandType
                     | EnterModifier::ChooseTwoBasicLandTypes
                     | EnterModifier::ChooseCardName
+                    | EnterModifier::ChooseCardNameExcept(_)
                     | EnterModifier::ChooseCardType
                     | EnterModifier::ChooseColor
                     | EnterModifier::ChooseOpponent
@@ -560,12 +561,17 @@ impl<L: CardLookup> Engine<L> {
                 self.awaiting_answer = true;
                 true
             }
-            EnterModifier::ChooseCardName => {
+            m @ (EnterModifier::ChooseCardName | EnterModifier::ChooseCardNameExcept(_)) => {
+                let excluded_types = match m {
+                    EnterModifier::ChooseCardNameExcept(excluded) => *excluded,
+                    EnterModifier::ChooseCardName => baylee_core::types::TypeSet::EMPTY,
+                    _ => unreachable!("the outer pattern admits only card-name choices"),
+                };
                 self.pending_plan = Some(PlanKind::ChooseCardName { object: id });
                 self.pending = Pending::ChooseCardName {
                     player: controller,
                     types: baylee_core::types::TypeSet::EMPTY,
-                    excluded_types: baylee_core::types::TypeSet::EMPTY,
+                    excluded_types,
                 };
                 self.awaiting_answer = true;
                 true

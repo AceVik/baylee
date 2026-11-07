@@ -89,6 +89,7 @@ mod serrated_arrows;
 mod sisay_s_ring;
 mod skull_catapult;
 mod skullmead_cauldron;
+mod smokestack;
 mod snake_basket;
 mod staff_of_zegon;
 mod tawnos_s_coffin;

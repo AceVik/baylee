@@ -100,6 +100,19 @@ card the plan does not walk is one it never taps for. Steady and harder levels c
 can complete with the
 remaining visible sources; an expensive, uncastable card cannot drown out the
 colour needed for an affordable play.
+
+A visible madness question is answered from the exiled card's projected
+identity, not from its name or a hidden-zone fact. `policy::madness` reads
+`FaceDef::madness` and accepts when `can_pay` covers that cost with X at zero;
+the engine has already refused illegal targets and impossible non-mana parts.
+The ordinary owed-payment planner then taps for the actual complete price. An
+X answer uses the remaining sources when
+`DecisionContext::alternative_cost = Madness`, independently of
+`DecisionContext::cast_mode`, so a modal madness cast does not lose its mana
+opportunity. `a_free_madness_cast_is_accepted_without_mana` covers the policy,
+and `gamehost/tests/ai_madness.rs` plays a discarded Basking Rootwalla through
+the real exile view onto the battlefield.
+
 Counterspells need an opposing stack entry they would take off, and never
 name one the view marks `UNCOUNTERABLE` while there is another: such a spell
 is a legal target, and the counter resolves and counters nothing (#243).
@@ -745,6 +758,19 @@ the projected debt drives the same planner that pays ward. The casting route
 in `DecisionContext::cast_mode` lets Miracle's X include those sources too.
 `tests/ai_miracle.rs` earns the offer in a real game: with no floating mana,
 Temporal Mastery taps exactly two Islands, pays {1}{U}, and grants an extra turn.
+
+**Keeping one permanent of each kind is a set decision.** For
+`KeepOneOfEachAndSacrificeRest`, the house values the whole retained set rather
+than picking each category's best permanent independently: an artifact creature
+may cover the artifact choice while a second creature survives as the creature
+choice. `best_keep_one_of_each` uses deterministic dynamic programming over the
+kept identities, collapses candidates with identical category signatures, counts
+a reused multi-type permanent once and skips empty categories. It stops rather
+than guessing above 50,000 states or 64 filters. A concrete menu is optimized
+only when its legal objects identify exactly one category; ambiguous menus keep
+the ordinary deterministic fallback. The same retained-set model prices the
+sweeper before casting, so an equal sacrifice exchange is not mistaken for a
+profitable one.
 
 **A clone copies what is worth having twice, whoever controls it.** Its choice
 arrives as a target question with no effect behind it, because copying is an

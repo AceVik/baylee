@@ -537,6 +537,9 @@ pub struct FaceDef {
     pub mutate: Option<ManaCost>,
     /// Entwine cost to choose all modes of this modal spell (CR 702.42).
     pub entwine: Option<crate::cost::Cost>,
+    /// Madness (CR 702.35): discard this card into exile instead, then its
+    /// owner may cast it for this cost as that triggered ability resolves.
+    pub madness: Option<crate::cost::Cost>,
 }
 
 impl FaceDef {
@@ -595,6 +598,7 @@ impl FaceDef {
         morph: None,
         mutate: None,
         entwine: None,
+        madness: None,
     };
 }
 
@@ -755,6 +759,10 @@ pub enum EnterModifier {
     /// as the card and face it was read off, and
     /// [`crate::Modifier::ChosenNameCantActivate`] reads it back.
     ChooseCardName,
+    /// As this enters, choose a card name whose printed face has none of
+    /// these types (Meddling Mage's "nonland card name"). The answer is
+    /// remembered exactly as [`Self::ChooseCardName`] remembers it.
+    ChooseCardNameExcept(TypeSet),
     /// "As this enters, choose a card type" (Serra's Emissary, CR 205.2a).
     /// The answer belongs to this permanent and is read by
     /// [`crate::Filter::OfSourceChosenCardType`].

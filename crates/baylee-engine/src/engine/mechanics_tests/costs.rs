@@ -26,6 +26,8 @@ const OFFERING: u32 = 7188;
 const OX: u32 = 7189;
 const RAY: u32 = 7190;
 const DOUBLE_PITCH: u32 = 7191;
+const RETURN: u32 = 7192;
+const DOUBLE_RETURN: u32 = 7193;
 
 /// A spell ability that does nothing: what is under test is how the spell
 /// was paid for, and an effect would be one more thing to read around.
@@ -69,6 +71,11 @@ static REMOVE_X_COUNTERS: &[AlternativeCost] = &[instead(&[CostPart::RemoveCount
 }])];
 
 static SACRIFICE_A_CREATURE: &[CostPart] = &[CostPart::Sacrifice(&A_CREATURE)];
+static RETURN_A_CREATURE: &[AlternativeCost] = &[instead(&[CostPart::ReturnToHand(&A_CREATURE)])];
+static RETURN_TWO_CREATURES: &[AlternativeCost] = &[instead(&[
+    CostPart::ReturnToHand(&A_CREATURE),
+    CostPart::ReturnToHand(&A_CREATURE),
+])];
 
 /// An instant priced out of reach, castable only through `alts`.
 fn out_of_reach(
@@ -105,6 +112,8 @@ fn cards() -> Vec<&'static CardDef> {
         out_of_reach(BARGAIN, "Bargain", PAY_THREE),
         out_of_reach(PITCH, "Pitch", PAY_ONE_AND_PITCH),
         out_of_reach(DOUBLE_PITCH, "Double Pitch", PITCH_TWO),
+        out_of_reach(RETURN, "Return", RETURN_A_CREATURE),
+        out_of_reach(DOUBLE_RETURN, "Double Return", RETURN_TWO_CREATURES),
         card(
             FODDER,
             face("Fodder", "{5}{U}", TypeSet::INSTANT),
@@ -321,6 +330,141 @@ fn a_double_pitch_alternative_requires_and_exiles_two_distinct_cards() {
             .list(ZoneLocation::Hand(me()))
             .is_empty()
     );
+}
+
+/// A permanent returned as an alternative cost goes to its owner's hand
+/// through the same cost question and payment path as an activated ability.
+#[test]
+fn a_return_alternative_is_chosen_and_paid_before_the_spell_is_on_the_stack() {
+    let mut engine = bench(
+        7194,
+        cards(),
+        [Seat::with(&[OX, OX]).holding(&[RETURN]), Seat::default()],
+    );
+    to_main(&mut engine, me());
+    let oxen = objects(&engine, ZoneLocation::Battlefield, OX);
+    assert!(offered(&engine, RETURN));
+    let spell = cast(&mut engine, RETURN);
+    let Pending::ChooseCards {
+        options,
+        min,
+        max,
+        prompt,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("which permanent to return: {:?}", engine.pending())
+    };
+    assert_eq!(
+        (min, max, prompt),
+        (1, 1, crate::choice::ChoicePrompt::CostReturn)
+    );
+    assert_eq!(options, oxen);
+    engine
+        .apply(
+            me(),
+            PlayerAction::ChooseObjects {
+                objects: vec![oxen[0]],
+            },
+        )
+        .unwrap();
+    assert!(on_the_stack(&engine, spell).alt_cast);
+    assert_eq!(
+        objects(&engine, ZoneLocation::Hand(me()), OX),
+        vec![oxen[0]]
+    );
+    assert_eq!(
+        objects(&engine, ZoneLocation::Battlefield, OX),
+        vec![oxen[1]]
+    );
+}
+
+/// "Its owner's hand" is not the caster's hand when the caster controls a
+/// permanent owned by another player. The payment reads the owner directly.
+#[test]
+fn a_return_alternative_goes_to_the_permanents_owners_hand() {
+    let owner = PlayerId::new(1);
+    let mut engine = bench(
+        7197,
+        cards(),
+        [Seat::default().holding(&[RETURN]), Seat::with(&[OX])],
+    );
+    to_main(&mut engine, me());
+    let ox = the(&engine, ZoneLocation::Battlefield, OX);
+    engine
+        .dev_state_mut(me())
+        .unwrap()
+        .object_mut(ox)
+        .unwrap()
+        .set_controller(me());
+    engine.refresh_offer();
+    assert!(offered(&engine, RETURN));
+    cast(&mut engine, RETURN);
+    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
+        panic!(
+            "which controlled permanent to return: {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(options, vec![ox]);
+    engine
+        .apply(me(), PlayerAction::ChooseObjects { objects: vec![ox] })
+        .unwrap();
+    assert_eq!(objects(&engine, ZoneLocation::Hand(owner), OX), vec![ox]);
+    assert!(objects(&engine, ZoneLocation::Hand(me()), OX).is_empty());
+}
+
+/// Two return costs need distinct permanents, both when the alternative is
+/// offered and when it is paid. One creature cannot be returned twice.
+#[test]
+fn a_double_return_alternative_requires_and_returns_two_distinct_creatures() {
+    let mut one = bench(
+        7195,
+        cards(),
+        [Seat::with(&[OX]).holding(&[DOUBLE_RETURN]), Seat::default()],
+    );
+    to_main(&mut one, me());
+    assert!(!offered(&one, DOUBLE_RETURN));
+    let card = the(&one, ZoneLocation::Hand(me()), DOUBLE_RETURN);
+    assert!(one.apply(me(), PlayerAction::CastSpell { card }).is_err());
+
+    let mut engine = bench(
+        7196,
+        cards(),
+        [
+            Seat::with(&[OX, OX]).holding(&[DOUBLE_RETURN]),
+            Seat::default(),
+        ],
+    );
+    to_main(&mut engine, me());
+    let oxen = objects(&engine, ZoneLocation::Battlefield, OX);
+    assert!(offered(&engine, DOUBLE_RETURN));
+    let spell = cast(&mut engine, DOUBLE_RETURN);
+    for (index, ox) in oxen.iter().enumerate() {
+        let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
+            panic!("one return question per creature: {:?}", engine.pending())
+        };
+        assert_eq!(options, oxen[index..]);
+        if index == 1 {
+            assert!(
+                engine
+                    .apply(
+                        me(),
+                        PlayerAction::ChooseObjects {
+                            objects: vec![oxen[0]]
+                        }
+                    )
+                    .is_err(),
+                "the first creature cannot pay the second return"
+            );
+        }
+        engine
+            .apply(me(), PlayerAction::ChooseObjects { objects: vec![*ox] })
+            .unwrap();
+    }
+    assert!(on_the_stack(&engine, spell).alt_cast);
+    assert_eq!(objects(&engine, ZoneLocation::Hand(me()), OX), oxen);
+    assert!(objects(&engine, ZoneLocation::Battlefield, OX).is_empty());
 }
 
 // --------------------------------------------- paying the additional cost

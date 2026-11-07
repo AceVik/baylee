@@ -1693,18 +1693,17 @@ pub fn face_base_mana_cost(
     }
 }
 
-/// Whether the non-mana parts of an alternative cost could be paid right now.
+/// Whether the non-mana parts of an alternative cost pass their local checks.
 ///
-/// [`can_cast`] reaches this only when the printed cost is unaffordable and
-/// the face prints an alternative cost, which in this pool is four cards, so
-/// the hand scan costs nothing anybody can measure. `zones.list` is ordered,
-/// so it costs no determinism either.
+/// Object choices are answered exactly by the immediately following
+/// `additional_payment_capacity_for` call: it uses `cost_wizard::options` and
+/// a bipartite matching, so two parts cannot spend the same permanent. The
+/// wizard presents choices from that same reader. `zones.list` is ordered,
+/// preserving determinism.
 ///
-/// The nine parts that answer `true` are named rather than swept into a
-/// wildcard: `cast_wizard::paid_as_an_alternative_cost` says which two of
-/// them the payment ever pays, and `offer_tests` holds the rest off this list
-/// entirely — so a twelfth `CostPart` has to be looked at here too rather
-/// than being quietly declared payable.
+/// Every variant is named rather than swept into a wildcard:
+/// `cast_wizard::paid_as_an_alternative_cost` says which ones the payment
+/// pays, and `offer_tests` holds unsupported parts off this list entirely.
 fn alternative_parts_payable(
     state: &GameState,
     player: PlayerId,

@@ -18562,7 +18562,8 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Withered Wretch
+    &["{1}: Exile target card from a graveyard."],
     &[],
     // Akroma's Devoted
     &["Cleric creatures have vigilance."],
@@ -44415,7 +44416,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Prosperous Innkeeper
+    &[
+        "When this creature enters, create a Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")\nWhenever another creature you control enters, you gain 1 life.",
+    ],
     &[],
     &[],
     &[],

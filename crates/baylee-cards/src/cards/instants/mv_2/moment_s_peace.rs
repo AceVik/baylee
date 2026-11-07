@@ -11,7 +11,7 @@ card!(
     oracle_id = "b6d22228-a45e-4296-9ae2-1649e04b1c53",
     scryfall_id = "40ebe935-ccf9-435e-8fe8-53bcbf3526e7",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Moment's Peace",
         mana_cost = mana!("{1}{G}"),

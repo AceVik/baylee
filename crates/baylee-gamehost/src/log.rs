@@ -597,6 +597,9 @@ impl GameLog {
             // The discard it paid is a line of its own, and the draw is the
             // ability's.
             | GameEvent::Cycled { .. }
+            // Madness's discard and hand-to-exile move already have their own
+            // public lines; this internal marker only arms the exact trigger.
+            | GameEvent::MadnessExiled { .. }
             // What a seat's own policy answered for it is told to that seat
             // alone, in its view (#234). A line here would reach every seat,
             // or, kept to one, stop an automated loop from folding for all
