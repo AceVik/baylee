@@ -452,7 +452,7 @@ fn the_madness_life_check_preserves_the_activation_reserve() {
     for (life, affordable) in [(1, false), (6, false), (7, true), (20, true)] {
         let view = view(0, &[life, 20], vec![]);
         assert_eq!(
-            crate::activate::life_ok(&view, &cost),
+            HeuristicAgent::takes_madness_cost(&view, &cost),
             affordable,
             "one life paid from {life}"
         );

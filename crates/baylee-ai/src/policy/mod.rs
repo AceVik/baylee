@@ -189,13 +189,20 @@ impl HeuristicAgent {
     }
 
     pub(crate) fn madness(view: &PlayerView, id: ObjectId) -> bool {
-        let Some(cost) = identity(view, id).and_then(face).and_then(|f| f.madness) else {
-            return false;
-        };
+        identity(view, id)
+            .and_then(face)
+            .and_then(|f| f.madness)
+            .is_some_and(|cost| Self::takes_madness_cost(view, &cost))
+    }
+
+    /// Whether this seat pays a madness `cost`. Apart from [`Self::madness`]
+    /// because no card of the pool prints a madness cost with life in it, so
+    /// the half that reads life can only be asked with a cost in hand.
+    pub(crate) fn takes_madness_cost(view: &PlayerView, cost: &baylee_cards_dsl::Cost) -> bool {
         // The engine has already checked the non-mana parts and legal modes.
         // Life uses the same reserve as an activation, and the usual payment
         // planner can tap sources for the remaining cost.
-        crate::activate::life_ok(view, &cost) && can_pay(view, &cost.mana.with_x(0))
+        crate::activate::life_ok(view, cost) && can_pay(view, &cost.mana.with_x(0))
     }
 
     /// One target's share of damage this seat divides (CR 601.2d): what
