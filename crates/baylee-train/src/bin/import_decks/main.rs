@@ -43,7 +43,9 @@ struct Args {
     #[arg(long, default_value = "data/decks/manifest.v4.json")]
     manifest_out: PathBuf,
 
-    /// Directory where imported/adapted/curated `.txt` deck files are written.
+    /// Directory the precon/adapted/curated `.txt` deck files are written to,
+    /// relative to the checkout unless absolute; the manifest names each deck
+    /// by it (`output.rs`).
     #[arg(long, default_value = "data/decks/imported")]
     imported_dir: PathBuf,
 
@@ -163,10 +165,12 @@ struct CandidateDeck {
 }
 
 mod document;
+mod output;
 mod replacement;
 mod similarity;
 mod strategy;
 use document::format_house_deck_text;
+use output::{DeckKind, DeckOut};
 use replacement::find_functional_replacement;
 use similarity::{compute_deck_hash, compute_multiset, find, multiset_jaccard};
 use strategy::{classify_deck_strategy, color_string};
@@ -192,10 +196,8 @@ fn main() -> anyhow::Result<()> {
         held_out_set.len()
     );
 
-    let imported_root = root.join(&args.imported_dir);
-    fs::create_dir_all(imported_root.join("precon"))?;
-    fs::create_dir_all(imported_root.join("adapted"))?;
-    fs::create_dir_all(imported_root.join("curated"))?;
+    let decks_out = DeckOut::new(&root, &args.imported_dir)?;
+    decks_out.create()?;
     if let Some(parent) = args.rejected_out.parent() {
         fs::create_dir_all(parent)?;
     }
@@ -518,7 +520,6 @@ fn main() -> anyhow::Result<()> {
                 };
 
                 let slug_id = rel_precon.replace('/', "-").to_ascii_lowercase();
-                let norm_rel = format!("data/decks/imported/precon/{slug_id}.txt");
                 let norm_text = format_house_deck_text(
                     &meta_name,
                     &meta_source,
@@ -527,7 +528,8 @@ fn main() -> anyhow::Result<()> {
                     &side_kept,
                     &cmd_ok,
                 );
-                fs::write(root.join(&norm_rel), norm_text)?;
+                let norm_rel =
+                    decks_out.write(DeckKind::Precon, &format!("{slug_id}.txt"), &norm_text)?;
 
                 let (arch, tags, colors) = classify_deck_strategy(&main_ok, &cmd_ok);
                 let multiset = compute_multiset(&main_ok, &cmd_ok);
@@ -722,7 +724,6 @@ fn main() -> anyhow::Result<()> {
                 }
 
                 let slug_id = rel_precon.replace('/', "-").to_ascii_lowercase();
-                let norm_rel = format!("data/decks/imported/adapted/{slug_id}-adapted.txt");
                 let adapted_name = format!("{meta_name} (Adapted)");
                 let norm_text = format_house_deck_text(
                     &adapted_name,
@@ -732,7 +733,11 @@ fn main() -> anyhow::Result<()> {
                     &[],
                     &cmd_ok,
                 );
-                fs::write(root.join(&norm_rel), norm_text)?;
+                let norm_rel = decks_out.write(
+                    DeckKind::Adapted,
+                    &format!("{slug_id}-adapted.txt"),
+                    &norm_text,
+                )?;
 
                 let (arch, tags, colors) = classify_deck_strategy(&adapted_main, &cmd_ok);
                 let multiset = compute_multiset(&adapted_main, &cmd_ok);
@@ -811,7 +816,6 @@ fn main() -> anyhow::Result<()> {
         }
         let fmt_str = deckgen::shape_name(shape);
         let slug = format!("curated-{fmt_str}-{}-{gen_idx:03}", arch.name());
-        let norm_rel = format!("data/decks/imported/curated/{slug}.txt");
         let norm_text = format_house_deck_text(
             &g.name,
             &format!(
@@ -823,7 +827,7 @@ fn main() -> anyhow::Result<()> {
             &[],
             &g.leaders,
         );
-        fs::write(root.join(&norm_rel), norm_text)?;
+        let norm_rel = decks_out.write(DeckKind::Curated, &format!("{slug}.txt"), &norm_text)?;
 
         let (_, mut tags, colors) = classify_deck_strategy(&g.main, &g.leaders);
         if !tags.contains(&arch.name().to_string()) {
@@ -900,7 +904,6 @@ fn main() -> anyhow::Result<()> {
         }
         let fmt_str = deckgen::shape_name(shape);
         let slug = format!("holdout-cards-{fmt_str}-{}-{unseen_idx:02}", arch.name());
-        let norm_rel = format!("data/decks/imported/curated/{slug}.txt");
         let norm_text = format_house_deck_text(
             &g.name,
             &format!("baylee unseen-card holdout {fmt_str} seed={unseen_seed}"),
@@ -909,7 +912,7 @@ fn main() -> anyhow::Result<()> {
             &[],
             &g.leaders,
         );
-        fs::write(root.join(&norm_rel), norm_text)?;
+        let norm_rel = decks_out.write(DeckKind::Curated, &format!("{slug}.txt"), &norm_text)?;
 
         let (_, mut tags, colors) = classify_deck_strategy(&g.main, &g.leaders);
         if !tags.contains(&arch.name().to_string()) {
@@ -1074,7 +1077,6 @@ fn main() -> anyhow::Result<()> {
                 "coverage-train-{fmt_str}-{}-{cov_idx:03}",
                 g.archetype.name()
             );
-            let norm_rel = format!("data/decks/imported/curated/{slug}.txt");
             let norm_text = format_house_deck_text(
                 &g.name,
                 &format!(
@@ -1086,7 +1088,8 @@ fn main() -> anyhow::Result<()> {
                 &[],
                 &g.leaders,
             );
-            fs::write(root.join(&norm_rel), norm_text)?;
+            let norm_rel =
+                decks_out.write(DeckKind::Curated, &format!("{slug}.txt"), &norm_text)?;
 
             let (_, mut tags, colors) = classify_deck_strategy(&g.main, &g.leaders);
             if !tags.contains(&g.archetype.name().to_string()) {
@@ -1171,7 +1174,6 @@ fn main() -> anyhow::Result<()> {
                 "coverage-holdout-{fmt_str}-{}-{cov_idx:03}",
                 g.archetype.name()
             );
-            let norm_rel = format!("data/decks/imported/curated/{slug}.txt");
             let norm_text = format_house_deck_text(
                 &g.name,
                 &format!(
@@ -1183,7 +1185,8 @@ fn main() -> anyhow::Result<()> {
                 &[],
                 &g.leaders,
             );
-            fs::write(root.join(&norm_rel), norm_text)?;
+            let norm_rel =
+                decks_out.write(DeckKind::Curated, &format!("{slug}.txt"), &norm_text)?;
 
             let (_, mut tags, colors) = classify_deck_strategy(&g.main, &g.leaders);
             if !tags.contains(&g.archetype.name().to_string()) {
