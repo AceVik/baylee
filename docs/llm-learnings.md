@@ -7302,3 +7302,29 @@ code.
   touched origin/main`, formatting and `git diff --check` pass. `validate` accepts
   12,545 cards (11,175 finished, 63 of the machine-owned cards untested, and 1,370
   stubs). The full gates remain deferred at the owner's request.
+
+## 2026-11-07 — Smokestack's optional soot and each-upkeep sacrifice
+
+- Smokestack composes the existing optional source-counter effect with the
+  simultaneous per-player sacrifice effect; it needs no engine, DSL, protocol,
+  desktop or seat addition. Four canonical tests pay the ordinary {4}, decline
+  the counter and preserve every permanent at zero, accept a counter before the
+  sacrifice trigger and sacrifice exactly one permanent in each player's upkeep,
+  and sacrifice exactly two permanents with two counters. Lands and creatures
+  are both legal choices, and only the active player's permanents are offered.
+- The trigger-order scenario checks the actual stack from top to bottom. Its
+  house rule must be enabled before `keep_mulligans`: the opening upkeep queues
+  both abilities as soon as the game starts, and enabling the rule afterwards
+  lets the walking helper accept the default optional trigger before the intended
+  arrangement question. This was a fixture correction, not an engine change.
+- Removing the sacrifice ability with `BAYLEE_MUTATE=3363:0` and removing the
+  optional counter with `BAYLEE_MUTATE=3363:1` each kill the three upkeep tests;
+  the ordinary cast remains a useful control. The card was already in the
+  exercised card pool for the preceding integration run: all 373 house-AI tests,
+  the full seat suite (497 unit tests and every integration target), 152 desktop
+  interaction tests and nine `record::seen` tests (two ignored) pass. The desktop
+  client including tests compiles. `codegen --tables --check`,
+  `require-card-tests`, `cargo dev gate touched origin/main`, formatting and
+  `git diff --check` pass. `validate` accepts 12,545 cards (11,175 finished, 62
+  of the machine-owned cards untested, and 1,370 stubs). The full gates remain
+  deferred at the owner's request.
