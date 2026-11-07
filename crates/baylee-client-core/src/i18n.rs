@@ -37,7 +37,7 @@
 //! are never translated by replacing words inside arbitrary messages.
 
 mod server;
-pub use server::server_message;
+pub use server::{known_server_message, server_message};
 
 mod lang;
 mod names;

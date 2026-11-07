@@ -535,6 +535,26 @@ fn central_terms_before_any_gateway_and_later_ends_the_central_sign_in() {
     assert!(!state.terms.up());
 }
 
+/// A gateway's sheet comes up on the gateway's word, so a hostile one could
+/// raise it at will: its *Later* leaves that gateway, and the player's session
+/// at Central stands.
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn later_on_a_gateway_s_sheet_leaves_the_central_sign_in_standing() {
+    let mut app = signed_in_stale(false, "# Terms\n\nPlay fair.");
+    let (handle, _jobs) = super::super::central::Handle::queued_for_test();
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        super::super::central::enable(&mut state);
+        state.central.as_mut().expect("Central on").handle = Some(handle);
+    }
+    click(&mut app, Press::Front(FrontPress::TermsLater));
+    app.update();
+    let state = app.world().resource::<LobbyState>();
+    assert!(state.central_ready(), "Later ended the Central sign-in");
+    assert!(!signed_in(&app), "and it left the gateway");
+}
+
 /// A lobby signed in to Central whose own terms wait, with a gateway chosen
 /// and the account worker's queue in the test's hand.
 #[cfg(not(target_arch = "wasm32"))]

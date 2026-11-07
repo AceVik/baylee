@@ -88,6 +88,9 @@ mod native {
     // Catalog responses can be much larger than ordinary account traffic.
     // Routes with smaller protocols use fetch_limited instead.
     const MAX_RESPONSE_BYTES: usize = 256 * 1024 * 1024;
+    /// The most of an answer that is not a success this reads: a deck's
+    /// refusal names its cards, the rest are a sentence.
+    const MAX_REFUSAL_BYTES: usize = 64 * 1024;
     const REQUEST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
     const MAX_REQUEST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(120);
     const CONNECT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
@@ -187,8 +190,13 @@ mod native {
         headers.sort();
         let bytes = if request.method == ehttp::Method::HEAD {
             Vec::new()
-        } else {
+        } else if status.is_success() {
             limits::read_body(answer.body_mut().as_reader(), limit)?
+        } else {
+            // A refusal is a sentence: no reason to hold what any host says
+            // is one, and a body past this reads as no answer.
+            limits::read_body(answer.body_mut().as_reader(), limit.min(MAX_REFUSAL_BYTES))
+                .unwrap_or_default()
         };
         Ok(ehttp::Response {
             url: request.url.clone(),

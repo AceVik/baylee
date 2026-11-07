@@ -542,7 +542,8 @@ impl NetworkHost {
         if let Some(v1::envelope::Msg::HelloAck(ack)) = &envelope.msg
             && !ack.compatible
         {
-            bevy::log::warn!(table = ack.protocol_version, "{}", ack.message);
+            // The number and not its sentence: the gateway wrote that.
+            bevy::log::warn!(table = ack.protocol_version, "refused by the table");
             self.refused = Some(ack.protocol_version);
         }
     }

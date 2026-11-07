@@ -3,6 +3,12 @@
 #[allow(clippy::wildcard_imports)] // the lobby's own vocabulary
 use super::*;
 
+/// The soonest and latest a bearer is renewed, in seconds, whatever the
+/// gateway says: a real one says 44 to 108. Without a floor a hostile gateway
+/// could set a client spinning, and each failed round costs Central a token.
+const RENEW_AT_LEAST: u64 = 15;
+const RENEW_AT_MOST: u64 = 120;
+
 impl Lobby {
     /// Feeds back the outcome of a request, and returns the next one the
     /// lobby wants made. Ending a request always clears [`Lobby::busy`] —
@@ -36,7 +42,9 @@ impl Lobby {
                 // A late answer for a session that has gone changes nothing.
                 if let Performer::Gateway(held) = &mut self.performer {
                     *held = token;
-                    self.renew_in = Some(renew_in as f32);
+                    // The gateway's number, so kept to what a gateway says:
+                    // every renewal that fails asks Central for a token.
+                    self.renew_in = Some(renew_in.clamp(RENEW_AT_LEAST, RENEW_AT_MOST) as f32);
                 }
                 return None;
             }

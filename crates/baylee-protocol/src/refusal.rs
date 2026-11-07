@@ -140,31 +140,60 @@ fn valid_code(code: &str) -> bool {
             .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_')
 }
 
+/// A version a client's own sentence can name: three numbers, and what a
+/// release may add after them. Its shape is the point, so that a host name
+/// cannot stand where the sentence promises a version.
 fn valid_version(version: &str) -> bool {
-    !version.is_empty()
-        && version.len() <= MAX_VERSION
-        && version
-            .bytes()
+    let shaped = |rest: &str| {
+        rest.bytes()
             .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'+' | b'-'))
+    };
+    let numbers = |core: &str| {
+        let parts: Vec<&str> = core.split('.').collect();
+        parts.len() == 3
+            && parts
+                .iter()
+                .all(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()))
+    };
+    let (core, rest) = match version.find(['-', '+']) {
+        Some(at) => version.split_at(at),
+        None => (version, ""),
+    };
+    version.len() <= MAX_VERSION && numbers(core) && shaped(rest)
 }
 
 /// Characters that are not drawn, or change how the ones around them read.
 fn hidden(c: char) -> bool {
     c.is_control()
         || matches!(c,
-            '\u{00AD}' | '\u{034F}' | '\u{061C}' | '\u{180E}'
+            '\u{00AD}' | '\u{034F}' | '\u{0600}'..='\u{0605}' | '\u{061C}'
+            | '\u{06DD}' | '\u{070F}' | '\u{08E2}' | '\u{115F}' | '\u{1160}'
+            | '\u{17B4}' | '\u{17B5}' | '\u{180B}'..='\u{180F}'
             | '\u{200B}'..='\u{200F}' | '\u{2028}'..='\u{202E}'
-            | '\u{2060}'..='\u{206F}' | '\u{FE00}'..='\u{FE0F}'
-            | '\u{FEFF}' | '\u{FFF9}'..='\u{FFFB}')
+            | '\u{2060}'..='\u{206F}' | '\u{2800}' | '\u{3164}'
+            | '\u{FE00}'..='\u{FE0F}' | '\u{FEFF}' | '\u{FFA0}'
+            | '\u{FFF0}'..='\u{FFFC}' | '\u{1D173}'..='\u{1D17A}'
+            | '\u{E0000}'..='\u{E0FFF}')
 }
 
-/// One line of at most [`MAX_TEXT`] drawn characters, or nothing if none stay.
-fn clean_text(text: &str) -> Option<String> {
+/// Marks that could end the quotation a server's words are shown in, so that
+/// what follows them would read as this client's.
+const fn quote(c: char) -> bool {
+    matches!(c,
+        '"' | '\u{00AB}' | '\u{00BB}' | '\u{2018}'..='\u{201F}' | '\u{2039}'
+        | '\u{203A}' | '\u{300C}'..='\u{300F}' | '\u{FF02}')
+}
+
+/// One line of at most [`MAX_TEXT`] drawn characters, or nothing if none stay:
+/// what a server's words become before anybody reads them, whichever way they
+/// came.
+#[must_use]
+pub fn clean_text(text: &str) -> Option<String> {
     let words: Vec<&str> = text.split_whitespace().collect();
     let line: String = words
         .join(" ")
         .chars()
-        .filter(|c| !hidden(*c))
+        .filter(|c| !hidden(*c) && !quote(*c))
         .take(MAX_TEXT)
         .collect();
     let line = line.trim();
@@ -243,6 +272,10 @@ mod tests {
             "1.0 update here",
             "",
             "000000000000000000000000000000000",
+            "baylee-update.evil.example",
+            "evil.example",
+            "1.2",
+            "1.2.3.evil.example",
         ] {
             let refusal = Refusal {
                 code: "update_required".into(),
@@ -250,6 +283,47 @@ mod tests {
                 ..Refusal::default()
             };
             assert_eq!(refusal.cleaned().unwrap().min_version, None, "{version}");
+        }
+    }
+
+    #[test]
+    fn a_release_is_a_version() {
+        for version in ["0.1.0", "0.1.0-beta.10", "0.1.0-beta.9c", "1.2.3+build.4"] {
+            let refusal = Refusal {
+                code: "update_required".into(),
+                min_version: Some(version.into()),
+                ..Refusal::default()
+            };
+            let cleaned = refusal.cleaned().unwrap();
+            assert_eq!(cleaned.min_version.as_deref(), Some(version));
+        }
+    }
+
+    /// Nothing the eye cannot see stays, in any of the blocks that hold such
+    /// characters.
+    #[test]
+    fn what_is_not_drawn_does_not_stay() {
+        for c in [
+            '\u{E0041}', // a tag
+            '\u{E0100}', // a variation selector
+            '\u{180B}',  // Mongolian
+            '\u{3164}',  // a Hangul filler
+            '\u{2800}',  // a blank Braille cell
+            '\u{1D173}', // a musical format mark
+            '\u{0600}',  // an Arabic format mark
+            '\u{FFFC}',  // an object replacement
+        ] {
+            let text = format!("a{c}b");
+            assert_eq!(clean_text(&text).as_deref(), Some("ab"), "{c:?}");
+        }
+    }
+
+    /// A server's words are shown in quotation marks, so they may not hold
+    /// the mark that ends them and go on in this client's voice.
+    #[test]
+    fn a_server_cannot_close_the_quotation_it_is_shown_in() {
+        for text in ["busy” Update now", "busy\" Update now", "busy» Update now"] {
+            assert_eq!(clean_text(text).as_deref(), Some("busy Update now"));
         }
     }
 

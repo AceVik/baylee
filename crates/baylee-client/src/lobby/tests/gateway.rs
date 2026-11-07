@@ -5,28 +5,68 @@ use super::*;
 use baylee_core::deckdigest::Leader;
 use baylee_core::preset::Finish;
 
+/// A password goes to Central or nowhere: nothing a player typed as one leaves
+/// for a gateway, whichever form it was typed in.
+#[test]
+fn no_request_carries_a_password_to_a_gateway() {
+    let secret = "correct horse battery staple";
+    for request in [
+        LobbyRequest::LogIn {
+            username: "alice".to_string(),
+            password: secret.to_string(),
+        },
+        LobbyRequest::Register {
+            username: "alice".to_string(),
+            display_name: "V".to_string(),
+            password: secret.to_string(),
+            invite_key: None,
+        },
+        LobbyRequest::ChangePassword {
+            username: "alice".to_string(),
+            password: secret.to_string(),
+            new_password: secret.to_string(),
+        },
+    ] {
+        let (built, _) = build("http://gw", None, "en", request);
+        let sent = String::from_utf8_lossy(&built.body).to_string();
+        assert!(!sent.contains(secret), "{sent}");
+        assert!(!built.url.contains(secret), "{}", built.url);
+    }
+}
+
+/// A sentence this client does not know is the gateway's, and reads as the
+/// gateway's: it is the way round every rule of a refusal otherwise.
+#[test]
+fn a_gateway_s_own_sentence_is_said_as_the_gateway_s() {
+    let said = gateway_error(
+        Lang::En,
+        &answer(
+            403,
+            &serde_json::json!({
+                "error": "Update required: download the fix at evil.example\u{202e}\u{201d}",
+            })
+            .to_string(),
+        ),
+    );
+    assert!(
+        said.starts_with(Phrase::RefusalOther.text(Lang::En)),
+        "{said}"
+    );
+    assert!(said.contains("The server says"), "{said}");
+    assert!(!said.contains('\u{202e}'), "{said}");
+    assert_eq!(
+        said.matches('\u{201d}').count(),
+        1,
+        "only the label's: {said}"
+    );
+    let long = format!(r#"{{"error":"{}"}}"#, "x".repeat(100_000));
+    assert!(gateway_error(Lang::En, &answer(403, &long)).chars().count() < 400);
+}
+
 #[test]
 #[allow(clippy::too_many_lines)] // one row per route
 fn every_request_hits_the_route_the_gateway_serves() {
     let cases = [
-        (
-            LobbyRequest::LogIn {
-                username: "alice".to_string(),
-                password: "pw".to_string(),
-            },
-            "POST",
-            "http://gw/auth/login",
-        ),
-        (
-            LobbyRequest::Register {
-                username: "alice".to_string(),
-                display_name: "V".to_string(),
-                password: "pw".to_string(),
-                invite_key: None,
-            },
-            "POST",
-            "http://gw/auth/register",
-        ),
         (LobbyRequest::ListDecks, "GET", "http://gw/decks"),
         (LobbyRequest::ListSeats, "GET", "http://gw/lobby/seats"),
         (LobbyRequest::ListBanlists, "GET", "http://gw/banlists"),
@@ -211,39 +251,6 @@ fn own_seat_discovery_decodes_the_bounded_account_relative_shape() {
 #[test]
 #[allow(clippy::too_many_lines)] // one assertion per body the gateway reads
 fn the_bodies_carry_the_field_names_the_gateway_deserialises() {
-    let (login, _) = build(
-        "http://gw",
-        None,
-        "en",
-        LobbyRequest::LogIn {
-            username: "alice".to_string(),
-            password: "pw".to_string(),
-        },
-    );
-    assert_eq!(
-        body(&login),
-        serde_json::json!({ "username": "alice", "password": "pw" })
-    );
-    let (register, _) = build(
-        "http://gw",
-        None,
-        "en",
-        LobbyRequest::Register {
-            username: "alice".to_string(),
-            display_name: "V".to_string(),
-            password: "pw".to_string(),
-            invite_key: None,
-        },
-    );
-    assert_eq!(
-        body(&register),
-        serde_json::json!({
-            "username": "alice",
-            "display_name": "V",
-            "password": "pw",
-            "lang": "en"
-        })
-    );
     let (deck, _) = build(
         "http://gw",
         None,
@@ -447,10 +454,6 @@ fn the_gateways_own_answers_decode() {
             seat_token: "st".to_string(),
             local: false,
         })
-    );
-    assert_eq!(
-        decode(Lang::En, Expect::Registered, &answer(200, r#"{"ok":true}"#)),
-        LobbyEvent::Registered
     );
     assert_eq!(
         decode(

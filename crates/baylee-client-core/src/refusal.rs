@@ -31,6 +31,26 @@ pub fn say(refusal: &Refusal, lang: Lang) -> String {
     }
 }
 
+/// What the player reads for an answer that gives a sentence and no reason. A
+/// sentence this client knows is its own, in the player's language. Any other
+/// is a server's words, whoever wrote them: quoted as that server's, as one
+/// line, after this client's own sentence, and never as if it were this
+/// client speaking (`docs/protocol.md` §"Refusals").
+#[must_use]
+pub fn say_sentence(sentence: &str, lang: Lang) -> String {
+    if let Some(known) = crate::i18n::known_server_message(lang, sentence) {
+        return known;
+    }
+    let refusal = Refusal {
+        text: Some(sentence.to_owned()),
+        ..Refusal::new("unknown")
+    };
+    refusal.cleaned().map_or_else(
+        || Phrase::RefusalOther.text(lang).to_string(),
+        |refusal| say(&refusal, lang),
+    )
+}
+
 /// The refusal a socket closed with: its close code and reason, as cleaned as
 /// any other. Text does not travel this way, so the code is all there is.
 #[must_use]

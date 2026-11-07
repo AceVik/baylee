@@ -1308,8 +1308,6 @@ enum Expect {
     /// A table's list; a `404` is a table that has none.
     RoomList,
     Library(client_core::lobby::library::Request),
-    /// `{"ok":true}` — nothing to read.
-    Registered,
     /// `{"token":…}`.
     LoggedIn,
     /// `{"token":…, "handle":…}` for a new guest (#269).

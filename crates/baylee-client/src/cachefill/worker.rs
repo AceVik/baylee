@@ -41,6 +41,7 @@ pub(crate) fn start(courier: Arc<Courier>, cache: Option<PathBuf>) {
         courier.with(|fill, _| fill.no_cache());
         return;
     };
+    retire_the_shared_shelf(&cache);
     let worker = Worker {
         courier,
         cache,
@@ -178,12 +179,47 @@ pub(crate) fn list(dir: &Path) -> Listing {
             listing.names.insert(name);
         }
     }
+    listing.bytes += mirror_bytes(&artreader::mirror_shelves(dir));
     listing
 }
 
+/// How much every gateway's mirror holds: it is the same disk, and the same
+/// budget.
+fn mirror_bytes(shelves: &Path) -> u64 {
+    let Ok(shelves) = std::fs::read_dir(shelves) else {
+        return 0;
+    };
+    shelves
+        .flatten()
+        .filter_map(|shelf| std::fs::read_dir(shelf.path()).ok())
+        .flatten()
+        .flatten()
+        .filter_map(|picture| picture.metadata().ok())
+        .map(|meta| meta.len())
+        .sum()
+}
+
+/// Clears what the one shelf for every gateway held, beside `cache`: nothing
+/// says which of those pictures a gateway answered, so nothing reads them any
+/// more. A picture wanted again is fetched again.
+pub(crate) fn retire_the_shared_shelf(cache: &Path) {
+    let Some(entries) = cache.parent().and_then(|dir| std::fs::read_dir(dir).ok()) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let name = entry.file_name();
+        let name = name.to_string_lossy();
+        let picture = name.strip_suffix(".jpg").is_some_and(is_old_key);
+        if picture || is_old_key(&name) || is_part(&name) {
+            let _ = std::fs::remove_file(entry.path());
+        }
+    }
+}
+
 /// Empties the cache: the pictures and any `.part`, nothing else that might
-/// have come to lie there.
+/// have come to lie there, and every gateway's mirror.
 fn wipe(dir: &Path) {
+    let _ = std::fs::remove_dir_all(artreader::mirror_shelves(dir));
     let Ok(entries) = std::fs::read_dir(dir) else {
         return;
     };

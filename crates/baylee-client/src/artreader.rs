@@ -125,10 +125,43 @@ impl Default for ArtReaderPlugin {
     }
 }
 
-/// Where card art is cached on this device, if anywhere.
+/// Where card art from Scryfall is cached on this device, if anywhere: what
+/// every gateway may draw, because only Scryfall's own answers are filed here.
+/// A gateway's mirror has a shelf of its own ([`mirror_shelf`]).
 #[must_use]
 pub fn art_cache() -> Option<PathBuf> {
-    cache_home().map(|home| home.join("art"))
+    cache_home().map(|home| home.join("art").join("shelf"))
+}
+
+/// Where every gateway's mirror keeps its pictures, below `cache`.
+pub(crate) fn mirror_shelves(cache: &Path) -> PathBuf {
+    cache.join("mirrors")
+}
+
+/// Where the mirror at `base` keeps its pictures. A gateway may answer any
+/// valid picture for any printing, so what it says is drawn at that gateway
+/// and no other (owner, 07.11.2026: duplicate downloads are accepted).
+fn mirror_shelf(cache: &Path, base: &str) -> PathBuf {
+    mirror_shelves(cache).join(baylee_client_core::cardquery::gateway_tag(base))
+}
+
+/// Whether `url` is Scryfall's own, whatever the art base in force is.
+fn from_scryfall(url: &str) -> bool {
+    [images::SCRYFALL_CDN, images::SCRYFALL_BACKS_CDN]
+        .into_iter()
+        .any(|root| {
+            url.strip_prefix(root.trim_end_matches('/'))
+                .is_some_and(|rest| rest.starts_with('/'))
+        })
+}
+
+/// Where a picture fetched from `url` is filed.
+fn file_of(cache: &Path, url: &str, base: &str) -> PathBuf {
+    if from_scryfall(url) {
+        cache.join(key(url, base))
+    } else {
+        mirror_shelf(cache, base).join(key(url, base))
+    }
 }
 
 impl Plugin for ArtReaderPlugin {
@@ -181,13 +214,19 @@ impl AssetReader for ArtReader {
         allowed(&url, &base)
             .map_err(|refusal| AssetReaderError::Io(Arc::new(io::Error::other(refusal))))?;
         let shown = authorization(&url, &base, (self.session)().as_deref());
-        let file = self.cache.as_ref().map(|dir| dir.join(key(&url, &base)));
+        // Scryfall's copy is good at any gateway, so it comes first.
+        let scryfall = self.cache.as_ref().map(|dir| dir.join(key(&url, &base)));
+        let file = self.cache.as_ref().map(|dir| file_of(dir, &url, &base));
         let asked = path.to_path_buf();
         let courier = self.courier.clone();
         // Off the asset executor: the download and the cache are both
         // blocking, and a table asks for dozens of pictures at once.
         let bytes = blocking::unblock(move || {
-            fetch(&url, shown.as_deref(), file.as_deref(), asked, &courier)
+            let held = scryfall.as_deref().and_then(cached);
+            match held {
+                Some(bytes) => Ok(bytes),
+                None => fetch(&url, shown.as_deref(), file.as_deref(), asked, &courier),
+            }
         })
         .await?;
         Ok(VecReader::new(bytes))
@@ -715,9 +754,53 @@ mod tests {
         assert_eq!(read(&art, &url).expect("cached"), PICTURE);
         assert_eq!(served.load(Ordering::SeqCst), 1, "the second came off disk");
         assert_eq!(
-            std::fs::read(dir.join("art").join(key(&url, &base))).expect("the cache file"),
+            std::fs::read(file_of(&dir.join("art"), &url, &base)).expect("the cache file"),
             PICTURE
         );
+        std::fs::remove_dir_all(&dir).expect("cleaned up");
+    }
+
+    /// A gateway may answer any valid picture for a printing, so what it
+    /// answered is drawn at that gateway and at no other, and what Scryfall
+    /// holds is nobody's to replace.
+    #[test]
+    fn what_one_mirror_said_is_not_drawn_at_another() {
+        let cache = Path::new("/cache/art/shelf");
+        let path = "/normal/front/a/b/two.jpg";
+        let at = |base: &str| file_of(cache, &format!("{base}{path}"), base);
+        let (evil, good) = ("https://evil.example/art", "https://good.example/art");
+        assert_ne!(at(evil), at(good));
+        assert!(
+            at(evil).starts_with(mirror_shelves(cache)),
+            "{:?}",
+            at(evil)
+        );
+
+        let scryfall = format!("{}{path}", images::SCRYFALL_CDN);
+        assert_eq!(
+            file_of(cache, &scryfall, evil),
+            cache.join(key(&scryfall, evil)),
+            "Scryfall's own picture lies on Scryfall's shelf, whatever the mirror"
+        );
+        assert_eq!(
+            file_of(cache, &scryfall, evil),
+            file_of(cache, &scryfall, good)
+        );
+        assert_ne!(at(evil).parent(), Some(cache), "no mirror writes there");
+    }
+
+    /// A picture Scryfall gave is good at any gateway, so a mirror is not asked
+    /// for what is already held.
+    #[test]
+    fn a_mirror_is_not_asked_for_what_scryfall_gave() {
+        let dir = scratch("scryfall_first");
+        let (base, served) = serve("200 OK".into());
+        let shelf = dir.join("art").join("scryfall");
+        let art = reader(&base, Some(shelf.clone()));
+        let url = format!("{base}/normal/front/a/b/two.jpg");
+        store(&shelf.join(key(&url, &base)), PICTURE).expect("filed");
+        assert_eq!(read(&art, &url).expect("from the shelf"), PICTURE);
+        assert_eq!(served.load(Ordering::SeqCst), 0);
         std::fs::remove_dir_all(&dir).expect("cleaned up");
     }
 

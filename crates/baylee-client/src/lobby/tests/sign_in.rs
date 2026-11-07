@@ -1880,6 +1880,7 @@ fn a_click_on_sign_in_sends_it() {
     let mut app = headless();
     {
         let mut state = app.world_mut().resource_mut::<LobbyState>();
+        super::super::central::enable(&mut state);
         state.lobby.set_field(Field::Username, "someone");
         state.lobby.set_field(Field::Password, "correct-horse-9");
     }
@@ -1889,5 +1890,24 @@ fn a_click_on_sign_in_sends_it() {
     assert!(
         app.world().resource::<LobbyState>().lobby.busy(),
         "the click sent the sign-in"
+    );
+}
+
+/// With Central off a password has nowhere to go: however the form came to be
+/// there, nothing is sent and the player is told.
+#[test]
+fn a_password_goes_nowhere_with_central_off() {
+    let mut app = headless();
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.central = None;
+        state.lobby.set_field(Field::Username, "someone");
+        state.lobby.set_field(Field::Password, "correct-horse-9");
+    }
+    app.update();
+    press(&mut app, Press::Front(FrontPress::Submit));
+    assert!(
+        !app.world().resource::<LobbyState>().lobby.busy(),
+        "nothing was sent to the gateway"
     );
 }

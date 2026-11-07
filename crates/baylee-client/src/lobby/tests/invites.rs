@@ -20,8 +20,8 @@ fn post(app: &mut App, reply: Reply) {
 }
 
 /// A gateway that lets in guests alone has neither a sign-in nor a sign-up
-/// to offer: both would only fail, so the face is its doors. A gateway from
-/// before the cutover says no `auth_mode` and keeps its form.
+/// to offer: both would only fail, so the face is its doors. So has any gateway
+/// that does not take Central's accounts, whatever else it says.
 #[test]
 fn a_gateway_of_guests_alone_offers_no_form() {
     let guests = r#"{"registration_enabled":false,"registration":"open",
@@ -43,12 +43,23 @@ fn a_gateway_of_guests_alone_offers_no_form() {
     let lobby = &mut app.world_mut().resource_mut::<LobbyState>().lobby;
     assert_eq!(lobby.submit(), None, "Enter sends nothing");
 
-    let older = r#"{"registration_enabled":true,"guests_enabled":true}"#;
-    let found = presses(&mut at(older));
-    assert!(
-        found.contains(&Press::Front(FrontPress::Submit)),
-        "{found:?}"
-    );
+    // Nothing a gateway says draws the form: a hostile one that left out its
+    // mode, or says it takes sign-ups, would be asking for a password.
+    for hostile in [
+        r#"{"registration_enabled":true,"guests_enabled":true}"#,
+        r#"{"registration_enabled":true,"guests_enabled":false}"#,
+        r#"{"registration_enabled":true,"central":false,"auth_mode":"central"}"#,
+    ] {
+        let found = presses(&mut at(hostile));
+        assert!(
+            !found.contains(&Press::Front(FrontPress::Submit)),
+            "{hostile}: {found:?}"
+        );
+        assert!(
+            !found.contains(&Press::Front(FrontPress::ToggleRegistering)),
+            "{hostile}: {found:?}"
+        );
+    }
 
     let central = r#"{"registration_enabled":false,"guests_enabled":true,
         "central":true,"auth_mode":"mixed"}"#;
@@ -182,32 +193,6 @@ fn a_key_typed_into_the_box_lands_there() {
 
 #[test]
 fn the_key_goes_out_only_when_there_is_one() {
-    let register = |invite_key: Option<&str>| {
-        let (request, _) = build(
-            "http://gw",
-            None,
-            "en",
-            LobbyRequest::Register {
-                username: "alice".to_string(),
-                display_name: "Alice".to_string(),
-                password: "hunter22".to_string(),
-                invite_key: invite_key.map(str::to_string),
-            },
-        );
-        body(&request)
-    };
-    assert_eq!(register(Some(KEY))["invite_key"], KEY);
-    // An older gateway is sent exactly what it was always sent.
-    assert_eq!(
-        register(None),
-        serde_json::json!({
-            "username": "alice",
-            "display_name": "Alice",
-            "password": "hunter22",
-            "lang": "en",
-        })
-    );
-
     let (request, _) = build(
         "http://gw",
         None,
@@ -294,5 +279,10 @@ fn a_refusal_with_a_reason_is_said_in_the_clients_own_words() {
 
     // A refusal that breaks the rule is no refusal: the body is read as ever.
     let broken = answer(403, r#"{"error":"plain","refusal":{"code":"Not A Code"}}"#);
-    assert_eq!(gateway_error(Lang::En, &broken), "plain");
+    let said = gateway_error(Lang::En, &broken);
+    assert!(said.contains("plain"), "{said}");
+    assert!(
+        said.starts_with(Phrase::RefusalOther.text(Lang::En)),
+        "the server's sentence, labelled as the server's: {said}"
+    );
 }

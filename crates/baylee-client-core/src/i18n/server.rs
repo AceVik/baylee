@@ -16,6 +16,15 @@ pub fn server_message(lang: Lang, message: &str) -> String {
     known(detail).map_or_else(|| message.to_owned(), |phrase| phrase.text(lang).to_owned())
 }
 
+/// `message` in the player's language, if this client knows it: `None` for
+/// words only the server chose, which are shown as a server's.
+#[must_use]
+pub fn known_server_message(lang: Lang, message: &str) -> Option<String> {
+    let detail = message.strip_prefix("casting: ").unwrap_or(message);
+    let detail = detail.strip_prefix("illegal action: ").unwrap_or(detail);
+    known(detail).map(|phrase| phrase.text(lang).to_owned())
+}
+
 /// The server message whose English is `detail`.
 fn known(detail: &str) -> Option<ServerPhrase> {
     ServerPhrase::ALL

@@ -233,7 +233,13 @@ impl Account {
     /// not hold the session any more, and admitting again is the way back.
     pub fn refresh_gateway(&self, gateway: &str) -> Result<crate::Admission, Error> {
         let (source, token) = self.gateway_token(gateway)?;
-        source.refresh(&token)
+        // Only Central, asked above, can say its terms are due. A `403` from
+        // the gateway says nothing about them, and a client must not offer
+        // Central's sheet, whose *Later* signs out of Central, on its word.
+        source.refresh(&token).map_err(|error| match error {
+            Error::TermsRequired => Error::Rejected,
+            other => other,
+        })
     }
 
     /// A token for `gateway`, with the transport to present it there.

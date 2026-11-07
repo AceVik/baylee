@@ -236,6 +236,11 @@ pub struct ResumePoint {
 /// where the bytes come from, never in what they mean. Envelopes this client
 /// has no use for (heartbeats, the handshake) decode to nothing rather than to
 /// an error — a server is allowed to say more than a renderer listens to.
+/// `text`, as one short line of what can be seen.
+fn one_line(text: &str) -> String {
+    baylee_protocol::refusal::clean_text(text).unwrap_or_default()
+}
+
 pub(crate) fn host_message(envelope: Envelope) -> Option<HostMessage> {
     Some(match envelope.msg? {
         v1::envelope::Msg::GameStatic(msg) => {
@@ -267,11 +272,13 @@ pub(crate) fn host_message(envelope: Envelope) -> Option<HostMessage> {
                 Err(e) => HostMessage::Failed(format!("unreadable choice: {e}")),
             }
         }
-        v1::envelope::Msg::Error(err) => HostMessage::Failed(err.message),
+        // A table's words reach the player as they are, so a hostile gateway's
+        // are held to one short line of what can be seen.
+        v1::envelope::Msg::Error(err) => HostMessage::Failed(one_line(&err.message)),
         v1::envelope::Msg::Curtain(_) => HostMessage::Curtain,
         v1::envelope::Msg::AiLog(ai_log) => HostMessage::AiLog(ai_log),
         v1::envelope::Msg::Spectators(s) => HostMessage::Spectators(s.count),
-        v1::envelope::Msg::GameClosed(closed) => HostMessage::Closed(closed.reason),
+        v1::envelope::Msg::GameClosed(closed) => HostMessage::Closed(one_line(&closed.reason)),
         _ => return None,
     })
 }

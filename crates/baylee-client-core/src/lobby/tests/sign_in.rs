@@ -16,6 +16,23 @@ fn signed_in_as(token: &str) -> Lobby {
 /// the session must see the same session: a new one would redial the lobby's
 /// socket and ask who the player is each time.
 #[test]
+fn a_gateway_cannot_say_how_fast_this_client_renews() {
+    let mut lobby = signed_in_as("first");
+    lobby.apply(LobbyEvent::BearerRenewed {
+        token: "second".to_string(),
+        renew_in: 0,
+    });
+    assert!(!lobby.bearer_due(1.0), "not on the next frame");
+    assert!(!lobby.bearer_due(13.0));
+    assert!(lobby.bearer_due(1.0), "at the floor");
+    lobby.apply(LobbyEvent::BearerRenewed {
+        token: "third".to_string(),
+        renew_in: u64::MAX,
+    });
+    assert!(lobby.bearer_due(120.0), "at the ceiling");
+}
+
+#[test]
 fn a_renewed_bearer_is_the_same_session_and_a_new_sign_in_is_not() {
     let mut lobby = signed_in_as("first");
     let session = lobby.session_serial();
@@ -41,16 +58,16 @@ fn a_bearer_comes_due_once_when_its_time_runs_out_and_a_renewal_sets_the_next() 
     );
     lobby.apply(LobbyEvent::BearerRenewed {
         token: "first".to_string(),
-        renew_in: 10,
+        renew_in: 44,
     });
-    assert!(!lobby.bearer_due(9.0));
+    assert!(!lobby.bearer_due(43.0));
     assert!(lobby.bearer_due(2.0));
     assert!(!lobby.bearer_due(100.0), "once, until the answer comes");
     lobby.apply(LobbyEvent::BearerRenewed {
         token: "second".to_string(),
-        renew_in: 5,
+        renew_in: 60,
     });
-    assert!(lobby.bearer_due(5.0));
+    assert!(lobby.bearer_due(60.0));
 }
 
 /// A renewal runs on its own timer. It must not read as the answer to a

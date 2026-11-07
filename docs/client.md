@@ -2549,8 +2549,8 @@ before `AssetPlugin`, and:
 - treats the cache as optional: a read or write that fails is one `WARN` per
   operation and error kind, and the downloaded bytes still load;
 - names a cached picture by the SHA-256 of what is drawn, the URL's path below
-  its base (`images::art_path`, the printed back's two shapes made one), so a
-  picture is one file whichever host served it, and writes it to a `.part` that
+  its base (`images::art_path`, the printed back's two shapes made one), and
+  writes it to a `.part` that
   is synced and then renamed into place, so a crash cannot leave half a JPEG
   that fails to decode on every later launch;
 - asks only under `https://cards.scryfall.io/`, `https://backs.scryfall.io/`
@@ -2571,9 +2571,18 @@ they cannot be turned back into a path, so they are fetched again, and the fill'
 next listing removes them, since nothing reads them and they would eat the
 budget. The new names end in `.jpg`, which is how a listing tells them apart.
 
-The name's independence has a price worth knowing: a gateway's mirror used to
-fill a cache of its own, and now what any mirror serves is what the device keeps
-for that picture, also after the player moves to another gateway.
+**A gateway answers for its own table only (owner, 07.11.2026).** A gateway may
+answer any valid picture for a printing, and a hostile one would, so nothing it
+served is drawn anywhere else. Scryfall's own answers lie on one shelf
+(`art/shelf`), which the fill writes and every gateway may read, and a mirror's
+lie on a shelf of its own (`art/shelf/mirrors/<digest of its address>`). A picture is
+looked for on Scryfall's shelf first, then on the mirror's. Two gateways download
+the same picture twice; that is the price, and it is accepted. Pictures filed
+before this say nothing of where they came from, so they are cleared at the next
+start and fetched again. Card text works the same way: its documents are per
+language and gateway (`card-text-<lang>-<digest>.json`), or Scryfall's alone
+(`card-text-<lang>-scryfall.json`), and changing gateway starts over from that
+gateway's.
 
 **The cache fills itself in the background on a desktop (owner, 04.11.2026).**
 `client-core::cachefill` decides and `crate::cachefill` does: a few threads of

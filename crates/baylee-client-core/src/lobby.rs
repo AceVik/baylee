@@ -1848,9 +1848,11 @@ impl Lobby {
         self.doors.guests_only
     }
 
-    /// Records that guests are all it takes, after [`Self::set_guests_enabled`].
+    /// Records that this gateway has no sign-in to offer: guests, if it takes
+    /// them, are all it takes. Whether it takes them does not come into it, or
+    /// a gateway could ask for a password by saying it takes none.
     pub fn set_guests_only(&mut self, only: bool) {
-        self.doors.guests_only = only && self.doors.guests;
+        self.doors.guests_only = only;
     }
 
     /// Whether the sign-in form offers to play as a guest.
@@ -2786,9 +2788,12 @@ impl Lobby {
 /// end when there is one ([`ban_end`]).
 #[must_use]
 pub fn ban_sentence(lang: crate::i18n::Lang, reason: &str, until: Option<&str>) -> String {
+    // Both are the gateway's words inside this client's sentence.
+    let clean = |text: &str| baylee_protocol::refusal::clean_text(text).unwrap_or_default();
+    let reason = clean(reason);
     match until {
-        Some(until) => Phrase::BannedUntil.fill(lang, &[&ban_end(until), reason]),
-        None => Phrase::BannedForGood.fill(lang, &[reason]),
+        Some(until) => Phrase::BannedUntil.fill(lang, &[&ban_end(&clean(until)), &reason]),
+        None => Phrase::BannedForGood.fill(lang, &[&reason]),
     }
 }
 

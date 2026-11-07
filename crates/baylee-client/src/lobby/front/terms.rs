@@ -479,6 +479,12 @@ pub(in crate::lobby) fn perform(
             #[cfg(not(target_arch = "wasm32"))]
             super::super::central::logout(state, prefs);
         }
+        // A gateway's sheet comes up on the gateway's word, so its *Later*
+        // leaves that gateway and no more: a session at Central is not a
+        // gateway's to end.
+        Ask::SignOut if state.terms_subject == Subject::Gateway && state.central_ready() => {
+            super::super::clicks::to_the_gateways(state, prefs, scrolled, mailbox, settings);
+        }
         Ask::SignOut => {
             state.terms_subject = Subject::Gateway;
             sign_out(state, prefs, scrolled, mailbox, settings);

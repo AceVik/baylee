@@ -342,15 +342,37 @@ fn a_picture_filled_from_the_cdn_is_drawn_after_sign_in_with_no_request() {
     assert_eq!(mirror.requests(), 0, "the draw asked the mirror");
     assert_eq!(cdn.requests(), filled, "the draw asked the CDN");
 
-    // And the other way: what a signed-in draw fetched is on disk after
-    // sign-out, whoever fetched it.
+    // And not the other way: what a mirror answered is for its own table. A
+    // gateway may answer any picture for a printing, so signed out of it the
+    // picture is asked for again, and the mirror's stays on the mirror's shelf.
     let url = format!("{}/small/front/d/d/dd.jpg", mirror.base);
     read(&signed_in, &url).expect("a picture");
     assert_eq!(mirror.requests(), 1);
+    read(&signed_in, &url).expect("a picture");
+    assert_eq!(mirror.requests(), 1, "at its own table it was on disk");
     let signed_out = reader_of(&fill);
     let url = format!("{}/small/front/d/d/dd.jpg", cdn.base);
     read(&signed_out, &url).expect("a picture");
-    assert_eq!(cdn.requests(), filled, "signed out, it was on disk");
+    assert_eq!(cdn.requests(), filled + 1, "signed out, the CDN was asked");
+    std::fs::remove_dir_all(&dir).expect("cleaned up");
+}
+
+/// Pictures from when every gateway shared one shelf say nothing of where they
+/// came from, so they go, and what lies beside them stays.
+#[test]
+fn the_shelf_every_gateway_shared_is_cleared_and_nothing_else() {
+    let dir = scratch("retire");
+    let shelf = dir.join("scryfall");
+    let kept_there = shelf.join("a.jpg");
+    std::fs::create_dir_all(&shelf).expect("the shelf");
+    std::fs::write(&kept_there, b"x").expect("written");
+    let old = format!("{}.jpg", "a".repeat(64));
+    std::fs::write(dir.join(&old), b"x").expect("written");
+    std::fs::write(dir.join("notes.txt"), b"x").expect("written");
+    retire_the_shared_shelf(&shelf);
+    assert!(!dir.join(&old).exists(), "the old picture went");
+    assert!(dir.join("notes.txt").exists(), "what is no picture stays");
+    assert!(kept_there.exists(), "Scryfall's shelf is not touched");
     std::fs::remove_dir_all(&dir).expect("cleaned up");
 }
 

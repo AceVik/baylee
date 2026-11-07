@@ -144,6 +144,14 @@ pub(super) fn dispatch(state: &mut LobbyState, mailbox: &Mailbox, request: Optio
             _ => {}
         }
     }
+    // A password goes to Central or nowhere, whatever the form was drawn for
+    // (`docs/central-login.md` §"Legacy migration"): no gateway takes one.
+    if carries_a_password(&request) {
+        state.lobby.apply(LobbyEvent::Failed(
+            "Please use Baylee Central sign-in.".into(),
+        ));
+        return;
+    }
     // What rarity, set and format read; asked beside the pool for the same
     // reason as the blocks under it, and answered from a kept copy by version.
     if pool {
@@ -191,50 +199,15 @@ pub(super) fn build(
     // A gateway URL out of a `.env` file very often ends in one.
     let base = base.trim_end_matches('/');
     let (request, expect) = match request {
-        LobbyRequest::Register {
-            username,
-            display_name,
-            password,
-            invite_key,
-        } => {
-            let mut body = serde_json::json!({
-                "username": username,
-                "display_name": display_name,
-                "password": password,
-                // The language the gateway writes to the account in,
-                // kept on it.
-                "lang": lang,
-            });
-            // Only where the gateway asked for one (#317).
-            if let Some(key) = invite_key {
-                body["invite_key"] = key.into();
-            }
-            (
-                json_post(&format!("{base}/auth/register"), &body),
-                Expect::Registered,
-            )
-        }
-        LobbyRequest::LogIn { username, password } => (
+        // Refused before this ([`carries_a_password`]). Should one ever come
+        // this far, what was typed still does not leave.
+        LobbyRequest::Register { .. }
+        | LobbyRequest::LogIn { .. }
+        | LobbyRequest::ChangePassword { .. } => (
             json_post(
-                &format!("{base}/auth/login"),
-                &serde_json::json!({ "username": username, "password": password }),
+                &format!("{base}/auth/central/login"),
+                &serde_json::json!({}),
             ),
-            Expect::LoggedIn,
-        ),
-        LobbyRequest::ChangePassword {
-            username,
-            password,
-            new_password,
-        } => (
-            json_post(
-                &format!("{base}/auth/password"),
-                &serde_json::json!({
-                    "username": username,
-                    "password": password,
-                    "new_password": new_password,
-                }),
-            ),
-            // Answered as a sign-in is: a session.
             Expect::LoggedIn,
         ),
         LobbyRequest::PlayAsGuest {
@@ -751,7 +724,6 @@ pub(super) fn decode(lang: Lang, expect: Expect, response: &ehttp::Response) -> 
     let body = response.text().unwrap_or_default();
     match expect {
         // Nothing to read: the account exists, and signing in is next.
-        Expect::Registered => LobbyEvent::Registered,
         Expect::Guest => serde_json::from_str::<GuestBody>(body).map_or_else(
             |_| unreadable(lang, Phrase::TheSignIn),
             |b| {
@@ -927,6 +899,16 @@ pub(super) fn deck_refusal(response: &ehttp::Response) -> Option<baylee_cardtext
 /// A refusal with a stable reason in this client's words (`docs/protocol.md`
 /// §"Refusals"), else the gateway's own `{"error":…}`, or the bare status if
 /// it sent none.
+/// Whether `request` holds something a player typed as a password.
+const fn carries_a_password(request: &LobbyRequest) -> bool {
+    matches!(
+        request,
+        LobbyRequest::Register { .. }
+            | LobbyRequest::LogIn { .. }
+            | LobbyRequest::ChangePassword { .. }
+    )
+}
+
 pub(super) fn gateway_error(lang: Lang, response: &ehttp::Response) -> String {
     /// Every refusal the gateway sends has this shape.
     #[derive(serde::Deserialize)]
@@ -955,7 +937,10 @@ pub(super) fn gateway_error(lang: Lang, response: &ehttp::Response) -> String {
                 "weak password" | "invalid password" => {
                     Phrase::AccountPasswordInvalid.text(lang).to_string()
                 }
-                _ => client_core::i18n::server_message(lang, &b.error),
+                // Anything else is the gateway's own sentence, and it reads
+                // as the gateway's: this is the field a hostile one would use
+                // to write in this client's voice.
+                _ => client_core::refusal::say_sentence(&b.error, lang),
             },
         )
 }
@@ -996,10 +981,6 @@ struct AuthConfig {
     /// from before the field signs people in with its own routes.
     #[serde(default)]
     central: bool,
-    /// Who it lets in (`guests`, `central`, `mixed`). Absent from a gateway
-    /// from before the cutover, which signs people in with its own routes.
-    #[serde(default)]
-    auth_mode: Option<String>,
 }
 
 /// The clocks `GET /auth/config` lists, for the Create-table sheet. Read
@@ -1059,9 +1040,10 @@ pub(super) fn auth_config(body: &str) -> Option<Reply> {
         art_cache: body.art_cache,
         guests: body.guests_enabled,
         central: body.central,
-        // A gateway that states who it lets in has no password of its own:
-        // past the cutover an account comes through Central or not at all.
-        guests_only: body.auth_mode.is_some() && body.guests_enabled && !body.central,
+        // No gateway has a password of its own: past the cutover an account
+        // comes through Central or not at all. This must not rest on anything
+        // else a gateway says, or a hostile one could ask for the password.
+        guests_only: !body.central,
     })
 }
 
@@ -1258,7 +1240,7 @@ pub(super) fn read_side<T: serde::de::DeserializeOwned>(
 /// answer for a gateway since left is dropped by its epoch.
 /// How soon a renewal that got no answer is tried again. A bearer wants
 /// renewing well before it ends, so a dropped request costs nothing.
-const BEARER_RETRY_SECS: u64 = 5;
+const BEARER_RETRY_SECS: u64 = 15;
 
 /// `POST /auth/session/renew`, with no word to Central: the new bearer. A
 /// refusal need not be the session's end, since a lost answer or a restarted

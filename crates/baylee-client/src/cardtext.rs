@@ -82,6 +82,17 @@ enum Reply {
 #[derive(Resource, Default, Clone, PartialEq, Eq, Debug)]
 pub struct TextGateway(pub Option<SignedIn>);
 
+/// The document `lang`'s text is kept in, for the gateway in use. With none it
+/// is Scryfall's alone, and named so that a document from before gateways had
+/// shelves of their own is not read.
+fn shelf_of(lang: &str, gateway: Option<&SignedIn>) -> String {
+    let source = gateway.map_or_else(
+        || "scryfall".to_owned(),
+        |gateway| baylee_client_core::cardquery::gateway_tag(&gateway.base),
+    );
+    format!("{lang}-{source}")
+}
+
 /// A gateway and a session on it.
 #[derive(Clone, PartialEq, Eq)]
 pub struct SignedIn {
@@ -138,6 +149,9 @@ pub struct CardTexts {
     generation: u64,
     /// The language everything here is in; a change starts over.
     lang: String,
+    /// Whose text this is, and the document it is kept in: a gateway may say
+    /// anything of a card, so it is read at that gateway and no other.
+    shelf: String,
     /// Cards asked about in [`Self::lang`], answered or not.
     asked: HashSet<CardIndex>,
     /// The view last walked for cards to ask about, by its `seq`.
@@ -285,7 +299,7 @@ impl CardTexts {
         self.scryfall = Door::default();
         self.lang = lang.to_string();
         if lang != "en" {
-            self.absorb(cache::load(lang));
+            self.absorb(cache::load(&self.shelf));
         }
         self.generation += 1;
     }
@@ -463,8 +477,12 @@ pub fn request(
     gateway: Res<TextGateway>,
     time: Res<Time<Real>>,
 ) {
-    if texts.lang != settings.lang {
-        texts.relang(&settings.lang);
+    if texts.lang != settings.lang || gateway.is_changed() {
+        let shelf = shelf_of(&settings.lang, gateway.0.as_ref());
+        if texts.lang != settings.lang || texts.shelf != shelf {
+            texts.shelf = shelf;
+            texts.relang(&settings.lang);
+        }
     }
     let (Some(statics), Some(view)) = (duel.statics.as_ref(), duel.view.as_ref()) else {
         return;
@@ -571,7 +589,7 @@ pub fn poll(mut texts: ResMut<CardTexts>) {
     // Cards the view named while this was out are asked about next frame.
     texts.walked = None;
     if texts.receive(reply, &cards) {
-        cache::store(&texts.lang, &texts.filed_entries());
+        cache::store(&texts.shelf, &texts.filed_entries());
         bevy::log::info!(cards = texts.len(), "card text filed");
     }
 }
@@ -653,7 +671,7 @@ pub fn poll_scryfall(mut texts: ResMut<CardTexts>) {
     };
     texts.scryfall.walked = None;
     if texts.receive_scryfall(reply, card) {
-        cache::store(&texts.lang, &texts.filed_entries());
+        cache::store(&texts.shelf, &texts.filed_entries());
         bevy::log::info!(cards = texts.len(), "card text filed from Scryfall");
     }
 }

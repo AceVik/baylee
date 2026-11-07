@@ -55,7 +55,8 @@ pub(crate) mod tests;
 
 pub use baylee_cardtext::{Legality, PoolFacts, PoolFactsBody, PoolSet, Rarity};
 pub use eval::{
-    Facts, Match, Surface, matches, missing_lists, missing_pool_facts, pool_facts_document,
+    Facts, Match, Surface, gateway_tag, matches, missing_lists, missing_pool_facts,
+    pool_facts_document,
 };
 pub use lists::{ListShelf, ShelfList};
 

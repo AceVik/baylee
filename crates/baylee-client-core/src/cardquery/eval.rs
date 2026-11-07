@@ -257,12 +257,17 @@ fn format_key(word: &str) -> &str {
 /// may have typed and no filename.
 #[must_use]
 pub fn pool_facts_document(gateway: &str) -> String {
+    format!("pool-facts-{}.json", gateway_tag(gateway))
+}
+
+/// What a client files one gateway's things under: a digest of the address, so
+/// a name on disk says nothing of where a player has been, and no two gateways
+/// share a shelf.
+#[must_use]
+pub fn gateway_tag(gateway: &str) -> String {
     use sha2::Digest as _;
     let digest = sha2::Sha256::digest(gateway.trim_end_matches('/').as_bytes());
-    format!(
-        "pool-facts-{}.json",
-        crate::social::sealing::hex(&digest[..8])
-    )
+    crate::social::sealing::hex(&digest[..8])
 }
 
 /// Whether this query asks what only the gateway's table answers, on a list

@@ -21,10 +21,12 @@ a gateway lets in"), a guest through the gateway's own guest face and terms
 sheet, never by anything the door accepted. The door is the player's own press:
 `‹` and Esc do nothing on this form.
 
-A gateway that lets in guests alone (`auth_mode` said, `guests_enabled`, no
-`central`) has no sign-in and no sign-up to offer, so its face shows neither
-(`Lobby::guests_only`): the guest door, offline and the way back are the face. A
-gateway too old to say `auth_mode` keeps its form.
+A gateway that does not take Central's accounts (no `central`) has no sign-in and
+no sign-up to offer, so its face shows neither (`Lobby::guests_only`): the guest
+door where it takes guests, offline and the way back are the face. That rests on
+nothing else a gateway says, because a form there would be a hostile gateway asking
+for a password, and the client refuses every route that would carry one: a password
+goes to Central or nowhere.
 
 The same list is where a session that ends without signing out lands: Later on
 Central's terms, a failed move, or Central ending the session. Wherever it
@@ -415,7 +417,8 @@ within seconds where it cannot.
 - **Central token.** Never reaches a gateway. It is an opaque string to the client.
 - **Gateway token.** The client asks Central for one for a chosen gateway
   (`GatewayToken`), and Central records the session as a `sid`, random per Central
-  session, gateway and purpose, so two gateways cannot correlate a player. It says
+  session, gateway and purpose, so two gateways cannot correlate a session (`sub`,
+  `name` and `tag` are the same at every gateway, so they can correlate an account). It says
   who the account is, the name and tag, and the newest terms of this gateway the
   account accepted; Central's own terms are a condition of issue. It is good at no
   other gateway and never at Central.
