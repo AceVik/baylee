@@ -28,6 +28,7 @@ mod lightning_blast;
 mod memory_deluge;
 mod might_of_oaks;
 mod nocturnal_raid;
+mod psychotic_haze;
 mod quash;
 mod ramosian_rally;
 mod rapid_fire;
