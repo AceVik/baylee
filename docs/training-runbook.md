@@ -626,7 +626,7 @@ CLIs directly. New one-off operational logic must also be maintainable Rust.
 | `train_ops pipeline` | Ordered immutable experiment, input/output seals, per-root controller lock, time/PSS limits, shared GPU stage lock and terminal receipts |
 | `train_ops run` | One bounded owned process-group job; has no `--gpu-lock`, so use a pipeline for a CUDA stage |
 | `train_ops collect-research`, `finalize-research` | CPU research collector supervision and durable planned/assigned/recorded/unknown counts after verified owned-group cleanup |
-| `eval4` | Native CPU/CUDA actor, complete game records and sidecars; ordinary evaluation and on-policy collection are distinct purposes |
+| `eval4` | Native CPU/CUDA actor, complete game records and sidecars; ordinary evaluation and on-policy collection are distinct purposes. An evaluation on the GPU runs `MODEL/fp16` when it exists (`--precision float32` keeps FP32); a collection always keeps FP32 |
 | `convert4` | Deterministic full replay, versioned observation/target conversion and dataset publication |
 | `convert4 research` | Separate failure-terminal research features/returns; conversion-only output, rejected by ordinary training/cache/admission |
 | `trajectory_cache4` | Native packed trajectory cache, source identities, seals and tensor I/O boundaries; no Python fallback |
