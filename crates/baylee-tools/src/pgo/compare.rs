@@ -5,10 +5,10 @@
 //! the other, each round the other first, so that what the machine does
 //! meanwhile falls on both.
 //!
-//! Each client is passive, so its frame rate is the background limit: a frame's
-//! length says little. What does is the main schedule's time, which no limit
-//! touches, and the CPU a frame takes, which holds the render thread and the
-//! driver as well.
+//! Each client stands at a frame limit (120 frames a second on the machine it was
+//! first run on), so a frame's length says little. What does is the main
+//! schedule's time, which no limit touches, and the CPU a frame takes, which
+//! holds the render thread and the driver as well.
 
 use std::{
     fs,
@@ -57,13 +57,33 @@ pub fn run(root: &Path, plain: &Path, profiled: &Path, rounds: usize) -> Result<
     let binaries = [("plain", plain), ("profiled", profiled)];
     let mut readings: [Vec<Reading>; 2] = [Vec::new(), Vec::new()];
     let mut games: [Vec<Game>; 2] = [Vec::new(), Vec::new()];
+    let mut failed = 0;
     for round in 0..rounds {
         for turn in 0..2 {
             let which = (round + turn) % 2;
             let (name, binary) = binaries[which];
             let dir = work.join(format!("{round}-{name}"));
             println!("round {round}: {name}, the screens");
-            readings[which].extend(screens(root, binary, &dir)?);
+            // A run that fails is said and left out: it takes the others' numbers
+            // with it otherwise, and a game can stand still at a question.
+            match screens(root, binary, &dir) {
+                Ok(read) => {
+                    for reading in &read {
+                        println!(
+                            "  {}: main {:.2} ms, CPU {:.2} ms a frame, frame {:.2} ms",
+                            reading.screen,
+                            reading.update_p50,
+                            reading.cpu_per_frame,
+                            reading.frame_p50
+                        );
+                    }
+                    readings[which].extend(read);
+                }
+                Err(why) => {
+                    failed += 1;
+                    println!("  failed, left out: {why:#}");
+                }
+            }
         }
     }
     for round in 0..GAMES {
@@ -72,15 +92,23 @@ pub fn run(root: &Path, plain: &Path, profiled: &Path, rounds: usize) -> Result<
             let (name, binary) = binaries[which];
             let dir = work.join(format!("game-{round}-{name}"));
             println!("round {round}: {name}, a whole game");
-            let game = whole_game(binary, &dir)?;
-            println!(
-                "  turn {}, {:.1} s of CPU over {:.1} s",
-                game.turn, game.cpu_seconds, game.wall_seconds
-            );
-            games[which].push(game);
+            match whole_game(binary, &dir) {
+                Ok(game) => {
+                    println!(
+                        "  turn {}, {:.1} s of CPU over {:.1} s",
+                        game.turn, game.cpu_seconds, game.wall_seconds
+                    );
+                    games[which].push(game);
+                }
+                Err(why) => {
+                    failed += 1;
+                    println!("  failed, left out: {why:#}");
+                }
+            }
         }
     }
     report(&readings, &games);
+    ensure!(failed == 0, "{failed} runs failed and are left out");
     Ok(())
 }
 
