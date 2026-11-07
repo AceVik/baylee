@@ -38,8 +38,23 @@
 //! `--game <id>` plays one game of the set, as one engine process does, and
 //! `--rss` (`frames` only) writes the resident set to stderr as it goes, for
 //! comparing allocators (Linux).
+//!
+//! `--verify --patches` rebuilds every seat's view from patches as the game
+//! goes, on any shape, and stops at the first view that does not come out byte
+//! for byte the whole view (`rebuild.rs`).
+//!
+//! Three more runs are not for counting instructions but for what goes down a
+//! socket (`wire.rs`): `wire` is `frames` as a live engine drives it, pumping
+//! `LIVE_SLICE` house steps at a time with the clock running; `table` is the
+//! same with every chair on a socket, and `--four` seats four at each table;
+//! `record <file>…` plays recorded games again and reads what each seat of
+//! them is sent. All three print bytes and frames per seat and message kind.
+
+mod rebuild;
+mod wire;
 
 use std::hint::black_box;
+use std::ops::ControlFlow;
 use std::path::Path;
 
 use anyhow::{Context as _, bail};
@@ -52,9 +67,14 @@ use baylee_engine::engine::DeckKnowledge;
 #[cfg(feature = "simulation")]
 use baylee_gamehost::SimulationSession;
 use baylee_gamehost::record::Line;
+use baylee_gamehost::replay::{Perspective, Verify, project};
 use baylee_gamehost::{PlayerView, Session};
 use baylee_protocol::v1::Envelope;
+use baylee_protocol::v1::envelope::Msg;
 use prost::Message as _;
+
+use rebuild::Rebuild;
+use wire::Wire;
 
 /// The decks at each table and the profiles playing them. Mirrors of nothing:
 /// every house deck sits down, so an artifact board, a token board, a
@@ -79,6 +99,14 @@ const MAX_ANSWERS: u64 = 3000;
 /// Answers between two `--rss` samples.
 const RSS_EVERY: u64 = 100;
 
+/// House steps a live engine runs before it looks at its sockets again: its
+/// `ATTACHED_PUMP_SLICE`, whose crate this one does not link.
+const LIVE_SLICE: usize = 128;
+
+/// How long a seat takes over an answer in `wire` and `table`, so that the
+/// clocks in their views count as they do at a table.
+const THINKING_MS: u64 = 1500;
+
 /// Worlds forked at a searched decision.
 #[cfg(feature = "simulation")]
 const WORLDS: u64 = 4;
@@ -99,6 +127,19 @@ enum Shape {
     Decide,
     #[cfg(feature = "simulation")]
     Search,
+    /// One chair on a socket, as a live engine drives it.
+    Wire,
+    /// Every chair on a socket, as a live engine drives it.
+    Table,
+}
+
+/// What a run checks as it goes.
+#[derive(Clone, Copy)]
+struct Checks {
+    /// Digest every action, view and hash.
+    verify: bool,
+    /// Rebuild every seat's view from patches.
+    patches: bool,
 }
 
 /// One game of the fixed set.
@@ -129,15 +170,20 @@ struct Digests {
     actions: Fnv,
     views: Fnv,
     hashes: Fnv,
+    /// Seats' views rebuilt from patches: what a socket was sent, and what a
+    /// host was handed. Two streams, because the two differ by the context a
+    /// socket is not sent.
+    rebuilt: Option<[Rebuild; 2]>,
 }
 
 impl Digests {
-    const fn new(on: bool) -> Self {
+    fn new(checks: Checks) -> Self {
         Self {
-            on,
+            on: checks.verify,
             actions: Fnv::new(),
             views: Fnv::new(),
             hashes: Fnv::new(),
+            rebuilt: checks.patches.then(<[Rebuild; 2]>::default),
         }
     }
 
@@ -148,6 +194,16 @@ impl Digests {
         } else {
             black_box(view);
         }
+        if let Some([_, handed]) = &mut self.rebuilt {
+            handed.view(view);
+        }
+    }
+
+    /// Views rebuilt from patches and found equal, so far.
+    fn patched(&self) -> u64 {
+        self.rebuilt
+            .as_ref()
+            .map_or(0, |[sent, handed]| sent.views + handed.views)
     }
 
     /// As JSON and not `Debug`: this is what a seat is asked, and a field a
@@ -184,6 +240,15 @@ impl Digests {
             }
         } else {
             black_box(frames);
+        }
+        if let Some([sent, _]) = &mut self.rebuilt {
+            for (_, frame) in frames {
+                if let Some(Msg::StateDelta(delta)) = &frame.msg {
+                    let view: PlayerView =
+                        serde_json::from_slice(&delta.view_json).expect("a seat is sent a view");
+                    sent.view(&view);
+                }
+            }
         }
     }
 
@@ -226,6 +291,8 @@ struct Played {
     forks: u64,
     rollout_steps: u64,
     digests: Digests,
+    /// What went down its sockets, for `wire` and `table`.
+    wire: Option<Wire>,
 }
 
 fn played(session: &Session, digests: Digests, forks: u64, rollout_steps: u64) -> Played {
@@ -244,6 +311,7 @@ fn played(session: &Session, digests: Digests, forks: u64, rollout_steps: u64) -
         forks,
         rollout_steps,
         digests,
+        wire: None,
     }
 }
 
@@ -265,21 +333,21 @@ fn running(session: &Session) -> bool {
     !matches!(session.pending(), Pending::GameOver(_)) && session.decision_seq() < MAX_ANSWERS
 }
 
-fn house(game: &Game, verify: bool) -> Played {
+fn house(game: &Game, checks: Checks) -> Played {
     let mut session = Session::new_recorded(&game.preset, "perf").expect("the preset builds");
     describe(&mut session, game);
     let seats = seats_of(game);
-    let mut digests = Digests::new(verify);
+    let mut digests = Digests::new(checks);
     while running(&session) {
         session.pump_at_most(1);
-        if verify {
+        if checks.verify {
             for &seat in &seats {
                 digests.view(&session.observe_view_with_announcement_context(seat));
             }
             digests.question(session.pending());
         }
     }
-    if verify {
+    if checks.verify {
         digests.record(&session.take_record());
     }
     played(&session, digests, 0, 0)
@@ -320,12 +388,12 @@ fn report_rss(game: &str, answers: u64) {
     );
 }
 
-fn frames(game: &Game, verify: bool, rss: bool) -> Played {
+fn frames(game: &Game, checks: Checks, rss: bool) -> Played {
     let mut session = Session::new_recorded(&game.preset, "perf").expect("the preset builds");
     describe(&mut session, game);
     let seat = PlayerId::new(0);
     session.take_over(seat);
-    let mut digests = Digests::new(verify);
+    let mut digests = Digests::new(checks);
     let mut next_sample = 0;
     while running(&session) {
         if rss && session.decision_seq() >= next_sample {
@@ -348,13 +416,13 @@ fn frames(game: &Game, verify: bool, rss: bool) -> Played {
     if rss {
         report_rss(&game.id, session.decision_seq());
     }
-    if verify {
+    if checks.verify {
         digests.record(&session.take_record());
     }
     played(&session, digests, 0, 0)
 }
 
-fn decide(game: &Game, verify: bool) -> Played {
+fn decide(game: &Game, checks: Checks) -> Played {
     let mut session = Session::new(&game.preset).expect("the preset builds");
     describe(&mut session, game);
     session.discard_frames();
@@ -362,7 +430,7 @@ fn decide(game: &Game, verify: bool) -> Played {
     for &seat in &seats {
         session.take_over(seat);
     }
-    let mut digests = Digests::new(verify);
+    let mut digests = Digests::new(checks);
     'game: while running(&session) {
         for &seat in &seats {
             digests.view(&session.observe_view_with_announcement_context(seat));
@@ -417,13 +485,13 @@ fn rollout(fork: &mut SimulationSession, seat: PlayerId, digests: &mut Digests) 
 }
 
 #[cfg(feature = "simulation")]
-fn search(game: &Game, verify: bool) -> Played {
+fn search(game: &Game, checks: Checks) -> Played {
     let mut session = Session::new(&game.preset).expect("the preset builds");
     describe(&mut session, game);
     session.discard_frames();
     let seat = PlayerId::new(0);
     session.take_over(seat);
-    let mut digests = Digests::new(verify);
+    let mut digests = Digests::new(checks);
     let (mut priorities, mut forks, mut rollout_steps) = (0_u64, 0_u64, 0_u64);
     while running(&session) {
         digests.view(&session.observe_view_with_announcement_context(seat));
@@ -458,19 +526,130 @@ fn search(game: &Game, verify: bool) -> Played {
     played(&session, digests, forks, rollout_steps)
 }
 
+/// Feeds what `seat` was sent to the tally and the digests.
+fn told(wire: &mut Wire, digests: &mut Digests, frames: &[(PlayerId, Envelope)]) {
+    for (seat, frame) in frames {
+        wire.frame(*seat, frame);
+    }
+    digests.frames(frames);
+}
+
+/// `sockets` on sockets and the house at the rest of the table, driven as a
+/// live engine drives one: `LIVE_SLICE` house steps at a time, each answer
+/// through `act_slice`, the opening payload first and the clock running.
+fn live(game: &Game, sockets: &[PlayerId], checks: Checks) -> Played {
+    let mut session = Session::new(&game.preset).expect("the preset builds");
+    describe(&mut session, game);
+    for &seat in sockets {
+        session.take_over(seat);
+    }
+    let mut digests = Digests::new(checks);
+    let mut wire = Wire::default();
+    let mut now = 0;
+    for &seat in sockets {
+        wire.frame(seat, &session.game_static_envelope(seat));
+    }
+    let opening = session.pump_slice(LIVE_SLICE);
+    told(&mut wire, &mut digests, &opening);
+    while running(&session) {
+        now += THINKING_MS;
+        session.tell_time(now);
+        if session.needs_pump() {
+            let frames = session.pump_slice(LIVE_SLICE);
+            told(&mut wire, &mut digests, &frames);
+            continue;
+        }
+        let asked = sockets
+            .iter()
+            .find_map(|&seat| session.view_for(seat).map(|(pending, _)| (seat, pending)));
+        let Some((seat, pending)) = asked else {
+            break;
+        };
+        let house = session.house_action(seat);
+        let fallback = timeout_answer(&pending);
+        let tries = [house, fallback, Some(PlayerAction::PassPriority)];
+        let answered = tries.into_iter().flatten().any(|action| {
+            digests.action(seat, &action);
+            session
+                .act_slice(seat, action, LIVE_SLICE)
+                .is_ok_and(|frames| {
+                    told(&mut wire, &mut digests, &frames);
+                    true
+                })
+        });
+        if !answered {
+            break;
+        }
+    }
+    let mut game_played = played(&session, digests, 0, 0);
+    game_played.wire = Some(wire);
+    game_played
+}
+
+/// What each seat of `record` is sent as it is played again, read as `wire`
+/// reads a live table, checked against the record where it can be.
+fn recorded(path: &Path, checks: Checks) -> anyhow::Result<(Wire, u64, u64)> {
+    let record = std::fs::read(path).with_context(|| format!("reading {}", path.display()))?;
+    let header = record.split(|byte| *byte == b'\n').next().unwrap_or(&[]);
+    let Line::Header { preset, .. } =
+        serde_json::from_slice(header).context("a record's header")?
+    else {
+        bail!("{} opens with no header", path.display());
+    };
+    let seats = preset.seats.len();
+    let names: Vec<String> = (0..seats).map(|seat| seat.to_string()).collect();
+    let mut wire = Wire::default();
+    let mut digests = Digests::new(checks);
+    let (mut inputs, mut exact) = (0, 0);
+    for seat in 0..seats {
+        let seat = PlayerId::new(u8::try_from(seat).context("a table has few seats")?);
+        let projection = project(
+            &record,
+            names.clone(),
+            Perspective::Seat(seat),
+            Verify::Stop,
+            |moment| {
+                let frames: Vec<_> = moment.frames.into_iter().map(|f| (seat, f)).collect();
+                told(&mut wire, &mut digests, &frames);
+                ControlFlow::Continue(())
+            },
+        )
+        .map_err(|why| anyhow::anyhow!("{}: {why:?}", path.display()))?;
+        inputs = projection.inputs;
+        exact = projection.exact_to.or(projection.seen_to).unwrap_or(0);
+        eprintln!(
+            "{} seat {}: {} inputs, {:?}, exact to {:?}, seen to {:?}",
+            path.display(),
+            seat.get(),
+            projection.inputs,
+            projection.stop,
+            projection.exact_to,
+            projection.seen_to,
+        );
+    }
+    println!(
+        "{} seats={seats} inputs={inputs} checked={exact} patched={}",
+        path.display(),
+        digests.patched()
+    );
+    Ok((wire, inputs, exact))
+}
+
 /// Every game of the set, in order. Not inlined: callgrind counts from here
 /// (`--toggle-collect`), which leaves the card registry and the deck files
 /// out of the count.
 #[inline(never)]
-fn play_all(shape: Shape, games: &[Game], verify: bool, rss: bool) -> Vec<Played> {
+fn play_all(shape: Shape, games: &[Game], checks: Checks, rss: bool) -> Vec<Played> {
     games
         .iter()
         .map(|game| match shape {
-            Shape::House => house(game, verify),
-            Shape::Frames => frames(game, verify, rss),
-            Shape::Decide => decide(game, verify),
+            Shape::House => house(game, checks),
+            Shape::Frames => frames(game, checks, rss),
+            Shape::Decide => decide(game, checks),
             #[cfg(feature = "simulation")]
-            Shape::Search => search(game, verify),
+            Shape::Search => search(game, checks),
+            Shape::Wire => live(game, &[PlayerId::new(0)], checks),
+            Shape::Table => live(game, &seats_of(game), checks),
         })
         .collect()
 }
@@ -487,7 +666,8 @@ fn deck(key: &str) -> anyhow::Result<LoadedDeck> {
         .with_context(|| format!("loading {}", path.display()))
 }
 
-fn games() -> anyhow::Result<Vec<Game>> {
+/// The fixed set; with `four`, each table's two decks twice around it.
+fn games(four: bool) -> anyhow::Result<Vec<Game>> {
     let mut games = Vec::new();
     for (a, b, profile_a, profile_b) in TABLES {
         let decks = [deck(a)?, deck(b)?];
@@ -496,9 +676,14 @@ fn games() -> anyhow::Result<Vec<Game>> {
         let [profile_a, profile_b] = profiles;
         let profiles = [profile_a?, profile_b?];
         for seed in SEEDS {
-            let mut preset = preset_for_all(seed, &[&decks[0], &decks[1]]);
-            for (seat, profile) in preset.seats.iter_mut().zip(profiles) {
-                seat.controller = SeatController::Ai(profile);
+            let chairs: &[&LoadedDeck] = if four {
+                &[&decks[0], &decks[1], &decks[0], &decks[1]]
+            } else {
+                &[&decks[0], &decks[1]]
+            };
+            let mut preset = preset_for_all(seed, chairs);
+            for (seat, profile) in preset.seats.iter_mut().zip(profiles.iter().cycle()) {
+                seat.controller = SeatController::Ai(*profile);
                 seat.team = None;
             }
             games.push(Game {
@@ -510,29 +695,66 @@ fn games() -> anyhow::Result<Vec<Game>> {
     Ok(games)
 }
 
+/// The tally of recorded games: `record <file>…`.
+fn records(paths: &[String], checks: Checks) -> anyhow::Result<()> {
+    let mut all = Wire::default();
+    let (mut inputs, mut checked) = (0, 0);
+    for path in paths {
+        let (wire, game_inputs, game_checked) = recorded(Path::new(path), checks)?;
+        wire.seat_lines(path);
+        all.merge(&wire);
+        inputs += game_inputs;
+        checked += game_checked;
+    }
+    println!(
+        "total records={} inputs={inputs} checked={checked}",
+        paths.len()
+    );
+    all.report();
+    Ok(())
+}
+
 fn main() -> anyhow::Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
-    let verify = args.iter().any(|arg| arg == "--verify");
+    let checks = Checks {
+        verify: args.iter().any(|arg| arg == "--verify"),
+        patches: args.iter().any(|arg| arg == "--patches"),
+    };
     let rss = args.iter().any(|arg| arg == "--rss");
+    let four = args.iter().any(|arg| arg == "--four");
     let shape = match args.first().map(String::as_str) {
         Some("house") => Shape::House,
         Some("frames") => Shape::Frames,
         Some("decide") => Shape::Decide,
         #[cfg(feature = "simulation")]
         Some("search") => Shape::Search,
+        Some("wire") => Shape::Wire,
+        Some("table") => Shape::Table,
+        Some("record") => {
+            let paths: Vec<_> = args[1..]
+                .iter()
+                .filter(|arg| !arg.starts_with("--"))
+                .cloned()
+                .collect();
+            return records(&paths, checks);
+        }
         _ => {
-            bail!("usage: engine_perf house|frames|decide|search [--verify] [--rss] [--game <id>]")
+            bail!(
+                "usage: engine_perf house|frames|decide|search|wire|table [--verify] [--patches] \
+                 [--rss] [--four] [--game <id>] | record <file>… [--patches]"
+            )
         }
     };
-    let mut games = games()?;
+    let mut games = games(four)?;
     if let Some(only) = args.iter().skip_while(|arg| *arg != "--game").nth(1) {
         games.retain(|game| game.id == *only);
         if games.is_empty() {
             bail!("no game {only} in the set");
         }
     }
-    let played = play_all(shape, &games, verify, rss);
+    let played = play_all(shape, &games, checks, rss);
     let (mut answers, mut forks, mut steps) = (0, 0, 0);
+    let mut all = Wire::default();
     for (game, game_played) in games.iter().zip(&played) {
         answers += game_played.answers;
         forks += game_played.forks;
@@ -547,17 +769,27 @@ fn main() -> anyhow::Result<()> {
             game_played.rollout_steps,
             game_played.ending,
         );
-        if verify {
+        if checks.verify {
             print!(
                 " actions={:016x} views={:016x} hashes={:016x}",
                 digests.actions.0, digests.views.0, digests.hashes.0
             );
         }
+        if checks.patches {
+            print!(" patched={}", digests.patched());
+        }
         println!();
+        if let Some(wire) = &game_played.wire {
+            wire.seat_lines(&game.id);
+            all.merge(wire);
+        }
     }
     println!(
         "total games={} answers={answers} forks={forks} steps={steps}",
         games.len()
     );
+    if played.iter().any(|game| game.wire.is_some()) {
+        all.report();
+    }
     Ok(())
 }

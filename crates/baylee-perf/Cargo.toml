@@ -24,5 +24,7 @@ baylee-core.workspace = true
 baylee-engine.workspace = true
 baylee-gamehost.workspace = true
 baylee-protocol.workspace = true
+baylee-view.workspace = true
 prost.workspace = true
+serde.workspace = true
 serde_json.workspace = true

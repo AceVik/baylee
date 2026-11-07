@@ -38,6 +38,7 @@ mod counters;
 mod game_static;
 mod log;
 mod objects;
+mod patch;
 mod player_view;
 mod seats;
 mod seen;
@@ -60,6 +61,9 @@ pub use objects::{
     AbilitySource, BoardMana, CardIdentity, DamageSourceView, GrantSource, GrantedMana, HandObject,
     NamedFace, ObjectSummaryKey, OrderedTrigger, PublicObject, RulesFace, StackItem, StackText,
     TokenAbility,
+};
+pub use patch::{
+    ListEdit, PatchError, ViewDigest, ViewField, ViewPatch, Zone, ZoneEdit, apply, diff, digest,
 };
 pub use player_view::{
     Ballot, LostSeat, PlayerControl, PlayerView, SeatClock, TargetingContext, WordChange,

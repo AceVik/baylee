@@ -1811,3 +1811,169 @@ mimalloc is a fair trade behind that, with lazy commit set.
 It would still buy little. `frames` is 34 µs an answer and mimalloc makes it 32: at a thousand tables
 answering once a second, 3.4 % of one core becomes 3.2 %. No shipped setting changed. mimalloc lived in
 scratch copies on the notebook, since deleted, and is in no `Cargo.toml` of this repository.
+
+## What a table sends, before patches (2026-11-07)
+
+`docs/proposals/view-patches.md` is about bytes on a socket, and nothing measured them per seat
+and message kind. `engine_perf` now does (`wire.rs`), reading frames as a socket receives them,
+decoded, never what a session could have told it:
+
+```text
+cargo build --profile tools -p baylee-perf
+target/tools/engine_perf wire             # one chair on a socket, the house the other
+target/tools/engine_perf table            # every chair on a socket
+target/tools/engine_perf table --four     # four seats, each table's decks twice round it
+target/tools/engine_perf record <file>…   # recorded games, played again, every seat
+```
+
+`wire` and `table` drive a session as a live engine does: `pump_slice`/`act_slice` at the
+`ATTACHED_PUMP_SLICE` of 128 and the opening payload first, the clock running at 1.5 s an answer. A
+seat "on a socket" here answers what the house would, so these are tables of diligent players
+passing by hand; a real player's priority holds would send fewer frames. `baylee-gamehost` at
+`65d852f62`, `tools` profile. KB are 1 000 bytes.
+
+### Bytes and frames per seat and game
+
+| Table | Seats told | Frames | KB | `StateDelta` | `ChoiceRequest` | `GameStatic` | Mean view |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `wire`, 2 seats | 16 | 667 | 4 531 | 95.3 % | 1.3 % | 3.5 % | 13.2 KB |
+| `wire --four` | 16 | 1 316 | 16 506 | 97.2 % | 0.7 % | 2.1 % | 24.9 KB |
+| `table`, 2 seats | 32 | 1 125 | 12 809 | 98.1 % | 0.5 % | 1.4 % | 17.0 KB |
+| `table --four` | 64 | 3 432 | 65 720 | 99.2 % | 0.2 % | 0.6 % | 24.0 KB |
+| Recorded, 14 hosted games | 36 | 738 | 11 216 | 97.6 % | 0.0 % | 2.4 % | 15.3 KB |
+| Recorded, game 000035 alone | 2 | 2 260 | 568 019 | 100.0 % | 0.0 % | 0.0 % | 253 KB |
+
+Percentages are of the bytes. Within `StateDelta` the log is 0.2 to 1.3 % of everything. No frame
+in any of these repeated a view for a long log, so that case costs nothing today in ordinary play.
+
+The recorded games are `~/baylee-data/server-replays/2026-10-28`, played by `beta.6`, read through
+`baylee_gamehost::replay` on today's build, each seat in turn, checked by `seen`. **15 of the 42
+replay**; 27 diverge at the opening deal and say nothing. Of the 15, several stop early where
+today's engine refuses an input. Their question counts mean nothing: a projection tells a seat's
+frames and asks it nothing, so the question columns come from `wire` and `table`.
+
+Game 000035 is set apart because it would otherwise be three quarters of the bytes: 405 objects a
+view, one seat sent **568 MB** over 2 266 inputs. It is a real game, and what a view-per-step
+protocol does on a board like that is the strongest number in this section.
+
+### Between two questions to a seat
+
+| Table | View frames between two questions, mean | p50 | p90 | p99 | One frame | More |
+|---|---:|---:|---:|---:|---:|---:|
+| `wire` | 1.00 | 1 | 1 | 1 | 100 % | 0 % |
+| `wire --four` | 1.00 | 1 | 1 | 1 | 100 % | 0 % |
+| `table` | 1.99 | 2 | 3 | 9 | 37.5 % | 62.5 % |
+| `table --four` | 3.95 | 4 | 6 | 13 | 19.5 % | 80.5 % |
+
+Against the house there is nothing to merge: one view per question, because 128 house steps go in a
+slice and a slice ends in one set of frames. Only tables of players see more, about one frame per
+other seat's answer, and the worst stretch at `table --four` was 1 118 frames. Nearly
+all of them say something: 2 to 5 % of views differ in nothing but `seq`, and 1.4 to 5.2 % of
+questions have no such view before them.
+
+### What a question weighs
+
+| Table | Question, mean bytes | `LegalActions`, mean bytes | Its share of question bytes | Of all bytes | Equal to the seat's last |
+|---|---:|---:|---:|---:|---:|
+| `wire` | 177 | 147 | 69.1 % | 0.9 % | 63.8 % |
+| `wire --four` | 181 | 145 | 72.5 % | 0.5 % | 79.0 % |
+| `table` | 185 | 159 | 70.4 % | 0.4 % | 58.0 % |
+| `table --four` | 178 | 143 | 71.5 % | 0.1 % | 77.2 % |
+
+### How much really changes
+
+| Table | Objects a view | Same as the seat's last | Changed | New to their zone | Views with no zone changed |
+|---|---:|---:|---:|---:|---:|
+| `wire` | 34.6 | 94.95 % | 1.47 % | 3.57 % | 49.9 % |
+| `wire --four` | 65.0 | 97.46 % | 1.02 % | 1.52 % | 48.6 % |
+| `table` | 41.4 | 97.75 % | 0.73 % | 1.52 % | 65.3 % |
+| `table --four` | 63.2 | 99.32 % | 0.28 % | 0.40 % | 80.1 % |
+| Recorded, 14 games | 37.4 | 98.05 % | 0.60 % | 1.36 % | 76.7 % |
+| Game 000035 | 405.2 | 99.51 % | 0.22 % | 0.28 % | 13.7 % |
+
+A card that moves zones counts as new to the one it reached: its id leaves one list and joins
+another, and a new object goes whole.
+
+## The same views as patches (2026-11-07)
+
+`baylee_view::diff` and `apply` (`crates/baylee-view/src/patch/`). Nothing on the wire moved yet:
+`wire.rs` diffs the views a seat was sent, and these are what those patches come to as JSON.
+
+| Table | Whole views, mean | Patch, mean | Fewer | Of the view bytes |
+|---|---:|---:|---:|---:|
+| `wire` | 13 085 | 963 | 13.6× | 7.4 % |
+| `wire --four` | 24 732 | 985 | 25.1× | 4.0 % |
+| `table` | 16 927 | 682 | 24.8× | 4.0 % |
+| `table --four` | 23 942 | 420 | 57.1× | 1.8 % |
+| Recorded, 14 games | 15 261 | 559 | 27.3× | 3.7 % |
+| Game 000035 | 253 141 | 1 648 | 153.6× | 0.7 % |
+
+**The proposal's "an order of magnitude" holds and is low**: 14× against the house on a small
+table, 25× to 57× among players, in JSON and before anything is binary.
+
+Whole frames fall less, because what is not a view stays. Adding questions, log and `GameStatic`
+to the patches:
+
+| Table | Bytes today | With patches | Fewer | `GameStatic`'s share of what is left |
+|---|---:|---:|---:|---:|
+| `wire` | 72.5 MB | 9.4 MB | 7.7× | 26.7 % |
+| `wire --four` | 264.1 MB | 19.9 MB | 13.3× | 27.5 % |
+| `table` | 409.9 MB | 26.5 MB | 15.5× | 21.4 % |
+| `table --four` | 4 206 MB | 114.7 MB | 36.7× | 20.9 % |
+
+**`GameStatic` is the next thing to fix, and the proposal does not name it.** It goes whole, about
+11 KB, each time a seat is first shown a printing: 15 to 33 frames a game, a fifth to over a quarter of
+what is left once views are patches. Sending only the entries that are new is the same idea again.
+
+### Where a patch's bytes go
+
+| Table | New objects | Changed objects | Ids and orders | Seat lines | Other fields |
+|---|---:|---:|---:|---:|---:|
+| `wire` | 45.1 % | 19.9 % | 0.9 % | 15.7 % | 4.6 % |
+| `table` | 33.6 % | 20.3 % | 0.8 % | 12.7 % | 15.0 % |
+| `table --four` | 21.9 % | 15.6 % | 0.6 % | 16.5 % | 19.7 % |
+| Recorded, 14 games | 33.6 % | 18.1 % | 0.7 % | 11.8 % | 16.0 % |
+| Game 000035 | 36.1 % | 36.8 % | 0.8 % | 1.2 % | 14.4 % |
+
+The rest is the frame of the patch itself.
+
+- **"The other fields one by one" was not enough, and the first measurement said so.** On the
+  recorded games `target_objects` was 43.9 % of all patch bytes, 7.5 KB each time it changed, and
+  `policy_acts` 9.3 %, 2 KB: lists that went whole for one entry more. A `ListEdit` (keep a slice,
+  add what is new, keep the tail) took both to 3.2 % and 2.2 %, and took the recorded saving from
+  34.8× to 70.2× with game 000035 in it.
+- **Fields instead of objects would cut a changed object to 7 to 15 % of its bytes,** so about a
+  sixth to a third of a patch. Worth its place last in the proposal's list, and not before binary has been
+  measured, which changes the sum.
+- **`Clocks` is the heaviest field left at tables of players**, 3 to 7 %: it moves on every view there.
+
+### Costs
+
+| µs a view, wall, with other work on the machine | `wire` (13 KB) | `table --four` (24 KB) |
+|---|---:|---:|
+| Write the whole view | 55.6 | 92.9 |
+| Read the whole view | 83.0 | 128.9 |
+| `diff` | 12.4 | 16.6 |
+| `digest` | 7.7 | 11.3 |
+| Write a patch | 4.7 | 2.1 |
+| Read a patch | 7.8 | 3.5 |
+| `apply`, its digest included | 12.8 | 18.3 |
+
+`diff` includes the `digest` of the new view. Wall time on a busy machine, so read the ratios:
+writing goes from 56 to 17 µs and reading from 83 to 21 µs, and neither has been counted in
+instructions yet. A `digest` is a seventh of writing the same view as JSON because it allocates
+nothing and folds a word at a time; it walks `Serialize`, so it covers what the wire carries.
+
+### What proves it
+
+- `engine_perf <shape> --verify --patches` rebuilds every seat's view from patches, each one out
+  through JSON and back, and stops at the first that is not the whole view byte for byte (`rebuild.rs`):
+  **132 163 views over all four shapes** (`house` 28 252, `frames` 12 126, `decide` 35 341, `search`
+  56 444, the last across forked worlds, which no game plays), and `record … --patches`.
+- `crates/baylee-gamehost/tests/view_patches.rs` does the same on a recorded game for every seat,
+  and holds patches to the seat: each object in one is in that seat's new view, and a card in the other
+  seat's hand that this view does not show is in no byte of the patch.
+- `crates/baylee-view/src/patch/tests.rs`: `apply(old, diff(old, new)) == new` over generated views,
+  related or not, with ids repeated and seats changing; a stream of patches applied to what the last
+  left; damaged and made-up patches, which are refused or leave what their digest says and never
+  panic; twenty thousand objects reversed, so quadratic work would show.
