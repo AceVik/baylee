@@ -310,6 +310,7 @@ pub(super) fn harness() -> (App, Sender<Job>) {
             stepping: None,
             shell_jobs: Vec::new(),
             reveal_jobs: Vec::new(),
+            seed_jobs: Vec::new(),
             frame: 0,
             virtual_cursor: None,
             served: 0,
