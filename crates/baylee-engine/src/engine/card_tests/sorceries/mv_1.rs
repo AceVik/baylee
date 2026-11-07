@@ -47,6 +47,7 @@ mod raze;
 mod reanimate;
 mod recall;
 mod reckless_abandon;
+mod reckless_charge;
 mod reconstruction;
 mod return_to_battle;
 mod rite_of_flame;
