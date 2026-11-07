@@ -65,7 +65,7 @@ fn escape_with_nothing_staged_and_no_cast_sends_nothing() {
 
 /// The ladder: in a payment window that is a cast's own, the first `Esc`
 /// takes the staged taps back and only the next one takes the cast back
-/// (CR 732). A player who meant to untap a land must not lose the spell.
+/// (CR 734). A player who meant to untap a land must not lose the spell.
 #[test]
 fn escape_unstages_before_it_takes_the_cast_back() {
     let (mut duel, _) = with_a_forest_staged();

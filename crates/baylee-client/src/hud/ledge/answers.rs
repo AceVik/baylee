@@ -177,7 +177,7 @@ pub(super) fn answers_for(
         question_row(duel, lang, elsewhere)
     };
     // A cast in its questions or its payment window can be taken back
-    // (CR 732): the last answer, and `Esc`'s last rung.
+    // (CR 734): the last answer, and `Esc`'s last rung.
     if duel.cancellable_cast().is_some() {
         row.push((
             Says::Command(super::MenuAction::CancelCast),

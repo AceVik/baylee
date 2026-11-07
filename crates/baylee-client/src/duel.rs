@@ -664,7 +664,7 @@ impl Duel {
         })
     }
 
-    /// The spell this seat may take back now (CR 732): the view's
+    /// The spell this seat may take back now (CR 734): the view's
     /// `casting`, which the engine names only in the caster's own view and
     /// only through the cast's own questions and its payment window, while
     /// this seat is the one asked. A cast an effect made, or a mana

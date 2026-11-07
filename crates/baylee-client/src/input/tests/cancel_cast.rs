@@ -1,4 +1,4 @@
-//! Taking a cast back (CR 732; the engine's `PlayerAction::CancelCast`,
+//! Taking a cast back (CR 734; the engine's `PlayerAction::CancelCast`,
 //! 08.10.2026): `Esc`'s last rung and the shelf's last answer, while the
 //! view names the cast, and nowhere else.
 

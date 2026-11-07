@@ -1842,7 +1842,7 @@ TypesAll = All types
 # Arguments: spell, question
 CastFirstQuestion = Cast { $spell }: { $question } — paid after
 
-# The answer that takes back a spell being cast (CR 732), in its
+# The answer that takes back a spell being cast (CR 734), in its
 # questions and its payment window.
 CancelCast = Cancel cast
 

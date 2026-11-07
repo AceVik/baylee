@@ -7580,3 +7580,27 @@ code.
   `git diff --check` pass. `validate` accepts 12,545 cards (11,175 finished,
   51 of the machine-owned cards untested, and 1,370 stubs). The full gates
   remain deferred at the owner's request.
+
+## Review of Kimi's wishlist and Odyssey batch (PR #418), 7 November 2026
+
+The 31 card commits were read sentence by sentence against the oracle text; the
+seven engine commits against the rules. One card was wrong, and that was the rule
+beneath it. What the author missed, for the next brief:
+
+- **A new variant reaches past the crates you built.** `CastModeKind::Madness` broke
+  the exhaustive matches in `baylee-train`. `--workspace` is not optional for an
+  engine enum, whatever the gate's deferral says.
+- **A new door to casting asks every question the old doors ask.** Madness cast through
+  split second, because `LegalActions` was the only reader of it and a resolving
+  ability never goes there. The check now stands in `may_begin_casting`.
+- **A new block rule belongs everywhere blocks are decided.** The creature count
+  comparison reached declaration and not Camouflage's piles or `exchange.rs`.
+- **A lock reads the face being cast.** Meddling Mage asked the front face only, so
+  naming Ice left Ice castable and naming Fire stopped Ice. A projection has to carry
+  the face's own name.
+- **A test proves the clause only if the clause can fail it.** Moment's Peace asserted
+  `life == 20` behind a block and `damage == 0` on creatures that had died. Mono-coloured
+  exact pools cannot tell {4}{R} from {5}. Lethal damage cannot show "this turn".
+- **A wire note ages with its branch.** "Pending choices travel as JSON" was true when
+  written and false after the rebase. The rule numbers moved too: Handling Illegal
+  Actions is 734 in the rules of 6 November 2026.

@@ -564,7 +564,7 @@ fn auto_damage_button_is_only_offered_for_combat_shares() {
     }
 }
 
-/// A cast the view names (CR 732) adds "Cancel cast" as the last answer,
+/// A cast the view names (CR 734) adds "Cancel cast" as the last answer,
 /// capped with `Esc`, to its target question and its payment window alike;
 /// the same questions with no cast named offer no such answer.
 #[test]
