@@ -424,7 +424,7 @@ fn answer(client: &Client, screen: &Screen, tried: &mut Vec<u64>, tries: u32) ->
         }
         "ChooseBlockers" => {
             let attacker = screen
-                .cards_in("battlefield")
+                .cards_in("table")
                 .find(|card| card.rect.y < screen.window().h * 0.5);
             if let (Some(blocker), Some(attacker)) = (own_side(screen).next(), attacker) {
                 let (x, y) = blocker.rect.centre();
@@ -521,7 +521,7 @@ fn pick_something(client: &Client, screen: &Screen, tries: u32) -> Result<()> {
 fn own_side(screen: &Screen) -> impl Iterator<Item = &Card> {
     let middle = screen.window().h * 0.5;
     screen
-        .cards_in("battlefield")
+        .cards_in("table")
         .filter(move |card| card.rect.y > middle)
 }
 
@@ -608,7 +608,7 @@ fn full_board(client: &Client, _root: &Path) -> Result<()> {
     client.press("K")?;
     linger(2.0);
     let screen = client.screen()?;
-    for card in screen.cards_in("battlefield").step_by(3).take(12) {
+    for card in screen.cards_in("table").step_by(3).take(12) {
         let (x, y) = card.rect.centre();
         client.hover(at(x, y))?;
         linger(0.7);
