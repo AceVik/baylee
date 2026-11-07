@@ -7443,3 +7443,26 @@ code.
   origin/main`, formatting and `git diff --check` pass. `validate` accepts
   12,545 cards (11,175 finished, 57 of the machine-owned cards untested, and
   1,370 stubs). The full gates remain deferred at the owner's request.
+
+## 2026-11-07 — Roar of the Wurm's two distinct tokens and Flashback
+
+- Roar of the Wurm composes the shared green 6/6 Wurm token with its face-level
+  flashback cost; it needs no engine, DSL, protocol, desktop or seat addition.
+  The canonical play spends {6}{G}, creates exactly one token under the caster's
+  control, verifies its power, toughness, colour and Wurm subtype, and retains
+  four of eleven green mana. The normal spell goes to the graveyard.
+- The exact graveyard incarnation then flashes back for {3}{G}, consumes all
+  four remaining mana, leaves the first token in play and creates a distinct
+  second green 6/6 Wurm. It finishes in exile with no copy left in the
+  graveyard. Three green mana make the graveyard card neither castable nor
+  payable; direct casting fails without spending mana or creating a token.
+- Removing the token ability with `BAYLEE_MUTATE=5328:0` kills the token play;
+  the insufficient-mana test remains a green control. The card was already in
+  the exercised card pool for the preceding integration run: all 373 house-AI
+  tests, the full seat suite (497 unit tests and every integration target), 152
+  desktop interaction tests and nine `record::seen` tests (two ignored) pass.
+  The desktop client including tests compiles. `codegen --tables --check`,
+  `require-card-tests`, `cargo dev gate touched origin/main`, formatting and
+  `git diff --check` pass. `validate` accepts 12,545 cards (11,175 finished, 56
+  of the machine-owned cards untested, and 1,370 stubs). The full gates remain
+  deferred at the owner's request.
